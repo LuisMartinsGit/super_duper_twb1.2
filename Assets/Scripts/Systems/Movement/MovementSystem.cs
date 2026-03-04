@@ -181,7 +181,8 @@ namespace TheWaningBorder.Systems.Movement
 
                     // Slerp toward target rotation at TurnSpeed
                     float maxTurn = TurnSpeed * dt;
-                    t.Rotation = SmoothSlerp(t.Rotation, targetRot, maxTurn);
+                    SmoothSlerp(in t.Rotation, in targetRot, maxTurn, out var smoothed);
+                    t.Rotation = smoothed;
 
                     // Measure how well unit faces its goal (1 = facing, 0 = perpendicular, -1 = backwards)
                     float3 currentFwd = math.mul(t.Rotation, new float3(0, 0, 1));
@@ -224,26 +225,35 @@ namespace TheWaningBorder.Systems.Movement
         /// Slerp from current to target rotation, clamped to maxAngle radians.
         /// </summary>
         [BurstCompile]
-        private static quaternion SmoothSlerp(quaternion from, quaternion to, float maxAngle)
+        private static void SmoothSlerp(in quaternion from, in quaternion to, float maxAngle, out quaternion result)
         {
             // Ensure shortest path
-            float dot = math.dot(from.value, to.value);
+            float4 toVal = to.value;
+            float dot = math.dot(from.value, toVal);
             if (dot < 0f)
             {
-                to.value = -to.value;
+                toVal = -toVal;
                 dot = -dot;
             }
 
+            quaternion toFixed = new quaternion(toVal);
+
             // Already aligned
             if (dot > 0.9999f)
-                return to;
+            {
+                result = toFixed;
+                return;
+            }
 
             float angle = math.acos(math.clamp(dot, -1f, 1f)) * 2f;
             if (angle <= maxAngle)
-                return to;
+            {
+                result = toFixed;
+                return;
+            }
 
             float t = maxAngle / angle;
-            return math.slerp(from, to, t);
+            result = math.slerp(from, toFixed, t);
         }
     }
 }
