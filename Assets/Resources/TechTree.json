@@ -1,0 +1,1975 @@
+{
+    "faction": "Human",
+    "version": "0.6",
+    "resources": [
+        "Supplies",
+        "Crystal",
+        "Iron",
+        "Veilsteel",
+        "Glow"
+    ],
+    "maxEra": 5,
+    "combatProfile": {
+        "damageTypes": [
+            "melee",
+            "ranged",
+            "siege",
+            "magic",
+            "true"
+        ],
+        "armorTypes": [
+            "infantry_light",
+            "infantry_heavy",
+            "ranged",
+            "cavalry",
+            "structure",
+            "structure_human"
+        ],
+        "modifiers": {
+            "melee": {
+                "infantry_light": 1.0,
+                "infantry_heavy": 1.0,
+                "ranged": 1.1,
+                "cavalry": 0.9,
+                "structure": 0.2,
+                "structure_human": 0.2
+            },
+            "ranged": {
+                "infantry_light": 1.1,
+                "infantry_heavy": 0.9,
+                "ranged": 1.0,
+                "cavalry": 0.8,
+                "structure": 0.15,
+                "structure_human": 0.15
+            },
+            "siege": {
+                "infantry_light": 0.6,
+                "infantry_heavy": 0.8,
+                "ranged": 0.8,
+                "cavalry": 0.7,
+                "structure": 3.0,
+                "structure_human": 2.4
+            },
+            "magic": {
+                "infantry_light": 1.1,
+                "infantry_heavy": 0.9,
+                "ranged": 1.1,
+                "cavalry": 1.0,
+                "structure": 0.5,
+                "structure_human": 0.45
+            },
+            "true": {
+                "infantry_light": 1.0,
+                "infantry_heavy": 1.0,
+                "ranged": 1.0,
+                "cavalry": 1.0,
+                "structure": 1.0,
+                "structure_human": 1.0
+            }
+        },
+        "defenseFormulaHint": "finalDamage = baseDamage * modifiers[damageType][armorType] * (1 - defense / (defense + 100))"
+    },
+    "sectPointsPerEra": {
+        "1": 0,
+        "2": 2,
+        "3": 3,
+        "4": 5,
+        "5": 7
+    },
+    "evolution": {
+        "toEra2": {
+            "cost": {
+                "Supplies": 800,
+                "Iron": 200,
+                "Crystal": 150
+            },
+            "requiresOneOfBuildings": [
+                "TempleOfRidan",
+                "WarriorsHall",
+                "VaultOfAlmierra"
+            ]
+        },
+        "toEra3": {
+            "requiresTempleLevel": 2
+        },
+        "toEra4": {
+            "requiresTempleLevel": 3
+        },
+        "toEra5": {
+            "requiresTempleLevel": 4
+        }
+    },
+    "eras": [
+        {
+            "era": 1,
+            "theme": "Humanity reorganizes after the cataclysm.",
+            "buildingStyle": "Wood",
+            "buildings": [
+                {
+                    "id": "Hall",
+                    "name": "Hall",
+                    "role": "HQ / Research Era",
+                    "hp": 2400,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 2,
+                        "ranged": 2,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 24,
+                    "trains": [
+                        "Builder",
+                        "Miner",
+                        "Scout"
+                    ],
+                    "research": [
+                        "Research_Era2"
+                    ],
+                    "cost": {
+                        "Supplies": 0
+                    },
+                    "provides": {
+                        "population": 20
+                    }
+                },
+                {
+                    "id": "Hut",
+                    "name": "Hut",
+                    "role": "Provides population",
+                    "hp": 350,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 2,
+                        "ranged": 2,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 12,
+                    "upgradesTo": "House",
+                    "provides": {
+                        "population": 5
+                    },
+                    "cost": {
+                        "Supplies": 50
+                    }
+                },
+                {
+                    "id": "GatherersHut",
+                    "name": "Gatherer's Hut",
+                    "role": "Area resource trickle (no stacking)",
+                    "hp": 400,
+                    "radius": 0.5,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 2,
+                        "ranged": 2,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 16,
+                    "aura": {
+                        "suppliesPerMinute": 60,
+                        "radius": 12
+                    },
+                    "cost": {
+                        "Supplies": 120
+                    },
+                    "notes": "Auto-despawns 2 min after advancing to Era 2 (except Feraldis)."
+                },
+                {
+                    "id": "Barracks",
+                    "name": "Barracks",
+                    "role": "Train basic troops",
+                    "hp": 800,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 1,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 18,
+                    "trains": [
+                        "Swordsman",
+                        "Archer"
+                    ],
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 70
+                    }
+                },
+                {
+                    "id": "TempleOfRidan",
+                    "type": "Core",
+                    "name": "Shrine of Ridan",
+                    "role": "Trains Litharchs (healers)",
+                    "hp": 800,
+                    "armorType": "structure_human",
+                    "levels": 1,
+                    "lineOfSight": 16,
+                    "radius": 1.8,
+                    "trains": [
+                        "Litharch"
+                    ],
+                    "uniquePerPlayer": true,
+                    "minEra": 1,
+                    "maxEra": 5,
+                    "cost": {
+                        "Supplies": 300,
+                        "Crystal": 100
+                    },
+                    "passive": {
+                        "sectPointsOnBuild": 1
+                    },
+                    "plots": {
+                        "slotCount": 1,
+                        "allowedModules": [
+                            "Chapel:*"
+                        ]
+                    },
+                    "uiHints": {
+                        "description": "Grants 1 Sect Point and provides a single chapel slot.",
+                        "showsSlots": true
+                    }
+                },
+                {
+                    "id": "WarriorsHall",
+                    "name": "Warrior's Hall",
+                    "role": "Aggression techs (balanced)",
+                    "hp": 1400,
+                    "armorType": "structure_human",
+                    "lineOfSight": 18,
+                    "aura": {
+                        "trainSpeedMult": 1.1
+                    },
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 160,
+                        "Crystal": 50
+                    }
+                },
+                {
+                    "id": "VaultOfAlmierra",
+                    "name": "Vault of Almiérra",
+                    "role": "Banking (deposit/interest)",
+                    "hp": 1200,
+                    "armorType": "structure_human",
+                    "lineOfSight": 14,
+                    "radius": 2.0,
+                    "systems": {
+                        "deposits": true,
+                        "interestRatePctPerMin": 3
+                    },
+                    "cost": {
+                        "Supplies": 300,
+                        "Crystal": 100
+                    }
+                }
+            ],
+            "units": [
+                {
+                    "id": "Builder",
+                    "class": "human_support",
+                    "hp": 60,
+                    "speed": 4.0,
+                    "trainingTime": 5.0,
+                    "armorType": "infantry_light",
+                    "damage": 2,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 14,
+                    "buildSpeed": 1.0,
+                    "attackRange": 1.0,
+                    "minAttackRange": 0.0,
+                    "cost": {
+                        "Supplies": 50
+                    },
+                    "popCost": 1
+                },
+                {
+                    "id": "Miner",
+                    "class": "human_support",
+                    "hp": 70,
+                    "speed": 6.0,
+                    "trainingTime": 5.0,
+                    "armorType": "infantry_light",
+                    "damage": 2,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 14,
+                    "gatheringSpeed": 1.0,
+                    "carryCapacity": 1,
+                    "attackRange": 1.0,
+                    "minAttackRange": 0.0,
+                    "cost": {
+                        "Supplies": 50
+                    },
+                    "popCost": 1
+                },
+                {
+                    "id": "Swordsman",
+                    "class": "human_melee",
+                    "hp": 120,
+                    "speed": 5.5,
+                    "trainingTime": 7.0,
+                    "armorType": "infantry_heavy",
+                    "damage": 10,
+                    "damageType": "melee",
+                    "attackSpeed": 1.5,
+                    "defense": {
+                        "melee": 1,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 16,
+                    "attackRange": 1.0,
+                    "minAttackRange": 0.0,
+                    "cost": {
+                        "Supplies": 140,
+                        "Iron": 0
+                    },
+                    "popCost": 1
+                },
+                {
+                    "id": "Scout",
+                    "class": "human_scout",
+                    "hp": 60,
+                    "speed": 6.0,
+                    "trainingTime": 4.0,
+                    "armorType": "infantry_light",
+                    "damage": 2,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 40,
+                    "attackRange": 1.0,
+                    "minAttackRange": 0.0,
+                    "cost": {
+                        "Supplies": 55,
+                        "Iron": 0
+                    },
+                    "popCost": 1
+                },
+                {
+                    "id": "Archer",
+                    "class": "human_ranged",
+                    "hp": 90,
+                    "speed": 5.2,
+                    "trainingTime": 15.0,
+                    "armorType": "ranged",
+                    "damage": 17,
+                    "damageType": "ranged",
+                    "attackSpeed": 2.0,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 30,
+                    "attackRange": 25.0,
+                    "minAttackRange": 10.0,
+                    "cost": {
+                        "Supplies": 75,
+                        "Iron": 0
+                    },
+                    "popCost": 1
+                },
+                {
+                    "id": "Litharch",
+                    "class": "human_support",
+                    "hp": 120,
+                    "speed": 5.5,
+                    "trainingTime": 7.0,
+                    "armorType": "ranged",
+                    "damage": 0,
+                    "damageType": "magic",
+                    "healsPerSecond": 6,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 2
+                    },
+                    "lineOfSight": 20,
+                    "attackRange": 10.0,
+                    "minAttackRange": 0.0,
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 25,
+                        "Crystal": 10
+                    },
+                    "popCost": 1
+                }
+            ],
+            "technologies": [
+                {
+                    "id": "Research_Era2",
+                    "name": "Advance to Era II",
+                    "effect": "Unlocks cultural choice (Runai, Feraldis, Alanthor). Starts 2-minute auto-despawn on all Gatherer's Huts (except Feraldis).",
+                    "cost": {
+                        "Supplies": 400,
+                        "Crystal": 60
+                    },
+                    "researchAt": "Hall",
+                    "prereq": {
+                        "requiresOneOfBuildings": [
+                            "TempleOfRidan",
+                            "WarriorsHall",
+                            "VaultOfAlmierra"
+                        ]
+                    }
+                },
+                {
+                    "id": "ImprovedTools",
+                    "name": "Improved Tools",
+                    "role": "Economy",
+                    "desc": "Upgrades villager tools to improve gathering speed.",
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 40
+                    },
+                    "researchTime": 30,
+                    "effects": {
+                        "gatherSpeedMult": 1.15
+                    },
+                    "requires": [
+                        "Hall"
+                    ]
+                },
+                {
+                    "id": "StorageCarts",
+                    "name": "Storage Carts",
+                    "role": "Logistics",
+                    "desc": "Increases carry capacity for gatherers and builders.",
+                    "cost": {
+                        "Supplies": 90
+                    },
+                    "researchTime": 25,
+                    "effects": {
+                        "carryCapacityBonus": 10
+                    }
+                },
+                {
+                    "id": "BasicDrills",
+                    "name": "Basic Drills",
+                    "role": "Military Training",
+                    "desc": "Increases melee unit attack speed and discipline.",
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 40
+                    },
+                    "researchTime": 35,
+                    "effects": {
+                        "meleeAttackSpeedMult": 1.1
+                    }
+                },
+                {
+                    "id": "WoodenArmor",
+                    "name": "Wooden Armor",
+                    "role": "Military Defense",
+                    "desc": "Simple plated bark and cloth padding improve survivability.",
+                    "cost": {
+                        "Supplies": 80
+                    },
+                    "researchTime": 25,
+                    "effects": {
+                        "meleeDefenseAdd": 1
+                    }
+                }
+            ]
+        },
+        {
+            "era": 2,
+            "note": "Choose exactly one culture. Existing buildings re-skin to chosen culture.",
+            "cultures": [
+                {
+                    "id": "Runai",
+                    "style": "Tents / Desert / Mobility & Economy",
+                    "main": {
+                        "id": "ThessarasBazaar",
+                        "name": "Thessara's Bazaar",
+                        "role": "Mobile trade HQ / Tariffs / Trains light military",
+                        "hp": 2700,
+                        "armorType": "structure_human",
+                        "baseDefense": {
+                            "melee": 2,
+                            "ranged": 2,
+                            "siege": 0,
+                            "magic": 0
+                        },
+                        "lineOfSight": 26,
+                        "abilities": [
+                            "PackAndMove",
+                            "TariffBoostAura"
+                        ],
+                        "queues": 2,
+                        "provides": {
+                            "population": 40
+                        },
+                        "trains": [
+                            "Runai_Spearman",
+                            "Runai_Skirmisher",
+                            "Runai_Raider"
+                        ],
+                        "research": [
+                            "Runai_LongHaulTariffs",
+                            "Runai_PackBazaar",
+                            "Runai_EscortedCaravans"
+                        ]
+                    },
+                    "economy": {
+                        "supplies": "Trade routes ONLY",
+                        "mechanics": [
+                            "Build Outposts to anchor routes.",
+                            "Trade Hubs auto-spawn caravans on valid routes.",
+                            "Caravans earn more over distance and tariff auras.",
+                            "Housing scales with active caravans."
+                        ]
+                    },
+                    "buildings": [
+                        {
+                            "id": "Runai_Outpost",
+                            "name": "Runai Outpost",
+                            "hp": 900,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 22,
+                            "role": "Trade route node / vision",
+                            "provides": {
+                                "visionRadius": 18
+                            },
+                            "cost": {
+                                "Supplies": 140,
+                                "Iron": 20
+                            }
+                        },
+                        {
+                            "id": "Runai_TradeHub",
+                            "name": "Runai Trade Hub",
+                            "hp": 1200,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 24,
+                            "role": "Trade bonus / Caravan spawn",
+                            "systems": {
+                                "caravanSpawner": {
+                                    "unitId": "Runai_Caravan",
+                                    "spawnIntervalSec": 22,
+                                    "maxActivePerRoute": 3,
+                                    "requiresRoute": true,
+                                    "routeTargets": [
+                                        "Runai_Outpost",
+                                        "ThessarasBazaar"
+                                    ],
+                                    "yieldModel": {
+                                        "base": 20,
+                                        "perTile": 0.8,
+                                        "distanceBonusThreshold": 60,
+                                        "distanceBonusMult": 1.25
+                                    },
+                                    "escort": {
+                                        "enabledByTech": "Runai_EscortedCaravans",
+                                        "unitId": "Runai_Escort",
+                                        "count": 2,
+                                        "leash": 12,
+                                        "behavior": "GuardCaravan",
+                                        "uncontrollable": true
+                                    }
+                                },
+                                "housingPerActiveCaravan": 2
+                            },
+                            "aura": {
+                                "nearbyCaravanArmorAdd": 1
+                            },
+                            "cost": {
+                                "Supplies": 240,
+                                "Iron": 40
+                            }
+                        },
+                        {
+                            "id": "Runai_Vault",
+                            "name": "Runai Vault",
+                            "hp": 1100,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Banking (tariff synergy)",
+                            "systems": {
+                                "deposits": true,
+                                "interestRatePctPerMin": 3.0
+                            },
+                            "cost": {
+                                "Supplies": 1500,
+                                "Iron": 250,
+                                "Crystal": 200
+                            }
+                        },
+                        {
+                            "id": "Runai_VeilsteelFoundry",
+                            "name": "Runai Veilsteel Foundry",
+                            "hp": 1500,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Produce Veilsteel",
+                            "systems": {
+                                "craftsVeilsteel": true,
+                                "inputs": [
+                                    "Iron",
+                                    "Crystal"
+                                ],
+                                "lossFactorPct": 20
+                            },
+                            "cost": {
+                                "Supplies": 450,
+                                "Iron": 120,
+                                "Crystal": 100
+                            }
+                        },
+                        {
+                            "id": "Runai_SiegeWorkshop",
+                            "name": "Runai Siege Workshop",
+                            "hp": 1100,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Train siege engines",
+                            "trains": [
+                                "Runai_SandBallista"
+                            ],
+                            "cost": {
+                                "Supplies": 320,
+                                "Iron": 140,
+                                "Crystal": 60
+                            }
+                        }
+                    ],
+                    "units": [
+                        {
+                            "id": "Runai_Spearman",
+                            "class": "human_melee",
+                            "hp": 130,
+                            "speed": 5.6,
+                            "armorType": "infantry_heavy",
+                            "damage": 12,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 1,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "attackRange": 1.5,
+                            "minAttackRange": 0.0,
+                            "trainAt": [
+                                "ThessarasBazaar"
+                            ],
+                            "cost": {
+                                "Supplies": 110,
+                                "Iron": 30,
+                                "Crystal": 25
+                            }
+                        },
+                        {
+                            "id": "Runai_Skirmisher",
+                            "class": "human_ranged",
+                            "hp": 95,
+                            "speed": 6.0,
+                            "armorType": "ranged",
+                            "damage": 15,
+                            "damageType": "ranged",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 22,
+                            "attackRange": 11.0,
+                            "minAttackRange": 3.5,
+                            "trainAt": [
+                                "ThessarasBazaar"
+                            ],
+                            "cost": {
+                                "Supplies": 95,
+                                "Iron": 50,
+                                "Crystal": 25
+                            }
+                        },
+                        {
+                            "id": "Runai_Raider",
+                            "class": "human_cavalry",
+                            "hp": 150,
+                            "speed": 7.2,
+                            "armorType": "cavalry",
+                            "damage": 18,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 1,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "attackRange": 1.5,
+                            "trainAt": [
+                                "ThessarasBazaar"
+                            ],
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 100,
+                                "Crystal": 50
+                            }
+                        },
+                        {
+                            "id": "Runai_SandBallista",
+                            "class": "machinery_siege",
+                            "hp": 200,
+                            "speed": 3.4,
+                            "armorType": "ranged",
+                            "damage": 36,
+                            "damageType": "siege",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 2,
+                                "magic": 0
+                            },
+                            "lineOfSight": 26,
+                            "attackRange": 20.0,
+                            "minAttackRange": 5.5,
+                            "trainAt": [
+                                "Runai_SiegeWorkshop"
+                            ],
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 120,
+                                "Crystal": 80
+                            }
+                        },
+                        {
+                            "id": "Runai_Caravan",
+                            "class": "civilian_trade",
+                            "hp": 120,
+                            "speed": 5.6,
+                            "armorType": "ranged",
+                            "damage": 0,
+                            "damageType": "true",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "attackRange": 0.0,
+                            "minAttackRange": 0.0,
+                            "flags": {
+                                "isCivilian": true,
+                                "isUncontrollable": true,
+                                "fleeOnDamage": true
+                            },
+                            "cargo": {
+                                "capacity": 120,
+                                "leakPctOnDeath": 0.5
+                            },
+                            "ai": {
+                                "behavior": "FollowTradeRoute",
+                                "leash": 20,
+                                "avoidEnemiesRadius": 8.0
+                            }
+                        },
+                        {
+                            "id": "Runai_Escort",
+                            "class": "human_melee",
+                            "hp": 110,
+                            "speed": 6.2,
+                            "armorType": "infantry_light",
+                            "damage": 10,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "attackRange": 1.3,
+                            "flags": {
+                                "isUncontrollable": true,
+                                "despawnOnCaravanDeath": true
+                            }
+                        }
+                    ],
+                    "tech": [
+                        {
+                            "id": "Runai_LongHaulTariffs",
+                            "researchedAt": "ThessarasBazaar",
+                            "effect": "+15% Supplies from trade routes; +25% if route length > 60u.",
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 20
+                            }
+                        },
+                        {
+                            "id": "Runai_PackBazaar",
+                            "researchedAt": "ThessarasBazaar",
+                            "effect": "Reduce pack/unpack time by 40%; Bazaar gains +200 HP while packed.",
+                            "cost": {
+                                "Supplies": 180,
+                                "Iron": 10,
+                                "Crystal": 10
+                            }
+                        },
+                        {
+                            "id": "Runai_EscortedCaravans",
+                            "researchedAt": "ThessarasBazaar",
+                            "effect": "Trade Hubs spawn 2 uncontrollable escorts with each Caravan. Each active Caravan grants +2 population housing.",
+                            "cost": {
+                                "Supplies": 160,
+                                "Crystal": 40
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Feraldis",
+                    "style": "Wood / Norse / Raiding & Pressure",
+                    "main": {
+                        "id": "FiendstoneKeep",
+                        "name": "Fiendstone Keep",
+                        "role": "Fast training, garrison, tower add-ons",
+                        "hp": 2000,
+                        "armorType": "structure_human",
+                        "baseDefense": {
+                            "melee": 2,
+                            "ranged": 2,
+                            "siege": 0,
+                            "magic": 0
+                        },
+                        "lineOfSight": 24,
+                        "aura": {
+                            "trainSpeedMult": 1.25
+                        },
+                        "cost": {
+                            "Supplies": 300,
+                            "Crystal": 100
+                        }
+                    },
+                    "economy": {
+                        "supplies": "Gatherer's Huts persist; can be upgraded to Hunting Lodges or Logging Stations",
+                        "mechanics": [
+                            "Gain supplies by attacking non-military units."
+                        ]
+                    },
+                    "buildings": [
+                        {
+                            "id": "Feraldis_HuntingLodge",
+                            "name": "Hunting Lodge",
+                            "hp": 1000,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "role": "Upgraded hut; bonus near wildlife",
+                            "cost": {
+                                "Supplies": 160,
+                                "Iron": 20
+                            }
+                        },
+                        {
+                            "id": "Feraldis_LoggingStation",
+                            "name": "Logging Station",
+                            "hp": 1000,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "role": "Upgraded hut; bonus near trees",
+                            "cost": {
+                                "Supplies": 160,
+                                "Iron": 20
+                            }
+                        },
+                        {
+                            "id": "Feraldis_Foundry",
+                            "name": "Fiend Foundry",
+                            "hp": 1300,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "role": "Veilsteel forging & weapons",
+                            "cost": {
+                                "Supplies": 200,
+                                "Iron": 80,
+                                "Crystal": 30
+                            }
+                        },
+                        {
+                            "id": "Feraldis_Tower",
+                            "name": "Totem Tower",
+                            "hp": 900,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 3,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 26,
+                            "role": "Defensive tower (arrow fire, detects bloody ground to empower)",
+                            "aura": {
+                                "onBloodyGround": {
+                                    "attackMult": 1.25,
+                                    "rangeAdd": 2.0
+                                }
+                            },
+                            "garrison": {
+                                "slots": 4,
+                                "arrowFire": true
+                            },
+                            "cost": {
+                                "Supplies": 120,
+                                "Iron": 60
+                            }
+                        },
+                        {
+                            "id": "Feraldis_Longhouse",
+                            "name": "Longhouse",
+                            "hp": 1400,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Batch-trains melee (5 or 10) with small discount",
+                            "trains": [
+                                "Feraldis_Berserker",
+                                "Feraldis_WarboarRider"
+                            ],
+                            "systems": {
+                                "batchTraining": {
+                                    "sizes": [
+                                        5,
+                                        10
+                                    ],
+                                    "costDiscountPct": 5,
+                                    "timeDiscountPct": 10
+                                }
+                            },
+                            "provides": {
+                                "population": 10
+                            },
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 100
+                            }
+                        },
+                        {
+                            "id": "Feraldis_SiegeYard",
+                            "name": "Siege Yard",
+                            "hp": 1200,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Train siege engines",
+                            "trains": [
+                                "Feraldis_SiegeRam"
+                            ],
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 120,
+                                "Crystal": 40
+                            }
+                        }
+                    ],
+                    "units": [
+                        {
+                            "id": "Feraldis_Berserker",
+                            "class": "human_melee",
+                            "hp": 150,
+                            "speed": 5.8,
+                            "armorType": "infantry_heavy",
+                            "damage": 14,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 2,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "attackRange": 1.6,
+                            "cost": {
+                                "Supplies": 110,
+                                "Iron": 20,
+                                "Crystal": 20
+                            }
+                        },
+                        {
+                            "id": "Feraldis_Hunter",
+                            "class": "human_ranged",
+                            "hp": 100,
+                            "speed": 5.7,
+                            "armorType": "ranged",
+                            "damage": 11,
+                            "damageType": "ranged",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 22,
+                            "attackRange": 12.0,
+                            "minAttackRange": 4.0,
+                            "cost": {
+                                "Supplies": 90,
+                                "Iron": 10,
+                                "Crystal": 20
+                            }
+                        },
+                        {
+                            "id": "Feraldis_WarboarRider",
+                            "class": "human_cavalry",
+                            "hp": 160,
+                            "speed": 7.0,
+                            "armorType": "cavalry",
+                            "damage": 16,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 1,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "attackRange": 1.5,
+                            "cost": {
+                                "Supplies": 210,
+                                "Iron": 80,
+                                "Crystal": 40
+                            }
+                        },
+                        {
+                            "id": "Feraldis_SiegeRam",
+                            "class": "machinery_siege",
+                            "hp": 300,
+                            "speed": 3.0,
+                            "armorType": "ranged",
+                            "damage": 34,
+                            "damageType": "siege",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 2,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "attackRange": 1.0,
+                            "minAttackRange": 0.0,
+                            "cost": {
+                                "Supplies": 280,
+                                "Iron": 140,
+                                "Crystal": 70
+                            }
+                        }
+                    ],
+                    "tech": [
+                        {
+                            "id": "Feraldis_Pillage",
+                            "effect": "Killing non-military units grants +15 Supplies and +1 Iron per kill to the attacker's owner.",
+                            "cost": {
+                                "Supplies": 160
+                            }
+                        },
+                        {
+                            "id": "Feraldis_IronFury",
+                            "effect": "Units can carry up to 5 Iron; each grants +2% attack (stacks).",
+                            "cost": {
+                                "Supplies": 120,
+                                "Iron": 40
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Alanthor",
+                    "style": "Stone / Medieval / Defensive Tech",
+                    "main": {
+                        "id": "KingsCourt",
+                        "name": "King's Court",
+                        "role": "Generates Supplies, global building techs",
+                        "hp": 2100,
+                        "armorType": "structure_human",
+                        "baseDefense": {
+                            "melee": 2,
+                            "ranged": 2,
+                            "siege": 0,
+                            "magic": 1
+                        },
+                        "lineOfSight": 26,
+                        "aura": {
+                            "buildingHpMult": 1.1,
+                            "repairRateMult": 1.15
+                        },
+                        "provides": {
+                            "population": 10
+                        },
+                        "trains": [],
+                        "tech": [
+                            "Alanthor_StoneLedgers",
+                            "Alanthor_MasonGuild"
+                        ],
+                        "cost": {
+                            "Supplies": 360,
+                            "Iron": 80
+                        }
+                    },
+                    "economy": {
+                        "supplies": "Only from walled compartments; upgrades on walls improve resource rates.",
+                        "mechanics": [
+                            "When a wall segment in a compartment falls, its compartment's income pauses until repaired."
+                        ]
+                    },
+                    "buildings": [
+                        {
+                            "id": "Alanthor_Wall",
+                            "name": "Alanthor Wall",
+                            "hp": 900,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 2,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 10,
+                            "role": "Compartment boundaries",
+                            "cost": {
+                                "Supplies": 40,
+                                "Iron": 20
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Tower",
+                            "name": "Watch Tower",
+                            "hp": 950,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 3,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 28,
+                            "role": "Defensive tower with long range",
+                            "garrison": {
+                                "slots": 4,
+                                "arrowFire": true
+                            },
+                            "cost": {
+                                "Supplies": 140,
+                                "Iron": 70
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Garrison",
+                            "name": "Garrison",
+                            "role": "Train heavy infantry / Provides housing / Garrison point",
+                            "hp": 1500,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 2,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 22,
+                            "trains": [
+                                "Alanthor_Sentinel",
+                                "Alanthor_Crossbowman"
+                            ],
+                            "provides": {
+                                "population": 8
+                            },
+                            "garrison": {
+                                "slots": 6,
+                                "arrowFire": true
+                            },
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 90
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Stable",
+                            "name": "Royal Stable",
+                            "hp": 1300,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Train heavy cavalry",
+                            "trains": [
+                                "Alanthor_Cataphract"
+                            ],
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 120,
+                                "Crystal": 40
+                            }
+                        },
+                        {
+                            "id": "Alanthor_SiegeYard",
+                            "name": "Siege Yard",
+                            "hp": 1300,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "role": "Train siege engines",
+                            "trains": [
+                                "Alanthor_Ballista"
+                            ],
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 140,
+                                "Crystal": 60
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Smelter",
+                            "name": "Smelter",
+                            "role": "Iron processing (later Veilsteel input)",
+                            "hp": 1200,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "cost": {
+                                "Supplies": 180,
+                                "Iron": 60
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Crucible",
+                            "name": "Crucible",
+                            "role": "Veilsteel forging (Iron + Crystal)",
+                            "hp": 1200,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "lossFactorPct": 20,
+                            "cost": {
+                                "Supplies": 200,
+                                "Iron": 60,
+                                "Crystal": 40
+                            }
+                        }
+                    ],
+                    "units": [
+                        {
+                            "id": "Alanthor_Sentinel",
+                            "class": "human_melee",
+                            "hp": 160,
+                            "speed": 5.0,
+                            "armorType": "infantry_heavy",
+                            "damage": 12,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 3,
+                                "ranged": 2,
+                                "siege": 0,
+                                "magic": 1
+                            },
+                            "lineOfSight": 18,
+                            "attackRange": 1.7,
+                            "trainAt": [
+                                "Alanthor_Garrison"
+                            ],
+                            "cost": {
+                                "Supplies": 120,
+                                "Iron": 25,
+                                "Crystal": 20
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Crossbowman",
+                            "class": "human_ranged",
+                            "hp": 100,
+                            "speed": 5.0,
+                            "armorType": "ranged",
+                            "damage": 13,
+                            "damageType": "ranged",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 2,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 22,
+                            "attackRange": 13.0,
+                            "minAttackRange": 4.0,
+                            "trainAt": [
+                                "Alanthor_Garrison"
+                            ],
+                            "cost": {
+                                "Supplies": 120,
+                                "Iron": 20,
+                                "Crystal": 20
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Cataphract",
+                            "class": "human_cavalry",
+                            "hp": 180,
+                            "speed": 6.6,
+                            "armorType": "cavalry",
+                            "damage": 20,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 2,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 20,
+                            "attackRange": 1.6,
+                            "trainAt": [
+                                "Alanthor_Stable"
+                            ],
+                            "cost": {
+                                "Supplies": 260,
+                                "Iron": 120,
+                                "Crystal": 60
+                            }
+                        },
+                        {
+                            "id": "Alanthor_Ballista",
+                            "class": "machinery_siege",
+                            "hp": 220,
+                            "speed": 3.2,
+                            "armorType": "ranged",
+                            "damage": 40,
+                            "damageType": "siege",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 1,
+                                "siege": 2,
+                                "magic": 0
+                            },
+                            "lineOfSight": 26,
+                            "attackRange": 22.0,
+                            "minAttackRange": 6.0,
+                            "trainAt": [
+                                "Alanthor_SiegeYard"
+                            ],
+                            "cost": {
+                                "Supplies": 180,
+                                "Iron": 80,
+                                "Crystal": 40
+                            }
+                        }
+                    ],
+                    "tech": [
+                        {
+                            "id": "Alanthor_StoneLedgers",
+                            "name": "Stone Ledgers",
+                            "effect": "Each closed wall compartment yields +8 Supplies per 10uÃ‚Â² area per minute.",
+                            "researchedAt": "KingsCourt",
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 40
+                            }
+                        },
+                        {
+                            "id": "Alanthor_MasonGuild",
+                            "name": "Mason's Guild",
+                            "effect": "+15% building HP, +20% repair rate.",
+                            "researchedAt": "KingsCourt",
+                            "cost": {
+                                "Supplies": 180,
+                                "Iron": 40
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "sects": {
+        "availability": "All sects become buildable once TempleOfRidan is built. Effects can scale per Era (small bonus at Era2, +50% power by Era4, +100% by Era5).",
+        "pointCost": {
+            "affinity": 1,
+            "nonAffinity": 2
+        },
+        "list": [
+            {
+                "id": "Sect_Renewal",
+                "order": "Alanthor",
+                "affinity": "Alanthor",
+                "passive": {
+                    "ImmaculateEconomy": "20% income increased if all walls have full health"
+                },
+                "unit": {
+                    "id": "ScarGuard",
+                    "class": "human_melee",
+                    "hp": 170,
+                    "speed": 5.3,
+                    "armorType": "infantry_heavy",
+                    "damage": 12,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 2,
+                        "ranged": 2,
+                        "siege": 0,
+                        "magic": 1
+                    },
+                    "attackRange": 1.7,
+                    "ActiveAbility": "RapidMend(self, 5s cd, strong regen 3s)",
+                    "PassiveAbility": "Heals other units if out of combat"
+                },
+                "tech": {
+                    "id": "DietaryMandate",
+                    "effect": "All units gain tiny out-of-combat regen.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Crystal": 10
+                    }
+                },
+                "spell": {
+                    "id": "RepairLevies",
+                    "cooldown": 40,
+                    "effect": "Repair buildings in small area rapidly."
+                }
+            },
+            {
+                "id": "Sect_Antiquity",
+                "order": "Alanthor",
+                "affinity": "Alanthor",
+                "passive": {
+                    "buildingTechSpeedMult": 1.2
+                },
+                "unit": {
+                    "id": "Golem_Autark",
+                    "class": "machinery_magic",
+                    "hp": 320,
+                    "speed": 3.6,
+                    "armorType": "infantry_heavy",
+                    "damage": 18,
+                    "damageType": "magic",
+                    "defense": {
+                        "melee": 2,
+                        "ranged": 2,
+                        "siege": 1,
+                        "magic": 3
+                    },
+                    "attackRange": 10.0
+                },
+                "tech": {
+                    "id": "ClockworkArchives",
+                    "effect": "-15% research speed, -5% cooldown speed",
+                    "cost": {
+                        "Supplies": 180,
+                        "Crystal": 30
+                    }
+                },
+                "spell": {
+                    "id": "CrystalSurvey",
+                    "cooldown": 50,
+                    "effect": "Reveal Crystal nodes & grant 30 Crystal if first reveal."
+                }
+            },
+            {
+                "id": "Sect_LivingStone",
+                "order": "Alanthor",
+                "affinity": "Alanthor",
+                "passive": {
+                    "wallIncomeMult": 1.2,
+                    "buildingSpeedMult": 1.1
+                },
+                "unit": {
+                    "id": "StoneWarden",
+                    "class": "human_melee",
+                    "hp": 200,
+                    "speed": 4.8,
+                    "armorType": "infantry_heavy",
+                    "damage": 11,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 4,
+                        "ranged": 3,
+                        "siege": 1,
+                        "magic": 1
+                    },
+                    "attackRange": 1.6
+                },
+                "tech": {
+                    "id": "TerracePlanning",
+                    "effect": "Compartment size yields +20% more Supplies.",
+                    "cost": {
+                        "Supplies": 160,
+                        "Iron": 40
+                    }
+                },
+                "spell": {
+                    "id": "BulwarkRise",
+                    "cooldown": 60,
+                    "effect": "Temporarily +3 armor to buildings in target compartment."
+                }
+            },
+            {
+                "id": "Sect_VeiledMemory",
+                "order": "Alanthor",
+                "affinity": "Alanthor",
+                "passive": {
+                    "fogVisionBonus": 0.15,
+                    "spellCooldownMult": 0.9
+                },
+                "unit": {
+                    "id": "Archivist_Adept",
+                    "class": "magic_support",
+                    "hp": 110,
+                    "speed": 5.6,
+                    "armorType": "ranged",
+                    "damage": 6,
+                    "damageType": "magic",
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 0,
+                        "siege": 0,
+                        "magic": 1
+                    },
+                    "attackRange": 14.0,
+                    "ability": "Dispel (ally/enemy)"
+                },
+                "tech": {
+                    "id": "HiddenRecords",
+                    "effect": "First time you mine a Crystal Node: -25% retaliation chance.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Crystal": 20
+                    }
+                },
+                "spell": {
+                    "id": "Shroud",
+                    "cooldown": 55,
+                    "effect": "Create a 12u mist that blocks enemy vision & slows by 20%."
+                }
+            },
+            {
+                "id": "Sect_StillFlame",
+                "order": "Runai",
+                "affinity": "Runai",
+                "passive": {
+                    "tradeIncomeMult": 1.15,
+                    "tariffBonus": 0.25
+                },
+                "unit": {
+                    "id": "FlameWarden",
+                    "class": "human_melee",
+                    "hp": 150,
+                    "speed": 5.6,
+                    "armorType": "infantry_heavy",
+                    "damage": 12,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 2,
+                        "ranged": 1
+                    },
+                    "attackRange": 1.6,
+                    "ability": "Sanction (root target caravan/raider 2s)"
+                },
+                "tech": {
+                    "id": "SanctifiedRoutes",
+                    "effect": "Trade routes grant +5 armor to nearby caravans.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 20
+                    }
+                },
+                "spell": {
+                    "id": "Embargo",
+                    "cooldown": 60,
+                    "effect": "Disable enemy trade on a route for 20s; siphon 30 Supplies."
+                }
+            },
+            {
+                "id": "Sect_QuietVault",
+                "order": "Runai",
+                "affinity": "Runai",
+                "passive": {
+                    "bankInterestMult": 1.3
+                },
+                "unit": {
+                    "id": "VaultKeeper",
+                    "class": "human_melee",
+                    "hp": 140,
+                    "speed": 5.2,
+                    "armorType": "infantry_heavy",
+                    "damage": 9,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 2,
+                        "ranged": 2
+                    },
+                    "attackRange": 1.6,
+                    "ability": "Safeguard (damage reduction aura 6u, 5s)"
+                },
+                "tech": {
+                    "id": "HiddenLedgers",
+                    "effect": "Deposits protected; on depot destroyed, retain 50% Crystal/Iron.",
+                    "cost": {
+                        "Supplies": 140,
+                        "Iron": 30
+                    }
+                },
+                "spell": {
+                    "id": "LockdownVault",
+                    "cooldown": 70,
+                    "effect": "Target storage becomes unraidable for 15s; slow nearby enemies."
+                }
+            },
+            {
+                "id": "Sect_MirrorRite",
+                "order": "Runai",
+                "affinity": "Runai",
+                "passive": {
+                    "rangedAccuracyBonus": 0.1,
+                    "spellCooldownMult": 0.95
+                },
+                "unit": {
+                    "id": "Glassmark_Arcanist",
+                    "class": "magic_ranged",
+                    "hp": 100,
+                    "speed": 5.5,
+                    "armorType": "ranged",
+                    "damage": 12,
+                    "damageType": "magic",
+                    "defense": {
+                        "magic": 1
+                    },
+                    "attackRange": 15.0
+                },
+                "tech": {
+                    "id": "RefinedSilverInlays",
+                    "effect": "+10% magic attack, -10% spell cooldown.",
+                    "cost": {
+                        "Supplies": 170,
+                        "Crystal": 25
+                    }
+                },
+                "spell": {
+                    "id": "ReflectiveWard",
+                    "cooldown": 60,
+                    "effect": "Reflect 25% spell damage & 10% physical as true for 10s."
+                }
+            },
+            {
+                "id": "Sect_ShardJudgment",
+                "order": "Runai",
+                "affinity": "Runai",
+                "passive": {
+                    "lawEnforcementBonus": 0.1,
+                    "enemyBuildSpeedDebuffNearTrade": 0.2
+                },
+                "unit": {
+                    "id": "Judicator",
+                    "class": "human_melee",
+                    "hp": 160,
+                    "speed": 5.0,
+                    "armorType": "infantry_heavy",
+                    "damage": 13,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 3,
+                        "ranged": 1
+                    },
+                    "attackRange": 1.7
+                },
+                "tech": {
+                    "id": "IronDecrees",
+                    "effect": "Enemy buildings near your trade nodes build -20% slower.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 30
+                    }
+                },
+                "spell": {
+                    "id": "EdictOfSeizure",
+                    "cooldown": 65,
+                    "effect": "Drain 50 Supplies from enemy storehouse over 10s."
+                }
+            },
+            {
+                "id": "Sect_EmberAsh",
+                "order": "Feraldis",
+                "affinity": "Feraldis",
+                "passive": {
+                    "meleeDamageBonus": 0.12,
+                    "trainSpeedMult": 1.1
+                },
+                "unit": {
+                    "id": "Ashblade",
+                    "class": "human_melee",
+                    "hp": 155,
+                    "speed": 5.9,
+                    "armorType": "infantry_heavy",
+                    "damage": 15,
+                    "damageType": "melee",
+                    "defense": {
+                        "melee": 2
+                    },
+                    "attackRange": 1.6
+                },
+                "tech": {
+                    "id": "WarTithe",
+                    "effect": "Each enemy civilian killed refunds 5 Supplies.",
+                    "cost": {
+                        "Supplies": 120
+                    }
+                },
+                "spell": {
+                    "id": "BattleFervor",
+                    "cooldown": 55,
+                    "effect": "+25% attack & speed to army in 10u for 10s."
+                }
+            },
+            {
+                "id": "Sect_HollowBrand",
+                "order": "Feraldis",
+                "affinity": "Feraldis",
+                "passive": {
+                    "panicOnHitChance": 0.05
+                },
+                "unit": {
+                    "id": "Brandbreaker",
+                    "class": "human_melee",
+                    "hp": 150,
+                    "speed": 5.6,
+                    "armorType": "infantry_heavy",
+                    "damage": 17,
+                    "damageType": "melee",
+                    "bonusDamage": {
+                        "siege": 4
+                    },
+                    "defense": {
+                        "melee": 2
+                    },
+                    "attackRange": 1.6
+                },
+                "tech": {
+                    "id": "DesecrateStandards",
+                    "effect": "Enemy morale auras -20% effectiveness near your units.",
+                    "cost": {
+                        "Supplies": 140,
+                        "Iron": 30
+                    }
+                },
+                "spell": {
+                    "id": "ProfaneRally",
+                    "cooldown": 60,
+                    "effect": "Pull nearby enemies 2u and slow them 30% for 5s."
+                }
+            },
+            {
+                "id": "Sect_FlamewroughtChains",
+                "order": "Feraldis",
+                "affinity": "Feraldis",
+                "passive": {
+                    "controlOnHitStackChance": 0.03
+                },
+                "unit": {
+                    "id": "Chaincaster",
+                    "class": "magic_support",
+                    "hp": 105,
+                    "speed": 5.2,
+                    "armorType": "ranged",
+                    "damage": 8,
+                    "damageType": "magic",
+                    "defense": {
+                        "magic": 1
+                    },
+                    "attackRange": 14.0,
+                    "ability": "ChainBind (short root)"
+                },
+                "tech": {
+                    "id": "VeilsteelLinks",
+                    "effect": "Veilsteel carry bonus also grants +1% DR per ingot.",
+                    "cost": {
+                        "Supplies": 160,
+                        "Iron": 40,
+                        "Crystal": 20
+                    }
+                },
+                "spell": {
+                    "id": "BindTheCore",
+                    "cooldown": 90,
+                    "effect": "Temporarily pacify a Crystal sub-node for 15s."
+                }
+            },
+            {
+                "id": "Sect_UnmakersGrasp",
+                "order": "Feraldis",
+                "affinity": "Feraldis",
+                "passive": {
+                    "bonusVsCrystal": 0.2
+                },
+                "unit": {
+                    "id": "Nullblade",
+                    "class": "human_melee",
+                    "hp": 150,
+                    "speed": 5.7,
+                    "armorType": "infantry_heavy",
+                    "damage": 12,
+                    "damageType": "melee",
+                    "bonusDamage": {
+                        "magic": 6
+                    },
+                    "defense": {
+                        "magic": 2
+                    },
+                    "attackRange": 1.6
+                },
+                "tech": {
+                    "id": "ErasureRites",
+                    "effect": "Crystal drops yield +20% more resources for you.",
+                    "cost": {
+                        "Supplies": 160,
+                        "Crystal": 30
+                    }
+                },
+                "spell": {
+                    "id": "Unravel",
+                    "cooldown": 80,
+                    "effect": "Deal heavy true damage to a Crystal unit; minor to nearby sub-nodes."
+                }
+            }
+        ]
+    },
+    "crystalInteractions": {
+        "mineCrystal": {
+            "dropsFrom": [
+                "CrystalCreatures",
+                "CrystalNodes"
+            ],
+            "risk": "Mining contributes to curse retaliation/waves.",
+            "storage": "Depots; can be stolen if destroyed."
+        },
+        "ironCarry": {
+            "slots": 5,
+            "perIngotAttackBonusPct": 2
+        },
+        "veilsteel": {
+            "madeFrom": [
+                "Iron",
+                "Crystal"
+            ],
+            "lossFactorPct": 20,
+            "carrySlots": 5,
+            "perIngotAttackBonusPct": 3
+        },
+        "glow": {
+            "source": "Colossal crystal units or sect grants",
+            "carryEffects": [
+                {
+                    "stacks": 1,
+                    "hpPct": 50,
+                    "attackPct": 50
+                },
+                {
+                    "stacks": 2,
+                    "hpPct": 75,
+                    "attackPct": 75
+                },
+                {
+                    "stacks": 3,
+                    "hpPct": 100,
+                    "attackPct": 100
+                }
+            ]
+        }
+    }
+}

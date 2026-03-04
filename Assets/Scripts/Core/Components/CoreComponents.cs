@@ -1,0 +1,155 @@
+// CoreComponents.cs
+// Fundamental components shared across all entity types
+// Place in: Assets/Scripts/Core/Components/Core/
+
+using Unity.Entities;
+using Unity.Mathematics;
+
+// ==================== Enums ====================
+
+public enum Faction : byte
+{
+    Blue = 0,
+    Red = 1,
+    Green = 2,
+    Yellow = 3,
+    Purple = 4,
+    Orange = 5,
+    Teal = 6,
+    White = 7
+}
+
+public static class Cultures
+{
+    public const byte None = 0;
+    public const byte Runai = 1;
+    public const byte Alanthor = 2;
+    public const byte Feraldis = 3;
+}
+
+// ==================== Core Identity Components ====================
+
+/// <summary>
+/// Identifies which faction an entity belongs to.
+/// </summary>
+public struct FactionTag : IComponentData
+{
+    public Faction Value;
+}
+
+/// <summary>
+/// Tracks the cultural progress of a faction (for Era 2+ content).
+/// </summary>
+public struct FactionProgress : IComponentData
+{
+    public byte Culture;
+}
+
+/// <summary>
+/// Links an ECS entity to its visual representation in the presentation layer.
+/// </summary>
+public struct PresentationId : IComponentData
+{
+    public int Id;
+}
+
+// ==================== Common Stats ====================
+
+/// <summary>
+/// Health points for units and buildings.
+/// </summary>
+public struct Health : IComponentData
+{
+    public int Value;
+    public int Max;
+}
+
+/// <summary>
+/// Movement speed for mobile entities.
+/// </summary>
+public struct MoveSpeed : IComponentData
+{
+    public float Value;
+}
+
+/// <summary>
+/// Physical radius for collision detection and unit spacing.
+/// </summary>
+public struct Radius : IComponentData
+{
+    public float Value;
+}
+
+/// <summary>
+/// Vision range for fog of war and target acquisition.
+/// </summary>
+public struct LineOfSight : IComponentData
+{
+    public float Radius;
+}
+
+// ==================== Movement & Navigation ====================
+
+/// <summary>
+/// Target position for pathfinding/movement.
+/// </summary>
+public struct DesiredDestination : IComponentData
+{
+    public float3 Position;
+    public byte Has; // 0 = no destination, 1 = has destination
+}
+
+/// <summary>
+/// Marker tag indicating the unit has an active user-issued move order.
+/// Prevents auto-targeting systems from overriding player commands.
+/// </summary>
+public struct UserMoveOrder : IComponentData { }
+
+/// <summary>
+/// Temporary speed override for formation movement.
+/// When present, MovementSystem uses this speed instead of MoveSpeed.
+/// Removed when destination is reached.
+/// </summary>
+public struct FormationSpeedOverride : IComponentData
+{
+    public float Value;
+}
+
+/// <summary>
+/// Position where a unit should return after combat or when idle.
+/// </summary>
+public struct GuardPoint : IComponentData
+{
+    public float3 Position;
+    public byte Has; // 0/1
+}
+
+/// <summary>
+/// Rally point for newly trained units.
+/// </summary>
+public struct RallyPoint : IComponentData
+{
+    public float3 Position;
+    public byte Has;
+}
+
+// ==================== Patrol System ====================
+
+/// <summary>
+/// A single waypoint in a patrol route.
+/// </summary>
+public struct PatrolWaypoint : IBufferElementData
+{
+    public float3 Position;
+    public float WaitSeconds; // Optional pause at this waypoint
+}
+
+/// <summary>
+/// Per-unit patrol state tracking.
+/// </summary>
+public struct PatrolAgent : IComponentData
+{
+    public int Index;      // Current waypoint index
+    public byte Loop;      // 1 = loop, 0 = stop at end
+    public float WaitTimer; // Countdown while waiting at a waypoint
+}

@@ -1,0 +1,152 @@
+# ===========================
+# Unity Generated
+# ===========================
+/Library/
+/Temp/
+/Obj/
+/Build/
+/Builds/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+/Recording/
+
+# Auto-generated project files
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta (for certain IDEs)
+ExportedObj/
+*.unitypackage
+
+# ===========================
+# 3D Asset Packs (large, excluded from repo)
+# ===========================
+Assets/SopaDopa/
+Assets/SopaDopa.meta
+Assets/MISC/
+Assets/MISC.meta
+Assets/Stylized Rock Pack*/
+Assets/Stylized Rock Pack*.meta
+Assets/TreeCollection/
+Assets/TreeCollection.meta
+Assets/ithappy/
+Assets/ithappy.meta
+Assets/Happy Little Trees*/
+Assets/Happy Little Trees*.meta
+Assets/CrystalMaterials/
+Assets/CrystalMaterials.meta
+Assets/TextMesh Pro/
+Assets/TextMesh Pro.meta
+Assets/v0.7/
+Assets/v0.7.meta
+
+# ===========================
+# Binary Assets (meshes, textures, audio)
+# ===========================
+# 3D Models
+*.fbx
+*.fbx.meta
+*.obj
+*.obj.meta
+*.blend
+*.blend.meta
+*.3ds
+*.max
+*.dae
+*.mb
+*.ma
+
+# Textures & Images (at Assets root and Resources)
+Assets/*.png
+Assets/*.png.meta
+Assets/*.jpg
+Assets/*.jpg.meta
+Assets/Resources/UI/
+Assets/Resources/UI.meta
+
+# Audio files
+Assets/Resources/Audio/
+Assets/Resources/Audio.meta
+Assets/Scripts/Audio/
+Assets/Scripts/Audio.meta
+
+# Prefabs with 3D mesh data
+Assets/Resources/Prefabs/
+Assets/Resources/Prefabs.meta
+
+# Terrain data
+Assets/New Terrain*.asset
+Assets/New Terrain*.asset.meta
+Assets/*.terrainlayer
+Assets/*.terrainlayer.meta
+
+# Materials at Assets root
+Assets/*.mat
+Assets/*.mat.meta
+Assets/Resources/*.mat
+Assets/Resources/*.mat.meta
+
+# Map prefabs (contain mesh references)
+Assets/Resources/Map/Terrains/
+Assets/Resources/Map/Terrains.meta
+Assets/Resources/Map/*.prefab
+Assets/Resources/Map/*.prefab.meta
+
+# Crystal prefabs
+Assets/Resources/CrystalCurse/*.prefab
+Assets/Resources/CrystalCurse/*.prefab.meta
+
+# Default building prefab at Resources root
+Assets/Resources/DefaultBuilding.prefab
+Assets/Resources/DefaultBuilding.prefab.meta
+
+# Map icons (images)
+Assets/Resources/Map/icons/
+Assets/Resources/Map/icons.meta
+
+# ===========================
+# Old Version Archives
+# ===========================
+Assets/*.zip
+Assets/*.zip.meta
+Assets/*.7z
+Assets/*.7z.meta
+
+# ===========================
+# Plugins (third-party, managed via Package Manager)
+# ===========================
+Assets/Plugins/
+Assets/Plugins.meta
+
+# ===========================
+# OS Files
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# IDE
+# ===========================
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+# ===========================
+# Claude Code local
+# ===========================
+.claude/
