@@ -87,8 +87,8 @@
 ---
 
 ## 6. Technology
-- Unity 2023 LTS  
-- Entities 1.2 (ECS)  
+- Unity 6 (6000.0.37f1)
+- Entities 1.3.14 (ECS/DOTS)  
 
 
 

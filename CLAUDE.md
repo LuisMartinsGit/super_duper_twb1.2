@@ -1,7 +1,7 @@
 # The Waning Border 1.2 - Claude Code Instructions
 
 ## Project Overview
-Unity 2023 LTS RTS game using DOTS/ECS (Entities 1.3.14) with hybrid MonoBehaviour UI.
+Unity 6 (6000.0.37f1) RTS game using DOTS/ECS (Entities 1.3.14) with hybrid MonoBehaviour UI.
 C# source code lives in `Assets/Scripts/` organized by domain modules.
 
 ## Architecture
