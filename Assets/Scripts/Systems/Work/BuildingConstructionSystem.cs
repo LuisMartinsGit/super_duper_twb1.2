@@ -223,7 +223,54 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<DeferredDefense>(building);
             }
 
+            // Shrine RP bonus: grant +1 RP when a ChapelSmall completes if faction has a temple
+            if (em.HasComponent<ChapelSmallTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                GrantShrineRPBonus(em, faction);
+            }
+
             UnityEngine.Debug.Log($"Building {building.Index} construction complete!");
+        }
+
+        /// <summary>
+        /// Grant +1 Religion Point when a Shrine (ChapelSmall) completes construction,
+        /// if the faction has a Temple of Ridan.
+        /// </summary>
+        private void GrantShrineRPBonus(EntityManager em, Faction faction)
+        {
+            // Check if faction has a temple
+            var templeQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleTag>(),
+                ComponentType.ReadOnly<FactionTag>()
+            );
+
+            using var temples = templeQuery.ToEntityArray(Allocator.Temp);
+            using var templeFactions = templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            bool hasTemple = false;
+            for (int i = 0; i < temples.Length; i++)
+            {
+                if (templeFactions[i].Value == faction)
+                {
+                    hasTemple = true;
+                    break;
+                }
+            }
+
+            if (!hasTemple) return;
+
+            // Grant RP to faction bank
+            if (FactionEconomy.TryGetBank(em, faction, out var bank))
+            {
+                if (em.HasComponent<ReligionPoints>(bank))
+                {
+                    var rp = em.GetComponentData<ReligionPoints>(bank);
+                    rp.Value += TempleLevelConfig.ShrineBonus;
+                    em.SetComponentData(bank, rp);
+                    UnityEngine.Debug.Log($"[ShrineBonus] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for shrine construction");
+                }
+            }
         }
 
         /// <summary>
