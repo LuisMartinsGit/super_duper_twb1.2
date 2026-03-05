@@ -153,7 +153,7 @@ namespace TheWaningBorder.World.Minimap
                 ComponentType.ReadOnly<LocalTransform>());
 
             _ironDepositsQ = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<TheWaningBorder.AI.IronMineTag>(),
+                ComponentType.ReadOnly<IronMineTag>(),
                 ComponentType.ReadOnly<LocalTransform>());
         }
 

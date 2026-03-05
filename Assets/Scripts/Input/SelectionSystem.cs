@@ -12,7 +12,6 @@ using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.World.Terrain;
-using TheWaningBorder.AI;
 
 namespace TheWaningBorder.Input
 {
