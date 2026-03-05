@@ -21,7 +21,7 @@ namespace TheWaningBorder.Entities
         /// Automatically loads stats from TechTreeDB if available.
         /// </summary>
         /// <param name="em">EntityManager</param>
-        /// <param name="unitId">Unit type: "Builder", "Miner", "Swordsman", "Archer", "Scout"</param>
+        /// <param name="unitId">Unit type: "Builder", "Miner", "Swordsman", "Archer", "Scout", "Litharch"</param>
         /// <param name="position">World position to spawn at</param>
         /// <param name="faction">Faction the unit belongs to</param>
         /// <returns>Created entity</returns>
@@ -34,6 +34,7 @@ namespace TheWaningBorder.Entities
                 "Swordsman" => Swordsman.Create(em, position, faction),
                 "Archer" => Archer.Create(em, position, faction),
                 "Scout" => Scout.Create(em, position, faction),
+                "Litharch" => Litharch.Create(em, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(em, position, faction),
                 _ => CreateDefault(em, unitId, position, faction)
             };
@@ -52,6 +53,7 @@ namespace TheWaningBorder.Entities
                 "Swordsman" => Swordsman.Create(ecb, position, faction),
                 "Archer" => Archer.Create(ecb, position, faction),
                 "Scout" => Scout.Create(ecb, position, faction),
+                "Litharch" => Litharch.Create(ecb, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, unitId, position, faction)
             };
@@ -69,6 +71,7 @@ namespace TheWaningBorder.Entities
                 "Swordsman" => 1,
                 "Archer" => 1,
                 "Scout" => 1,
+                "Litharch" => 1,
                 "Berserker" or "Feraldis_Berserker" => 1,
                 _ => 1
             };
@@ -86,6 +89,7 @@ namespace TheWaningBorder.Entities
                 "Swordsman" => UnitClass.Melee,
                 "Archer" => UnitClass.Ranged,
                 "Scout" => UnitClass.Scout,
+                "Litharch" => UnitClass.Support,
                 "Berserker" or "Feraldis_Berserker" => UnitClass.Melee,
                 _ => UnitClass.Melee
             };
@@ -103,6 +107,7 @@ namespace TheWaningBorder.Entities
                 "Archer" => 202,
                 "Miner" => 203,
                 "Scout" => 206,
+                "Litharch" => 207,
                 "Berserker" or "Feraldis_Berserker" => 210,
                 _ => 201
             };
