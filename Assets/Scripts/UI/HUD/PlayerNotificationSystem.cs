@@ -63,7 +63,6 @@ namespace TheWaningBorder.UI.HUD
         // Cached styles
         private GUIStyle _pillTextStyle;
         private Texture2D _pillBgTex;
-        private Texture2D _pillBorderTex;
         private bool _stylesInit;
 
         // ═══════════════════════════════════════════════════════════════════
@@ -201,8 +200,12 @@ namespace TheWaningBorder.UI.HUD
             GUI.color = new Color(1f, 1f, 1f, alpha * 0.9f);
             GUI.DrawTexture(pillRect, _pillBgTex);
 
-            // Border
-            GUI.color = new Color(1f, 1f, 1f, alpha * 0.6f);
+            // Golden border
+            GUI.color = new Color(
+                UIHelpers.ThemeGoldBorder.r,
+                UIHelpers.ThemeGoldBorder.g,
+                UIHelpers.ThemeGoldBorder.b,
+                alpha * 0.6f);
             DrawPillBorder(pillRect, 1);
 
             // Text
