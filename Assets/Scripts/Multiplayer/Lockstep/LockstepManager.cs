@@ -430,6 +430,22 @@ namespace TheWaningBorder.Multiplayer
                     AttackMoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
                     if (LogCommands) Debug.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
                     break;
+
+                case LockstepCommandType.Repair:
+                    if (targetEntity != Entity.Null)
+                    {
+                        RepairCommandHelper.Execute(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Convert:
+                    if (targetEntity != Entity.Null)
+                    {
+                        ConvertCommandHelper.Execute(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
+                    }
+                    break;
             }
         }
 
