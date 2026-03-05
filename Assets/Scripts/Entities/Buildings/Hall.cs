@@ -74,6 +74,10 @@ namespace TheWaningBorder.Entities
                 Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
             });
 
+            // Research capability (Hall can research economy techs)
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+
             return entity;
         }
 
@@ -116,6 +120,10 @@ namespace TheWaningBorder.Entities
             {
                 Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
             });
+
+            // Research capability (Hall can research economy techs)
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
 
             return entity;
         }

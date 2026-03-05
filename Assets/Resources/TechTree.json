@@ -124,7 +124,9 @@
                         "Scout"
                     ],
                     "research": [
-                        "Research_Era2"
+                        "Research_Era2",
+                        "ImprovedTools",
+                        "StorageCarts"
                     ],
                     "cost": {
                         "Supplies": 0
@@ -193,6 +195,10 @@
                     "trains": [
                         "Swordsman",
                         "Archer"
+                    ],
+                    "research": [
+                        "BasicDrills",
+                        "WoodenArmor"
                     ],
                     "cost": {
                         "Supplies": 150,
@@ -446,6 +452,7 @@
                         "Iron": 40
                     },
                     "researchTime": 30,
+                    "researchAt": "Hall",
                     "effects": {
                         "gatherSpeedMult": 1.15
                     },
@@ -462,6 +469,7 @@
                         "Supplies": 90
                     },
                     "researchTime": 25,
+                    "researchAt": "Hall",
                     "effects": {
                         "carryCapacityBonus": 10
                     }
@@ -476,6 +484,7 @@
                         "Iron": 40
                     },
                     "researchTime": 35,
+                    "researchAt": "Barracks",
                     "effects": {
                         "meleeAttackSpeedMult": 1.1
                     }
@@ -489,6 +498,7 @@
                         "Supplies": 80
                     },
                     "researchTime": 25,
+                    "researchAt": "Barracks",
                     "effects": {
                         "meleeDefenseAdd": 1
                     }

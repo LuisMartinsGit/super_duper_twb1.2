@@ -70,6 +70,10 @@ namespace TheWaningBorder.UI.Panels
                     DrawUnitTrainingPanel(entity, actionInfo);
                     break;
 
+                case ActionType.UnitTrainingAndResearch:
+                    DrawUnitTrainingAndResearchPanel(entity, actionInfo);
+                    break;
+
                 case ActionType.VaultManagement:
                     DrawVaultPanel(entity);
                     break;
@@ -310,6 +314,185 @@ namespace TheWaningBorder.UI.Panels
             {
                 GUILayout.Label($"Requires: {UIHelpers.FormatCost(CultureConfig.AgeUpCost)}", _requireStyle);
             }
+        }
+
+        /// <summary>
+        /// Panel for buildings that support both unit training and technology research (e.g. Barracks, Hall).
+        /// Training section on top, research section below with a separator.
+        /// </summary>
+        private void DrawUnitTrainingAndResearchPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            float totalPanelHeight = 420f; // Taller to accommodate both sections
+            var panelRect = new Rect(
+                PanelPadding + 300f + PanelPadding,
+                Screen.height - totalPanelHeight - PanelPadding,
+                PanelWidth,
+                totalPanelHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            // ── Training Section ──
+            if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
+            {
+                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Space(4);
+
+                DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+                {
+                    var em = UnifiedUIManager.GetEntityManager();
+                    if (!em.Exists(entity)) return;
+
+                    Faction faction = GameSettings.LocalPlayerFaction;
+                    if (em.HasComponent<FactionTag>(entity))
+                        faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                    int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
+                    if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
+                    {
+                        Debug.LogWarning("Population limit reached");
+                        return;
+                    }
+
+                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    {
+                        Debug.LogWarning($"Cannot afford to train {button.Id}");
+                        return;
+                    }
+
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var queue = em.GetBuffer<TrainQueueItem>(entity);
+                        queue.Add(new TrainQueueItem { UnitId = button.Id });
+                        Debug.Log($"Queued {button.Id} for training");
+                        Event.current.Use();
+                    }
+                });
+
+                GUILayout.Space(4);
+
+                // Training progress bar
+                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.IsTraining)
+                {
+                    DrawProgressBar(actionInfo.TrainingState.Value);
+                    GUILayout.Space(4);
+                }
+
+                // Training queue
+                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.Queue != null)
+                    DrawQueue(actionInfo.TrainingState.Value.Queue);
+            }
+
+            // ── Age-Up Section (Hall only) ──
+            DrawAgeUpSection(entity);
+
+            // ── Research Section ──
+            var researchActions = EntityActionExtractor.GetResearchActions(entity, UnifiedUIManager.GetEntityManager());
+            bool hasResearchProgress = actionInfo.ResearchState.HasValue && actionInfo.ResearchState.Value.IsResearching;
+
+            if (researchActions.Count > 0 || hasResearchProgress)
+            {
+                GUILayout.Space(8);
+
+                // Separator line
+                var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+                GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+                GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+                GUI.color = Color.white;
+
+                GUILayout.Space(6);
+                GUILayout.Label("Research", _headerStyle);
+                GUILayout.Space(4);
+
+                // Research buttons
+                if (researchActions.Count > 0)
+                {
+                    DrawActionGrid(entity, researchActions.ToArray(), (button) =>
+                    {
+                        var em = UnifiedUIManager.GetEntityManager();
+                        if (!em.Exists(entity)) return;
+
+                        Faction faction = GameSettings.LocalPlayerFaction;
+                        if (em.HasComponent<FactionTag>(entity))
+                            faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                        if (!FactionEconomy.Spend(em, faction, button.Cost))
+                        {
+                            Debug.LogWarning($"Cannot afford research: {button.Id}");
+                            return;
+                        }
+
+                        if (em.HasBuffer<ResearchQueueItem>(entity))
+                        {
+                            var queue = em.GetBuffer<ResearchQueueItem>(entity);
+                            queue.Add(new ResearchQueueItem
+                            {
+                                TechId = new Unity.Collections.FixedString64Bytes(button.Id)
+                            });
+                            Debug.Log($"Queued research: {button.Id}");
+                            Event.current.Use();
+                        }
+                    });
+                }
+
+                GUILayout.Space(4);
+
+                // Research progress bar
+                if (hasResearchProgress)
+                {
+                    var rInfo = actionInfo.ResearchState.Value;
+                    DrawResearchProgressBar(rInfo);
+                    GUILayout.Space(4);
+                }
+
+                // Research queue
+                if (actionInfo.ResearchState.HasValue && actionInfo.ResearchState.Value.Queue != null
+                    && actionInfo.ResearchState.Value.Queue.Length > 0)
+                {
+                    DrawQueue(actionInfo.ResearchState.Value.Queue);
+                }
+            }
+
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Draw a progress bar for active research.
+        /// </summary>
+        private void DrawResearchProgressBar(ResearchInfo info)
+        {
+            GUILayout.Label($"Researching: {info.CurrentTechName}", _labelStyle);
+
+            var rect = GUILayoutUtility.GetRect(0, 18, GUILayout.ExpandWidth(true));
+
+            // Dark navy background
+            GUI.color = new Color(0.04f, 0.05f, 0.12f, 1f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+
+            // Blue-ish fill (to distinguish from golden training bar)
+            GUI.color = new Color(0.30f, 0.55f, 0.85f, 1f);
+            GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width * info.Progress, rect.height), Texture2D.whiteTexture);
+
+            GUI.color = Color.white;
+
+            var timeStyle = new GUIStyle(_smallStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+            GUI.Label(rect, $"{info.TimeRemaining:F1}s", timeStyle);
         }
 
         private void DrawActionGrid(Entity entity, ActionButton[] actions, System.Action<ActionButton> onClick)

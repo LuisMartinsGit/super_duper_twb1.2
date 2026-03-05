@@ -248,13 +248,29 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<TrainingState>(entity))
             {
                 var trainingActions = GetTrainingActions(entity, em);
+                bool hasResearch = em.HasComponent<ResearchState>(entity);
+
                 if (trainingActions.Count > 0)
                 {
-                    info.Type = ActionType.UnitTraining;
+                    // Building can train and possibly research
+                    info.Type = hasResearch ? ActionType.UnitTrainingAndResearch : ActionType.UnitTraining;
                     info.Actions = trainingActions;
                     info.TrainingState = GetTrainingInfo(entity, em);
+
+                    if (hasResearch)
+                        info.ResearchState = GetResearchInfo(entity, em);
+
                     return info;
                 }
+            }
+
+            // Check if this is a research-only building
+            if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ResearchState>(entity))
+            {
+                info.Type = ActionType.UnitTrainingAndResearch;
+                info.Actions = new List<ActionButton>();
+                info.ResearchState = GetResearchInfo(entity, em);
+                return info;
             }
 
             return info;
@@ -431,6 +447,119 @@ namespace TheWaningBorder.UI
             }
 
             return tInfo;
+        }
+
+        /// <summary>
+        /// Get research action buttons for a building.
+        /// Returns buttons for techs this building can research, with affordability and prerequisite checks.
+        /// </summary>
+        public static List<ActionButton> GetResearchActions(Entity entity, EntityManager em)
+        {
+            var actions = new List<ActionButton>();
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            string buildingId = GetBuildingId(entity, em);
+            if (buildingId == null || TechTreeDB.Instance == null) return actions;
+
+            if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var buildingDef)) return actions;
+            if (buildingDef.research == null || buildingDef.research.Length == 0) return actions;
+
+            var researchState = TheWaningBorder.Economy.FactionResearchState.Instance;
+
+            foreach (var techId in buildingDef.research)
+            {
+                if (!TechTreeDB.Instance.TryGetTechnology(techId, out var tech)) continue;
+
+                // Skip already-researched techs
+                bool alreadyResearched = researchState != null && researchState.HasResearched(faction, techId);
+                if (alreadyResearched) continue;
+
+                var cost = tech.cost != null ? new Cost
+                {
+                    Supplies = tech.cost.Supplies,
+                    Iron = tech.cost.Iron,
+                    Crystal = tech.cost.Crystal,
+                    Veilsteel = tech.cost.Veilsteel,
+                    Glow = tech.cost.Glow
+                } : default;
+
+                bool canAfford = FactionEconomy.CanAfford(em, faction, cost);
+                bool meetsPrereqs = researchState == null || researchState.MeetsPrerequisites(faction, tech.prerequisites);
+
+                string tooltip = tech.desc ?? tech.effect ?? "";
+                if (!meetsPrereqs && tech.prerequisites != null)
+                    tooltip = $"Requires: {string.Join(", ", tech.prerequisites)}\n{tooltip}";
+                if (tech.researchTime > 0)
+                    tooltip += $"\nTime: {tech.researchTime}s";
+
+                actions.Add(new ActionButton
+                {
+                    Id = tech.id,
+                    Label = tech.name,
+                    Tooltip = tooltip,
+                    Cost = cost,
+                    Enabled = meetsPrereqs,
+                    CanAfford = canAfford && meetsPrereqs,
+                    Icon = null
+                });
+            }
+
+            return actions;
+        }
+
+        /// <summary>
+        /// Extract current research state from a building for the progress bar.
+        /// </summary>
+        private static ResearchInfo GetResearchInfo(Entity entity, EntityManager em)
+        {
+            var rInfo = new ResearchInfo();
+
+            if (!em.HasComponent<ResearchState>(entity)) return rInfo;
+
+            var rs = em.GetComponentData<ResearchState>(entity);
+            var queue = em.GetBuffer<ResearchQueueItem>(entity);
+
+            if (rs.Busy != 0 && queue.Length > 0)
+            {
+                string techId = queue[0].TechId.ToString();
+                rInfo.IsResearching = true;
+                rInfo.CurrentTechId = techId;
+
+                // Get total research time from TechTreeDB to compute progress
+                float totalTime = 30f;
+                if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetTechnology(techId, out var techDef))
+                {
+                    totalTime = techDef.researchTime > 0 ? techDef.researchTime : 30f;
+                    rInfo.CurrentTechName = techDef.name;
+                }
+                else
+                {
+                    rInfo.CurrentTechName = techId;
+                }
+
+                rInfo.Total = totalTime;
+                rInfo.TimeRemaining = rs.Remaining > 0 ? rs.Remaining : 0f;
+                rInfo.Progress = totalTime > 0 ? 1f - (rInfo.TimeRemaining / totalTime) : 1f;
+            }
+
+            // Build queue display
+            if (queue.Length > 0)
+            {
+                int startIndex = rs.Busy != 0 ? 1 : 0;
+                var queueList = new List<string>();
+                for (int i = startIndex; i < queue.Length; i++)
+                    queueList.Add(queue[i].TechId.ToString());
+                rInfo.Queue = queueList.ToArray();
+            }
+            else
+            {
+                rInfo.Queue = System.Array.Empty<string>();
+            }
+
+            return rInfo;
         }
 
         /// <summary>
