@@ -243,6 +243,12 @@ namespace TheWaningBorder.Systems.Combat
             targetHealth.Value -= impactDamage;
             if (targetHealth.Value <= 0) targetHealth.Value = 0;
             em.SetComponentData(targetEntity, targetHealth);
+
+            // Track last damager faction for kill credit (used by CaravanDeathSystem)
+            if (em.HasComponent<LastDamagedByFaction>(targetEntity))
+            {
+                em.SetComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
+            }
         }
 
         /// <summary>
