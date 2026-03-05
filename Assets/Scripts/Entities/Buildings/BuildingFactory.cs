@@ -360,6 +360,41 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
+        /// Create Temple of Ridan using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        private static Entity CreateTempleOfRidanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 800f;
+            float los = 16f;
+            float radius = 1.8f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 520 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            ecb.AddComponent<TempleTag>(entity);
+            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            return entity;
+        }
+
+        /// <summary>
         /// Create Fiendstone Keep using EntityCommandBuffer for deferred creation.
         /// </summary>
         private static Entity CreateFiendstoneKeepECB(EntityCommandBuffer ecb, float3 position, Faction faction)
