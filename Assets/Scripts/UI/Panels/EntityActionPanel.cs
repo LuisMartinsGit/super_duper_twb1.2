@@ -26,6 +26,11 @@ namespace TheWaningBorder.UI.Panels
         private const float ButtonSize = 64f;
         private const float ButtonSpacing = 8f;
 
+        /// <summary>Maximum number of items allowed in a training queue.</summary>
+        private const int MAX_TRAIN_QUEUE = 5;
+        private const float QueueSlotSize = 40f;
+        private const float QueueSlotSpacing = 4f;
+
         private GUIStyle _boxStyle;
         private GUIStyle _headerStyle;
         private GUIStyle _buttonStyle;
@@ -211,6 +216,17 @@ namespace TheWaningBorder.UI.Panels
                 if (em.HasComponent<FactionTag>(entity))
                     faction = em.GetComponentData<FactionTag>(entity).Value;
 
+                // Enforce queue limit
+                if (em.HasBuffer<TrainQueueItem>(entity))
+                {
+                    var q = em.GetBuffer<TrainQueueItem>(entity);
+                    if (q.Length >= MAX_TRAIN_QUEUE)
+                    {
+                        Debug.LogWarning($"Training queue full ({MAX_TRAIN_QUEUE}/{MAX_TRAIN_QUEUE})");
+                        return;
+                    }
+                }
+
                 // Check population capacity before queuing
                 int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
                 if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
@@ -245,10 +261,10 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.Space(6);
             }
 
-            // Training queue
-            if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.Queue != null)
+            // Training queue with interactive cancel slots
+            if (actionInfo.TrainingState.HasValue)
             {
-                DrawQueue(actionInfo.TrainingState.Value.Queue);
+                DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
             }
 
             // ── Age-Up Section (Hall only, Era 1 only) ──
@@ -359,6 +375,17 @@ namespace TheWaningBorder.UI.Panels
                     if (em.HasComponent<FactionTag>(entity))
                         faction = em.GetComponentData<FactionTag>(entity).Value;
 
+                    // Enforce queue limit
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var q = em.GetBuffer<TrainQueueItem>(entity);
+                        if (q.Length >= MAX_TRAIN_QUEUE)
+                        {
+                            Debug.LogWarning($"Training queue full ({MAX_TRAIN_QUEUE}/{MAX_TRAIN_QUEUE})");
+                            return;
+                        }
+                    }
+
                     int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
                     if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
                     {
@@ -390,9 +417,9 @@ namespace TheWaningBorder.UI.Panels
                     GUILayout.Space(4);
                 }
 
-                // Training queue
-                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.Queue != null)
-                    DrawQueue(actionInfo.TrainingState.Value.Queue);
+                // Training queue with interactive cancel slots
+                if (actionInfo.TrainingState.HasValue)
+                    DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
             }
 
             // ── Age-Up Section (Hall only) ──
@@ -461,7 +488,7 @@ namespace TheWaningBorder.UI.Panels
                 if (actionInfo.ResearchState.HasValue && actionInfo.ResearchState.Value.Queue != null
                     && actionInfo.ResearchState.Value.Queue.Length > 0)
                 {
-                    DrawQueue(actionInfo.ResearchState.Value.Queue);
+                    DrawResearchQueue(actionInfo.ResearchState.Value.Queue);
                 }
             }
 
@@ -591,7 +618,167 @@ namespace TheWaningBorder.UI.Panels
             GUI.Label(rect, $"{info.TimeRemaining:F1}s", timeStyle);
         }
 
-        private void DrawQueue(string[] queue)
+        /// <summary>
+        /// Draw interactive training queue with clickable slots.
+        /// Shows all queue items as visual slots (including currently training).
+        /// Right-click on a queued (non-training) slot cancels it and refunds resources.
+        /// </summary>
+        private void DrawInteractiveQueue(Entity entity, TrainingInfo info)
+        {
+            int totalInQueue = info.QueueCapacity; // includes currently training item
+            GUILayout.Label($"Queue: {totalInQueue}/{MAX_TRAIN_QUEUE}", _smallStyle);
+
+            // Build the full slot list: currently training + pending queue
+            // info.Queue excludes the currently training item, so reconstruct full list
+            string[] allSlots = new string[totalInQueue];
+            int idx = 0;
+            if (info.IsTraining && info.CurrentUnitId != null)
+            {
+                allSlots[0] = info.CurrentUnitId;
+                idx = 1;
+            }
+            if (info.Queue != null)
+            {
+                for (int i = 0; i < info.Queue.Length && idx < allSlots.Length; i++, idx++)
+                    allSlots[idx] = info.Queue[i];
+            }
+
+            GUILayout.BeginHorizontal();
+
+            for (int slot = 0; slot < MAX_TRAIN_QUEUE; slot++)
+            {
+                bool occupied = slot < totalInQueue && allSlots[slot] != null;
+                bool isTrainingSlot = slot == 0 && info.IsTraining;
+
+                // Reserve a rect for the slot
+                var slotRect = GUILayoutUtility.GetRect(QueueSlotSize, QueueSlotSize,
+                    GUILayout.Width(QueueSlotSize), GUILayout.Height(QueueSlotSize));
+
+                if (occupied)
+                {
+                    // Background: golden for training slot, darker for queued
+                    if (isTrainingSlot)
+                    {
+                        GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.6f);
+                    }
+                    else
+                    {
+                        GUI.color = new Color(0.15f, 0.18f, 0.30f, 0.9f);
+                    }
+                    GUI.DrawTexture(slotRect, Texture2D.whiteTexture);
+
+                    // Border
+                    GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.5f);
+                    DrawSlotBorder(slotRect, 1);
+
+                    GUI.color = Color.white;
+
+                    // Unit name abbreviation (first 3 chars)
+                    string abbrev = allSlots[slot].Length > 3
+                        ? allSlots[slot].Substring(0, 3)
+                        : allSlots[slot];
+                    var slotLabelStyle = new GUIStyle(_smallStyle)
+                    {
+                        alignment = TextAnchor.MiddleCenter,
+                        fontSize = 10,
+                        normal = { textColor = isTrainingSlot ? Color.white : new Color(0.9f, 0.88f, 0.82f) }
+                    };
+                    GUI.Label(slotRect, abbrev, slotLabelStyle);
+
+                    // Right-click to cancel (only for non-training slots)
+                    if (!isTrainingSlot && Event.current.type == EventType.MouseDown
+                        && Event.current.button == 1 && slotRect.Contains(Event.current.mousePosition))
+                    {
+                        CancelQueueItem(entity, slot);
+                        Event.current.Use();
+                    }
+
+                    // Tooltip on hover for occupied slots
+                    if (slotRect.Contains(Event.current.mousePosition))
+                    {
+                        string tip = isTrainingSlot
+                            ? $"Training: {allSlots[slot]}"
+                            : $"{allSlots[slot]} (right-click to cancel)";
+                        GUI.Label(new Rect(Event.current.mousePosition.x + 12,
+                            Event.current.mousePosition.y - 16, 180, 20), tip, _smallStyle);
+                    }
+                }
+                else
+                {
+                    // Empty slot — dark navy outline
+                    GUI.color = new Color(0.08f, 0.10f, 0.20f, 0.6f);
+                    GUI.DrawTexture(slotRect, Texture2D.whiteTexture);
+                    GUI.color = new Color(0.3f, 0.3f, 0.4f, 0.4f);
+                    DrawSlotBorder(slotRect, 1);
+                    GUI.color = Color.white;
+                }
+
+                GUILayout.Space(QueueSlotSpacing);
+            }
+
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// Cancel a training queue item at the given buffer index and refund its cost.
+        /// Index 0 is the currently training item (should not be cancelled via this method).
+        /// </summary>
+        private static void CancelQueueItem(Entity entity, int bufferIndex)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager)) || !em.Exists(entity)) return;
+            if (!em.HasBuffer<TrainQueueItem>(entity)) return;
+
+            var queue = em.GetBuffer<TrainQueueItem>(entity);
+            if (bufferIndex < 0 || bufferIndex >= queue.Length) return;
+
+            // Don't cancel the currently training item (index 0 when busy)
+            if (bufferIndex == 0 && em.HasComponent<TrainingState>(entity))
+            {
+                var ts = em.GetComponentData<TrainingState>(entity);
+                if (ts.Busy != 0) return;
+            }
+
+            string unitId = queue[bufferIndex].UnitId.ToString();
+
+            // Refund the unit's cost
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            var cost = EntityActionExtractor.GetUnitCost(unitId);
+            if (!cost.IsZero)
+            {
+                FactionEconomy.Add(em, faction, cost);
+                Debug.Log($"Cancelled {unitId}, refunded {cost}");
+            }
+            else
+            {
+                Debug.Log($"Cancelled {unitId} (no cost to refund)");
+            }
+
+            queue.RemoveAt(bufferIndex);
+        }
+
+        /// <summary>
+        /// Draw a 1px border around a rect.
+        /// </summary>
+        private static void DrawSlotBorder(Rect rect, int width)
+        {
+            // Top
+            GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, width), Texture2D.whiteTexture);
+            // Bottom
+            GUI.DrawTexture(new Rect(rect.x, rect.yMax - width, rect.width, width), Texture2D.whiteTexture);
+            // Left
+            GUI.DrawTexture(new Rect(rect.x, rect.y, width, rect.height), Texture2D.whiteTexture);
+            // Right
+            GUI.DrawTexture(new Rect(rect.xMax - width, rect.y, width, rect.height), Texture2D.whiteTexture);
+        }
+
+        /// <summary>
+        /// Simple text-based queue display for research (non-interactive).
+        /// </summary>
+        private void DrawResearchQueue(string[] queue)
         {
             if (queue.Length == 0) return;
 
