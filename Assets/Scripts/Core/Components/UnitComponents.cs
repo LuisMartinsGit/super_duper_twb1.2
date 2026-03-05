@@ -41,6 +41,15 @@ public struct ArcherTag : IComponentData { }
 /// <summary>Marker tag for Berserker units (converted from miners at Fiendstone Keep).</summary>
 public struct BerserkerTag : IComponentData { }
 
+/// <summary>Marker tag for Cavalry units (mounted). Used for anti-cavalry bonus detection.</summary>
+public struct CavalryTag : IComponentData { }
+
+/// <summary>Marker tag for Siege units (anti-structure specialists).</summary>
+public struct SiegeTag : IComponentData { }
+
+/// <summary>Marker tag for Spearman units (anti-cavalry bonus).</summary>
+public struct SpearmanTag : IComponentData { }
+
 // ==================== Archer State ====================
 
 /// <summary>
