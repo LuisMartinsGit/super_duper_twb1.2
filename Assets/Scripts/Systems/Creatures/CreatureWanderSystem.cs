@@ -36,13 +36,14 @@ namespace TheWaningBorder.Systems.Creatures
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
-            foreach (var (creatureState, transform, entity) in SystemAPI
-                .Query<RefRW<CreatureState>, RefRO<LocalTransform>>()
+            foreach (var (creatureState, transform, wanderTarget, entity) in SystemAPI
+                .Query<RefRW<CreatureState>, RefRO<LocalTransform>, RefRO<Target>>()
                 .WithAll<CreatureTag>()
-                .WithNone<Target>()
                 .WithNone<AttackCommand>()
                 .WithEntityAccess())
             {
+                // Skip creatures that have an active combat target
+                if (wanderTarget.ValueRO.Value != Entity.Null) continue;
                 ref var creature = ref creatureState.ValueRW;
 
                 // Skip if already moving to a destination
