@@ -123,10 +123,14 @@ namespace TheWaningBorder.Systems.Combat
                             }
                         }
 
-                        if (!isReturningToGuard && !em.HasComponent<Target>(entity))
+                        if (!isReturningToGuard)
                         {
-                            ecb.RemoveComponent<AttackCommand>(entity);
-                            continue;
+                            var currentTarget = em.GetComponentData<Target>(entity);
+                            if (currentTarget.Value == Entity.Null)
+                            {
+                                ecb.RemoveComponent<AttackCommand>(entity);
+                                continue;
+                            }
                         }
                     }
                 }
@@ -171,15 +175,8 @@ namespace TheWaningBorder.Systems.Combat
                     });
                 }
 
-                // Set target component
-                if (!em.HasComponent<Target>(entity))
-                {
-                    ecb.AddComponent(entity, new Target { Value = target });
-                }
-                else
-                {
-                    ecb.SetComponent(entity, new Target { Value = target });
-                }
+                // Set target component (Target always present on combat units)
+                ecb.SetComponent(entity, new Target { Value = target });
 
                 // Clear destination when attacking
                 if (em.HasComponent<DesiredDestination>(entity))
@@ -205,16 +202,17 @@ namespace TheWaningBorder.Systems.Combat
             using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
             // Find targets for idle units (builders and miners never auto-target)
-            foreach (var (transform, faction, lineOfSight, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>>()
+            foreach (var (transform, faction, lineOfSight, target, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
-                .WithNone<Target>()
                 .WithNone<UserMoveOrder>()
                 .WithNone<CanBuild>()       // Builders are passive workers
                 .WithNone<MinerTag>()       // Miners are handled by MiningSystem
                 .WithEntityAccess())
             {
+                // Skip units that already have an active target
+                if (target.ValueRO.Value != Entity.Null) continue;
                 // Skip if currently moving to a destination
                 if (em.HasComponent<DesiredDestination>(entity))
                 {
@@ -279,31 +277,25 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
-                // Acquire target if found
+                // Acquire target if found (Target component always present)
                 if (bestTarget != Entity.Null)
                 {
-                    if (!em.HasComponent<Target>(entity))
-                    {
-                        ecb.AddComponent(entity, new Target { Value = bestTarget });
-                    }
-                    else
-                    {
-                        ecb.SetComponent(entity, new Target { Value = bestTarget });
-                    }
+                    ecb.SetComponent(entity, new Target { Value = bestTarget });
                 }
             }
 
             // Attack-move units: scan for enemies even while moving
             // These units have AttackMoveTag and may have an active DesiredDestination
-            foreach (var (transform, faction, lineOfSight, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>>()
+            foreach (var (transform, faction, lineOfSight, amTarget, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag, AttackMoveTag>()
-                .WithNone<Target>()
                 .WithNone<AttackCommand>()
                 .WithNone<CanBuild>()
                 .WithNone<MinerTag>()
                 .WithEntityAccess())
             {
+                // Skip units that already have an active target
+                if (amTarget.ValueRO.Value != Entity.Null) continue;
                 var myPos = transform.ValueRO.Position;
                 var myFaction = faction.ValueRO.Value;
                 var los = lineOfSight.ValueRO.Radius;
@@ -331,10 +323,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Do NOT clear DesiredDestination - unit resumes movement after combat
                 if (bestAMTarget != Entity.Null)
                 {
-                    if (!em.HasComponent<Target>(entity))
-                        ecb.AddComponent(entity, new Target { Value = bestAMTarget });
-                    else
-                        ecb.SetComponent(entity, new Target { Value = bestAMTarget });
+                    ecb.SetComponent(entity, new Target { Value = bestAMTarget });
 
                     if (!em.HasComponent<AttackCommand>(entity))
                         ecb.AddComponent(entity, new AttackCommand { Target = bestAMTarget });
@@ -359,16 +348,17 @@ namespace TheWaningBorder.Systems.Combat
             using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            foreach (var (transform, guardPoint, faction, lineOfSight, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>>()
+            foreach (var (transform, guardPoint, faction, lineOfSight, rtgTarget, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
-                .WithNone<Target>()
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
                 .WithNone<CanBuild>()       // Builders are passive workers
                 .WithNone<MinerTag>()       // Miners are handled by MiningSystem
                 .WithEntityAccess())
             {
+                // Skip units that have an active target
+                if (rtgTarget.ValueRO.Value != Entity.Null) continue;
                 if (guardPoint.ValueRO.Has == 0) continue;
 
                 var myPos = transform.ValueRO.Position;
@@ -429,14 +419,7 @@ namespace TheWaningBorder.Systems.Combat
                     // If we found an enemy, engage it instead of returning
                     if (nearestEnemy != Entity.Null)
                     {
-                        if (!em.HasComponent<Target>(entity))
-                        {
-                            ecb.AddComponent(entity, new Target { Value = nearestEnemy });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new Target { Value = nearestEnemy });
-                        }
+                        ecb.SetComponent(entity, new Target { Value = nearestEnemy });
 
                         if (!em.HasComponent<AttackCommand>(entity))
                         {
@@ -490,12 +473,14 @@ namespace TheWaningBorder.Systems.Combat
         {
             var em = state.EntityManager;
 
-            foreach (var (dd, entity) in SystemAPI
-                .Query<RefRO<DesiredDestination>>()
+            foreach (var (dd, staleTarget, entity) in SystemAPI
+                .Query<RefRO<DesiredDestination>, RefRO<Target>>()
                 .WithAll<AttackCommand>()
-                .WithNone<Target>()
                 .WithEntityAccess())
             {
+                // Only clean up if unit has no active target
+                if (staleTarget.ValueRO.Value != Entity.Null) continue;
+
                 if (dd.ValueRO.Has == 0 && em.HasComponent<AttackCommand>(entity))
                 {
                     ecb.RemoveComponent<AttackCommand>(entity);
