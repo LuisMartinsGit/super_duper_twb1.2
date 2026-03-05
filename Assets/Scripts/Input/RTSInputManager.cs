@@ -144,6 +144,22 @@ namespace TheWaningBorder.Input
                 _attackMoveMode = false;
             }
 
+            // S - Stop all selected units
+            if (UnityEngine.Input.GetKeyDown(KeyCode.S))
+            {
+                _attackMoveMode = false;
+                _patrolMode = false;
+                IssueStopToSelection();
+            }
+
+            // H - Hold position for all selected units
+            if (UnityEngine.Input.GetKeyDown(KeyCode.H))
+            {
+                _attackMoveMode = false;
+                _patrolMode = false;
+                IssueHoldPositionToSelection();
+            }
+
             // Control groups (1-9)
             for (int i = 0; i < 9; i++)
             {
@@ -308,6 +324,36 @@ namespace TheWaningBorder.Input
         // COMMAND ISSUANCE
         // ═══════════════════════════════════════════════════════════════════════
         
+        private void IssueStopToSelection()
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+
+                CommandRouter.IssueStop(_em, e, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
+        private void IssueHoldPositionToSelection()
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+
+                CommandRouter.IssueHoldPosition(_em, e, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
         private void SetRallyPoints(float3 position)
         {
             foreach (var e in SelectionSystem.CurrentSelection)
@@ -990,13 +1036,15 @@ namespace TheWaningBorder.Input
         {
             if (!showHelp) return;
             
-            GUILayout.BeginArea(new Rect(10, 10, 300, 220));
+            GUILayout.BeginArea(new Rect(10, 10, 300, 260));
             GUILayout.Label("Controls:");
             GUILayout.Label("Left-click: Select unit");
             GUILayout.Label("Left-drag: Box select");
             GUILayout.Label("Right-click: Move/Attack/Gather");
             GUILayout.Label("A + Right-click: Attack-move");
             GUILayout.Label("P + Right-click: Patrol");
+            GUILayout.Label("S: Stop");
+            GUILayout.Label("H: Hold position");
             GUILayout.Label("Ctrl+1-9: Save control group");
             GUILayout.Label("1-9: Recall group (2x: center cam)");
             GUILayout.Label("Shift+1-9: Add to group");
