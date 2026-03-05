@@ -191,9 +191,6 @@ namespace TheWaningBorder.Systems.Work
 
                 em.SetComponentData(miner.AssignedDeposit, cadaverState);
 
-                // Propagate mining noise to nearest crystal main node
-                PropagateNoise(em, em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position);
-
                 // Only return to base when carrying max load or node is depleted
                 bool isFull = miner.CurrentLoad >= MaxCarryAmount;
                 bool nodeDepleted = cadaverState.Depleted == 1;
@@ -376,47 +373,6 @@ namespace TheWaningBorder.Systems.Work
                         Has = 1
                     });
                 }
-            }
-        }
-
-        /// <summary>
-        /// Propagate mining noise to the nearest CrystalMainNode within range.
-        /// Alerts the crystal curse faction when players mine cadavers near nodes.
-        /// </summary>
-        private const float NoiseRange = 40f;
-
-        private static void PropagateNoise(EntityManager em, float3 cadaverPos)
-        {
-            var nodeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadWrite<CrystalMiningNoise>()
-            );
-
-            using var nodeEntities = nodeQuery.ToEntityArray(Allocator.Temp);
-            using var nodeTransforms = nodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            Entity nearestNode = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            for (int i = 0; i < nodeEntities.Length; i++)
-            {
-                float dist = math.distance(
-                    new float2(cadaverPos.x, cadaverPos.z),
-                    new float2(nodeTransforms[i].Position.x, nodeTransforms[i].Position.z));
-
-                if (dist <= NoiseRange && dist < nearestDist)
-                {
-                    nearestNode = nodeEntities[i];
-                    nearestDist = dist;
-                }
-            }
-
-            if (nearestNode != Entity.Null)
-            {
-                var noise = em.GetComponentData<CrystalMiningNoise>(nearestNode);
-                noise.LocalNoise += 1;
-                em.SetComponentData(nearestNode, noise);
             }
         }
 

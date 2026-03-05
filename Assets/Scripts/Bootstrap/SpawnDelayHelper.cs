@@ -28,7 +28,6 @@ namespace TheWaningBorder.Bootstrap
                 {
                     Debug.Log("[SpawnDelayHelper] Terrain ready, spawning players...");
                     PlayerSpawnSystem.SpawnAllFactions();
-                    CreatureBootstrap.SpawnCreatureGroups();
                     ObstacleBootstrap.SpawnObstacles();
                     IronDepositBootstrap.SpawnIronDeposits();
                     FocusCameraOnHall();
@@ -43,7 +42,6 @@ namespace TheWaningBorder.Bootstrap
 
             Debug.LogError("[SpawnDelayHelper] Timeout waiting for terrain! Spawning anyway...");
             PlayerSpawnSystem.SpawnAllFactions();
-            CreatureBootstrap.SpawnCreatureGroups();
             ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
             FocusCameraOnHall();

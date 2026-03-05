@@ -1,5 +1,5 @@
 // AICrystalHuntBehavior.cs
-// Sends idle military units to hunt crystal creatures near the AI base
+// Sends idle military units to hunt crystal faction entities near the AI base
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -10,8 +10,8 @@ using UnityEngine;
 namespace TheWaningBorder.AI
 {
     /// <summary>
-    /// AI behavior that hunts crystal creatures.
-    /// Finds Faction.White creatures within range of base and sends idle
+    /// AI behavior that hunts crystal faction entities.
+    /// Finds Faction.White crystal entities within range of base and sends idle
     /// military units to attack them, creating cadavers for miners to harvest.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -83,12 +83,13 @@ namespace TheWaningBorder.AI
             }
             if (!foundBase) return;
 
-            // Collect creatures within hunt range of base
+            // Collect crystal faction entities within hunt range of base
             var creatures = new NativeList<Entity>(Allocator.Temp);
             var creaturePositions = new NativeList<float3>(Allocator.Temp);
 
-            foreach (var (creatureTag, factionTag, transform, entity) in
-                SystemAPI.Query<RefRO<CreatureTag>, RefRO<FactionTag>, RefRO<LocalTransform>>()
+            foreach (var (factionTag, transform, entity) in
+                SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<CrystalTag, UnitTag>()
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value != Faction.White) continue;

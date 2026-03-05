@@ -1,7 +1,7 @@
 // File: Assets/Scripts/Bootstrap/ObstacleBootstrap.cs
 // Spawns forest clusters and rock formations as navigation obstacles.
-// Follows the same pattern as CreatureBootstrap: random positions with
-// terrain height/slope checks and minimum distance from player bases.
+// Uses random positions with terrain height/slope checks and minimum
+// distance from player bases.
 
 using UnityEngine;
 using Unity.Entities;
@@ -208,7 +208,6 @@ namespace TheWaningBorder.Bootstrap
 
         /// <summary>
         /// Get player positions from existing Halls, or estimate from spawn layout.
-        /// Same pattern as CreatureBootstrap.GetPlayerPositions().
         /// </summary>
         private static float3[] GetPlayerPositions(EntityManager em)
         {

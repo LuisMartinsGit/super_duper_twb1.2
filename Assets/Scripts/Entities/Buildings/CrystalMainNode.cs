@@ -7,8 +7,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Crystal Main Node - the central hive of the Crystal Curse faction.
-    /// Spawned at map start, spreads cursed ground, and spawns creatures
-    /// when disturbed by nearby mining activity.
+    /// Spawned at map start, spreads cursed ground, and controls crystal AI behavior.
     /// Uses Faction.White so existing targeting treats it as enemy to all players.
     /// </summary>
     public static class CrystalMainNode
@@ -19,9 +18,8 @@ namespace TheWaningBorder.Entities
         private const float DefaultSpreadPerTick = 1f;
         private const float DefaultTickInterval = 30f;
         private const float DefaultIncomePerTick = 0f;
-        private const int DefaultLevel = 1;
-        private const int DefaultXpToNext = 50;
         private const float DefaultHarassTimer = 120f;
+        private const int DefaultBuildCost = 2000;
         private const int PresentationID = 310;
 
         /// <summary>
@@ -38,8 +36,8 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalTag),
                 typeof(CrystalMainNodeTag),
                 typeof(CrystalNode),
-                typeof(CrystalLevelState),
-                typeof(CrystalMiningNoise)
+                typeof(CrystalAIState),
+                typeof(CrystalResourceValue)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
@@ -58,16 +56,16 @@ namespace TheWaningBorder.Entities
                 CurrentRingRadius = 0f,
                 Enabled = 1
             });
-            em.SetComponentData(entity, new CrystalLevelState
+            em.SetComponentData(entity, new CrystalAIState
             {
-                Level = DefaultLevel,
-                Xp = 0,
-                XpToNext = DefaultXpToNext,
-                HarassTimer = DefaultHarassTimer
+                HarassTimer = DefaultHarassTimer,
+                BuildTimer = 0f,
+                UnitSpawnTimer = 0f,
+                Phase = 0
             });
-            em.SetComponentData(entity, new CrystalMiningNoise
+            em.SetComponentData(entity, new CrystalResourceValue
             {
-                LocalNoise = 0
+                BuildCost = DefaultBuildCost
             });
 
             return entity;
@@ -98,16 +96,16 @@ namespace TheWaningBorder.Entities
                 CurrentRingRadius = 0f,
                 Enabled = 1
             });
-            ecb.AddComponent(entity, new CrystalLevelState
+            ecb.AddComponent(entity, new CrystalAIState
             {
-                Level = DefaultLevel,
-                Xp = 0,
-                XpToNext = DefaultXpToNext,
-                HarassTimer = DefaultHarassTimer
+                HarassTimer = DefaultHarassTimer,
+                BuildTimer = 0f,
+                UnitSpawnTimer = 0f,
+                Phase = 0
             });
-            ecb.AddComponent(entity, new CrystalMiningNoise
+            ecb.AddComponent(entity, new CrystalResourceValue
             {
-                LocalNoise = 0
+                BuildCost = DefaultBuildCost
             });
 
             return entity;
