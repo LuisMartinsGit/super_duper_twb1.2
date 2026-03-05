@@ -95,10 +95,11 @@ public struct TrainingInfo
     public int QueuePosition;
     public string CurrentUnitId;
     public float TimeRemaining;
-    public string[] Queue;           // ADD THIS - queue of unit IDs
-    
+    public string[] Queue;           // Queue of unit IDs (excludes currently training)
+    public int QueueCapacity;        // Total items in buffer (including currently training)
+
     // Computed property for convenience
-        public bool IsTraining;       // ADD THIS (set when constructing the struct)
+        public bool IsTraining;       // Set when constructing the struct
 }
 
     /// <summary>
