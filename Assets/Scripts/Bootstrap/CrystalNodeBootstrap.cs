@@ -4,6 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Economy;
 using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Bootstrap
@@ -16,8 +17,6 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class CrystalNodeBootstrap
     {
-        private const int MinNodes = 2;
-        private const int MaxNodes = 4;
         private const float MinDistFromPlayers = 60f;
         private const float MinDistBetweenNodes = 50f;
 
@@ -41,7 +40,7 @@ namespace TheWaningBorder.Bootstrap
             int half = GameSettings.MapHalfSize;
             float spawnRange = half * 0.7f;
 
-            int nodeCount = random.NextInt(MinNodes, MaxNodes + 1);
+            int nodeCount = playerPositions.Length; // one node per player
             var nodePosArray = new float3[nodeCount];
             int nodesSpawned = 0;
 
@@ -99,7 +98,15 @@ namespace TheWaningBorder.Bootstrap
                 nodesSpawned++;
             }
 
-            Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes");
+            // Initialize Faction.White crystal bank if it doesn't exist
+            if (!FactionEconomy.TryGetBank(em, Faction.White, out _))
+            {
+                var bankEntity = em.CreateEntity(typeof(FactionTag), typeof(FactionResources));
+                em.SetComponentData(bankEntity, new FactionTag { Value = Faction.White });
+                em.SetComponentData(bankEntity, new FactionResources { Crystal = 100 * nodesSpawned });
+            }
+
+            Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes, bank initialised with {100 * nodesSpawned} crystal");
             return nodesSpawned;
         }
 
