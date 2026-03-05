@@ -102,6 +102,20 @@ namespace TheWaningBorder.Systems.Combat
                         float heightModifier = CalculateHeightDamageModifier(myPos.y, targetPos.y);
                         int finalDamage = CalculateFinalDamage(damage.ValueRO.Value, heightModifier);
 
+                        // Crystal buff on attacker (bonus damage)
+                        if (em.HasComponent<CrystalBuff>(entity))
+                        {
+                            var buff = em.GetComponentData<CrystalBuff>(entity);
+                            finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
+                        }
+                        // Crystal debuff on defender (takes more damage)
+                        if (em.HasComponent<CrystalDebuff>(tgt.Value))
+                        {
+                            var debuff = em.GetComponentData<CrystalDebuff>(tgt.Value);
+                            finalDamage = (int)math.round(finalDamage * (1f + debuff.AttPenalty));
+                        }
+                        finalDamage = math.max(1, finalDamage);
+
                         // Apply damage
                         var health = em.GetComponentData<Health>(tgt.Value);
                         health.Value -= finalDamage;
