@@ -37,10 +37,42 @@ namespace TheWaningBorder.Systems.Work
         private const float DropoffRange = 6f;          // How close to dropoff to deposit
         private const float SearchRadius = 50f;         // How far AI miners search for deposits
 
+        // Cached queries — created once in OnCreate, reused every frame
+        private EntityQuery _hallDropoffQuery;
+        private EntityQuery _hutDropoffQuery;
+        private EntityQuery _ironDepositQuery;
+        private EntityQuery _cadaverQuery;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();
+
+            _hallDropoffQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
+
+            _hutDropoffQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<GathererHutTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
+
+            _ironDepositQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<IronMineTag>(),
+                ComponentType.ReadOnly<IronDepositState>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _cadaverQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<CadaverTag>(),
+                ComponentType.ReadOnly<CadaverState>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
         }
 
         public void OnUpdate(ref SystemState state)
