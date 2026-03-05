@@ -118,6 +118,10 @@ namespace TheWaningBorder.UI.Panels
                 }
 
                 // Confirm placement
+                if (UnityEngine.Input.GetMouseButtonDown(0) && _currentBuild != BuildType.Wall && !_placementValid)
+                {
+                    PlayerNotificationSystem.Notify("Invalid placement");
+                }
                 if (UnityEngine.Input.GetMouseButtonDown(0) && (_currentBuild == BuildType.Wall || _placementValid))
                 {
                     var pos = _placingInstance.transform.position;
@@ -286,7 +290,7 @@ namespace TheWaningBorder.UI.Panels
                 var existing = BuildingFactory.GetFactionChoiceBuilding(_em, fac);
                 if (existing != null)
                 {
-                    Debug.LogWarning($"Already have choice building '{existing}' — cannot build {id}");
+                    PlayerNotificationSystem.Notify("Already have a choice building");
                     return;
                 }
             }
@@ -295,7 +299,7 @@ namespace TheWaningBorder.UI.Panels
 
             if (!FactionEconomy.Spend(_em, fac, cost))
             {
-                Debug.LogWarning($"Cannot afford {id}");
+                PlayerNotificationSystem.NotifyError("Not enough resources");
                 return;
             }
 
@@ -427,7 +431,7 @@ namespace TheWaningBorder.UI.Panels
 
                 if (!FactionEconomy.Spend(_em, fac, cost))
                 {
-                    Debug.LogWarning("Cannot afford Alanthor Wall hub");
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
                     return;
                 }
 

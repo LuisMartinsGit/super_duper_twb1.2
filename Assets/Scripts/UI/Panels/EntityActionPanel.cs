@@ -9,6 +9,7 @@ using TheWaningBorder.Entities;
 using TheWaningBorder.UI;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.UI.HUD;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -222,7 +223,7 @@ namespace TheWaningBorder.UI.Panels
                     var q = em.GetBuffer<TrainQueueItem>(entity);
                     if (q.Length >= MAX_TRAIN_QUEUE)
                     {
-                        Debug.LogWarning($"Training queue full ({MAX_TRAIN_QUEUE}/{MAX_TRAIN_QUEUE})");
+                        PlayerNotificationSystem.Notify("Training queue full");
                         return;
                     }
                 }
@@ -231,14 +232,14 @@ namespace TheWaningBorder.UI.Panels
                 int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
                 if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
                 {
-                    Debug.LogWarning("Population limit reached — cannot train more units");
+                    PlayerNotificationSystem.Notify("Population cap reached");
                     return;
                 }
 
                 // Deduct cost when adding to queue
                 if (!FactionEconomy.Spend(em, faction, button.Cost))
                 {
-                    Debug.LogWarning($"Cannot afford to train {button.Id}");
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
                     return;
                 }
 
@@ -381,7 +382,7 @@ namespace TheWaningBorder.UI.Panels
                         var q = em.GetBuffer<TrainQueueItem>(entity);
                         if (q.Length >= MAX_TRAIN_QUEUE)
                         {
-                            Debug.LogWarning($"Training queue full ({MAX_TRAIN_QUEUE}/{MAX_TRAIN_QUEUE})");
+                            PlayerNotificationSystem.Notify("Training queue full");
                             return;
                         }
                     }
@@ -389,13 +390,13 @@ namespace TheWaningBorder.UI.Panels
                     int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
                     if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
                     {
-                        Debug.LogWarning("Population limit reached");
+                        PlayerNotificationSystem.Notify("Population cap reached");
                         return;
                     }
 
                     if (!FactionEconomy.Spend(em, faction, button.Cost))
                     {
-                        Debug.LogWarning($"Cannot afford to train {button.Id}");
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
                         return;
                     }
 
@@ -457,7 +458,7 @@ namespace TheWaningBorder.UI.Panels
 
                         if (!FactionEconomy.Spend(em, faction, button.Cost))
                         {
-                            Debug.LogWarning($"Cannot afford research: {button.Id}");
+                            PlayerNotificationSystem.NotifyError("Not enough resources");
                             return;
                         }
 
