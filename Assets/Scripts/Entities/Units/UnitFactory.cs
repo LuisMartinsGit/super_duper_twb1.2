@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Entities
 {
@@ -61,20 +62,11 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// Get population cost for a unit type.
+        /// Delegates to PopulationHelper as the single source of truth.
         /// </summary>
         public static int GetPopulationCost(string unitId)
         {
-            return unitId switch
-            {
-                "Builder" => 1,
-                "Miner" => 1,
-                "Swordsman" => 1,
-                "Archer" => 1,
-                "Scout" => 1,
-                "Litharch" => 1,
-                "Berserker" or "Feraldis_Berserker" => 1,
-                _ => 1
-            };
+            return PopulationHelper.GetUnitPopulationCost(unitId);
         }
 
         /// <summary>

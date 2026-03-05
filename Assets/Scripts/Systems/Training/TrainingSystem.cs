@@ -94,7 +94,7 @@ namespace TheWaningBorder.Systems.Training
                         var unitId = queue[0].UnitId.ToString();
                         var em = state.EntityManager;
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
-                        int requiredPop = GetUnitPopulationCost(unitId);
+                        int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId);
 
                         // Include units already spawned this frame in the capacity check
                         int facKey = (int)faction;
@@ -155,22 +155,6 @@ namespace TheWaningBorder.Systems.Training
             }
             // No population tracking found - allow by default
             return true;
-        }
-
-        /// <summary>
-        /// Get population cost for a unit type.
-        /// </summary>
-        private static int GetUnitPopulationCost(string unitId)
-        {
-            return unitId switch
-            {
-                "Builder" => 1,
-                "Archer" => 1,
-                "Swordsman" => 1,
-                "Miner" => 1,
-                "Scout" => 1,
-                _ => 1 // Default
-            };
         }
 
         /// <summary>
