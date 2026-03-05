@@ -63,7 +63,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -76,7 +75,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);

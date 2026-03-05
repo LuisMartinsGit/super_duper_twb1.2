@@ -55,7 +55,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         if (target.ValueRO.Value == deadEntities[i])
                         {
-                            ecb.RemoveComponent<Target>(entity);
+                            ecb.SetComponent(entity, new Target { Value = Entity.Null });
                             break;
                         }
                     }
