@@ -1036,9 +1036,11 @@ namespace TheWaningBorder.Input
         {
             if (!showHelp) return;
             
-            GUILayout.BeginArea(new Rect(10, 10, 300, 260));
+            GUILayout.BeginArea(new Rect(10, 10, 300, 300));
             GUILayout.Label("Controls:");
             GUILayout.Label("Left-click: Select unit");
+            GUILayout.Label("Double-click: Select all of type on screen");
+            GUILayout.Label("Ctrl+Double-click: Select all of type (map)");
             GUILayout.Label("Left-drag: Box select");
             GUILayout.Label("Right-click: Move/Attack/Gather");
             GUILayout.Label("A + Right-click: Attack-move");
