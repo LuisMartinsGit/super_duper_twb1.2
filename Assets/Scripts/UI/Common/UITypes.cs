@@ -55,6 +55,7 @@ public struct EntityDisplayInfo
         public ActionType Type;
         public List<ActionButton> Actions;
         public TrainingInfo? TrainingState;
+        public ResearchInfo? ResearchState;
     }
 
     /// <summary>
@@ -65,7 +66,8 @@ public struct EntityDisplayInfo
         None,
         BuildingPlacement,
         UnitTraining,
-        VaultManagement
+        VaultManagement,
+        UnitTrainingAndResearch
     }
 
     /// <summary>
@@ -98,5 +100,19 @@ public struct TrainingInfo
     // Computed property for convenience
         public bool IsTraining;       // ADD THIS (set when constructing the struct)
 }
-    
+
+    /// <summary>
+    /// Research queue information for the action panel.
+    /// </summary>
+    public struct ResearchInfo
+    {
+        public string CurrentTechId;
+        public string CurrentTechName;
+        public float Progress;         // 0..1
+        public float Total;
+        public float TimeRemaining;
+        public string[] Queue;
+        public bool IsResearching;
+    }
+
 }
