@@ -55,6 +55,9 @@ namespace TheWaningBorder.Entities
                 "Barracks" => Barracks.Create(ecb, position, faction),
                 "Hut" => Hut.Create(ecb, position, faction),
                 "GatherersHut" => GatherersHut.Create(ecb, position, faction),
+                "TempleOfRidan" => CreateTempleOfRidanECB(ecb, position, faction),
+                "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
+                "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
@@ -355,6 +358,118 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Health { Value = 500, Max = 500 });
             em.SetComponentData(entity, new LineOfSight { Radius = 10f });
             em.SetComponentData(entity, new Radius { Value = 1.5f });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create Temple of Ridan using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        private static Entity CreateTempleOfRidanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 800f;
+            float los = 16f;
+            float radius = 1.8f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 520 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            ecb.AddComponent<TempleTag>(entity);
+            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create Vault of Almierra using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        private static Entity CreateVaultOfAlmierraECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1200f;
+            float los = 14f;
+            float radius = 2.0f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("VaultOfAlmierra", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 530 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+
+            ecb.AddComponent<VaultTag>(entity);
+            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddComponent(entity, new VaultStorage
+            {
+                ResourceType = 0,
+                StoredAmount = 0f,
+                InterestRate = 0.03f,
+                LockTimer = 0f,
+                LockDuration = 180f
+            });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create Fiendstone Keep using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        private static Entity CreateFiendstoneKeepECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 2000f;
+            float los = 18f;
+            float radius = 2.4f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("FiendstoneKeep", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 540 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 1 }); // Is a base building
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 20 });
+
+            ecb.AddComponent<FiendstoneKeepTag>(entity);
+            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddComponent(entity, new BuildingRangedAttack
+            {
+                Range = 25f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 3
+            });
 
             return entity;
         }
