@@ -30,6 +30,7 @@ namespace TheWaningBorder.Bootstrap
                     PlayerSpawnSystem.SpawnAllFactions();
                     ObstacleBootstrap.SpawnObstacles();
                     IronDepositBootstrap.SpawnIronDeposits();
+                    CrystalNodeBootstrap.SpawnCrystalNodes();
                     FocusCameraOnHall();
                     LoadingScreen.NotifyReady();
                     Destroy(gameObject);
@@ -44,6 +45,7 @@ namespace TheWaningBorder.Bootstrap
             PlayerSpawnSystem.SpawnAllFactions();
             ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
+            CrystalNodeBootstrap.SpawnCrystalNodes();
             FocusCameraOnHall();
             LoadingScreen.NotifyReady();
             Destroy(gameObject);
