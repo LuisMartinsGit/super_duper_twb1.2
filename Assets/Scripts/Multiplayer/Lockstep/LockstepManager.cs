@@ -425,6 +425,11 @@ namespace TheWaningBorder.Multiplayer
                         if (LogCommands) Debug.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
                     }
                     break;
+
+                case LockstepCommandType.AttackMove:
+                    AttackMoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
+                    if (LogCommands) Debug.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
+                    break;
             }
         }
 
