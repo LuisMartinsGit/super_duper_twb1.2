@@ -7,7 +7,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
-using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Combat
