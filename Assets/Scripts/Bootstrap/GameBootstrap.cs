@@ -165,6 +165,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
+            managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
