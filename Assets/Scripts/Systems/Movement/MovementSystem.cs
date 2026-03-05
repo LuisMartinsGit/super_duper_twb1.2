@@ -227,6 +227,9 @@ namespace TheWaningBorder.Systems.Movement
                     if (em.HasComponent<AttackMoveTag>(entity))
                         ecb.RemoveComponent<AttackMoveTag>(entity);
 
+                    // NOTE: PatrolTag is NOT removed here.
+                    // PatrolSystem will detect Has==0 and set the next waypoint.
+
                     // Remove formation speed override
                     if (em.HasComponent<FormationSpeedOverride>(entity))
                         ecb.RemoveComponent<FormationSpeedOverride>(entity);
@@ -281,6 +284,7 @@ namespace TheWaningBorder.Systems.Movement
                         ecb.RemoveComponent<UserMoveOrder>(entity);
                     if (em.HasComponent<AttackMoveTag>(entity))
                         ecb.RemoveComponent<AttackMoveTag>(entity);
+                    // PatrolTag: not removed; PatrolSystem will re-route to next waypoint
                     if (em.HasComponent<FormationSpeedOverride>(entity))
                         ecb.RemoveComponent<FormationSpeedOverride>(entity);
                     continue;

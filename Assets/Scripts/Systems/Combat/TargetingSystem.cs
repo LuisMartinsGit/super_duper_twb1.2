@@ -331,6 +331,53 @@ namespace TheWaningBorder.Systems.Combat
                         ecb.SetComponent(entity, new AttackCommand { Target = bestAMTarget });
                 }
             }
+
+            // Patrol units: scan for enemies even while moving (same as attack-move)
+            // These units have PatrolTag and may have an active DesiredDestination
+            foreach (var (transform, faction, lineOfSight, pTarget, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
+                .WithAll<UnitTag, PatrolTag>()
+                .WithNone<AttackCommand>()
+                .WithNone<CanBuild>()
+                .WithNone<MinerTag>()
+                .WithEntityAccess())
+            {
+                // Skip units that already have an active target
+                if (pTarget.ValueRO.Value != Entity.Null) continue;
+                var myPos = transform.ValueRO.Position;
+                var myFaction = faction.ValueRO.Value;
+                var los = lineOfSight.ValueRO.Radius;
+
+                // Find nearest enemy within line of sight
+                Entity bestPatrolTarget = Entity.Null;
+                float bestPatrolDist = float.MaxValue;
+
+                for (int i = 0; i < allEnemies.Length; i++)
+                {
+                    if (allEnemyFactions[i].Value == myFaction) continue;
+                    if (allEnemyHealth[i].Value <= 0) continue;
+
+                    var enemyPos = allEnemyTransforms[i].Position;
+                    var dist = DistXZ(myPos, enemyPos);
+
+                    if (dist <= los && dist < bestPatrolDist)
+                    {
+                        bestPatrolTarget = allEnemies[i];
+                        bestPatrolDist = dist;
+                    }
+                }
+
+                // Acquire target and issue attack command so combat systems chase
+                if (bestPatrolTarget != Entity.Null)
+                {
+                    ecb.SetComponent(entity, new Target { Value = bestPatrolTarget });
+
+                    if (!em.HasComponent<AttackCommand>(entity))
+                        ecb.AddComponent(entity, new AttackCommand { Target = bestPatrolTarget });
+                    else
+                        ecb.SetComponent(entity, new AttackCommand { Target = bestPatrolTarget });
+                }
+            }
         }
 
         [BurstCompile]
@@ -374,6 +421,33 @@ namespace TheWaningBorder.Systems.Combat
                     if (distToGuard > GuardReturnThreshold)
                     {
                         // Re-set DesiredDestination to resume movement toward attack-move destination
+                        if (!em.HasComponent<DesiredDestination>(entity))
+                        {
+                            ecb.AddComponent(entity, new DesiredDestination
+                            {
+                                Position = gpPos,
+                                Has = 1
+                            });
+                        }
+                        else
+                        {
+                            ecb.SetComponent(entity, new DesiredDestination
+                            {
+                                Position = gpPos,
+                                Has = 1
+                            });
+                        }
+                    }
+                    continue; // Skip normal return-to-guard logic
+                }
+
+                // Patrol units: resume patrol toward current waypoint after combat
+                // GuardPoint is set to the current patrol waypoint by PatrolSystem
+                if (em.HasComponent<PatrolTag>(entity))
+                {
+                    if (distToGuard > GuardReturnThreshold)
+                    {
+                        // Re-set DesiredDestination to resume patrol toward current waypoint
                         if (!em.HasComponent<DesiredDestination>(entity))
                         {
                             ecb.AddComponent(entity, new DesiredDestination

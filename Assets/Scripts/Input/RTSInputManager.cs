@@ -48,6 +48,7 @@ namespace TheWaningBorder.Input
         private EntityWorld _world;
         private EntityManager _em;
         private bool _attackMoveMode = false;
+        private bool _patrolMode = false;
 
         /// <summary>
         /// Currently hovered entity (for UI highlighting).
@@ -121,10 +122,11 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - Clear selection and cancel attack-move mode
+            // ESC - Clear selection and cancel attack-move/patrol mode
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
                 _attackMoveMode = false;
+                _patrolMode = false;
                 SelectionSystem.ClearSelection();
             }
 
@@ -132,6 +134,14 @@ namespace TheWaningBorder.Input
             if (UnityEngine.Input.GetKeyDown(KeyCode.A))
             {
                 _attackMoveMode = true;
+                _patrolMode = false;
+            }
+
+            // P - Enter patrol mode
+            if (UnityEngine.Input.GetKeyDown(KeyCode.P))
+            {
+                _patrolMode = true;
+                _attackMoveMode = false;
             }
 
             // Control groups (1-9)
@@ -209,6 +219,23 @@ namespace TheWaningBorder.Input
                 {
                     // Clicking ground (or non-enemy) issues attack-move formation
                     IssueAttackMoveFormation(clickWorld);
+                }
+                return;
+            }
+
+            // Patrol mode: P + right-click
+            if (_patrolMode)
+            {
+                _patrolMode = false;
+                if (targetType == TargetType.Enemy)
+                {
+                    var pCaps = DetermineCapabilities();
+                    if (pCaps.CanAttack)
+                        IssueAttackCommands(target);
+                }
+                else
+                {
+                    IssuePatrolCommands(clickWorld);
                 }
                 return;
             }
@@ -487,6 +514,18 @@ namespace TheWaningBorder.Input
                         Phase = 0
                     });
                 }
+            }
+        }
+
+        private void IssuePatrolCommands(float3 destination)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+
+                CommandRouter.IssuePatrol(_em, e, destination, CommandRouter.CommandSource.LocalPlayer);
             }
         }
 
@@ -957,6 +996,7 @@ namespace TheWaningBorder.Input
             GUILayout.Label("Left-drag: Box select");
             GUILayout.Label("Right-click: Move/Attack/Gather");
             GUILayout.Label("A + Right-click: Attack-move");
+            GUILayout.Label("P + Right-click: Patrol");
             GUILayout.Label("Ctrl+1-9: Save control group");
             GUILayout.Label("1-9: Recall group (2x: center cam)");
             GUILayout.Label("Shift+1-9: Add to group");
@@ -965,6 +1005,10 @@ namespace TheWaningBorder.Input
             if (_attackMoveMode)
             {
                 GUILayout.Label("<b>[ATTACK-MOVE MODE]</b>");
+            }
+            if (_patrolMode)
+            {
+                GUILayout.Label("<b>[PATROL MODE]</b>");
             }
 
             if (GameSettings.IsMultiplayer)

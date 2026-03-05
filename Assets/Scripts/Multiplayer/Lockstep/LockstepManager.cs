@@ -446,6 +446,11 @@ namespace TheWaningBorder.Multiplayer
                         if (LogCommands) Debug.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
                     }
                     break;
+
+                case LockstepCommandType.Patrol:
+                    PatrolCommandHelper.Execute(em, entity, cmd.TargetPosition);
+                    if (LogCommands) Debug.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
+                    break;
             }
         }
 

@@ -142,6 +142,12 @@ public struct RallyPoint : IComponentData
 // ==================== Patrol System ====================
 
 /// <summary>
+/// Marker tag for units executing a patrol command.
+/// Units with this tag auto-acquire targets while patrolling (like AttackMoveTag).
+/// </summary>
+public struct PatrolTag : IComponentData { }
+
+/// <summary>
 /// A single waypoint in a patrol route.
 /// </summary>
 public struct PatrolWaypoint : IBufferElementData
