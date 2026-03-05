@@ -165,12 +165,12 @@ namespace TheWaningBorder.Systems.Work
             if (fac == GameSettings.LocalPlayerFaction) return;
 
             // AI auto-find: nearest iron deposit or cadaver
-            Entity nearestIron = FindNearestDeposit(em, pos);
+            Entity nearestIron = FindNearestDeposit(em, pos, _ironDepositQuery);
             float ironDist = float.MaxValue;
             if (nearestIron != Entity.Null)
                 ironDist = DistXZ(pos, em.GetComponentData<LocalTransform>(nearestIron).Position);
 
-            Entity nearestCadaver = FindNearestCadaver(em, pos);
+            Entity nearestCadaver = FindNearestCadaver(em, pos, _cadaverQuery);
             float cadaverDist = float.MaxValue;
             if (nearestCadaver != Entity.Null)
                 cadaverDist = DistXZ(pos, em.GetComponentData<LocalTransform>(nearestCadaver).Position);
@@ -219,7 +219,7 @@ namespace TheWaningBorder.Systems.Work
                         miner.State = MinerWorkState.ReturningToBase;
                         miner.AssignedDeposit = Entity.Null;
                         var fac = em.GetComponentData<FactionTag>(entity).Value;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -261,7 +261,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -276,7 +276,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -310,7 +310,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -328,7 +328,7 @@ namespace TheWaningBorder.Systems.Work
             // Check if dropoff target still exists
             if (miner.DropoffTarget == Entity.Null || !em.Exists(miner.DropoffTarget))
             {
-                SetDropoffDestination(ref miner, em, entity, fac);
+                SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                 if (miner.DropoffTarget == Entity.Null)
                 {
                     // No dropoff available - go idle, keep load
@@ -388,7 +388,7 @@ namespace TheWaningBorder.Systems.Work
                         ? em.GetComponentData<LineOfSight>(entity).Radius
                         : 10f;
 
-                    Entity nearbyDeposit = FindNearestDepositWithinRange(em, pos, los);
+                    Entity nearbyDeposit = FindNearestDepositWithinRange(em, pos, los, _ironDepositQuery);
                     if (nearbyDeposit != Entity.Null)
                     {
                         miner.AssignedDeposit = nearbyDeposit;
@@ -413,20 +413,15 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest Hall or GathererHut of the miner's faction and set it as dropoff target.
         /// </summary>
-        private static void SetDropoffDestination(ref MinerState miner, EntityManager em, Entity minerEntity, Faction fac)
+        private static void SetDropoffDestination(
+            ref MinerState miner, EntityManager em, Entity minerEntity,
+            Faction fac, EntityQuery hallQuery, EntityQuery hutQuery)
         {
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
             float3 minerPos = em.GetComponentData<LocalTransform>(minerEntity).Position;
 
             // Search for Halls (exclude under-construction)
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
-
             using var halls = hallQuery.ToEntityArray(Allocator.Temp);
             using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -443,13 +438,6 @@ namespace TheWaningBorder.Systems.Work
             }
 
             // Search for GathererHuts (exclude under-construction)
-            var hutQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
-
             using var huts = hutQuery.ToEntityArray(Allocator.Temp);
             using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -481,17 +469,11 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest non-depleted iron deposit within a specific range (for LOS-based auto-find).
         /// </summary>
-        private static Entity FindNearestDepositWithinRange(EntityManager em, float3 pos, float maxRange)
+        private static Entity FindNearestDepositWithinRange(EntityManager em, float3 pos, float maxRange, EntityQuery depositQuery)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<IronMineTag>(),
-                ComponentType.ReadOnly<IronDepositState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var deposits = query.ToEntityArray(Allocator.Temp);
-            using var states = query.ToComponentDataArray<IronDepositState>(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var deposits = depositQuery.ToEntityArray(Allocator.Temp);
+            using var states = depositQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
+            using var transforms = depositQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
@@ -514,17 +496,11 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest non-depleted iron deposit within search radius.
         /// </summary>
-        private static Entity FindNearestDeposit(EntityManager em, float3 pos)
+        private static Entity FindNearestDeposit(EntityManager em, float3 pos, EntityQuery depositQuery)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<IronMineTag>(),
-                ComponentType.ReadOnly<IronDepositState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var deposits = query.ToEntityArray(Allocator.Temp);
-            using var states = query.ToComponentDataArray<IronDepositState>(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var deposits = depositQuery.ToEntityArray(Allocator.Temp);
+            using var states = depositQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
+            using var transforms = depositQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
@@ -547,17 +523,11 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest non-depleted creature cadaver within search radius.
         /// </summary>
-        private static Entity FindNearestCadaver(EntityManager em, float3 pos)
+        private static Entity FindNearestCadaver(EntityManager em, float3 pos, EntityQuery cadaverQuery)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CadaverTag>(),
-                ComponentType.ReadOnly<CadaverState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var cadavers = query.ToEntityArray(Allocator.Temp);
-            using var states = query.ToComponentDataArray<CadaverState>(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var cadavers = cadaverQuery.ToEntityArray(Allocator.Temp);
+            using var states = cadaverQuery.ToComponentDataArray<CadaverState>(Allocator.Temp);
+            using var transforms = cadaverQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
