@@ -180,6 +180,15 @@ public struct RestorationAura : IComponentData
     public float HealTimer;
 }
 
+// ==================== Laser Projectile ====================
+
+/// <summary>
+/// Marks a projectile as a laser beam instead of an arrow.
+/// ProjectileVisualSystem uses this to render a laser visual
+/// (glowing beam) instead of the default arrow model.
+/// </summary>
+public struct LaserProjectileTag : IComponentData { }
+
 // ==================== Crystal Buff / Debuff ====================
 
 /// <summary>

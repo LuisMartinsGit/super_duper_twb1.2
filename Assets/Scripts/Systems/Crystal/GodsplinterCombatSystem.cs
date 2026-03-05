@@ -26,7 +26,7 @@ namespace TheWaningBorder.Systems.Crystal
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct GodsplinterCombatSystem : ISystem
     {
-        private const float LaserSpeed = 35f;
+        private const float LaserSpeed = 55f;
         private const float SiegeCooldownDuration = 3.0f;
         private const float LaserCooldownDuration = 2.0f;
         private const int BuildingDamageMultiplier = 2;
@@ -287,6 +287,9 @@ namespace TheWaningBorder.Systems.Crystal
                 Target = targetEntity,
                 Faction = faction
             });
+
+            // Mark as laser for visual system (renders glowing beam instead of arrow)
+            ecb.AddComponent<LaserProjectileTag>(laser);
         }
 
         private struct LaserTarget

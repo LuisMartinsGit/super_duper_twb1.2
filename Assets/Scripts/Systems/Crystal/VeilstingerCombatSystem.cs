@@ -26,8 +26,14 @@ namespace TheWaningBorder.Systems.Crystal
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct VeilstingerCombatSystem : ISystem
     {
-        private const float LaserSpeed = 40f;
+        private const float LaserSpeed = 60f;
         private const float FireCooldown = 1.5f;
+
+        // Gun offset constants relative to the unit's center
+        // These approximate the leftgun/rightgun child positions on the Veilstinger prefab
+        private const float GunSideOffset = 0.5f;   // Left/right distance from center
+        private const float GunHeightOffset = 1.2f;  // Height above ground
+        private const float GunForwardOffset = 0.3f; // Slightly in front of center
 
         public void OnCreate(ref SystemState state)
         {
@@ -151,8 +157,25 @@ namespace TheWaningBorder.Systems.Crystal
                             dmg = math.max(1, dmg);
                         }
 
-                        // Fire primary laser at Target1
-                        CreateLaser(ref ecb, myPos, targetPos, dist, entity, myFaction, dmg, time, tgt.Value);
+                        // Compute gun world positions based on facing direction
+                        var facingDir = math.normalizesafe(
+                            new float3(targetPos.x - myPos.x, 0, targetPos.z - myPos.z),
+                            new float3(0, 0, 1));
+                        var rightDir = math.cross(new float3(0, 1, 0), facingDir);
+
+                        float3 leftGunPos = myPos
+                            + facingDir * GunForwardOffset
+                            - rightDir * GunSideOffset
+                            + new float3(0, GunHeightOffset, 0);
+
+                        float3 rightGunPos = myPos
+                            + facingDir * GunForwardOffset
+                            + rightDir * GunSideOffset
+                            + new float3(0, GunHeightOffset, 0);
+
+                        // Fire primary laser from left gun at Target1
+                        CreateLaserFromGun(ref ecb, leftGunPos, targetPos,
+                            dist, entity, myFaction, dmg, time, tgt.Value);
 
                         // Find secondary target: nearest enemy within range that isn't primary
                         Entity secondTarget = Entity.Null;
@@ -176,15 +199,19 @@ namespace TheWaningBorder.Systems.Crystal
                             }
                         }
 
-                        // Fire second laser if secondary target found
+                        // Fire second laser from right gun if secondary target found
                         if (secondTarget != Entity.Null)
                         {
                             vs.Target2 = secondTarget;
-                            CreateLaser(ref ecb, myPos, secondPos, bestDist, entity, myFaction, dmg, time, secondTarget);
+                            CreateLaserFromGun(ref ecb, rightGunPos, secondPos,
+                                bestDist, entity, myFaction, dmg, time, secondTarget);
                         }
                         else
                         {
+                            // No second target — fire right gun at primary target too
                             vs.Target2 = Entity.Null;
+                            CreateLaserFromGun(ref ecb, rightGunPos, targetPos,
+                                dist, entity, myFaction, dmg, time, tgt.Value);
                         }
 
                         // Reset cooldown and aim
@@ -237,12 +264,13 @@ namespace TheWaningBorder.Systems.Crystal
         }
 
         /// <summary>
-        /// Create a laser projectile entity (reuses Projectile + ArrowProjectile pattern).
+        /// Create a laser projectile entity spawned from a specific gun position.
+        /// The gunPos is already the world-space position of the gun tip (height included).
         /// </summary>
-        private static void CreateLaser(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
+        private static void CreateLaserFromGun(ref EntityCommandBuffer ecb, float3 gunPos, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity)
         {
-            var direction = math.normalize(targetPos - start);
+            var direction = math.normalize(targetPos - gunPos);
             var velocity = direction * LaserSpeed;
             var flightTime = distance / LaserSpeed;
 
@@ -250,7 +278,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             ecb.AddComponent(laser, new LocalTransform
             {
-                Position = start + new float3(0, 1.2f, 0), // Spawn at unit height
+                Position = gunPos, // Spawn directly at gun tip position
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });
@@ -265,7 +293,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             ecb.AddComponent(laser, new Projectile
             {
-                Start = start,
+                Start = gunPos,
                 End = targetPos,
                 StartTime = time,
                 FlightTime = flightTime,
@@ -273,6 +301,9 @@ namespace TheWaningBorder.Systems.Crystal
                 Target = targetEntity,
                 Faction = faction
             });
+
+            // Mark as laser for visual system (renders glowing beam instead of arrow)
+            ecb.AddComponent<LaserProjectileTag>(laser);
         }
 
         private static float DistXZ(float3 a, float3 b)

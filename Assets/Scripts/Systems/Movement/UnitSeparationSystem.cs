@@ -6,6 +6,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Systems.Movement
 {
@@ -31,6 +32,8 @@ namespace TheWaningBorder.Systems.Movement
         private const float MinSeparation = 0.1f;
         private const float UpdateInterval = 0.1f; // 10 updates/sec
         private const float CellSize = 3f; // Grid cell size for spatial hashing
+        private const float MaxWalkableSlope = 0.55f; // Must match MovementSystem
+        private const float SlopeCheckStep = 1.5f;    // Must match MovementSystem
 
         private double _lastUpdateTime;
 
@@ -41,7 +44,7 @@ namespace TheWaningBorder.Systems.Movement
             _lastUpdateTime = 0;
         }
 
-        [BurstCompile]
+        // Not Burst-compiled: uses managed TerrainUtility.GetHeight for slope checks
         public void OnUpdate(ref SystemState state)
         {
             var currentTime = SystemAPI.Time.ElapsedTime;
@@ -186,6 +189,10 @@ namespace TheWaningBorder.Systems.Movement
                     float pushMultiplier = isMoving ? 0.3f : 1.0f;
                     float3 newPos = myPos + pushDirection * PushForce * dt * pushMultiplier;
 
+                    // === SLOPE CHECK: don't push units onto impassable terrain ===
+                    if (IsSlopeTooSteep(newPos))
+                        continue; // Skip this push — terrain is impassable
+
                     var transform = em.GetComponentData<LocalTransform>(allUnits[i]);
                     transform.Position = newPos;
                     em.SetComponentData(allUnits[i], transform);
@@ -257,6 +264,9 @@ namespace TheWaningBorder.Systems.Movement
 
                     if (math.lengthsq(correctedPos - myPos) > 0.0001f)
                     {
+                        // Don't push units onto impassable slopes
+                        if (IsSlopeTooSteep(correctedPos)) continue;
+
                         var transform = em.GetComponentData<LocalTransform>(units2[i]);
                         transform.Position = correctedPos;
                         em.SetComponentData(units2[i], transform);
@@ -325,6 +335,9 @@ namespace TheWaningBorder.Systems.Movement
 
                     if (math.lengthsq(correctedPos - myPos) > 0.0001f)
                     {
+                        // Don't push units onto impassable slopes
+                        if (IsSlopeTooSteep(correctedPos)) continue;
+
                         var transform = em.GetComponentData<LocalTransform>(units3[i]);
                         transform.Position = correctedPos;
                         em.SetComponentData(units3[i], transform);
@@ -362,6 +375,25 @@ namespace TheWaningBorder.Systems.Movement
                 (int)math.floor(position.x / CellSize),
                 (int)math.floor(position.z / CellSize)
             );
+        }
+
+        /// <summary>
+        /// Check if terrain slope at a position exceeds walkable limit.
+        /// Uses the same algorithm as MovementSystem for consistency.
+        /// NOTE: Not Burst-compatible (calls managed TerrainUtility) but
+        /// UnitSeparationSystem is already not fully Burst-compiled due to
+        /// EntityManager calls, so this is acceptable.
+        /// </summary>
+        private static bool IsSlopeTooSteep(float3 pos)
+        {
+            float hL = TerrainUtility.GetHeight(pos.x - SlopeCheckStep, pos.z);
+            float hR = TerrainUtility.GetHeight(pos.x + SlopeCheckStep, pos.z);
+            float hD = TerrainUtility.GetHeight(pos.x, pos.z - SlopeCheckStep);
+            float hU = TerrainUtility.GetHeight(pos.x, pos.z + SlopeCheckStep);
+            float dX = (hR - hL) / (SlopeCheckStep * 2f);
+            float dZ = (hU - hD) / (SlopeCheckStep * 2f);
+            float slope = math.sqrt(dX * dX + dZ * dZ);
+            return slope > MaxWalkableSlope;
         }
 
         /// <summary>

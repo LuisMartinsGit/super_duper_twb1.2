@@ -67,10 +67,10 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 315, "Procedural/CrystalRestorationNode" },         // CrystalRestorationNode (generated at runtime)
         { 316, "Procedural/CrystalTurretNode" },              // CrystalTurretNode (generated at runtime)
 
-        // Crystal Units (procedurally generated)
-        { 320, "Procedural/Crystalling" },                     // Crystalling (generated at runtime)
-        { 321, "Procedural/Veilstinger" },                     // Veilstinger (generated at runtime)
-        { 322, "Procedural/Godsplinter" },                     // Godsplinter (generated at runtime)
+        // Crystal Units (prefabs in Resources/Prefabs/Curse/Units/)
+        { 320, "Prefabs/Curse/Units/Crystallings" },            // Crystalling unit prefab
+        { 321, "Prefabs/Curse/Units/Veilstingers" },            // Veilstinger unit prefab
+        { 322, "Prefabs/Curse/Units/Godsplinters" },            // Godsplinter unit prefab
     };
 
     /// <summary>Presentation ID for cursed ground tiles.</summary>
@@ -244,16 +244,32 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === CRYSTAL CURSE: procedural cursed ground tile ===
+        // === CRYSTAL CURSE: paint terrain splatmap instead of spawning visible plane ===
         if (presentationId == CursedGroundPresentationId)
         {
             float radius = _em.HasComponent<Radius>(entity) ? _em.GetComponentData<Radius>(entity).Value : 2f;
-            var go = CreateProceduralCursedGround(pos, radius, entity);
+            if (ProceduralTerrain.Instance != null)
+            {
+                ProceduralTerrain.Instance.PaintCursedGround(pos.x, pos.z, radius);
+            }
+            // Return a minimal hidden root so PresentationSpawnSystem tracks this entity
+            // (needed for cleanup when entity is destroyed, e.g. crystal node killed)
+            var go = new GameObject($"CursedGround_{entity.Index}");
+            go.transform.position = pos;
+            go.SetActive(false); // Invisible — terrain painting is the visual
             return go;
         }
 
-        // === CRYSTAL NODES & UNITS: procedural crystal-themed visuals ===
-        if (presentationId >= 310 && presentationId <= 322 && presentationId != 311)
+        // === CRYSTAL LOOT PILE (cadaver): procedural crystal cluster on the ground ===
+        if (presentationId == 301)
+        {
+            var go = CreateProceduralCadaverLoot(pos, entity);
+            return go;
+        }
+
+        // === CRYSTAL NODES (buildings): procedural crystal-themed visuals ===
+        // Crystal UNITS (320-322) use actual prefabs, so they fall through to prefab loading below
+        if (presentationId >= 310 && presentationId <= 316 && presentationId != 311)
         {
             var go = CreateProceduralCrystalEntity(pos, presentationId, entity);
             return go;
@@ -304,6 +320,14 @@ public class PresentationSpawnSystem : MonoBehaviour
         if (entityRef == null)
             entityRef = goInst.AddComponent<EntityReference>();
         entityRef.Entity = entity;
+
+        // Attach VeilstingerGunTracker for Veilstinger units (PresentationId 321)
+        // This rotates leftgun/rightgun children to LookAt their respective targets
+        if (presentationId == 321)
+        {
+            var gunTracker = goInst.AddComponent<VeilstingerGunTracker>();
+            gunTracker.Entity = entity;
+        }
 
         // Apply faction coloring
         ApplyFactionColor(goInst, entity);
@@ -1006,6 +1030,77 @@ public class PresentationSpawnSystem : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════
     // CRYSTAL ENTITY PROCEDURAL GENERATION
     // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Creates a procedural crystal loot pile visual for cadaver/death-drop entities.
+    /// Small cluster of glowing purple crystal shards on the ground, mineable by workers.
+    /// </summary>
+    private GameObject CreateProceduralCadaverLoot(Vector3 center, Entity entity)
+    {
+        var root = new GameObject($"CrystalLoot_{entity.Index}");
+        root.transform.position = center;
+
+        var lootColor = new Color(0.50f, 0.18f, 0.65f);    // Purple crystal
+        var glowColor = new Color(0.65f, 0.30f, 0.80f);    // Lighter glow
+
+        // Create a small cluster of 3-5 crystal shards
+        int shardCount = Random.Range(3, 6);
+        for (int i = 0; i < shardCount; i++)
+        {
+            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shard.name = $"Shard_{i}";
+            shard.transform.SetParent(root.transform);
+
+            // Randomize position in a small area
+            float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
+            float dist = Random.Range(0.05f, 0.3f);
+            float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
+            float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
+
+            // Tall thin crystal shard shape
+            float height = Random.Range(0.3f, 0.7f);
+            float width = Random.Range(0.08f, 0.15f);
+            shard.transform.localPosition = new Vector3(x, height * 0.5f, z);
+            shard.transform.localScale = new Vector3(width, height, width);
+
+            // Tilt each shard slightly outward from center
+            float tiltAngle = Random.Range(5f, 25f);
+            shard.transform.localRotation = Quaternion.Euler(
+                Random.Range(-tiltAngle, tiltAngle),
+                angle + Random.Range(-30f, 30f),
+                Random.Range(-tiltAngle, tiltAngle));
+
+            // Remove collider from individual shards
+            var col = shard.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+
+            // Crystal material with emission
+            var renderer = shard.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                var mat = new Material(
+                    Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                mat.color = Color.Lerp(lootColor, glowColor, Random.Range(0f, 0.5f));
+                if (mat.HasProperty("_EmissionColor"))
+                {
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetColor("_EmissionColor", glowColor * Random.Range(1.5f, 3f));
+                }
+                renderer.material = mat;
+            }
+        }
+
+        // Add a box collider to the root for selection/raycasting
+        var boxCol = root.AddComponent<BoxCollider>();
+        boxCol.size = new Vector3(0.8f, 0.6f, 0.8f);
+        boxCol.center = Vector3.up * 0.3f;
+
+        // Add EntityReference for raycasting/selection
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
 
     /// <summary>
     /// Create a procedural visual for crystal nodes (buildings) and crystal units.
