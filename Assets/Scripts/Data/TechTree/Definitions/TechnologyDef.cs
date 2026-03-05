@@ -29,7 +29,15 @@ namespace TheWaningBorder.Data
 
         // ==================== Economy ====================
         public CostBlock cost;
-        
+
+        // ==================== Effects ====================
+        /// <summary>
+        /// Stat modifiers applied when this technology is researched.
+        /// Parsed from the "effects" sub-object in TechTree.json.
+        /// Null if the technology has no stat effects (e.g. age-up techs).
+        /// </summary>
+        public TechEffects effects;
+
         // ==================== Helpers ====================
         
         /// <summary>
@@ -44,9 +52,41 @@ namespace TheWaningBorder.Data
     }
     
     // ═══════════════════════════════════════════════════════════════════════
+    // TECHNOLOGY EFFECTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Stat modifiers granted by researching a technology.
+    /// Each field corresponds to a JSON key in the "effects" block of TechTree.json.
+    /// Values of 0 mean "no effect" for that stat.
+    /// </summary>
+    [Serializable]
+    public class TechEffects
+    {
+        /// <summary>Multiplier for miner gather speed (e.g. 1.15 = 15% faster).</summary>
+        public float gatherSpeedMult;
+
+        /// <summary>Flat bonus added to miner carry capacity (e.g. 10).</summary>
+        public int carryCapacityBonus;
+
+        /// <summary>Multiplier for melee attack speed (e.g. 1.1 = 10% faster attacks).</summary>
+        public float meleeAttackSpeedMult;
+
+        /// <summary>Flat bonus added to melee defense (e.g. 1).</summary>
+        public int meleeDefenseAdd;
+
+        /// <summary>
+        /// Returns true if at least one effect field has a non-zero value.
+        /// </summary>
+        public bool HasAnyEffect =>
+            gatherSpeedMult != 0f || carryCapacityBonus != 0 ||
+            meleeAttackSpeedMult != 0f || meleeDefenseAdd != 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SUPPORTING DATA STRUCTURES
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Defines a sect (religious/magical faction variant).
     /// Used for Era progression and special abilities.

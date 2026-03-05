@@ -396,7 +396,8 @@ public sealed class TechTreeDB : MonoBehaviour
             researchTime = ParseFloat(techJson, "researchTime", 0, 30),
             researchAt = ParseString(techJson, "researchAt", ""),
             cost = ParseCostBlock(techJson),
-            prerequisites = ParseStringArray(techJson, "requires")
+            prerequisites = ParseStringArray(techJson, "requires"),
+            effects = ParseTechEffects(techJson)
         };
 
         _technologiesById[techId] = tech;
@@ -491,6 +492,29 @@ public sealed class TechTreeDB : MonoBehaviour
         cost.Glow = (int)ParseFloat(costBlock, "Glow", 0, 0);
         
         return cost;
+    }
+
+    TechEffects ParseTechEffects(string json)
+    {
+        int effectsIndex = json.IndexOf("\"effects\":");
+        if (effectsIndex == -1) return null;
+
+        int blockStart = json.IndexOf("{", effectsIndex);
+        int blockEnd = json.IndexOf("}", blockStart);
+
+        if (blockStart == -1 || blockEnd == -1) return null;
+
+        string effectsBlock = json.Substring(blockStart, blockEnd - blockStart + 1);
+
+        var effects = new TechEffects
+        {
+            gatherSpeedMult = ParseFloat(effectsBlock, "gatherSpeedMult", 0, 0),
+            carryCapacityBonus = (int)ParseFloat(effectsBlock, "carryCapacityBonus", 0, 0),
+            meleeAttackSpeedMult = ParseFloat(effectsBlock, "meleeAttackSpeedMult", 0, 0),
+            meleeDefenseAdd = (int)ParseFloat(effectsBlock, "meleeDefenseAdd", 0, 0)
+        };
+
+        return effects.HasAnyEffect ? effects : null;
     }
 
     string[] ParseStringArray(string json, string fieldName)
