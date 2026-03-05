@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Collections;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
@@ -118,6 +119,27 @@ namespace TheWaningBorder.UI
                 }
             }
 
+            // Temple level and era info
+            if (em.HasComponent<TempleTag>(entity) && em.HasComponent<TempleLevel>(entity))
+            {
+                var templeLevel = em.GetComponentData<TempleLevel>(entity);
+                int era = TempleLevelConfig.GetEraForLevel(templeLevel.Level);
+                string levelStr = templeLevel.Level >= TempleLevelConfig.MaxLevel
+                    ? $"Level {templeLevel.Level} (Max)"
+                    : $"Level {templeLevel.Level}";
+                info.Description += (info.Description.Length > 0 ? "\n" : "")
+                    + $"Temple {levelStr} | Era {era}";
+
+                // Show faction RP
+                if (em.HasComponent<FactionTag>(entity))
+                {
+                    var faction = em.GetComponentData<FactionTag>(entity).Value;
+                    int rp = GetFactionReligionPoints(em, faction);
+                    if (rp > 0)
+                        info.Description += $"\nReligion Points: {rp}";
+                }
+            }
+
             // Forge storage info
             if (em.HasComponent<ForgeStorage>(entity))
             {
@@ -212,6 +234,54 @@ namespace TheWaningBorder.UI
 
             return "Unit";
         }
+
+        /// <summary>
+        /// Get the current era for a faction from its bank entity.
+        /// Returns 1 if not found.
+        /// </summary>
+        public static int GetFactionEra(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<FactionEra>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var eras = query.ToComponentDataArray<FactionEra>(Allocator.Temp);
+
+            for (int i = 0; i < tags.Length; i++)
+            {
+                if (tags[i].Value == faction)
+                    return eras[i].Value;
+            }
+
+            return 1;
+        }
+
+        /// <summary>
+        /// Get the current religion points for a faction.
+        /// Returns 0 if not found.
+        /// </summary>
+        public static int GetFactionReligionPoints(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<ReligionPoints>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var rps = query.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+
+            for (int i = 0; i < tags.Length; i++)
+            {
+                if (tags[i].Value == faction)
+                    return rps[i].Value;
+            }
+
+            return 0;
+        }
     }
 
     /// <summary>
@@ -241,6 +311,16 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<VaultTag>(entity) && em.HasComponent<VaultStorage>(entity))
             {
                 info.Type = ActionType.VaultManagement;
+                return info;
+            }
+
+            // Check if this is a temple (training + level-up)
+            if (em.HasComponent<TempleTag>(entity) && em.HasComponent<TempleLevel>(entity)
+                && em.HasComponent<TrainingState>(entity))
+            {
+                info.Type = ActionType.TempleUpgrade;
+                info.Actions = GetTrainingActions(entity, em);
+                info.TrainingState = GetTrainingInfo(entity, em);
                 return info;
             }
 
@@ -312,6 +392,11 @@ namespace TheWaningBorder.UI
                 hallEntities.Dispose();
             }
 
+            // Get faction era for era gating
+            int factionEra = !em.Equals(default(EntityManager))
+                ? EntityInfoExtractor.GetFactionEra(em, faction)
+                : 1;
+
             if (TechTreeDB.Instance != null)
             {
                 foreach (var building in TechTreeDB.Instance.GetAllBuildings())
@@ -326,6 +411,10 @@ namespace TheWaningBorder.UI
                     // Data-driven culture gating: buildings with culture prefix require that culture
                     byte requiredCulture = GetRequiredCulture(building.id);
                     if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
+                        continue;
+
+                    // Era gating: buildings with minEra require that era or higher
+                    if (building.minEra > 0 && building.minEra > factionEra)
                         continue;
 
                     // Alanthor cannot build Gatherer's Huts (they use walls for income)

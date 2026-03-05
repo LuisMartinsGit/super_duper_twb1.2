@@ -67,7 +67,8 @@ public struct EntityDisplayInfo
         BuildingPlacement,
         UnitTraining,
         VaultManagement,
-        UnitTrainingAndResearch
+        UnitTrainingAndResearch,
+        TempleUpgrade
     }
 
     /// <summary>
