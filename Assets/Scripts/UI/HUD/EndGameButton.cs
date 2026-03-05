@@ -12,6 +12,9 @@ namespace TheWaningBorder.UI.HUD
     /// </summary>
     public class EndGameButton : MonoBehaviour
     {
+        /// <summary>Set to true by VictoryConditionSystem when the game ends automatically.</summary>
+        public static bool GameEndedBySystem = false;
+
         private const float ButtonWidth = 100f;
         private const float ButtonHeight = 28f;
         private const float Margin = 10f;
@@ -20,8 +23,16 @@ namespace TheWaningBorder.UI.HUD
         private bool _stylesInit;
         private bool _showConfirm;
 
+        void Awake()
+        {
+            GameEndedBySystem = false;
+        }
+
         void OnGUI()
         {
+            // Don't show if game ended via victory/defeat system
+            if (GameEndedBySystem) return;
+
             // Don't show if post-game stats are visible
             if (PostGameStatsUI.IsVisible) return;
 
@@ -48,7 +59,7 @@ namespace TheWaningBorder.UI.HUD
                     "", GUI.skin.box);
 
                 GUI.Label(new Rect(cx, y, confirmWidth, 20),
-                    "End this game?",
+                    "Surrender?",
                     new GUIStyle(GUI.skin.label)
                     {
                         alignment = TextAnchor.MiddleCenter,
@@ -56,7 +67,7 @@ namespace TheWaningBorder.UI.HUD
                         normal = { textColor = new Color(1f, 0.85f, 0.4f) }
                     });
 
-                if (GUI.Button(new Rect(cx, y + 22, 100, ButtonHeight), "Yes, End"))
+                if (GUI.Button(new Rect(cx, y + 22, 100, ButtonHeight), "Surrender"))
                 {
                     _showConfirm = false;
                     EndGame();
@@ -71,13 +82,19 @@ namespace TheWaningBorder.UI.HUD
 
         private void EndGame()
         {
-            // Tell the tracker to record final state
+            // Route through VictoryConditionSystem for proper elimination tracking
+            if (VictoryConditionSystem.Instance != null)
+            {
+                VictoryConditionSystem.Instance.Surrender();
+                return;
+            }
+
+            // Fallback: original behavior when VictoryConditionSystem is unavailable
             if (GameStatsTracker.Instance != null)
             {
                 GameStatsTracker.Instance.EndGame();
             }
 
-            // Show post-game stats
             var statsUI = PostGameStatsUI.Instance;
             if (statsUI == null)
             {

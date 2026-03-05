@@ -52,6 +52,10 @@ namespace TheWaningBorder.UI.HUD
         /// <summary>Whether the game has ended.</summary>
         public bool GameEnded { get; private set; }
 
+        /// <summary>Records when each faction was eliminated (game time in seconds).</summary>
+        public Dictionary<Faction, float> EliminationTimes { get; private set; }
+            = new Dictionary<Faction, float>();
+
         private EntityWorld _world;
         private EntityManager _em;
         private EntityQuery _banksQuery;
@@ -154,6 +158,18 @@ namespace TheWaningBorder.UI.HUD
                     Population = pop.current,
                     PopulationMax = pop.max
                 });
+            }
+        }
+
+        /// <summary>
+        /// Record when a faction was eliminated from the game.
+        /// </summary>
+        public void RecordElimination(Faction faction, float gameTime)
+        {
+            if (!EliminationTimes.ContainsKey(faction))
+            {
+                EliminationTimes[faction] = gameTime;
+                Debug.Log($"[GameStatsTracker] {faction} eliminated at {gameTime:F1}s");
             }
         }
 

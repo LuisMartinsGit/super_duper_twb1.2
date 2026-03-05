@@ -18,6 +18,12 @@ namespace TheWaningBorder.UI.HUD
         public static PostGameStatsUI Instance { get; private set; }
         public static bool IsVisible { get; private set; }
 
+        /// <summary>Result string shown as banner (VICTORY or DEFEAT). Empty if game ended manually.</summary>
+        public string GameResult { get; private set; } = "";
+
+        /// <summary>The faction that won the game.</summary>
+        public Faction WinnerFaction { get; private set; }
+
         // Graph settings
         private const float GRAPH_HEIGHT = 200f;
         private const float GRAPH_PADDING = 20f;
@@ -30,6 +36,9 @@ namespace TheWaningBorder.UI.HUD
         private string[] _factionNames;
         private Faction[] _factionValues;
         private readonly string[] _graphNames = { "Supplies", "Iron", "Crystal", "Veilsteel", "Glow", "Population" };
+
+        // Result banner style
+        private GUIStyle _resultStyle;
 
         // Styles
         private GUIStyle _windowStyle;
@@ -87,6 +96,16 @@ namespace TheWaningBorder.UI.HUD
         }
 
         /// <summary>
+        /// Show the post-game stats window with a victory/defeat result banner.
+        /// </summary>
+        public void ShowWithResult(string result, Faction winner)
+        {
+            GameResult = result;
+            WinnerFaction = winner;
+            Show();
+        }
+
+        /// <summary>
         /// Hide the window and resume.
         /// </summary>
         public void Hide()
@@ -132,6 +151,24 @@ namespace TheWaningBorder.UI.HUD
                 GUILayout.Label($"Duration: {minutes}:{seconds:D2}", _labelStyle);
             }
             GUILayout.EndHorizontal();
+
+            // Result banner (VICTORY / DEFEAT)
+            if (!string.IsNullOrEmpty(GameResult))
+            {
+                GUILayout.Space(5);
+                var resultStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 28,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter
+                };
+                resultStyle.normal.textColor = GameResult == "VICTORY"
+                    ? new Color(1f, 0.85f, 0.2f)
+                    : new Color(1f, 0.25f, 0.25f);
+
+                GUILayout.Label(GameResult, resultStyle);
+                GUILayout.Space(5);
+            }
 
             GUILayout.Space(10);
 
