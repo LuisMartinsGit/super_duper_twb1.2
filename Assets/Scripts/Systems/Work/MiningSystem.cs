@@ -79,6 +79,9 @@ namespace TheWaningBorder.Systems.Work
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
 
+            // Temp ECB for structural changes (RemoveComponent) during iteration
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
             foreach (var (minerState, transform, faction, entity) in SystemAPI
                      .Query<RefRW<MinerState>, RefRO<LocalTransform>, RefRO<FactionTag>>()
                      .WithAll<MinerTag>()
@@ -110,7 +113,7 @@ namespace TheWaningBorder.Systems.Work
                 switch (miner.State)
                 {
                     case MinerWorkState.Idle:
-                        ProcessIdleState(ref miner, em, entity, pos, fac);
+                        ProcessIdleState(ref miner, em, ecb, entity, pos, fac);
                         break;
 
                     case MinerWorkState.MovingToDeposit:
@@ -126,15 +129,18 @@ namespace TheWaningBorder.Systems.Work
                         break;
                 }
             }
+
+            ecb.Playback(em);
+            ecb.Dispose();
         }
 
-        private void ProcessIdleState(ref MinerState miner, EntityManager em, Entity entity, float3 pos, Faction fac)
+        private void ProcessIdleState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac)
         {
             // Check for explicit GatherCommand (from player right-click or AI)
             if (em.HasComponent<GatherCommand>(entity))
             {
                 var gatherCmd = em.GetComponentData<GatherCommand>(entity);
-                em.RemoveComponent<GatherCommand>(entity);
+                ecb.RemoveComponent<GatherCommand>(entity);
 
                 if (gatherCmd.ResourceNode == Entity.Null || !em.Exists(gatherCmd.ResourceNode))
                     return;
