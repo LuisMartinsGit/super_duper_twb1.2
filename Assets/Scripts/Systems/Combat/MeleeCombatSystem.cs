@@ -114,7 +114,17 @@ namespace TheWaningBorder.Systems.Combat
                 }
                 else
                 {
-                    // Out of range - chase target
+                    // Out of range - hold position units do NOT chase
+                    if (em.HasComponent<HoldPositionTag>(entity))
+                    {
+                        // Clear target so unit stays put
+                        tgt.Value = Entity.Null;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
+                    }
+
+                    // Chase target
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination

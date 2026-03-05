@@ -414,6 +414,11 @@ namespace TheWaningBorder.Systems.Combat
                 var los = lineOfSight.ValueRO.Radius;
                 var distToGuard = DistXZ(myPos, gpPos);
 
+                // Hold position units: do NOT return to guard point or chase
+                // They stay exactly where they are
+                if (em.HasComponent<HoldPositionTag>(entity))
+                    continue;
+
                 // Attack-move units: resume advancing toward destination after combat
                 // instead of returning to guard point (guard point IS the destination)
                 if (em.HasComponent<AttackMoveTag>(entity))

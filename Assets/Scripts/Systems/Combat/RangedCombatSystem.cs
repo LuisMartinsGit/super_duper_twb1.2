@@ -175,10 +175,21 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
                 // =============================================================================
-                // BEHAVIOR: Too far - CHASE
+                // BEHAVIOR: Too far - CHASE (unless holding position)
                 // =============================================================================
                 else
                 {
+                    // Hold position units do NOT chase - clear target instead
+                    if (em.HasComponent<HoldPositionTag>(entity))
+                    {
+                        tgt.Value = Entity.Null;
+                        archer.CurrentTarget = Entity.Null;
+                        archer.AimTimer = 0;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
+                    }
+
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
 
