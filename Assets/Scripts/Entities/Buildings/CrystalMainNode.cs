@@ -12,7 +12,7 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalMainNode
     {
-        private const int DefaultHP = 800;
+        private const int DefaultHP = 1500;
         private const float DefaultRadius = 2.5f;
         private const float DefaultSpreadRadius = 15f;
         private const float DefaultSpreadPerTick = 1f;
@@ -33,6 +33,7 @@ namespace TheWaningBorder.Entities
                 typeof(FactionTag),
                 typeof(Health),
                 typeof(Radius),
+                typeof(BuildingTag),
                 typeof(CrystalTag),
                 typeof(CrystalMainNodeTag),
                 typeof(CrystalNode),
@@ -45,6 +46,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new Health { Value = DefaultHP, Max = DefaultHP });
             em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalNode
             {
                 IsMain = 1,
@@ -83,6 +85,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new Health { Value = DefaultHP, Max = DefaultHP });
             ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent<CrystalMainNodeTag>(entity);
             ecb.AddComponent(entity, new CrystalNode
