@@ -282,11 +282,14 @@ namespace TheWaningBorder.UI.Panels
         /// Draw the Temple of Ridan level-up panel with training section and upgrade button.
         /// Shows training actions, training progress/queue, and a level-up button below.
         /// </summary>
+        /// <summary>Scroll position for the temple panel (sect list can be long).</summary>
+        private Vector2 _templePanelScroll;
+
         private void DrawTempleLevelUpPanel(Entity entity, EntityActionInfo actionInfo)
         {
             PanelVisible = true;
 
-            float totalPanelHeight = 420f;
+            float totalPanelHeight = 620f;
             var panelRect = new Rect(
                 PanelPadding + 300f + PanelPadding,
                 Screen.height - totalPanelHeight - PanelPadding,
@@ -305,6 +308,7 @@ namespace TheWaningBorder.UI.Panels
             );
 
             GUILayout.BeginArea(innerRect);
+            _templePanelScroll = GUILayout.BeginScrollView(_templePanelScroll);
 
             // ── Training Section ──
             if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
@@ -371,6 +375,18 @@ namespace TheWaningBorder.UI.Panels
             // ── Temple Level-Up Section ──
             DrawTempleLevelUpSection(entity);
 
+            // ── Sect Adoption Section ──
+            {
+                var em2 = UnifiedUIManager.GetEntityManager();
+                Faction sectFaction = GameSettings.LocalPlayerFaction;
+                if (!em2.Equals(default(EntityManager)) && em2.Exists(entity) &&
+                    em2.HasComponent<FactionTag>(entity))
+                    sectFaction = em2.GetComponentData<FactionTag>(entity).Value;
+
+                SectAdoptionPanel.Draw(sectFaction);
+            }
+
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
@@ -467,6 +483,9 @@ namespace TheWaningBorder.UI.Panels
                             em.SetComponentData(bank, rp);
                         }
                     }
+
+                    // Recalculate sect passive scaling (temple level affects multipliers)
+                    SectEffectSystem.Instance?.RecalculateAllPassives(faction);
 
                     Debug.Log($"[TempleUpgrade] {faction} temple upgraded to Level {nextLevel}, Era {nextEra}, +{rpGrant} RP");
                     PlayerNotificationSystem.Notify($"Era {nextEra} reached! +{rpGrant} Religion Points");

@@ -168,6 +168,8 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
             managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
             managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
+            managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
+            managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
