@@ -55,6 +55,9 @@ namespace TheWaningBorder.Entities
                 "Barracks" => Barracks.Create(ecb, position, faction),
                 "Hut" => Hut.Create(ecb, position, faction),
                 "GatherersHut" => GatherersHut.Create(ecb, position, faction),
+                "TempleOfRidan" => CreateTempleOfRidanECB(ecb, position, faction),
+                "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
+                "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
