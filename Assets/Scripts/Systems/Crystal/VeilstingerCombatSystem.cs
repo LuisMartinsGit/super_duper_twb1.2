@@ -143,6 +143,14 @@ namespace TheWaningBorder.Systems.Crystal
                         int dmg = damage.ValueRO.Value;
                         Faction myFaction = faction.ValueRO.Value;
 
+                        // Crystal buff on attacker (bonus damage)
+                        if (em.HasComponent<CrystalBuff>(entity))
+                        {
+                            var buff = em.GetComponentData<CrystalBuff>(entity);
+                            dmg = (int)math.round(dmg * (1f + buff.AttBonus));
+                            dmg = math.max(1, dmg);
+                        }
+
                         // Fire primary laser at Target1
                         CreateLaser(ref ecb, myPos, targetPos, dist, entity, myFaction, dmg, time, tgt.Value);
 

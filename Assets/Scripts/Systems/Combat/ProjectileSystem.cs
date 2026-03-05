@@ -108,8 +108,18 @@ namespace TheWaningBorder.Systems.Combat
                         {
                             if (em.HasComponent<Health>(targetEntity))
                             {
+                                int impactDamage = proj.Damage;
+
+                                // Crystal debuff on defender (takes more damage from projectiles)
+                                if (em.HasComponent<CrystalDebuff>(targetEntity))
+                                {
+                                    var debuff = em.GetComponentData<CrystalDebuff>(targetEntity);
+                                    impactDamage = (int)math.round(impactDamage * (1f + debuff.AttPenalty));
+                                    impactDamage = math.max(1, impactDamage);
+                                }
+
                                 var targetHealth = em.GetComponentData<Health>(targetEntity);
-                                targetHealth.Value -= proj.Damage;
+                                targetHealth.Value -= impactDamage;
 
                                 if (targetHealth.Value <= 0)
                                 {

@@ -58,6 +58,19 @@ public class PresentationSpawnSystem : MonoBehaviour
 
         // Crystal Curse (procedurally generated)
         { 311, "Procedural/CursedGround" },                  // Cursed Ground tile (generated at runtime)
+
+        // Crystal Nodes (procedurally generated)
+        { 310, "Procedural/CrystalMainNode" },                // CrystalMainNode (generated at runtime)
+        { 312, "Procedural/CrystalResourceNode" },            // CrystalResourceNode (generated at runtime)
+        { 313, "Procedural/CrystalEnforcementNode" },         // CrystalEnforcementNode (generated at runtime)
+        { 314, "Procedural/CrystalSuppressionNode" },         // CrystalSuppressionNode (generated at runtime)
+        { 315, "Procedural/CrystalRestorationNode" },         // CrystalRestorationNode (generated at runtime)
+        { 316, "Procedural/CrystalTurretNode" },              // CrystalTurretNode (generated at runtime)
+
+        // Crystal Units (procedurally generated)
+        { 320, "Procedural/Crystalling" },                     // Crystalling (generated at runtime)
+        { 321, "Procedural/Veilstinger" },                     // Veilstinger (generated at runtime)
+        { 322, "Procedural/Godsplinter" },                     // Godsplinter (generated at runtime)
     };
 
     /// <summary>Presentation ID for cursed ground tiles.</summary>
@@ -236,6 +249,13 @@ public class PresentationSpawnSystem : MonoBehaviour
         {
             float radius = _em.HasComponent<Radius>(entity) ? _em.GetComponentData<Radius>(entity).Value : 2f;
             var go = CreateProceduralCursedGround(pos, radius, entity);
+            return go;
+        }
+
+        // === CRYSTAL NODES & UNITS: procedural crystal-themed visuals ===
+        if (presentationId >= 310 && presentationId <= 322 && presentationId != 311)
+        {
+            var go = CreateProceduralCrystalEntity(pos, presentationId, entity);
             return go;
         }
 
@@ -981,6 +1001,250 @@ public class PresentationSpawnSystem : MonoBehaviour
         // The ECS entity handles all gameplay logic (DPS, ownership, etc.)
 
         return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CRYSTAL ENTITY PROCEDURAL GENERATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create a procedural visual for crystal nodes (buildings) and crystal units.
+    /// Uses crystalline shapes with purple/violet tones and emission glow.
+    /// </summary>
+    private GameObject CreateProceduralCrystalEntity(Vector3 center, int presentationId, Entity entity)
+    {
+        bool isUnit = presentationId >= 320; // 320+ are units, 310-316 are nodes/buildings
+        string label = presentationId switch
+        {
+            310 => "CrystalMainNode",
+            312 => "ResourceNode",
+            313 => "EnforcementNode",
+            314 => "SuppressionNode",
+            315 => "RestorationNode",
+            316 => "TurretNode",
+            320 => "Crystalling",
+            321 => "Veilstinger",
+            322 => "Godsplinter",
+            _ => "CrystalEntity"
+        };
+
+        var root = new GameObject($"{label}_{entity.Index}");
+        root.transform.position = center;
+
+        // Crystal color palette
+        var crystalCore = GetCrystalColor(presentationId);
+        var crystalGlow = crystalCore * 1.4f;
+        crystalGlow.a = 1f;
+
+        if (isUnit)
+        {
+            CreateCrystalUnitVisual(root, presentationId, crystalCore, crystalGlow);
+        }
+        else
+        {
+            CreateCrystalNodeVisual(root, presentationId, crystalCore, crystalGlow, entity);
+        }
+
+        // Add collider
+        var boxCol = root.AddComponent<BoxCollider>();
+        if (isUnit)
+        {
+            float unitHeight = presentationId == 322 ? 2.5f : 1.5f; // Godsplinter is taller
+            boxCol.size = new Vector3(1f, unitHeight, 1f);
+            boxCol.center = Vector3.up * (unitHeight * 0.5f);
+        }
+        else
+        {
+            float nodeSize = presentationId == 310 ? 3f : 2f; // Main node is larger
+            boxCol.size = new Vector3(nodeSize, nodeSize * 1.5f, nodeSize);
+            boxCol.center = Vector3.up * (nodeSize * 0.75f);
+        }
+
+        // Add EntityReference
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
+
+    /// <summary>
+    /// Get the base crystal color for a given presentation ID.
+    /// Different sub-node types use different color accents.
+    /// </summary>
+    private static Color GetCrystalColor(int presentationId)
+    {
+        return presentationId switch
+        {
+            310 => new Color(0.55f, 0.15f, 0.70f),  // Main node: deep purple
+            312 => new Color(0.30f, 0.60f, 0.70f),  // Resource: teal-crystal
+            313 => new Color(0.70f, 0.20f, 0.20f),  // Enforcement: crimson
+            314 => new Color(0.50f, 0.10f, 0.55f),  // Suppression: dark violet
+            315 => new Color(0.20f, 0.70f, 0.40f),  // Restoration: emerald
+            316 => new Color(0.70f, 0.50f, 0.15f),  // Turret: amber
+            320 => new Color(0.45f, 0.20f, 0.60f),  // Crystalling: purple
+            321 => new Color(0.35f, 0.15f, 0.55f),  // Veilstinger: dark purple
+            322 => new Color(0.60f, 0.25f, 0.65f),  // Godsplinter: bright violet
+            _ => new Color(0.50f, 0.15f, 0.60f)     // Default crystal purple
+        };
+    }
+
+    /// <summary>
+    /// Create a crystal node/building visual: a central crystal spire with smaller shards around it.
+    /// </summary>
+    private void CreateCrystalNodeVisual(GameObject root, int presentationId, Color coreColor, Color glowColor, Entity entity)
+    {
+        float scale = presentationId == 310 ? 1.5f : 1f; // Main node is 50% larger
+
+        // Central crystal spire (tall elongated cube rotated 45 degrees)
+        var spire = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        spire.name = "CrystalSpire";
+        spire.transform.SetParent(root.transform, false);
+        spire.transform.localPosition = Vector3.up * (1.5f * scale);
+        spire.transform.localScale = new Vector3(0.6f * scale, 3f * scale, 0.6f * scale);
+        spire.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        ApplyCrystalMaterial(spire, coreColor, glowColor);
+        var spireCol = spire.GetComponent<Collider>();
+        if (spireCol != null) Destroy(spireCol);
+
+        // Smaller crystal shards around the base
+        var rng = new System.Random(entity.Index + presentationId);
+        int shardCount = presentationId == 310 ? 5 : 3;
+
+        for (int i = 0; i < shardCount; i++)
+        {
+            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
+            float dist = 0.6f * scale + (float)rng.NextDouble() * 0.4f * scale;
+            float offsetX = Mathf.Cos(angle) * dist;
+            float offsetZ = Mathf.Sin(angle) * dist;
+            float shardHeight = 0.5f + (float)rng.NextDouble() * 1.2f;
+
+            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shard.name = $"Shard_{i}";
+            shard.transform.SetParent(root.transform, false);
+            shard.transform.localPosition = new Vector3(offsetX, shardHeight * 0.5f * scale, offsetZ);
+            shard.transform.localScale = new Vector3(0.25f * scale, shardHeight * scale, 0.25f * scale);
+            shard.transform.localRotation = Quaternion.Euler(
+                (float)rng.NextDouble() * 15f - 7.5f,
+                (float)rng.NextDouble() * 360f,
+                (float)rng.NextDouble() * 15f - 7.5f
+            );
+
+            // Slight color variation per shard
+            float variation = 0.85f + (float)rng.NextDouble() * 0.3f;
+            Color shardColor = coreColor * variation;
+            shardColor.a = 1f;
+            ApplyCrystalMaterial(shard, shardColor, glowColor * 0.6f);
+
+            var shardCol = shard.GetComponent<Collider>();
+            if (shardCol != null) Destroy(shardCol);
+        }
+
+        // Base disc (flat cylinder)
+        var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        basePlate.name = "BasePlate";
+        basePlate.transform.SetParent(root.transform, false);
+        basePlate.transform.localPosition = Vector3.up * 0.05f;
+        basePlate.transform.localScale = new Vector3(1.5f * scale, 0.05f, 1.5f * scale);
+        var darkBase = coreColor * 0.4f;
+        darkBase.a = 1f;
+        ApplyCrystalMaterial(basePlate, darkBase, glowColor * 0.2f);
+        var baseCol = basePlate.GetComponent<Collider>();
+        if (baseCol != null) Destroy(baseCol);
+    }
+
+    /// <summary>
+    /// Create a crystal unit visual: a crystalline humanoid form using primitives.
+    /// </summary>
+    private void CreateCrystalUnitVisual(GameObject root, int presentationId, Color coreColor, Color glowColor)
+    {
+        float scale = presentationId switch
+        {
+            320 => 0.6f,  // Crystalling: small
+            321 => 0.8f,  // Veilstinger: medium
+            322 => 1.2f,  // Godsplinter: large siege
+            _ => 0.8f
+        };
+
+        // Body (elongated sphere)
+        var body = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        body.name = "Body";
+        body.transform.SetParent(root.transform, false);
+        body.transform.localPosition = Vector3.up * (0.8f * scale);
+        body.transform.localScale = new Vector3(0.5f * scale, 0.8f * scale, 0.4f * scale);
+        ApplyCrystalMaterial(body, coreColor, glowColor);
+        var bodyCol = body.GetComponent<Collider>();
+        if (bodyCol != null) Destroy(bodyCol);
+
+        // Head crystal (small cube tilted)
+        var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        head.name = "Head";
+        head.transform.SetParent(root.transform, false);
+        head.transform.localPosition = Vector3.up * (1.4f * scale);
+        head.transform.localScale = Vector3.one * (0.25f * scale);
+        head.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        Color brightCore = coreColor * 1.3f;
+        brightCore.a = 1f;
+        ApplyCrystalMaterial(head, brightCore, glowColor * 1.2f);
+        var headCol = head.GetComponent<Collider>();
+        if (headCol != null) Destroy(headCol);
+
+        // Godsplinter gets extra siege appendages
+        if (presentationId == 322)
+        {
+            var cannon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cannon.name = "SiegeCannon";
+            cannon.transform.SetParent(root.transform, false);
+            cannon.transform.localPosition = new Vector3(0f, 1.2f * scale, 0.5f * scale);
+            cannon.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            cannon.transform.localScale = new Vector3(0.15f * scale, 0.6f * scale, 0.15f * scale);
+            ApplyCrystalMaterial(cannon, coreColor * 0.8f, glowColor * 0.8f);
+            var cannonCol = cannon.GetComponent<Collider>();
+            if (cannonCol != null) Destroy(cannonCol);
+        }
+
+        // Veilstinger gets wing-like crystal shards
+        if (presentationId == 321)
+        {
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var wing = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wing.name = side < 0 ? "LeftWing" : "RightWing";
+                wing.transform.SetParent(root.transform, false);
+                wing.transform.localPosition = new Vector3(0.4f * scale * side, 1f * scale, -0.1f * scale);
+                wing.transform.localScale = new Vector3(0.4f * scale, 0.15f * scale, 0.3f * scale);
+                wing.transform.localRotation = Quaternion.Euler(0f, 0f, -20f * side);
+                ApplyCrystalMaterial(wing, coreColor * 0.9f, glowColor * 0.7f);
+                var wingCol = wing.GetComponent<Collider>();
+                if (wingCol != null) Destroy(wingCol);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Apply a crystalline material with emission glow to a primitive.
+    /// </summary>
+    private static void ApplyCrystalMaterial(GameObject go, Color baseColor, Color emissionColor)
+    {
+        var renderer = go.GetComponent<Renderer>();
+        if (renderer == null) return;
+
+        var mat = new Material(
+            Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+        mat.color = baseColor;
+
+        if (mat.HasProperty("_BaseColor"))
+            mat.SetColor("_BaseColor", baseColor);
+        if (mat.HasProperty("_Metallic"))
+            mat.SetFloat("_Metallic", 0.6f);
+        if (mat.HasProperty("_Smoothness"))
+            mat.SetFloat("_Smoothness", 0.7f);
+        if (mat.HasProperty("_EmissionColor"))
+        {
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", emissionColor * 0.4f);
+        }
+
+        renderer.material = mat;
     }
 
     void OnDestroy()

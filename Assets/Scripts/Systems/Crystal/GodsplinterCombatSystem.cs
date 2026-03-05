@@ -110,6 +110,20 @@ namespace TheWaningBorder.Systems.Crystal
                         siegeDmg *= BuildingDamageMultiplier;
                     }
 
+                    // Crystal buff on attacker (bonus damage)
+                    if (em.HasComponent<CrystalBuff>(entity))
+                    {
+                        var buff = em.GetComponentData<CrystalBuff>(entity);
+                        siegeDmg = (int)math.round(siegeDmg * (1f + buff.AttBonus));
+                    }
+                    // Crystal debuff on defender (takes more damage)
+                    if (em.HasComponent<CrystalDebuff>(tgt.Value))
+                    {
+                        var debuff = em.GetComponentData<CrystalDebuff>(tgt.Value);
+                        siegeDmg = (int)math.round(siegeDmg * (1f + debuff.AttPenalty));
+                    }
+                    siegeDmg = math.max(1, siegeDmg);
+
                     // Apply direct damage to target
                     var health = em.GetComponentData<Health>(tgt.Value);
                     health.Value -= siegeDmg;
@@ -133,6 +147,16 @@ namespace TheWaningBorder.Systems.Crystal
                     }
 
                     int maxTargets = math.max(1, gs.LaserMaxTargets);
+
+                    // Crystal buff on attacker (bonus damage for laser barrage)
+                    int laserDmg = baseDmg;
+                    if (em.HasComponent<CrystalBuff>(entity))
+                    {
+                        var buff = em.GetComponentData<CrystalBuff>(entity);
+                        laserDmg = (int)math.round(laserDmg * (1f + buff.AttBonus));
+                        laserDmg = math.max(1, laserDmg);
+                    }
+                    // Note: CrystalDebuff on targets applied at projectile impact
 
                     // Find up to LaserMaxTargets nearest enemies within laser range
                     var targets = new NativeList<LaserTarget>(maxTargets, Allocator.Temp);
@@ -177,7 +201,7 @@ namespace TheWaningBorder.Systems.Crystal
                     for (int t = 0; t < targets.Length; t++)
                     {
                         CreateLaser(ref ecb, myPos, targets[t].Position,
-                            targets[t].Distance, entity, myFaction, baseDmg, time, targets[t].Entity);
+                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity);
                     }
 
                     if (targets.Length > 0)

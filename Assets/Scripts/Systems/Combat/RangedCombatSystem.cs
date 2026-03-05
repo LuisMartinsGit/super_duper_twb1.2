@@ -164,6 +164,15 @@ namespace TheWaningBorder.Systems.Combat
                         float heightModifier = CalculateHeightDamageModifier(myPos.y, targetPos.y);
                         int finalDamage = CalculateFinalDamage(damage.ValueRO.Value, heightModifier);
 
+                        // Crystal buff on attacker (bonus damage)
+                        if (em.HasComponent<CrystalBuff>(entity))
+                        {
+                            var buff = em.GetComponentData<CrystalBuff>(entity);
+                            finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
+                        }
+                        // Note: CrystalDebuff on target is applied at projectile impact, not here
+                        finalDamage = math.max(1, finalDamage);
+
                         // Create arrow projectile
                         CreateArrow(ref ecb, myPos, targetPos, dist, entity,
                             faction.ValueRO.Value, finalDamage, (float)time, tgt.Value);
