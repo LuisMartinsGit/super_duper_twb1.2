@@ -56,6 +56,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Longhouse" => CreateFeraldisLonghouse(em, position, faction),
                 "Feraldis_TotemTower" => CreateFeraldisTotemTower(em, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
+                // Sect chapel buildings
+                "Chapel_Sect_Renewal" => CreateChapel(em, SectConfig.Renewal, position, faction),
+                "Chapel_Sect_Antiquity" => CreateChapel(em, SectConfig.Antiquity, position, faction),
+                "Chapel_Sect_LivingStone" => CreateChapel(em, SectConfig.LivingStone, position, faction),
+                "Chapel_Sect_VeiledMemory" => CreateChapel(em, SectConfig.VeiledMemory, position, faction),
+                "Chapel_Sect_StillFlame" => CreateChapel(em, SectConfig.StillFlame, position, faction),
+                "Chapel_Sect_QuietVault" => CreateChapel(em, SectConfig.QuietVault, position, faction),
+                "Chapel_Sect_MirrorRite" => CreateChapel(em, SectConfig.MirrorRite, position, faction),
+                "Chapel_Sect_ShardJudgment" => CreateChapel(em, SectConfig.ShardJudgment, position, faction),
+                "Chapel_Sect_EmberAsh" => CreateChapel(em, SectConfig.EmberAsh, position, faction),
+                "Chapel_Sect_HollowBrand" => CreateChapel(em, SectConfig.HollowBrand, position, faction),
+                "Chapel_Sect_FlamewroughtChains" => CreateChapel(em, SectConfig.FlamewroughtChains, position, faction),
+                "Chapel_Sect_UnmakersGrasp" => CreateChapel(em, SectConfig.UnmakersGrasp, position, faction),
                 _ => CreateDefault(em, buildingId, position, faction)
             };
         }
@@ -91,6 +104,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Longhouse" => CreateFeraldisLonghouseECB(ecb, position, faction),
                 "Feraldis_TotemTower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
+                // Sect chapel buildings
+                "Chapel_Sect_Renewal" => CreateChapelECB(ecb, SectConfig.Renewal, position, faction),
+                "Chapel_Sect_Antiquity" => CreateChapelECB(ecb, SectConfig.Antiquity, position, faction),
+                "Chapel_Sect_LivingStone" => CreateChapelECB(ecb, SectConfig.LivingStone, position, faction),
+                "Chapel_Sect_VeiledMemory" => CreateChapelECB(ecb, SectConfig.VeiledMemory, position, faction),
+                "Chapel_Sect_StillFlame" => CreateChapelECB(ecb, SectConfig.StillFlame, position, faction),
+                "Chapel_Sect_QuietVault" => CreateChapelECB(ecb, SectConfig.QuietVault, position, faction),
+                "Chapel_Sect_MirrorRite" => CreateChapelECB(ecb, SectConfig.MirrorRite, position, faction),
+                "Chapel_Sect_ShardJudgment" => CreateChapelECB(ecb, SectConfig.ShardJudgment, position, faction),
+                "Chapel_Sect_EmberAsh" => CreateChapelECB(ecb, SectConfig.EmberAsh, position, faction),
+                "Chapel_Sect_HollowBrand" => CreateChapelECB(ecb, SectConfig.HollowBrand, position, faction),
+                "Chapel_Sect_FlamewroughtChains" => CreateChapelECB(ecb, SectConfig.FlamewroughtChains, position, faction),
+                "Chapel_Sect_UnmakersGrasp" => CreateChapelECB(ecb, SectConfig.UnmakersGrasp, position, faction),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
         }
@@ -127,6 +153,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Longhouse" => 360,
                 "Feraldis_TotemTower" => 361,
                 "Feraldis_SiegeYard" => 362,
+                // Sect chapel buildings
+                "Chapel_Sect_Renewal" => 390,
+                "Chapel_Sect_Antiquity" => 391,
+                "Chapel_Sect_LivingStone" => 392,
+                "Chapel_Sect_VeiledMemory" => 393,
+                "Chapel_Sect_StillFlame" => 394,
+                "Chapel_Sect_QuietVault" => 395,
+                "Chapel_Sect_MirrorRite" => 396,
+                "Chapel_Sect_ShardJudgment" => 397,
+                "Chapel_Sect_EmberAsh" => 398,
+                "Chapel_Sect_HollowBrand" => 399,
+                "Chapel_Sect_FlamewroughtChains" => 400,
+                "Chapel_Sect_UnmakersGrasp" => 401,
                 _ => 100
             };
         }
@@ -166,6 +205,13 @@ namespace TheWaningBorder.Entities
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
+                // Sect chapels can train their unique unit
+                "Chapel_Sect_Renewal" or "Chapel_Sect_Antiquity" or
+                "Chapel_Sect_LivingStone" or "Chapel_Sect_VeiledMemory" or
+                "Chapel_Sect_StillFlame" or "Chapel_Sect_QuietVault" or
+                "Chapel_Sect_MirrorRite" or "Chapel_Sect_ShardJudgment" or
+                "Chapel_Sect_EmberAsh" or "Chapel_Sect_HollowBrand" or
+                "Chapel_Sect_FlamewroughtChains" or "Chapel_Sect_UnmakersGrasp" => true,
                 _ => false
             };
         }
@@ -752,6 +798,102 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SECT CHAPEL BUILDINGS
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Get the chapel presentation ID for a sect.
+        /// Maps sect index in AllSectIds to PID 390-401.
+        /// </summary>
+        private static int GetChapelPresentationId(string sectId)
+        {
+            for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
+            {
+                if (SectConfig.AllSectIds[i] == sectId) return 390 + i;
+            }
+            return 390;
+        }
+
+        /// <summary>
+        /// Create a sect chapel building. All chapels share the same base stats.
+        /// 600 HP, Radius 1.0, LOS 12, ArmorType StructureHuman.
+        /// Trains the sect's unique unit and researches the sect's tech.
+        /// </summary>
+        private static Entity CreateChapel(EntityManager em, string sectId, float3 position, Faction faction)
+        {
+            float hp = 600f;
+            float los = 12f;
+            float radius = 1.0f;
+            int pid = GetChapelPresentationId(sectId);
+
+            var entity = em.CreateEntity(
+                typeof(PresentationId),
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(Health),
+                typeof(LineOfSight),
+                typeof(Radius),
+                typeof(TrainingState)
+            );
+
+            em.SetComponentData(entity, new PresentationId { Id = pid });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            em.AddComponentData(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create a sect chapel building using EntityCommandBuffer.
+        /// </summary>
+        private static Entity CreateChapelECB(EntityCommandBuffer ecb, string sectId, float3 position, Faction faction)
+        {
+            float hp = 600f;
+            float los = 12f;
+            float radius = 1.0f;
+            int pid = GetChapelPresentationId(sectId);
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = pid });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            ecb.AddComponent(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
+
+            return entity;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DEFAULT
+        // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Default building creation for unknown types.

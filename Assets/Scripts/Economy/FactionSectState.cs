@@ -61,6 +61,11 @@ namespace TheWaningBorder.Economy
         private readonly Dictionary<int, SectMultipliers> _multipliersByFaction = new();
 
         /// <summary>
+        /// Researched sect tech flags per faction. Key = (int)Faction.
+        /// </summary>
+        private readonly Dictionary<int, SectTechFlags> _techFlagsByFaction = new();
+
+        /// <summary>
         /// Fired when a sect is successfully adopted. Parameters: (faction, sectId).
         /// Subscribed to by SectEffectSystem to apply entity-level effects.
         /// </summary>
@@ -127,6 +132,20 @@ namespace TheWaningBorder.Economy
             /// <summary>Renewal income bonus value (scaled)</summary>
             public float RenewalIncomeBonus;
 
+            // ── Tech-derived multipliers ──
+
+            /// <summary>Multiplier for magic damage (default 1.0, from RefinedSilverInlays)</summary>
+            public float MagicDamage;
+
+            /// <summary>Spell cooldown reduction (0.0 to 1.0, additive from ClockworkArchives + RefinedSilverInlays)</summary>
+            public float SpellCooldownReduction;
+
+            /// <summary>Additional wall income from TerracePlanning tech (additive)</summary>
+            public float WallIncomeFromTech;
+
+            /// <summary>Out-of-combat HP regen per second from DietaryMandate (0 = none)</summary>
+            public float RegenPerSecond;
+
             /// <summary>Create default multipliers (all 1.0 or 0.0)</summary>
             public static SectMultipliers Default => new SectMultipliers
             {
@@ -146,8 +165,119 @@ namespace TheWaningBorder.Economy
                 PanicChance = 0.0f,
                 ControlChance = 0.0f,
                 HasRenewal = false,
-                RenewalIncomeBonus = 0.0f
+                RenewalIncomeBonus = 0.0f,
+                MagicDamage = 1.0f,
+                SpellCooldownReduction = 0.0f,
+                WallIncomeFromTech = 0.0f,
+                RegenPerSecond = 0.0f
             };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECT TECH FLAGS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Tracks which sect technologies have been researched per faction.
+        /// Each flag corresponds to one sect's unique researchable technology.
+        /// Systems check these flags to apply tech-specific gameplay effects.
+        /// </summary>
+        public struct SectTechFlags
+        {
+            /// <summary>Renewal: All units gain +2 HP/s out-of-combat regen</summary>
+            public bool DietaryMandate;
+            /// <summary>Antiquity: -15% research time, -5% spell cooldowns</summary>
+            public bool ClockworkArchives;
+            /// <summary>LivingStone: +20% Supplies from wall compartment area</summary>
+            public bool TerracePlanning;
+            /// <summary>VeiledMemory: -25% Crystal retaliation from curse ground</summary>
+            public bool HiddenRecords;
+            /// <summary>StillFlame: Trade routes grant +5 armor to nearby units</summary>
+            public bool SanctifiedRoutes;
+            /// <summary>QuietVault: Retain 50% Crystal+Iron on depot destroyed</summary>
+            public bool HiddenLedgers;
+            /// <summary>MirrorRite: +10% magic attack, -10% spell cooldown</summary>
+            public bool RefinedSilverInlays;
+            /// <summary>ShardJudgment: Enemy buildings near trade routes build 20% slower</summary>
+            public bool IronDecrees;
+            /// <summary>EmberAsh: Enemy civilian kills refund +5 extra Supplies</summary>
+            public bool WarTithe;
+            /// <summary>HollowBrand: Enemy morale auras -20% effectiveness</summary>
+            public bool DesecrateStandards;
+            /// <summary>FlamewroughtChains: +1% damage reduction per Veilsteel stored</summary>
+            public bool VeilsteelLinks;
+            /// <summary>UnmakersGrasp: Crystal death drops yield +20% more crystal</summary>
+            public bool ErasureRites;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PUBLIC API - SECT TECHS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Set a sect tech flag for a faction. Called when a sect tech research completes.
+        /// </summary>
+        public void SetTechFlag(Faction faction, string sectId)
+        {
+            int key = (int)faction;
+            if (!_techFlagsByFaction.TryGetValue(key, out var flags))
+                flags = new SectTechFlags();
+
+            switch (sectId)
+            {
+                case SectConfig.Renewal: flags.DietaryMandate = true; break;
+                case SectConfig.Antiquity: flags.ClockworkArchives = true; break;
+                case SectConfig.LivingStone: flags.TerracePlanning = true; break;
+                case SectConfig.VeiledMemory: flags.HiddenRecords = true; break;
+                case SectConfig.StillFlame: flags.SanctifiedRoutes = true; break;
+                case SectConfig.QuietVault: flags.HiddenLedgers = true; break;
+                case SectConfig.MirrorRite: flags.RefinedSilverInlays = true; break;
+                case SectConfig.ShardJudgment: flags.IronDecrees = true; break;
+                case SectConfig.EmberAsh: flags.WarTithe = true; break;
+                case SectConfig.HollowBrand: flags.DesecrateStandards = true; break;
+                case SectConfig.FlamewroughtChains: flags.VeilsteelLinks = true; break;
+                case SectConfig.UnmakersGrasp: flags.ErasureRites = true; break;
+            }
+
+            _techFlagsByFaction[key] = flags;
+            Debug.Log($"[FactionSectState] {faction} researched sect tech: {SectConfig.GetTechDisplayName(sectId)}");
+
+            // Update multipliers to account for tech effects
+            RecomputeMultipliers(faction);
+        }
+
+        /// <summary>
+        /// Check if a faction has researched a specific sect's tech.
+        /// </summary>
+        public bool HasTechFlag(Faction faction, string sectId)
+        {
+            int key = (int)faction;
+            if (!_techFlagsByFaction.TryGetValue(key, out var flags))
+                return false;
+
+            return sectId switch
+            {
+                SectConfig.Renewal => flags.DietaryMandate,
+                SectConfig.Antiquity => flags.ClockworkArchives,
+                SectConfig.LivingStone => flags.TerracePlanning,
+                SectConfig.VeiledMemory => flags.HiddenRecords,
+                SectConfig.StillFlame => flags.SanctifiedRoutes,
+                SectConfig.QuietVault => flags.HiddenLedgers,
+                SectConfig.MirrorRite => flags.RefinedSilverInlays,
+                SectConfig.ShardJudgment => flags.IronDecrees,
+                SectConfig.EmberAsh => flags.WarTithe,
+                SectConfig.HollowBrand => flags.DesecrateStandards,
+                SectConfig.FlamewroughtChains => flags.VeilsteelLinks,
+                SectConfig.UnmakersGrasp => flags.ErasureRites,
+                _ => false
+            };
+        }
+
+        /// <summary>Get all sect tech flags for a faction.</summary>
+        public SectTechFlags GetTechFlags(Faction faction)
+        {
+            int key = (int)faction;
+            return _techFlagsByFaction.TryGetValue(key, out var flags) ? flags : new SectTechFlags();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -322,6 +452,12 @@ namespace TheWaningBorder.Economy
                 }
             }
 
+            // Apply sect tech effects to multipliers
+            if (_techFlagsByFaction.TryGetValue(key, out var techFlags))
+            {
+                ApplyTechFlagsToMultipliers(ref mults, techFlags, scaling);
+            }
+
             _multipliersByFaction[key] = mults;
 
             Debug.Log($"[FactionSectState] Recomputed multipliers for {faction}: " +
@@ -452,6 +588,38 @@ namespace TheWaningBorder.Economy
             Debug.Log($"[FactionSectState] Synergy '{pair.Name}' active: {pair.Description} (x{scaling} scaling)");
         }
 
+        /// <summary>
+        /// Apply researched sect tech effects to the multiplier struct.
+        /// </summary>
+        private static void ApplyTechFlagsToMultipliers(ref SectMultipliers m, SectTechFlags flags, float scaling)
+        {
+            // DietaryMandate: +2 HP/s out-of-combat regen (scaled by temple)
+            if (flags.DietaryMandate)
+                m.RegenPerSecond += 2f * scaling;
+
+            // ClockworkArchives: -15% research time, -5% spell cooldown
+            if (flags.ClockworkArchives)
+            {
+                m.ResearchSpeed += 0.15f * scaling;
+                m.SpellCooldownReduction += 0.05f * scaling;
+            }
+
+            // TerracePlanning: +20% wall income
+            if (flags.TerracePlanning)
+                m.WallIncomeFromTech += 0.20f * scaling;
+
+            // RefinedSilverInlays: +10% magic attack, -10% spell cooldown
+            if (flags.RefinedSilverInlays)
+            {
+                m.MagicDamage += 0.10f * scaling;
+                m.SpellCooldownReduction += 0.10f * scaling;
+            }
+
+            // Note: Other tech flags (HiddenRecords, SanctifiedRoutes, HiddenLedgers,
+            // IronDecrees, WarTithe, DesecrateStandards, VeilsteelLinks, ErasureRites)
+            // are checked directly by their respective gameplay systems via HasTechFlag().
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // RESET
         // ═══════════════════════════════════════════════════════════════════════
@@ -463,6 +631,7 @@ namespace TheWaningBorder.Economy
         {
             _adoptedByFaction.Clear();
             _multipliersByFaction.Clear();
+            _techFlagsByFaction.Clear();
             Debug.Log("[FactionSectState] Reset all sect state");
         }
     }

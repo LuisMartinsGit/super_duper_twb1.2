@@ -158,6 +158,16 @@ public struct ChapelSmallTag : IComponentData { }
 /// <summary>Large religious building for sects.</summary>
 public struct ChapelLargeTag : IComponentData { }
 
+/// <summary>
+/// Chapel building tag — generic across all 12 sects.
+/// SectId identifies which sect this chapel belongs to (e.g., "Sect_Renewal").
+/// Chapels train sect-unique units and research sect technologies.
+/// </summary>
+public struct ChapelTag : IComponentData
+{
+    public FixedString64Bytes SectId;
+}
+
 /// <summary>Unique sect-specific building.</summary>
 public struct SectUniqueBuildingTag : IComponentData { }
 

@@ -223,6 +223,86 @@ namespace TheWaningBorder.Economy
             _ => ""
         };
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SECT TECHNOLOGIES
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Get the tech ID for a sect's researchable technology.</summary>
+        public static string GetTechId(string sectId) => sectId switch
+        {
+            Renewal => "Tech_DietaryMandate",
+            Antiquity => "Tech_ClockworkArchives",
+            LivingStone => "Tech_TerracePlanning",
+            VeiledMemory => "Tech_HiddenRecords",
+            StillFlame => "Tech_SanctifiedRoutes",
+            QuietVault => "Tech_HiddenLedgers",
+            MirrorRite => "Tech_RefinedSilverInlays",
+            ShardJudgment => "Tech_IronDecrees",
+            EmberAsh => "Tech_WarTithe",
+            HollowBrand => "Tech_DesecrateStandards",
+            FlamewroughtChains => "Tech_VeilsteelLinks",
+            UnmakersGrasp => "Tech_ErasureRites",
+            _ => ""
+        };
+
+        /// <summary>Get the display name for a sect technology.</summary>
+        public static string GetTechDisplayName(string sectId) => sectId switch
+        {
+            Renewal => "Dietary Mandate",
+            Antiquity => "Clockwork Archives",
+            LivingStone => "Terrace Planning",
+            VeiledMemory => "Hidden Records",
+            StillFlame => "Sanctified Routes",
+            QuietVault => "Hidden Ledgers",
+            MirrorRite => "Refined Silver Inlays",
+            ShardJudgment => "Iron Decrees",
+            EmberAsh => "War Tithe",
+            HollowBrand => "Desecrate Standards",
+            FlamewroughtChains => "Veilsteel Links",
+            UnmakersGrasp => "Erasure Rites",
+            _ => ""
+        };
+
+        /// <summary>Get the description for a sect technology.</summary>
+        public static string GetTechDescription(string sectId) => sectId switch
+        {
+            Renewal => "All units gain +2 HP/s out-of-combat regen",
+            Antiquity => "-15% research time, -5% spell cooldowns",
+            LivingStone => "+20% Supplies from wall compartment area",
+            VeiledMemory => "-25% Crystal retaliation from curse ground",
+            StillFlame => "Trade routes grant +5 armor to nearby units",
+            QuietVault => "Retain 50% Crystal+Iron on depot destroyed",
+            MirrorRite => "+10% magic attack, -10% spell cooldown",
+            ShardJudgment => "Enemy buildings near trade routes build 20% slower",
+            EmberAsh => "Enemy civilian kills refund +5 extra Supplies",
+            HollowBrand => "Enemy morale auras -20% effectiveness",
+            FlamewroughtChains => "+1% damage reduction per Veilsteel stored",
+            UnmakersGrasp => "Crystal death drops yield +20% more crystal",
+            _ => ""
+        };
+
+        /// <summary>Get the unique unit ID trainable at a sect's chapel.</summary>
+        public static string GetSectUnitId(string sectId) => sectId switch
+        {
+            Renewal => "Sect_ScarGuard",
+            Antiquity => "Sect_GolemAutark",
+            LivingStone => "Sect_StoneWarden",
+            VeiledMemory => "Sect_ArchivistAdept",
+            StillFlame => "Sect_FlameWarden",
+            QuietVault => "Sect_VaultKeeper",
+            MirrorRite => "Sect_GlassmarkArcanist",
+            ShardJudgment => "Sect_Judicator",
+            EmberAsh => "Sect_Ashblade",
+            HollowBrand => "Sect_Brandbreaker",
+            FlamewroughtChains => "Sect_Chaincaster",
+            UnmakersGrasp => "Sect_Nullblade",
+            _ => ""
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CULTURE AFFINITY
+        // ═══════════════════════════════════════════════════════════════════
+
         /// <summary>
         /// Get the culture byte constant for a sect's affinity.
         /// </summary>

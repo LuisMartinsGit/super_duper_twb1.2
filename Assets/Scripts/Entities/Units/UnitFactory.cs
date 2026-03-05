@@ -54,6 +54,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => Hunter.Create(em, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
+                // Sect unique units
+                "Sect_ScarGuard" => ScarGuard.Create(em, position, faction),
+                "Sect_GolemAutark" => GolemAutark.Create(em, position, faction),
+                "Sect_StoneWarden" => StoneWarden.Create(em, position, faction),
+                "Sect_ArchivistAdept" => ArchivistAdept.Create(em, position, faction),
+                "Sect_FlameWarden" => FlameWarden.Create(em, position, faction),
+                "Sect_VaultKeeper" => VaultKeeper.Create(em, position, faction),
+                "Sect_GlassmarkArcanist" => GlassmarkArcanist.Create(em, position, faction),
+                "Sect_Judicator" => Judicator.Create(em, position, faction),
+                "Sect_Ashblade" => Ashblade.Create(em, position, faction),
+                "Sect_Brandbreaker" => Brandbreaker.Create(em, position, faction),
+                "Sect_Chaincaster" => Chaincaster.Create(em, position, faction),
+                "Sect_Nullblade" => Nullblade.Create(em, position, faction),
                 _ => CreateDefault(em, unitId, position, faction)
             };
         }
@@ -90,6 +103,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(ecb, position, faction),
+                // Sect unique units
+                "Sect_ScarGuard" => ScarGuard.Create(ecb, position, faction),
+                "Sect_GolemAutark" => GolemAutark.Create(ecb, position, faction),
+                "Sect_StoneWarden" => StoneWarden.Create(ecb, position, faction),
+                "Sect_ArchivistAdept" => ArchivistAdept.Create(ecb, position, faction),
+                "Sect_FlameWarden" => FlameWarden.Create(ecb, position, faction),
+                "Sect_VaultKeeper" => VaultKeeper.Create(ecb, position, faction),
+                "Sect_GlassmarkArcanist" => GlassmarkArcanist.Create(ecb, position, faction),
+                "Sect_Judicator" => Judicator.Create(ecb, position, faction),
+                "Sect_Ashblade" => Ashblade.Create(ecb, position, faction),
+                "Sect_Brandbreaker" => Brandbreaker.Create(ecb, position, faction),
+                "Sect_Chaincaster" => Chaincaster.Create(ecb, position, faction),
+                "Sect_Nullblade" => Nullblade.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, unitId, position, faction)
             };
         }
@@ -134,6 +160,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => UnitClass.Ranged,
                 "Feraldis_WarboarRider" => UnitClass.Melee,
                 "Feraldis_SiegeRam" => UnitClass.Siege,
+                // Sect unique units
+                "Sect_ScarGuard" => UnitClass.Melee,
+                "Sect_GolemAutark" => UnitClass.Magic,
+                "Sect_StoneWarden" => UnitClass.Melee,
+                "Sect_ArchivistAdept" => UnitClass.Magic,
+                "Sect_FlameWarden" => UnitClass.Melee,
+                "Sect_VaultKeeper" => UnitClass.Melee,
+                "Sect_GlassmarkArcanist" => UnitClass.Magic,
+                "Sect_Judicator" => UnitClass.Melee,
+                "Sect_Ashblade" => UnitClass.Melee,
+                "Sect_Brandbreaker" => UnitClass.Siege,
+                "Sect_Chaincaster" => UnitClass.Magic,
+                "Sect_Nullblade" => UnitClass.Melee,
                 _ => UnitClass.Melee
             };
         }
@@ -169,6 +208,19 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => 338,
                 "Feraldis_WarboarRider" => 339,
                 "Feraldis_SiegeRam" => 340,
+                // Sect unique units
+                "Sect_ScarGuard" => 370,
+                "Sect_GolemAutark" => 371,
+                "Sect_StoneWarden" => 372,
+                "Sect_ArchivistAdept" => 373,
+                "Sect_FlameWarden" => 374,
+                "Sect_VaultKeeper" => 375,
+                "Sect_GlassmarkArcanist" => 376,
+                "Sect_Judicator" => 377,
+                "Sect_Ashblade" => 378,
+                "Sect_Brandbreaker" => 379,
+                "Sect_Chaincaster" => 380,
+                "Sect_Nullblade" => 381,
                 _ => 201
             };
         }
