@@ -292,6 +292,56 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
             }
+
+            // Attack-move units: scan for enemies even while moving
+            // These units have AttackMoveTag and may have an active DesiredDestination
+            foreach (var (transform, faction, lineOfSight, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>>()
+                .WithAll<UnitTag, AttackMoveTag>()
+                .WithNone<Target>()
+                .WithNone<AttackCommand>()
+                .WithNone<CanBuild>()
+                .WithNone<MinerTag>()
+                .WithEntityAccess())
+            {
+                var myPos = transform.ValueRO.Position;
+                var myFaction = faction.ValueRO.Value;
+                var los = lineOfSight.ValueRO.Radius;
+
+                // Find nearest enemy within line of sight
+                Entity bestAMTarget = Entity.Null;
+                float bestAMDist = float.MaxValue;
+
+                for (int i = 0; i < allEnemies.Length; i++)
+                {
+                    if (allEnemyFactions[i].Value == myFaction) continue;
+                    if (allEnemyHealth[i].Value <= 0) continue;
+
+                    var enemyPos = allEnemyTransforms[i].Position;
+                    var dist = DistXZ(myPos, enemyPos);
+
+                    if (dist <= los && dist < bestAMDist)
+                    {
+                        bestAMTarget = allEnemies[i];
+                        bestAMDist = dist;
+                    }
+                }
+
+                // Acquire target and issue attack command so combat systems chase
+                // Do NOT clear DesiredDestination - unit resumes movement after combat
+                if (bestAMTarget != Entity.Null)
+                {
+                    if (!em.HasComponent<Target>(entity))
+                        ecb.AddComponent(entity, new Target { Value = bestAMTarget });
+                    else
+                        ecb.SetComponent(entity, new Target { Value = bestAMTarget });
+
+                    if (!em.HasComponent<AttackCommand>(entity))
+                        ecb.AddComponent(entity, new AttackCommand { Target = bestAMTarget });
+                    else
+                        ecb.SetComponent(entity, new AttackCommand { Target = bestAMTarget });
+                }
+            }
         }
 
         [BurstCompile]
@@ -326,6 +376,33 @@ namespace TheWaningBorder.Systems.Combat
                 var myFaction = faction.ValueRO.Value;
                 var los = lineOfSight.ValueRO.Radius;
                 var distToGuard = DistXZ(myPos, gpPos);
+
+                // Attack-move units: resume advancing toward destination after combat
+                // instead of returning to guard point (guard point IS the destination)
+                if (em.HasComponent<AttackMoveTag>(entity))
+                {
+                    if (distToGuard > GuardReturnThreshold)
+                    {
+                        // Re-set DesiredDestination to resume movement toward attack-move destination
+                        if (!em.HasComponent<DesiredDestination>(entity))
+                        {
+                            ecb.AddComponent(entity, new DesiredDestination
+                            {
+                                Position = gpPos,
+                                Has = 1
+                            });
+                        }
+                        else
+                        {
+                            ecb.SetComponent(entity, new DesiredDestination
+                            {
+                                Position = gpPos,
+                                Has = 1
+                            });
+                        }
+                    }
+                    continue; // Skip normal return-to-guard logic
+                }
 
                 // Only consider returning if we're far from guard point
                 if (distToGuard > GuardReturnThreshold)

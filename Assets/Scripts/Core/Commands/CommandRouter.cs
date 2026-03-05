@@ -103,6 +103,32 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // ATTACK-MOVE COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue an attack-move command to a unit.
+        /// Unit moves toward destination while auto-engaging enemies along the way.
+        /// </summary>
+        public static void IssueAttackMove(EntityManager em, Entity unit, float3 destination,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] AttackMove: {unit.Index} -> {destination} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueAttackMoveForLockstep(em, unit, destination);
+            }
+            else
+            {
+                AttackMoveCommandHelper.Execute(em, unit, destination);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // STOP COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -354,6 +380,25 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        private static void QueueAttackMoveForLockstep(EntityManager em, Entity unit, float3 destination)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
+                AttackMoveCommandHelper.Execute(em, unit, destination);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.AttackMove,
+                EntityNetworkId = networkId,
+                TargetPosition = destination
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
         private static void QueueStopForLockstep(EntityManager em, Entity unit)
         {
             int networkId = GetNetworkId(em, unit);
@@ -539,6 +584,10 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(unit, new DesiredDestination { Has = 0 });
             if (em.HasComponent<UserMoveOrder>(unit))
                 em.RemoveComponent<UserMoveOrder>(unit);
+            if (em.HasComponent<AttackMoveTag>(unit))
+                em.RemoveComponent<AttackMoveTag>(unit);
+            if (em.HasComponent<Types.AttackMoveCommand>(unit))
+                em.RemoveComponent<Types.AttackMoveCommand>(unit);
         }
     }
 }

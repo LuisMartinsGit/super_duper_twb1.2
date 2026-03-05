@@ -26,7 +26,8 @@ namespace TheWaningBorder.Core.Multiplayer
         Train = 5,
         Gather = 6,
         SetRally = 7,
-        Heal = 8
+        Heal = 8,
+        AttackMove = 9
     }
 
     /// <summary>
