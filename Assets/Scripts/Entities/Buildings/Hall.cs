@@ -18,6 +18,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultLoS = 35f;
         private const float DefaultSuppliesPerTick = 50f; // 50 supplies every 15 seconds
         private const float DefaultSuppliesInterval = 15f;
+        private const float DefaultRadius = 2.0f;
         private const int DefaultPopulation = 20;
         private const int PresentationID = 100;
 
@@ -29,12 +30,13 @@ namespace TheWaningBorder.Entities
             // Load stats from TechTreeDB
             float hp = DefaultHP;
             float los = DefaultLoS;
-
+            float radius = DefaultRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Hall", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
             }
 
             var entity = em.CreateEntity(
@@ -46,6 +48,7 @@ namespace TheWaningBorder.Entities
                 typeof(SuppliesIncome),
                 typeof(TrainingState),
                 typeof(LineOfSight),
+                typeof(Radius),
                 typeof(PopulationProvider),
                 typeof(FactionProgress)
             );
@@ -57,6 +60,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new SuppliesIncome { PerTick = 50f, Interval = 15f });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.SetComponentData(entity, new PopulationProvider { Amount = DefaultPopulation });
             em.SetComponentData(entity, new FactionProgress { Culture = Cultures.None });
@@ -81,12 +85,13 @@ namespace TheWaningBorder.Entities
             // Load stats from TechTreeDB
             float hp = DefaultHP;
             float los = DefaultLoS;
-
+            float radius = DefaultRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Hall", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
             }
 
             var entity = ecb.CreateEntity();
@@ -98,6 +103,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 50f, Interval = 15f });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent(entity, new PopulationProvider { Amount = DefaultPopulation });
             ecb.AddComponent(entity, new FactionProgress { Culture = Cultures.None });
