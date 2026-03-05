@@ -63,6 +63,9 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
             em.AddBuffer<ResearchQueueItem>(entity);
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
             return entity;
         }
 
@@ -102,6 +105,9 @@ namespace TheWaningBorder.Entities
             // Research capability (Barracks can research military techs)
             ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
             ecb.AddBuffer<ResearchQueueItem>(entity);
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }

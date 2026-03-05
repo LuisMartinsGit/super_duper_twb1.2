@@ -1,5 +1,4 @@
 // File: Assets/Scripts/Systems/Combat/RangedCombatSystem.cs
-using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -9,22 +8,22 @@ namespace TheWaningBorder.Systems.Combat
 {
     /// <summary>
     /// Handles ranged combat processing for archer units.
-    /// 
+    ///
     /// Features:
     /// - Minimum range enforcement with retreat behavior
     /// - Dynamic aim time based on distance
     /// - Height-based damage modifiers for arrows
+    /// - Damage-type propagation to projectiles (via DmgType on Projectile)
     /// - Arrow projectile creation
     /// - Attack cooldown management
-    /// 
+    ///
     /// Archers will:
     /// - Retreat if enemies get too close (below MinRange)
     /// - Stop and aim when in optimal range
     /// - Chase enemies that are too far away
-    /// 
+    ///
     /// Runs after TargetingSystem to process acquired targets.
     /// </summary>
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct RangedCombatSystem : ISystem
@@ -39,13 +38,11 @@ namespace TheWaningBorder.Systems.Combat
         private const float MaxHeightBonus = 0.20f;
         private const float MaxHeightPenalty = -0.20f;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -173,9 +170,14 @@ namespace TheWaningBorder.Systems.Combat
                         // Note: CrystalDebuff on target is applied at projectile impact, not here
                         finalDamage = math.max(1, finalDamage);
 
+                        // Get shooter's damage type (default Ranged for archers)
+                        DamageType dmgType = DamageType.Ranged;
+                        if (em.HasComponent<DamageTypeData>(entity))
+                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
                         // Create arrow projectile
                         CreateArrow(ref ecb, myPos, targetPos, dist, entity,
-                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value);
+                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType);
 
                         // Reset state
                         archer.CooldownTimer = 1.5f;
@@ -226,7 +228,6 @@ namespace TheWaningBorder.Systems.Combat
         /// Calculate height-based damage modifier.
         /// Returns multiplier: 0.8 to 1.2 (±20% cap)
         /// </summary>
-        [BurstCompile]
         private static float CalculateHeightDamageModifier(float attackerHeight, float targetHeight)
         {
             float heightDiff = attackerHeight - targetHeight;
@@ -238,7 +239,6 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Apply damage with minimum guarantee and height modifier.
         /// </summary>
-        [BurstCompile]
         private static int CalculateFinalDamage(int baseDamage, float heightModifier)
         {
             float modifiedDamage = baseDamage * heightModifier;
@@ -249,9 +249,9 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Create an arrow projectile entity.
         /// </summary>
-        [BurstCompile]
         private void CreateArrow(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
-            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity)
+            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
+            DamageType dmgType = DamageType.Ranged)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -295,7 +295,8 @@ namespace TheWaningBorder.Systems.Combat
                 FlightTime = estimatedFlightTime,
                 Damage = damage,
                 Target = targetEntity,  // Store target entity for homing
-                Faction = faction
+                Faction = faction,
+                DmgType = dmgType
             });
         }
 

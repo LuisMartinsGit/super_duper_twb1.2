@@ -157,6 +157,11 @@ namespace TheWaningBorder.Systems.Crystal
                             dmg = math.max(1, dmg);
                         }
 
+                        // Get shooter's damage type (default Magic for Veilstinger)
+                        DamageType dmgType = DamageType.Magic;
+                        if (em.HasComponent<DamageTypeData>(entity))
+                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
                         // Compute gun world positions based on facing direction
                         var facingDir = math.normalizesafe(
                             new float3(targetPos.x - myPos.x, 0, targetPos.z - myPos.z),
@@ -175,7 +180,7 @@ namespace TheWaningBorder.Systems.Crystal
 
                         // Fire primary laser from left gun at Target1
                         CreateLaserFromGun(ref ecb, leftGunPos, targetPos,
-                            dist, entity, myFaction, dmg, time, tgt.Value);
+                            dist, entity, myFaction, dmg, time, tgt.Value, dmgType);
 
                         // Find secondary target: nearest enemy within range that isn't primary
                         Entity secondTarget = Entity.Null;
@@ -204,14 +209,14 @@ namespace TheWaningBorder.Systems.Crystal
                         {
                             vs.Target2 = secondTarget;
                             CreateLaserFromGun(ref ecb, rightGunPos, secondPos,
-                                bestDist, entity, myFaction, dmg, time, secondTarget);
+                                bestDist, entity, myFaction, dmg, time, secondTarget, dmgType);
                         }
                         else
                         {
                             // No second target — fire right gun at primary target too
                             vs.Target2 = Entity.Null;
                             CreateLaserFromGun(ref ecb, rightGunPos, targetPos,
-                                dist, entity, myFaction, dmg, time, tgt.Value);
+                                dist, entity, myFaction, dmg, time, tgt.Value, dmgType);
                         }
 
                         // Reset cooldown and aim
@@ -268,7 +273,8 @@ namespace TheWaningBorder.Systems.Crystal
         /// The gunPos is already the world-space position of the gun tip (height included).
         /// </summary>
         private static void CreateLaserFromGun(ref EntityCommandBuffer ecb, float3 gunPos, float3 targetPos,
-            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity)
+            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
+            DamageType dmgType = DamageType.Magic)
         {
             var direction = math.normalize(targetPos - gunPos);
             var velocity = direction * LaserSpeed;
@@ -299,7 +305,8 @@ namespace TheWaningBorder.Systems.Crystal
                 FlightTime = flightTime,
                 Damage = damage,
                 Target = targetEntity,
-                Faction = faction
+                Faction = faction,
+                DmgType = dmgType
             });
 
             // Mark as laser for visual system (renders glowing beam instead of arrow)

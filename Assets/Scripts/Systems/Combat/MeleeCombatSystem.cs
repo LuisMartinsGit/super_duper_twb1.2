@@ -1,5 +1,4 @@
 // File: Assets/Scripts/Systems/Combat/MeleeCombatSystem.cs
-using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -9,16 +8,18 @@ namespace TheWaningBorder.Systems.Combat
 {
     /// <summary>
     /// Handles melee combat processing for non-ranged units.
-    /// 
+    ///
     /// Features:
+    /// - Damage-type vs armor-type modifier matrix (via CombatModifiers)
+    /// - Per-damage-type defense with diminishing returns
     /// - Height-based damage modifiers (±20% cap)
+    /// - Crystal buff/debuff integration
     /// - Attack cooldown management
     /// - Chase behavior when target is out of range
     /// - Minimum damage guarantee (never less than 1)
-    /// 
+    ///
     /// Runs after TargetingSystem to process acquired targets.
     /// </summary>
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct MeleeCombatSystem : ISystem
@@ -30,13 +31,11 @@ namespace TheWaningBorder.Systems.Combat
         private const float MaxHeightBonus = 0.20f;    // Cap at +20%
         private const float MaxHeightPenalty = -0.20f; // Cap at -20%
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -98,23 +97,41 @@ namespace TheWaningBorder.Systems.Combat
                     // Attack if cooldown is ready
                     if (cd.Timer <= 0)
                     {
-                        // Calculate height-based damage modifier
-                        float heightModifier = CalculateHeightDamageModifier(myPos.y, targetPos.y);
-                        int finalDamage = CalculateFinalDamage(damage.ValueRO.Value, heightModifier);
+                        int baseDamage = damage.ValueRO.Value;
 
-                        // Crystal buff on attacker (bonus damage)
+                        // Get attacker's damage type (default Melee if component missing)
+                        DamageType dmgType = DamageType.Melee;
+                        if (em.HasComponent<DamageTypeData>(entity))
+                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
+                        // Get target's armor type (default InfantryLight if missing)
+                        ArmorType armorType = ArmorType.InfantryLight;
+                        if (em.HasComponent<ArmorTypeData>(tgt.Value))
+                            armorType = em.GetComponentData<ArmorTypeData>(tgt.Value).Value;
+
+                        // Get target's defense for this damage type
+                        int defenseValue = 0;
+                        if (em.HasComponent<Defense>(tgt.Value))
+                            defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType);
+
+                        // Calculate height-based damage modifier
+                        float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
+
+                        // Crystal modifier
+                        float crystalMod = 1.0f;
                         if (em.HasComponent<CrystalBuff>(entity))
                         {
                             var buff = em.GetComponentData<CrystalBuff>(entity);
-                            finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
+                            crystalMod *= 1f + buff.AttBonus;
                         }
-                        // Crystal debuff on defender (takes more damage)
                         if (em.HasComponent<CrystalDebuff>(tgt.Value))
                         {
                             var debuff = em.GetComponentData<CrystalDebuff>(tgt.Value);
-                            finalDamage = (int)math.round(finalDamage * (1f + debuff.AttPenalty));
+                            crystalMod *= 1f + debuff.AttPenalty;
                         }
-                        finalDamage = math.max(1, finalDamage);
+
+                        int finalDamage = CombatModifiers.CalculateFinalDamage(
+                            baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod);
 
                         // Apply damage
                         var health = em.GetComponentData<Health>(tgt.Value);
@@ -164,7 +181,6 @@ namespace TheWaningBorder.Systems.Combat
         /// Returns multiplier: 0.8 to 1.2 (±20% cap)
         /// Higher ground = bonus damage, lower ground = penalty
         /// </summary>
-        [BurstCompile]
         private static float CalculateHeightDamageModifier(float attackerHeight, float targetHeight)
         {
             float heightDiff = attackerHeight - targetHeight;
@@ -180,7 +196,6 @@ namespace TheWaningBorder.Systems.Combat
         /// Apply damage with minimum guarantee and height modifier.
         /// Ensures damage is never less than 1.
         /// </summary>
-        [BurstCompile]
         private static int CalculateFinalDamage(int baseDamage, float heightModifier)
         {
             float modifiedDamage = baseDamage * heightModifier;

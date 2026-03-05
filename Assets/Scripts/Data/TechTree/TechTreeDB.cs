@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Mathematics;
 using TheWaningBorder.Data;
 
 [DefaultExecutionOrder(-10000)]
@@ -576,5 +577,91 @@ public sealed class TechTreeDB : MonoBehaviour
         if (end == -1) return defaultValue;
         
         return json.Substring(start + 1, end - start - 1);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMBAT MODIFIER MATRIX
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// Static lookup for damage-type x armor-type modifier matrix and final damage calculation.
+/// Lazy-initialized on first access. Thread-safe via static initializer.
+///
+/// Matrix layout:
+///   Rows = DamageType (Melee, Ranged, Siege, Magic, True)
+///   Cols = ArmorType  (InfantryLight, InfantryHeavy, Ranged, Cavalry, Structure, StructureHuman)
+/// </summary>
+public static class CombatModifiers
+{
+    // 5 damage types x 6 armor types
+    private static readonly float[,] _modifiers;
+
+    static CombatModifiers()
+    {
+        _modifiers = new float[5, 6];
+
+        // Melee vs: Light=1.0, Heavy=1.0, Ranged=1.1, Cavalry=0.9, Structure=0.2, StructHuman=0.2
+        _modifiers[0, 0] = 1.0f;  _modifiers[0, 1] = 1.0f;  _modifiers[0, 2] = 1.1f;
+        _modifiers[0, 3] = 0.9f;  _modifiers[0, 4] = 0.2f;  _modifiers[0, 5] = 0.2f;
+
+        // Ranged vs: 1.1, 0.9, 1.0, 0.8, 0.15, 0.15
+        _modifiers[1, 0] = 1.1f;  _modifiers[1, 1] = 0.9f;  _modifiers[1, 2] = 1.0f;
+        _modifiers[1, 3] = 0.8f;  _modifiers[1, 4] = 0.15f; _modifiers[1, 5] = 0.15f;
+
+        // Siege vs: 0.6, 0.8, 0.8, 0.7, 3.0, 2.4
+        _modifiers[2, 0] = 0.6f;  _modifiers[2, 1] = 0.8f;  _modifiers[2, 2] = 0.8f;
+        _modifiers[2, 3] = 0.7f;  _modifiers[2, 4] = 3.0f;  _modifiers[2, 5] = 2.4f;
+
+        // Magic vs: 1.1, 0.9, 1.1, 1.0, 0.5, 0.45
+        _modifiers[3, 0] = 1.1f;  _modifiers[3, 1] = 0.9f;  _modifiers[3, 2] = 1.1f;
+        _modifiers[3, 3] = 1.0f;  _modifiers[3, 4] = 0.5f;  _modifiers[3, 5] = 0.45f;
+
+        // True vs: all 1.0 (ignores armor type)
+        _modifiers[4, 0] = 1.0f;  _modifiers[4, 1] = 1.0f;  _modifiers[4, 2] = 1.0f;
+        _modifiers[4, 3] = 1.0f;  _modifiers[4, 4] = 1.0f;  _modifiers[4, 5] = 1.0f;
+    }
+
+    /// <summary>
+    /// Look up the damage modifier for a given damage-type attacking a given armor-type.
+    /// </summary>
+    public static float GetModifier(DamageType dmg, ArmorType armor)
+    {
+        return _modifiers[(int)dmg, (int)armor];
+    }
+
+    /// <summary>
+    /// Extract the defense value relevant to the incoming damage type.
+    /// True damage always returns 0 (bypasses defense).
+    /// </summary>
+    public static int GetDefenseValue(Defense def, DamageType dmgType)
+    {
+        return dmgType switch
+        {
+            DamageType.Melee  => def.Melee,
+            DamageType.Ranged => def.Ranged,
+            DamageType.Siege  => def.Siege,
+            DamageType.Magic  => def.Magic,
+            DamageType.True   => 0, // True damage ignores defense
+            _ => 0
+        };
+    }
+
+    /// <summary>
+    /// Full damage pipeline:
+    ///   1. Type modifier   (damage type vs armor type matrix)
+    ///   2. Height modifier  (attacker elevation advantage/disadvantage)
+    ///   3. Crystal modifier (buff/debuff multiplier)
+    ///   4. Defense reduction (diminishing returns: def / (def + 100))
+    ///
+    /// Returns at least 1 damage.
+    /// </summary>
+    public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
+        ArmorType armorType, int defenseValue, float heightMod, float crystalMod)
+    {
+        float typeModifier  = GetModifier(dmgType, armorType);
+        float defReduction  = 1f - (defenseValue / (float)(defenseValue + 100));
+        int   finalDmg      = (int)math.round(baseDamage * typeModifier * heightMod * crystalMod * defReduction);
+        return math.max(1, finalDmg);
     }
 }

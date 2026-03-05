@@ -56,6 +56,9 @@ namespace TheWaningBorder.Entities
             });
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
+
             return entity;
         }
 
@@ -82,6 +85,9 @@ namespace TheWaningBorder.Entities
                 SpeedPenalty = AuraSpeedPenalty
             });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
 
             return entity;
         }

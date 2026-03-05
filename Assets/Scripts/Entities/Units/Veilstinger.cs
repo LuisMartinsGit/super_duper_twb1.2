@@ -88,6 +88,10 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+
             return entity;
         }
 
@@ -142,6 +146,10 @@ namespace TheWaningBorder.Entities
                 MaxRange = maxRange,
                 IsFiring = 0
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
 
             return entity;
         }

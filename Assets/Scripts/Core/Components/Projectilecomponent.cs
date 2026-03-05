@@ -31,4 +31,7 @@ public struct Projectile : IComponentData
     
     /// <summary>Faction that fired the projectile (for friendly fire)</summary>
     public Faction Faction;
+
+    /// <summary>Damage type of the projectile (for damage modifier lookup)</summary>
+    public DamageType DmgType;
 }

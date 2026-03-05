@@ -70,6 +70,9 @@ namespace TheWaningBorder.Entities
                 BuildCost = DefaultBuildCost
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
+
             return entity;
         }
 
@@ -110,6 +113,9 @@ namespace TheWaningBorder.Entities
             {
                 BuildCost = DefaultBuildCost
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
 
             return entity;
         }

@@ -71,6 +71,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 35 });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+
             return entity;
         }
 
@@ -111,6 +115,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 35 });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 
             return entity;
         }

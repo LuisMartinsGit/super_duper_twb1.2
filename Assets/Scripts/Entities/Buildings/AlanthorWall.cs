@@ -64,6 +64,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Radius { Value = radius });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
             // Dynamic buffer for tracking connections to other hubs
             em.AddBuffer<WallHubLink>(entity);
 
@@ -113,6 +116,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = DefaultSegmentLoS });
             em.SetComponentData(entity, new Radius { Value = DefaultSegmentRadius });
             em.SetComponentData(entity, new WallConnection { HubA = hubA, HubB = hubB });
+
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             // Update hub connection buffers
             if (em.HasBuffer<WallHubLink>(hubA))

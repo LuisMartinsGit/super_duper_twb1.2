@@ -71,6 +71,11 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = DefaultRadius });
             em.SetComponentData(entity, new PopulationCost { Amount = 1 });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 0, Siege = 0, Magic = 0 });
+
             return entity;
         }
 
@@ -110,6 +115,11 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
             ecb.AddComponent<BerserkerTag>(entity);
             ecb.AddComponent<UnhealableTag>(entity);
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;
         }

@@ -58,6 +58,10 @@ namespace TheWaningBorder.Entities
             });
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
+
             return entity;
         }
 
@@ -85,6 +89,10 @@ namespace TheWaningBorder.Entities
                 MaxTargets = TurretMaxTargets
             });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
 
             return entity;
         }

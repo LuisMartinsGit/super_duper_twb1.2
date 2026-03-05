@@ -74,6 +74,10 @@ namespace TheWaningBorder.Entities
                 Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+
             // Research capability (Hall can research economy techs)
             em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
             em.AddBuffer<ResearchQueueItem>(entity);
@@ -120,6 +124,10 @@ namespace TheWaningBorder.Entities
             {
                 Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
 
             // Research capability (Hall can research economy techs)
             ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });

@@ -61,6 +61,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
             return entity;
         }
 
@@ -93,6 +96,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
@@ -128,6 +134,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = buildTime });
             ecb.AddComponent(entity, new Buildable { BuildTimeSeconds = buildTime });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }

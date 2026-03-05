@@ -82,6 +82,11 @@ namespace TheWaningBorder.Entities
                 IsSieging = 0
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Siege });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            em.AddComponentData(entity, new Defense { Melee = 10, Ranged = 8, Siege = 5, Magic = 5 });
+
             return entity;
         }
 
@@ -130,6 +135,11 @@ namespace TheWaningBorder.Entities
                 LaserMaxTargets = DefaultLaserMaxTargets,
                 IsSieging = 0
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            ecb.AddComponent(entity, new Defense { Melee = 10, Ranged = 8, Siege = 5, Magic = 5 });
 
             return entity;
         }

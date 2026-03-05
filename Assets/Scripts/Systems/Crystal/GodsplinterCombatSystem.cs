@@ -90,6 +90,11 @@ namespace TheWaningBorder.Systems.Crystal
                 int baseDmg = damage.ValueRO.Value;
                 Faction myFaction = faction.ValueRO.Value;
 
+                // Get Godsplinter's damage type (default Siege)
+                DamageType dmgType = DamageType.Siege;
+                if (em.HasComponent<DamageTypeData>(entity))
+                    dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
                 // =============================================================================
                 // BEHAVIOR 1: Siege mode - close range direct damage
                 // =============================================================================
@@ -110,23 +115,35 @@ namespace TheWaningBorder.Systems.Crystal
                         siegeDmg *= BuildingDamageMultiplier;
                     }
 
-                    // Crystal buff on attacker (bonus damage)
+                    // Get target's armor type
+                    ArmorType armorType = ArmorType.InfantryLight;
+                    if (em.HasComponent<ArmorTypeData>(tgt.Value))
+                        armorType = em.GetComponentData<ArmorTypeData>(tgt.Value).Value;
+
+                    // Get target's defense for this damage type
+                    int defenseValue = 0;
+                    if (em.HasComponent<Defense>(tgt.Value))
+                        defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType);
+
+                    // Crystal modifier
+                    float crystalMod = 1.0f;
                     if (em.HasComponent<CrystalBuff>(entity))
                     {
                         var buff = em.GetComponentData<CrystalBuff>(entity);
-                        siegeDmg = (int)math.round(siegeDmg * (1f + buff.AttBonus));
+                        crystalMod *= 1f + buff.AttBonus;
                     }
-                    // Crystal debuff on defender (takes more damage)
                     if (em.HasComponent<CrystalDebuff>(tgt.Value))
                     {
                         var debuff = em.GetComponentData<CrystalDebuff>(tgt.Value);
-                        siegeDmg = (int)math.round(siegeDmg * (1f + debuff.AttPenalty));
+                        crystalMod *= 1f + debuff.AttPenalty;
                     }
-                    siegeDmg = math.max(1, siegeDmg);
+
+                    int siegeFinal = CombatModifiers.CalculateFinalDamage(
+                        siegeDmg, dmgType, armorType, defenseValue, 1.0f, crystalMod);
 
                     // Apply direct damage to target
                     var health = em.GetComponentData<Health>(tgt.Value);
-                    health.Value -= siegeDmg;
+                    health.Value -= siegeFinal;
                     if (health.Value < 0) health.Value = 0;
                     ecb.SetComponent(tgt.Value, health);
 
@@ -201,7 +218,7 @@ namespace TheWaningBorder.Systems.Crystal
                     for (int t = 0; t < targets.Length; t++)
                     {
                         CreateLaser(ref ecb, myPos, targets[t].Position,
-                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity);
+                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity, dmgType);
                     }
 
                     if (targets.Length > 0)
@@ -254,7 +271,8 @@ namespace TheWaningBorder.Systems.Crystal
         /// Create a laser projectile entity (reuses Projectile + ArrowProjectile pattern).
         /// </summary>
         private static void CreateLaser(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
-            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity)
+            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
+            DamageType dmgType = DamageType.Siege)
         {
             var direction = math.normalize(targetPos - start);
             var velocity = direction * LaserSpeed;
@@ -285,7 +303,8 @@ namespace TheWaningBorder.Systems.Crystal
                 FlightTime = flightTime,
                 Damage = damage,
                 Target = targetEntity,
-                Faction = faction
+                Faction = faction,
+                DmgType = dmgType
             });
 
             // Mark as laser for visual system (renders glowing beam instead of arrow)

@@ -103,11 +103,16 @@ namespace TheWaningBorder.Systems.Combat
                     // Crystal buildings fire lasers instead of arrows
                     bool isCrystal = em.HasComponent<CrystalTag>(entity);
 
+                    // Get building's damage type (default Ranged for arrow buildings, Magic for crystal)
+                    DamageType dmgType = isCrystal ? DamageType.Magic : DamageType.Ranged;
+                    if (em.HasComponent<DamageTypeData>(entity))
+                        dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
                     for (int t = 0; t < targets.Length; t++)
                     {
                         CreateProjectile(ref ecb, myPos, targets[t].Position,
                             targets[t].Distance, entity, myFaction,
-                            attack.ValueRO.Damage, time, targets[t].Entity, isCrystal);
+                            attack.ValueRO.Damage, time, targets[t].Entity, isCrystal, dmgType);
                     }
                     attack.ValueRW.Timer = attack.ValueRO.Cooldown;
                 }
@@ -127,7 +132,7 @@ namespace TheWaningBorder.Systems.Combat
         private static void CreateProjectile(ref EntityCommandBuffer ecb,
             float3 start, float3 targetPos, float distance,
             Entity shooter, Faction faction, int damage, float time, Entity target,
-            bool isLaser = false)
+            bool isLaser = false, DamageType dmgType = DamageType.Ranged)
         {
             float speed = isLaser ? LaserSpeed : ArrowSpeed;
             var direction = math.normalize(targetPos - start);
@@ -173,7 +178,8 @@ namespace TheWaningBorder.Systems.Combat
                 FlightTime = flightTime,
                 Damage = damage,
                 Target = target,
-                Faction = faction
+                Faction = faction,
+                DmgType = dmgType
             });
 
             // Crystal buildings fire lasers — tag for visual system

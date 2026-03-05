@@ -204,6 +204,7 @@ namespace TheWaningBorder.Systems.Combat
 
         /// <summary>
         /// Apply projectile damage to a target entity.
+        /// Uses CombatModifiers for damage-type vs armor-type modifiers and defense reduction.
         /// Shared between arrow and laser impact paths.
         /// </summary>
         private static void ApplyDamage(EntityManager em, in Projectile proj,
@@ -212,15 +213,31 @@ namespace TheWaningBorder.Systems.Combat
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
 
-            int impactDamage = proj.Damage;
+            int baseDamage = proj.Damage;
+            DamageType dmgType = proj.DmgType;
+
+            // Get target's armor type (default InfantryLight if missing)
+            ArmorType armorType = ArmorType.InfantryLight;
+            if (em.HasComponent<ArmorTypeData>(targetEntity))
+                armorType = em.GetComponentData<ArmorTypeData>(targetEntity).Value;
+
+            // Get target's defense for this damage type
+            int defenseValue = 0;
+            if (em.HasComponent<Defense>(targetEntity))
+                defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(targetEntity), dmgType);
 
             // Crystal debuff on defender (takes more damage from projectiles)
+            float crystalMod = 1.0f;
             if (em.HasComponent<CrystalDebuff>(targetEntity))
             {
                 var debuff = em.GetComponentData<CrystalDebuff>(targetEntity);
-                impactDamage = (int)math.round(impactDamage * (1f + debuff.AttPenalty));
-                impactDamage = math.max(1, impactDamage);
+                crystalMod = 1f + debuff.AttPenalty;
             }
+
+            // Height modifier is already baked into proj.Damage for arrows,
+            // so pass 1.0 here to avoid double-applying.
+            int impactDamage = CombatModifiers.CalculateFinalDamage(
+                baseDamage, dmgType, armorType, defenseValue, 1.0f, crystalMod);
 
             var targetHealth = em.GetComponentData<Health>(targetEntity);
             targetHealth.Value -= impactDamage;

@@ -92,6 +92,10 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+
             return entity;
         }
 
@@ -149,6 +153,10 @@ namespace TheWaningBorder.Entities
                 IsRetreating = 0,
                 IsFiring = 0
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
 
             return entity;
         }

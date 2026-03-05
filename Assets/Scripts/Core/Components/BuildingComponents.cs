@@ -170,21 +170,23 @@ public struct RepairOrder : IComponentData
 /// </summary>
 public struct DeferredDefense : IComponentData
 {
-    public float Melee;
-    public float Ranged;
-    public float Siege;
-    public float Magic;
+    public int Melee;
+    public int Ranged;
+    public int Siege;
+    public int Magic;
 }
 
 /// <summary>
-/// Defensive stats for completed buildings.
+/// Defensive stats for buildings and units.
+/// Each field reduces incoming damage of that type via diminishing-returns formula:
+///   reduction = defense / (defense + 100)
 /// </summary>
 public struct Defense : IComponentData
 {
-    public float Melee;
-    public float Ranged;
-    public float Siege;
-    public float Magic;
+    public int Melee;
+    public int Ranged;
+    public int Siege;
+    public int Magic;
 }
 
 // ==================== Training System ====================
