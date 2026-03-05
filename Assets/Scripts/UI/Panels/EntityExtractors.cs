@@ -416,6 +416,9 @@ namespace TheWaningBorder.UI
             var ts = em.GetComponentData<TrainingState>(entity);
             var queue = em.GetBuffer<TrainQueueItem>(entity);
 
+            // Total items in buffer (including currently training)
+            tInfo.QueueCapacity = queue.Length;
+
             if (ts.Busy != 0 && queue.Length > 0)
             {
                 string unitId = queue[0].UnitId.ToString();
@@ -432,7 +435,7 @@ namespace TheWaningBorder.UI
                 tInfo.Progress = totalTime > 0 ? 1f - (tInfo.TimeRemaining / totalTime) : 1f;
             }
 
-            // Build queue display
+            // Build queue display (excludes currently training item)
             if (queue.Length > 0)
             {
                 int startIndex = ts.Busy != 0 ? 1 : 0; // skip current if training
@@ -447,6 +450,26 @@ namespace TheWaningBorder.UI
             }
 
             return tInfo;
+        }
+
+        /// <summary>
+        /// Look up a unit's training cost from TechTreeDB for refund purposes.
+        /// Returns a zero cost if the unit is not found.
+        /// </summary>
+        public static TheWaningBorder.Core.Cost GetUnitCost(string unitId)
+        {
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var udef) && udef.cost != null)
+            {
+                return new TheWaningBorder.Core.Cost
+                {
+                    Supplies = udef.cost.Supplies,
+                    Iron = udef.cost.Iron,
+                    Crystal = udef.cost.Crystal,
+                    Veilsteel = udef.cost.Veilsteel,
+                    Glow = udef.cost.Glow
+                };
+            }
+            return default;
         }
 
         /// <summary>
