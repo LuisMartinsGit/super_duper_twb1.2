@@ -11,6 +11,10 @@ namespace TheWaningBorder.Bootstrap
     /// <summary>
     /// Spawns hostile creature groups around the map at game start.
     /// Creatures are placed on land, away from player spawn positions.
+    ///
+    /// When CrystalNodeBootstrap runs first and spawns crystal nodes,
+    /// this bootstrap spawns fewer standalone groups since node guards
+    /// already populate the map with creatures.
     /// </summary>
     public static class CreatureBootstrap
     {
@@ -24,8 +28,11 @@ namespace TheWaningBorder.Bootstrap
         /// <summary>
         /// Spawn creature groups at random positions around the map.
         /// Call after terrain and player spawns are initialized.
+        /// If crystal nodes were spawned by CrystalNodeBootstrap, reduces
+        /// standalone groups to avoid over-populating the map.
         /// </summary>
-        public static void SpawnCreatureGroups()
+        /// <param name="crystalNodesSpawned">Number of crystal nodes already placed (0 if none).</param>
+        public static void SpawnCreatureGroups(int crystalNodesSpawned = 0)
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
@@ -37,7 +44,10 @@ namespace TheWaningBorder.Bootstrap
             var em = world.EntityManager;
             var random = new Unity.Mathematics.Random((uint)System.DateTime.Now.Ticks);
 
-            int groupCount = random.NextInt(MinGroups, MaxGroups + 1);
+            // Reduce standalone groups when crystal nodes already provide creature guards
+            int adjustedMin = math.max(1, MinGroups - crystalNodesSpawned);
+            int adjustedMax = math.max(adjustedMin, MaxGroups - crystalNodesSpawned);
+            int groupCount = random.NextInt(adjustedMin, adjustedMax + 1);
             int totalSpawned = 0;
 
             // Get player spawn positions to avoid
