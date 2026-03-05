@@ -311,7 +311,8 @@ public sealed class TechTreeDB : MonoBehaviour
             defense = ParseDefenseBlock(buildingJson),
             trains = ParseStringArray(buildingJson, "trains"),
             research = ParseStringArray(buildingJson, "research"),
-            cost = ParseCostBlock(buildingJson)
+            cost = ParseCostBlock(buildingJson),
+            minEra = (int)ParseFloat(buildingJson, "minEra", 0, 0)
         };
 
         _buildingsById[buildingId] = building;
