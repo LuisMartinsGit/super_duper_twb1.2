@@ -278,13 +278,13 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.EndArea();
         }
 
+        /// <summary>Scroll position for the temple panel (sect list can be long).</summary>
+        private Vector2 _templePanelScroll;
+
         /// <summary>
         /// Draw the Temple of Ridan level-up panel with training section and upgrade button.
         /// Shows training actions, training progress/queue, and a level-up button below.
         /// </summary>
-        /// <summary>Scroll position for the temple panel (sect list can be long).</summary>
-        private Vector2 _templePanelScroll;
-
         private void DrawTempleLevelUpPanel(Entity entity, EntityActionInfo actionInfo)
         {
             PanelVisible = true;
