@@ -9,6 +9,7 @@ using Unity.Collections;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Entities;
 
 namespace TheWaningBorder.UI.Panels
@@ -235,7 +236,7 @@ namespace TheWaningBorder.UI.Panels
             // 1. Spend resources
             if (!FactionEconomy.Spend(em, _faction, CultureConfig.AgeUpCost))
             {
-                Debug.LogWarning("[CultureChoicePopup] Cannot afford age-up cost!");
+                PlayerNotificationSystem.NotifyError("Not enough resources to advance");
                 return;
             }
 
