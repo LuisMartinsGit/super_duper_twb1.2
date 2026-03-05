@@ -105,6 +105,20 @@ public struct MinerState : IComponentData
     public MinerWorkState State;     // Current work state
     public byte GatheringResource;   // 0=Iron, 1=Crystal
     public Entity DropoffTarget;     // Hall/GathererHut to return crystal to
+
+    // ---- Tech-modified stats ----
+    /// <summary>
+    /// Multiplier for gather speed (default 1.0). Higher = faster gathering.
+    /// Modified by researched technologies (e.g. ImprovedTools gives 1.15).
+    /// Stacks multiplicatively across multiple techs.
+    /// </summary>
+    public float GatherSpeedMultiplier;
+
+    /// <summary>
+    /// Flat bonus added to max carry capacity (default 0).
+    /// Modified by researched technologies (e.g. StorageCarts gives +10).
+    /// </summary>
+    public int CarryCapacityBonus;
 }
 
 // ==================== Forge Supply ====================

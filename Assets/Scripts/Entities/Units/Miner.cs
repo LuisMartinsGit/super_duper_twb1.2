@@ -71,7 +71,9 @@ namespace TheWaningBorder.Entities
                 GatherTimer = 0f,
                 State = MinerWorkState.Idle,
                 GatheringResource = 0,
-                DropoffTarget = Entity.Null
+                DropoffTarget = Entity.Null,
+                GatherSpeedMultiplier = 1.0f,
+                CarryCapacityBonus = 0
             });
             em.SetComponentData(entity, new PopulationCost { Amount = 1 });
 
@@ -120,7 +122,9 @@ namespace TheWaningBorder.Entities
                 GatherTimer = 0f,
                 State = MinerWorkState.Idle,
                 GatheringResource = 0,
-                DropoffTarget = Entity.Null
+                DropoffTarget = Entity.Null,
+                GatherSpeedMultiplier = 1.0f,
+                CarryCapacityBonus = 0
             });
             ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
 

@@ -48,6 +48,12 @@ namespace TheWaningBorder.Economy
         /// </summary>
         private readonly Dictionary<int, HashSet<string>> _completedByFaction = new();
 
+        /// <summary>
+        /// Fired when a technology is completed. Parameters: (faction, techId).
+        /// Subscribed to by TechEffectSystem to apply stat modifiers.
+        /// </summary>
+        public event System.Action<Faction, string> OnTechCompleted;
+
         // ═══════════════════════════════════════════════════════════════════════
         // PUBLIC API
         // ═══════════════════════════════════════════════════════════════════════
@@ -76,6 +82,7 @@ namespace TheWaningBorder.Economy
             if (set.Add(techId))
             {
                 Debug.Log($"[FactionResearchState] {faction} completed research: {techId}");
+                OnTechCompleted?.Invoke(faction, techId);
             }
         }
 

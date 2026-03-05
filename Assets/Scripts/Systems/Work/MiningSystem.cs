@@ -256,7 +256,12 @@ namespace TheWaningBorder.Systems.Work
         {
             miner.GatherTimer += dt;
 
-            if (miner.GatherTimer >= GatherInterval)
+            // Effective gather interval: faster when GatherSpeedMultiplier > 1
+            float effectiveInterval = miner.GatherSpeedMultiplier > 0f
+                ? GatherInterval / miner.GatherSpeedMultiplier
+                : GatherInterval;
+
+            if (miner.GatherTimer >= effectiveInterval)
             {
                 miner.GatherTimer = 0f;
 
@@ -306,8 +311,9 @@ namespace TheWaningBorder.Systems.Work
 
                 em.SetComponentData(miner.AssignedDeposit, depState);
 
-                // Check if full or deposit depleted
-                bool isFull = miner.CurrentLoad >= MaxCarryAmount;
+                // Check if full or deposit depleted (carry capacity includes tech bonus)
+                int effectiveMaxCarry = MaxCarryAmount + miner.CarryCapacityBonus;
+                bool isFull = miner.CurrentLoad >= effectiveMaxCarry;
                 bool depositDepleted = depState.Depleted == 1;
 
                 if (isFull || depositDepleted)
