@@ -73,7 +73,6 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     tgt.Value = Entity.Null;
                     archer.CurrentTarget = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -87,7 +86,6 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     tgt.Value = Entity.Null;
                     archer.CurrentTarget = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);

@@ -42,9 +42,9 @@ namespace TheWaningBorder.Systems.Creatures
 
                 // Too far from camp — disengage and return home
 
-                // Remove combat target so creature stops chasing
+                // Clear combat target so creature stops chasing
                 if (em.HasComponent<Target>(entity))
-                    ecb.RemoveComponent<Target>(entity);
+                    ecb.SetComponent(entity, new Target { Value = Entity.Null });
 
                 // Remove attack command if any
                 if (em.HasComponent<AttackCommand>(entity))
