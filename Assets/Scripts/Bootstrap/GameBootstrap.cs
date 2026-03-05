@@ -17,6 +17,7 @@ using TheWaningBorder.AI;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Systems.Research;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -166,6 +167,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
             managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
+            managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }

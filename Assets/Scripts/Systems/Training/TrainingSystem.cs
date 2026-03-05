@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Research;
 
 namespace TheWaningBorder.Systems.Training
 {
@@ -232,6 +233,9 @@ namespace TheWaningBorder.Systems.Training
                 ecb.SetComponent(unit, new Damage { Value = (int)udef.damage });
                 ecb.SetComponent(unit, new LineOfSight { Radius = udef.lineOfSight });
             }
+
+            // Apply all completed tech effects to the newly spawned unit
+            TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
 
             // Issue move command to rally point if one is set
             if (hasRally)
