@@ -55,6 +55,7 @@ namespace TheWaningBorder.Entities
                 IncomePerTick = DefaultIncomePerTick,
                 TickInterval = DefaultTickInterval,
                 TickTimer = 0f,
+                CurrentRingRadius = 0f,
                 Enabled = 1
             });
             em.SetComponentData(entity, new CrystalLevelState
@@ -94,6 +95,7 @@ namespace TheWaningBorder.Entities
                 IncomePerTick = DefaultIncomePerTick,
                 TickInterval = DefaultTickInterval,
                 TickTimer = 0f,
+                CurrentRingRadius = 0f,
                 Enabled = 1
             });
             ecb.AddComponent(entity, new CrystalLevelState

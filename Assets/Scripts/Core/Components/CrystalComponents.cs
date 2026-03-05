@@ -48,6 +48,7 @@ public struct CrystalNode : IComponentData
     public float IncomePerTick;     // Resource trickle for crystals
     public float TickInterval;      // Seconds between ticks
     public float TickTimer;         // Accumulated time
+    public float CurrentRingRadius; // Current outer edge of the spread wavefront
     public byte Enabled;
 }
 
@@ -69,6 +70,26 @@ public struct CrystalLevelState : IComponentData
 public struct CrystalMiningNoise : IComponentData
 {
     public int LocalNoise; // Noise value for the region
+}
+
+// ==================== Cursed Ground ====================
+
+/// <summary>
+/// Damage-over-time applied by cursed ground to non-crystal units.
+/// Attached to each cursed ground entity.
+/// </summary>
+public struct CursedGroundDPS : IComponentData
+{
+    public float DamagePerSecond; // DPS to non-crystal units standing on this tile
+    public float EffectRadius;    // Effect radius of this ground patch
+}
+
+/// <summary>
+/// Links a cursed ground entity back to its parent crystal node.
+/// </summary>
+public struct OwnerNode : IComponentData
+{
+    public Entity Value;
 }
 
 // ==================== Crystal Abilities ====================

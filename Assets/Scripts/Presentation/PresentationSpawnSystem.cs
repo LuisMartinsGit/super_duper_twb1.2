@@ -55,7 +55,13 @@ public class PresentationSpawnSystem : MonoBehaviour
 
         // Alanthor Buildings (procedurally generated)
         { 560, "Procedural/Smelter" },                       // Alanthor Smelter/Forge (generated at runtime)
+
+        // Crystal Curse (procedurally generated)
+        { 311, "Procedural/CursedGround" },                  // Cursed Ground tile (generated at runtime)
     };
+
+    /// <summary>Presentation ID for cursed ground tiles.</summary>
+    private const int CursedGroundPresentationId = 311;
 
     // Fallback prefabs if specific one not found
     private GameObject _fallbackUnitPrefab;
@@ -222,6 +228,14 @@ public class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.Smelter.PresentationID)
         {
             var go = CreateProceduralSmelter(pos, entity);
+            return go;
+        }
+
+        // === CRYSTAL CURSE: procedural cursed ground tile ===
+        if (presentationId == CursedGroundPresentationId)
+        {
+            float radius = _em.HasComponent<Radius>(entity) ? _em.GetComponentData<Radius>(entity).Value : 2f;
+            var go = CreateProceduralCursedGround(pos, radius, entity);
             return go;
         }
 
@@ -902,6 +916,69 @@ public class PresentationSpawnSystem : MonoBehaviour
         // Add EntityReference
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
+
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CRYSTAL CURSE PROCEDURAL GENERATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create a cursed ground tile: a flat dark purple disc on the terrain
+    /// with a subtle purple emission glow to mark crystal corruption.
+    /// </summary>
+    private GameObject CreateProceduralCursedGround(Vector3 center, float radius, Entity entity)
+    {
+        var root = new GameObject($"CursedGround_{entity.Index}");
+        root.transform.position = center;
+
+        // Dark purple corruption colors
+        var corruptionDark = new Color(0.15f, 0.05f, 0.20f, 0.85f);
+        var corruptionGlow = new Color(0.40f, 0.10f, 0.55f);
+
+        // Main disc (flattened cylinder for a ground patch look)
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = "CurseDisc";
+        disc.transform.SetParent(root.transform, false);
+        disc.transform.localPosition = Vector3.up * 0.02f; // Barely above ground
+        disc.transform.localScale = new Vector3(radius * 2f, 0.03f, radius * 2f);
+
+        var discRenderer = disc.GetComponent<Renderer>();
+        if (discRenderer != null)
+        {
+            var mat = new Material(
+                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            mat.color = corruptionDark;
+
+            // Enable transparency for semi-transparent ground overlay
+            if (mat.HasProperty("_Surface"))
+            {
+                mat.SetFloat("_Surface", 1f); // 1 = Transparent in URP
+                mat.SetFloat("_Blend", 0f);
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_ZWrite", 0);
+                mat.renderQueue = 3000;
+            }
+
+            // Purple emission glow
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", corruptionGlow * 0.3f);
+            }
+
+            discRenderer.material = mat;
+        }
+
+        // Remove collider -- cursed ground should not block movement or selection
+        var discCol = disc.GetComponent<Collider>();
+        if (discCol != null) Destroy(discCol);
+
+        // No EntityReference or collider needed -- cursed ground is non-selectable
+        // The ECS entity handles all gameplay logic (DPS, ownership, etc.)
 
         return root;
     }
