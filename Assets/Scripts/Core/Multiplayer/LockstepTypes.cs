@@ -27,7 +27,9 @@ namespace TheWaningBorder.Core.Multiplayer
         Gather = 6,
         SetRally = 7,
         Heal = 8,
-        AttackMove = 9
+        AttackMove = 9,
+        Repair = 10,
+        Convert = 11
     }
 
     /// <summary>
