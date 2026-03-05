@@ -83,6 +83,10 @@ namespace TheWaningBorder.UI.Panels
                 case ActionType.VaultManagement:
                     DrawVaultPanel(entity);
                     break;
+
+                case ActionType.TempleUpgrade:
+                    DrawTempleLevelUpPanel(entity, actionInfo);
+                    break;
             }
         }
 
@@ -272,6 +276,217 @@ namespace TheWaningBorder.UI.Panels
             DrawAgeUpSection(entity);
 
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Draw the Temple of Ridan level-up panel with training section and upgrade button.
+        /// Shows training actions, training progress/queue, and a level-up button below.
+        /// </summary>
+        private void DrawTempleLevelUpPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            float totalPanelHeight = 420f;
+            var panelRect = new Rect(
+                PanelPadding + 300f + PanelPadding,
+                Screen.height - totalPanelHeight - PanelPadding,
+                PanelWidth,
+                totalPanelHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            // ── Training Section ──
+            if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
+            {
+                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Space(4);
+
+                DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+                {
+                    var em = UnifiedUIManager.GetEntityManager();
+                    if (!em.Exists(entity)) return;
+
+                    Faction faction = GameSettings.LocalPlayerFaction;
+                    if (em.HasComponent<FactionTag>(entity))
+                        faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                    // Enforce queue limit
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var q = em.GetBuffer<TrainQueueItem>(entity);
+                        if (q.Length >= MAX_TRAIN_QUEUE)
+                        {
+                            PlayerNotificationSystem.Notify("Training queue full");
+                            return;
+                        }
+                    }
+
+                    int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
+                    if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
+                    {
+                        PlayerNotificationSystem.Notify("Population cap reached");
+                        return;
+                    }
+
+                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        return;
+                    }
+
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var queue = em.GetBuffer<TrainQueueItem>(entity);
+                        queue.Add(new TrainQueueItem { UnitId = button.Id });
+                        Debug.Log($"Queued {button.Id} for training");
+                        Event.current.Use();
+                    }
+                });
+
+                GUILayout.Space(4);
+
+                // Training progress bar
+                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.IsTraining)
+                {
+                    DrawProgressBar(actionInfo.TrainingState.Value);
+                    GUILayout.Space(4);
+                }
+
+                // Training queue with interactive cancel slots
+                if (actionInfo.TrainingState.HasValue)
+                    DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
+            }
+
+            // ── Temple Level-Up Section ──
+            DrawTempleLevelUpSection(entity);
+
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Draw the temple level-up button and status.
+        /// Shows current level, upgrade cost, and a button to upgrade.
+        /// </summary>
+        private void DrawTempleLevelUpSection(Entity entity)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<TempleTag>(entity)) return;
+            if (!em.HasComponent<TempleLevel>(entity)) return;
+
+            var templeLevel = em.GetComponentData<TempleLevel>(entity);
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+
+            // Current level display
+            string levelText = templeLevel.Level >= TempleLevelConfig.MaxLevel
+                ? $"Temple Level {templeLevel.Level} (Maximum)"
+                : $"Temple Level {templeLevel.Level}";
+            GUILayout.Label(levelText, _labelStyle);
+
+            // Max level reached — no upgrade button
+            if (templeLevel.Level >= TempleLevelConfig.MaxLevel)
+            {
+                GUILayout.Label("All eras unlocked", _smallStyle);
+                return;
+            }
+
+            // Under construction — cannot upgrade
+            if (em.HasComponent<UnderConstruction>(entity))
+            {
+                GUILayout.Label("Complete construction first", _requireStyle);
+                return;
+            }
+
+            // Must be Era 2 (culture chosen) before first temple upgrade
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            int currentEra = EntityInfoExtractor.GetFactionEra(em, faction);
+            if (currentEra < 2)
+            {
+                GUILayout.Label("Advance to Era 2 first (culture choice)", _requireStyle);
+                return;
+            }
+
+            int nextLevel = templeLevel.Level + 1;
+            int nextEra = TempleLevelConfig.GetEraForLevel(nextLevel);
+            var upgradeCost = TempleLevelConfig.GetUpgradeCost(templeLevel.Level);
+            int rpGrant = TempleLevelConfig.GetRPGranted(nextLevel);
+
+            bool canAfford = FactionEconomy.CanAfford(em, faction, upgradeCost);
+
+            bool wasEnabled = GUI.enabled;
+            if (!canAfford) GUI.enabled = false;
+
+            string buttonText = $"Upgrade to Level {nextLevel} (Era {nextEra})";
+            if (GUILayout.Button(buttonText, _ageUpStyle, GUILayout.Height(36)))
+            {
+                // Spend resources
+                if (!FactionEconomy.Spend(em, faction, upgradeCost))
+                {
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
+                }
+                else
+                {
+                    // Upgrade temple level
+                    em.SetComponentData(entity, new TempleLevel { Level = nextLevel });
+
+                    // Update faction era
+                    if (FactionEconomy.TryGetBank(em, faction, out var bank))
+                    {
+                        if (em.HasComponent<FactionEra>(bank))
+                            em.SetComponentData(bank, new FactionEra { Value = nextEra });
+
+                        // Grant religion points
+                        if (em.HasComponent<ReligionPoints>(bank))
+                        {
+                            var rp = em.GetComponentData<ReligionPoints>(bank);
+                            rp.Value += rpGrant;
+                            em.SetComponentData(bank, rp);
+                        }
+                    }
+
+                    Debug.Log($"[TempleUpgrade] {faction} temple upgraded to Level {nextLevel}, Era {nextEra}, +{rpGrant} RP");
+                    PlayerNotificationSystem.Notify($"Era {nextEra} reached! +{rpGrant} Religion Points");
+                }
+            }
+
+            GUI.enabled = wasEnabled;
+
+            // Cost display
+            if (!upgradeCost.IsZero)
+            {
+                string costText = UIHelpers.FormatCost(upgradeCost);
+                var costStyle = new GUIStyle(_requireStyle)
+                {
+                    normal = { textColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) }
+                };
+                GUILayout.Label($"Cost: {costText}", costStyle);
+            }
+
+            GUILayout.Label($"Grants: +{rpGrant} Religion Points", _smallStyle);
         }
 
         /// <summary>
