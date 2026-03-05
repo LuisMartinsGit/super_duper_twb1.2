@@ -513,10 +513,9 @@ namespace TheWaningBorder.Core.Commands
 
             var cmd = new LockstepCommand
             {
-                Type = LockstepCommandType.Build, // Reuse Build type for repair
+                Type = LockstepCommandType.Repair,
                 EntityNetworkId = builderId,
-                TargetEntityId = buildingId,
-                BuildingId = "_repair" // Special marker to differentiate from build
+                TargetEntityId = buildingId
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
@@ -534,10 +533,9 @@ namespace TheWaningBorder.Core.Commands
 
             var cmd = new LockstepCommand
             {
-                Type = LockstepCommandType.Build, // Reuse Build type
+                Type = LockstepCommandType.Convert,
                 EntityNetworkId = minerId,
-                TargetEntityId = keepId,
-                BuildingId = "_convert" // Special marker for convert
+                TargetEntityId = keepId
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
