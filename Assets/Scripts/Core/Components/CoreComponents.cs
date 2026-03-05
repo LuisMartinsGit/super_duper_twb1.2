@@ -106,6 +106,12 @@ public struct DesiredDestination : IComponentData
 public struct UserMoveOrder : IComponentData { }
 
 /// <summary>
+/// Marker tag for units executing an attack-move command.
+/// Units with this tag auto-acquire targets while moving.
+/// </summary>
+public struct AttackMoveTag : IComponentData { }
+
+/// <summary>
 /// Temporary speed override for formation movement.
 /// When present, MovementSystem uses this speed instead of MoveSpeed.
 /// Removed when destination is reached.
