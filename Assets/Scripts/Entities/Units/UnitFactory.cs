@@ -37,6 +37,9 @@ namespace TheWaningBorder.Entities
                 "Scout" => Scout.Create(em, position, faction),
                 "Litharch" => Litharch.Create(em, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(em, position, faction),
+                "Crystalling" => Crystalling.Create(em, position, faction),
+                "Veilstinger" => Veilstinger.Create(em, position, faction),
+                "Godsplinter" => Godsplinter.Create(em, position, faction),
                 _ => CreateDefault(em, unitId, position, faction)
             };
         }
@@ -56,6 +59,9 @@ namespace TheWaningBorder.Entities
                 "Scout" => Scout.Create(ecb, position, faction),
                 "Litharch" => Litharch.Create(ecb, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(ecb, position, faction),
+                "Crystalling" => Crystalling.Create(ecb, position, faction),
+                "Veilstinger" => Veilstinger.Create(ecb, position, faction),
+                "Godsplinter" => Godsplinter.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, unitId, position, faction)
             };
         }
@@ -83,6 +89,9 @@ namespace TheWaningBorder.Entities
                 "Scout" => UnitClass.Scout,
                 "Litharch" => UnitClass.Support,
                 "Berserker" or "Feraldis_Berserker" => UnitClass.Melee,
+                "Crystalling" => UnitClass.Melee,
+                "Veilstinger" => UnitClass.Ranged,
+                "Godsplinter" => UnitClass.Siege,
                 _ => UnitClass.Melee
             };
         }
@@ -101,6 +110,9 @@ namespace TheWaningBorder.Entities
                 "Scout" => 206,
                 "Litharch" => 207,
                 "Berserker" or "Feraldis_Berserker" => 210,
+                "Crystalling" => 320,
+                "Veilstinger" => 321,
+                "Godsplinter" => 322,
                 _ => 201
             };
         }
