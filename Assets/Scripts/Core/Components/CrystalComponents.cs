@@ -179,3 +179,29 @@ public struct RestorationAura : IComponentData
     public float HealPerSecond;
     public float HealTimer;
 }
+
+// ==================== Crystal Buff / Debuff ====================
+
+/// <summary>
+/// Applied to crystal-allied units within an Enforcement aura radius.
+/// Combat systems use these values to boost damage, defense, and speed.
+/// Removed when the unit leaves the aura radius.
+/// </summary>
+public struct CrystalBuff : IComponentData
+{
+    public float DefBonus;
+    public float AttBonus;
+    public float SpeedBonus;
+}
+
+/// <summary>
+/// Applied to enemy (non-White) units within a Suppression aura radius.
+/// Combat systems use these values to penalise damage, defense, and speed.
+/// Removed when the unit leaves the aura radius.
+/// </summary>
+public struct CrystalDebuff : IComponentData
+{
+    public float DefPenalty;
+    public float AttPenalty;
+    public float SpeedPenalty;
+}
