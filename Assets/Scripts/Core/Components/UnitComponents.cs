@@ -107,15 +107,6 @@ public struct MinerState : IComponentData
     public Entity DropoffTarget;     // Hall/GathererHut to return crystal to
 }
 
-/// <summary>
-/// Target mine for a miner unit.
-/// </summary>
-public struct MiningTarget : IComponentData
-{
-    public Entity Mine;
-    public float3 TargetPosition;
-}
-
 // ==================== Forge Supply ====================
 
 /// <summary>
