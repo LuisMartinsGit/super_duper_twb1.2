@@ -9,23 +9,20 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
-    /// Spawns Crystal Main Nodes and their initial creature guards at game start.
-    /// Each node acts as a Crystal Curse hive: it spreads cursed ground,
-    /// spawns creatures when disturbed, and levels up over time.
+    /// Spawns Crystal Main Nodes at game start.
+    /// Each node acts as a Crystal Curse hive: it spreads cursed ground
+    /// and controls crystal faction AI behavior.
     /// Call after terrain and player spawns are initialized.
     /// </summary>
     public static class CrystalNodeBootstrap
     {
         private const int MinNodes = 2;
         private const int MaxNodes = 4;
-        private const int MinCreaturesPerNode = 2;
-        private const int MaxCreaturesPerNode = 3;
         private const float MinDistFromPlayers = 60f;
         private const float MinDistBetweenNodes = 50f;
-        private const float CreatureSpread = 6f;
 
         /// <summary>
-        /// Spawn crystal main nodes with creature guards.
+        /// Spawn crystal main nodes.
         /// Returns the number of nodes spawned.
         /// </summary>
         public static int SpawnCrystalNodes()
@@ -47,7 +44,6 @@ namespace TheWaningBorder.Bootstrap
             int nodeCount = random.NextInt(MinNodes, MaxNodes + 1);
             var nodePosArray = new float3[nodeCount];
             int nodesSpawned = 0;
-            int totalCreatures = 0;
 
             for (int n = 0; n < nodeCount; n++)
             {
@@ -101,28 +97,15 @@ namespace TheWaningBorder.Bootstrap
                 CrystalMainNode.Create(em, nodePos);
                 nodePosArray[nodesSpawned] = nodePos;
                 nodesSpawned++;
-
-                // Spawn initial creature guards around the node
-                int creaturesInGroup = random.NextInt(MinCreaturesPerNode, MaxCreaturesPerNode + 1);
-                for (int c = 0; c < creaturesInGroup; c++)
-                {
-                    float offsetX = random.NextFloat(-CreatureSpread, CreatureSpread);
-                    float offsetZ = random.NextFloat(-CreatureSpread, CreatureSpread);
-                    float3 creaturePos = nodePos + new float3(offsetX, 0f, offsetZ);
-                    creaturePos.y = TerrainUtility.GetHeight(creaturePos.x, creaturePos.z);
-
-                    Creature.Create(em, creaturePos);
-                    totalCreatures++;
-                }
             }
 
-            Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes with {totalCreatures} creature guards");
+            Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes");
             return nodesSpawned;
         }
 
         /// <summary>
         /// Get player positions from existing Halls, or estimate from spawn layout.
-        /// Same pattern as CreatureBootstrap.GetPlayerPositions().
+        /// Get player positions from existing Halls, or estimate from spawn layout.
         /// </summary>
         private static float3[] GetPlayerPositions(EntityManager em)
         {

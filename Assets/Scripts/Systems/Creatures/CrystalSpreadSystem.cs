@@ -11,7 +11,7 @@ namespace TheWaningBorder.Systems.Creatures
     /// Spreads cursed ground around Crystal Main Nodes in expanding rings.
     /// Each tick, the ring frontier (CurrentRingRadius) advances outward,
     /// spawning visible cursed ground tiles at regular angular intervals.
-    /// The spread rate scales with crystal level, creating a visible wavefront
+    /// Uses a fixed ring step, creating a visible wavefront
     /// that players can see approaching their base.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -25,9 +25,6 @@ namespace TheWaningBorder.Systems.Creatures
 
         /// <summary>Base ring expansion step per tick (world units).</summary>
         private const float BaseRingStep = 2f;
-
-        /// <summary>Additional ring step per crystal level above 1.</summary>
-        private const float RingStepPerLevel = 0.5f;
 
         /// <summary>Minimum arc distance between tiles on a ring (world units).</summary>
         private const float TileSpacing = 3.5f;
@@ -64,8 +61,8 @@ namespace TheWaningBorder.Systems.Creatures
                 nodeCount++;
             }
 
-            foreach (var (crystalNode, levelState, transform, entity) in SystemAPI
-                .Query<RefRW<CrystalNode>, RefRO<CrystalLevelState>, RefRO<LocalTransform>>()
+            foreach (var (crystalNode, transform, entity) in SystemAPI
+                .Query<RefRW<CrystalNode>, RefRO<LocalTransform>>()
                 .WithAll<CrystalMainNodeTag>()
                 .WithEntityAccess())
             {
@@ -80,9 +77,8 @@ namespace TheWaningBorder.Systems.Creatures
                 // Ring already at max radius -- nothing to spread
                 if (node.CurrentRingRadius >= node.SpreadRadius) continue;
 
-                // Calculate ring expansion step, scaled by level
-                int level = levelState.ValueRO.Level;
-                float ringStep = BaseRingStep + (level - 1) * RingStepPerLevel;
+                // Fixed ring expansion step
+                float ringStep = BaseRingStep;
 
                 // Advance the ring frontier
                 float prevRadius = node.CurrentRingRadius;
