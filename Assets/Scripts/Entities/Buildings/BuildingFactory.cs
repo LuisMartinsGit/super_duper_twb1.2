@@ -284,6 +284,7 @@ namespace TheWaningBorder.Entities
 
             em.AddComponent<TempleTag>(entity);
             em.AddComponent<ChoiceBuildingTag>(entity);
+            em.AddComponentData(entity, new TempleLevel { Level = 1 });
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
@@ -401,6 +402,7 @@ namespace TheWaningBorder.Entities
 
             ecb.AddComponent<TempleTag>(entity);
             ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddComponent(entity, new TempleLevel { Level = 1 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
