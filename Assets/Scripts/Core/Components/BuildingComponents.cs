@@ -40,6 +40,15 @@ public struct DepotTag : IComponentData { }
 /// <summary>Religious/support building.</summary>
 public struct TempleTag : IComponentData { }
 
+/// <summary>
+/// Tracks the current level of a Temple building (1-4).
+/// Level 1 = on build, Level 2-4 = upgrades that advance era.
+/// </summary>
+public struct TempleLevel : IComponentData
+{
+    public int Level; // 1-4
+}
+
 /// <summary>Defensive wall segment (generic tag for all wall entities).</summary>
 public struct WallTag : IComponentData { }
 

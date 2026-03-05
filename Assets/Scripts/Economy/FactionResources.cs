@@ -77,6 +77,32 @@ namespace TheWaningBorder.Economy
     }
     
     // ═══════════════════════════════════════════════════════════════════════
+    // FACTION ERA & RELIGION POINTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Tracks the current era of a faction (1-5).
+    /// Era 1 = start, Era 2 = culture chosen, Era 3-5 = temple level-ups.
+    /// Attached to faction bank entity alongside FactionResources.
+    /// </summary>
+    public struct FactionEra : IComponentData
+    {
+        /// <summary>Current era (1-5)</summary>
+        public int Value;
+    }
+
+    /// <summary>
+    /// Tracks cumulative Religion Points (RP) for a faction.
+    /// RP are granted by temple level-ups and shrine construction.
+    /// Attached to faction bank entity alongside FactionResources.
+    /// </summary>
+    public struct ReligionPoints : IComponentData
+    {
+        /// <summary>Cumulative religion points</summary>
+        public int Value;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // RESOURCE TICK STATE
     // ═══════════════════════════════════════════════════════════════════════
     
