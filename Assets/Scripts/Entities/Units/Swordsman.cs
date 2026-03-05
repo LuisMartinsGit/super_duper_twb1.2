@@ -73,7 +73,7 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            em.AddComponentData(entity, new Defense { Melee = 5, Ranged = 2, Siege = 0, Magic = 0 });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;
         }
@@ -117,7 +117,7 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            ecb.AddComponent(entity, new Defense { Melee = 5, Ranged = 2, Siege = 0, Magic = 0 });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;
         }

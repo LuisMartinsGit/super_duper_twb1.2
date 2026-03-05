@@ -107,8 +107,8 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
-            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 3 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });
 
             return entity;
         }

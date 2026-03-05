@@ -11,7 +11,7 @@ namespace TheWaningBorder.Systems.Crystal
     /// Hybrid siege/ranged combat system for Godsplinter crystal units.
     ///
     /// Two combat modes:
-    /// 1. Siege mode (close range): Direct damage to target, 2x vs buildings
+    /// 1. Siege mode (close range): Direct damage to target (modifier from combat matrix)
     /// 2. Laser mode (medium range): Multi-target laser barrage (up to 4 targets)
     ///
     /// Behavior priority:
@@ -29,7 +29,7 @@ namespace TheWaningBorder.Systems.Crystal
         private const float LaserSpeed = 55f;
         private const float SiegeCooldownDuration = 3.0f;
         private const float LaserCooldownDuration = 2.0f;
-        private const int BuildingDamageMultiplier = 2;
+
 
         public void OnCreate(ref SystemState state)
         {
@@ -108,12 +108,8 @@ namespace TheWaningBorder.Systems.Crystal
                         ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
-                    // Calculate siege damage (2x vs buildings)
+                    // Calculate siege damage (modifier handled by combat matrix)
                     int siegeDmg = baseDmg;
-                    if (em.HasComponent<BuildingTag>(tgt.Value))
-                    {
-                        siegeDmg *= BuildingDamageMultiplier;
-                    }
 
                     // Get target's armor type
                     ArmorType armorType = ArmorType.InfantryLight;
