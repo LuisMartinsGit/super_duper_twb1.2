@@ -40,6 +40,22 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => CreateFiendstoneKeep(em, position, faction),
                 "Alanthor_Wall" => AlanthorWall.CreateHub(em, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(em, position, faction),
+                // Runai culture buildings
+                "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
+                "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
+                "Runai_Bazaar" => CreateRunaiBazaar(em, position, faction),
+                "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshop(em, position, faction),
+                // Alanthor culture buildings
+                "Alanthor_WatchTower" => CreateAlanthorWatchTower(em, position, faction),
+                "Alanthor_Garrison" => CreateAlanthorGarrison(em, position, faction),
+                "Alanthor_RoyalStable" => CreateAlanthorRoyalStable(em, position, faction),
+                "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
+                // Feraldis culture buildings
+                "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodge(em, position, faction),
+                "Feraldis_LoggingStation" => CreateFeraldisLoggingStation(em, position, faction),
+                "Feraldis_Longhouse" => CreateFeraldisLonghouse(em, position, faction),
+                "Feraldis_TotemTower" => CreateFeraldisTotemTower(em, position, faction),
+                "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
                 _ => CreateDefault(em, buildingId, position, faction)
             };
         }
@@ -59,6 +75,22 @@ namespace TheWaningBorder.Entities
                 "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
                 "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
+                // Runai culture buildings
+                "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
+                "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
+                "Runai_Bazaar" => CreateRunaiBazaarECB(ecb, position, faction),
+                "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshopECB(ecb, position, faction),
+                // Alanthor culture buildings
+                "Alanthor_WatchTower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
+                "Alanthor_Garrison" => CreateAlanthorGarrisonECB(ecb, position, faction),
+                "Alanthor_RoyalStable" => CreateAlanthorRoyalStableECB(ecb, position, faction),
+                "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
+                // Feraldis culture buildings
+                "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodgeECB(ecb, position, faction),
+                "Feraldis_LoggingStation" => CreateFeraldisLoggingStationECB(ecb, position, faction),
+                "Feraldis_Longhouse" => CreateFeraldisLonghouseECB(ecb, position, faction),
+                "Feraldis_TotemTower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
+                "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
         }
@@ -79,6 +111,22 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => 540,
                 "Alanthor_Wall" => AlanthorWall.HubPresentationID,
                 "Alanthor_Smelter" => Smelter.PresentationID,
+                // Runai culture buildings
+                "Runai_Outpost" => 350,
+                "Runai_TradeHub" => 351,
+                "Runai_Bazaar" => 352,
+                "Runai_SiegeWorkshop" => 353,
+                // Alanthor culture buildings
+                "Alanthor_WatchTower" => 354,
+                "Alanthor_Garrison" => 355,
+                "Alanthor_RoyalStable" => 356,
+                "Alanthor_SiegeYard" => 357,
+                // Feraldis culture buildings
+                "Feraldis_HuntingLodge" => 358,
+                "Feraldis_LoggingStation" => 359,
+                "Feraldis_Longhouse" => 360,
+                "Feraldis_TotemTower" => 361,
+                "Feraldis_SiegeYard" => 362,
                 _ => 100
             };
         }
@@ -92,6 +140,10 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => 20,
                 "Hut" => 10,
+                "Runai_Bazaar" => 40,
+                "Alanthor_Garrison" => 8,
+                "Feraldis_HuntingLodge" => 10,
+                "Feraldis_LoggingStation" => 10,
                 _ => 0
             };
         }
@@ -106,6 +158,14 @@ namespace TheWaningBorder.Entities
                 "Hall" => true,
                 "Barracks" => true,
                 "TempleOfRidan" => true,
+                "Runai_TradeHub" => true,
+                "Runai_Bazaar" => true,
+                "Runai_SiegeWorkshop" => true,
+                "Alanthor_Garrison" => true,
+                "Alanthor_RoyalStable" => true,
+                "Alanthor_SiegeYard" => true,
+                "Feraldis_Longhouse" => true,
+                "Feraldis_SiegeYard" => true,
                 _ => false
             };
         }
@@ -345,6 +405,352 @@ namespace TheWaningBorder.Entities
             return entity;
         }
 
+        // ==================== Runai Culture Buildings (EntityManager) ====================
+
+        /// <summary>
+        /// Runai Outpost — trade node endpoint with extended vision.
+        /// </summary>
+        private static Entity CreateRunaiOutpost(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 900f, los = 20f, radius = 1.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Outpost", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 350 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.AddComponent<OutpostTag>(entity);
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Trade Hub — spawns caravans, defines trade routes. Training building.
+        /// </summary>
+        private static Entity CreateRunaiTradeHub(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradeHub", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 351 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<TradeHubTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Bazaar — mobile HQ. +40 pop. Dual training queue. Unique per player.
+        /// </summary>
+        private static Entity CreateRunaiBazaar(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 2700f, los = 35f, radius = 2.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Bazaar", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius),
+                typeof(TrainingState), typeof(PopulationProvider));
+            em.SetComponentData(entity, new PresentationId { Id = 352 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 1 }); // Acts as a base
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.SetComponentData(entity, new PopulationProvider { Amount = 40 });
+            em.AddComponent<BazaarTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(4f, 0, 4f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Siege Workshop — trains Sand Ballista.
+        /// </summary>
+        private static Entity CreateRunaiSiegeWorkshop(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_SiegeWorkshop", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 353 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<SiegeWorkshopTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        // ==================== Alanthor Culture Buildings (EntityManager) ====================
+
+        /// <summary>
+        /// Alanthor Watch Tower — ranged defense (18u range, 14 dmg, 2.0s CD). Garrison 4.
+        /// </summary>
+        private static Entity CreateAlanthorWatchTower(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 950f, los = 22f, radius = 0.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_WatchTower", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 354 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.AddComponent<WatchTowerTag>(entity);
+            em.AddComponentData(entity, new BuildingRangedAttack
+            {
+                Range = 18f, Damage = 14, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+            });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            return entity;
+        }
+
+        /// <summary>
+        /// Alanthor Garrison — trains Sentinel+Crossbowman. +8 pop.
+        /// </summary>
+        private static Entity CreateAlanthorGarrison(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1500f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Garrison", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius),
+                typeof(TrainingState), typeof(PopulationProvider));
+            em.SetComponentData(entity, new PresentationId { Id = 355 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.SetComponentData(entity, new PopulationProvider { Amount = 8 });
+            em.AddComponent<GarrisonTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Alanthor Royal Stable — trains Cataphract.
+        /// </summary>
+        private static Entity CreateAlanthorRoyalStable(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1300f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 356 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<RoyalStableTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Alanthor Siege Yard — trains Ballista.
+        /// </summary>
+        private static Entity CreateAlanthorSiegeYard(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_SiegeYard", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 357 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<SiegeYardTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        // ==================== Feraldis Culture Buildings (EntityManager) ====================
+
+        /// <summary>
+        /// Feraldis Hunting Lodge — +10 pop. Passive income near wildlife areas.
+        /// </summary>
+        private static Entity CreateFeraldisHuntingLodge(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1000f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_HuntingLodge", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(PopulationProvider));
+            em.SetComponentData(entity, new PresentationId { Id = 358 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
+            em.AddComponent<HuntingLodgeTag>(entity);
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Feraldis Logging Station — +10 pop. Passive income near forest areas.
+        /// </summary>
+        private static Entity CreateFeraldisLoggingStation(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1000f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_LoggingStation", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(PopulationProvider));
+            em.SetComponentData(entity, new PresentationId { Id = 359 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
+            em.AddComponent<LoggingStationTag>(entity);
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Feraldis Longhouse — batch-trains units. Has BatchTrainingTag.
+        /// </summary>
+        private static Entity CreateFeraldisLonghouse(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1400f, los = 14f, radius = 1.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 360 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<LonghouseTag>(entity);
+            em.AddComponent<BatchTrainingTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Feraldis Totem Tower — ranged defense (15u range, 12 dmg, 2.0s CD).
+        /// </summary>
+        private static Entity CreateFeraldisTotemTower(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 900f, los = 18f, radius = 0.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_TotemTower", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 361 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.AddComponent<TotemTowerTag>(entity);
+            em.AddComponentData(entity, new BuildingRangedAttack
+            {
+                Range = 15f, Damage = 12, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+            });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            return entity;
+        }
+
+        /// <summary>
+        /// Feraldis Siege Yard — trains Siege Ram.
+        /// </summary>
+        private static Entity CreateFeraldisSiegeYard(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_SiegeYard", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+            em.SetComponentData(entity, new PresentationId { Id = 362 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddComponent<FerSiegeYardTag>(entity);
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
         /// <summary>
         /// Default building creation for unknown types.
         /// </summary>
@@ -493,6 +899,298 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
 
+            return entity;
+        }
+
+        // ==================== Runai Culture Buildings (ECB) ====================
+
+        private static Entity CreateRunaiOutpostECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 900f, los = 20f, radius = 1.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Outpost", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 350 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent<OutpostTag>(entity);
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateRunaiTradeHubECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradeHub", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 351 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<TradeHubTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateRunaiBazaarECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 2700f, los = 35f, radius = 2.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Bazaar", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 352 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 1 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 40 });
+            ecb.AddComponent<BazaarTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(4f, 0, 4f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateRunaiSiegeWorkshopECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_SiegeWorkshop", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 353 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<SiegeWorkshopTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        // ==================== Alanthor Culture Buildings (ECB) ====================
+
+        private static Entity CreateAlanthorWatchTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 950f, los = 22f, radius = 0.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_WatchTower", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 354 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent<WatchTowerTag>(entity);
+            ecb.AddComponent(entity, new BuildingRangedAttack
+            {
+                Range = 18f, Damage = 14, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+            });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            return entity;
+        }
+
+        private static Entity CreateAlanthorGarrisonECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1500f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Garrison", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 355 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 8 });
+            ecb.AddComponent<GarrisonTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateAlanthorRoyalStableECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1300f, los = 14f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 356 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<RoyalStableTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateAlanthorSiegeYardECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_SiegeYard", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 357 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<SiegeYardTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        // ==================== Feraldis Culture Buildings (ECB) ====================
+
+        private static Entity CreateFeraldisHuntingLodgeECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1000f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_HuntingLodge", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 358 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
+            ecb.AddComponent<HuntingLodgeTag>(entity);
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateFeraldisLoggingStationECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1000f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_LoggingStation", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 359 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
+            ecb.AddComponent<LoggingStationTag>(entity);
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateFeraldisLonghouseECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1400f, los = 14f, radius = 1.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 360 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<LonghouseTag>(entity);
+            ecb.AddComponent<BatchTrainingTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateFeraldisTotemTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 900f, los = 18f, radius = 0.8f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_TotemTower", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 361 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent<TotemTowerTag>(entity);
+            ecb.AddComponent(entity, new BuildingRangedAttack
+            {
+                Range = 15f, Damage = 12, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+            });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            return entity;
+        }
+
+        private static Entity CreateFeraldisSiegeYardECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 14f, radius = 1.2f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_SiegeYard", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 362 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent<FerSiegeYardTag>(entity);
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
 

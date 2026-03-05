@@ -101,6 +101,12 @@ public struct OutpostTag : IComponentData { }
 /// <summary>Runai trade building.</summary>
 public struct TradeHubTag : IComponentData { }
 
+/// <summary>Runai mobile HQ. Unique per player. +40 pop, dual training queue.</summary>
+public struct BazaarTag : IComponentData { }
+
+/// <summary>Runai siege unit training building.</summary>
+public struct SiegeWorkshopTag : IComponentData { }
+
 // ==================== Era 2 - Alanthor Culture Buildings ====================
 
 /// <summary>Alanthor metal processing building.</summary>
@@ -108,6 +114,18 @@ public struct SmelterTag : IComponentData { }
 
 /// <summary>Alanthor advanced construction building.</summary>
 public struct CrucibleTag : IComponentData { }
+
+/// <summary>Alanthor ranged defensive tower. Garrison 4.</summary>
+public struct WatchTowerTag : IComponentData { }
+
+/// <summary>Alanthor military training building. +8 pop. Trains Sentinel+Crossbowman.</summary>
+public struct GarrisonTag : IComponentData { }
+
+/// <summary>Alanthor cavalry training building. Trains Cataphract.</summary>
+public struct RoyalStableTag : IComponentData { }
+
+/// <summary>Alanthor siege unit training building. Trains Ballista.</summary>
+public struct SiegeYardTag : IComponentData { }
 
 // ==================== Era 2 - Feraldis Culture Buildings ====================
 
@@ -119,6 +137,18 @@ public struct LoggingStationTag : IComponentData { }
 
 /// <summary>Feraldis weapon forge building.</summary>
 public struct WarbrandFoundryTag : IComponentData { }
+
+/// <summary>Feraldis batch training longhouse. Has BatchTrainingTag.</summary>
+public struct LonghouseTag : IComponentData { }
+
+/// <summary>Marker for buildings that batch-train units (e.g., Feraldis Longhouse).</summary>
+public struct BatchTrainingTag : IComponentData { }
+
+/// <summary>Feraldis ranged defensive totem tower.</summary>
+public struct TotemTowerTag : IComponentData { }
+
+/// <summary>Feraldis siege unit training building. Trains Siege Ram.</summary>
+public struct FerSiegeYardTag : IComponentData { }
 
 // ==================== Sect Buildings ====================
 

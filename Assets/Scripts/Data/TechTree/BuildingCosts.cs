@@ -37,22 +37,28 @@ namespace TheWaningBorder.Data
             { "Keep",           Cost.Of(supplies: 300) },                           // Fiendstone Keep (alias)
             { "FiendstoneKeep", Cost.Of(supplies: 300) },                           // Fiendstone Keep
             
-            // Era 1 - Feraldis Variant
+            // Runai Culture Buildings
+            { "Runai_Outpost",           Cost.Of(supplies: 140, iron: 20) },
+            { "Runai_TradeHub",          Cost.Of(supplies: 240, iron: 40) },
+            { "Runai_Bazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
+            { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, crystal: 60) },
+
+            // Feraldis Culture Buildings
             { "Feraldis_BeastPen",       Cost.Of(supplies: 150, iron: 30) },
-            { "Feraldis_HuntingLodge",   Cost.Of(supplies: 100, iron: 20) },
-            { "Feraldis_LoggingStation", Cost.Of(supplies: 80) },
+            { "Feraldis_HuntingLodge",   Cost.Of(supplies: 160, iron: 20) },
+            { "Feraldis_LoggingStation", Cost.Of(supplies: 160, iron: 20) },
             { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80) },
-            { "Feraldis_Tower",          Cost.Of(supplies: 150, iron: 50) },
-            { "Feraldis_Longhouse",      Cost.Of(supplies: 120) },
-            { "Feraldis_SiegeYard",      Cost.Of(supplies: 300, iron: 120) },
-            
-            // Era 2 - Alanthor
+            { "Feraldis_TotemTower",     Cost.Of(supplies: 120, iron: 60) },
+            { "Feraldis_Longhouse",      Cost.Of(supplies: 260, iron: 100) },
+            { "Feraldis_SiegeYard",      Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+
+            // Alanthor Culture Buildings
             { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, crystal: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
-            { "Alanthor_Tower",          Cost.Of(supplies: 180, iron: 60) },
-            { "Alanthor_Garrison",       Cost.Of(supplies: 280, iron: 80) },
-            { "Alanthor_Stable",         Cost.Of(supplies: 250, iron: 60) },
-            { "Alanthor_SiegeYard",      Cost.Of(supplies: 350, iron: 140) },
+            { "Alanthor_WatchTower",     Cost.Of(supplies: 140, iron: 70) },
+            { "Alanthor_Garrison",       Cost.Of(supplies: 220, iron: 90) },
+            { "Alanthor_RoyalStable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+            { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
         };

@@ -205,6 +205,22 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<SmelterTag>(entity)) return "Smelter";
             if (em.HasComponent<WallHubTag>(entity)) return "Wall Hub";
             if (em.HasComponent<WallSegmentTag>(entity)) return "Wall";
+            // Runai culture buildings
+            if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
+            if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
+            if (em.HasComponent<BazaarTag>(entity)) return "Bazaar";
+            if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
+            // Alanthor culture buildings
+            if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
+            if (em.HasComponent<GarrisonTag>(entity)) return "Garrison";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Royal Stable";
+            if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";
+            // Feraldis culture buildings
+            if (em.HasComponent<HuntingLodgeTag>(entity)) return "Hunting Lodge";
+            if (em.HasComponent<LoggingStationTag>(entity)) return "Logging Station";
+            if (em.HasComponent<LonghouseTag>(entity)) return "Longhouse";
+            if (em.HasComponent<TotemTowerTag>(entity)) return "Totem Tower";
+            if (em.HasComponent<FerSiegeYardTag>(entity)) return "Siege Yard";
             return "Building";
         }
 
@@ -360,7 +376,14 @@ namespace TheWaningBorder.UI
         private static readonly HashSet<string> BuildableBuildings = new()
         {
             "Hut", "GatherersHut", "Barracks", "TempleOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
-            "Alanthor_Wall", "Alanthor_Smelter"
+            "Alanthor_Wall", "Alanthor_Smelter",
+            // Runai culture buildings
+            "Runai_Outpost", "Runai_TradeHub", "Runai_Bazaar", "Runai_SiegeWorkshop",
+            // Alanthor culture buildings
+            "Alanthor_WatchTower", "Alanthor_Garrison", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
+            // Feraldis culture buildings
+            "Feraldis_HuntingLodge", "Feraldis_LoggingStation", "Feraldis_Longhouse",
+            "Feraldis_TotemTower", "Feraldis_SiegeYard"
         };
 
         private static List<ActionButton> GetBuildingActions()
@@ -735,6 +758,22 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
+            // Runai culture buildings
+            if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
+            if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
+            if (em.HasComponent<BazaarTag>(entity)) return "Runai_Bazaar";
+            if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
+            // Alanthor culture buildings
+            if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_WatchTower";
+            if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";
+            if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
+            // Feraldis culture buildings
+            if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
+            if (em.HasComponent<LoggingStationTag>(entity)) return "Feraldis_LoggingStation";
+            if (em.HasComponent<LonghouseTag>(entity)) return "Feraldis_Longhouse";
+            if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_TotemTower";
+            if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
             return null;
         }
     }
