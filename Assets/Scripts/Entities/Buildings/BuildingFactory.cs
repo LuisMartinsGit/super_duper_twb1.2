@@ -359,6 +359,43 @@ namespace TheWaningBorder.Entities
             return entity;
         }
 
+        /// <summary>
+        /// Create Fiendstone Keep using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        private static Entity CreateFiendstoneKeepECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 2000f;
+            float los = 18f;
+            float radius = 2.4f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("FiendstoneKeep", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 540 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 1 }); // Is a base building
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 20 });
+
+            ecb.AddComponent<FiendstoneKeepTag>(entity);
+            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddComponent(entity, new BuildingRangedAttack
+            {
+                Range = 25f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 3
+            });
+
+            return entity;
+        }
+
         private static Entity CreateDefault(EntityCommandBuffer ecb, string buildingId, float3 position, Faction faction)
         {
             UnityEngine.Debug.LogWarning($"[BuildingFactory] Unknown building type '{buildingId}', creating generic structure");
