@@ -82,7 +82,7 @@ namespace TheWaningBorder.Systems.Research
 
             Debug.Log($"[TechEffectSystem] Applying effects for {techId} to {faction} entities...");
 
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
 
             var em = world.EntityManager;

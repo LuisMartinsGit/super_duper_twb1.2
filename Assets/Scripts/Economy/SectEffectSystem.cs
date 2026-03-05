@@ -88,7 +88,7 @@ namespace TheWaningBorder.Economy
         {
             Debug.Log($"[SectEffectSystem] Applying effects for {SectConfig.GetDisplayName(sectId)} to {faction}...");
 
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
 
             var em = world.EntityManager;
@@ -213,7 +213,7 @@ namespace TheWaningBorder.Economy
                 if (factions[i].Value != faction) continue;
 
                 var los = losData[i];
-                los.Range *= (1.0f + bonusPercent);
+                los.Radius *= (1.0f + bonusPercent);
                 em.SetComponentData(entities[i], los);
                 count++;
             }
@@ -376,7 +376,7 @@ namespace TheWaningBorder.Economy
             sectState.RecomputeMultipliers(faction);
             var mults = sectState.GetMultipliers(faction);
 
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
 
@@ -438,7 +438,7 @@ namespace TheWaningBorder.Economy
             if (mults.FogVisionBonus > 0f && em.HasComponent<LineOfSight>(unit))
             {
                 var los = em.GetComponentData<LineOfSight>(unit);
-                los.Range *= (1.0f + mults.FogVisionBonus);
+                los.Radius *= (1.0f + mults.FogVisionBonus);
                 em.SetComponentData(unit, los);
             }
 

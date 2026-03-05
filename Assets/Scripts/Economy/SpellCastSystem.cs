@@ -146,7 +146,7 @@ namespace TheWaningBorder.Economy
 
         private bool ApplySpellEffect(SpellDefinition spell, Faction faction, float3 targetPosition)
         {
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return false;
 
             var em = world.EntityManager;
