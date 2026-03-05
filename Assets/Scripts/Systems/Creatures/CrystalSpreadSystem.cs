@@ -8,11 +8,11 @@ using Unity.Transforms;
 namespace TheWaningBorder.Systems.Creatures
 {
     /// <summary>
-    /// Spreads cursed ground around Crystal Main Nodes over time.
-    /// Each tick (CrystalNode.TickInterval), spawns CursedGround marker entities
-    /// within the node's SpreadRadius. Spread rate scales with crystal level.
-    /// CursedGround entities serve as visual indicators and gameplay markers
-    /// for the expanding crystal corruption zone.
+    /// Spreads cursed ground around Crystal Main Nodes in expanding rings.
+    /// Each tick, the ring frontier (CurrentRingRadius) advances outward,
+    /// spawning visible cursed ground tiles at regular angular intervals.
+    /// The spread rate scales with crystal level, creating a visible wavefront
+    /// that players can see approaching their base.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct CrystalSpreadSystem : ISystem
@@ -21,33 +21,47 @@ namespace TheWaningBorder.Systems.Creatures
         private const int CursedGroundPresentationId = 311;
 
         /// <summary>Maximum cursed ground entities per node to prevent entity bloat.</summary>
-        private const int MaxCursedGroundPerNode = 30;
+        private const int MaxTilesPerNode = 200;
 
-        /// <summary>Minimum spacing between cursed ground markers.</summary>
-        private const float MinGroundSpacing = 4f;
+        /// <summary>Base ring expansion step per tick (world units).</summary>
+        private const float BaseRingStep = 2f;
 
-        private uint _randomSeed;
+        /// <summary>Additional ring step per crystal level above 1.</summary>
+        private const float RingStepPerLevel = 0.5f;
+
+        /// <summary>Minimum arc distance between tiles on a ring (world units).</summary>
+        private const float TileSpacing = 3.5f;
+
+        /// <summary>Radius of each cursed ground tile's effect area.</summary>
+        private const float TileRadius = 2f;
+
+        /// <summary>Base DPS applied by cursed ground to non-crystal units.</summary>
+        private const float BaseDPS = 2f;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<CrystalMainNodeTag>();
-            _randomSeed = 54321;
         }
 
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
-            _randomSeed += 1;
-            var random = new Random(_randomSeed);
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            // Count existing cursed ground entities
-            int existingGroundCount = 0;
+            // Count existing cursed ground per-node by counting all CursedGround entities
+            // and dividing by node count for a rough per-node budget
+            int existingGroundTotal = 0;
             foreach (var _ in SystemAPI.Query<RefRO<CursedGroundTag>>())
             {
-                existingGroundCount++;
+                existingGroundTotal++;
+            }
+
+            int nodeCount = 0;
+            foreach (var _ in SystemAPI.Query<RefRO<CrystalMainNodeTag>>())
+            {
+                nodeCount++;
             }
 
             foreach (var (crystalNode, levelState, transform, entity) in SystemAPI
@@ -63,54 +77,72 @@ namespace TheWaningBorder.Systems.Creatures
                 if (node.TickTimer < node.TickInterval) continue;
                 node.TickTimer = 0f;
 
-                // Number of ground patches to spawn scales with level
-                int level = levelState.ValueRO.Level;
-                int patchesToSpawn = (int)node.SpreadPerTick + (level - 1);
+                // Ring already at max radius -- nothing to spread
+                if (node.CurrentRingRadius >= node.SpreadRadius) continue;
 
-                // Cap total cursed ground
-                int remaining = MaxCursedGroundPerNode - (existingGroundCount / math.max(1, CountMainNodes(ref state)));
-                patchesToSpawn = math.min(patchesToSpawn, math.max(0, remaining));
+                // Calculate ring expansion step, scaled by level
+                int level = levelState.ValueRO.Level;
+                float ringStep = BaseRingStep + (level - 1) * RingStepPerLevel;
+
+                // Advance the ring frontier
+                float prevRadius = node.CurrentRingRadius;
+                float newRadius = math.min(prevRadius + ringStep, node.SpreadRadius);
+                node.CurrentRingRadius = newRadius;
+
+                // Per-node budget check
+                int perNodeBudget = MaxTilesPerNode - (existingGroundTotal / math.max(1, nodeCount));
+                if (perNodeBudget <= 0) continue;
 
                 float3 nodePos = transform.ValueRO.Position;
+                int tilesSpawned = 0;
 
-                for (int i = 0; i < patchesToSpawn; i++)
+                // Spawn tiles in the annular ring between prevRadius and newRadius
+                // Walk from inner to outer edge in radial steps
+                float radialStep = TileSpacing * 0.8f; // Slight overlap for coverage
+                for (float r = math.max(prevRadius, TileSpacing * 0.5f); r <= newRadius; r += radialStep)
                 {
-                    // Random position within spread radius
-                    float angle = random.NextFloat(0f, math.PI * 2f);
-                    float dist = random.NextFloat(3f, node.SpreadRadius);
-                    float3 groundPos = nodePos + new float3(
-                        math.cos(angle) * dist,
-                        0f,
-                        math.sin(angle) * dist
-                    );
-                    groundPos.y = nodePos.y; // Approximate height
+                    // Number of tiles at this radius based on circumference and spacing
+                    float circumference = 2f * math.PI * r;
+                    int tilesAtRadius = math.max(1, (int)(circumference / TileSpacing));
+                    float angleStep = (2f * math.PI) / tilesAtRadius;
 
-                    // Create cursed ground entity
-                    var groundEntity = ecb.CreateEntity();
-                    ecb.AddComponent<CursedGroundTag>(groundEntity);
-                    ecb.AddComponent(groundEntity, LocalTransform.FromPosition(groundPos));
-                    ecb.AddComponent(groundEntity, new PresentationId { Id = CursedGroundPresentationId });
-                    ecb.AddComponent(groundEntity, new Radius { Value = 2f });
+                    for (int i = 0; i < tilesAtRadius; i++)
+                    {
+                        if (tilesSpawned >= perNodeBudget) break;
+
+                        float angle = i * angleStep;
+                        float3 groundPos = nodePos + new float3(
+                            math.cos(angle) * r,
+                            0f,
+                            math.sin(angle) * r
+                        );
+                        groundPos.y = nodePos.y;
+
+                        // Create cursed ground entity with full component set
+                        var groundEntity = ecb.CreateEntity();
+                        ecb.AddComponent<CursedGroundTag>(groundEntity);
+                        ecb.AddComponent(groundEntity, LocalTransform.FromPosition(groundPos));
+                        ecb.AddComponent(groundEntity, new PresentationId { Id = CursedGroundPresentationId });
+                        ecb.AddComponent(groundEntity, new Radius { Value = TileRadius });
+                        ecb.AddComponent(groundEntity, new FactionTag { Value = Faction.White });
+                        ecb.AddComponent(groundEntity, new CursedGroundDPS
+                        {
+                            DamagePerSecond = BaseDPS,
+                            EffectRadius = TileRadius
+                        });
+                        ecb.AddComponent(groundEntity, new OwnerNode { Value = entity });
+
+                        tilesSpawned++;
+                    }
+
+                    if (tilesSpawned >= perNodeBudget) break;
                 }
 
-                existingGroundCount += patchesToSpawn;
+                existingGroundTotal += tilesSpawned;
             }
 
             ecb.Playback(state.EntityManager);
             ecb.Dispose();
-        }
-
-        /// <summary>
-        /// Count active crystal main nodes for per-node ground budget.
-        /// </summary>
-        private int CountMainNodes(ref SystemState state)
-        {
-            int count = 0;
-            foreach (var _ in SystemAPI.Query<RefRO<CrystalMainNodeTag>>())
-            {
-                count++;
-            }
-            return count;
         }
     }
 }
