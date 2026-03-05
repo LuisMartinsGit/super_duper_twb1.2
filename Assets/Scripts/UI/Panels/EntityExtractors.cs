@@ -7,7 +7,6 @@ using Unity.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
-using TheWaningBorder.AI;
 
 namespace TheWaningBorder.UI
 {

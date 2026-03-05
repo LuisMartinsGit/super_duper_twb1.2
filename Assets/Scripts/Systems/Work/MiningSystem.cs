@@ -6,7 +6,6 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
-using TheWaningBorder.AI;
 using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.Systems.Work

@@ -737,7 +737,7 @@ namespace TheWaningBorder.Input
                 return TargetType.Ground;
 
             // Check if it's a resource node (iron mine or crystal node)
-            if (_em.HasComponent<TheWaningBorder.AI.IronMineTag>(target))
+            if (_em.HasComponent<IronMineTag>(target))
                 return TargetType.Resource;
             if (_em.HasComponent<CadaverTag>(target))
                 return TargetType.Resource;
