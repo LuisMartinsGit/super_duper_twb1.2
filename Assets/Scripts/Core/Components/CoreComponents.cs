@@ -139,6 +139,15 @@ public struct RallyPoint : IComponentData
     public byte Has;
 }
 
+// ==================== Hold Position ====================
+
+/// <summary>
+/// Marker tag for units in hold position mode.
+/// Units with this tag attack enemies within range but do NOT chase or move to pursue.
+/// Cleared when any new command is issued (move, attack, gather, etc.).
+/// </summary>
+public struct HoldPositionTag : IComponentData { }
+
 // ==================== Patrol System ====================
 
 /// <summary>

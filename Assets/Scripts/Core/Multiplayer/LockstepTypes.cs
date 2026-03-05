@@ -30,7 +30,8 @@ namespace TheWaningBorder.Core.Multiplayer
         AttackMove = 9,
         Repair = 10,
         Convert = 11,
-        Patrol = 12
+        Patrol = 12,
+        HoldPosition = 13
     }
 
     /// <summary>
