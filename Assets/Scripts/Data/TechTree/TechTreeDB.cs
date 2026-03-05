@@ -65,6 +65,11 @@ public sealed class TechTreeDB : MonoBehaviour
     /// </summary>
     public IEnumerable<UnitDef> GetAllUnits() => _unitsById.Values;
 
+    /// <summary>
+    /// Get all technology definitions.
+    /// </summary>
+    public IEnumerable<TechnologyDef> GetAllTechnologies() => _technologiesById.Values;
+
     // ═══════════════════════════════════════════════════════════════════════
     // LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════
@@ -189,6 +194,14 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Alanthor_Crossbowman");
             ParseUnit(json, "Alanthor_Cataphract");
             ParseUnit(json, "Alanthor_Ballista");
+
+            // Parse Technologies (Era 1)
+            Debug.Log("[TechTreeDB] Parsing Technologies...");
+            ParseTechnology(json, "Research_Era2");
+            ParseTechnology(json, "ImprovedTools");
+            ParseTechnology(json, "StorageCarts");
+            ParseTechnology(json, "BasicDrills");
+            ParseTechnology(json, "WoodenArmor");
 
             // Parse Sects
             Debug.Log("[TechTreeDB] Parsing Sects...");
@@ -381,7 +394,8 @@ public sealed class TechTreeDB : MonoBehaviour
             role = ParseString(techJson, "role", ""),
             researchTime = ParseFloat(techJson, "researchTime", 0, 30),
             researchAt = ParseString(techJson, "researchAt", ""),
-            cost = ParseCostBlock(techJson)
+            cost = ParseCostBlock(techJson),
+            prerequisites = ParseStringArray(techJson, "requires")
         };
 
         _technologiesById[techId] = tech;

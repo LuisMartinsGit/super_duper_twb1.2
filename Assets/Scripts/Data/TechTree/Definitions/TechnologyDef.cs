@@ -25,7 +25,8 @@ namespace TheWaningBorder.Data
         // ==================== Research Requirements ====================
         public float researchTime;      // seconds to research
         public string researchAt;       // building ID where this is researched
-        
+        public string[] prerequisites;  // tech IDs that must be researched first
+
         // ==================== Economy ====================
         public CostBlock cost;
         
@@ -35,6 +36,11 @@ namespace TheWaningBorder.Data
         /// Returns true if this technology has a cost.
         /// </summary>
         public bool HasCost => cost != null && !cost.IsZero;
+
+        /// <summary>
+        /// Returns true if this technology has prerequisites.
+        /// </summary>
+        public bool HasPrerequisites => prerequisites != null && prerequisites.Length > 0;
     }
     
     // ═══════════════════════════════════════════════════════════════════════
