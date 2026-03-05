@@ -52,11 +52,6 @@ namespace TheWaningBorder.Economy
         }
         
         /// <summary>
-        /// Default starting resources for a new faction.
-        /// </summary>
-        public static FactionResources DefaultStart => Of(supplies: 5000, iron: 5000, crystal: 5000, veilsteel: 5000, glow: 5000);
-        
-        /// <summary>
         /// Check if faction has at least the specified resources.
         /// </summary>
         public bool HasAtLeast(int supplies = 0, int iron = 0, int crystal = 0,
