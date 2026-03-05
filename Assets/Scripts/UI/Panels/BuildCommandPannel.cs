@@ -48,6 +48,9 @@ namespace TheWaningBorder.UI.Panels
         private Entity _wallFirstHub;
         private float3 _wallFirstHubPos;
 
+        // Placement validity
+        private bool _placementValid = true;
+
         // Wall hub snapping
         private const float WallHubSnapDistance = 2.0f;
         private Entity _snappedHub;  // Hub we're snapping to (Entity.Null if not snapping)
@@ -102,10 +105,20 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
+
+                    // Check placement validity for non-wall buildings
+                    if (_currentBuild != BuildType.Wall)
+                    {
+                        _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
+                        float radius = BuildCommandHelper.GetBuildingRadius(BuildId(_currentBuild));
+                        _placementValid = BuildCommandHelper.IsValidBuildPosition(
+                            _em, (float3)_placingInstance.transform.position, radius);
+                        UpdatePreviewColor(_placementValid);
+                    }
                 }
 
                 // Confirm placement
-                if (UnityEngine.Input.GetMouseButtonDown(0))
+                if (UnityEngine.Input.GetMouseButtonDown(0) && (_currentBuild == BuildType.Wall || _placementValid))
                 {
                     var pos = _placingInstance.transform.position;
 
@@ -241,6 +254,22 @@ namespace TheWaningBorder.UI.Panels
             _placingInstance = null;
             IsPlacingBuilding = false;
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
+        }
+
+        private void UpdatePreviewColor(bool valid)
+        {
+            if (_placingInstance == null) return;
+            Color tint = valid
+                ? new Color(0.5f, 1f, 0.5f, 0.5f)
+                : new Color(1f, 0.3f, 0.3f, 0.5f);
+            foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
+            {
+                foreach (var mat in renderer.materials)
+                {
+                    if (mat.HasProperty("_Color"))
+                        mat.color = tint;
+                }
+            }
         }
 
         private void SpawnSelectedBuilding(float3 pos)
