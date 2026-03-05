@@ -642,6 +642,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
             em.AddComponent<HuntingLodgeTag>(entity);
+            em.AddComponentData(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
@@ -666,6 +667,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
             em.AddComponent<LoggingStationTag>(entity);
+            em.AddComponentData(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
@@ -1101,6 +1103,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
             ecb.AddComponent<HuntingLodgeTag>(entity);
+            ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
@@ -1121,6 +1124,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
             ecb.AddComponent<LoggingStationTag>(entity);
+            ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }

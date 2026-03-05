@@ -58,9 +58,10 @@ namespace TheWaningBorder.Systems.Training
             var deferredSpawns = new NativeList<DeferredSpawn>(4, Allocator.Temp);
 
             // ═══════════ Phase 1: Process timers, collect spawn requests ═══════════
+            // Exclude BatchTrainingTag entities — those are handled by BatchTrainingSystem
             foreach (var (ts, entity) in SystemAPI
                          .Query<RefRW<TrainingState>>()
-                         .WithNone<UnderConstruction>()
+                         .WithNone<UnderConstruction, BatchTrainingTag>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<TrainQueueItem>(entity);

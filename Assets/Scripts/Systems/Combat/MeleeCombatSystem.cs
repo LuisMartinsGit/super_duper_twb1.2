@@ -139,10 +139,10 @@ namespace TheWaningBorder.Systems.Combat
                         if (health.Value < 0) health.Value = 0;
                         ecb.SetComponent(tgt.Value, health);
 
-                        // Track last damager faction for kill credit (used by CaravanDeathSystem)
-                        if (em.HasComponent<LastDamagedByFaction>(tgt.Value) && em.HasComponent<FactionTag>(entity))
+                        // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
+                        if (em.HasComponent<FactionTag>(entity))
                         {
-                            ecb.SetComponent(tgt.Value, new LastDamagedByFaction
+                            ecb.AddComponent(tgt.Value, new LastDamagedByFaction
                             {
                                 Value = em.GetComponentData<FactionTag>(entity).Value
                             });
