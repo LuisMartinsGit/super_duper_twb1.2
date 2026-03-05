@@ -63,6 +63,10 @@ namespace TheWaningBorder.Input
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated)
                 _em = _world.EntityManager;
+
+            // Ensure ControlGroupSystem exists
+            if (FindObjectOfType<ControlGroupSystem>() == null)
+                gameObject.AddComponent<ControlGroupSystem>();
         }
 
         void Update()
@@ -128,6 +132,27 @@ namespace TheWaningBorder.Input
             if (UnityEngine.Input.GetKeyDown(KeyCode.A))
             {
                 _attackMoveMode = true;
+            }
+
+            // Control groups (1-9)
+            for (int i = 0; i < 9; i++)
+            {
+                if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha1 + i))
+                {
+                    bool ctrl = UnityEngine.Input.GetKey(KeyCode.LeftControl)
+                             || UnityEngine.Input.GetKey(KeyCode.RightControl);
+                    bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift)
+                              || UnityEngine.Input.GetKey(KeyCode.RightShift);
+
+                    if (ctrl)
+                        ControlGroupSystem.AssignGroup(i);
+                    else if (shift)
+                        ControlGroupSystem.AddToGroup(i);
+                    else
+                        ControlGroupSystem.HandleRecallOrCenter(i);
+
+                    break;
+                }
             }
         }
         
@@ -899,6 +924,9 @@ namespace TheWaningBorder.Input
             GUILayout.Label("Left-drag: Box select");
             GUILayout.Label("Right-click: Move/Attack/Gather");
             GUILayout.Label("A + Right-click: Attack-move");
+            GUILayout.Label("Ctrl+1-9: Save control group");
+            GUILayout.Label("1-9: Recall group (2x: center cam)");
+            GUILayout.Label("Shift+1-9: Add to group");
             GUILayout.Label("ESC: Clear selection");
 
             if (_attackMoveMode)
