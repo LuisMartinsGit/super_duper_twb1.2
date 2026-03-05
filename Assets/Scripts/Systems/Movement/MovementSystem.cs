@@ -111,6 +111,69 @@ namespace TheWaningBorder.Systems.Movement
             }
 
             // =============================================================================
+            // PHASE 1b: Process AttackMoveCommand -> DesiredDestination conversion
+            // Same as MoveCommand but adds AttackMoveTag instead of UserMoveOrder
+            // =============================================================================
+            foreach (var (amc, entity) in SystemAPI.Query<RefRO<AttackMoveCommand>>().WithEntityAccess())
+            {
+                // Buildings don't move
+                if (SystemAPI.HasComponent<BuildingTag>(entity))
+                {
+                    ecb.RemoveComponent<AttackMoveCommand>(entity);
+                    continue;
+                }
+
+                // Set guard point to attack-move destination
+                if (em.HasComponent<GuardPoint>(entity))
+                {
+                    ecb.SetComponent(entity, new GuardPoint
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+
+                // Set destination
+                if (!em.HasComponent<DesiredDestination>(entity))
+                {
+                    ecb.AddComponent(entity, new DesiredDestination
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+                else
+                {
+                    ecb.SetComponent(entity, new DesiredDestination
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+
+                // Clear Target
+                if (em.HasComponent<Target>(entity))
+                {
+                    ecb.SetComponent(entity, new Target { Value = Entity.Null });
+                }
+
+                // Add AttackMoveTag if not present
+                if (!em.HasComponent<AttackMoveTag>(entity))
+                {
+                    ecb.AddComponent<AttackMoveTag>(entity);
+                }
+
+                // Remove UserMoveOrder if present (attack-move units should NOT have this)
+                if (em.HasComponent<UserMoveOrder>(entity))
+                {
+                    ecb.RemoveComponent<UserMoveOrder>(entity);
+                }
+
+                // Remove AttackMoveCommand itself - it's been processed
+                ecb.RemoveComponent<AttackMoveCommand>(entity);
+            }
+
+            // =============================================================================
             // PHASE 2: Move units toward their destinations
             // =============================================================================
             foreach (var (xf, dd, entity) in SystemAPI
@@ -158,6 +221,11 @@ namespace TheWaningBorder.Systems.Movement
                     // This allows auto-targeting to resume
                     if (em.HasComponent<UserMoveOrder>(entity))
                         ecb.RemoveComponent<UserMoveOrder>(entity);
+
+                    // Remove AttackMoveTag when destination reached
+                    // Attack-move is complete, unit becomes idle
+                    if (em.HasComponent<AttackMoveTag>(entity))
+                        ecb.RemoveComponent<AttackMoveTag>(entity);
 
                     // Remove formation speed override
                     if (em.HasComponent<FormationSpeedOverride>(entity))
@@ -211,6 +279,8 @@ namespace TheWaningBorder.Systems.Movement
                     dd.ValueRW.Has = 0;
                     if (em.HasComponent<UserMoveOrder>(entity))
                         ecb.RemoveComponent<UserMoveOrder>(entity);
+                    if (em.HasComponent<AttackMoveTag>(entity))
+                        ecb.RemoveComponent<AttackMoveTag>(entity);
                     if (em.HasComponent<FormationSpeedOverride>(entity))
                         ecb.RemoveComponent<FormationSpeedOverride>(entity);
                     continue;
