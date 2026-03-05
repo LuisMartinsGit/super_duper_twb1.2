@@ -230,6 +230,7 @@ namespace TheWaningBorder.UI.Common
             gameObject.AddComponent<Panels.EntityActionPanel>();
             gameObject.AddComponent<Panels.CultureChoicePopup>();
             gameObject.AddComponent<HUD.FloatingHealthBars>();
+            gameObject.AddComponent<HUD.PlayerNotificationSystem>();
         }
 
         void Update()
