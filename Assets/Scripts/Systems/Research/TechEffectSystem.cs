@@ -32,6 +32,7 @@ namespace TheWaningBorder.Systems.Research
             if (researchState != null)
             {
                 researchState.OnTechCompleted += OnTechCompleted;
+                _subscribed = true;
                 Debug.Log("[TechEffectSystem] Subscribed to OnTechCompleted");
             }
         }
