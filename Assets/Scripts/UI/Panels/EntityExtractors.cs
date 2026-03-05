@@ -323,15 +323,13 @@ namespace TheWaningBorder.UI
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
 
-                    // Culture-gated building restrictions
+                    // Data-driven culture gating: buildings with culture prefix require that culture
+                    byte requiredCulture = GetRequiredCulture(building.id);
+                    if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
+                        continue;
+
                     // Alanthor cannot build Gatherer's Huts (they use walls for income)
                     if (building.id == "GatherersHut" && factionCulture == Cultures.Alanthor)
-                        continue;
-                    // Only Alanthor can build walls
-                    if (building.id == "Alanthor_Wall" && factionCulture != Cultures.Alanthor)
-                        continue;
-                    // Only Alanthor can build Smelters
-                    if (building.id == "Alanthor_Smelter" && factionCulture != Cultures.Alanthor)
                         continue;
 
                     var cost = building.cost != null ? new Cost
@@ -377,10 +375,33 @@ namespace TheWaningBorder.UI
             if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var buildingDef)) return actions;
             if (buildingDef.trains == null || buildingDef.trains.Length == 0) return actions;
 
+            // Determine faction culture from the building's faction -> Hall -> FactionProgress
+            byte factionCulture = Cultures.None;
+            if (em.HasComponent<FactionTag>(entity))
+            {
+                var buildingFaction = em.GetComponentData<FactionTag>(entity).Value;
+                var hallQuery = em.CreateEntityQuery(typeof(HallTag), typeof(FactionTag), typeof(FactionProgress));
+                var hallEntities = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < hallEntities.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(hallEntities[i]).Value == buildingFaction)
+                    {
+                        factionCulture = em.GetComponentData<FactionProgress>(hallEntities[i]).Culture;
+                        break;
+                    }
+                }
+                hallEntities.Dispose();
+            }
+
             // Only show units this building can train (from its "trains" array)
             foreach (var unitId in buildingDef.trains)
             {
                 if (!TechTreeDB.Instance.TryGetUnit(unitId, out var unit)) continue;
+
+                // Culture gating: skip units that require a different culture
+                byte requiredCulture = GetRequiredCultureForUnit(unitId);
+                if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
+                    continue;
 
                 var cost = unit.cost != null ? new Cost
                 {
@@ -583,6 +604,33 @@ namespace TheWaningBorder.UI
             }
 
             return rInfo;
+        }
+
+        /// <summary>
+        /// Determine the required culture for a building based on its ID prefix.
+        /// Buildings with "Alanthor_" prefix require Alanthor culture, etc.
+        /// Returns Cultures.None for universal buildings (available to all cultures).
+        /// </summary>
+        private static byte GetRequiredCulture(string buildingId)
+        {
+            if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
+            if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
+            if (buildingId.StartsWith("Runai_")) return Cultures.Runai;
+            if (buildingId == "FiendstoneKeep") return Cultures.Feraldis;
+            return Cultures.None; // universal
+        }
+
+        /// <summary>
+        /// Determine the required culture for a unit based on its ID prefix.
+        /// Units with "Alanthor_" prefix require Alanthor culture, etc.
+        /// Returns Cultures.None for universal units (available to all cultures).
+        /// </summary>
+        private static byte GetRequiredCultureForUnit(string unitId)
+        {
+            if (unitId.StartsWith("Alanthor_")) return Cultures.Alanthor;
+            if (unitId.StartsWith("Feraldis_")) return Cultures.Feraldis;
+            if (unitId.StartsWith("Runai_")) return Cultures.Runai;
+            return Cultures.None; // universal
         }
 
         /// <summary>
