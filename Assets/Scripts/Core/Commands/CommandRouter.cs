@@ -181,6 +181,32 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // HOLD POSITION COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a hold position command to a unit.
+        /// Unit stops and attacks enemies in range but does not chase.
+        /// </summary>
+        public static void IssueHoldPosition(EntityManager em, Entity unit,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] HoldPosition: {unit.Index} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueHoldPositionForLockstep(em, unit);
+            }
+            else
+            {
+                HoldPositionCommandHelper.Execute(em, unit);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // BUILD COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -443,6 +469,23 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        private static void QueueHoldPositionForLockstep(EntityManager em, Entity unit)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                HoldPositionCommandHelper.Execute(em, unit);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.HoldPosition,
+                EntityNetworkId = networkId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
         private static void QueueBuildForLockstep(EntityManager em, Entity builder, Entity targetBuilding,
             string buildingId, float3 position)
         {
@@ -640,6 +683,8 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<Types.PatrolCommand>(unit);
             if (em.HasBuffer<PatrolWaypoint>(unit))
                 em.GetBuffer<PatrolWaypoint>(unit).Clear();
+            if (em.HasComponent<HoldPositionTag>(unit))
+                em.RemoveComponent<HoldPositionTag>(unit);
         }
     }
 }
