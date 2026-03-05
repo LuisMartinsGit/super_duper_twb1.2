@@ -263,6 +263,23 @@ namespace TheWaningBorder.UI.Panels
                 StartGathererHutSelfDestruct(em, _faction);
             }
 
+            // 5. Set FactionEra to 2 and grant RP for temple level 1
+            if (FactionEconomy.TryGetBank(em, _faction, out var bankEntity))
+            {
+                if (em.HasComponent<FactionEra>(bankEntity))
+                    em.SetComponentData(bankEntity, new FactionEra { Value = 2 });
+
+                // Grant RP for temple level 1 (2 RP) if temple exists
+                bool hasTemple = HasFactionTemple(em, _faction);
+                if (hasTemple && em.HasComponent<ReligionPoints>(bankEntity))
+                {
+                    var rp = em.GetComponentData<ReligionPoints>(bankEntity);
+                    rp.Value += TempleLevelConfig.GetRPGranted(1);
+                    em.SetComponentData(bankEntity, rp);
+                    Debug.Log($"[CultureChoicePopup] {_faction} granted {TempleLevelConfig.GetRPGranted(1)} RP for temple");
+                }
+            }
+
             Debug.Log($"[CultureChoicePopup] {_faction} advanced to Era 2 — culture: {CultureConfig.GetName(culture)}");
 
             Close();
@@ -299,6 +316,28 @@ namespace TheWaningBorder.UI.Panels
 
             if (count > 0)
                 Debug.Log($"[CultureChoicePopup] {count} Gatherer's Hut(s) marked for self-destruct (2 min)");
+        }
+
+        /// <summary>
+        /// Check if a faction has a completed (or under construction) Temple of Ridan.
+        /// </summary>
+        private static bool HasFactionTemple(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleTag>(),
+                ComponentType.ReadOnly<FactionTag>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value == faction)
+                    return true;
+            }
+
+            return false;
         }
 
         // ═══════════════════════════════════════════════════════════
