@@ -47,7 +47,8 @@ namespace TheWaningBorder.Input
         
         private EntityWorld _world;
         private EntityManager _em;
-        
+        private bool _attackMoveMode = false;
+
         /// <summary>
         /// Currently hovered entity (for UI highlighting).
         /// </summary>
@@ -116,10 +117,17 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - Clear selection
+            // ESC - Clear selection and cancel attack-move mode
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
+                _attackMoveMode = false;
                 SelectionSystem.ClearSelection();
+            }
+
+            // A - Enter attack-move mode
+            if (UnityEngine.Input.GetKeyDown(KeyCode.A))
+            {
+                _attackMoveMode = true;
             }
         }
         
@@ -159,6 +167,26 @@ namespace TheWaningBorder.Input
             // Determine target and issue appropriate command
             var target = RaycastPickEntity();
             var targetType = DetermineTargetType(target);
+
+            // Attack-move mode: A + right-click
+            if (_attackMoveMode)
+            {
+                _attackMoveMode = false;
+                var amCaps = DetermineCapabilities();
+
+                if (targetType == TargetType.Enemy && amCaps.CanAttack)
+                {
+                    // Clicking enemy in attack-move mode issues normal attack
+                    IssueAttackCommands(target);
+                }
+                else if (targetType == TargetType.Ground || targetType == TargetType.FriendlyUnit
+                         || targetType == TargetType.FriendlyBuilding || targetType == TargetType.Resource)
+                {
+                    // Clicking ground (or non-enemy) issues attack-move formation
+                    IssueAttackMoveFormation(clickWorld);
+                }
+                return;
+            }
 
             // If ONLY owned buildings are selected and right-clicking ground, set rally point
             if (targetType == TargetType.Ground && HasOnlyOwnedBuildings())
@@ -525,6 +553,104 @@ namespace TheWaningBorder.Input
             }
         }
         
+        private void IssueAttackMoveFormation(float3 clickWorld)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+
+            // Collect movable units with their positions and speeds (only owned units)
+            var units = new List<Entity>();
+            var positions = new List<float3>();
+            var speeds = new List<float>();
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
+                    continue;
+                if (!IsOwnedByLocalPlayer(e))
+                    continue;
+
+                units.Add(e);
+                positions.Add(_em.HasComponent<LocalTransform>(e)
+                    ? _em.GetComponentData<LocalTransform>(e).Position
+                    : float3.zero);
+                speeds.Add(_em.HasComponent<MoveSpeed>(e)
+                    ? _em.GetComponentData<MoveSpeed>(e).Value
+                    : 3.5f);
+            }
+
+            int count = units.Count;
+            if (count == 0) return;
+
+            // Calculate formation grid
+            int cols = Mathf.CeilToInt(Mathf.Sqrt(count));
+            int rows = Mathf.CeilToInt((float)count / cols);
+
+            // Get camera-relative directions
+            var cam = Camera.main;
+            Vector3 camForward = cam
+                ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized
+                : Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, camForward).normalized;
+
+            float3 forward = new float3(camForward.x, camForward.y, camForward.z);
+            float3 rightF3 = new float3(right.x, right.y, right.z);
+
+            // Top-left of formation
+            float3 topLeft = clickWorld
+                - rightF3 * ((cols - 1) * formationSpacing * 0.5f)
+                + forward * ((rows - 1) * formationSpacing * 0.5f);
+
+            // Calculate slots and find slowest speed / max distance
+            var slots = new float3[count];
+            var dists = new float[count];
+            float slowestSpeed = float.MaxValue;
+            float maxDist = 0f;
+
+            for (int i = 0; i < count; i++)
+            {
+                int row = i / cols;
+                int col = i % cols;
+                slots[i] = topLeft + rightF3 * (col * formationSpacing) - forward * (row * formationSpacing);
+
+                float3 to = slots[i] - positions[i];
+                to.y = 0;
+                dists[i] = math.length(to);
+
+                if (speeds[i] > 0 && speeds[i] < slowestSpeed)
+                    slowestSpeed = speeds[i];
+                if (dists[i] > maxDist)
+                    maxDist = dists[i];
+            }
+
+            if (slowestSpeed <= 0f || slowestSpeed == float.MaxValue)
+                slowestSpeed = 3.5f;
+
+            // Arrival time = how long the slowest unit takes to cover the max distance
+            float arrivalTime = maxDist / slowestSpeed;
+
+            // Issue attack-move with formation speed overrides for synchronized arrival
+            for (int i = 0; i < count; i++)
+            {
+                CommandRouter.IssueAttackMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
+
+                if (arrivalTime > 0.1f && dists[i] > 0.5f)
+                {
+                    float formationSpeed = Mathf.Min(dists[i] / arrivalTime, speeds[i]);
+                    formationSpeed = Mathf.Max(formationSpeed, 0.5f);
+
+                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                        _em.SetComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
+                    else
+                        _em.AddComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
+                }
+                else
+                {
+                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                        _em.RemoveComponent<FormationSpeedOverride>(units[i]);
+                }
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // TARGET TYPE DETECTION
         // ═══════════════════════════════════════════════════════════════════════
@@ -767,12 +893,18 @@ namespace TheWaningBorder.Input
         {
             if (!showHelp) return;
             
-            GUILayout.BeginArea(new Rect(10, 10, 300, 200));
+            GUILayout.BeginArea(new Rect(10, 10, 300, 220));
             GUILayout.Label("Controls:");
             GUILayout.Label("Left-click: Select unit");
             GUILayout.Label("Left-drag: Box select");
             GUILayout.Label("Right-click: Move/Attack/Gather");
+            GUILayout.Label("A + Right-click: Attack-move");
             GUILayout.Label("ESC: Clear selection");
+
+            if (_attackMoveMode)
+            {
+                GUILayout.Label("<b>[ATTACK-MOVE MODE]</b>");
+            }
 
             if (GameSettings.IsMultiplayer)
             {
