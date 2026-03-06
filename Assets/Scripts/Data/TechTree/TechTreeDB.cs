@@ -196,6 +196,27 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Alanthor_Cataphract");
             ParseUnit(json, "Alanthor_Ballista");
 
+            // Parse Era 2 - Runai
+            Debug.Log("[TechTreeDB] Parsing Runai (Era 2)...");
+            ParseBuilding(json, "ThessarasBazaar");
+            ParseBuilding(json, "Runai_Outpost");
+            ParseBuilding(json, "Runai_TradeHub");
+            ParseBuilding(json, "Runai_Vault");
+            ParseBuilding(json, "Runai_VeilsteelFoundry");
+            ParseBuilding(json, "Runai_SiegeWorkshop");
+
+            ParseUnit(json, "Runai_Spearman");
+            ParseUnit(json, "Runai_Skirmisher");
+            ParseUnit(json, "Runai_Raider");
+            ParseUnit(json, "Runai_SandBallista");
+            ParseUnit(json, "Runai_Caravan");
+            ParseUnit(json, "Runai_Escort");
+
+            // Parse Runai Technologies
+            ParseTechnology(json, "Runai_LongHaulTariffs");
+            ParseTechnology(json, "Runai_PackBazaar");
+            ParseTechnology(json, "Runai_EscortedCaravans");
+
             // Parse Technologies (Era 1)
             Debug.Log("[TechTreeDB] Parsing Technologies...");
             ParseTechnology(json, "Research_Era2");

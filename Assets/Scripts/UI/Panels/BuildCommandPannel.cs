@@ -190,18 +190,18 @@ namespace TheWaningBorder.UI.Panels
                 // Runai culture buildings
                 "Runai_Outpost" => BuildType.RunaiOutpost,
                 "Runai_TradeHub" => BuildType.RunaiTradeHub,
-                "Runai_Bazaar" => BuildType.RunaiBazaar,
+                "ThessarasBazaar" => BuildType.RunaiBazaar,
                 "Runai_SiegeWorkshop" => BuildType.RunaiSiegeWorkshop,
                 // Alanthor culture buildings
-                "Alanthor_WatchTower" => BuildType.AlanthorWatchTower,
+                "Alanthor_Tower" => BuildType.AlanthorWatchTower,
                 "Alanthor_Garrison" => BuildType.AlanthorGarrison,
-                "Alanthor_RoyalStable" => BuildType.AlanthorRoyalStable,
+                "Alanthor_Stable" => BuildType.AlanthorRoyalStable,
                 "Alanthor_SiegeYard" => BuildType.AlanthorSiegeYard,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => BuildType.FeraldisHuntingLodge,
                 "Feraldis_LoggingStation" => BuildType.FeraldisLoggingStation,
                 "Feraldis_Longhouse" => BuildType.FeraldisLonghouse,
-                "Feraldis_TotemTower" => BuildType.FeraldisTotemTower,
+                "Feraldis_Tower" => BuildType.FeraldisTotemTower,
                 "Feraldis_SiegeYard" => BuildType.FeraldisSiegeYard,
                 _ => BuildType.Hut
             };
@@ -380,7 +380,7 @@ namespace TheWaningBorder.UI.Panels
                     buildTime = 30f;
                     break;
                 case BuildType.RunaiBazaar:
-                    building = BuildingFactory.Create(_em, "Runai_Bazaar", pos, fac);
+                    building = BuildingFactory.Create(_em, "ThessarasBazaar", pos, fac);
                     buildTime = 40f;
                     break;
                 case BuildType.RunaiSiegeWorkshop:
@@ -390,7 +390,7 @@ namespace TheWaningBorder.UI.Panels
 
                 // Alanthor culture buildings
                 case BuildType.AlanthorWatchTower:
-                    building = BuildingFactory.Create(_em, "Alanthor_WatchTower", pos, fac);
+                    building = BuildingFactory.Create(_em, "Alanthor_Tower", pos, fac);
                     buildTime = 25f;
                     break;
                 case BuildType.AlanthorGarrison:
@@ -398,7 +398,7 @@ namespace TheWaningBorder.UI.Panels
                     buildTime = 30f;
                     break;
                 case BuildType.AlanthorRoyalStable:
-                    building = BuildingFactory.Create(_em, "Alanthor_RoyalStable", pos, fac);
+                    building = BuildingFactory.Create(_em, "Alanthor_Stable", pos, fac);
                     buildTime = 35f;
                     break;
                 case BuildType.AlanthorSiegeYard:
@@ -420,7 +420,7 @@ namespace TheWaningBorder.UI.Panels
                     buildTime = 30f;
                     break;
                 case BuildType.FeraldisTotemTower:
-                    building = BuildingFactory.Create(_em, "Feraldis_TotemTower", pos, fac);
+                    building = BuildingFactory.Create(_em, "Feraldis_Tower", pos, fac);
                     buildTime = 25f;
                     break;
                 case BuildType.FeraldisSiegeYard:
@@ -491,18 +491,18 @@ namespace TheWaningBorder.UI.Panels
             // Runai culture buildings
             BuildType.RunaiOutpost => "Runai_Outpost",
             BuildType.RunaiTradeHub => "Runai_TradeHub",
-            BuildType.RunaiBazaar => "Runai_Bazaar",
+            BuildType.RunaiBazaar => "ThessarasBazaar",
             BuildType.RunaiSiegeWorkshop => "Runai_SiegeWorkshop",
             // Alanthor culture buildings
-            BuildType.AlanthorWatchTower => "Alanthor_WatchTower",
+            BuildType.AlanthorWatchTower => "Alanthor_Tower",
             BuildType.AlanthorGarrison => "Alanthor_Garrison",
-            BuildType.AlanthorRoyalStable => "Alanthor_RoyalStable",
+            BuildType.AlanthorRoyalStable => "Alanthor_Stable",
             BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
             // Feraldis culture buildings
             BuildType.FeraldisHuntingLodge => "Feraldis_HuntingLodge",
             BuildType.FeraldisLoggingStation => "Feraldis_LoggingStation",
             BuildType.FeraldisLonghouse => "Feraldis_Longhouse",
-            BuildType.FeraldisTotemTower => "Feraldis_TotemTower",
+            BuildType.FeraldisTotemTower => "Feraldis_Tower",
             BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
             _ => "Hut"
         };

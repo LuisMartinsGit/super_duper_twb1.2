@@ -156,18 +156,18 @@ namespace TheWaningBorder.Core.Commands.Types
                 // Runai culture buildings
                 "Runai_Outpost" => 1.0f,
                 "Runai_TradeHub" => 1.5f,
-                "Runai_Bazaar" => 2.5f,
+                "ThessarasBazaar" => 2.5f,
                 "Runai_SiegeWorkshop" => 1.2f,
                 // Alanthor culture buildings
-                "Alanthor_WatchTower" => 0.8f,
+                "Alanthor_Tower" => 0.8f,
                 "Alanthor_Garrison" => 1.5f,
-                "Alanthor_RoyalStable" => 1.5f,
+                "Alanthor_Stable" => 1.5f,
                 "Alanthor_SiegeYard" => 1.2f,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => 1.2f,
                 "Feraldis_LoggingStation" => 1.2f,
                 "Feraldis_Longhouse" => 1.8f,
-                "Feraldis_TotemTower" => 0.8f,
+                "Feraldis_Tower" => 0.8f,
                 "Feraldis_SiegeYard" => 1.2f,
                 _ => 1.5f
             };

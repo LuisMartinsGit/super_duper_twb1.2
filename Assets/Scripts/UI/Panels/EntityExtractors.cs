@@ -378,12 +378,12 @@ namespace TheWaningBorder.UI
             "Hut", "GatherersHut", "Barracks", "TempleOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
-            "Runai_Outpost", "Runai_TradeHub", "Runai_Bazaar", "Runai_SiegeWorkshop",
+            "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings
-            "Alanthor_WatchTower", "Alanthor_Garrison", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
+            "Alanthor_Tower", "Alanthor_Garrison", "Alanthor_Stable", "Alanthor_SiegeYard",
             // Feraldis culture buildings
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation", "Feraldis_Longhouse",
-            "Feraldis_TotemTower", "Feraldis_SiegeYard"
+            "Feraldis_Tower", "Feraldis_SiegeYard"
         };
 
         private static List<ActionButton> GetBuildingActions()
@@ -629,6 +629,9 @@ namespace TheWaningBorder.UI
             {
                 if (!TechTreeDB.Instance.TryGetTechnology(techId, out var tech)) continue;
 
+                // Skip Research_Era2 — age-up is handled by DrawAgeUpSection + CultureChoicePopup
+                if (techId == "Research_Era2") continue;
+
                 // Skip already-researched techs
                 bool alreadyResearched = researchState != null && researchState.HasResearched(faction, techId);
                 if (alreadyResearched) continue;
@@ -728,7 +731,10 @@ namespace TheWaningBorder.UI
             if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
             if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
             if (buildingId.StartsWith("Runai_")) return Cultures.Runai;
-            if (buildingId == "FiendstoneKeep") return Cultures.Feraldis;
+            // FiendstoneKeep is a choice building (like Temple/Vault) — available to all cultures
+            if (buildingId == "FiendstoneKeep") return Cultures.None;
+            // ThessarasBazaar is a Runai building (doesn't use Runai_ prefix)
+            if (buildingId == "ThessarasBazaar") return Cultures.Runai;
             return Cultures.None; // universal
         }
 
@@ -761,18 +767,18 @@ namespace TheWaningBorder.UI
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
-            if (em.HasComponent<BazaarTag>(entity)) return "Runai_Bazaar";
+            if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
             // Alanthor culture buildings
-            if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_WatchTower";
+            if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
-            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_Stable";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
             if (em.HasComponent<LoggingStationTag>(entity)) return "Feraldis_LoggingStation";
             if (em.HasComponent<LonghouseTag>(entity)) return "Feraldis_Longhouse";
-            if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_TotemTower";
+            if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
             return null;
         }

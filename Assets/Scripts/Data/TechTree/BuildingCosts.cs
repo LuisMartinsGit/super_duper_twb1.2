@@ -40,7 +40,7 @@ namespace TheWaningBorder.Data
             // Runai Culture Buildings
             { "Runai_Outpost",           Cost.Of(supplies: 140, iron: 20) },
             { "Runai_TradeHub",          Cost.Of(supplies: 240, iron: 40) },
-            { "Runai_Bazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
+            { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
             { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, crystal: 60) },
 
             // Feraldis Culture Buildings
@@ -48,16 +48,16 @@ namespace TheWaningBorder.Data
             { "Feraldis_HuntingLodge",   Cost.Of(supplies: 160, iron: 20) },
             { "Feraldis_LoggingStation", Cost.Of(supplies: 160, iron: 20) },
             { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80) },
-            { "Feraldis_TotemTower",     Cost.Of(supplies: 120, iron: 60) },
+            { "Feraldis_Tower",     Cost.Of(supplies: 120, iron: 60) },
             { "Feraldis_Longhouse",      Cost.Of(supplies: 260, iron: 100) },
             { "Feraldis_SiegeYard",      Cost.Of(supplies: 260, iron: 120, crystal: 40) },
 
             // Alanthor Culture Buildings
             { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, crystal: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
-            { "Alanthor_WatchTower",     Cost.Of(supplies: 140, iron: 70) },
+            { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
             { "Alanthor_Garrison",       Cost.Of(supplies: 220, iron: 90) },
-            { "Alanthor_RoyalStable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+            { "Alanthor_Stable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },

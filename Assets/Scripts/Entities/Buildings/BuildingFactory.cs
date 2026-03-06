@@ -43,18 +43,18 @@ namespace TheWaningBorder.Entities
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
-                "Runai_Bazaar" => CreateRunaiBazaar(em, position, faction),
+                "ThessarasBazaar" => CreateRunaiBazaar(em, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshop(em, position, faction),
                 // Alanthor culture buildings
-                "Alanthor_WatchTower" => CreateAlanthorWatchTower(em, position, faction),
+                "Alanthor_Tower" => CreateAlanthorWatchTower(em, position, faction),
                 "Alanthor_Garrison" => CreateAlanthorGarrison(em, position, faction),
-                "Alanthor_RoyalStable" => CreateAlanthorRoyalStable(em, position, faction),
+                "Alanthor_Stable" => CreateAlanthorRoyalStable(em, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodge(em, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStation(em, position, faction),
                 "Feraldis_Longhouse" => CreateFeraldisLonghouse(em, position, faction),
-                "Feraldis_TotemTower" => CreateFeraldisTotemTower(em, position, faction),
+                "Feraldis_Tower" => CreateFeraldisTotemTower(em, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => CreateChapel(em, SectConfig.Renewal, position, faction),
@@ -91,18 +91,18 @@ namespace TheWaningBorder.Entities
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
-                "Runai_Bazaar" => CreateRunaiBazaarECB(ecb, position, faction),
+                "ThessarasBazaar" => CreateRunaiBazaarECB(ecb, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshopECB(ecb, position, faction),
                 // Alanthor culture buildings
-                "Alanthor_WatchTower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
+                "Alanthor_Tower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
                 "Alanthor_Garrison" => CreateAlanthorGarrisonECB(ecb, position, faction),
-                "Alanthor_RoyalStable" => CreateAlanthorRoyalStableECB(ecb, position, faction),
+                "Alanthor_Stable" => CreateAlanthorRoyalStableECB(ecb, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodgeECB(ecb, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStationECB(ecb, position, faction),
                 "Feraldis_Longhouse" => CreateFeraldisLonghouseECB(ecb, position, faction),
-                "Feraldis_TotemTower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
+                "Feraldis_Tower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => CreateChapelECB(ecb, SectConfig.Renewal, position, faction),
@@ -140,18 +140,18 @@ namespace TheWaningBorder.Entities
                 // Runai culture buildings
                 "Runai_Outpost" => 350,
                 "Runai_TradeHub" => 351,
-                "Runai_Bazaar" => 352,
+                "ThessarasBazaar" => 352,
                 "Runai_SiegeWorkshop" => 353,
                 // Alanthor culture buildings
-                "Alanthor_WatchTower" => 354,
+                "Alanthor_Tower" => 354,
                 "Alanthor_Garrison" => 355,
-                "Alanthor_RoyalStable" => 356,
+                "Alanthor_Stable" => 356,
                 "Alanthor_SiegeYard" => 357,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => 358,
                 "Feraldis_LoggingStation" => 359,
                 "Feraldis_Longhouse" => 360,
-                "Feraldis_TotemTower" => 361,
+                "Feraldis_Tower" => 361,
                 "Feraldis_SiegeYard" => 362,
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => 390,
@@ -179,7 +179,7 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => 20,
                 "Hut" => 10,
-                "Runai_Bazaar" => 40,
+                "ThessarasBazaar" => 40,
                 "Alanthor_Garrison" => 8,
                 "Feraldis_HuntingLodge" => 10,
                 "Feraldis_LoggingStation" => 10,
@@ -198,10 +198,10 @@ namespace TheWaningBorder.Entities
                 "Barracks" => true,
                 "TempleOfRidan" => true,
                 "Runai_TradeHub" => true,
-                "Runai_Bazaar" => true,
+                "ThessarasBazaar" => true,
                 "Runai_SiegeWorkshop" => true,
                 "Alanthor_Garrison" => true,
-                "Alanthor_RoyalStable" => true,
+                "Alanthor_Stable" => true,
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
@@ -508,7 +508,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiBazaar(EntityManager em, float3 position, Faction faction)
         {
             float hp = 2700f, los = 35f, radius = 2.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Bazaar", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ThessarasBazaar", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -564,7 +564,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorWatchTower(EntityManager em, float3 position, Faction faction)
         {
             float hp = 950f, los = 22f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_WatchTower", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -620,7 +620,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorRoyalStable(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1300f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Stable", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -751,7 +751,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisTotemTower(EntityManager em, float3 position, Faction faction)
         {
             float hp = 900f, los = 18f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_TotemTower", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1092,7 +1092,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiBazaarECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 2700f, los = 35f, radius = 2.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Bazaar", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ThessarasBazaar", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1139,7 +1139,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorWatchTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 950f, los = 22f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_WatchTower", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1186,7 +1186,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorRoyalStableECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1300f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Stable", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1297,7 +1297,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisTotemTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 900f, los = 18f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_TotemTower", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
