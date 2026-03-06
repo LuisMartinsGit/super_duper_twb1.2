@@ -199,6 +199,9 @@ namespace TheWaningBorder.Systems.Work
             if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var def)) return true;
             if (def.cost == null) return true; // No cost defined - repair for free
 
+            // Guard against division by zero (hp.Max should never be 0, but be safe)
+            if (hp.Max <= 0) return true;
+
             // Calculate damage ratio
             float damageRatio = 1f - ((float)hp.Value / hp.Max);
             if (damageRatio <= 0f) return true; // Not damaged

@@ -86,6 +86,14 @@ namespace TheWaningBorder.Systems.Building
             for (int i = 0; i < deferredSpawns.Length; i++)
             {
                 var spawn = deferredSpawns[i];
+
+                // Safety: temple entity may have been destroyed between iteration and deferred spawn
+                if (!em.Exists(spawn.Temple)) continue;
+                if (!em.HasBuffer<TempleChapelSlot>(spawn.Temple)) continue;
+
+                var slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
+                if (spawn.SlotIndex >= slots.Length) continue;
+
                 string sectId = spawn.SectId.ToString();
                 var faction = em.GetComponentData<FactionTag>(spawn.Temple).Value;
 
@@ -94,7 +102,8 @@ namespace TheWaningBorder.Systems.Building
                     em, sectId, spawn.Temple, spawn.SlotIndex, faction);
 
                 // Update the slot buffer to reference the created chapel entity
-                var slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
+                // Re-fetch buffer in case CreateChapelAtSlot caused a structural change
+                slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
                 var slot = slots[spawn.SlotIndex];
                 slot.Chapel = chapel;
                 slots[spawn.SlotIndex] = slot;
