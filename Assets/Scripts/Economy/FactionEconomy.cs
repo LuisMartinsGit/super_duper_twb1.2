@@ -119,6 +119,7 @@ namespace TheWaningBorder.Economy
             r.Crystal += c.Crystal;
             r.Veilsteel += c.Veilsteel;
             r.Glow += c.Glow;
+            r.Clamp();
 
             em.SetComponentData(bank, r);
             return true;

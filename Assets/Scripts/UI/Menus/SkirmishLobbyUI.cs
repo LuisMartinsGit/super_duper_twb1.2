@@ -20,7 +20,7 @@ namespace TheWaningBorder.UI.Menus
         private const string GameSceneName = "Game";
 
         // Window layout
-        private Rect _windowRect = new Rect(40, 40, 560, 620);
+        private Rect _windowRect = new Rect(40, 40, 560, 680);
         private Vector2 _slotsScrollPos;
 
         // Map settings
@@ -29,6 +29,9 @@ namespace TheWaningBorder.UI.Menus
         private int _spawnSeed = GameSettings.SpawnSeed;
         private bool _fogOfWar = GameSettings.FogOfWarEnabled;
         private int _mapHalfSize = GameSettings.MapHalfSize;
+
+        // Economy settings
+        private bool _maxResources = GameSettings.MaxStartingResources;
 
         // Error display
         private string _error;
@@ -184,6 +187,14 @@ namespace TheWaningBorder.UI.Menus
             if (GUILayout.Button(" + ", GUILayout.Width(40)))
                 _mapHalfSize = Mathf.Min(512, _mapHalfSize + 16);
             GUILayout.EndHorizontal();
+
+            GUILayout.Space(10);
+
+            // Max resources
+            GUILayout.Label("<b>Starting Resources</b>", _headerStyle);
+            _maxResources = GUILayout.Toggle(_maxResources, _maxResources
+                ? " Max Resources (100k each)"
+                : " Normal (400 Supplies, 150 Iron)");
 
             GUILayout.FlexibleSpace();
 
@@ -348,6 +359,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.SpawnSeed = _spawnSeed;
             GameSettings.FogOfWarEnabled = _fogOfWar;
             GameSettings.MapHalfSize = _mapHalfSize;
+            GameSettings.MaxStartingResources = _maxResources;
 
             // Apply color selections to FactionColors runtime system
             LobbyConfig.ApplyColorSelections();

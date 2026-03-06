@@ -72,6 +72,11 @@ public static class GameSettings
     /// <summary>Seed for reproducible spawn randomness.</summary>
     public static int SpawnSeed = 1234567;
 
+    // ==================== Economy Settings ====================
+
+    /// <summary>Start every faction with 100,000 of each resource (debug / sandbox).</summary>
+    public static bool MaxStartingResources = false;
+
     // ==================== Map Settings ====================
 
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>

@@ -168,13 +168,16 @@ namespace TheWaningBorder.Economy
 
                 if (TryGetFactionBank(em, faction, out var bank))
                 {
+                    bool max = GameSettings.MaxStartingResources;
+                    int cap = FactionResources.ResourceCap;
+
                     em.SetComponentData(bank, new FactionResources
                     {
-                        Supplies = StartingSupplies,
-                        Iron = StartingIron,
-                        Crystal = StartingCrystal,
-                        Veilsteel = StartingVeilsteel,
-                        Glow = StartingGlow
+                        Supplies  = max ? cap : StartingSupplies,
+                        Iron      = max ? cap : StartingIron,
+                        Crystal   = max ? cap : StartingCrystal,
+                        Veilsteel = max ? cap : StartingVeilsteel,
+                        Glow      = max ? cap : StartingGlow
                     });
 
                     em.SetComponentData(bank, new FactionPopulation
@@ -221,7 +224,6 @@ namespace TheWaningBorder.Economy
             return false;
         }
 
-        // Then fix the method signature (around line 205):
         private static Entity CreateFactionBank(EntityManager em, Faction faction, EntityWorld world)
         {
             var bank = em.CreateEntity(
@@ -235,13 +237,16 @@ namespace TheWaningBorder.Economy
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
 
+            bool max = GameSettings.MaxStartingResources;
+            int cap = FactionResources.ResourceCap;
+
             em.SetComponentData(bank, new FactionResources
             {
-                Supplies = StartingSupplies,
-                Iron = StartingIron,
-                Crystal = StartingCrystal,
-                Veilsteel = StartingVeilsteel,
-                Glow = StartingGlow
+                Supplies  = max ? cap : StartingSupplies,
+                Iron      = max ? cap : StartingIron,
+                Crystal   = max ? cap : StartingCrystal,
+                Veilsteel = max ? cap : StartingVeilsteel,
+                Glow      = max ? cap : StartingGlow
             });
 
             em.SetComponentData(bank, new FactionPopulation

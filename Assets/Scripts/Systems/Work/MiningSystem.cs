@@ -358,6 +358,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     var resources = em.GetComponentData<FactionResources>(bank);
                     resources.Iron += miner.CurrentLoad;
+                    resources.Clamp();
                     em.SetComponentData(bank, resources);
                 }
 
