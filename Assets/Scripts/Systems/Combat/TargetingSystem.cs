@@ -51,15 +51,25 @@ namespace TheWaningBorder.Systems.Combat
             // =============================================================================
             ProcessAttackCommands(ref state, ref ecb);
 
+            // Build enemy arrays ONCE for both auto-acquire and return-to-guard phases
+            var enemyQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, FactionTag, Health>()
+                .Build();
+
+            using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
+            using var allEnemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
             // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb);
+            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
 
             // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
             // =============================================================================
-            ProcessReturnToGuard(ref state, ref ecb);
+            ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -187,19 +197,11 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         [BurstCompile]
-        private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb)
+        private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
+            NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
         {
             var em = state.EntityManager;
-
-            // Build query for potential targets (units AND buildings with health)
-            var enemyQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, FactionTag, Health>()
-                .Build();
-
-            using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
-            using var allEnemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
             // Find targets for idle units (builders and miners never auto-target)
             foreach (var (transform, faction, lineOfSight, target, entity) in SystemAPI
@@ -277,8 +279,8 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
-                // Acquire target if found (Target component always present)
-                if (bestTarget != Entity.Null)
+                // Acquire target if found and still valid (Target component always present)
+                if (bestTarget != Entity.Null && em.Exists(bestTarget))
                 {
                     ecb.SetComponent(entity, new Target { Value = bestTarget });
                 }
@@ -321,7 +323,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Acquire target and issue attack command so combat systems chase
                 // Do NOT clear DesiredDestination - unit resumes movement after combat
-                if (bestAMTarget != Entity.Null)
+                if (bestAMTarget != Entity.Null && em.Exists(bestAMTarget))
                 {
                     ecb.SetComponent(entity, new Target { Value = bestAMTarget });
 
@@ -368,7 +370,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 // Acquire target and issue attack command so combat systems chase
-                if (bestPatrolTarget != Entity.Null)
+                if (bestPatrolTarget != Entity.Null && em.Exists(bestPatrolTarget))
                 {
                     ecb.SetComponent(entity, new Target { Value = bestPatrolTarget });
 
@@ -381,19 +383,11 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         [BurstCompile]
-        private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb)
+        private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
+            NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
         {
             var em = state.EntityManager;
-
-            // Build enemy query for checking if enemies are nearby (units AND buildings)
-            var enemyQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, FactionTag, Health>()
-                .Build();
-
-            using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
-            using var allEnemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
             foreach (var (transform, guardPoint, faction, lineOfSight, rtgTarget, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
@@ -495,8 +489,8 @@ namespace TheWaningBorder.Systems.Combat
                         }
                     }
 
-                    // If we found an enemy, engage it instead of returning
-                    if (nearestEnemy != Entity.Null)
+                    // If we found an enemy and it still exists, engage it instead of returning
+                    if (nearestEnemy != Entity.Null && em.Exists(nearestEnemy))
                     {
                         ecb.SetComponent(entity, new Target { Value = nearestEnemy });
 

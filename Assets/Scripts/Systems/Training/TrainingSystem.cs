@@ -90,7 +90,7 @@ namespace TheWaningBorder.Systems.Training
                     // Tick training timer
                     ts.ValueRW.Remaining -= dt;
 
-                    if (ts.ValueRO.Remaining <= 0f && queue.Length > 0)
+                    if (ts.ValueRW.Remaining <= 0f && queue.Length > 0)
                     {
                         // Training complete - check population before spawning
                         var unitId = queue[0].UnitId.ToString();
