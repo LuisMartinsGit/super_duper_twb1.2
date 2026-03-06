@@ -146,7 +146,10 @@ namespace TheWaningBorder.Systems.Combat
                     var minAimTime = 0.3f;
                     var maxAimTime = 1.2f;
                     var aimRange = maxAimTime - minAimTime;
-                    var distRatio = (dist - minRange) / (maxRange - minRange);
+                    float rangeDelta = maxRange - minRange;
+                    float distRatio = rangeDelta > 0.001f
+                        ? math.saturate((dist - minRange) / rangeDelta)
+                        : 0.5f;
                     archer.AimTimeRequired = minAimTime + (aimRange * distRatio);
 
                     // Accumulate aim time
