@@ -410,7 +410,7 @@ namespace TheWaningBorder.AI
             foreach (var (factionTag, progress, buildingTag, entity) in
                 SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionProgress>, RefRO<BuildingTag>>()
                 .WithAll<HallTag>()
-                .WithNone<UnderConstruction>()
+                .WithNone<UnderConstruction, AgeUpState>()
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value == faction)
@@ -462,36 +462,20 @@ namespace TheWaningBorder.AI
                 _ => Cultures.Runai // Balanced
             };
 
-            // Set FactionProgress.Culture on the Hall (non-structural write, safe)
-            var progress_val = em.GetComponentData<FactionProgress>(hallEntity);
-            progress_val.Culture = culture;
-            em.SetComponentData(hallEntity, progress_val);
-
-            // Scale the Hall 1.3x (non-structural write, safe)
-            var lt = em.GetComponentData<LocalTransform>(hallEntity);
-            lt.Scale = 1.3f;
-            em.SetComponentData(hallEntity, lt);
-
-            // Culture-specific effects — use ECB for structural changes
-            if (culture == Cultures.Alanthor)
+            // Add AgeUpState timer to the Hall — completion handled by AgeUpSystem
+            float duration = CultureConfig.AgeUpDuration;
+            ecb.AddComponent(hallEntity, new AgeUpState
             {
-                // Start 2-minute self-destruct countdown on all faction GathererHuts
-                foreach (var (ghTag, ghFaction, ghEntity) in
-                    SystemAPI.Query<RefRO<GathererHutTag>, RefRO<FactionTag>>()
-                    .WithNone<UnderConstruction, SelfDestructTimer>()
-                    .WithEntityAccess())
-                {
-                    if (ghFaction.ValueRO.Value != faction) continue;
-                    ecb.AddComponent(ghEntity, new SelfDestructTimer
-                    {
-                        TimeRemaining = 120f,
-                        RefundPaid = 0
-                    });
-                }
-            }
+                Culture = culture,
+                Duration = duration,
+                Remaining = duration
+            });
 
-            AILogger.Log(faction, "ECONOMY", $"=== AGED UP to Era 2 — culture: {CultureConfig.GetName(culture)} ===");
-            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} aged up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+            // Register culture with FactionColors so other systems can query it
+            FactionColors.SetFactionCulture(faction, culture);
+
+            AILogger.Log(faction, "ECONOMY", $"=== STARTED AGE-UP to Era 2 — culture: {CultureConfig.GetName(culture)} ({duration}s) ===");
+            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
         }
 
         /// <summary>
