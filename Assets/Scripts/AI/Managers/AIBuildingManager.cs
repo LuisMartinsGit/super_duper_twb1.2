@@ -257,6 +257,31 @@ namespace TheWaningBorder.AI
             return BuildingFactory.Create(ecb, buildingType.ToString(), position, faction);
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // TODO: Era 2+ culture building logic (Issue #91)
+        //
+        // The AI currently only builds Era 1 buildings (Hall, Hut, GatherersHut,
+        // Barracks) plus the three choice buildings. After aging up, each culture
+        // unlocks additional building types that the AI does not yet request:
+        //
+        //   Runai:    Runai_Outpost, Runai_TradeHub, ThessarasBazaar,
+        //             Runai_SiegeWorkshop
+        //   Alanthor: Alanthor_Tower, Alanthor_Garrison, Alanthor_Stable,
+        //             Alanthor_SiegeYard, Alanthor_Smelter, Alanthor_Crucible,
+        //             KingsCourt
+        //   Feraldis: Feraldis_HuntingLodge, Feraldis_LoggingStation,
+        //             Feraldis_Longhouse, Feraldis_Tower, Feraldis_SiegeYard,
+        //             Feraldis_BeastPen, Feraldis_Foundry
+        //
+        // Implementation plan:
+        //   1. After age-up, read the faction's culture from FactionProgress
+        //   2. Add culture-specific build order priorities to AITuning
+        //   3. Queue culture buildings via BuildRequest (BuildingFactory.Create
+        //      already supports all of these types)
+        //   4. Handle prerequisite chains (e.g., Garrison before Stable)
+        //   5. Adjust military unit training to use culture-specific barracks
+        // ═══════════════════════════════════════════════════════════════════════
+
         private void AssignIdleBuildersToTasks(ref SystemState state, Faction faction, EntityCommandBuffer ecb)
         {
             var idleBuilders = new NativeList<Entity>(Allocator.Temp);
