@@ -42,7 +42,6 @@ namespace TheWaningBorder.Systems.Work
         private EntityQuery _ironDepositQuery;
         private EntityQuery _cadaverQuery;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();

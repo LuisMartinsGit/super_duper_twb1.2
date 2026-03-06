@@ -35,7 +35,6 @@ namespace TheWaningBorder.Systems.Work
         private EntityQuery _hallDropoffQuery;
         private EntityQuery _hutDropoffQuery;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();

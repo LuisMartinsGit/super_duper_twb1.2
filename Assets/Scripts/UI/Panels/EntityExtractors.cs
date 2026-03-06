@@ -275,7 +275,7 @@ namespace TheWaningBorder.UI
         /// </summary>
         public static int GetFactionEra(EntityManager em, Faction faction)
         {
-            if (World.DefaultGameObjectInjectionWorld == null || !World.DefaultGameObjectInjectionWorld.IsCreated)
+            if (Unity.Entities.World.DefaultGameObjectInjectionWorld == null || !Unity.Entities.World.DefaultGameObjectInjectionWorld.IsCreated)
                 return 1;
             if (em.Equals(default(EntityManager)))
                 return 1;
@@ -304,7 +304,7 @@ namespace TheWaningBorder.UI
         /// </summary>
         public static int GetFactionReligionPoints(EntityManager em, Faction faction)
         {
-            if (World.DefaultGameObjectInjectionWorld == null || !World.DefaultGameObjectInjectionWorld.IsCreated)
+            if (Unity.Entities.World.DefaultGameObjectInjectionWorld == null || !Unity.Entities.World.DefaultGameObjectInjectionWorld.IsCreated)
                 return 0;
             if (em.Equals(default(EntityManager)))
                 return 0;
