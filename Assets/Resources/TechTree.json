@@ -79,7 +79,7 @@
     "evolution": {
         "toEra2": {
             "cost": {
-                "Supplies": 800,
+                "Supplies": 1000,
                 "Iron": 200,
                 "Crystal": 150
             },
@@ -430,8 +430,9 @@
                     "name": "Advance to Era II",
                     "effect": "Unlocks cultural choice (Runai, Feraldis, Alanthor). Starts 2-minute auto-despawn on all Gatherer's Huts (except Feraldis).",
                     "cost": {
-                        "Supplies": 400,
-                        "Crystal": 60
+                        "Supplies": 1000,
+                        "Iron": 200,
+                        "Crystal": 150
                     },
                     "researchAt": "Hall",
                     "prereq": {
