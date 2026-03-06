@@ -71,7 +71,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     // Move to resource node
                     var nodePos = em.GetComponentData<LocalTransform>(resourceNode).Position;
-                    var dist = math.distance(myPos, nodePos);
+                    var dist = DistXZ(myPos, nodePos);
 
                     if (dist > GatherRange)
                     {
@@ -128,6 +128,11 @@ namespace TheWaningBorder.Systems.Work
                     // Keep the GatherCommand for when they're done
                 }
             }
+        }
+
+        private static float DistXZ(float3 a, float3 b)
+        {
+            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
         }
     }
 }
