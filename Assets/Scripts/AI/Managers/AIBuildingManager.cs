@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 
@@ -178,7 +179,16 @@ namespace TheWaningBorder.AI
                            resources.ValueRO.Crystal >= buildingDef.cost.Crystal;
                 }
 
-                return resources.ValueRO.Supplies >= 100;
+                // TechTreeDB unavailable — fall back to static BuildCosts table
+                if (BuildCosts.TryGet(buildingType.ToString(), out var fallbackCost))
+                {
+                    return resources.ValueRO.Supplies >= fallbackCost.Supplies &&
+                           resources.ValueRO.Iron >= fallbackCost.Iron &&
+                           resources.ValueRO.Crystal >= fallbackCost.Crystal;
+                }
+
+                // Unknown building — deny construction
+                return false;
             }
 
             return false;
@@ -229,9 +239,13 @@ namespace TheWaningBorder.AI
                     res.Veilsteel -= buildingDef.cost.Veilsteel;
                     res.Glow -= buildingDef.cost.Glow;
                 }
-                else
+                else if (BuildCosts.TryGet(buildingType.ToString(), out var fallbackCost))
                 {
-                    res.Supplies -= 100;
+                    res.Supplies -= fallbackCost.Supplies;
+                    res.Iron -= fallbackCost.Iron;
+                    res.Crystal -= fallbackCost.Crystal;
+                    res.Veilsteel -= fallbackCost.Veilsteel;
+                    res.Glow -= fallbackCost.Glow;
                 }
 
                 break;
