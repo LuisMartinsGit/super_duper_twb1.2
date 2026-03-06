@@ -480,6 +480,12 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<FactionTag>(entity))
                 faction = em.GetComponentData<FactionTag>(entity).Value;
 
+            // Chapel special case: training action derived from SectConfig, not TechTreeDB
+            if (em.HasComponent<ChapelTag>(entity))
+            {
+                return GetChapelTrainingActions(entity, em, faction);
+            }
+
             // Identify building type and look up its definition
             string buildingId = GetBuildingId(entity, em);
             if (buildingId == null || TechTreeDB.Instance == null) return actions;
@@ -616,6 +622,12 @@ namespace TheWaningBorder.UI
             Faction faction = GameSettings.LocalPlayerFaction;
             if (em.HasComponent<FactionTag>(entity))
                 faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            // Chapel special case: research action derived from SectConfig, not TechTreeDB
+            if (em.HasComponent<ChapelTag>(entity))
+            {
+                return GetChapelResearchActions(entity, em, faction);
+            }
 
             string buildingId = GetBuildingId(entity, em);
             if (buildingId == null || TechTreeDB.Instance == null) return actions;
@@ -754,6 +766,133 @@ namespace TheWaningBorder.UI
         /// <summary>
         /// Map entity to its TechTree building ID using tag components.
         /// </summary>
+        // ═══════════════════════════════════════════════════════════════════
+        // CHAPEL TRAINING & RESEARCH (from SectConfig, not TechTreeDB)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Get training actions for a chapel entity.
+        /// Each chapel trains one unique sect unit defined in SectConfig.
+        /// </summary>
+        private static List<ActionButton> GetChapelTrainingActions(Entity entity, EntityManager em, Faction faction)
+        {
+            var actions = new List<ActionButton>();
+            if (!em.HasComponent<ChapelTag>(entity)) return actions;
+
+            var chapelTag = em.GetComponentData<ChapelTag>(entity);
+            string sectId = chapelTag.SectId.ToString();
+            string unitId = SectConfig.GetSectUnitId(sectId);
+            if (string.IsNullOrEmpty(unitId)) return actions;
+
+            // Look up the unit in TechTreeDB for cost/stats
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var unit))
+            {
+                var cost = unit.cost != null ? new Cost
+                {
+                    Supplies = unit.cost.Supplies,
+                    Iron = unit.cost.Iron,
+                    Crystal = unit.cost.Crystal
+                } : default;
+
+                actions.Add(new ActionButton
+                {
+                    Id = unit.id,
+                    Label = unit.name,
+                    Tooltip = unit.unitClass ?? "",
+                    Cost = cost,
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                    Icon = null
+                });
+            }
+            else
+            {
+                // Fallback if unit not in TechTreeDB — show with placeholder cost
+                string displayName = SectConfig.GetDisplayName(sectId) + " Unit";
+                actions.Add(new ActionButton
+                {
+                    Id = unitId,
+                    Label = displayName,
+                    Tooltip = "Sect unique unit",
+                    Cost = Cost.Of(supplies: 100, iron: 50),
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: 100, iron: 50)),
+                    Icon = null
+                });
+            }
+
+            return actions;
+        }
+
+        /// <summary>
+        /// Get research actions for a chapel entity.
+        /// Each chapel researches one unique sect technology defined in SectConfig.
+        /// </summary>
+        private static List<ActionButton> GetChapelResearchActions(Entity entity, EntityManager em, Faction faction)
+        {
+            var actions = new List<ActionButton>();
+            if (!em.HasComponent<ChapelTag>(entity)) return actions;
+
+            var chapelTag = em.GetComponentData<ChapelTag>(entity);
+            string sectId = chapelTag.SectId.ToString();
+            string techId = SectConfig.GetTechId(sectId);
+            if (string.IsNullOrEmpty(techId)) return actions;
+
+            // Skip if already researched
+            var researchState = TheWaningBorder.Economy.FactionResearchState.Instance;
+            if (researchState != null && researchState.HasResearched(faction, techId))
+                return actions;
+
+            // Look up the tech in TechTreeDB for cost
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetTechnology(techId, out var tech))
+            {
+                var cost = tech.cost != null ? new Cost
+                {
+                    Supplies = tech.cost.Supplies,
+                    Iron = tech.cost.Iron,
+                    Crystal = tech.cost.Crystal,
+                    Veilsteel = tech.cost.Veilsteel,
+                    Glow = tech.cost.Glow
+                } : default;
+
+                string techName = tech.name ?? SectConfig.GetTechDisplayName(sectId);
+                string tooltip = SectConfig.GetTechDescription(sectId);
+                if (tech.researchTime > 0)
+                    tooltip += $"\nTime: {tech.researchTime}s";
+
+                actions.Add(new ActionButton
+                {
+                    Id = tech.id,
+                    Label = techName,
+                    Tooltip = tooltip,
+                    Cost = cost,
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                    Icon = null
+                });
+            }
+            else
+            {
+                // Fallback if tech not in TechTreeDB
+                string techName = SectConfig.GetTechDisplayName(sectId);
+                string techDesc = SectConfig.GetTechDescription(sectId);
+                var fallbackCost = Cost.Of(supplies: 150, iron: 75, crystal: 50);
+
+                actions.Add(new ActionButton
+                {
+                    Id = techId,
+                    Label = techName,
+                    Tooltip = techDesc,
+                    Cost = fallbackCost,
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, fallbackCost),
+                    Icon = null
+                });
+            }
+
+            return actions;
+        }
+
         private static string GetBuildingId(Entity entity, EntityManager em)
         {
             if (em.HasComponent<HallTag>(entity)) return "Hall";
@@ -780,6 +919,12 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<LonghouseTag>(entity)) return "Feraldis_Longhouse";
             if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
+            // Sect chapels — dynamic building ID based on sect
+            if (em.HasComponent<ChapelTag>(entity))
+            {
+                var chapelTag = em.GetComponentData<ChapelTag>(entity);
+                return "Chapel_" + chapelTag.SectId.ToString();
+            }
             return null;
         }
     }

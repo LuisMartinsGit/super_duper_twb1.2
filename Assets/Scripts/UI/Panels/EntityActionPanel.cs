@@ -6,6 +6,7 @@ using Unity.Entities;
 using Unity.Collections;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Input;
 using TheWaningBorder.UI;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
@@ -41,6 +42,16 @@ namespace TheWaningBorder.UI.Panels
         private GUIStyle _requireStyle;
         private RectOffset _padding;
         private bool _stylesInit = false;
+
+        /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
+        private int _selectedChapelSlot = -1;
+
+        /// <summary>Cost to build a chapel at a temple slot.</summary>
+        private static readonly TheWaningBorder.Core.Cost ChapelBuildCost =
+            TheWaningBorder.Core.Cost.Of(supplies: 200, iron: 100, crystal: 50);
+
+        /// <summary>Build time in seconds for a temple chapel.</summary>
+        private const float ChapelBuildTime = 30f;
 
         void Awake()
         {
@@ -289,7 +300,7 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = true;
 
-            float totalPanelHeight = 620f;
+            float totalPanelHeight = 900f;
             var panelRect = new Rect(
                 PanelPadding + 300f + PanelPadding,
                 Screen.height - totalPanelHeight - PanelPadding,
@@ -374,6 +385,9 @@ namespace TheWaningBorder.UI.Panels
 
             // ── Temple Level-Up Section ──
             DrawTempleLevelUpSection(entity);
+
+            // ── Chapel Slot Diagram ──
+            DrawTempleChapelSlots(entity);
 
             // ── Sect Adoption Section ──
             {
@@ -506,6 +520,270 @@ namespace TheWaningBorder.UI.Panels
             }
 
             GUILayout.Label($"Grants: +{rpGrant} Religion Points", _smallStyle);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TEMPLE CHAPEL SLOT DIAGRAM
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Draw the circular chapel slot diagram on the temple panel.
+        /// Shows 7 slots arranged in a circle around a temple icon.
+        /// Empty slots can be clicked to open a sect picker.
+        /// Building slots show progress. Complete slots show sect name.
+        /// </summary>
+        private void DrawTempleChapelSlots(Entity entity)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<TempleTag>(entity)) return;
+            if (!em.HasBuffer<TempleChapelSlot>(entity)) return;
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            var slots = em.GetBuffer<TempleChapelSlot>(entity);
+            if (slots.Length == 0) return;
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+            GUILayout.Label("Chapel Slots", _headerStyle);
+            GUILayout.Space(4);
+
+            // ── Circular diagram ──
+            float diagramSize = 280f;
+            float centerX = diagramSize / 2f;
+            float centerY = diagramSize / 2f;
+            float slotRadius = 105f;
+            float slotBtnSize = 50f;
+            float templeBtnSize = 40f;
+
+            var diagramRect = GUILayoutUtility.GetRect(diagramSize, diagramSize);
+
+            // Draw temple icon at center
+            var templeRect = new Rect(
+                diagramRect.x + centerX - templeBtnSize / 2f,
+                diagramRect.y + centerY - templeBtnSize / 2f,
+                templeBtnSize, templeBtnSize);
+
+            GUI.color = new Color(0.83f, 0.66f, 0.26f);
+            GUI.Box(templeRect, "T", _labelStyle);
+            GUI.color = Color.white;
+
+            // Draw 7 slot buttons in a circle
+            for (int i = 0; i < slots.Length && i < 7; i++)
+            {
+                float angle = i * (2f * Mathf.PI / 7f) - (Mathf.PI / 2f);
+                float sx = centerX + Mathf.Cos(angle) * slotRadius - slotBtnSize / 2f;
+                float sy = centerY + Mathf.Sin(angle) * slotRadius - slotBtnSize / 2f;
+
+                var btnRect = new Rect(
+                    diagramRect.x + sx,
+                    diagramRect.y + sy,
+                    slotBtnSize, slotBtnSize);
+
+                // Draw connecting line from temple center to slot
+                DrawLine(
+                    new Vector2(diagramRect.x + centerX, diagramRect.y + centerY),
+                    new Vector2(btnRect.x + slotBtnSize / 2f, btnRect.y + slotBtnSize / 2f),
+                    new Color(0.5f, 0.5f, 0.5f, 0.3f));
+
+                var slot = slots[i];
+
+                if (slot.State == 0)
+                {
+                    // Empty slot — gray button
+                    GUI.color = new Color(0.4f, 0.4f, 0.4f);
+                    if (GUI.Button(btnRect, $"#{i + 1}", _smallStyle))
+                    {
+                        _selectedChapelSlot = (_selectedChapelSlot == i) ? -1 : i;
+                    }
+                    GUI.color = Color.white;
+                }
+                else if (slot.State == 1)
+                {
+                    // Building — orange with progress
+                    float pct = slot.BuildTime > 0 ? slot.BuildProgress / slot.BuildTime : 0f;
+                    GUI.color = new Color(0.9f, 0.6f, 0.1f);
+                    GUI.Box(btnRect, $"{(int)(pct * 100)}%", _smallStyle);
+                    GUI.color = Color.white;
+
+                    // Progress bar under the slot
+                    var progRect = new Rect(btnRect.x, btnRect.y + slotBtnSize - 6f, slotBtnSize, 5f);
+                    GUI.color = new Color(0.2f, 0.2f, 0.2f);
+                    GUI.DrawTexture(progRect, Texture2D.whiteTexture);
+                    GUI.color = new Color(0.9f, 0.6f, 0.1f);
+                    GUI.DrawTexture(new Rect(progRect.x, progRect.y, progRect.width * pct, progRect.height), Texture2D.whiteTexture);
+                    GUI.color = Color.white;
+                }
+                else if (slot.State == 2)
+                {
+                    // Complete — green with sect short name
+                    string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
+                    // Truncate long names for the button
+                    if (sectName.Length > 6) sectName = sectName.Substring(0, 5) + "…";
+
+                    GUI.color = new Color(0.2f, 0.7f, 0.3f);
+                    if (GUI.Button(btnRect, sectName, _smallStyle))
+                    {
+                        // Select the chapel entity when clicking completed slot
+                        if (slot.Chapel != Entity.Null && em.Exists(slot.Chapel))
+                        {
+                            SelectionSystem.ClearSelection();
+                            SelectionSystem.AddToSelection(slot.Chapel);
+                        }
+                    }
+                    GUI.color = Color.white;
+                }
+            }
+
+            // ── Sect Picker (when an empty slot is selected) ──
+            if (_selectedChapelSlot >= 0 && _selectedChapelSlot < slots.Length)
+            {
+                var selectedSlot = slots[_selectedChapelSlot];
+                if (selectedSlot.State == 0)
+                {
+                    DrawChapelSectPicker(entity, faction, em, slots);
+                }
+                else
+                {
+                    _selectedChapelSlot = -1; // Slot is no longer empty
+                }
+            }
+        }
+
+        /// <summary>
+        /// Draw the sect picker dropdown for building a chapel at the selected slot.
+        /// Shows only adopted sects that don't already have a chapel built.
+        /// </summary>
+        private void DrawChapelSectPicker(Entity temple, Faction faction, EntityManager em,
+            DynamicBuffer<TempleChapelSlot> slots)
+        {
+            GUILayout.Space(6);
+            GUILayout.Label($"Build Chapel at Slot #{_selectedChapelSlot + 1}", _labelStyle);
+
+            // Get adopted sects
+            var sectState = FactionSectState.Instance;
+            if (sectState == null)
+            {
+                GUILayout.Label("No sect data available", _requireStyle);
+                return;
+            }
+
+            var adoptedSects = sectState.GetAdoptedSects(faction);
+            if (adoptedSects == null || adoptedSects.Count == 0)
+            {
+                GUILayout.Label("Adopt sects first (see below)", _requireStyle);
+                return;
+            }
+
+            // Find which sects already have a chapel in a slot
+            var usedSects = new System.Collections.Generic.HashSet<string>();
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (slot.State != 0 && slot.SectId.ToString().Length > 0)
+                {
+                    usedSects.Add(slot.SectId.ToString());
+                }
+            }
+
+            // Show cost
+            string costText = UIHelpers.FormatCost(ChapelBuildCost);
+            bool canAfford = FactionEconomy.CanAfford(em, faction, ChapelBuildCost);
+            var costColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
+            var costStyle = new GUIStyle(_smallStyle) { normal = { textColor = costColor } };
+            GUILayout.Label($"Cost: {costText} | Build Time: {ChapelBuildTime}s", costStyle);
+
+            GUILayout.Space(4);
+
+            bool anyAvailable = false;
+            foreach (var sectId in adoptedSects)
+            {
+                if (usedSects.Contains(sectId)) continue; // Already has a chapel
+                anyAvailable = true;
+
+                string displayName = SectConfig.GetDisplayName(sectId);
+                string passive = SectConfig.GetPassiveDescription(sectId);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{displayName}", _labelStyle, GUILayout.Width(160));
+
+                bool wasEnabled = GUI.enabled;
+                if (!canAfford) GUI.enabled = false;
+
+                if (GUILayout.Button("Build", GUILayout.Width(60), GUILayout.Height(24)))
+                {
+                    // Spend resources
+                    if (FactionEconomy.Spend(em, faction, ChapelBuildCost))
+                    {
+                        // Set slot to building state
+                        var slot = slots[_selectedChapelSlot];
+                        slot.State = 1;
+                        slot.SectId = new Unity.Collections.FixedString64Bytes(sectId);
+                        slot.BuildProgress = 0f;
+                        slot.BuildTime = ChapelBuildTime;
+                        slots[_selectedChapelSlot] = slot;
+
+                        _selectedChapelSlot = -1; // Close picker
+                        Debug.Log($"[TempleUI] Started building chapel '{sectId}' at slot");
+                        PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
+                    }
+                    else
+                    {
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                    }
+                }
+
+                GUI.enabled = wasEnabled;
+                GUILayout.EndHorizontal();
+
+                // Passive effect description
+                if (!string.IsNullOrEmpty(passive))
+                {
+                    GUILayout.Label($"  {passive}", _smallStyle);
+                }
+            }
+
+            if (!anyAvailable)
+            {
+                GUILayout.Label("All adopted sects already have chapels", _requireStyle);
+            }
+
+            // Cancel button
+            GUILayout.Space(4);
+            if (GUILayout.Button("Cancel", GUILayout.Height(20)))
+            {
+                _selectedChapelSlot = -1;
+            }
+        }
+
+        /// <summary>
+        /// Draw a simple line between two points using GUI.DrawTexture.
+        /// </summary>
+        private static void DrawLine(Vector2 from, Vector2 to, Color color)
+        {
+            var savedColor = GUI.color;
+            GUI.color = color;
+
+            float angle = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
+            float length = Vector2.Distance(from, to);
+
+            var pivot = new Vector2(from.x, from.y + 0.5f);
+            GUIUtility.RotateAroundPivot(angle, pivot);
+            GUI.DrawTexture(new Rect(from.x, from.y, length, 1f), Texture2D.whiteTexture);
+            GUIUtility.RotateAroundPivot(-angle, pivot);
+
+            GUI.color = savedColor;
         }
 
         /// <summary>

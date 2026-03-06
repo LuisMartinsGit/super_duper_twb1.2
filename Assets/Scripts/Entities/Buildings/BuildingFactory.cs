@@ -1,5 +1,6 @@
 // File: Assets/Scripts/Entities/Buildings/BuildingFactory.cs
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -393,6 +394,20 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new TempleLevel { Level = 1 });
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Initialize 7 empty chapel slots
+            var slotBuffer = em.AddBuffer<TempleChapelSlot>(entity);
+            for (int i = 0; i < 7; i++)
+            {
+                slotBuffer.Add(new TempleChapelSlot
+                {
+                    Chapel = Entity.Null,
+                    SectId = default,
+                    State = 0,
+                    BuildProgress = 0f,
+                    BuildTime = 0f
+                });
+            }
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -850,6 +865,8 @@ namespace TheWaningBorder.Entities
 
             em.AddComponentData(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
             em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
             // Combat type tags
@@ -882,6 +899,8 @@ namespace TheWaningBorder.Entities
 
             ecb.AddComponent(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
             ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
             // Combat type tags
@@ -955,6 +974,20 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new TempleLevel { Level = 1 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Initialize 7 empty chapel slots
+            var slotBuffer = ecb.AddBuffer<TempleChapelSlot>(entity);
+            for (int i = 0; i < 7; i++)
+            {
+                slotBuffer.Add(new TempleChapelSlot
+                {
+                    Chapel = Entity.Null,
+                    SectId = default,
+                    State = 0,
+                    BuildProgress = 0f,
+                    BuildTime = 0f
+                });
+            }
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -1343,7 +1376,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateDefault(EntityCommandBuffer ecb, string buildingId, float3 position, Faction faction)
         {
             UnityEngine.Debug.LogWarning($"[BuildingFactory] Unknown building type '{buildingId}', creating generic structure");
-            
+
             var entity = ecb.CreateEntity();
 
             ecb.AddComponent(entity, new PresentationId { Id = 100 });
@@ -1355,6 +1388,60 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = 1.5f });
 
             return entity;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TEMPLE CHAPEL SLOT HELPERS
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Number of chapel build slots around a temple.</summary>
+        public const int ChapelSlotCount = 7;
+
+        /// <summary>Radius of the chapel slot ring around the temple center.</summary>
+        private const float ChapelSlotRadius = 4.0f;
+
+        /// <summary>
+        /// Get the offset position for a chapel slot relative to the temple center.
+        /// Slot 0 is at the top (north), arranged clockwise.
+        /// </summary>
+        public static float3 GetChapelSlotOffset(int slotIndex)
+        {
+            float angle = slotIndex * (2f * math.PI / ChapelSlotCount) - (math.PI / 2f);
+            return new float3(math.cos(angle) * ChapelSlotRadius, 0, math.sin(angle) * ChapelSlotRadius);
+        }
+
+        /// <summary>
+        /// Creates a chapel entity at a specific temple slot position.
+        /// Does NOT add UnderConstruction — the temple handles the build timer internally via TempleChapelSlot.
+        /// Adds TempleOwner to link the chapel back to its parent temple.
+        /// </summary>
+        /// <param name="em">EntityManager</param>
+        /// <param name="sectId">Sect identifier (e.g., "Sect_Renewal")</param>
+        /// <param name="temple">The parent temple entity</param>
+        /// <param name="slotIndex">Slot index (0-6)</param>
+        /// <param name="faction">Owning faction</param>
+        /// <returns>Created chapel entity</returns>
+        public static Entity CreateChapelAtSlot(EntityManager em, string sectId, Entity temple, int slotIndex, Faction faction)
+        {
+            var templeTransform = em.GetComponentData<LocalTransform>(temple);
+            float3 offset = GetChapelSlotOffset(slotIndex);
+            float3 chapelPos = templeTransform.Position + offset;
+
+            // Create the chapel via the existing factory method
+            Entity chapel = CreateChapel(em, sectId, chapelPos, faction);
+
+            // Add ChapelSmallTag (needed for RP bonus calculation in BuildingConstructionSystem)
+            em.AddComponent<ChapelSmallTag>(chapel);
+
+            // Link chapel to parent temple
+            em.AddComponentData(chapel, new TempleOwner
+            {
+                Temple = temple,
+                SlotIndex = slotIndex
+            });
+
+            UnityEngine.Debug.Log($"[BuildingFactory] Created chapel '{sectId}' at slot {slotIndex} for {faction}");
+            return chapel;
         }
     }
     // TempleTag and VaultTag are defined in BuildingComponents.cs (global namespace)

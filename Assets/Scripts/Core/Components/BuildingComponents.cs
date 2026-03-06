@@ -174,6 +174,39 @@ public struct SectUniqueBuildingTag : IComponentData { }
 /// <summary>Unique sect-specific unit type.</summary>
 public struct SectUniqueUnitTag : IComponentData { }
 
+// ==================== Temple Chapel Slot System ====================
+
+/// <summary>
+/// Buffer element on Temple entities tracking each of its 7 chapel build slots.
+/// Slot 0 is at the top (north), arranged clockwise in a circle.
+/// </summary>
+public struct TempleChapelSlot : IBufferElementData
+{
+    /// <summary>Chapel entity (Entity.Null if empty or still building).</summary>
+    public Entity Chapel;
+    /// <summary>Sect ID (empty string if slot is unused).</summary>
+    public FixedString64Bytes SectId;
+    /// <summary>0 = empty, 1 = building, 2 = complete.</summary>
+    public byte State;
+    /// <summary>Elapsed build time (increments from 0 to BuildTime).</summary>
+    public float BuildProgress;
+    /// <summary>Total build time in seconds.</summary>
+    public float BuildTime;
+}
+
+/// <summary>
+/// Added to chapel entities built via temple slots.
+/// Links the chapel back to its parent temple and identifies which slot it occupies.
+/// Used by cascade destruction: when temple dies, all chapels with TempleOwner die too.
+/// </summary>
+public struct TempleOwner : IComponentData
+{
+    /// <summary>The temple entity this chapel belongs to.</summary>
+    public Entity Temple;
+    /// <summary>Slot index (0-6) in the parent temple's TempleChapelSlot buffer.</summary>
+    public int SlotIndex;
+}
+
 // ==================== Construction System ====================
 
 /// <summary>
