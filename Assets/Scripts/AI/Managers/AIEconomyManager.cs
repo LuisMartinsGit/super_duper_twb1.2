@@ -16,14 +16,6 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(Unity.Transforms.TransformSystemGroup))]
     public partial struct AIEconomyManager : ISystem
     {
-        private const float MINE_CHECK_INTERVAL = 5.0f;
-        private const int TARGET_MINERS_PER_MINE = 3;
-        private const int MAX_MINERS = 9; // Cap: 3 mines × 3 miners each in early game
-        private const int MIN_SUPPLIES_THRESHOLD = 200;
-        private const int TARGET_GATHERERS_HUTS = 3;
-        private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
-        private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
-
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -152,7 +144,7 @@ namespace TheWaningBorder.AI
             }
 
             economy.AssignedMiners = currentMiners;
-            economy.DesiredMiners = math.min(mineCount * TARGET_MINERS_PER_MINE, MAX_MINERS);
+            economy.DesiredMiners = math.min(mineCount * AITuning.TargetMinersPerMine, AITuning.MaxMiners);
 
             // MiningSystem auto-finds deposits for AI miners when they're idle,
             // so we just need to ensure enough miners are trained.
@@ -174,12 +166,12 @@ namespace TheWaningBorder.AI
             {
                 if (factionTag.ValueRO.Value != faction) continue;
 
-                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < MIN_SUPPLIES_THRESHOLD ? (byte)1 : (byte)0;
+                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < AITuning.MinSuppliesThreshold ? (byte)1 : (byte)0;
                 economy.NeedsMoreIronIncome = resources.ValueRO.Iron < 100 ? (byte)1 : (byte)0;
 
                 // Always want GathererHuts — keep at base target in early game
                 // Don't escalate to 5 early: that drains supplies needed for miners/barracks
-                economy.DesiredGatherersHuts = TARGET_GATHERERS_HUTS;
+                economy.DesiredGatherersHuts = AITuning.TargetGatherersHuts;
 
                 break;
             }
@@ -334,7 +326,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            if (crystalAmount < CRYSTAL_FOR_CHOICE_BUILDING) return;
+            if (crystalAmount < AITuning.CrystalForChoiceBuilding) return;
 
             // Check no pending choice building request
             foreach (var (brainComp, buildReqs) in SystemAPI.Query<RefRO<AIBrain>, DynamicBuffer<BuildRequest>>())

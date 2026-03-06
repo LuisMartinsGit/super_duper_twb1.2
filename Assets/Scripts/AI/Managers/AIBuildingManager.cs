@@ -16,10 +16,6 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(AIEconomyManager))]
     public partial struct AIBuildingManager : ISystem
     {
-        private const float BUILD_CHECK_INTERVAL = 3.0f;
-        private const int TARGET_BUILDERS = 3;
-        private const int MAX_BUILDERS = 5;
-
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -78,9 +74,9 @@ namespace TheWaningBorder.AI
 
             int queueSize = buildingState.QueuedConstructions;
             if (queueSize > 3)
-                buildingState.DesiredBuilders = math.min(MAX_BUILDERS, TARGET_BUILDERS + 1);
+                buildingState.DesiredBuilders = math.min(AITuning.MaxBuilders, AITuning.TargetBuilders + 1);
             else
-                buildingState.DesiredBuilders = TARGET_BUILDERS;
+                buildingState.DesiredBuilders = AITuning.TargetBuilders;
 
             int queuedBuilders = CountQueuedBuilders(ref state, faction);
             int totalBuilders = builderCount + queuedBuilders;
