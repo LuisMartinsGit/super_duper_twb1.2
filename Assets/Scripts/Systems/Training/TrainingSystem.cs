@@ -193,47 +193,8 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
-            // Create unit based on type
-            Entity unit;
-            switch (unitId)
-            {
-                case "Swordsman":
-                    unit = Swordsman.Create(em, finalPos, faction);
-                    break;
-                case "Archer":
-                    unit = Archer.Create(em, finalPos, faction);
-                    break;
-                case "Builder":
-                    unit = Builder.Create(em, finalPos, faction);
-                    break;
-                case "Miner":
-                    unit = Miner.Create(em, finalPos, faction);
-                    break;
-                case "Scout":
-                    unit = Scout.Create(em, finalPos, faction);
-                    break;
-                case "Litharch":
-                    unit = Litharch.Create(em, finalPos, faction);
-                    break;
-                case "Berserker":
-                case "Feraldis_Berserker":
-                    unit = Berserker.Create(em, finalPos, faction);
-                    break;
-                default:
-                    unit = Swordsman.Create(em, finalPos, faction);
-                    UnityEngine.Debug.LogWarning($"Unknown unit type '{unitId}', spawning Swordsman");
-                    break;
-            }
-
-            // Apply stats from TechTreeDB
-            if (TechTreeDB.Instance != null &&
-                TechTreeDB.Instance.TryGetUnit(unitId, out var udef))
-            {
-                ecb.SetComponent(unit, new Health { Value = (int)udef.hp, Max = (int)udef.hp });
-                ecb.SetComponent(unit, new MoveSpeed { Value = udef.speed });
-                ecb.SetComponent(unit, new Damage { Value = (int)udef.damage });
-                ecb.SetComponent(unit, new LineOfSight { Radius = udef.lineOfSight });
-            }
+            // Create unit via centralized UnitFactory (handles all unit types including culture units)
+            Entity unit = UnitFactory.Create(em, unitId, finalPos, faction);
 
             // Apply all completed tech effects to the newly spawned unit
             TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);

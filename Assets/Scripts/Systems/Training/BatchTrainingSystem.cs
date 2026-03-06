@@ -231,36 +231,11 @@ namespace TheWaningBorder.Systems.Training
         }
 
         /// <summary>
-        /// Create a single unit from its ID string using EntityManager.
-        /// Mirrors the switch in TrainingSystem.SpawnUnit.
+        /// Create a single unit from its ID string using centralized UnitFactory.
         /// </summary>
         private static Entity SpawnSingleUnit(EntityManager em, string unitId, float3 position, Faction faction)
         {
-            return unitId switch
-            {
-                "Swordsman" => Swordsman.Create(em, position, faction),
-                "Archer" => Archer.Create(em, position, faction),
-                "Builder" => Builder.Create(em, position, faction),
-                "Miner" => Miner.Create(em, position, faction),
-                "Scout" => Scout.Create(em, position, faction),
-                "Litharch" => Litharch.Create(em, position, faction),
-                "Berserker" or "Feraldis_Berserker" => Berserker.Create(em, position, faction),
-                // Feraldis culture units
-                "Feraldis_Hunter" => Hunter.Create(em, position, faction),
-                "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
-                "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
-                // Runai culture units
-                "Runai_Spearman" => Spearman.Create(em, position, faction),
-                "Runai_Skirmisher" => Skirmisher.Create(em, position, faction),
-                "Runai_Raider" => Raider.Create(em, position, faction),
-                "Runai_SandBallista" => SandBallista.Create(em, position, faction),
-                // Alanthor culture units
-                "Alanthor_Sentinel" => Sentinel.Create(em, position, faction),
-                "Alanthor_Crossbowman" => Crossbowman.Create(em, position, faction),
-                "Alanthor_Cataphract" => Cataphract.Create(em, position, faction),
-                "Alanthor_Ballista" => Ballista.Create(em, position, faction),
-                _ => Swordsman.Create(em, position, faction)
-            };
+            return UnitFactory.Create(em, unitId, position, faction);
         }
     }
 }
