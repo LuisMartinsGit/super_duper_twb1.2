@@ -31,6 +31,9 @@ public struct EntityDisplayInfo
     public bool HasResourceGeneration;
     public float? SuppliesPerMinute;
     public int? IronPerMinute;
+    public int? CrystalPerMinute;
+    public int? VeilsteelPerMinute;
+    public int? GlowPerMinute;
 
     // Miner info
     public bool HasMinerInfo;

@@ -33,7 +33,10 @@ namespace TheWaningBorder.UI
                 Speed = 0,
                 HasResourceGeneration = false,
                 SuppliesPerMinute = 0,
-                IronPerMinute = 0
+                IronPerMinute = 0,
+                CrystalPerMinute = 0,
+                VeilsteelPerMinute = 0,
+                GlowPerMinute = 0
             };
 
             if (!em.Exists(entity)) return info;
@@ -77,6 +80,21 @@ namespace TheWaningBorder.UI
             {
                 info.HasResourceGeneration = true;
                 info.IronPerMinute = em.GetComponentData<IronIncome>(entity).PerMinute;
+            }
+            if (em.HasComponent<CrystalIncome>(entity))
+            {
+                info.HasResourceGeneration = true;
+                info.CrystalPerMinute = em.GetComponentData<CrystalIncome>(entity).PerMinute;
+            }
+            if (em.HasComponent<VeilsteelIncome>(entity))
+            {
+                info.HasResourceGeneration = true;
+                info.VeilsteelPerMinute = em.GetComponentData<VeilsteelIncome>(entity).PerMinute;
+            }
+            if (em.HasComponent<GlowIncome>(entity))
+            {
+                info.HasResourceGeneration = true;
+                info.GlowPerMinute = em.GetComponentData<GlowIncome>(entity).PerMinute;
             }
 
             // Type and name
@@ -257,6 +275,11 @@ namespace TheWaningBorder.UI
         /// </summary>
         public static int GetFactionEra(EntityManager em, Faction faction)
         {
+            if (World.DefaultGameObjectInjectionWorld == null || !World.DefaultGameObjectInjectionWorld.IsCreated)
+                return 1;
+            if (em.Equals(default(EntityManager)))
+                return 1;
+
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<FactionEra>()
@@ -281,6 +304,11 @@ namespace TheWaningBorder.UI
         /// </summary>
         public static int GetFactionReligionPoints(EntityManager em, Faction faction)
         {
+            if (World.DefaultGameObjectInjectionWorld == null || !World.DefaultGameObjectInjectionWorld.IsCreated)
+                return 0;
+            if (em.Equals(default(EntityManager)))
+                return 0;
+
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<ReligionPoints>()

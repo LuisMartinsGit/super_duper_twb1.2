@@ -177,6 +177,14 @@ namespace TheWaningBorder.UI.Panels
                 if (info.IronPerMinute.HasValue && info.IronPerMinute.Value > 0)
                     GUILayout.Label($"Iron: {info.IronPerMinute}/min", _labelStyle, GUILayout.Width(120));
                 GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (info.CrystalPerMinute.HasValue && info.CrystalPerMinute.Value > 0)
+                    GUILayout.Label($"Crystal: {info.CrystalPerMinute}/min", _labelStyle, GUILayout.Width(130));
+                if (info.VeilsteelPerMinute.HasValue && info.VeilsteelPerMinute.Value > 0)
+                    GUILayout.Label($"Veilsteel: {info.VeilsteelPerMinute}/min", _labelStyle, GUILayout.Width(130));
+                if (info.GlowPerMinute.HasValue && info.GlowPerMinute.Value > 0)
+                    GUILayout.Label($"Glow: {info.GlowPerMinute}/min", _labelStyle, GUILayout.Width(120));
+                GUILayout.EndHorizontal();
             }
 
             // Miner info (no carry bar — just rate and status)

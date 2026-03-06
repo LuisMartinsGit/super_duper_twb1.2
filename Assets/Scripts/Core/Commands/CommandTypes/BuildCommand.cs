@@ -148,7 +148,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 "Hut" => 1.6f,
                 "GatherersHut" => 0.5f,
                 "Barracks" => 0.8f,
-                "TempleOfRidan" => 1.8f,
+                "ShrineOfRidan" => 1.8f,
+                "TempleOfRidan" => 2.2f,
                 "VaultOfAlmierra" => 2.0f,
                 "FiendstoneKeep" => 2.4f,
                 "Alanthor_Wall" => 0.8f,
@@ -192,6 +193,14 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<DesiredDestination>(builder))
             {
                 em.SetComponentData(builder, new DesiredDestination
+                {
+                    Position = position,
+                    Has = 1
+                });
+            }
+            else
+            {
+                em.AddComponentData(builder, new DesiredDestination
                 {
                     Position = position,
                     Has = 1

@@ -48,5 +48,24 @@ namespace TheWaningBorder.AI
 
         /// <summary>How often (seconds) the AI checks if it can build a choice building.</summary>
         public static float ChoiceBuildingCheckInterval = 15.0f;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VAULT & SMELTER
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>How often (seconds) the AI checks whether to deposit into vaults.</summary>
+        public static float VaultCheckInterval = 30.0f;
+
+        /// <summary>How often (seconds) the AI checks whether to assign miners to smelters.</summary>
+        public static float SmelterCheckInterval = 15.0f;
+
+        /// <summary>Amount of resources the AI deposits per vault cycle.</summary>
+        public static int VaultDepositAmount = 200;
+
+        /// <summary>Resource surplus threshold before the AI starts depositing into vaults.</summary>
+        public static int VaultSurplusThreshold = 500;
+
+        /// <summary>Target number of miners assigned to supply each smelter.</summary>
+        public static int SmelterTargetMiners = 2;
     }
 }

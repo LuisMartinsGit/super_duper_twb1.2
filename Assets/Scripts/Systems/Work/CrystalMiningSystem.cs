@@ -31,10 +31,28 @@ namespace TheWaningBorder.Systems.Work
         private const float GatherRange = 5f;
         private const float DropoffRange = 6f;
 
+        // Cached queries — created once in OnCreate, reused every frame
+        private EntityQuery _hallDropoffQuery;
+        private EntityQuery _hutDropoffQuery;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();
+
+            _hallDropoffQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
+
+            _hutDropoffQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<GathererHutTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
         }
 
         public void OnUpdate(ref SystemState state)
@@ -156,7 +174,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -171,7 +189,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -206,7 +224,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac);
+                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -226,7 +244,7 @@ namespace TheWaningBorder.Systems.Work
             if (miner.DropoffTarget == Entity.Null || !em.Exists(miner.DropoffTarget))
             {
                 // Try to find a new dropoff
-                SetDropoffDestination(ref miner, em, entity, fac);
+                SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                 if (miner.DropoffTarget == Entity.Null)
                 {
                     // No dropoff available - go idle
@@ -306,20 +324,15 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest Hall or GathererHut of the miner's faction and set it as dropoff target.
         /// </summary>
-        private static void SetDropoffDestination(ref MinerState miner, EntityManager em, Entity minerEntity, Faction fac)
+        private static void SetDropoffDestination(
+            ref MinerState miner, EntityManager em, Entity minerEntity,
+            Faction fac, EntityQuery hallQuery, EntityQuery hutQuery)
         {
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
             float3 minerPos = em.GetComponentData<LocalTransform>(minerEntity).Position;
 
             // Search for Halls (exclude under-construction)
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
-
             using var halls = hallQuery.ToEntityArray(Allocator.Temp);
             using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -336,13 +349,6 @@ namespace TheWaningBorder.Systems.Work
             }
 
             // Search for GathererHuts (exclude under-construction)
-            var hutQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
-
             using var huts = hutQuery.ToEntityArray(Allocator.Temp);
             using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);

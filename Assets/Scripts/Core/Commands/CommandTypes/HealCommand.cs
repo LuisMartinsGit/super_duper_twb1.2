@@ -170,6 +170,14 @@ namespace TheWaningBorder.Core.Commands.Types
                         Has = 1
                     });
                 }
+                else
+                {
+                    em.AddComponentData(healer, new DesiredDestination
+                    {
+                        Position = targetPos,
+                        Has = 1
+                    });
+                }
             }
         }
     }

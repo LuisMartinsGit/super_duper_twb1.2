@@ -10,6 +10,7 @@ using Unity.Transforms;
 using Unity.Collections;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.UI.Panels;
+using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.World.Terrain;
 
@@ -163,6 +164,14 @@ namespace TheWaningBorder.Input
 
             // Block if mouse is over UI panels
             if (EntityInfoPanel.IsPointerOver() || EntityActionPanel.IsPointerOver())
+                return true;
+
+            // Block if mouse is over spell panel
+            if (SpellPanel.IsPointerOverPanel)
+                return true;
+
+            // Block if culture choice popup is visible (modal dialog)
+            if (CultureChoicePopup.IsVisible)
                 return true;
 
             // Block during building placement

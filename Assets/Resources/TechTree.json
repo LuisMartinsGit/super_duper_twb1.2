@@ -79,13 +79,13 @@
     "evolution": {
         "toEra2": {
             "cost": {
-                "Supplies": 800,
+                "Supplies": 1000,
                 "Iron": 200,
                 "Crystal": 150
             },
             "requiresOneOfBuildings": [
                 "TempleOfRidan",
-                "WarriorsHall",
+                "FiendstoneKeep",
                 "VaultOfAlmierra"
             ]
         },
@@ -237,22 +237,6 @@
                     "uiHints": {
                         "description": "Grants 1 Sect Point and provides a single chapel slot.",
                         "showsSlots": true
-                    }
-                },
-                {
-                    "id": "WarriorsHall",
-                    "name": "Warrior's Hall",
-                    "role": "Aggression techs (balanced)",
-                    "hp": 1400,
-                    "armorType": "structure_human",
-                    "lineOfSight": 18,
-                    "aura": {
-                        "trainSpeedMult": 1.1
-                    },
-                    "cost": {
-                        "Supplies": 150,
-                        "Iron": 160,
-                        "Crystal": 50
                     }
                 },
                 {
@@ -430,14 +414,15 @@
                     "name": "Advance to Era II",
                     "effect": "Unlocks cultural choice (Runai, Feraldis, Alanthor). Starts 2-minute auto-despawn on all Gatherer's Huts (except Feraldis).",
                     "cost": {
-                        "Supplies": 400,
-                        "Crystal": 60
+                        "Supplies": 1000,
+                        "Iron": 200,
+                        "Crystal": 150
                     },
                     "researchAt": "Hall",
                     "prereq": {
                         "requiresOneOfBuildings": [
                             "TempleOfRidan",
-                            "WarriorsHall",
+                            "FiendstoneKeep",
                             "VaultOfAlmierra"
                         ]
                     }
