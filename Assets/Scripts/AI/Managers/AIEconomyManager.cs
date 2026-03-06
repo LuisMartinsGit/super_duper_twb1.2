@@ -23,6 +23,11 @@ namespace TheWaningBorder.AI
         private const int TARGET_GATHERERS_HUTS = 3;
         private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
         private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
+        private const float VAULT_CHECK_INTERVAL = 30.0f;
+        private const float SMELTER_CHECK_INTERVAL = 15.0f;
+        private const int VAULT_DEPOSIT_AMOUNT = 200;
+        private const int VAULT_SURPLUS_THRESHOLD = 500;
+        private const int SMELTER_TARGET_MINERS = 2;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -99,6 +104,20 @@ namespace TheWaningBorder.AI
 
                 // 9. Age up (requires completed choice building + resources)
                 CheckAgeUp(ref state, brain.ValueRO, ecb);
+
+                // 10. Vault management — deposit surplus resources for interest (Alanthor)
+                if (time >= economy.LastVaultCheck + VAULT_CHECK_INTERVAL)
+                {
+                    economy.LastVaultCheck = time;
+                    ManageVaults(ref state, faction);
+                }
+
+                // 11. Smelter management — assign idle miners to supply forges (Alanthor)
+                if (time >= economy.LastSmelterCheck + SMELTER_CHECK_INTERVAL)
+                {
+                    economy.LastSmelterCheck = time;
+                    ManageSmelters(ref state, faction);
+                }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
 
@@ -487,6 +506,211 @@ namespace TheWaningBorder.AI
 
             AILogger.Log(faction, "ECONOMY", $"=== AGED UP to Era 2 — culture: {CultureConfig.GetName(culture)} ===");
             UnityEngine.Debug.Log($"[AIEconomyManager] {faction} aged up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+        }
+
+        /// <summary>
+        /// Manages vault deposits for AI factions.
+        /// Finds a completed vault, picks the highest-surplus resource type, and deposits excess.
+        /// VaultStorage.ResourceType: 0=None, 1=Supplies, 2=Iron, 3=Crystal, 4=Veilsteel, 5=Glow.
+        /// </summary>
+        private void ManageVaults(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed vault
+            Entity vaultEntity = Entity.Null;
+            VaultStorage vaultData = default;
+
+            foreach (var (vault, fTag, entity) in SystemAPI
+                .Query<RefRO<VaultStorage>, RefRO<FactionTag>>()
+                .WithAll<VaultTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    vaultEntity = entity;
+                    vaultData = vault.ValueRO;
+                    break;
+                }
+            }
+
+            if (vaultEntity == Entity.Null) return;
+
+            // Skip if vault is locked
+            if (vaultData.LockTimer > 0f) return;
+
+            // Get faction resources
+            FactionResources resources = default;
+            foreach (var (fTag, res) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionResources>>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    resources = res.ValueRO;
+                    break;
+                }
+            }
+
+            // If vault already has a resource type set, deposit more of the same
+            int resourceType = vaultData.ResourceType;
+
+            if (resourceType == 0)
+            {
+                // Pick the resource type with highest surplus above threshold
+                int bestType = 0;
+                int bestSurplus = 0;
+
+                // 1=Supplies, 2=Iron, 3=Crystal
+                if (resources.Supplies > VAULT_SURPLUS_THRESHOLD && resources.Supplies > bestSurplus)
+                { bestType = 1; bestSurplus = resources.Supplies; }
+                if (resources.Iron > VAULT_SURPLUS_THRESHOLD && resources.Iron > bestSurplus)
+                { bestType = 2; bestSurplus = resources.Iron; }
+                if (resources.Crystal > VAULT_SURPLUS_THRESHOLD && resources.Crystal > bestSurplus)
+                { bestType = 3; bestSurplus = resources.Crystal; }
+
+                if (bestType == 0) return; // No surplus worth depositing
+                resourceType = bestType;
+            }
+
+            // Check if we can afford the deposit
+            int available = resourceType switch
+            {
+                1 => resources.Supplies,
+                2 => resources.Iron,
+                3 => resources.Crystal,
+                4 => resources.Veilsteel,
+                5 => resources.Glow,
+                _ => 0
+            };
+
+            // Only deposit if we have surplus above threshold
+            if (available <= VAULT_SURPLUS_THRESHOLD) return;
+            int depositAmount = math.min(VAULT_DEPOSIT_AMOUNT, available - VAULT_SURPLUS_THRESHOLD);
+            if (depositAmount <= 0) return;
+
+            // Spend from faction bank
+            Cost cost = resourceType switch
+            {
+                1 => Cost.Of(supplies: depositAmount),
+                2 => Cost.Of(iron: depositAmount),
+                3 => Cost.Of(crystal: depositAmount),
+                4 => Cost.Of(veilsteel: depositAmount),
+                5 => Cost.Of(glow: depositAmount),
+                _ => default
+            };
+
+            if (!FactionEconomy.Spend(em, faction, cost)) return;
+
+            // Deposit into vault
+            vaultData.ResourceType = resourceType;
+            vaultData.StoredAmount += depositAmount;
+            vaultData.LockTimer = vaultData.LockDuration;
+            em.SetComponentData(vaultEntity, vaultData);
+
+            AILogger.Log(faction, "ECONOMY",
+                $"Vault deposit: {depositAmount} of type {resourceType}, total stored: {(int)vaultData.StoredAmount}");
+        }
+
+        /// <summary>
+        /// Manages smelter supply for AI factions.
+        /// Finds idle miners and assigns ForgeSupplyOrders to supply the faction's smelter.
+        /// </summary>
+        private void ManageSmelters(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed smelter with ForgeStorage
+            Entity smelterEntity = Entity.Null;
+
+            foreach (var (forge, fTag, entity) in SystemAPI
+                .Query<RefRO<ForgeStorage>, RefRO<FactionTag>>()
+                .WithAll<SmelterTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    smelterEntity = entity;
+                    break;
+                }
+            }
+
+            if (smelterEntity == Entity.Null) return;
+
+            // Count miners already supplying this smelter
+            int assignedSuppliers = 0;
+            foreach (var (supplyOrder, fTag) in SystemAPI
+                .Query<RefRO<ForgeSupplyOrder>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                    assignedSuppliers++;
+            }
+
+            if (assignedSuppliers >= SMELTER_TARGET_MINERS)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Smelter already has {assignedSuppliers}/{SMELTER_TARGET_MINERS} supply miners");
+                return;
+            }
+
+            int needed = SMELTER_TARGET_MINERS - assignedSuppliers;
+
+            // Find idle miners of this faction (no ForgeSupplyOrder, idle state, no build order)
+            var idleMiners = new NativeList<Entity>(Allocator.Temp);
+
+            foreach (var (minerState, fTag, entity) in SystemAPI
+                .Query<RefRO<MinerState>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>()
+                .WithNone<ForgeSupplyOrder, BuildOrder>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value != faction) continue;
+                if (minerState.ValueRO.State == MinerWorkState.Idle)
+                    idleMiners.Add(entity);
+            }
+
+            int toAssign = math.min(needed, idleMiners.Length);
+
+            for (int i = 0; i < toAssign; i++)
+            {
+                Entity miner = idleMiners[i];
+
+                // Reset miner state
+                var ms = em.GetComponentData<MinerState>(miner);
+                ms.State = MinerWorkState.Idle;
+                ms.AssignedDeposit = Entity.Null;
+                ms.DropoffTarget = Entity.Null;
+                em.SetComponentData(miner, ms);
+
+                // Assign forge supply order (same pattern as RTSInputManager)
+                if (em.HasComponent<ForgeSupplyOrder>(miner))
+                {
+                    em.SetComponentData(miner, new ForgeSupplyOrder
+                    {
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
+                    });
+                }
+                else
+                {
+                    em.AddComponentData(miner, new ForgeSupplyOrder
+                    {
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
+                    });
+                }
+            }
+
+            idleMiners.Dispose();
+
+            if (toAssign > 0)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{SMELTER_TARGET_MINERS})");
+            }
         }
 
         /// <summary>
