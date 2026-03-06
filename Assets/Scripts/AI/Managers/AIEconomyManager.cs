@@ -23,6 +23,9 @@ namespace TheWaningBorder.AI
         private const int TARGET_GATHERERS_HUTS = 3;
         private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
         private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
+        private const float VAULT_CHECK_INTERVAL = 30.0f;
+        private const int VAULT_DEPOSIT_AMOUNT = 200;
+        private const int VAULT_SURPLUS_THRESHOLD = 500;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -99,6 +102,13 @@ namespace TheWaningBorder.AI
 
                 // 9. Age up (requires completed choice building + resources)
                 CheckAgeUp(ref state, brain.ValueRO, ecb);
+
+                // 10. Vault management — deposit surplus resources for interest (Alanthor)
+                if (time >= economy.LastVaultCheck + VAULT_CHECK_INTERVAL)
+                {
+                    economy.LastVaultCheck = time;
+                    ManageVaults(ref state, faction);
+                }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
 
@@ -487,6 +497,109 @@ namespace TheWaningBorder.AI
 
             AILogger.Log(faction, "ECONOMY", $"=== AGED UP to Era 2 — culture: {CultureConfig.GetName(culture)} ===");
             UnityEngine.Debug.Log($"[AIEconomyManager] {faction} aged up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+        }
+
+        /// <summary>
+        /// Manages vault deposits for AI factions.
+        /// Finds a completed vault, picks the highest-surplus resource type, and deposits excess.
+        /// VaultStorage.ResourceType: 0=None, 1=Supplies, 2=Iron, 3=Crystal, 4=Veilsteel, 5=Glow.
+        /// </summary>
+        private void ManageVaults(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed vault
+            Entity vaultEntity = Entity.Null;
+            VaultStorage vaultData = default;
+
+            foreach (var (vault, fTag, entity) in SystemAPI
+                .Query<RefRO<VaultStorage>, RefRO<FactionTag>>()
+                .WithAll<VaultTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    vaultEntity = entity;
+                    vaultData = vault.ValueRO;
+                    break;
+                }
+            }
+
+            if (vaultEntity == Entity.Null) return;
+
+            // Skip if vault is locked
+            if (vaultData.LockTimer > 0f) return;
+
+            // Get faction resources
+            FactionResources resources = default;
+            foreach (var (fTag, res) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionResources>>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    resources = res.ValueRO;
+                    break;
+                }
+            }
+
+            // If vault already has a resource type set, deposit more of the same
+            int resourceType = vaultData.ResourceType;
+
+            if (resourceType == 0)
+            {
+                // Pick the resource type with highest surplus above threshold
+                int bestType = 0;
+                int bestSurplus = 0;
+
+                // 1=Supplies, 2=Iron, 3=Crystal
+                if (resources.Supplies > VAULT_SURPLUS_THRESHOLD && resources.Supplies > bestSurplus)
+                { bestType = 1; bestSurplus = resources.Supplies; }
+                if (resources.Iron > VAULT_SURPLUS_THRESHOLD && resources.Iron > bestSurplus)
+                { bestType = 2; bestSurplus = resources.Iron; }
+                if (resources.Crystal > VAULT_SURPLUS_THRESHOLD && resources.Crystal > bestSurplus)
+                { bestType = 3; bestSurplus = resources.Crystal; }
+
+                if (bestType == 0) return; // No surplus worth depositing
+                resourceType = bestType;
+            }
+
+            // Check if we can afford the deposit
+            int available = resourceType switch
+            {
+                1 => resources.Supplies,
+                2 => resources.Iron,
+                3 => resources.Crystal,
+                4 => resources.Veilsteel,
+                5 => resources.Glow,
+                _ => 0
+            };
+
+            // Only deposit if we have surplus above threshold
+            if (available <= VAULT_SURPLUS_THRESHOLD) return;
+            int depositAmount = math.min(VAULT_DEPOSIT_AMOUNT, available - VAULT_SURPLUS_THRESHOLD);
+            if (depositAmount <= 0) return;
+
+            // Spend from faction bank
+            Cost cost = resourceType switch
+            {
+                1 => Cost.Of(supplies: depositAmount),
+                2 => Cost.Of(iron: depositAmount),
+                3 => Cost.Of(crystal: depositAmount),
+                4 => Cost.Of(veilsteel: depositAmount),
+                5 => Cost.Of(glow: depositAmount),
+                _ => default
+            };
+
+            if (!FactionEconomy.Spend(em, faction, cost)) return;
+
+            // Deposit into vault
+            vaultData.ResourceType = resourceType;
+            vaultData.StoredAmount += depositAmount;
+            vaultData.LockTimer = vaultData.LockDuration;
+            em.SetComponentData(vaultEntity, vaultData);
+
+            AILogger.Log(faction, "ECONOMY",
+                $"Vault deposit: {depositAmount} of type {resourceType}, total stored: {(int)vaultData.StoredAmount}");
         }
 
         /// <summary>
