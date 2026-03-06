@@ -222,6 +222,14 @@ namespace TheWaningBorder.Core.Commands.Types
                         Has = 1
                     });
                 }
+                else
+                {
+                    em.AddComponentData(miner, new DesiredDestination
+                    {
+                        Position = nodePos,
+                        Has = 1
+                    });
+                }
             }
         }
     }
