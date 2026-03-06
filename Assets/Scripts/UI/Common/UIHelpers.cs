@@ -289,7 +289,8 @@ namespace TheWaningBorder.UI.Common
         {
             return Panels.EntityInfoPanel.IsPointerOver()
                 || Panels.EntityActionPanel.IsPointerOver()
-                || Panels.CultureChoicePopup.IsPointerOver();
+                || Panels.CultureChoicePopup.IsPointerOver()
+                || SpellPanel.IsPointerOverPanel;
         }
 
         /// <summary>
