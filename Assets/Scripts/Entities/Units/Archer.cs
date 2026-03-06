@@ -81,13 +81,11 @@ namespace TheWaningBorder.Entities
             // Archer-specific state
             em.SetComponentData(entity, new ArcherState
             {
-                CurrentTarget = Entity.Null,
                 AimTimer = 0,
                 AimTimeRequired = DefaultAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                HeightRangeMod = 4f,
                 IsRetreating = 0,
                 IsFiring = 0
             });
@@ -144,13 +142,11 @@ namespace TheWaningBorder.Entities
             // Archer-specific state
             ecb.AddComponent(entity, new ArcherState
             {
-                CurrentTarget = Entity.Null,
                 AimTimer = 0,
                 AimTimeRequired = DefaultAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                HeightRangeMod = 4f,
                 IsRetreating = 0,
                 IsFiring = 0
             });

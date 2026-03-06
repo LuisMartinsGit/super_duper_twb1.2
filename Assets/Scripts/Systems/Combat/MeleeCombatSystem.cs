@@ -201,19 +201,6 @@ namespace TheWaningBorder.Systems.Combat
             return 1.0f + modifier;
         }
 
-        /// <summary>
-        /// Apply damage with minimum guarantee and height modifier.
-        /// Ensures damage is never less than 1.
-        /// </summary>
-        private static int CalculateFinalDamage(int baseDamage, float heightModifier)
-        {
-            float modifiedDamage = baseDamage * heightModifier;
-            int finalDamage = (int)math.round(modifiedDamage);
-
-            // Ensure minimum 1 damage
-            return math.max(1, finalDamage);
-        }
-
         private static float DistXZ(float3 a, float3 b)
         {
             return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
