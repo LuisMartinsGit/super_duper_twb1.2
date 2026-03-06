@@ -343,8 +343,7 @@ namespace TheWaningBorder.AI
 
                 for (int i = 0; i < buildReqs.Length; i++)
                 {
-                    string bt = buildReqs[i].BuildingType.ToString();
-                    if (bt == "TempleOfRidan" || bt == "VaultOfAlmierra" || bt == "FiendstoneKeep")
+                    if (BuildingFactory.IsChoiceBuilding(buildReqs[i].BuildingType.ToString()))
                         return; // Already pending
                 }
 
