@@ -85,7 +85,7 @@
             },
             "requiresOneOfBuildings": [
                 "TempleOfRidan",
-                "WarriorsHall",
+                "FiendstoneKeep",
                 "VaultOfAlmierra"
             ]
         },
@@ -237,22 +237,6 @@
                     "uiHints": {
                         "description": "Grants 1 Sect Point and provides a single chapel slot.",
                         "showsSlots": true
-                    }
-                },
-                {
-                    "id": "WarriorsHall",
-                    "name": "Warrior's Hall",
-                    "role": "Aggression techs (balanced)",
-                    "hp": 1400,
-                    "armorType": "structure_human",
-                    "lineOfSight": 18,
-                    "aura": {
-                        "trainSpeedMult": 1.1
-                    },
-                    "cost": {
-                        "Supplies": 150,
-                        "Iron": 160,
-                        "Crystal": 50
                     }
                 },
                 {
@@ -438,7 +422,7 @@
                     "prereq": {
                         "requiresOneOfBuildings": [
                             "TempleOfRidan",
-                            "WarriorsHall",
+                            "FiendstoneKeep",
                             "VaultOfAlmierra"
                         ]
                     }
