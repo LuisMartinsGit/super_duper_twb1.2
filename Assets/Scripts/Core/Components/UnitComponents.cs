@@ -57,13 +57,11 @@ public struct SpearmanTag : IComponentData { }
 /// </summary>
 public struct ArcherState : IComponentData
 {
-    public Entity CurrentTarget;
     public float AimTimer;           // Time spent aiming at current target
     public float AimTimeRequired;    // How long to aim before firing
     public float CooldownTimer;      // Time until can fire again
     public float MinRange;           // Minimum attack range
     public float MaxRange;           // Maximum attack range
-    public float HeightRangeMod;     // Range bonus/penalty per unit height difference
     public byte IsRetreating;        // 1 if backing away from too-close enemy
     public byte IsFiring;            // 1 when actively firing
 }
@@ -77,14 +75,6 @@ public struct ArrowProjectile : IComponentData
     public float Gravity;        // Gravity constant (typically -9.81)
     public Entity Shooter;       // Who shot it (for friendly fire checking)
     public bool IsParabolic;     // false = horizontal, true = parabolic arc
-}
-
-/// <summary>
-/// Visual cleanup timer for landed arrows.
-/// </summary>
-public struct ArrowLanded : IComponentData
-{
-    public float TimeLeft; // Seconds until arrow visual is removed
 }
 
 // ==================== Miner Components ====================

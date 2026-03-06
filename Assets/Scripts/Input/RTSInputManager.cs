@@ -854,27 +854,6 @@ namespace TheWaningBorder.Input
             return _em.HasComponent<LitharchTag>(e);
         }
         
-        private bool HasSelectedBuildings()
-        {
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (_em.Exists(e) && _em.HasComponent<BuildingTag>(e))
-                    return true;
-            }
-            return false;
-        }
-
-        private bool HasOnlyBuildings()
-        {
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!_em.HasComponent<BuildingTag>(e))
-                    return false;
-            }
-            return true;
-        }
-
         /// <summary>
         /// Returns true if the entity belongs to the local player's faction.
         /// </summary>

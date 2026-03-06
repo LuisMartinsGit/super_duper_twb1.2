@@ -69,7 +69,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    archer.CurrentTarget = Entity.Null;
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -82,7 +81,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    archer.CurrentTarget = Entity.Null;
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -90,7 +88,6 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
-                archer.CurrentTarget = tgt.Value;
                 var myPos = transform.ValueRO.Position;
                 var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
                 var dist = DistXZ(myPos, targetPos);
@@ -197,7 +194,6 @@ namespace TheWaningBorder.Systems.Combat
                     if (em.HasComponent<HoldPositionTag>(entity))
                     {
                         tgt.Value = Entity.Null;
-                        archer.CurrentTarget = Entity.Null;
                         archer.AimTimer = 0;
                         if (em.HasComponent<AttackCommand>(entity))
                             ecb.RemoveComponent<AttackCommand>(entity);
