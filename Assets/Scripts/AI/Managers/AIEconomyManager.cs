@@ -24,8 +24,10 @@ namespace TheWaningBorder.AI
         private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
         private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
         private const float VAULT_CHECK_INTERVAL = 30.0f;
+        private const float SMELTER_CHECK_INTERVAL = 15.0f;
         private const int VAULT_DEPOSIT_AMOUNT = 200;
         private const int VAULT_SURPLUS_THRESHOLD = 500;
+        private const int SMELTER_TARGET_MINERS = 2;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -108,6 +110,13 @@ namespace TheWaningBorder.AI
                 {
                     economy.LastVaultCheck = time;
                     ManageVaults(ref state, faction);
+                }
+
+                // 11. Smelter management — assign idle miners to supply forges (Alanthor)
+                if (time >= economy.LastSmelterCheck + SMELTER_CHECK_INTERVAL)
+                {
+                    economy.LastSmelterCheck = time;
+                    ManageSmelters(ref state, faction);
                 }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
@@ -600,6 +609,108 @@ namespace TheWaningBorder.AI
 
             AILogger.Log(faction, "ECONOMY",
                 $"Vault deposit: {depositAmount} of type {resourceType}, total stored: {(int)vaultData.StoredAmount}");
+        }
+
+        /// <summary>
+        /// Manages smelter supply for AI factions.
+        /// Finds idle miners and assigns ForgeSupplyOrders to supply the faction's smelter.
+        /// </summary>
+        private void ManageSmelters(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed smelter with ForgeStorage
+            Entity smelterEntity = Entity.Null;
+
+            foreach (var (forge, fTag, entity) in SystemAPI
+                .Query<RefRO<ForgeStorage>, RefRO<FactionTag>>()
+                .WithAll<SmelterTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    smelterEntity = entity;
+                    break;
+                }
+            }
+
+            if (smelterEntity == Entity.Null) return;
+
+            // Count miners already supplying this smelter
+            int assignedSuppliers = 0;
+            foreach (var (supplyOrder, fTag) in SystemAPI
+                .Query<RefRO<ForgeSupplyOrder>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                    assignedSuppliers++;
+            }
+
+            if (assignedSuppliers >= SMELTER_TARGET_MINERS)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Smelter already has {assignedSuppliers}/{SMELTER_TARGET_MINERS} supply miners");
+                return;
+            }
+
+            int needed = SMELTER_TARGET_MINERS - assignedSuppliers;
+
+            // Find idle miners of this faction (no ForgeSupplyOrder, idle state, no build order)
+            var idleMiners = new NativeList<Entity>(Allocator.Temp);
+
+            foreach (var (minerState, fTag, entity) in SystemAPI
+                .Query<RefRO<MinerState>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>()
+                .WithNone<ForgeSupplyOrder, BuildOrder>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value != faction) continue;
+                if (minerState.ValueRO.State == MinerWorkState.Idle)
+                    idleMiners.Add(entity);
+            }
+
+            int toAssign = math.min(needed, idleMiners.Length);
+
+            for (int i = 0; i < toAssign; i++)
+            {
+                Entity miner = idleMiners[i];
+
+                // Reset miner state
+                var ms = em.GetComponentData<MinerState>(miner);
+                ms.State = MinerWorkState.Idle;
+                ms.AssignedDeposit = Entity.Null;
+                ms.DropoffTarget = Entity.Null;
+                em.SetComponentData(miner, ms);
+
+                // Assign forge supply order (same pattern as RTSInputManager)
+                if (em.HasComponent<ForgeSupplyOrder>(miner))
+                {
+                    em.SetComponentData(miner, new ForgeSupplyOrder
+                    {
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
+                    });
+                }
+                else
+                {
+                    em.AddComponentData(miner, new ForgeSupplyOrder
+                    {
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
+                    });
+                }
+            }
+
+            idleMiners.Dispose();
+
+            if (toAssign > 0)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{SMELTER_TARGET_MINERS})");
+            }
         }
 
         /// <summary>
