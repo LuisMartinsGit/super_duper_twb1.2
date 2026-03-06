@@ -246,6 +246,7 @@ namespace TheWaningBorder.UI.Panels
                 var progress = em.GetComponentData<FactionProgress>(_hallEntity);
                 progress.Culture = culture;
                 em.SetComponentData(_hallEntity, progress);
+                FactionColors.SetFactionCulture(_faction, culture);
             }
 
             // 3. Scale the Hall 1.3x
