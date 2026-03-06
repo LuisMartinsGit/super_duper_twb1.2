@@ -28,14 +28,14 @@ namespace TheWaningBorder.Data
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
             
             // Era 1 - Religious/Magic Buildings
-            { "Shrine",         Cost.Of(supplies: 300) },                           // Shrine of Ridan (alias)
-            { "TempleOfRidan",  Cost.Of(supplies: 300) },                           // Shrine of Ridan
-            { "Vault",          Cost.Of(supplies: 300) },                           // Vault of Almiérra (alias)
-            { "VaultOfAlmierra",Cost.Of(supplies: 300) },                           // Vault of Almiérra
+            { "Shrine",         Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ridan (alias)
+            { "TempleOfRidan",  Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ridan
+            { "Vault",          Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra (alias)
+            { "VaultOfAlmierra",Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra
 
             // Era 1 - Advanced Buildings
-            { "Keep",           Cost.Of(supplies: 300) },                           // Fiendstone Keep (alias)
-            { "FiendstoneKeep", Cost.Of(supplies: 300) },                           // Fiendstone Keep
+            { "Keep",           Cost.Of(supplies: 300, crystal: 100) },              // Fiendstone Keep (alias)
+            { "FiendstoneKeep", Cost.Of(supplies: 300, crystal: 100) },              // Fiendstone Keep
             
             // Runai Culture Buildings
             { "Runai_Outpost",           Cost.Of(supplies: 140, iron: 20) },
