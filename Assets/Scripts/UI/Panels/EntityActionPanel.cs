@@ -787,7 +787,8 @@ namespace TheWaningBorder.UI.Panels
         }
 
         /// <summary>
-        /// Draw the "Advance to Era 2" button on the Hall if still in Era 1.
+        /// Draw the "Advance to Era 2" button on the Hall if still in Era 1,
+        /// or an age-up progress bar if the timer is active.
         /// </summary>
         private void DrawAgeUpSection(Entity entity)
         {
@@ -797,6 +798,13 @@ namespace TheWaningBorder.UI.Panels
 
             // Only for Hall buildings
             if (!em.HasComponent<HallTag>(entity)) return;
+
+            // If age-up timer is active, show progress bar instead of button
+            if (em.HasComponent<AgeUpState>(entity))
+            {
+                DrawAgeUpProgressBar(em, entity);
+                return;
+            }
 
             // Only if still Era 1 (no culture chosen yet)
             if (!em.HasComponent<FactionProgress>(entity)) return;
@@ -843,6 +851,56 @@ namespace TheWaningBorder.UI.Panels
             {
                 GUILayout.Label($"Requires: {UIHelpers.FormatCost(CultureConfig.AgeUpCost)}", _requireStyle);
             }
+        }
+
+        /// <summary>
+        /// Draw age-up progress bar while AgeUpState timer is active on a Hall.
+        /// </summary>
+        private void DrawAgeUpProgressBar(EntityManager em, Entity entity)
+        {
+            var ageUp = em.GetComponentData<AgeUpState>(entity);
+            float elapsed = ageUp.Duration - ageUp.Remaining;
+            float pct = (ageUp.Duration > 0f) ? Mathf.Clamp01(elapsed / ageUp.Duration) : 1f;
+            int seconds = Mathf.CeilToInt(Mathf.Max(0f, ageUp.Remaining));
+
+            string cultureName = CultureConfig.GetName(ageUp.Culture);
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+
+            // Label
+            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {seconds}s", _labelStyle);
+            GUILayout.Space(4);
+
+            // Progress bar background
+            var barRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.15f, 0.15f, 0.2f, 1f);
+            GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+
+            // Progress bar fill (golden)
+            var fillRect = new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height);
+            GUI.color = UIHelpers.ThemeGold;
+            GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+
+            // Percentage text centered on bar
+            GUI.color = Color.white;
+            GUI.Label(barRect, $"{Mathf.RoundToInt(pct * 100f)}%",
+                new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 12,
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = Color.white }
+                });
+
+            GUI.color = Color.white;
         }
 
         /// <summary>
