@@ -53,18 +53,19 @@ namespace TheWaningBorder.Systems.Combat
 
             if (deadEntities.Length > 0)
             {
+                // Build O(1) lookup set from dead entities list
+                var deadSet = new NativeHashSet<Entity>(deadEntities.Length, Allocator.Temp);
+                for (int i = 0; i < deadEntities.Length; i++)
+                    deadSet.Add(deadEntities[i]);
+
                 // Phase 2: Clean up Target references pointing to dead entities
                 foreach (var (target, entity) in SystemAPI
                              .Query<RefRW<Target>>()
                              .WithEntityAccess())
                 {
-                    for (int i = 0; i < deadEntities.Length; i++)
+                    if (deadSet.Contains(target.ValueRO.Value))
                     {
-                        if (target.ValueRO.Value == deadEntities[i])
-                        {
-                            ecb.SetComponent(entity, new Target { Value = Entity.Null });
-                            break;
-                        }
+                        ecb.SetComponent(entity, new Target { Value = Entity.Null });
                     }
                 }
 
@@ -73,15 +74,13 @@ namespace TheWaningBorder.Systems.Combat
                              .Query<RefRO<AttackCommand>>()
                              .WithEntityAccess())
                 {
-                    for (int i = 0; i < deadEntities.Length; i++)
+                    if (deadSet.Contains(attackCmd.ValueRO.Target))
                     {
-                        if (attackCmd.ValueRO.Target == deadEntities[i])
-                        {
-                            ecb.RemoveComponent<AttackCommand>(entity);
-                            break;
-                        }
+                        ecb.RemoveComponent<AttackCommand>(entity);
                     }
                 }
+
+                deadSet.Dispose();
 
                 // Phase 4: Destroy dead entities (deferred — plays back last since
                 // DeathSystem updates after all combat systems)
