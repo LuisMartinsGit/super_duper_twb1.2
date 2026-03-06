@@ -16,19 +16,6 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(Unity.Transforms.TransformSystemGroup))]
     public partial struct AIEconomyManager : ISystem
     {
-        private const float MINE_CHECK_INTERVAL = 5.0f;
-        private const int TARGET_MINERS_PER_MINE = 3;
-        private const int MAX_MINERS = 9; // Cap: 3 mines × 3 miners each in early game
-        private const int MIN_SUPPLIES_THRESHOLD = 200;
-        private const int TARGET_GATHERERS_HUTS = 3;
-        private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
-        private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
-        private const float VAULT_CHECK_INTERVAL = 30.0f;
-        private const float SMELTER_CHECK_INTERVAL = 15.0f;
-        private const int VAULT_DEPOSIT_AMOUNT = 200;
-        private const int VAULT_SURPLUS_THRESHOLD = 500;
-        private const int SMELTER_TARGET_MINERS = 2;
-
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -106,14 +93,14 @@ namespace TheWaningBorder.AI
                 CheckAgeUp(ref state, brain.ValueRO, ecb);
 
                 // 10. Vault management — deposit surplus resources for interest (Alanthor)
-                if (time >= economy.LastVaultCheck + VAULT_CHECK_INTERVAL)
+                if (time >= economy.LastVaultCheck + AITuning.VaultCheckInterval)
                 {
                     economy.LastVaultCheck = time;
                     ManageVaults(ref state, faction);
                 }
 
                 // 11. Smelter management — assign idle miners to supply forges (Alanthor)
-                if (time >= economy.LastSmelterCheck + SMELTER_CHECK_INTERVAL)
+                if (time >= economy.LastSmelterCheck + AITuning.SmelterCheckInterval)
                 {
                     economy.LastSmelterCheck = time;
                     ManageSmelters(ref state, faction);
@@ -171,7 +158,7 @@ namespace TheWaningBorder.AI
             }
 
             economy.AssignedMiners = currentMiners;
-            economy.DesiredMiners = math.min(mineCount * TARGET_MINERS_PER_MINE, MAX_MINERS);
+            economy.DesiredMiners = math.min(mineCount * AITuning.TargetMinersPerMine, AITuning.MaxMiners);
 
             // MiningSystem auto-finds deposits for AI miners when they're idle,
             // so we just need to ensure enough miners are trained.
@@ -193,12 +180,12 @@ namespace TheWaningBorder.AI
             {
                 if (factionTag.ValueRO.Value != faction) continue;
 
-                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < MIN_SUPPLIES_THRESHOLD ? (byte)1 : (byte)0;
+                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < AITuning.MinSuppliesThreshold ? (byte)1 : (byte)0;
                 economy.NeedsMoreIronIncome = resources.ValueRO.Iron < 100 ? (byte)1 : (byte)0;
 
                 // Always want GathererHuts — keep at base target in early game
                 // Don't escalate to 5 early: that drains supplies needed for miners/barracks
-                economy.DesiredGatherersHuts = TARGET_GATHERERS_HUTS;
+                economy.DesiredGatherersHuts = AITuning.TargetGatherersHuts;
 
                 break;
             }
@@ -353,7 +340,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            if (crystalAmount < CRYSTAL_FOR_CHOICE_BUILDING) return;
+            if (crystalAmount < AITuning.CrystalForChoiceBuilding) return;
 
             // Check no pending choice building request
             foreach (var (brainComp, buildReqs) in SystemAPI.Query<RefRO<AIBrain>, DynamicBuffer<BuildRequest>>())
@@ -362,8 +349,7 @@ namespace TheWaningBorder.AI
 
                 for (int i = 0; i < buildReqs.Length; i++)
                 {
-                    string bt = buildReqs[i].BuildingType.ToString();
-                    if (bt == "TempleOfRidan" || bt == "VaultOfAlmierra" || bt == "FiendstoneKeep")
+                    if (BuildingFactory.IsChoiceBuilding(buildReqs[i].BuildingType.ToString()))
                         return; // Already pending
                 }
 
@@ -561,11 +547,11 @@ namespace TheWaningBorder.AI
                 int bestSurplus = 0;
 
                 // 1=Supplies, 2=Iron, 3=Crystal
-                if (resources.Supplies > VAULT_SURPLUS_THRESHOLD && resources.Supplies > bestSurplus)
+                if (resources.Supplies > AITuning.VaultSurplusThreshold && resources.Supplies > bestSurplus)
                 { bestType = 1; bestSurplus = resources.Supplies; }
-                if (resources.Iron > VAULT_SURPLUS_THRESHOLD && resources.Iron > bestSurplus)
+                if (resources.Iron > AITuning.VaultSurplusThreshold && resources.Iron > bestSurplus)
                 { bestType = 2; bestSurplus = resources.Iron; }
-                if (resources.Crystal > VAULT_SURPLUS_THRESHOLD && resources.Crystal > bestSurplus)
+                if (resources.Crystal > AITuning.VaultSurplusThreshold && resources.Crystal > bestSurplus)
                 { bestType = 3; bestSurplus = resources.Crystal; }
 
                 if (bestType == 0) return; // No surplus worth depositing
@@ -584,8 +570,8 @@ namespace TheWaningBorder.AI
             };
 
             // Only deposit if we have surplus above threshold
-            if (available <= VAULT_SURPLUS_THRESHOLD) return;
-            int depositAmount = math.min(VAULT_DEPOSIT_AMOUNT, available - VAULT_SURPLUS_THRESHOLD);
+            if (available <= AITuning.VaultSurplusThreshold) return;
+            int depositAmount = math.min(AITuning.VaultDepositAmount, available - AITuning.VaultSurplusThreshold);
             if (depositAmount <= 0) return;
 
             // Spend from faction bank
@@ -647,14 +633,14 @@ namespace TheWaningBorder.AI
                     assignedSuppliers++;
             }
 
-            if (assignedSuppliers >= SMELTER_TARGET_MINERS)
+            if (assignedSuppliers >= AITuning.SmelterTargetMiners)
             {
                 AILogger.Log(faction, "ECONOMY",
-                    $"Smelter already has {assignedSuppliers}/{SMELTER_TARGET_MINERS} supply miners");
+                    $"Smelter already has {assignedSuppliers}/{AITuning.SmelterTargetMiners} supply miners");
                 return;
             }
 
-            int needed = SMELTER_TARGET_MINERS - assignedSuppliers;
+            int needed = AITuning.SmelterTargetMiners - assignedSuppliers;
 
             // Find idle miners of this faction (no ForgeSupplyOrder, idle state, no build order)
             var idleMiners = new NativeList<Entity>(Allocator.Temp);
@@ -709,7 +695,7 @@ namespace TheWaningBorder.AI
             if (toAssign > 0)
             {
                 AILogger.Log(faction, "ECONOMY",
-                    $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{SMELTER_TARGET_MINERS})");
+                    $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{AITuning.SmelterTargetMiners})");
             }
         }
 
