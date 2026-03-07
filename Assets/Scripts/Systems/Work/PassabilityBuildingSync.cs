@@ -8,6 +8,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Systems.Work
 {
@@ -92,19 +93,28 @@ namespace TheWaningBorder.Systems.Work
                 _knownBuildings.Remove(toRemove[i]);
             }
 
-            toRemove.Dispose();
-
             // Detect new buildings: present but not yet known
+            bool newBuildingsAdded = false;
             foreach (var kvp in currentBuildings)
             {
                 if (!_knownBuildings.ContainsKey(kvp.Key))
                 {
                     grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     _knownBuildings.Add(kvp.Key, kvp.Value);
+                    newBuildingsAdded = true;
                 }
             }
 
             currentBuildings.Dispose();
+
+            // If any buildings changed, invalidate stale flow fields so units re-route
+            if (toRemove.Length > 0 || newBuildingsAdded)
+            {
+                var ffm = FlowFieldManager.Instance;
+                if (ffm != null) ffm.InvalidateAll();
+            }
+
+            toRemove.Dispose();
         }
     }
 }
