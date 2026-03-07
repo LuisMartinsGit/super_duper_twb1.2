@@ -174,6 +174,8 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         public static void TriggerBuildingPlacement(string buildingId)
         {
+            if (GameSettings.IsObserver) return;
+
             var instance = FindObjectOfType<BuilderCommandPanel>();
             if (instance == null) return;
 

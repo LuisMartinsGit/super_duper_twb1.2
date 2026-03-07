@@ -174,8 +174,13 @@ namespace TheWaningBorder.UI.HUD
                 GameStatsTracker.Instance.EndGame();
             }
 
-            string result = localPlayerDefeated ? "DEFEAT" :
-                (winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT");
+            string result;
+            if (GameSettings.IsObserver)
+                result = $"{winner} WINS";
+            else if (localPlayerDefeated)
+                result = "DEFEAT";
+            else
+                result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
 
             Debug.Log($"[VictoryConditionSystem] Game over - {result} (Winner: {winner})");
 
