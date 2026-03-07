@@ -4,6 +4,7 @@
 
 using Unity.Entities;
 using Unity.Mathematics;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Core.Commands.Types
 {
@@ -44,6 +45,9 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.HasComponent<DesiredDestination>(unit))
                 em.AddComponent<DesiredDestination>(unit);
             em.SetComponentData(unit, new DesiredDestination { Position = destination, Has = 1 });
+
+            // Pre-warm flow field cache for this destination
+            FlowFieldManager.Instance?.RequestFlowField(destination);
 
             // Set GuardPoint to destination (unit resumes here after combat)
             if (em.HasComponent<GuardPoint>(unit))
