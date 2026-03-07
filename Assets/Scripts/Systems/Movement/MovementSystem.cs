@@ -18,7 +18,6 @@ namespace TheWaningBorder.Systems.Movement
     /// Combat logic is handled by UnifiedCombatSystem.
     /// IMPORTANT: Does NOT remove AttackCommand - lets UnifiedCombatSystem handle it
     /// </summary>
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MovementSystem : ISystem
     {
@@ -34,7 +33,6 @@ namespace TheWaningBorder.Systems.Movement
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
@@ -240,6 +238,9 @@ namespace TheWaningBorder.Systems.Movement
                 // Move toward goal
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
+
+                // Flow-field direction lookup (falls back to direct-line if unavailable)
+                dir = FlowFieldMovementHelper.GetDirection(pos, goal, dir, dist);
 
                 var t = xf.ValueRO;
 
