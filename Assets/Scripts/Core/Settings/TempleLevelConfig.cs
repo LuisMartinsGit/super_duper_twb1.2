@@ -56,6 +56,17 @@ public static class TempleLevelConfig
     };
 
     /// <summary>
+    /// Get the time (in seconds) to upgrade from the given level to level+1.
+    /// </summary>
+    public static float GetUpgradeDuration(int currentLevel) => currentLevel switch
+    {
+        1 => 60f,   // Level 2: 60 seconds
+        2 => 90f,   // Level 3: 90 seconds
+        3 => 120f,  // Level 4: 120 seconds
+        _ => 60f
+    };
+
+    /// <summary>
     /// Bonus RP granted when a Shrine (ChapelSmall) is built while a temple exists.
     /// </summary>
     public const int ShrineBonus = 1;
