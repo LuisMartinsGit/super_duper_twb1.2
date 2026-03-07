@@ -18,6 +18,7 @@ using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Research;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -188,6 +189,24 @@ namespace TheWaningBorder.Bootstrap
                 var terrainGO = new GameObject("ProceduralTerrain");
                 terrainGO.AddComponent<TheWaningBorder.World.Terrain.ProceduralTerrain>();
                 Debug.Log("[GameBootstrap] Created ProceduralTerrain");
+            }
+
+            // Create passability grid for flow-field pathfinding (needs terrain)
+            var existingGrid = Object.FindFirstObjectByType<PassabilityGrid>();
+            if (existingGrid == null)
+            {
+                var gridGO = new GameObject("PassabilityGrid");
+                gridGO.AddComponent<PassabilityGrid>();
+                Debug.Log("[GameBootstrap] Created PassabilityGrid");
+            }
+
+            // Create flow field manager for obstacle-aware pathfinding (needs grid)
+            var existingFFM = Object.FindFirstObjectByType<FlowFieldManager>();
+            if (existingFFM == null)
+            {
+                var ffmGO = new GameObject("FlowFieldManager");
+                ffmGO.AddComponent<FlowFieldManager>();
+                Debug.Log("[GameBootstrap] Created FlowFieldManager");
             }
 
             // Initialize fog of war if enabled (disabled for Observer - they see everything)
