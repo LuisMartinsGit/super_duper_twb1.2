@@ -83,12 +83,16 @@ namespace TheWaningBorder.Input
             if (ShouldBlockInput())
                 return;
 
+            // Update hover state (always allowed, even for observers)
+            UpdateHover();
+
+            // Observer mode: block all commands but allow hover/selection
+            if (GameSettings.IsObserver)
+                return;
+
             // Handle hotkeys
             HandleHotkeys();
-            
-            // Update hover state
-            UpdateHover();
-            
+
             // Handle right-click commands
             HandleRightClick();
         }

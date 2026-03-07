@@ -189,11 +189,15 @@ namespace TheWaningBorder.Bootstrap
                 Debug.Log("[GameBootstrap] Created ProceduralTerrain");
             }
 
-            // Initialize fog of war if enabled
-            if (GameSettings.FogOfWarEnabled)
+            // Initialize fog of war if enabled (disabled for Observer - they see everything)
+            if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)
             {
                 FogOfWarManager.SetupFogOfWar();
                 Debug.Log("[GameBootstrap] Fog of war initialized");
+            }
+            else if (GameSettings.IsObserver)
+            {
+                Debug.Log("[GameBootstrap] Fog of war disabled (Observer mode)");
             }
         }
 
@@ -217,6 +221,13 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeAI()
         {
+            // Sandbox mode: no AI opponents
+            if (GameSettings.IsSandbox)
+            {
+                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox mode)");
+                return;
+            }
+
             AIBootstrap.InitializeAIPlayers(GameSettings.TotalPlayers, GameSettings.LocalPlayerFaction);
 
             for (int i = 0; i < GameSettings.TotalPlayers; i++)

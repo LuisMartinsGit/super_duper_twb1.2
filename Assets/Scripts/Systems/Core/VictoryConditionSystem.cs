@@ -53,13 +53,27 @@ namespace TheWaningBorder.UI.HUD
 
             _gameStartTime = Time.time;
 
+            // Sandbox mode: no victory conditions
+            if (GameSettings.IsSandbox)
+            {
+                _initialized = false;
+                Debug.Log("[VictoryConditionSystem] Disabled (Sandbox mode)");
+                return;
+            }
+
             for (int i = 0; i < GameSettings.TotalPlayers; i++)
             {
-                _aliveFactions.Add((Faction)i);
+                Faction faction = (Faction)i;
+
+                // Skip observer faction - they are not a participant
+                if (GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
+                    continue;
+
+                _aliveFactions.Add(faction);
             }
 
             _initialized = true;
-            Debug.Log($"[VictoryConditionSystem] Initialized with {GameSettings.TotalPlayers} factions");
+            Debug.Log($"[VictoryConditionSystem] Initialized with {_aliveFactions.Count} active factions");
         }
 
         void Update()
