@@ -71,7 +71,6 @@ namespace TheWaningBorder.Systems.Work
             foreach (var (transform, radius, entity) in SystemAPI
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()
                          .WithAll<BuildingTag>()
-                         .WithNone<UnderConstruction>()
                          .WithEntityAccess())
             {
                 currentBuildings.Add(entity, new BuildingRecord

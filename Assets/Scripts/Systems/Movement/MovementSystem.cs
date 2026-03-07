@@ -286,6 +286,19 @@ namespace TheWaningBorder.Systems.Movement
                 float step = math.min(speed * dt * facingFactor, dist);
                 float3 nextPos = pos + dir * step;
 
+                // === PASSABILITY CHECK: avoid stepping onto blocked grid cells ===
+                var passGrid = PassabilityGrid.Instance;
+                if (passGrid != null)
+                {
+                    int2 nextCell = passGrid.WorldToCell(nextPos);
+                    if (!passGrid.IsPassable(nextCell))
+                    {
+                        // Blocked — don't move this frame but KEEP destination.
+                        // Flow field will provide obstacle-aware direction next frame.
+                        continue;
+                    }
+                }
+
                 // === SLOPE CHECK: block movement onto impassable steep terrain ===
                 float hCenter = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
                 float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
@@ -298,15 +311,8 @@ namespace TheWaningBorder.Systems.Movement
 
                 if (slopeAtNext > MaxWalkableSlope)
                 {
-                    // Terrain too steep — stop moving
-                    dd.ValueRW.Has = 0;
-                    if (em.HasComponent<UserMoveOrder>(entity))
-                        ecb.RemoveComponent<UserMoveOrder>(entity);
-                    if (em.HasComponent<AttackMoveTag>(entity))
-                        ecb.RemoveComponent<AttackMoveTag>(entity);
-                    // PatrolTag: not removed; PatrolSystem will re-route to next waypoint
-                    if (em.HasComponent<FormationSpeedOverride>(entity))
-                        ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                    // Terrain too steep — skip movement this frame but KEEP destination.
+                    // Flow field will provide obstacle-aware direction next frame.
                     continue;
                 }
 
