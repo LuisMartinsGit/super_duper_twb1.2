@@ -1503,12 +1503,20 @@
                         "magic": 1
                     },
                     "attackRange": 1.7,
+                    "lineOfSight": 14,
+                    "trainingTime": 15,
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 40,
+                        "Crystal": 10
+                    },
                     "ActiveAbility": "RapidMend(self, 5s cd, strong regen 3s)",
                     "PassiveAbility": "Heals other units if out of combat"
                 },
                 "tech": {
                     "id": "DietaryMandate",
                     "effect": "All units gain tiny out-of-combat regen.",
+                    "researchTime": 40,
                     "cost": {
                         "Supplies": 150,
                         "Crystal": 10
@@ -1541,11 +1549,19 @@
                         "siege": 1,
                         "magic": 3
                     },
-                    "attackRange": 10.0
+                    "attackRange": 10.0,
+                    "lineOfSight": 16,
+                    "trainingTime": 20,
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 60,
+                        "Crystal": 30
+                    }
                 },
                 "tech": {
                     "id": "ClockworkArchives",
                     "effect": "-15% research speed, -5% cooldown speed",
+                    "researchTime": 50,
                     "cost": {
                         "Supplies": 180,
                         "Crystal": 30
@@ -1579,11 +1595,19 @@
                         "siege": 1,
                         "magic": 1
                     },
-                    "attackRange": 1.6
+                    "attackRange": 1.6,
+                    "lineOfSight": 13,
+                    "trainingTime": 16,
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 50,
+                        "Crystal": 15
+                    }
                 },
                 "tech": {
                     "id": "TerracePlanning",
                     "effect": "Compartment size yields +20% more Supplies.",
+                    "researchTime": 45,
                     "cost": {
                         "Supplies": 160,
                         "Iron": 40
@@ -1618,11 +1642,19 @@
                         "magic": 1
                     },
                     "attackRange": 14.0,
+                    "lineOfSight": 18,
+                    "trainingTime": 18,
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 20,
+                        "Crystal": 30
+                    },
                     "ability": "Dispel (ally/enemy)"
                 },
                 "tech": {
                     "id": "HiddenRecords",
                     "effect": "First time you mine a Crystal Node: -25% retaliation chance.",
+                    "researchTime": 40,
                     "cost": {
                         "Supplies": 120,
                         "Crystal": 20
@@ -1655,11 +1687,19 @@
                         "ranged": 1
                     },
                     "attackRange": 1.6,
+                    "lineOfSight": 14,
+                    "trainingTime": 14,
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 40,
+                        "Crystal": 10
+                    },
                     "ability": "Sanction (root target caravan/raider 2s)"
                 },
                 "tech": {
                     "id": "SanctifiedRoutes",
                     "effect": "Trade routes grant +5 armor to nearby caravans.",
+                    "researchTime": 45,
                     "cost": {
                         "Supplies": 150,
                         "Iron": 20
@@ -1691,11 +1731,19 @@
                         "ranged": 2
                     },
                     "attackRange": 1.6,
+                    "lineOfSight": 14,
+                    "trainingTime": 14,
+                    "cost": {
+                        "Supplies": 90,
+                        "Iron": 35,
+                        "Crystal": 10
+                    },
                     "ability": "Safeguard (damage reduction aura 6u, 5s)"
                 },
                 "tech": {
                     "id": "HiddenLedgers",
                     "effect": "Deposits protected; on depot destroyed, retain 50% Crystal/Iron.",
+                    "researchTime": 45,
                     "cost": {
                         "Supplies": 140,
                         "Iron": 30
@@ -1726,11 +1774,19 @@
                     "defense": {
                         "magic": 1
                     },
-                    "attackRange": 15.0
+                    "attackRange": 15.0,
+                    "lineOfSight": 18,
+                    "trainingTime": 18,
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 20,
+                        "Crystal": 35
+                    }
                 },
                 "tech": {
                     "id": "RefinedSilverInlays",
                     "effect": "+10% magic attack, -10% spell cooldown.",
+                    "researchTime": 50,
                     "cost": {
                         "Supplies": 170,
                         "Crystal": 25
@@ -1762,11 +1818,19 @@
                         "melee": 3,
                         "ranged": 1
                     },
-                    "attackRange": 1.7
+                    "attackRange": 1.7,
+                    "lineOfSight": 14,
+                    "trainingTime": 16,
+                    "cost": {
+                        "Supplies": 110,
+                        "Iron": 45,
+                        "Crystal": 15
+                    }
                 },
                 "tech": {
                     "id": "IronDecrees",
                     "effect": "Enemy buildings near your trade nodes build -20% slower.",
+                    "researchTime": 50,
                     "cost": {
                         "Supplies": 150,
                         "Iron": 30
@@ -1797,11 +1861,18 @@
                     "defense": {
                         "melee": 2
                     },
-                    "attackRange": 1.6
+                    "attackRange": 1.6,
+                    "lineOfSight": 14,
+                    "trainingTime": 13,
+                    "cost": {
+                        "Supplies": 90,
+                        "Iron": 40
+                    }
                 },
                 "tech": {
                     "id": "WarTithe",
                     "effect": "Each enemy civilian killed refunds 5 Supplies.",
+                    "researchTime": 35,
                     "cost": {
                         "Supplies": 120
                     }
@@ -1833,11 +1904,18 @@
                     "defense": {
                         "melee": 2
                     },
-                    "attackRange": 1.6
+                    "attackRange": 1.6,
+                    "lineOfSight": 13,
+                    "trainingTime": 14,
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 45
+                    }
                 },
                 "tech": {
                     "id": "DesecrateStandards",
                     "effect": "Enemy morale auras -20% effectiveness near your units.",
+                    "researchTime": 45,
                     "cost": {
                         "Supplies": 140,
                         "Iron": 30
@@ -1868,11 +1946,19 @@
                         "magic": 1
                     },
                     "attackRange": 14.0,
+                    "lineOfSight": 16,
+                    "trainingTime": 18,
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 30,
+                        "Crystal": 25
+                    },
                     "ability": "ChainBind (short root)"
                 },
                 "tech": {
                     "id": "VeilsteelLinks",
                     "effect": "Veilsteel carry bonus also grants +1% DR per ingot.",
+                    "researchTime": 50,
                     "cost": {
                         "Supplies": 160,
                         "Iron": 40,
@@ -1906,11 +1992,19 @@
                     "defense": {
                         "magic": 2
                     },
-                    "attackRange": 1.6
+                    "attackRange": 1.6,
+                    "lineOfSight": 14,
+                    "trainingTime": 14,
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 40,
+                        "Crystal": 10
+                    }
                 },
                 "tech": {
                     "id": "ErasureRites",
                     "effect": "Crystal drops yield +20% more resources for you.",
+                    "researchTime": 45,
                     "cost": {
                         "Supplies": 160,
                         "Crystal": 30
