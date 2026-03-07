@@ -230,6 +230,13 @@ namespace TheWaningBorder.Systems.Work
                 GrantShrineRPBonus(em, faction);
             }
 
+            // Temple RP bonus: grant +1 RP when a Temple of Ridan completes construction
+            if (em.HasComponent<TempleTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                GrantTempleConstructionRP(em, faction);
+            }
+
             UnityEngine.Debug.Log($"Building {building.Index} construction complete!");
         }
 
@@ -269,6 +276,23 @@ namespace TheWaningBorder.Systems.Work
                     rp.Value += TempleLevelConfig.ShrineBonus;
                     em.SetComponentData(bank, rp);
                     UnityEngine.Debug.Log($"[ShrineBonus] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for shrine construction");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Grant +1 Religion Point when the Temple of Ridan completes construction.
+        /// </summary>
+        private void GrantTempleConstructionRP(EntityManager em, Faction faction)
+        {
+            if (FactionEconomy.TryGetBank(em, faction, out var bank))
+            {
+                if (em.HasComponent<ReligionPoints>(bank))
+                {
+                    var rp = em.GetComponentData<ReligionPoints>(bank);
+                    rp.Value += TempleLevelConfig.ShrineBonus;
+                    em.SetComponentData(bank, rp);
+                    UnityEngine.Debug.Log($"[TempleRP] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for Temple of Ridan construction");
                 }
             }
         }
