@@ -35,9 +35,9 @@ namespace TheWaningBorder.UI.Menus
         // UI STATE
         // ================================================================
 
-        // Graphics quality (0=Low, 1=Medium, 2=High, 3=Ultra)
+        // Graphics quality - labels derived from project QualitySettings
         private int _qualityLevel;
-        private static readonly string[] QualityLabels = { "Low", "Medium", "High", "Ultra" };
+        private string[] _qualityLabels;
 
         // Resolution
         private Resolution[] _availableResolutions;
@@ -70,6 +70,7 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _applyButtonStyle;
         private GUIStyle _sliderStyle;
         private GUIStyle _sliderThumbStyle;
+        private GUIStyle _statusStyle;
         private Texture2D _texPanel;
         private Texture2D _texButton;
         private Texture2D _texButtonHover;
@@ -152,6 +153,23 @@ namespace TheWaningBorder.UI.Menus
             }
         }
 
+        void OnDestroy()
+        {
+            DestroyTexture(_texPanel);
+            DestroyTexture(_texButton);
+            DestroyTexture(_texButtonHover);
+            DestroyTexture(_texButtonActive);
+            DestroyTexture(_texDropdownItem);
+            DestroyTexture(_texDropdownItemHover);
+            DestroyTexture(_texApply);
+            DestroyTexture(_texApplyHover);
+        }
+
+        private static void DestroyTexture(Texture2D tex)
+        {
+            if (tex != null) Destroy(tex);
+        }
+
         void OnGUI()
         {
             if (!_stylesBuilt) BuildStyles();
@@ -186,14 +204,14 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.Space(4f);
 
             GUILayout.BeginHorizontal();
-            for (int i = 0; i < QualityLabels.Length; i++)
+            for (int i = 0; i < _qualityLabels.Length; i++)
             {
                 var style = (i == _qualityLevel) ? _activeButtonStyle : _buttonStyle;
-                if (GUILayout.Button(QualityLabels[i], style, GUILayout.Height(30f)))
+                if (GUILayout.Button(_qualityLabels[i], style, GUILayout.Height(30f)))
                 {
                     _qualityLevel = i;
                 }
-                if (i < QualityLabels.Length - 1)
+                if (i < _qualityLabels.Length - 1)
                     GUILayout.Space(4f);
             }
             GUILayout.EndHorizontal();
@@ -216,7 +234,6 @@ namespace TheWaningBorder.UI.Menus
             if (_showResolutionDropdown)
             {
                 float dropHeight = Mathf.Min(_resolutionLabels.Length * 24f, 160f);
-                float contentH = _resolutionLabels.Length * 24f;
 
                 _resolutionScrollPos = GUILayout.BeginScrollView(
                     _resolutionScrollPos, GUILayout.Height(dropHeight));
@@ -273,12 +290,7 @@ namespace TheWaningBorder.UI.Menus
             // ---- Status message ----
             if (!string.IsNullOrEmpty(_statusMessage))
             {
-                var statusStyle = new GUIStyle(_labelStyle)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    normal = { textColor = new Color(0.3f, 1f, 0.3f) }
-                };
-                GUILayout.Label(_statusMessage, statusStyle);
+                GUILayout.Label(_statusMessage, _statusStyle);
                 GUILayout.Space(6f);
             }
 
@@ -324,12 +336,15 @@ namespace TheWaningBorder.UI.Menus
 
         private void LoadSettingsToUI()
         {
+            // Build quality labels from project QualitySettings
+            _qualityLabels = QualitySettings.names;
+
             // Build resolution list
             BuildResolutionList();
 
             // Graphics quality
             _qualityLevel = PlayerPrefs.GetInt(PrefGraphicsQuality, QualitySettings.GetQualityLevel());
-            _qualityLevel = Mathf.Clamp(_qualityLevel, 0, QualityLabels.Length - 1);
+            _qualityLevel = Mathf.Clamp(_qualityLevel, 0, _qualityLabels.Length - 1);
 
             // Resolution - find current
             int curW = PlayerPrefs.GetInt(PrefResolutionWidth, Screen.width);
@@ -390,7 +405,8 @@ namespace TheWaningBorder.UI.Menus
 
         private void ApplySettings()
         {
-            // Graphics quality
+            // Graphics quality (clamp to valid range in case labels changed)
+            _qualityLevel = Mathf.Clamp(_qualityLevel, 0, QualitySettings.names.Length - 1);
             QualitySettings.SetQualityLevel(_qualityLevel, true);
             PlayerPrefs.SetInt(PrefGraphicsQuality, _qualityLevel);
 
@@ -414,7 +430,7 @@ namespace TheWaningBorder.UI.Menus
             _statusMessage = "Settings applied!";
             _statusTimer = 2f;
 
-            Debug.Log($"[OptionsMenu] Applied: Quality={QualityLabels[_qualityLevel]}, " +
+            Debug.Log($"[OptionsMenu] Applied: Quality={_qualityLabels[_qualityLevel]}, " +
                       $"Resolution={Screen.width}x{Screen.height}, " +
                       $"Fullscreen={_fullscreen}, Volume={Mathf.RoundToInt(_masterVolume)}%");
         }
@@ -532,6 +548,13 @@ namespace TheWaningBorder.UI.Menus
             {
                 fixedWidth = 16f,
                 fixedHeight = 16f
+            };
+
+            // Status message style (green, centered)
+            _statusStyle = new GUIStyle(_labelStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = new Color(0.3f, 1f, 0.3f) }
             };
 
             _stylesBuilt = true;
