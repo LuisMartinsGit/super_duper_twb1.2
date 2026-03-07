@@ -247,10 +247,10 @@ namespace TheWaningBorder.UI.Panels
 
         private void DrawMultiPanel(EntityManager em)
         {
-            PanelVisible = true;
-
             var allEntities = UnifiedUIManager.GetAllSelectedEntities();
             if (allEntities.Count == 0) return;
+
+            PanelVisible = true;
 
             // Group entities by type name
             var groups = new Dictionary<string, UnitGroupInfo>();
