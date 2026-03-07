@@ -160,7 +160,7 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
+                Screen.width - PanelWidth - PanelPadding,
                 Screen.height - PanelHeight - PanelPadding,
                 PanelWidth,
                 PanelHeight
@@ -202,7 +202,7 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
+                Screen.width - PanelWidth - PanelPadding,
                 Screen.height - PanelHeight - PanelPadding,
                 PanelWidth,
                 PanelHeight
@@ -302,7 +302,7 @@ namespace TheWaningBorder.UI.Panels
 
             float totalPanelHeight = 900f;
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
+                Screen.width - PanelWidth - PanelPadding,
                 Screen.height - totalPanelHeight - PanelPadding,
                 PanelWidth,
                 totalPanelHeight
@@ -913,7 +913,7 @@ namespace TheWaningBorder.UI.Panels
 
             float totalPanelHeight = 420f; // Taller to accommodate both sections
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
+                Screen.width - PanelWidth - PanelPadding,
                 Screen.height - totalPanelHeight - PanelPadding,
                 PanelWidth,
                 totalPanelHeight
@@ -1376,7 +1376,7 @@ namespace TheWaningBorder.UI.Panels
 
             float vaultPanelHeight = 320f;
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
+                Screen.width - PanelWidth - PanelPadding,
                 Screen.height - vaultPanelHeight - PanelPadding,
                 PanelWidth,
                 vaultPanelHeight

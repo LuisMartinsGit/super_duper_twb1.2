@@ -39,9 +39,6 @@ namespace TheWaningBorder.Input
         [Header("Formation")]
         [SerializeField] private float formationSpacing = 2.0f;
         
-        [Header("Debug")]
-        [SerializeField] private bool showHelp = true;
-        
         // ═══════════════════════════════════════════════════════════════════════
         // STATE
         // ═══════════════════════════════════════════════════════════════════════
@@ -126,6 +123,10 @@ namespace TheWaningBorder.Input
             if (BuilderCommandPanel.IsPlacingBuilding)
                 return true;
 
+            // Block if in-game menu is open
+            if (InGameMenuPanel.IsOpen)
+                return true;
+
             return false;
         }
         
@@ -135,12 +136,26 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - Clear selection and cancel attack-move/patrol mode
+            // ESC - cascading: close menu > cancel modes > clear selection > open menu
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
-                _attackMoveMode = false;
-                _patrolMode = false;
-                SelectionSystem.ClearSelection();
+                if (InGameMenuPanel.IsOpen)
+                {
+                    InGameMenuPanel.Toggle();
+                }
+                else if (_attackMoveMode || _patrolMode)
+                {
+                    _attackMoveMode = false;
+                    _patrolMode = false;
+                }
+                else if (SelectionSystem.HasSelection())
+                {
+                    SelectionSystem.ClearSelection();
+                }
+                else
+                {
+                    InGameMenuPanel.Toggle();
+                }
             }
 
             // A - Enter attack-move mode
@@ -1026,39 +1041,28 @@ namespace TheWaningBorder.Input
 
         void OnGUI()
         {
-            if (!showHelp) return;
-            
-            GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-            GUILayout.Label("Controls:");
-            GUILayout.Label("Left-click: Select unit");
-            GUILayout.Label("Double-click: Select all of type on screen");
-            GUILayout.Label("Ctrl+Double-click: Select all of type (map)");
-            GUILayout.Label("Left-drag: Box select");
-            GUILayout.Label("Right-click: Move/Attack/Gather");
-            GUILayout.Label("A + Right-click: Attack-move");
-            GUILayout.Label("P + Right-click: Patrol");
-            GUILayout.Label("S: Stop");
-            GUILayout.Label("H: Hold position");
-            GUILayout.Label("Ctrl+1-9: Save control group");
-            GUILayout.Label("1-9: Recall group (2x: center cam)");
-            GUILayout.Label("Shift+1-9: Add to group");
-            GUILayout.Label("ESC: Clear selection");
+            // Mode indicators as centered banner at top of screen
+            if (_attackMoveMode || _patrolMode)
+            {
+                string modeText = _attackMoveMode ? "ATTACK-MOVE MODE" : "PATROL MODE";
+                float bannerW = 250f;
+                float bannerH = 30f;
+                float bannerX = (Screen.width - bannerW) * 0.5f;
+                float bannerY = 50f;
 
-            if (_attackMoveMode)
-            {
-                GUILayout.Label("<b>[ATTACK-MOVE MODE]</b>");
+                GUI.color = new Color(0f, 0f, 0f, 0.7f);
+                GUI.DrawTexture(new Rect(bannerX, bannerY, bannerW, bannerH), Texture2D.whiteTexture);
+                GUI.color = new Color(1f, 0.85f, 0.3f);
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Bold,
+                    fontSize = 14
+                };
+                style.normal.textColor = new Color(1f, 0.85f, 0.3f);
+                GUI.Label(new Rect(bannerX, bannerY, bannerW, bannerH), modeText, style);
+                GUI.color = Color.white;
             }
-            if (_patrolMode)
-            {
-                GUILayout.Label("<b>[PATROL MODE]</b>");
-            }
-
-            if (GameSettings.IsMultiplayer)
-            {
-                GUILayout.Label($"Faction: {GameSettings.LocalPlayerFaction}");
-                GUILayout.Label("Multiplayer: Active");
-            }
-            GUILayout.EndArea();
         }
     }
     

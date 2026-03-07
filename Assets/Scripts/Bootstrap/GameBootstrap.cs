@@ -170,6 +170,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
             managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
             managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
+            managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC key)
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }

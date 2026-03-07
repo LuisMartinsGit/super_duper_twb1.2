@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Settings;
 using EntityWorld = Unity.Entities.World;
 
 
@@ -50,13 +51,23 @@ namespace TheWaningBorder.UI.HUD
         private readonly Dictionary<Faction, int> _rpCache = new();
         private float _timer;
 
+        // Menu button constants
+        private const float MenuBtnWidth = 80f;
+        private const float MenuBtnHeight = 30f;
+        private const float MenuBtnMargin = 10f;
+
+        // Alanthor wall income
+        private EntityQuery _wallIncomeQuery;
+        private float _wallIncome;
+
         // Styles
         private GUIStyle _panelBg;
         private GUIStyle _rowBg;
         private GUIStyle _labelStyle;
         private GUIStyle _valueStyle;
         private GUIStyle _headerStyle;
-        private Texture2D _texPanel, _texRow;
+        private GUIStyle _menuButtonStyle;
+        private Texture2D _texPanel, _texRow, _texMenuBtn, _texMenuBtnHover;
         private bool _stylesBuilt = false;
 
         // Cached panel rect for pointer detection
@@ -82,6 +93,14 @@ namespace TheWaningBorder.UI.HUD
 
             _texPanel = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
             _texRow = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
+            _texMenuBtn = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.85f));
+            _texMenuBtnHover = MakeTex(2, 2, new Color(0.12f, 0.14f, 0.28f, 0.9f));
+
+            // Alanthor wall income query
+            _wallIncomeQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallEnclosureIncomeTag>(),
+                ComponentType.ReadOnly<SuppliesIncome>(),
+                ComponentType.ReadOnly<FactionTag>());
 
             RefreshNow();
         }
@@ -135,14 +154,37 @@ namespace TheWaningBorder.UI.HUD
             {
                 _rpCache[rpTags[i].Value] = rpData[i].Value;
             }
+
+            // Get Alanthor wall enclosure income
+            _wallIncome = 0f;
+            var localFaction = GameSettings.LocalPlayerFaction;
+            if (CultureConfig.GetFactionCulture(localFaction) == Cultures.Alanthor)
+            {
+                using var wallEntities = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
+                using var wallTags = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var wallIncomes = _wallIncomeQuery.ToComponentDataArray<SuppliesIncome>(Allocator.Temp);
+                for (int i = 0; i < wallEntities.Length; i++)
+                {
+                    if (wallTags[i].Value == localFaction)
+                        _wallIncome += wallIncomes[i].PerMinute;
+                }
+            }
         }
 
         private void OnGUI()
         {
             if (!_stylesBuilt) BuildStyles();
+
+            // Always draw Menu button in top-left
+            DrawMenuButton();
+
             if (_cache.Count == 0) return;
 
             DrawResourcePanel();
+
+            // Alanthor wall income sub-bar
+            if (_wallIncome > 0f)
+                DrawWallIncomeBar();
         }
 
         private void BuildStyles()
@@ -171,6 +213,16 @@ namespace TheWaningBorder.UI.HUD
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
+            };
+
+            _menuButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontStyle = FontStyle.Bold,
+                fontSize = 13,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { background = _texMenuBtn, textColor = new Color(0.83f, 0.66f, 0.26f) },
+                hover = { background = _texMenuBtnHover, textColor = new Color(0.93f, 0.76f, 0.36f) },
+                active = { background = _texMenuBtnHover, textColor = Color.white }
             };
 
             _stylesBuilt = true;
@@ -272,6 +324,37 @@ namespace TheWaningBorder.UI.HUD
             GUI.Label(new Rect(rowX + rowWidth * 0.4f, yPos, rowWidth * 0.55f, RowHeight), value, _valueStyle);
 
             yPos += RowHeight + RowSpacing;
+        }
+
+        private void DrawMenuButton()
+        {
+            var btnRect = new Rect(MenuBtnMargin, MenuBtnMargin, MenuBtnWidth, MenuBtnHeight);
+            if (GUI.Button(btnRect, "Menu", _menuButtonStyle))
+            {
+                InGameMenuPanel.Toggle();
+            }
+        }
+
+        private void DrawWallIncomeBar()
+        {
+            // Small sub-bar below the resource panel
+            float barX = LeftMargin;
+            float barY = _panelRect.yMax + 4f;
+            float barW = PanelWidth;
+            float barH = 24f;
+
+            GUI.Box(new Rect(barX, barY, barW, barH), "", _panelBg);
+            Color alanthorGreen = CultureConfig.AlanthorPrimary;
+            var wallStyle = new GUIStyle(_labelStyle)
+            {
+                fontSize = 11,
+                normal = { textColor = alanthorGreen }
+            };
+            GUI.Label(new Rect(barX + PanelPadding, barY, barW * 0.6f, barH),
+                      "Wall Income", wallStyle);
+            var wallValStyle = new GUIStyle(_valueStyle) { fontSize = 11 };
+            GUI.Label(new Rect(barX + barW * 0.4f, barY, barW * 0.55f, barH),
+                      $"+{_wallIncome:F0}/min", wallValStyle);
         }
     }
 }
