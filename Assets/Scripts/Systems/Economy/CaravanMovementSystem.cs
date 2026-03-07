@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Movement;
 using Cost = TheWaningBorder.Core.Cost;
 
 namespace TheWaningBorder.Systems.Economy
@@ -95,6 +96,9 @@ namespace TheWaningBorder.Systems.Economy
                     float3 originPos = em.GetComponentData<LocalTransform>(cs.Origin).Position;
                     dest.Position = originPos;
                     dest.Has = 1;
+
+                    // Pre-warm flow field cache for next leg
+                    FlowFieldManager.Instance?.RequestFlowField(dest.Position);
                 }
                 else
                 {
@@ -107,6 +111,9 @@ namespace TheWaningBorder.Systems.Economy
                     float3 destPos = em.GetComponentData<LocalTransform>(cs.Destination).Position;
                     dest.Position = destPos;
                     dest.Has = 1;
+
+                    // Pre-warm flow field cache for next leg
+                    FlowFieldManager.Instance?.RequestFlowField(dest.Position);
                 }
             }
 
