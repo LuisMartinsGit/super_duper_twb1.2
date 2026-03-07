@@ -254,7 +254,96 @@ namespace TheWaningBorder.AI
             // Delegate to BuildingFactory — single source of truth for building creation.
             // The factory handles stats from TechTreeDB, building-specific components,
             // and all Era 1 + culture buildings.
-            return BuildingFactory.Create(ecb, buildingType.ToString(), position, faction);
+            var buildingId = buildingType.ToString();
+            Entity building = BuildingFactory.Create(ecb, buildingId, position, faction);
+
+            if (building == Entity.Null)
+                return Entity.Null;
+
+            // Mark as under construction so builders must complete it
+            // (mirrors the player path in BuilderCommandPanel.SpawnSelectedBuilding)
+            float buildTime = GetBuildTime(buildingId);
+            ecb.AddComponent(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+
+            // Set HP to 1 during construction (restored to max on completion)
+            int maxHP = GetDefaultMaxHP(buildingId);
+            ecb.SetComponent(building, new Health { Value = 1, Max = maxHP });
+
+            return building;
+        }
+
+        /// <summary>
+        /// Returns the build time for a building type.
+        /// Values match those in BuilderCommandPanel.SpawnSelectedBuilding.
+        /// </summary>
+        private static float GetBuildTime(string buildingId)
+        {
+            return buildingId switch
+            {
+                "Hall"                   => 30f,
+                "Hut"                    => 15f,
+                "GatherersHut"           => 20f,
+                "Barracks"               => 30f,
+                "TempleOfRidan"          => 40f,
+                "VaultOfAlmierra"        => 40f,
+                "FiendstoneKeep"         => 40f,
+                "Alanthor_Smelter"       => 30f,
+                "Runai_Outpost"          => 25f,
+                "Runai_TradeHub"         => 30f,
+                "ThessarasBazaar"        => 40f,
+                "Runai_SiegeWorkshop"    => 35f,
+                "Alanthor_Tower"         => 25f,
+                "Alanthor_Garrison"      => 30f,
+                "Alanthor_Stable"        => 35f,
+                "Alanthor_SiegeYard"     => 35f,
+                "Feraldis_HuntingLodge"  => 25f,
+                "Feraldis_LoggingStation" => 25f,
+                "Feraldis_Longhouse"     => 30f,
+                "Feraldis_Tower"         => 25f,
+                "Feraldis_SiegeYard"     => 35f,
+                _                        => 25f  // Reasonable default
+            };
+        }
+
+        /// <summary>
+        /// Returns the default max HP for a building type.
+        /// Uses TechTreeDB when available, otherwise falls back to hardcoded defaults
+        /// matching the values in BuildingFactory.
+        /// </summary>
+        private static int GetDefaultMaxHP(string buildingId)
+        {
+            // Prefer TechTreeDB (authoritative source)
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding(buildingId, out var def))
+            {
+                if (def.hp > 0) return (int)def.hp;
+            }
+
+            // Fallback defaults matching BuildingFactory hardcoded values
+            return buildingId switch
+            {
+                "Hall"                   => 2400,
+                "Hut"                    => 600,
+                "GatherersHut"           => 800,
+                "Barracks"               => 600,
+                "TempleOfRidan"          => 800,
+                "VaultOfAlmierra"        => 1200,
+                "FiendstoneKeep"         => 2000,
+                "Alanthor_Smelter"       => 1000,
+                "Runai_Outpost"          => 900,
+                "Runai_TradeHub"         => 1200,
+                "ThessarasBazaar"        => 2700,
+                "Runai_SiegeWorkshop"    => 1100,
+                "Alanthor_Tower"         => 950,
+                "Alanthor_Garrison"      => 1500,
+                "Alanthor_Stable"        => 1300,
+                "Alanthor_SiegeYard"     => 1100,
+                "Feraldis_HuntingLodge"  => 1000,
+                "Feraldis_LoggingStation" => 1000,
+                "Feraldis_Longhouse"     => 1400,
+                "Feraldis_Tower"         => 900,
+                "Feraldis_SiegeYard"     => 1200,
+                _                        => 1000  // Reasonable default
+            };
         }
 
         // ═══════════════════════════════════════════════════════════════════════
