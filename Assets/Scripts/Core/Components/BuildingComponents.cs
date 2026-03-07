@@ -84,6 +84,16 @@ public struct WallEnclosureIncomeTag : IComponentData
     public byte FactionIndex;
 }
 
+/// <summary>
+/// Buffer element storing the XZ vertices of a wall enclosure polygon.
+/// Added to enclosure income entities by WallEnclosureIncomeSystem so that
+/// GathererHutIncomeSystem can do point-in-polygon tests without re-walking the hub graph.
+/// </summary>
+public struct WallEnclosureVertex : IBufferElementData
+{
+    public float2 Position;
+}
+
 /// <summary>Resource vault building.</summary>
 public struct VaultTag : IComponentData { }
 
