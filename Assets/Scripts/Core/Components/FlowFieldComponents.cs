@@ -261,21 +261,27 @@ public struct FlowFieldLookup
         if (!DestToSlot.TryGetValue(snappedDest, out int slot))
             return directDir;
 
-        // Convert unit position to cell index
-        int cx = (int)math.floor((position.x - Origin.x) / CellSize);
-        int cy = (int)math.floor((position.z - Origin.z) / CellSize);
-        if (cx < 0 || cx >= GridWidth || cy < 0 || cy >= GridHeight)
-            return directDir;
+        // Bilinear interpolation: sample the 4 nearest cell centers and
+        // blend based on sub-cell position for smooth, continuous directions.
+        float fx = (position.x - Origin.x) / CellSize - 0.5f;
+        float fz = (position.z - Origin.z) / CellSize - 0.5f;
+        int x0 = (int)math.floor(fx);
+        int z0 = (int)math.floor(fz);
+        float tx = fx - x0;
+        float tz = fz - z0;
 
-        int cellIndex = cy * GridWidth + cx;
-        int dataIndex = slot * CellsPerField + cellIndex;
+        float2 d00 = SampleCell(slot, x0, z0);
+        float2 d10 = SampleCell(slot, x0 + 1, z0);
+        float2 d01 = SampleCell(slot, x0, z0 + 1);
+        float2 d11 = SampleCell(slot, x0 + 1, z0 + 1);
 
-        if (dataIndex < 0 || dataIndex >= DirectionData.Length)
-            return directDir;
+        // Lerp horizontally then vertically
+        float2 flowDir2 = math.lerp(
+            math.lerp(d00, d10, tx),
+            math.lerp(d01, d11, tx),
+            tz);
 
-        float2 flowDir2 = DirectionData[dataIndex];
-
-        // If cell has no valid direction (unreachable or destination), use direct
+        // If interpolated direction is near-zero (all neighbors unreachable), use direct
         if (math.lengthsq(flowDir2) < 1e-6f)
             return directDir;
 
@@ -292,5 +298,19 @@ public struct FlowFieldLookup
         }
 
         return flowDir;
+    }
+
+    /// <summary>
+    /// Sample direction data for a single cell, clamping to grid bounds.
+    /// Returns float2.zero for out-of-bounds or invalid cells.
+    /// </summary>
+    private float2 SampleCell(int slot, int cx, int cy)
+    {
+        cx = math.clamp(cx, 0, GridWidth - 1);
+        cy = math.clamp(cy, 0, GridHeight - 1);
+        int idx = slot * CellsPerField + cy * GridWidth + cx;
+        if (idx < 0 || idx >= DirectionData.Length)
+            return float2.zero;
+        return DirectionData[idx];
     }
 }
