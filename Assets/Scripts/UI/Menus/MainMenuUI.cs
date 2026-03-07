@@ -17,7 +17,8 @@ namespace TheWaningBorder.UI.Menus
         {
             MainMenu,
             SkirmishLobby,
-            MultiplayerLobby
+            MultiplayerLobby,
+            Options
         }
 
         private MenuState _currentState = MenuState.MainMenu;
@@ -25,6 +26,7 @@ namespace TheWaningBorder.UI.Menus
         // Sub-components
         private SkirmishLobbyUI _skirmishLobby;
         private MultiplayerLobbyUI _multiplayerLobby;
+        private OptionsMenuUI _optionsMenu;
 
         // Window styling
         private Rect _mainMenuRect;
@@ -43,9 +45,13 @@ namespace TheWaningBorder.UI.Menus
             _multiplayerLobby = gameObject.AddComponent<MultiplayerLobbyUI>();
             _multiplayerLobby.enabled = false;
 
+            _optionsMenu = gameObject.AddComponent<OptionsMenuUI>();
+            _optionsMenu.enabled = false;
+
             // Subscribe to back events
             _skirmishLobby.OnBackPressed += () => SetState(MenuState.MainMenu);
             _multiplayerLobby.OnBackPressed += () => SetState(MenuState.MainMenu);
+            _optionsMenu.OnBackPressed += () => SetState(MenuState.MainMenu);
         }
 
         void OnGUI()
@@ -101,13 +107,11 @@ namespace TheWaningBorder.UI.Menus
             GUI.enabled = true;
             GUILayout.Space(6);
 
-            // Options button (placeholder - disabled)
-            GUI.enabled = false;
-            if (GUILayout.Button("Options (Coming Soon)", GUILayout.Height(36)))
+            // Options button
+            if (GUILayout.Button("Options", GUILayout.Height(36)))
             {
-                // Placeholder
+                SetState(MenuState.Options);
             }
-            GUI.enabled = true;
             GUILayout.Space(6);
 
             // Exit button
@@ -126,6 +130,7 @@ namespace TheWaningBorder.UI.Menus
             // Enable/disable sub-components
             _skirmishLobby.enabled = (newState == MenuState.SkirmishLobby);
             _multiplayerLobby.enabled = (newState == MenuState.MultiplayerLobby);
+            _optionsMenu.enabled = (newState == MenuState.Options);
 
             // Initialize lobbies
             if (newState == MenuState.SkirmishLobby)
