@@ -36,6 +36,12 @@ namespace TheWaningBorder.UI.HUD
         private readonly Dictionary<Faction, (int current, int max)> _popCache = new();
         private float _timer;
 
+        // Alanthor wall enclosure income cache
+        private float _wallIncomePerMin;
+        private bool _isAlanthor;
+        private EntityQuery _wallIncomeQuery;
+        private EntityQuery _hallQuery;
+
         // Styles
         private GUIStyle _topBarBg;
         private GUIStyle _pillBg;
@@ -56,6 +62,16 @@ namespace TheWaningBorder.UI.HUD
             _populationQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<FactionPopulation>());
+
+            _wallIncomeQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallEnclosureIncomeTag>(),
+                ComponentType.ReadOnly<SuppliesIncome>(),
+                ComponentType.ReadOnly<FactionTag>());
+
+            _hallQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<FactionProgress>());
 
             _texTopBar = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
             _texPill = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
@@ -101,6 +117,35 @@ namespace TheWaningBorder.UI.HUD
             {
                 _popCache[popTags[i].Value] = (pops[i].Current, pops[i].Max);
             }
+
+            // Check if local player is Alanthor and sum wall enclosure income
+            _isAlanthor = false;
+            _wallIncomePerMin = 0f;
+            var localFac = GameSettings.LocalPlayerFaction;
+
+            using var hallEnts = _hallQuery.ToEntityArray(Allocator.Temp);
+            using var hallFacs = _hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hallProg = _hallQuery.ToComponentDataArray<FactionProgress>(Allocator.Temp);
+            for (int i = 0; i < hallEnts.Length; i++)
+            {
+                if (hallFacs[i].Value == localFac && hallProg[i].Culture == Cultures.Alanthor)
+                {
+                    _isAlanthor = true;
+                    break;
+                }
+            }
+
+            if (_isAlanthor)
+            {
+                using var wallEnts = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
+                using var wallFacs = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var wallInc = _wallIncomeQuery.ToComponentDataArray<SuppliesIncome>(Allocator.Temp);
+                for (int i = 0; i < wallEnts.Length; i++)
+                {
+                    if (wallFacs[i].Value == localFac)
+                        _wallIncomePerMin += wallInc[i].PerMinute;
+                }
+            }
         }
 
         private void OnGUI()
@@ -142,7 +187,55 @@ namespace TheWaningBorder.UI.HUD
 
             DrawFactionBar(localFaction, 0f);
 
-            IsPointerOverTopBar = UnityEngine.Input.mousePosition.y >= Screen.height - (topBarHeight + 4f);
+            // Alanthor wall enclosure income sub-bar
+            float totalBarHeight = topBarHeight;
+            if (_isAlanthor && _wallIncomePerMin > 0f)
+            {
+                DrawWallIncomeBar(topBarHeight);
+                totalBarHeight += WallBarHeight;
+            }
+
+            IsPointerOverTopBar = UnityEngine.Input.mousePosition.y >= Screen.height - (totalBarHeight + 4f);
+        }
+
+        private const float WallBarHeight = 24f;
+
+        private void DrawWallIncomeBar(float yOffset)
+        {
+            // Dark navy background for the sub-bar
+            var barRect = new Rect(0, yOffset, Screen.width, WallBarHeight);
+            GUI.color = Color.white;
+            GUI.Box(barRect, "", _topBarBg);
+
+            // Thin golden separator at top
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(new Rect(0, yOffset, Screen.width, 1f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            // Alanthor sage green label
+            Color alanthorGreen = CultureConfig.AlanthorPrimary;
+            var labelStyle = new GUIStyle(_pillText)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = alanthorGreen }
+            };
+            GUI.Label(new Rect(leftPadding, yOffset + 3f, 120f, 18f), "Walled Area", labelStyle);
+
+            // Income value
+            var valueStyle = new GUIStyle(_pillText)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(1f, 0.85f, 0.4f) }
+            };
+            string incomeText = $"+{_wallIncomePerMin:F0}/min Supplies";
+            GUI.Label(new Rect(leftPadding + 100f, yOffset + 3f, 200f, 18f), incomeText, valueStyle);
+
+            // Bottom golden border
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.5f);
+            GUI.DrawTexture(new Rect(0, yOffset + WallBarHeight - 1f, Screen.width, 1f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
         }
 
         private void DrawFactionBar(Faction faction, float yOffset)
