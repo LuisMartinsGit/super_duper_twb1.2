@@ -12,7 +12,7 @@ namespace TheWaningBorder.World.Terrain
 {
     /// <summary>
     /// Grid-based passability map generated from terrain.
-    /// Cell values: 0 = passable, 1 = terrain-blocked (slope/water), 2 = building-blocked.
+    /// Cell values: 0 = passable, 1 = terrain-blocked (slope/water), 2 = building-blocked, 3 = obstacle-blocked (trees/rocks).
     /// Runs after ProceduralTerrain (-100) to ensure terrain exists.
     /// </summary>
     [DefaultExecutionOrder(-50)]
@@ -39,6 +39,7 @@ namespace TheWaningBorder.World.Terrain
         public const byte Passable = 0;
         public const byte TerrainBlocked = 1;
         public const byte BuildingBlocked = 2;
+        public const byte ObstacleBlocked = 3;
 
         // ═══════════════════════════════════════════════════════════════════════
         // GRID DATA
@@ -251,6 +252,44 @@ namespace TheWaningBorder.World.Terrain
                     _cells[index] = Passable;
             });
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // OBSTACLE BLOCKING (trees, rocks)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Mark all cells within the given radius of a world position as obstacle-blocked.
+        /// Only overwrites cells that are currently passable (terrain-blocked and building-blocked stay).
+        /// </summary>
+        public void BlockObstacle(float3 center, float radius)
+        {
+            if (!_cells.IsCreated) return;
+
+            IterateCellsInRadius(center, radius, (int index, byte current) =>
+            {
+                if (current == Passable)
+                    _cells[index] = ObstacleBlocked;
+            });
+        }
+
+        /// <summary>
+        /// Unblock all cells within the given radius of a world position.
+        /// Only clears cells that are obstacle-blocked (terrain-blocked and building-blocked stay).
+        /// </summary>
+        public void UnblockObstacle(float3 center, float radius)
+        {
+            if (!_cells.IsCreated) return;
+
+            IterateCellsInRadius(center, radius, (int index, byte current) =>
+            {
+                if (current == ObstacleBlocked)
+                    _cells[index] = Passable;
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ITERATION HELPERS
+        // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Iterate all cells within a circular radius around a world position.
