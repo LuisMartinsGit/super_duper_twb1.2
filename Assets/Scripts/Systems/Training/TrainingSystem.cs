@@ -59,9 +59,10 @@ namespace TheWaningBorder.Systems.Training
 
             // ═══════════ Phase 1: Process timers, collect spawn requests ═══════════
             // Exclude BatchTrainingTag entities — those are handled by BatchTrainingSystem
+            // Exclude AgeUpState entities — Hall can't train during age-up
             foreach (var (ts, entity) in SystemAPI
                          .Query<RefRW<TrainingState>>()
-                         .WithNone<UnderConstruction, BatchTrainingTag>()
+                         .WithNone<UnderConstruction, BatchTrainingTag, AgeUpState>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<TrainQueueItem>(entity);
