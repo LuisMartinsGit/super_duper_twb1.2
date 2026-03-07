@@ -309,5 +309,54 @@ namespace TheWaningBorder.UI.Common
 
             return default;
         }
+
+        /// <summary>
+        /// Get all currently selected entities (valid and existing).
+        /// </summary>
+        public static System.Collections.Generic.List<Entity> GetAllSelectedEntities()
+        {
+            var sel = SelectionSystem.CurrentSelection;
+            if (sel == null) return new System.Collections.Generic.List<Entity>();
+
+            var manager = GetEntityManager();
+            if (manager.Equals(default(EntityManager))) return new System.Collections.Generic.List<Entity>();
+
+            var result = new System.Collections.Generic.List<Entity>(sel.Count);
+            for (int i = 0; i < sel.Count; i++)
+            {
+                var e = sel[i];
+                if (manager.Exists(e) && manager.HasComponent<FactionTag>(e))
+                    result.Add(e);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Get count of valid selected entities.
+        /// </summary>
+        public static int GetSelectionCount()
+        {
+            var sel = SelectionSystem.CurrentSelection;
+            if (sel == null) return 0;
+
+            var manager = GetEntityManager();
+            if (manager.Equals(default(EntityManager))) return 0;
+
+            int count = 0;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (manager.Exists(sel[i]) && manager.HasComponent<FactionTag>(sel[i]))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Returns true if more than one entity is selected.
+        /// </summary>
+        public static bool IsMultiSelection()
+        {
+            return GetSelectionCount() > 1;
+        }
     }
 }

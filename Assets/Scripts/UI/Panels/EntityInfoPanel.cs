@@ -1,6 +1,8 @@
 // File: Assets/Scripts/UI/Panels/EntityInfoPanel.cs
 // Entity info panel — Dark Navy + Golden theme
+// Bottom-center layout with multi-selection army breakdown.
 
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using TWB_Input = TheWaningBorder.Input;
@@ -10,24 +12,33 @@ namespace TheWaningBorder.UI.Panels
 {
     /// <summary>
     /// IMGUI panel showing selected entity info — dark navy with golden accents.
+    /// Positioned at bottom-center of screen. Shows army breakdown for multi-select.
     /// </summary>
     public class EntityInfoPanel : MonoBehaviour
     {
         public static bool PanelVisible { get; private set; }
         public static Rect PanelRect { get; private set; }
 
-        private const float PanelWidth = 300f;
-        private const float PanelHeight = 310f;
+        private const float PanelWidth = 320f;
+        private const float SinglePanelHeight = 310f;
         private const float PanelPadding = 10f;
         private const float PortraitSize = 80f;
+        private const float MultiRowHeight = 24f;
+        private const float MultiBaseHeight = 80f;
+        private const float MultiMaxHeight = 400f;
 
         private GUIStyle _boxStyle;
         private GUIStyle _headerStyle;
         private GUIStyle _labelStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _descStyle;
+        private GUIStyle _rowBg;
+        private Texture2D _rowTex;
         private RectOffset _padding;
         private bool _stylesInit = false;
+
+        // Multi-select cache
+        private Vector2 _multiScrollPos;
 
         void Awake()
         {
@@ -44,10 +55,17 @@ namespace TheWaningBorder.UI.Panels
             var em = UnifiedUIManager.GetEntityManager();
             if (em.Equals(default(EntityManager))) return;
 
-            var info = EntityInfoExtractor.GetDisplayInfo(entity, em);
-
             InitStyles();
-            DrawPanel(info);
+
+            if (UnifiedUIManager.IsMultiSelection())
+            {
+                DrawMultiPanel(em);
+            }
+            else
+            {
+                var info = EntityInfoExtractor.GetDisplayInfo(entity, em);
+                DrawSinglePanel(info);
+            }
         }
 
         private void InitStyles()
@@ -87,18 +105,29 @@ namespace TheWaningBorder.UI.Panels
                 normal = { textColor = new Color(0.8f, 0.78f, 0.72f) }
             };
 
+            _rowTex = UIHelpers.MakeTexture(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
+            _rowBg = new GUIStyle(GUI.skin.box)
+            {
+                normal = { background = _rowTex },
+                margin = new RectOffset(0, 0, 1, 1)
+            };
+
             _stylesInit = true;
         }
 
-        private void DrawPanel(EntityDisplayInfo info)
+        // ═══════════════════════════════════════════════════════════════════════
+        // SINGLE ENTITY PANEL (bottom-center)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawSinglePanel(EntityDisplayInfo info)
         {
             PanelVisible = true;
 
             var panelRect = new Rect(
-                PanelPadding,
-                Screen.height - PanelHeight - PanelPadding,
+                (Screen.width - PanelWidth) * 0.5f,
+                Screen.height - SinglePanelHeight - PanelPadding,
                 PanelWidth,
-                PanelHeight
+                SinglePanelHeight
             );
             PanelRect = panelRect;
 
@@ -187,7 +216,7 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.EndHorizontal();
             }
 
-            // Miner info (no carry bar — just rate and status)
+            // Miner info (no carry bar -- just rate and status)
             if (info.HasMinerInfo)
             {
                 GUILayout.Space(5);
@@ -211,6 +240,179 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.EndArea();
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MULTI-SELECTION PANEL (bottom-center, army breakdown)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawMultiPanel(EntityManager em)
+        {
+            PanelVisible = true;
+
+            var allEntities = UnifiedUIManager.GetAllSelectedEntities();
+            if (allEntities.Count == 0) return;
+
+            // Group entities by type name
+            var groups = new Dictionary<string, UnitGroupInfo>();
+            int totalHP = 0, totalMaxHP = 0;
+            bool hasUnits = false;
+            bool hasBuildings = false;
+
+            foreach (var e in allEntities)
+            {
+                if (!em.Exists(e)) continue;
+
+                string name;
+                bool isBuilding = em.HasComponent<BuildingTag>(e);
+                bool isUnit = em.HasComponent<UnitTag>(e);
+
+                if (isBuilding)
+                {
+                    hasBuildings = true;
+                    name = EntityInfoExtractor.GetDisplayInfo(e, em).Name;
+                }
+                else if (isUnit)
+                {
+                    hasUnits = true;
+                    name = EntityInfoExtractor.GetDisplayInfo(e, em).Name;
+                }
+                else
+                {
+                    name = "Other";
+                }
+
+                if (!groups.TryGetValue(name, out var grp))
+                {
+                    grp = new UnitGroupInfo { Name = name };
+                    groups[name] = grp;
+                }
+                grp.Count++;
+
+                if (em.HasComponent<Health>(e))
+                {
+                    var hp = em.GetComponentData<Health>(e);
+                    grp.TotalHP += (int)hp.Value;
+                    grp.TotalMaxHP += (int)hp.Max;
+                    totalHP += (int)hp.Value;
+                    totalMaxHP += (int)hp.Max;
+                }
+            }
+
+            // Calculate panel height based on group count
+            int groupCount = groups.Count;
+            float contentHeight = MultiBaseHeight + (groupCount * MultiRowHeight) + 30f;
+            float panelHeight = Mathf.Min(contentHeight, MultiMaxHeight);
+
+            var panelRect = new Rect(
+                (Screen.width - PanelWidth) * 0.5f,
+                Screen.height - panelHeight - PanelPadding,
+                PanelWidth,
+                panelHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            // Header
+            string headerText;
+            if (hasUnits && !hasBuildings)
+                headerText = $"Army ({allEntities.Count} units)";
+            else if (hasBuildings && !hasUnits)
+                headerText = $"Buildings ({allEntities.Count} selected)";
+            else
+                headerText = $"Selection ({allEntities.Count} entities)";
+
+            GUILayout.Label(headerText, _headerStyle);
+
+            // Total HP summary
+            if (totalMaxHP > 0)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"Total HP: {totalHP}/{totalMaxHP}", _smallStyle);
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(4f);
+
+            // Golden separator
+            var sepRect = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.5f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(4f);
+
+            // Scrollable unit type list
+            float scrollHeight = innerRect.height - 80f;
+            _multiScrollPos = GUILayout.BeginScrollView(_multiScrollPos,
+                GUILayout.Height(Mathf.Max(scrollHeight, 60f)));
+
+            foreach (var kvp in groups)
+            {
+                var grp = kvp.Value;
+                var rowRect = GUILayoutUtility.GetRect(PanelWidth - 40f, MultiRowHeight);
+                GUI.Box(rowRect, "", _rowBg);
+
+                // Name x Count
+                var nameStyle = new GUIStyle(_labelStyle) { fontStyle = FontStyle.Bold };
+                GUI.Label(new Rect(rowRect.x + 6f, rowRect.y + 2f, 180f, 20f),
+                    $"{grp.Name} x{grp.Count}", nameStyle);
+
+                // HP bar for group
+                if (grp.TotalMaxHP > 0)
+                {
+                    float hpBarWidth = 80f;
+                    float hpBarX = rowRect.x + rowRect.width - hpBarWidth - 6f;
+                    float hpBarY = rowRect.y + 4f;
+                    float ratio = Mathf.Clamp01((float)grp.TotalHP / grp.TotalMaxHP);
+
+                    // Background
+                    GUI.color = new Color(0.04f, 0.05f, 0.12f, 1f);
+                    GUI.DrawTexture(new Rect(hpBarX, hpBarY, hpBarWidth, 14f), Texture2D.whiteTexture);
+
+                    // Fill
+                    Color fillColor = ratio > 0.5f ? new Color(0.3f, 0.9f, 0.3f) :
+                                      (ratio > 0.25f ? new Color(0.9f, 0.8f, 0.2f) : new Color(1f, 0.3f, 0.3f));
+                    GUI.color = fillColor;
+                    GUI.DrawTexture(new Rect(hpBarX, hpBarY, hpBarWidth * ratio, 14f), Texture2D.whiteTexture);
+                    GUI.color = Color.white;
+
+                    // HP text
+                    var hpStyle = new GUIStyle(_smallStyle)
+                    {
+                        alignment = TextAnchor.MiddleCenter,
+                        fontSize = 10,
+                        normal = { textColor = Color.white }
+                    };
+                    GUI.Label(new Rect(hpBarX, hpBarY, hpBarWidth, 14f),
+                        $"{grp.TotalHP}/{grp.TotalMaxHP}", hpStyle);
+                }
+            }
+
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        private class UnitGroupInfo
+        {
+            public string Name;
+            public int Count;
+            public int TotalHP;
+            public int TotalMaxHP;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // HEALTH / RESOURCE BARS
+        // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawResourceBar(int current, int max)
         {
