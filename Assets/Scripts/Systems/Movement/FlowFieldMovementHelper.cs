@@ -1,6 +1,7 @@
 // FlowFieldMovementHelper.cs
 // Static helper providing flow-field-aware direction lookup with graceful fallback.
-// Used by MovementSystem to replace direct-line movement with obstacle-aware pathing.
+// Fallback API for non-Burst callers (e.g., CaravanMovementSystem, managed code).
+// MovementSystem uses FlowFieldLookup directly for Burst-compatible direction lookup.
 // Location: Assets/Scripts/Systems/Movement/FlowFieldMovementHelper.cs
 
 using Unity.Mathematics;
@@ -9,7 +10,13 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Systems.Movement
 {
     /// <summary>
-    /// Centralizes flow-field direction lookup logic used by MovementSystem.
+    /// Managed-code fallback for flow-field direction lookup.
+    /// Delegates to FlowFieldLookup (NativeArray-based) when available,
+    /// falling back to direct managed FlowField access otherwise.
+    ///
+    /// MovementSystem reads FlowFieldLookup directly for Burst compatibility.
+    /// This helper remains for non-ECS callers that cannot access the lookup struct.
+    ///
     /// Given a unit position and goal, returns the best movement direction:
     /// - Far from goal: flow field direction (obstacle-aware pathfinding)
     /// - Near goal: blended flow + direct-line (precise arrival)
@@ -24,6 +31,9 @@ namespace TheWaningBorder.Systems.Movement
         /// Given a unit position and its goal, return the movement direction
         /// using flow fields when available, with smooth blending near the goal.
         /// Returns the direct-line direction as fallback.
+        ///
+        /// Prefers FlowFieldLookup (NativeArray-based) when FlowFieldManager is
+        /// initialized. Falls back to direct FlowField access if lookup is unavailable.
         /// </summary>
         /// <param name="position">Unit's current world position.</param>
         /// <param name="goal">Unit's destination world position.</param>
@@ -36,6 +46,18 @@ namespace TheWaningBorder.Systems.Movement
             var ffm = FlowFieldManager.Instance;
             if (ffm == null) return directDir;
 
+            // Try NativeArray-based lookup first (Burst-compatible path)
+            var lookup = ffm.CurrentLookup;
+            if (lookup.IsValid)
+            {
+                // Ensure flow field is queued for generation
+                ffm.RequestFlowField(goal);
+
+                // Delegate to FlowFieldLookup (same logic, NativeArray-only)
+                return lookup.GetDirection(position, goal, directDir, distToGoal);
+            }
+
+            // Fallback: direct managed FlowField access (pre-initialization)
             var field = ffm.RequestFlowField(goal);
             if (field == null) return directDir;
 
