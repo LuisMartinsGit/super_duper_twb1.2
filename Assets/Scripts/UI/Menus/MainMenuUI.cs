@@ -27,10 +27,8 @@ namespace TheWaningBorder.UI.Menus
         private MultiplayerLobbyUI _multiplayerLobby;
 
         // Window styling
-        private Rect _mainMenuRect = new Rect(40, 40, 320, 340);
-        private GUIStyle _titleStyle;
+        private Rect _mainMenuRect;
         private GUIStyle _buttonStyle;
-        private GUIStyle _disabledStyle;
         private bool _stylesInitialized = false;
 
         void Awake()
@@ -56,7 +54,11 @@ namespace TheWaningBorder.UI.Menus
 
             if (_currentState == MenuState.MainMenu)
             {
-                _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "The Waning Border");
+                _mainMenuRect = new Rect(
+                    (Screen.width - 240) * 0.5f,
+                    (Screen.height - 240) * 0.5f,
+                    240, 240);
+                _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "");
             }
         }
 
@@ -64,75 +66,55 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInitialized) return;
 
-            _titleStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 14
             };
-
-            _disabledStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 14
-            };
-            _disabledStyle.normal.textColor = Color.gray;
 
             _stylesInitialized = true;
         }
 
         private void DrawMainMenu(int windowId)
         {
-            GUILayout.Space(20);
-
-            // Title
-            GUILayout.Label("Main Menu", _titleStyle);
-            GUILayout.Space(30);
+            GUILayout.Space(8);
 
             // Skirmish button
-            if (GUILayout.Button("Skirmish", GUILayout.Height(45)))
+            if (GUILayout.Button("Skirmish", GUILayout.Height(36)))
             {
                 SetState(MenuState.SkirmishLobby);
             }
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
             // Multiplayer button
-            if (GUILayout.Button("Multiplayer", GUILayout.Height(45)))
+            if (GUILayout.Button("Multiplayer", GUILayout.Height(36)))
             {
                 SetState(MenuState.MultiplayerLobby);
             }
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
             // Campaign button (placeholder - disabled)
             GUI.enabled = false;
-            if (GUILayout.Button("Campaign (Coming Soon)", GUILayout.Height(45)))
+            if (GUILayout.Button("Campaign (Coming Soon)", GUILayout.Height(36)))
             {
                 // Placeholder
             }
             GUI.enabled = true;
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
             // Options button (placeholder - disabled)
             GUI.enabled = false;
-            if (GUILayout.Button("Options (Coming Soon)", GUILayout.Height(45)))
+            if (GUILayout.Button("Options (Coming Soon)", GUILayout.Height(36)))
             {
                 // Placeholder
             }
             GUI.enabled = true;
-
-            GUILayout.FlexibleSpace();
+            GUILayout.Space(6);
 
             // Exit button
-            if (GUILayout.Button("Exit", GUILayout.Height(40)))
+            if (GUILayout.Button("Exit", GUILayout.Height(36)))
             {
                 ExitGame();
             }
-
-            GUILayout.Space(10);
 
             GUI.DragWindow(new Rect(0, 0, 10000, 25));
         }
