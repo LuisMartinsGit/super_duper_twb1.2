@@ -102,7 +102,11 @@ namespace TheWaningBorder.Bootstrap
 
             placedPositions.Dispose();
 
-            Debug.Log($"[ObstacleBootstrap] Spawned {forestsSpawned} forests + {rocksSpawned} rock formations");
+            // Invalidate flow fields now that obstacles have been registered on the passability grid
+            var ffm = TheWaningBorder.Systems.Movement.FlowFieldManager.Instance;
+            if (ffm != null) ffm.InvalidateAll();
+
+            Debug.Log($"[ObstacleBootstrap] Spawned {forestsSpawned} forests + {rocksSpawned} rock formations (passability grid updated)");
         }
 
         /// <summary>
@@ -202,6 +206,11 @@ namespace TheWaningBorder.Bootstrap
             em.SetComponentData(entity, LocalTransform.FromPosition(position));
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new PresentationId { Id = presentationId });
+
+            // Block passability grid cells so flow fields route around this obstacle
+            var grid = PassabilityGrid.Instance;
+            if (grid != null)
+                grid.BlockObstacle(position, radius);
 
             return entity;
         }
