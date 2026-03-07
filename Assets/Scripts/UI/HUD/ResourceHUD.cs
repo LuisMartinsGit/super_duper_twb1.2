@@ -40,7 +40,8 @@ namespace TheWaningBorder.UI.HUD
         private GUIStyle _topBarBg;
         private GUIStyle _pillBg;
         private GUIStyle _pillText;
-        private Texture2D _texTopBar, _texPill;
+        private GUIStyle _menuButtonStyle;
+        private Texture2D _texTopBar, _texPill, _texMenuBtn, _texMenuBtnHover;
         private bool _stylesBuilt = false;
 
         private void Awake()
@@ -121,6 +122,22 @@ namespace TheWaningBorder.UI.HUD
                 fontSize = 13,
                 normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
             };
+
+            // Menu button style (golden on dark, matching HUD theme)
+            _texMenuBtn = MakeTex(2, 2, new Color(0.10f, 0.12f, 0.28f, 0.9f));
+            _texMenuBtnHover = MakeTex(2, 2, new Color(0.15f, 0.18f, 0.38f, 0.95f));
+            _menuButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.83f, 0.66f, 0.26f), background = _texMenuBtn },
+                hover = { textColor = new Color(1f, 0.85f, 0.4f), background = _texMenuBtnHover },
+                active = { textColor = Color.white, background = _texMenuBtnHover },
+                border = new RectOffset(2, 2, 2, 2),
+                padding = new RectOffset(6, 6, 4, 4)
+            };
+
             _stylesBuilt = true;
         }
 
@@ -156,9 +173,6 @@ namespace TheWaningBorder.UI.HUD
                 maxPop = pop.max;
             }
 
-            Color factionColor = GetFactionColor(faction);
-            string factionName = GetFactionName(faction);
-
             // Dark navy top bar
             var topBarRect = new Rect(0, yOffset, Screen.width, topBarHeight);
             GUI.color = Color.white;
@@ -170,17 +184,17 @@ namespace TheWaningBorder.UI.HUD
             GUI.DrawTexture(borderRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            // Faction label (golden)
-            var labelStyle = new GUIStyle(_pillText)
+            // Menu button (replaces the old "PLAYER" label)
+            float menuBtnWidth = 80f;
+            float menuBtnHeight = topBarHeight - 8f;
+            if (GUI.Button(new Rect(leftPadding, yOffset + 4f, menuBtnWidth, menuBtnHeight),
+                           "Menu", _menuButtonStyle))
             {
-                fontStyle = FontStyle.Bold,
-                fontSize = 14,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-            GUI.Label(new Rect(leftPadding, yOffset + 8f, 100f, 22f), factionName, labelStyle);
+                InGameMenuPanel.Toggle();
+            }
 
             // Resource pills
-            float xPos = leftPadding + 100f;
+            float xPos = leftPadding + menuBtnWidth + pillSpacing;
 
             DrawResourcePill(xPos, yOffset, "Supplies", res.Supplies.ToString(), new Color(1f, 0.85f, 0.4f));
             xPos += 120f + pillSpacing;
@@ -228,38 +242,5 @@ namespace TheWaningBorder.UI.HUD
             GUI.Label(valueRect, value, valueStyle);
         }
 
-        private Color GetFactionColor(Faction faction)
-        {
-            return faction switch
-            {
-                Faction.Blue => new Color(0.3f, 0.5f, 1f),
-                Faction.Red => new Color(1f, 0.3f, 0.3f),
-                Faction.Green => new Color(0.3f, 1f, 0.3f),
-                Faction.Yellow => new Color(1f, 1f, 0.3f),
-                Faction.Purple => new Color(0.8f, 0.3f, 1f),
-                Faction.Orange => new Color(1f, 0.6f, 0.2f),
-                Faction.Teal => new Color(0.2f, 0.8f, 0.8f),
-                Faction.White => new Color(0.9f, 0.9f, 0.9f),
-                _ => Color.gray
-            };
-        }
-
-        private string GetFactionName(Faction faction)
-        {
-            if (faction == GameSettings.LocalPlayerFaction) return "PLAYER";
-
-            return faction switch
-            {
-                Faction.Blue => "AI (Blue)",
-                Faction.Red => "AI (Red)",
-                Faction.Green => "AI (Green)",
-                Faction.Yellow => "AI (Yellow)",
-                Faction.Purple => "AI (Purple)",
-                Faction.Orange => "AI (Orange)",
-                Faction.Teal => "AI (Teal)",
-                Faction.White => "AI (White)",
-                _ => "Unknown"
-            };
-        }
     }
 }

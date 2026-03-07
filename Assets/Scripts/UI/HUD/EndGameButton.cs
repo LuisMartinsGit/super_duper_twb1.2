@@ -36,6 +36,9 @@ namespace TheWaningBorder.UI.HUD
             // Don't show if post-game stats are visible
             if (PostGameStatsUI.IsVisible) return;
 
+            // Don't show if in-game menu is open
+            if (InGameMenuPanel.IsOpen) return;
+
             InitStyles();
 
             float x = Screen.width - ButtonWidth - Margin;

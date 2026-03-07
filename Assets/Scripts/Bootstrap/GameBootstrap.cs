@@ -163,6 +163,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
+            managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC)
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker

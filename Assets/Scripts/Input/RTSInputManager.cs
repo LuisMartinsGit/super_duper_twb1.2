@@ -39,9 +39,6 @@ namespace TheWaningBorder.Input
         [Header("Formation")]
         [SerializeField] private float formationSpacing = 2.0f;
         
-        [Header("Debug")]
-        [SerializeField] private bool showHelp = true;
-        
         // ═══════════════════════════════════════════════════════════════════════
         // STATE
         // ═══════════════════════════════════════════════════════════════════════
@@ -79,6 +76,15 @@ namespace TheWaningBorder.Input
             if (_em.Equals(default(EntityManager)))
                 _em = _world.EntityManager;
 
+            // Allow ESC to close menu even when other input is blocked
+            // (but not during building placement -- let BuilderCommandPanel handle ESC there)
+            if (InGameMenuPanel.IsOpen && !BuilderCommandPanel.IsPlacingBuilding
+                && UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+            {
+                InGameMenuPanel.Close();
+                return;
+            }
+
             // Block input during UI interactions or building placement
             if (ShouldBlockInput())
                 return;
@@ -99,6 +105,10 @@ namespace TheWaningBorder.Input
         
         private bool ShouldBlockInput()
         {
+            // Block all input when in-game menu is open
+            if (InGameMenuPanel.IsOpen)
+                return true;
+
             // One-frame suppression (after GUI button clicks)
             if (BuilderCommandPanel.SuppressClicksThisFrame)
             {
@@ -131,12 +141,26 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - Clear selection and cancel attack-move/patrol mode
+            // ESC - Cancel modes, clear selection, or open menu
+            // Note: ESC-to-close-menu is handled in Update() before input blocking
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
-                _attackMoveMode = false;
-                _patrolMode = false;
-                SelectionSystem.ClearSelection();
+                if (_attackMoveMode || _patrolMode)
+                {
+                    // Cancel active mode first
+                    _attackMoveMode = false;
+                    _patrolMode = false;
+                }
+                else if (SelectionSystem.CurrentSelection != null && SelectionSystem.CurrentSelection.Count > 0)
+                {
+                    // Clear selection if something is selected
+                    SelectionSystem.ClearSelection();
+                }
+                else
+                {
+                    // Nothing selected, no modes active -> open menu
+                    InGameMenuPanel.Open();
+                }
             }
 
             // A - Enter attack-move mode
@@ -1022,39 +1046,45 @@ namespace TheWaningBorder.Input
 
         void OnGUI()
         {
-            if (!showHelp) return;
-            
-            GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-            GUILayout.Label("Controls:");
-            GUILayout.Label("Left-click: Select unit");
-            GUILayout.Label("Double-click: Select all of type on screen");
-            GUILayout.Label("Ctrl+Double-click: Select all of type (map)");
-            GUILayout.Label("Left-drag: Box select");
-            GUILayout.Label("Right-click: Move/Attack/Gather");
-            GUILayout.Label("A + Right-click: Attack-move");
-            GUILayout.Label("P + Right-click: Patrol");
-            GUILayout.Label("S: Stop");
-            GUILayout.Label("H: Hold position");
-            GUILayout.Label("Ctrl+1-9: Save control group");
-            GUILayout.Label("1-9: Recall group (2x: center cam)");
-            GUILayout.Label("Shift+1-9: Add to group");
-            GUILayout.Label("ESC: Clear selection");
+            // Show attack-move / patrol mode indicator at top-center of screen
+            if (_attackMoveMode || _patrolMode)
+            {
+                string modeText = _attackMoveMode ? "ATTACK-MOVE MODE" : "PATROL MODE";
+                Color modeColor = _attackMoveMode
+                    ? new Color(1f, 0.4f, 0.4f)
+                    : new Color(0.4f, 0.8f, 1f);
 
-            if (_attackMoveMode)
-            {
-                GUILayout.Label("<b>[ATTACK-MOVE MODE]</b>");
-            }
-            if (_patrolMode)
-            {
-                GUILayout.Label("<b>[PATROL MODE]</b>");
-            }
+                var modeStyle = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = modeColor }
+                };
 
-            if (GameSettings.IsMultiplayer)
-            {
-                GUILayout.Label($"Faction: {GameSettings.LocalPlayerFaction}");
-                GUILayout.Label("Multiplayer: Active");
+                float labelWidth = 250f;
+                float labelHeight = 30f;
+                float x = (Screen.width - labelWidth) * 0.5f;
+                float y = 50f;
+
+                // Background pill for visibility
+                var bgTex = MakeModeBgTex();
+                GUI.DrawTexture(new Rect(x - 10f, y, labelWidth + 20f, labelHeight), bgTex);
+                GUI.Label(new Rect(x, y, labelWidth, labelHeight), modeText, modeStyle);
             }
-            GUILayout.EndArea();
+        }
+
+        private static Texture2D _modeBgTex;
+        private static Texture2D MakeModeBgTex()
+        {
+            if (_modeBgTex != null) return _modeBgTex;
+            var pix = new Color[4];
+            for (int i = 0; i < pix.Length; i++)
+                pix[i] = new Color(0.06f, 0.08f, 0.18f, 0.8f);
+            _modeBgTex = new Texture2D(2, 2);
+            _modeBgTex.SetPixels(pix);
+            _modeBgTex.Apply();
+            return _modeBgTex;
         }
     }
     
