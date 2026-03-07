@@ -1,6 +1,7 @@
 // FlowFieldGenerator.cs
 // Static utility class containing Burst-compiled BFS integration field generation
 // and direction field derivation for flow field pathfinding.
+// Provides both synchronous (Generate) and async (ScheduleAsync/CompleteAsync) APIs.
 // Location: Assets/Scripts/Systems/Movement/FlowFieldGenerator.cs
 
 using Unity.Burst;
@@ -16,8 +17,10 @@ namespace TheWaningBorder.Systems.Movement
     /// - IntegrationFieldJob: BFS outward from destination, computing cost-to-goal per cell.
     /// - DirectionFieldJob: derives a unit direction vector per cell pointing toward lowest cost neighbor.
     ///
-    /// Called synchronously via .Run() from FlowFieldManager on the main thread.
-    /// Async scheduling with JobHandle is deferred to Phase 4 (#114).
+    /// Two generation paths:
+    /// - Generate(): synchronous via .Run() for immediate results on the main thread.
+    /// - ScheduleAsync()/CompleteAsync(): async 2-frame path — BFS runs on worker thread
+    ///   via .Schedule(), completed next frame. Direction derivation runs via .Run() on completion.
     /// </summary>
     public static class FlowFieldGenerator
     {
@@ -41,25 +44,26 @@ namespace TheWaningBorder.Systems.Movement
         /// <summary>
         /// Synchronously generates a flow field from the given passability grid data.
         /// Called from FlowFieldManager on the main thread (jobs complete immediately via .Run()).
+        /// Uses FlowFieldArrayPool for array allocation to reduce churn.
         /// </summary>
         /// <param name="passabilityCells">Raw cell data from PassabilityGrid (0=passable, 1=terrain-blocked, 2=building-blocked).</param>
         /// <param name="gridWidth">Grid width in cells.</param>
         /// <param name="gridHeight">Grid height in cells.</param>
         /// <param name="destinationIndex">Flat index (y * width + x) of the destination cell.</param>
-        /// <returns>A FlowField with allocated NativeArrays. Caller must Dispose() when done.</returns>
+        /// <param name="gridVersion">Current grid version for staleness detection.</param>
+        /// <returns>A FlowField with pooled NativeArrays. Caller must Dispose() when done.</returns>
         public static FlowField Generate(
             NativeArray<byte> passabilityCells,
             int gridWidth,
             int gridHeight,
-            int destinationIndex)
+            int destinationIndex,
+            int gridVersion = 0)
         {
-            int totalCells = gridWidth * gridHeight;
+            // Rent arrays from pool instead of allocating
+            var integrationField = FlowFieldArrayPool.RentIntegration();
+            var directionField = FlowFieldArrayPool.RentDirection();
 
-            // Allocate output arrays with Persistent allocator (owned by FlowFieldManager cache)
-            var integrationField = new NativeArray<ushort>(totalCells, Allocator.Persistent);
-            var directionField = new NativeArray<float2>(totalCells, Allocator.Persistent);
-
-            // Allocate BFS queue (Temp allocator — freed after job completes)
+            // Allocate BFS queue (TempJob allocator — freed after job completes)
             var bfsQueue = new NativeQueue<int>(Allocator.TempJob);
 
             // Step 1: BFS integration field
@@ -94,7 +98,154 @@ namespace TheWaningBorder.Systems.Movement
                 DestinationIndex = destinationIndex,
                 Width = gridWidth,
                 Height = gridHeight,
+                GridVersion = gridVersion,
             };
+        }
+
+        // =====================================================================
+        // ASYNC GENERATION API
+        // =====================================================================
+
+        /// <summary>
+        /// Handle for an in-flight async flow field generation.
+        /// Holds all resources needed to complete the generation on a later frame.
+        /// </summary>
+        public struct AsyncFlowFieldHandle
+        {
+            /// <summary>JobHandle for the scheduled IntegrationFieldJob.</summary>
+            public JobHandle IntegrationHandle;
+
+            /// <summary>Rented integration field array (written by BFS job).</summary>
+            public NativeArray<ushort> IntegrationField;
+
+            /// <summary>Rented direction field array (written on completion).</summary>
+            public NativeArray<float2> DirectionField;
+
+            /// <summary>BFS queue allocated for the job (disposed on completion).</summary>
+            public NativeQueue<int> BfsQueue;
+
+            /// <summary>Copy of passability data for job safety (disposed on completion).</summary>
+            public NativeArray<byte> PassabilityCopy;
+
+            /// <summary>Destination cell flat index.</summary>
+            public int DestinationIndex;
+
+            /// <summary>Grid width in cells.</summary>
+            public int Width;
+
+            /// <summary>Grid height in cells.</summary>
+            public int Height;
+
+            /// <summary>Grid version at schedule time.</summary>
+            public int GridVersion;
+        }
+
+        /// <summary>
+        /// Schedule async flow field generation. BFS runs on a worker thread
+        /// via .Schedule(). Call CompleteAsync() on a later frame when
+        /// handle.IntegrationHandle.IsCompleted is true.
+        /// </summary>
+        /// <param name="passabilityCells">Source passability data (will be copied for job safety).</param>
+        /// <param name="gridWidth">Grid width in cells.</param>
+        /// <param name="gridHeight">Grid height in cells.</param>
+        /// <param name="destinationIndex">Destination cell flat index.</param>
+        /// <param name="gridVersion">Current grid version for staleness detection.</param>
+        /// <returns>Handle to track and complete the async generation.</returns>
+        public static AsyncFlowFieldHandle ScheduleAsync(
+            NativeArray<byte> passabilityCells,
+            int gridWidth,
+            int gridHeight,
+            int destinationIndex,
+            int gridVersion)
+        {
+            // Rent arrays from pool
+            var integrationField = FlowFieldArrayPool.RentIntegration();
+            var directionField = FlowFieldArrayPool.RentDirection();
+
+            // Copy passability data — the source lives on a managed MonoBehaviour
+            // and may change between schedule and complete frames
+            var passabilityCopy = new NativeArray<byte>(passabilityCells.Length, Allocator.TempJob);
+            passabilityCopy.CopyFrom(passabilityCells);
+
+            // Allocate BFS queue
+            var bfsQueue = new NativeQueue<int>(Allocator.TempJob);
+
+            // Schedule BFS on worker thread
+            var integrationJob = new IntegrationFieldJob
+            {
+                Cells = passabilityCopy,
+                Width = gridWidth,
+                Height = gridHeight,
+                DestinationIndex = destinationIndex,
+                IntegrationField = integrationField,
+                BfsQueue = bfsQueue,
+            };
+
+            var handle = integrationJob.Schedule();
+
+            return new AsyncFlowFieldHandle
+            {
+                IntegrationHandle = handle,
+                IntegrationField = integrationField,
+                DirectionField = directionField,
+                BfsQueue = bfsQueue,
+                PassabilityCopy = passabilityCopy,
+                DestinationIndex = destinationIndex,
+                Width = gridWidth,
+                Height = gridHeight,
+                GridVersion = gridVersion,
+            };
+        }
+
+        /// <summary>
+        /// Complete an async flow field generation. Calls Complete() on the BFS job handle,
+        /// runs the direction field derivation synchronously (it is fast — pure lookups),
+        /// disposes temporary resources, and returns the finished FlowField.
+        /// </summary>
+        /// <param name="handle">Handle from ScheduleAsync().</param>
+        /// <returns>Completed FlowField with pooled NativeArrays.</returns>
+        public static FlowField CompleteAsync(AsyncFlowFieldHandle handle)
+        {
+            // Complete the BFS job
+            handle.IntegrationHandle.Complete();
+
+            // Run direction field derivation synchronously (fast pass)
+            var directionJob = new DirectionFieldJob
+            {
+                IntegrationField = handle.IntegrationField,
+                Cells = handle.PassabilityCopy,
+                Width = handle.Width,
+                Height = handle.Height,
+                DirectionField = handle.DirectionField,
+            };
+            directionJob.Run();
+
+            // Dispose temporary resources
+            handle.BfsQueue.Dispose();
+            handle.PassabilityCopy.Dispose();
+
+            return new FlowField
+            {
+                IntegrationField = handle.IntegrationField,
+                DirectionField = handle.DirectionField,
+                DestinationIndex = handle.DestinationIndex,
+                Width = handle.Width,
+                Height = handle.Height,
+                GridVersion = handle.GridVersion,
+            };
+        }
+
+        /// <summary>
+        /// Cancel an in-flight async generation, disposing all resources.
+        /// Use when a handle becomes stale (e.g., grid version changed).
+        /// </summary>
+        public static void CancelAsync(AsyncFlowFieldHandle handle)
+        {
+            handle.IntegrationHandle.Complete(); // Must complete before disposing
+            handle.BfsQueue.Dispose();
+            handle.PassabilityCopy.Dispose();
+            FlowFieldArrayPool.Return(handle.IntegrationField);
+            FlowFieldArrayPool.Return(handle.DirectionField);
         }
 
         // =====================================================================

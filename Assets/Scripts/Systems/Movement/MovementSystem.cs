@@ -1,5 +1,6 @@
 // File: Assets/Scripts/Systems/Movement/MovementSystem.cs
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -14,9 +15,13 @@ namespace TheWaningBorder.Systems.Movement
     /// - Moves units toward their destinations each frame
     /// - Updates rotation to face movement direction
     /// - Manages UserMoveOrder tag lifecycle
-    /// 
+    ///
     /// Combat logic is handled by UnifiedCombatSystem.
     /// IMPORTANT: Does NOT remove AttackCommand - lets UnifiedCombatSystem handle it
+    ///
+    /// Flow field direction lookup uses FlowFieldLookup struct (NativeArray-based)
+    /// instead of managed FlowFieldMovementHelper singleton, enabling future
+    /// Burst compilation of the movement loop when TerrainUtility is also refactored.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MovementSystem : ISystem
@@ -174,6 +179,12 @@ namespace TheWaningBorder.Systems.Movement
             // =============================================================================
             // PHASE 2: Move units toward their destinations
             // =============================================================================
+
+            // Read FlowFieldLookup from manager (NativeArray-based, no managed singleton
+            // access in the movement loop). Falls back to direct-line if unavailable.
+            var ffm = FlowFieldManager.Instance;
+            var ffLookup = (ffm != null) ? ffm.CurrentLookup : default;
+
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
@@ -239,8 +250,16 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                // Flow-field direction lookup (falls back to direct-line if unavailable)
-                dir = FlowFieldMovementHelper.GetDirection(pos, goal, dir, dist);
+                // Pre-warm flow field cache for this destination (managed call,
+                // but just a dictionary lookup / queue enqueue — not in the hot path).
+                // This ensures async generation is triggered for uncached destinations.
+                if (ffm != null)
+                    ffm.RequestFlowField(goal);
+
+                // Flow-field direction lookup via NativeArray-based FlowFieldLookup
+                // (no managed singleton access — uses pre-built lookup struct).
+                // Falls back to direct-line if lookup is not valid or field not cached.
+                dir = ffLookup.GetDirection(pos, goal, dir, dist);
 
                 var t = xf.ValueRO;
 
