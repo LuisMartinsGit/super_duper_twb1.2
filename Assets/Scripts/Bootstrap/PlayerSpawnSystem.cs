@@ -36,7 +36,7 @@ namespace TheWaningBorder.Bootstrap
             for (int i = 0; i < playerCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
-                if (slot == null || slot.Type == SlotType.Empty) continue;
+                if (slot == null || slot.Type == SlotType.Empty || slot.Type == SlotType.Observer) continue;
 
                 var faction = slot.Faction;
                 var spawnPos = positions[i];

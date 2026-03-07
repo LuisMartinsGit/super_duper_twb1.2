@@ -9,7 +9,8 @@ using System.Collections.Generic;
 public enum GameMode
 {
     FreeForAll,
-    SoloVsCurse
+    SoloVsCurse,
+    Sandbox
 }
 
 public enum SpawnLayout
@@ -51,6 +52,12 @@ public static class GameSettings
 
     /// <summary>Current game mode.</summary>
     public static GameMode Mode = GameMode.FreeForAll;
+
+    /// <summary>Whether the local player is observing (no units, no commands, full visibility).</summary>
+    public static bool IsObserver = false;
+
+    /// <summary>Convenience: true when current mode is Sandbox.</summary>
+    public static bool IsSandbox => Mode == GameMode.Sandbox;
 
     // ==================== Spawn Settings ====================
 
