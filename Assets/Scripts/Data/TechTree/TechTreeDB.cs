@@ -433,38 +433,140 @@ public sealed class TechTreeDB : MonoBehaviour
     {
         int sectsIndex = json.IndexOf("\"sects\":");
         if (sectsIndex == -1) return;
-        
+
         int listIndex = json.IndexOf("\"list\":", sectsIndex);
         if (listIndex == -1) return;
-        
+
         int arrayStart = json.IndexOf("[", listIndex);
         if (arrayStart == -1) return;
-        
+
         int searchPos = arrayStart;
         int arrayEnd = json.IndexOf("]", arrayStart);
-        
+
         while (true)
         {
             int sectStart = json.IndexOf("{", searchPos);
             if (sectStart == -1 || sectStart > arrayEnd) break;
-            
+
             int sectEnd = FindMatchingBrace(json, sectStart);
             if (sectEnd == -1) break;
-            
+
             string sectJson = json.Substring(sectStart, sectEnd - sectStart + 1);
-            
+
             var sect = new SectDef
             {
                 id = ParseString(sectJson, "id", ""),
                 order = ParseString(sectJson, "order", ""),
                 affinity = ParseString(sectJson, "affinity", "")
             };
-            
+
             if (!string.IsNullOrEmpty(sect.id))
+            {
                 _sectsById[sect.id] = sect;
-            
+
+                // Parse embedded unit definition (JSON id → "Sect_" + normalized id)
+                ParseSectUnit(sectJson, sect.id);
+
+                // Parse embedded tech definition (JSON id → "Tech_" + id)
+                ParseSectTech(sectJson, sect.id);
+            }
+
             searchPos = sectEnd + 1;
         }
+    }
+
+    /// <summary>
+    /// Parse the "unit" block embedded inside a sect JSON entry.
+    /// Normalizes the ID to "Sect_" + PascalCase (e.g., "Golem_Autark" → "Sect_GolemAutark").
+    /// Registers the unit in _unitsById so chapel training can look it up.
+    /// </summary>
+    void ParseSectUnit(string sectJson, string sectId)
+    {
+        int unitIndex = sectJson.IndexOf("\"unit\":");
+        if (unitIndex == -1) return;
+
+        int blockStart = sectJson.IndexOf("{", unitIndex);
+        if (blockStart == -1) return;
+
+        int blockEnd = FindMatchingBrace(sectJson, blockStart);
+        if (blockEnd == -1) return;
+
+        string unitJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
+        string rawId = ParseString(unitJson, "id", "");
+        if (string.IsNullOrEmpty(rawId)) return;
+
+        // Normalize: "Golem_Autark" → "GolemAutark", then prefix with "Sect_"
+        string normalizedId = "Sect_" + rawId.Replace("_", "");
+
+        var unit = new UnitDef
+        {
+            id = normalizedId,
+            unitClass = ParseString(unitJson, "class", ""),
+            name = rawId.Replace("_", " "),  // "Golem_Autark" → "Golem Autark"
+            hp = ParseFloat(unitJson, "hp", 0, 100),
+            speed = ParseFloat(unitJson, "speed", 0, 5),
+            trainingTime = ParseFloat(unitJson, "trainingTime", 0, 15),  // Default 15s
+            damage = ParseFloat(unitJson, "damage", 0, 10),
+            attackRange = ParseFloat(unitJson, "attackRange", 0, 1.5f),
+            minAttackRange = ParseFloat(unitJson, "minAttackRange", 0, 0f),
+            lineOfSight = ParseFloat(unitJson, "lineOfSight", 0, 14),  // Default 14
+            armorType = ParseString(unitJson, "armorType", "infantry_heavy"),
+            damageType = ParseString(unitJson, "damageType", "melee"),
+            defense = ParseDefenseBlock(unitJson),
+            cost = ParseCostBlock(unitJson)
+        };
+
+        // Apply default cost if none specified in JSON
+        if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Crystal == 0))
+        {
+            unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
+        }
+
+        _unitsById[normalizedId] = unit;
+        Debug.Log($"[TechTreeDB] Sect unit: {normalizedId} (from {sectId}) HP={unit.hp} Dmg={unit.damage}");
+    }
+
+    /// <summary>
+    /// Parse the "tech" block embedded inside a sect JSON entry.
+    /// Normalizes the ID to "Tech_" + raw id (e.g., "DietaryMandate" → "Tech_DietaryMandate").
+    /// Registers the tech in _technologiesById so chapel research can look it up.
+    /// </summary>
+    void ParseSectTech(string sectJson, string sectId)
+    {
+        int techIndex = sectJson.IndexOf("\"tech\":");
+        if (techIndex == -1) return;
+
+        int blockStart = sectJson.IndexOf("{", techIndex);
+        if (blockStart == -1) return;
+
+        int blockEnd = FindMatchingBrace(sectJson, blockStart);
+        if (blockEnd == -1) return;
+
+        string techJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
+        string rawId = ParseString(techJson, "id", "");
+        if (string.IsNullOrEmpty(rawId)) return;
+
+        // Prefix with "Tech_"
+        string normalizedId = "Tech_" + rawId;
+
+        var tech = new TechnologyDef
+        {
+            id = normalizedId,
+            name = rawId.Replace("_", " "),  // Already PascalCase in JSON, just clean underscores
+            effect = ParseString(techJson, "effect", ""),
+            desc = ParseString(techJson, "effect", ""),  // Use effect as desc
+            researchTime = ParseFloat(techJson, "researchTime", 0, 45),  // Default 45s
+            cost = ParseCostBlock(techJson)
+        };
+
+        // Apply default cost if none specified
+        if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Crystal == 0))
+        {
+            tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
+        }
+
+        _technologiesById[normalizedId] = tech;
+        Debug.Log($"[TechTreeDB] Sect tech: {normalizedId} (from {sectId}) Time={tech.researchTime}s");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
