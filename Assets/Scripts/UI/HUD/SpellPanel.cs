@@ -12,7 +12,7 @@ namespace TheWaningBorder.UI.HUD
     /// IMGUI panel that displays available spells for the local player's adopted sects.
     /// Shows spell buttons with cooldown overlays. Clicking a spell enters targeting mode.
     ///
-    /// Positioned at bottom-right of screen, above the minimap area.
+    /// Positioned at the left side, above the bottom HUD bar.
     /// Only visible when the faction has adopted at least one sect.
     /// </summary>
     public class SpellPanel : MonoBehaviour
@@ -72,9 +72,10 @@ namespace TheWaningBorder.UI.HUD
 
             if (_availableSpells.Count == 0) return;
 
-            // Panel position: bottom-right
-            float panelX = Screen.width - PanelWidth - 10f;
-            float panelY = Screen.height - PanelHeight - 180f; // Above minimap area
+            // Panel position: left-aligned, above the bottom HUD bar
+            float panelX = ResourceHUD.HudLeftMargin;
+            float hudBarTop = Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin;
+            float panelY = hudBarTop - PanelHeight - ResourceHUD.PanelGap;
 
             Rect panelRect = new Rect(panelX, panelY, PanelWidth, PanelHeight);
             IsPointerOverPanel = panelRect.Contains(Event.current.mousePosition);

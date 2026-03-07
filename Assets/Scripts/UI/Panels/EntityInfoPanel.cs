@@ -1,31 +1,31 @@
 // File: Assets/Scripts/UI/Panels/EntityInfoPanel.cs
 // Entity info panel — Dark Navy + Golden theme
-// Bottom-center layout with multi-selection army breakdown.
+// Left-aligned after resources, height matches minimap. Multi-selection army breakdown.
 
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using TWB_Input = TheWaningBorder.Input;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.UI.HUD;
 
 namespace TheWaningBorder.UI.Panels
 {
     /// <summary>
     /// IMGUI panel showing selected entity info — dark navy with golden accents.
-    /// Positioned at bottom-center of screen. Shows army breakdown for multi-select.
+    /// Left-aligned after ResourceHUD, height matches minimap (256px).
+    /// Shows army breakdown for multi-select.
     /// </summary>
     public class EntityInfoPanel : MonoBehaviour
     {
         public static bool PanelVisible { get; private set; }
         public static Rect PanelRect { get; private set; }
 
-        private const float PanelWidth = 320f;
-        private const float SinglePanelHeight = 310f;
+        public const float PanelWidth = 320f;
         private const float PanelPadding = 10f;
-        private const float PortraitSize = 80f;
+        private const float PortraitSize = 64f;
         private const float MultiRowHeight = 24f;
         private const float MultiBaseHeight = 80f;
-        private const float MultiMaxHeight = 400f;
 
         private GUIStyle _boxStyle;
         private GUIStyle _headerStyle;
@@ -120,10 +120,10 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                (Screen.width - PanelWidth) * 0.5f,
-                Screen.height - SinglePanelHeight - PanelPadding,
+                ResourceHUD.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                SinglePanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -294,16 +294,11 @@ namespace TheWaningBorder.UI.Panels
                 }
             }
 
-            // Calculate panel height based on group count
-            int groupCount = groups.Count;
-            float contentHeight = MultiBaseHeight + (groupCount * MultiRowHeight) + 30f;
-            float panelHeight = Mathf.Min(contentHeight, MultiMaxHeight);
-
             var panelRect = new Rect(
-                (Screen.width - PanelWidth) * 0.5f,
-                Screen.height - panelHeight - PanelPadding,
+                ResourceHUD.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                panelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -454,6 +449,12 @@ namespace TheWaningBorder.UI.Panels
             };
             GUI.Label(rect, $"{current}/{max}", labelStyle);
         }
+
+        /// <summary>
+        /// Returns the X coordinate where the next HUD panel should start (right edge of info + gap).
+        /// Used by EntityActionPanel.
+        /// </summary>
+        public static float NextPanelX => ResourceHUD.NextPanelX + PanelWidth + ResourceHUD.PanelGap;
 
         /// <summary>
         /// Check if pointer is over this panel.

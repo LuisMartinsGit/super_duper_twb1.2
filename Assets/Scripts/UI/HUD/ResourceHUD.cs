@@ -1,21 +1,20 @@
 // File: Assets/Scripts/UI/HUD/ResourceHUD.cs
-// Resource Display — Dark Navy + Golden theme, bottom-left vertical panel
+// Resource Display — Dark Navy + Golden theme, bottom-left panel (height matches minimap)
 
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine;
 using TheWaningBorder.Economy;
-using TheWaningBorder.Core.Settings;
 using EntityWorld = Unity.Entities.World;
+
 
 
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
     /// IMGUI-based resource HUD — dark navy panel with golden accents.
-    /// Displays resources in a compact vertical panel in the bottom-left corner.
+    /// Displays resources in the bottom-left corner, height matching the minimap (256px).
     /// Shows: Population, Religion Points, Supplies, Iron, Crystal, Veilsteel, Glow.
     /// </summary>
     public class ResourceHUD : MonoBehaviour
@@ -24,14 +23,19 @@ namespace TheWaningBorder.UI.HUD
         [SerializeField] private Faction humanFaction = GameSettings.LocalPlayerFaction;
         [SerializeField] private float refreshInterval = 0.25f;
 
+        // ── HUD bar constants (shared with EntityInfoPanel / EntityActionPanel) ──
+        // Height and bottom margin match the minimap (256px, 20px offset).
+        public const float HudBarHeight = 256f;
+        public const float HudBottomMargin = 20f;
+        public const float HudLeftMargin = 20f;
+        public const float PanelGap = 6f;
+
         // Panel layout constants
-        private const float PanelWidth = 200f;
+        public const float PanelWidth = 200f;
         private const float PanelPadding = 8f;
         private const float RowHeight = 22f;
         private const float RowSpacing = 2f;
         private const float HeaderHeight = 26f;
-        private const float BottomMargin = 10f;
-        private const float LeftMargin = 10f;
         private const int ResourceRowCount = 7; // Pop, RP, Supplies, Iron, Crystal, Veilsteel, Glow
 
         /// <summary>Returns true if the mouse is over the resource panel.</summary>
@@ -158,7 +162,7 @@ namespace TheWaningBorder.UI.HUD
             // Get Alanthor wall enclosure income
             _wallIncome = 0f;
             var localFaction = GameSettings.LocalPlayerFaction;
-            if (CultureConfig.GetFactionCulture(localFaction) == Cultures.Alanthor)
+            if (FactionColors.GetFactionCulture(localFaction) == Cultures.Alanthor)
             {
                 using var wallEntities = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
                 using var wallTags = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -181,10 +185,6 @@ namespace TheWaningBorder.UI.HUD
             if (_cache.Count == 0) return;
 
             DrawResourcePanel();
-
-            // Alanthor wall income sub-bar
-            if (_wallIncome > 0f)
-                DrawWallIncomeBar();
         }
 
         private void BuildStyles()
@@ -257,15 +257,11 @@ namespace TheWaningBorder.UI.HUD
                 rp = rpVal;
             }
 
-            // Calculate panel dimensions
-            float panelHeight = PanelPadding + HeaderHeight +
-                                (ResourceRowCount * (RowHeight + RowSpacing)) +
-                                PanelPadding;
+            // Panel dimensions — height matches minimap
+            float panelX = HudLeftMargin;
+            float panelY = Screen.height - HudBarHeight - HudBottomMargin;
 
-            float panelX = LeftMargin;
-            float panelY = Screen.height - panelHeight - BottomMargin;
-
-            _panelRect = new Rect(panelX, panelY, PanelWidth, panelHeight);
+            _panelRect = new Rect(panelX, panelY, PanelWidth, HudBarHeight);
 
             // Draw panel background
             GUI.color = Color.white;
@@ -275,9 +271,9 @@ namespace TheWaningBorder.UI.HUD
             Color borderColor = new Color(0.83f, 0.66f, 0.26f, 0.7f);
             GUI.color = borderColor;
             GUI.DrawTexture(new Rect(panelX, panelY, PanelWidth, 2f), Texture2D.whiteTexture);                      // top
-            GUI.DrawTexture(new Rect(panelX, panelY + panelHeight - 2f, PanelWidth, 2f), Texture2D.whiteTexture);   // bottom
-            GUI.DrawTexture(new Rect(panelX, panelY, 2f, panelHeight), Texture2D.whiteTexture);                      // left
-            GUI.DrawTexture(new Rect(panelX + PanelWidth - 2f, panelY, 2f, panelHeight), Texture2D.whiteTexture);   // right
+            GUI.DrawTexture(new Rect(panelX, panelY + HudBarHeight - 2f, PanelWidth, 2f), Texture2D.whiteTexture);  // bottom
+            GUI.DrawTexture(new Rect(panelX, panelY, 2f, HudBarHeight), Texture2D.whiteTexture);                     // left
+            GUI.DrawTexture(new Rect(panelX + PanelWidth - 2f, panelY, 2f, HudBarHeight), Texture2D.whiteTexture);  // right
             GUI.color = Color.white;
 
             // Header
@@ -297,6 +293,14 @@ namespace TheWaningBorder.UI.HUD
             DrawResourceRow(panelX, ref yPos, "Crystal", res.Crystal.ToString(), new Color(0.6f, 0.8f, 1f));
             DrawResourceRow(panelX, ref yPos, "Veilsteel", res.Veilsteel.ToString(), new Color(0.8f, 0.5f, 1f));
             DrawResourceRow(panelX, ref yPos, "Glow", res.Glow.ToString(), new Color(1f, 1f, 0.6f));
+
+            // Alanthor wall income (inside the panel, not a separate sub-bar)
+            if (_wallIncome > 0f)
+            {
+                yPos += RowSpacing * 2;
+                Color alanthorGreen = CultureConfig.AlanthorPrimary;
+                DrawResourceRow(panelX, ref yPos, "Wall Income", $"+{_wallIncome:F0}/min", alanthorGreen);
+            }
 
             // Pointer detection — convert mouse position from bottom-left origin to GUI top-left origin
             Vector2 mousePos = UnityEngine.Input.mousePosition;
@@ -335,26 +339,10 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
-        private void DrawWallIncomeBar()
-        {
-            // Small sub-bar below the resource panel
-            float barX = LeftMargin;
-            float barY = _panelRect.yMax + 4f;
-            float barW = PanelWidth;
-            float barH = 24f;
-
-            GUI.Box(new Rect(barX, barY, barW, barH), "", _panelBg);
-            Color alanthorGreen = CultureConfig.AlanthorPrimary;
-            var wallStyle = new GUIStyle(_labelStyle)
-            {
-                fontSize = 11,
-                normal = { textColor = alanthorGreen }
-            };
-            GUI.Label(new Rect(barX + PanelPadding, barY, barW * 0.6f, barH),
-                      "Wall Income", wallStyle);
-            var wallValStyle = new GUIStyle(_valueStyle) { fontSize = 11 };
-            GUI.Label(new Rect(barX + barW * 0.4f, barY, barW * 0.55f, barH),
-                      $"+{_wallIncome:F0}/min", wallValStyle);
-        }
+        /// <summary>
+        /// Returns the X coordinate where the next HUD panel should start (right edge of resources + gap).
+        /// Used by EntityInfoPanel to know its left position.
+        /// </summary>
+        public static float NextPanelX => HudLeftMargin + PanelWidth + PanelGap;
     }
 }

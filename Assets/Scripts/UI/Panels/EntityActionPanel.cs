@@ -23,7 +23,6 @@ namespace TheWaningBorder.UI.Panels
         public static Rect PanelRect { get; private set; }
 
         private const float PanelWidth = 370f;
-        private const float PanelHeight = 260f;
         private const float PanelPadding = 10f;
         private const float ButtonSize = 64f;
         private const float ButtonSpacing = 8f;
@@ -160,10 +159,10 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                Screen.width - PanelWidth - PanelPadding,
-                Screen.height - PanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                PanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -202,10 +201,10 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                Screen.width - PanelWidth - PanelPadding,
-                Screen.height - PanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                PanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -300,12 +299,11 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = true;
 
-            float totalPanelHeight = 900f;
             var panelRect = new Rect(
-                Screen.width - PanelWidth - PanelPadding,
-                Screen.height - totalPanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                totalPanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -911,12 +909,11 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = true;
 
-            float totalPanelHeight = 420f; // Taller to accommodate both sections
             var panelRect = new Rect(
-                Screen.width - PanelWidth - PanelPadding,
-                Screen.height - totalPanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                totalPanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -1374,12 +1371,11 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = true;
 
-            float vaultPanelHeight = 320f;
             var panelRect = new Rect(
-                Screen.width - PanelWidth - PanelPadding,
-                Screen.height - vaultPanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                vaultPanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
