@@ -21,11 +21,11 @@ namespace TheWaningBorder.UI.HUD
         [SerializeField] private Faction humanFaction = GameSettings.LocalPlayerFaction;
 
         // Layout constants
-        private const float PanelWidth = 260f;
-        private const float PanelHeight = 320f;
-        private const float ButtonSize = 50f;
-        private const float ButtonSpacing = 6f;
-        private const float Margin = 8f;
+        private const float PanelWidth = 200f;
+        private const float PanelHeight = 200f;
+        private const float ButtonSize = 22f;
+        private const float ButtonSpacing = 3f;
+        private const float Margin = 6f;
 
         // Styles
         private GUIStyle _panelBg;

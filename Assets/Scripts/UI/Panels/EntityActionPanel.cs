@@ -24,13 +24,13 @@ namespace TheWaningBorder.UI.Panels
 
         private const float PanelWidth = 370f;
         private const float PanelPadding = 10f;
-        private const float ButtonSize = 64f;
-        private const float ButtonSpacing = 8f;
+        private const float ButtonSize = 22f;
+        private const float ButtonSpacing = 3f;
 
         /// <summary>Maximum number of items allowed in a training queue.</summary>
         private const int MAX_TRAIN_QUEUE = 5;
-        private const float QueueSlotSize = 40f;
-        private const float QueueSlotSpacing = 4f;
+        private const float QueueSlotSize = 22f;
+        private const float QueueSlotSpacing = 2f;
 
         private GUIStyle _boxStyle;
         private GUIStyle _headerStyle;
@@ -446,6 +446,24 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
+            // Currently upgrading — show progress bar
+            if (em.HasComponent<TempleUpgradeState>(entity))
+            {
+                var upgrade = em.GetComponentData<TempleUpgradeState>(entity);
+                float pct = 1f - (upgrade.Remaining / upgrade.Duration);
+                int secs = Mathf.CeilToInt(upgrade.Remaining);
+                GUILayout.Label($"Upgrading to Level {upgrade.TargetLevel}... {(int)(pct * 100)}% ({secs}s)", _labelStyle);
+
+                // Progress bar
+                var barRect = GUILayoutUtility.GetRect(0, 12, GUILayout.ExpandWidth(true));
+                GUI.color = new Color(0.2f, 0.2f, 0.2f);
+                GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+                GUI.color = new Color(0.83f, 0.66f, 0.26f);
+                GUI.DrawTexture(new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                return;
+            }
+
             // Must be Era 2 (culture chosen) before first temple upgrade
             Faction faction = GameSettings.LocalPlayerFaction;
             if (em.HasComponent<FactionTag>(entity))
@@ -462,45 +480,33 @@ namespace TheWaningBorder.UI.Panels
             int nextEra = TempleLevelConfig.GetEraForLevel(nextLevel);
             var upgradeCost = TempleLevelConfig.GetUpgradeCost(templeLevel.Level);
             int rpGrant = TempleLevelConfig.GetRPGranted(nextLevel);
+            float duration = TempleLevelConfig.GetUpgradeDuration(templeLevel.Level);
 
             bool canAfford = FactionEconomy.CanAfford(em, faction, upgradeCost);
 
             bool wasEnabled = GUI.enabled;
             if (!canAfford) GUI.enabled = false;
 
-            string buttonText = $"Upgrade to Level {nextLevel} (Era {nextEra})";
+            string buttonText = $"Upgrade to Level {nextLevel} (Era {nextEra}) — {(int)duration}s";
             if (GUILayout.Button(buttonText, _ageUpStyle, GUILayout.Height(36)))
             {
-                // Spend resources
+                // Spend resources and start upgrade timer
                 if (!FactionEconomy.Spend(em, faction, upgradeCost))
                 {
                     PlayerNotificationSystem.NotifyError("Not enough resources");
                 }
                 else
                 {
-                    // Upgrade temple level
-                    em.SetComponentData(entity, new TempleLevel { Level = nextLevel });
-
-                    // Update faction era
-                    if (FactionEconomy.TryGetBank(em, faction, out var bank))
+                    // Start timed upgrade — TempleUpgradeSystem will complete it
+                    em.AddComponentData(entity, new TempleUpgradeState
                     {
-                        if (em.HasComponent<FactionEra>(bank))
-                            em.SetComponentData(bank, new FactionEra { Value = nextEra });
+                        TargetLevel = nextLevel,
+                        Duration = duration,
+                        Remaining = duration
+                    });
 
-                        // Grant religion points
-                        if (em.HasComponent<ReligionPoints>(bank))
-                        {
-                            var rp = em.GetComponentData<ReligionPoints>(bank);
-                            rp.Value += rpGrant;
-                            em.SetComponentData(bank, rp);
-                        }
-                    }
-
-                    // Recalculate sect passive scaling (temple level affects multipliers)
-                    SectEffectSystem.Instance?.RecalculateAllPassives(faction);
-
-                    Debug.Log($"[TempleUpgrade] {faction} temple upgraded to Level {nextLevel}, Era {nextEra}, +{rpGrant} RP");
-                    PlayerNotificationSystem.Notify($"Era {nextEra} reached! +{rpGrant} Religion Points");
+                    Debug.Log($"[TempleUpgrade] {faction} started temple upgrade to Level {nextLevel} ({duration}s)");
+                    PlayerNotificationSystem.Notify($"Temple upgrade started ({(int)duration}s)");
                 }
             }
 
@@ -525,8 +531,7 @@ namespace TheWaningBorder.UI.Panels
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Draw the circular chapel slot diagram on the temple panel.
-        /// Shows 7 slots arranged in a circle around a temple icon.
+        /// Draw chapel slots as a compact vertical list.
         /// Empty slots can be clicked to open a sect picker.
         /// Building slots show progress. Complete slots show sect name.
         /// </summary>
@@ -557,51 +562,20 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.Label("Chapel Slots", _headerStyle);
             GUILayout.Space(4);
 
-            // ── Circular diagram ──
-            float diagramSize = 280f;
-            float centerX = diagramSize / 2f;
-            float centerY = diagramSize / 2f;
-            float slotRadius = 105f;
-            float slotBtnSize = 50f;
-            float templeBtnSize = 40f;
-
-            var diagramRect = GUILayoutUtility.GetRect(diagramSize, diagramSize);
-
-            // Draw temple icon at center
-            var templeRect = new Rect(
-                diagramRect.x + centerX - templeBtnSize / 2f,
-                diagramRect.y + centerY - templeBtnSize / 2f,
-                templeBtnSize, templeBtnSize);
-
-            GUI.color = new Color(0.83f, 0.66f, 0.26f);
-            GUI.Box(templeRect, "T", _labelStyle);
-            GUI.color = Color.white;
-
-            // Draw 7 slot buttons in a circle
+            // ── Compact vertical list ──
             for (int i = 0; i < slots.Length && i < 7; i++)
             {
-                float angle = i * (2f * Mathf.PI / 7f) - (Mathf.PI / 2f);
-                float sx = centerX + Mathf.Cos(angle) * slotRadius - slotBtnSize / 2f;
-                float sy = centerY + Mathf.Sin(angle) * slotRadius - slotBtnSize / 2f;
-
-                var btnRect = new Rect(
-                    diagramRect.x + sx,
-                    diagramRect.y + sy,
-                    slotBtnSize, slotBtnSize);
-
-                // Draw connecting line from temple center to slot
-                DrawLine(
-                    new Vector2(diagramRect.x + centerX, diagramRect.y + centerY),
-                    new Vector2(btnRect.x + slotBtnSize / 2f, btnRect.y + slotBtnSize / 2f),
-                    new Color(0.5f, 0.5f, 0.5f, 0.3f));
-
                 var slot = slots[i];
+                GUILayout.BeginHorizontal();
+
+                // Slot number label
+                GUILayout.Label($"#{i + 1}", _smallStyle, GUILayout.Width(24));
 
                 if (slot.State == 0)
                 {
-                    // Empty slot — gray button
+                    // Empty slot — clickable button to open sect picker
                     GUI.color = new Color(0.4f, 0.4f, 0.4f);
-                    if (GUI.Button(btnRect, $"#{i + 1}", _smallStyle))
+                    if (GUILayout.Button("Build Chapel", GUILayout.Height(20)))
                     {
                         _selectedChapelSlot = (_selectedChapelSlot == i) ? -1 : i;
                     }
@@ -609,31 +583,20 @@ namespace TheWaningBorder.UI.Panels
                 }
                 else if (slot.State == 1)
                 {
-                    // Building — orange with progress
+                    // Building — progress display
                     float pct = slot.BuildTime > 0 ? slot.BuildProgress / slot.BuildTime : 0f;
+                    string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
                     GUI.color = new Color(0.9f, 0.6f, 0.1f);
-                    GUI.Box(btnRect, $"{(int)(pct * 100)}%", _smallStyle);
-                    GUI.color = Color.white;
-
-                    // Progress bar under the slot
-                    var progRect = new Rect(btnRect.x, btnRect.y + slotBtnSize - 6f, slotBtnSize, 5f);
-                    GUI.color = new Color(0.2f, 0.2f, 0.2f);
-                    GUI.DrawTexture(progRect, Texture2D.whiteTexture);
-                    GUI.color = new Color(0.9f, 0.6f, 0.1f);
-                    GUI.DrawTexture(new Rect(progRect.x, progRect.y, progRect.width * pct, progRect.height), Texture2D.whiteTexture);
+                    GUILayout.Label($"{sectName} — {(int)(pct * 100)}%", _smallStyle);
                     GUI.color = Color.white;
                 }
                 else if (slot.State == 2)
                 {
-                    // Complete — green with sect short name
+                    // Complete — green button with sect name
                     string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
-                    // Truncate long names for the button
-                    if (sectName.Length > 6) sectName = sectName.Substring(0, 5) + "…";
-
                     GUI.color = new Color(0.2f, 0.7f, 0.3f);
-                    if (GUI.Button(btnRect, sectName, _smallStyle))
+                    if (GUILayout.Button(sectName, GUILayout.Height(20)))
                     {
-                        // Select the chapel entity when clicking completed slot
                         if (slot.Chapel != Entity.Null && em.Exists(slot.Chapel))
                         {
                             SelectionSystem.ClearSelection();
@@ -642,6 +605,8 @@ namespace TheWaningBorder.UI.Panels
                     }
                     GUI.color = Color.white;
                 }
+
+                GUILayout.EndHorizontal();
             }
 
             // ── Sect Picker (when an empty slot is selected) ──
@@ -763,25 +728,6 @@ namespace TheWaningBorder.UI.Panels
             {
                 _selectedChapelSlot = -1;
             }
-        }
-
-        /// <summary>
-        /// Draw a simple line between two points using GUI.DrawTexture.
-        /// </summary>
-        private static void DrawLine(Vector2 from, Vector2 to, Color color)
-        {
-            var savedColor = GUI.color;
-            GUI.color = color;
-
-            float angle = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
-            float length = Vector2.Distance(from, to);
-
-            var pivot = new Vector2(from.x, from.y + 0.5f);
-            GUIUtility.RotateAroundPivot(angle, pivot);
-            GUI.DrawTexture(new Rect(from.x, from.y, length, 1f), Texture2D.whiteTexture);
-            GUIUtility.RotateAroundPivot(-angle, pivot);
-
-            GUI.color = savedColor;
         }
 
         /// <summary>
@@ -1098,7 +1044,8 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            int buttonsPerRow = 4;
+            int buttonsPerRow = Mathf.FloorToInt((PanelWidth - PanelPadding * 2f) / (ButtonSize + ButtonSpacing));
+            if (buttonsPerRow < 1) buttonsPerRow = 1;
             int row = 0;
 
             GUILayout.BeginHorizontal();
@@ -1111,8 +1058,8 @@ namespace TheWaningBorder.UI.Panels
                 bool wasEnabled = GUI.enabled;
                 if (!button.CanAfford) GUI.enabled = false;
 
-                // Button content
-                string label = button.Icon != null ? "" : button.Label;
+                // Button content with tooltip
+                string label = button.Label;
                 var content = new GUIContent(label, button.Tooltip);
 
                 if (GUILayout.Button(content, _buttonStyle,
@@ -1121,29 +1068,11 @@ namespace TheWaningBorder.UI.Panels
                     onClick?.Invoke(button);
                 }
 
-                // Draw icon on top
+                // Draw icon on top if available
                 if (button.Icon != null)
                 {
                     var rect = GUILayoutUtility.GetLastRect();
-                    var iconRect = new Rect(rect.x + 4, rect.y + 4, rect.width - 8, rect.height - 20);
-                    GUI.DrawTexture(iconRect, button.Icon, ScaleMode.ScaleToFit);
-
-                    // Draw label below icon
-                    var labelRect = new Rect(rect.x, rect.y + rect.height - 18, rect.width, 16);
-                    GUI.Label(labelRect, button.Label, _smallStyle);
-                }
-
-                // Cost indicator
-                if (!button.Cost.IsZero)
-                {
-                    var rect = GUILayoutUtility.GetLastRect();
-                    var costStr = FormatShortCost(button.Cost);
-                    var costStyle = new GUIStyle(_smallStyle)
-                    {
-                        normal = { textColor = button.CanAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) },
-                        alignment = TextAnchor.LowerRight
-                    };
-                    GUI.Label(rect, costStr, costStyle);
+                    GUI.DrawTexture(rect, button.Icon, ScaleMode.ScaleToFit);
                 }
 
                 GUI.enabled = wasEnabled;
@@ -1159,6 +1088,21 @@ namespace TheWaningBorder.UI.Panels
             }
 
             GUILayout.EndHorizontal();
+
+            // Tooltip display at bottom of button grid
+            if (!string.IsNullOrEmpty(GUI.tooltip))
+            {
+                GUILayout.Space(2);
+                var tipStyle = new GUIStyle(GUI.skin.box)
+                {
+                    wordWrap = true,
+                    fontSize = 11,
+                    normal = { textColor = new Color(0.9f, 0.85f, 0.7f) },
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(4, 4, 2, 2)
+                };
+                GUILayout.Label(GUI.tooltip, tipStyle);
+            }
         }
 
         private void DrawProgressBar(TrainingInfo info)

@@ -49,6 +49,18 @@ public struct TempleLevel : IComponentData
     public int Level; // 1-4
 }
 
+/// <summary>
+/// Active upgrade state for a Temple. Added when upgrade starts, removed on completion.
+/// TempleUpgradeSystem ticks Remaining each frame; on completion it sets TempleLevel,
+/// updates FactionEra, grants RP, and removes this component.
+/// </summary>
+public struct TempleUpgradeState : IComponentData
+{
+    public int TargetLevel;   // Level being upgraded to
+    public float Duration;    // Total upgrade time in seconds
+    public float Remaining;   // Time left
+}
+
 /// <summary>Defensive wall segment (generic tag for all wall entities).</summary>
 public struct WallTag : IComponentData { }
 

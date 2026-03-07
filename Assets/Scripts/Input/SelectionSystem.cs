@@ -349,8 +349,60 @@ namespace TheWaningBorder.Input
             }
 
             ents.Dispose();
+
+            // Post-filter: prioritize units over buildings, military over economic
+            FilterBoxSelection();
         }
-        
+
+        /// <summary>
+        /// Filter box selection results:
+        /// 1. If mix of units and buildings → keep only units
+        /// 2. If mix of military and economic units → keep only military
+        /// </summary>
+        private void FilterBoxSelection()
+        {
+            if (_selection.Count <= 1) return;
+
+            var units = new List<Entity>();
+            var buildings = new List<Entity>();
+
+            foreach (var e in _selection)
+            {
+                if (_em.HasComponent<UnitTag>(e)) units.Add(e);
+                else if (_em.HasComponent<BuildingTag>(e)) buildings.Add(e);
+            }
+
+            // Prioritize units over buildings
+            if (units.Count > 0 && buildings.Count > 0)
+            {
+                _selection.Clear();
+                _selection.AddRange(units);
+            }
+
+            // Among units, prioritize military over economic
+            if (units.Count > 1)
+            {
+                var military = new List<Entity>();
+                var economic = new List<Entity>();
+
+                foreach (var e in _selection)
+                {
+                    if (!_em.HasComponent<UnitTag>(e)) continue;
+                    var cls = _em.GetComponentData<UnitTag>(e).Class;
+                    if (cls == UnitClass.Economy || cls == UnitClass.Miner)
+                        economic.Add(e);
+                    else
+                        military.Add(e);
+                }
+
+                if (military.Count > 0 && economic.Count > 0)
+                {
+                    _selection.Clear();
+                    _selection.AddRange(military);
+                }
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // SELECTION VALIDATION
         // ═══════════════════════════════════════════════════════════════════════

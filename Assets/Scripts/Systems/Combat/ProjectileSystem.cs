@@ -129,7 +129,9 @@ namespace TheWaningBorder.Systems.Combat
                     // =================================================================
                     // ARROW PATH: arched Bezier trajectory with guaranteed hits
                     // =================================================================
-                    float t = elapsed / FlightDuration;
+                    // Use per-projectile FlightTime for constant speed; fallback to FlightDuration
+                    float flightTime = proj.FlightTime > 0.01f ? proj.FlightTime : FlightDuration;
+                    float t = elapsed / flightTime;
 
                     if (t > 1.5f)
                     {
@@ -164,9 +166,16 @@ namespace TheWaningBorder.Systems.Combat
                         }
                         else
                         {
-                            float3 startPos = proj.Start + new float3(0, 1.5f, 0);
+                            // Use terrain-sampled heights for slope-accurate start/end
+                            float3 startPos = proj.Start; // Already offset +1.5f at creation
+                            float terrainAtStart = TerrainUtility.GetHeight(startPos.x, startPos.z);
+                            startPos.y = terrainAtStart + 1.5f; // Chest height above terrain
+
+                            float terrainAtEnd = TerrainUtility.GetHeight(targetPos.x, targetPos.z);
+                            targetPos.y = terrainAtEnd + 1.0f; // Target center above terrain
+
                             float3 midpoint = (startPos + targetPos) * 0.5f;
-                            float horizontalDist = math.length(targetPos - startPos);
+                            float horizontalDist = math.length(new float2(targetPos.x - startPos.x, targetPos.z - startPos.z));
                             float dynamicArcHeight = ArcHeight * math.min(1f, horizontalDist / 15f);
                             float3 controlPoint = midpoint + new float3(0, dynamicArcHeight, 0);
 
@@ -180,7 +189,7 @@ namespace TheWaningBorder.Systems.Combat
                                 2f * oneMinusT * (controlPoint - startPos) +
                                 2f * t * (targetPos - controlPoint);
 
-                            velocity = math.normalize(velocity) * (horizontalDist / FlightDuration);
+                            velocity = math.normalize(velocity) * (horizontalDist / flightTime);
 
                             trans.Position = newPosition;
 

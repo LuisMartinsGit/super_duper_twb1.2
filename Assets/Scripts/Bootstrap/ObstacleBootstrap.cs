@@ -23,14 +23,14 @@ namespace TheWaningBorder.Bootstrap
         public const int RockPresentationId = 401;
 
         // Forest settings
-        private const int MinForestClusters = 8;
-        private const int MaxForestClusters = 14;
-        private const float ForestRadius = 5f;
+        private const int MinForestClusters = 10;
+        private const int MaxForestClusters = 18;
+        private const float ForestRadius = 12f;
         private const float ForestMinHeight = 25f;
         private const float ForestMaxHeight = 45f;
         private const float ForestMaxSlope = 0.2f;
         private const float ForestMinDistFromPlayers = 50f;
-        private const float ForestMinDistFromOther = 15f;
+        private const float ForestMinDistFromOther = 25f;
 
         // Rock settings
         private const int MinRockFormations = 6;
