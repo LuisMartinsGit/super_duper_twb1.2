@@ -17,7 +17,7 @@ namespace TheWaningBorder.Bootstrap
     {
         public static void SpawnTestScenario()
         {
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
 

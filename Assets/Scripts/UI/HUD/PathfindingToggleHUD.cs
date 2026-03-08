@@ -18,7 +18,7 @@ namespace TheWaningBorder.UI.HUD
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F5))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F5))
                 Toggle();
         }
 
