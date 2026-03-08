@@ -128,6 +128,9 @@ namespace TheWaningBorder.Systems.Movement
         /// </summary>
         private Dictionary<int, int> _destToSlotManaged;
 
+        /// <summary>Read-only access to cached destination→slot mapping for debug gizmos.</summary>
+        public IReadOnlyDictionary<int, int> CachedSlots => _destToSlotManaged;
+
         // =====================================================================
         // POOL INITIALIZATION
         // =====================================================================

@@ -208,6 +208,9 @@ namespace TheWaningBorder.Bootstrap
             {
                 var ffmGO = new GameObject("FlowFieldManager");
                 ffmGO.AddComponent<FlowFieldManager>();
+                #if UNITY_EDITOR
+                ffmGO.AddComponent<FlowFieldGizmos>();
+                #endif
                 Debug.Log("[GameBootstrap] Created FlowFieldManager");
             }
 
