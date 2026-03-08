@@ -46,8 +46,12 @@ namespace TheWaningBorder.Systems.Movement
         /// <summary>Maximum cells to check in spiral search when snapping to passable cell.</summary>
         private const int MaxSnapSearchCells = 25;
 
-        /// <summary>Snap destination cells to a coarser grid for cache deduplication (~8 world units).</summary>
-        private int _snapCells = 2;
+        /// <summary>
+        /// Snap destination cells to a coarser grid for cache deduplication.
+        /// 1 = no coarse snap (each cell is its own destination, max error = CellSize/2).
+        /// Higher values reduce cache misses but increase destination misalignment.
+        /// </summary>
+        private int _snapCells = 1;
 
         // =====================================================================
         // CACHE
@@ -448,7 +452,9 @@ namespace TheWaningBorder.Systems.Movement
         private void InitializePool(PassabilityGrid grid)
         {
             _totalCells = grid.Width * grid.Height;
-            _snapCells = Mathf.Max(1, Mathf.RoundToInt(8f / grid.CellSize));
+            // No coarse snap — each cell is its own destination for accurate alignment.
+            // MaxCacheSize (8) is enough for typical simultaneous move commands.
+            _snapCells = 1;
             FlowFieldArrayPool.Init(_totalCells);
 
             // Allocate the flat direction data array for all cache slots
