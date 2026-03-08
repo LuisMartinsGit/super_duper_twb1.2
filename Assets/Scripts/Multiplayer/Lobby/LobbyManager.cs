@@ -16,9 +16,9 @@ namespace TheWaningBorder.Multiplayer
     /// Manages multiplayer lobby state and networking.
     /// 
     /// Architecture:
-    /// - Host listens on BROADCAST_PORT (47777) for discovery and join requests
+    /// - Host listens on BROADCAST_PORT (27015) for discovery and join requests
     /// - Client uses two sockets:
-    ///   1. Broadcast listener on 47777 (ReuseAddress) for game discovery
+    ///   1. Broadcast listener on 27015 (ReuseAddress) for game discovery
     ///   2. Private socket on random port for direct messages
     /// 
     /// Protocol:
@@ -35,7 +35,7 @@ namespace TheWaningBorder.Multiplayer
         // CONSTANTS
         // ═══════════════════════════════════════════════════════════════════════
         
-        public const int BROADCAST_PORT = 47777;
+        public const int BROADCAST_PORT = 27015;
         public const float BROADCAST_INTERVAL = 1.0f;
         public const float LOBBY_SYNC_INTERVAL = 0.5f;
         public const float DISCOVERY_TIMEOUT = 5.0f;
@@ -136,6 +136,17 @@ namespace TheWaningBorder.Multiplayer
                 Debug.Log($"[LobbyManager] Started hosting '{gameName}' on port {BROADCAST_PORT}");
                 return true;
             }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
+                    : se.SocketErrorCode == SocketError.AccessDenied
+                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
+                        : se.Message;
+                OnError?.Invoke($"Network error: {hint}");
+                Debug.LogError($"[LobbyManager] Host socket error: {hint}");
+                return false;
+            }
             catch (Exception e)
             {
                 OnError?.Invoke($"Failed to start host: {e.Message}");
@@ -168,6 +179,17 @@ namespace TheWaningBorder.Multiplayer
 
                 Debug.Log($"[LobbyManager] Started client on port {_clientPort}");
                 return true;
+            }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
+                    : se.SocketErrorCode == SocketError.AccessDenied
+                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
+                        : se.Message;
+                OnError?.Invoke($"Network error: {hint}");
+                Debug.LogError($"[LobbyManager] Client socket error: {hint}");
+                return false;
             }
             catch (Exception e)
             {

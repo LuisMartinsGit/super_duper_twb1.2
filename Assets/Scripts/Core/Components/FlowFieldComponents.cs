@@ -261,32 +261,23 @@ public struct FlowFieldLookup
         if (!DestToSlot.TryGetValue(snappedDest, out int slot))
             return directDir;
 
-        // Bilinear interpolation: sample the 4 nearest cell centers and
-        // blend based on sub-cell position for smooth, continuous directions.
-        float fx = (position.x - Origin.x) / CellSize - 0.5f;
-        float fz = (position.z - Origin.z) / CellSize - 0.5f;
-        int x0 = (int)math.floor(fx);
-        int z0 = (int)math.floor(fz);
-        float tx = fx - x0;
-        float tz = fz - z0;
+        // Simple per-cell lookup (smoothing is handled per-unit in MovementSystem)
+        int cx = (int)math.floor((position.x - Origin.x) / CellSize);
+        int cz = (int)math.floor((position.z - Origin.z) / CellSize);
+        cx = math.clamp(cx, 0, GridWidth - 1);
+        cz = math.clamp(cz, 0, GridHeight - 1);
 
-        float2 d00 = SampleCell(slot, x0, z0);
-        float2 d10 = SampleCell(slot, x0 + 1, z0);
-        float2 d01 = SampleCell(slot, x0, z0 + 1);
-        float2 d11 = SampleCell(slot, x0 + 1, z0 + 1);
+        int idx = slot * CellsPerField + cz * GridWidth + cx;
+        if (idx < 0 || idx >= DirectionData.Length)
+            return directDir;
 
-        // Lerp horizontally then vertically
-        float2 flowDir2 = math.lerp(
-            math.lerp(d00, d10, tx),
-            math.lerp(d01, d11, tx),
-            tz);
+        float2 flowDir2 = DirectionData[idx];
 
-        // If interpolated direction is near-zero (all neighbors unreachable), use direct
+        // If cell direction is zero (unreachable/destination), use direct
         if (math.lengthsq(flowDir2) < 1e-6f)
             return directDir;
 
-        float3 flowDir = new float3(flowDir2.x, 0f, flowDir2.y);
-        flowDir = math.normalizesafe(flowDir);
+        float3 flowDir = math.normalizesafe(new float3(flowDir2.x, 0f, flowDir2.y));
 
         // Blend: near destination use direct-line for precise arrival,
         // far from destination use flow field for obstacle avoidance.

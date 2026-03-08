@@ -67,29 +67,18 @@ namespace TheWaningBorder.Systems.Movement
             int w = field.Value.Width;
             int h = field.Value.Height;
 
-            // Bilinear interpolation: sample the 4 nearest cell centers for smooth directions
-            float fx = (position.x - grid.Origin.x) / grid.CellSize - 0.5f;
-            float fz = (position.z - grid.Origin.z) / grid.CellSize - 0.5f;
-            int x0 = (int)math.floor(fx);
-            int z0 = (int)math.floor(fz);
-            float tx = fx - x0;
-            float tz = fz - z0;
+            // Simple per-cell lookup (smoothing is per-unit in MovementSystem)
+            int cx = (int)math.floor((position.x - grid.Origin.x) / grid.CellSize);
+            int cz = (int)math.floor((position.z - grid.Origin.z) / grid.CellSize);
+            cx = math.clamp(cx, 0, w - 1);
+            cz = math.clamp(cz, 0, h - 1);
 
-            float2 d00 = SampleManaged(field.Value.DirectionField, x0, z0, w, h);
-            float2 d10 = SampleManaged(field.Value.DirectionField, x0 + 1, z0, w, h);
-            float2 d01 = SampleManaged(field.Value.DirectionField, x0, z0 + 1, w, h);
-            float2 d11 = SampleManaged(field.Value.DirectionField, x0 + 1, z0 + 1, w, h);
-
-            float2 flowDir2 = math.lerp(
-                math.lerp(d00, d10, tx),
-                math.lerp(d01, d11, tx),
-                tz);
+            float2 flowDir2 = field.Value.DirectionField[cz * w + cx];
 
             if (math.lengthsq(flowDir2) < 1e-6f)
                 return directDir;
 
-            float3 flowDir = new float3(flowDir2.x, 0f, flowDir2.y);
-            flowDir = math.normalizesafe(flowDir);
+            float3 flowDir = math.normalizesafe(new float3(flowDir2.x, 0f, flowDir2.y));
 
             // Blend: near destination use direct-line for precise arrival,
             // far from destination use flow field for obstacle avoidance.

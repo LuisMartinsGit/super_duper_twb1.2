@@ -131,6 +131,27 @@ public struct GuardPoint : IComponentData
 }
 
 /// <summary>
+/// Per-unit smoothed movement direction for flow-field smoothing.
+/// Prevents cell-boundary oscillation by lerping toward the raw flow field direction.
+/// </summary>
+public struct SmoothedDirection : IComponentData
+{
+    public float3 Value;
+}
+
+/// <summary>
+/// Tracks consecutive frames where movement was blocked by passability or slope.
+/// Used by MovementSystem to detect stuck units and try alternate directions.
+/// </summary>
+public struct StuckState : IComponentData
+{
+    /// <summary>Consecutive frames where movement was blocked.</summary>
+    public byte Counter;
+    /// <summary>Which perpendicular attempt was last tried (0=none, 1=left, 2=right).</summary>
+    public byte LastAttempt;
+}
+
+/// <summary>
 /// Rally point for newly trained units.
 /// </summary>
 public struct RallyPoint : IComponentData

@@ -29,7 +29,7 @@ namespace TheWaningBorder.UI.Menus
         public event Action OnBackPressed;
 
         private const string GameSceneName = "Game";
-        private const int BROADCAST_PORT = 47777;
+        private const int BROADCAST_PORT = 27015;
         private const float BROADCAST_INTERVAL = 1.0f;
         private const float LOBBY_SYNC_INTERVAL = 0.5f;
         private const float DISCOVERY_TIMEOUT = 5.0f;
@@ -455,6 +455,16 @@ namespace TheWaningBorder.UI.Menus
                 _hostSocket.EnableBroadcast = true;
                 Debug.Log($"[MultiplayerLobby] Host listening on port {BROADCAST_PORT}");
             }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
+                    : se.SocketErrorCode == SocketError.AccessDenied
+                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
+                        : se.Message;
+                _error = $"Network error: {hint}";
+                Debug.LogError($"[MultiplayerLobby] Host socket error: {hint}");
+            }
             catch (Exception e)
             {
                 _error = $"Failed to start host: {e.Message}";
@@ -478,6 +488,16 @@ namespace TheWaningBorder.UI.Menus
                 _clientPrivatePort = (ushort)((IPEndPoint)_clientPrivateSocket.Client.LocalEndPoint).Port;
 
                 Debug.Log($"[MultiplayerLobby] Client listening on broadcast:{BROADCAST_PORT}, private:{_clientPrivatePort}");
+            }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
+                    : se.SocketErrorCode == SocketError.AccessDenied
+                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
+                        : se.Message;
+                _error = $"Network error: {hint}";
+                Debug.LogError($"[MultiplayerLobby] Client socket error: {hint}");
             }
             catch (Exception e)
             {
