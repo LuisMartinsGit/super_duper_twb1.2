@@ -4,6 +4,7 @@
 using TheWaningBorder.Core.Config;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TheWaningBorder.UI.Menus;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -62,8 +63,8 @@ namespace TheWaningBorder.UI.Menus
             {
                 _mainMenuRect = new Rect(
                     (Screen.width - 240) * 0.5f,
-                    (Screen.height - 240) * 0.5f,
-                    240, 240);
+                    (Screen.height - 290) * 0.5f,
+                    240, 290);
                 _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "");
             }
         }
@@ -107,6 +108,13 @@ namespace TheWaningBorder.UI.Menus
             GUI.enabled = true;
             GUILayout.Space(6);
 
+            // Pathfinding Test button
+            if (GUILayout.Button("Pathfinding Test", GUILayout.Height(36)))
+            {
+                LaunchPathfindingTest();
+            }
+            GUILayout.Space(6);
+
             // Options button
             if (GUILayout.Button("Options", GUILayout.Height(36)))
             {
@@ -144,6 +152,18 @@ namespace TheWaningBorder.UI.Menus
                 GameSettings.IsMultiplayer = true;
                 LobbyConfig.SetupMultiplayer(GameSettings.TotalPlayers);
             }
+        }
+
+        private void LaunchPathfindingTest()
+        {
+            GameSettings.Mode = GameMode.PathfindingTest;
+            GameSettings.TotalPlayers = 2;
+            GameSettings.MapHalfSize = 60;
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.FogOfWarEnabled = false;
+            LobbyConfig.SetupSinglePlayer(2);
+            SceneManager.LoadScene("Game");
         }
 
         private void ExitGame()
