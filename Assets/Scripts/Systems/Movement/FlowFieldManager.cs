@@ -46,8 +46,8 @@ namespace TheWaningBorder.Systems.Movement
         /// <summary>Maximum cells to check in spiral search when snapping to passable cell.</summary>
         private const int MaxSnapSearchCells = 25;
 
-        /// <summary>Snap destination cells to a coarser grid for cache deduplication (4 cells = 8 world units).</summary>
-        private const int SnapCells = 4;
+        /// <summary>Snap destination cells to a coarser grid for cache deduplication (~8 world units).</summary>
+        private int _snapCells = 2;
 
         // =====================================================================
         // CACHE
@@ -336,7 +336,7 @@ namespace TheWaningBorder.Systems.Movement
             }
 
             // Snap to coarser grid for cache deduplication
-            int snappedIndex = SnapCellIndex(cellIndex, grid.Width, grid.Height);
+            int snappedIndex = SnapCellIndex(cellIndex, grid.Width, grid.Height, _snapCells);
 
             // Check cache (must also be non-stale)
             if (_cache.TryGetValue(snappedIndex, out var cached) && cached.GridVersion >= _gridVersion)
@@ -388,7 +388,7 @@ namespace TheWaningBorder.Systems.Movement
                 if (cellIndex < 0) return false;
             }
 
-            int snappedIndex = SnapCellIndex(cellIndex, grid.Width, grid.Height);
+            int snappedIndex = SnapCellIndex(cellIndex, grid.Width, grid.Height, _snapCells);
             return _cache.TryGetValue(snappedIndex, out var cached) && cached.GridVersion >= _gridVersion;
         }
 
@@ -445,6 +445,7 @@ namespace TheWaningBorder.Systems.Movement
         private void InitializePool(PassabilityGrid grid)
         {
             _totalCells = grid.Width * grid.Height;
+            _snapCells = Mathf.Max(1, Mathf.RoundToInt(8f / grid.CellSize));
             FlowFieldArrayPool.Init(_totalCells);
 
             // Allocate the flat direction data array for all cache slots
@@ -597,14 +598,14 @@ namespace TheWaningBorder.Systems.Movement
         /// Units moving to slightly different positions in the same area share one flow field.
         /// Snaps to the center of the coarser cell to maintain path quality.
         /// </summary>
-        private static int SnapCellIndex(int cellIndex, int width, int height)
+        private static int SnapCellIndex(int cellIndex, int width, int height, int snapCells)
         {
             int cx = cellIndex % width;
             int cy = cellIndex / width;
 
             // Snap to center of coarse cell
-            cx = (cx / SnapCells) * SnapCells + SnapCells / 2;
-            cy = (cy / SnapCells) * SnapCells + SnapCells / 2;
+            cx = (cx / snapCells) * snapCells + snapCells / 2;
+            cy = (cy / snapCells) * snapCells + snapCells / 2;
 
             // Clamp to grid bounds
             cx = math.min(cx, width - 1);

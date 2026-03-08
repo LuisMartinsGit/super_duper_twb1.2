@@ -10,7 +10,8 @@ public enum GameMode
 {
     FreeForAll,
     SoloVsCurse,
-    Sandbox
+    Sandbox,
+    PathfindingTest
 }
 
 public enum SpawnLayout
@@ -91,6 +92,14 @@ public static class GameSettings
 
     /// <summary>Whether fog of war is enabled.</summary>
     public static bool FogOfWarEnabled = false;
+
+    // ==================== Pathfinding Settings ====================
+
+    /// <summary>Cell size for the passability grid (world units per cell). Larger = coarser but faster.</summary>
+    public static float PathfindingCellSize = 4f;
+
+    /// <summary>True = flow fields (shared BFS), false = A* (per-unit paths).</summary>
+    public static bool UseFlowFields = true;
 
     // ==================== Multiplayer Settings ====================
 

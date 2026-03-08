@@ -48,7 +48,7 @@ namespace TheWaningBorder.World.Terrain
         private NativeArray<byte> _cells;
         private int _width;
         private int _height;
-        private float _cellSize = 2f;
+        private float _cellSize;
         private float3 _origin; // world position of cell (0,0) corner
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -87,6 +87,9 @@ namespace TheWaningBorder.World.Terrain
                 Debug.LogError("[PassabilityGrid] ProceduralTerrain.Instance is null. Cannot generate grid.");
                 return;
             }
+
+            // Read configurable cell size (default 4 world units)
+            _cellSize = GameSettings.PathfindingCellSize;
 
             // Derive grid bounds from ProceduralTerrain world extents
             float worldWidth = pt.worldMax.x - pt.worldMin.x;
