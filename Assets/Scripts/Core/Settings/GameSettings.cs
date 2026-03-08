@@ -95,8 +95,8 @@ public static class GameSettings
 
     // ==================== Pathfinding Settings ====================
 
-    /// <summary>Cell size for the passability grid (world units per cell). Larger = coarser but faster.</summary>
-    public static float PathfindingCellSize = 2f;
+    /// <summary>Cell size for the passability grid (world units per cell). 1 = 1m resolution.</summary>
+    public static float PathfindingCellSize = 1f;
 
     /// <summary>True = flow fields (shared BFS), false = A* (per-unit paths).</summary>
     public static bool UseFlowFields = true;

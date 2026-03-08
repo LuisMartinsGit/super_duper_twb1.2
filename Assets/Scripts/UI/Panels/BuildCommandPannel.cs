@@ -113,6 +113,15 @@ namespace TheWaningBorder.UI.Panels
                         }
                     }
 
+                    // Snap building placement to grid cell center so buildings
+                    // align with the passability grid and are marked as obstacles correctly.
+                    var snapGrid = PassabilityGrid.Instance;
+                    if (snapGrid != null && _currentBuild != BuildType.Wall)
+                    {
+                        float3 snapped = snapGrid.SnapToGrid((float3)p);
+                        p = new Vector3(snapped.x, snapped.y, snapped.z);
+                    }
+
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
 
                     // Check placement validity for non-wall buildings

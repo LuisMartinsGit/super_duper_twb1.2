@@ -186,6 +186,18 @@ namespace TheWaningBorder.World.Terrain
             return new float3(wx, wy, wz);
         }
 
+        /// <summary>
+        /// Snap a world position to the nearest grid cell center.
+        /// Buildings should use this so their centers align with grid cells
+        /// and are correctly marked as obstacles in the passability grid.
+        /// </summary>
+        public float3 SnapToGrid(float3 worldPos)
+        {
+            int2 cell = WorldToCell(worldPos);
+            cell = math.clamp(cell, int2.zero, new int2(_width - 1, _height - 1));
+            return CellToWorld(cell);
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // PASSABILITY QUERIES
         // ═══════════════════════════════════════════════════════════════════════

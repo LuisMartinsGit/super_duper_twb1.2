@@ -9,6 +9,7 @@ using Unity.Transforms;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.AI
 {
@@ -251,6 +252,11 @@ namespace TheWaningBorder.AI
         private Entity CreateBuilding(ref SystemState state, Faction faction,
             FixedString64Bytes buildingType, float3 position, EntityCommandBuffer ecb)
         {
+            // Snap to grid cell center so the building aligns with the passability grid
+            var snapGrid = PassabilityGrid.Instance;
+            if (snapGrid != null)
+                position = snapGrid.SnapToGrid(position);
+
             // Delegate to BuildingFactory — single source of truth for building creation.
             // The factory handles stats from TechTreeDB, building-specific components,
             // and all Era 1 + culture buildings.
