@@ -163,6 +163,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
+            managersGO.AddComponent<PlacementGridOverlay>();     // Grid overlay during building placement
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs

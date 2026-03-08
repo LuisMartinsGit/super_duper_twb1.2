@@ -1,8 +1,13 @@
 // File: Assets/Scripts/UI/HUD/SelectionRings.cs
-// Selection and hover ring visualization for selected entities
+// Selection and hover ring visualization for selected entities.
+// Uses URP DecalProjector for terrain-projected indicators:
+// - Buildings: square border decals sized to BuildingSize
+// - Units: circle border decals sized to Radius
+// Location: Assets/Scripts/UI/HUD/SelectionRing.cs
 
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.World.FogOfWar;
@@ -14,18 +19,19 @@ using TheWaningBorder.Input;
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
-    /// Manages selection rings (cylinder decals) for selected and hovered entities.
-    /// Ring colors are based on faction colors.
+    /// Manages selection indicators for selected and hovered entities.
+    /// Uses URP DecalProjector so indicators project onto terrain (no hill clipping).
+    /// Buildings get square borders; units get circle borders.
     /// FoW-aware: enemy hover rings only shown when entity is visible.
     /// </summary>
     [DefaultExecutionOrder(900)]
     public class SelectionRings : MonoBehaviour
     {
         [Header("Ring Geometry")]
-        public float YOffset = 0.04f;
         public float MinRadius = 0.45f;
         public float BuildingRadius = 0.6f;
-        public float RingThicknessY = 0.03f;
+        public float ProjectionDepth = 10f;
+        public float DecalPadding = 0.3f;
 
         [Header("Colors (alpha is taken from these)")]
         [Tooltip("Alpha used for selection rings. RGB comes from FactionColors.")]
@@ -39,8 +45,11 @@ namespace TheWaningBorder.UI.HUD
         private readonly Dictionary<Entity, GameObject> _rings = new();
         private GameObject _hoverRing;
         private Entity _hoverFor = Entity.Null;
+        private bool _hoverIsBuilding;
 
+        // Legacy fallback material (used if decal shader not found)
         private Material _ringMat;
+        private bool _useDecals = true;
         private FogOfWarManager _fow;
         private Faction _humanFaction = GameSettings.LocalPlayerFaction;
 
@@ -49,7 +58,14 @@ namespace TheWaningBorder.UI.HUD
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated) _em = _world.EntityManager;
 
-            _ringMat = MakeRingMaterial();
+            // Check if decal materials are available
+            var testMat = DecalHelper.GetCircleSelectionMaterial();
+            if (testMat == null)
+            {
+                Debug.LogWarning("[SelectionRings] Decal shader not found, falling back to legacy cylinders");
+                _useDecals = false;
+                _ringMat = MakeLegacyRingMaterial();
+            }
 
             _fow = FindObjectOfType<FogOfWarManager>();
             if (_fow != null) _humanFaction = _fow.HumanFaction;
@@ -79,6 +95,10 @@ namespace TheWaningBorder.UI.HUD
             if (_ringMat != null) Destroy(_ringMat);
         }
 
+        // =====================================================================
+        // SELECTION RING UPDATE
+        // =====================================================================
+
         private void UpdateSelectionRings()
         {
             var want = RTSInput.CurrentSelection ?? new List<Entity>();
@@ -89,14 +109,16 @@ namespace TheWaningBorder.UI.HUD
                 var e = want[i];
                 if (!_em.Exists(e)) continue;
 
+                bool isBuilding = _em.HasComponent<BuildingTag>(e);
+
                 if (!_rings.TryGetValue(e, out var go) || go == null)
                 {
                     var selCol = GetFactionTint(e, SelectedColor.a);
-                    go = NewRing(selCol);
+                    go = _useDecals ? NewDecalRing(selCol, isBuilding) : NewLegacyRing(selCol);
                     _rings[e] = go;
                 }
 
-                UpdateRingTransform(go, e, isBuilding: _em.HasComponent<BuildingTag>(e));
+                UpdateRingTransform(go, e, isBuilding);
                 var wantCol = GetFactionTint(e, SelectedColor.a);
                 UpdateRingColor(go, wantCol);
 
@@ -117,6 +139,10 @@ namespace TheWaningBorder.UI.HUD
             foreach (var e in toRemove) _rings.Remove(e);
         }
 
+        // =====================================================================
+        // HOVER RING UPDATE
+        // =====================================================================
+
         private void UpdateHoverRing()
         {
             var h = RTSInput.HoveredEntity;
@@ -133,7 +159,6 @@ namespace TheWaningBorder.UI.HUD
                 }
                 else
                 {
-                    // FoW check for enemies
                     if (_em.HasComponent<LocalTransform>(h))
                     {
                         var pos = _em.GetComponentData<LocalTransform>(h).Position;
@@ -145,15 +170,18 @@ namespace TheWaningBorder.UI.HUD
 
             if (showHover)
             {
+                bool isBuilding = _em.HasComponent<BuildingTag>(h);
+
                 if (_hoverRing == null || _hoverFor != h)
                 {
                     ClearHoverRing();
                     var col = GetFactionTint(h, HoverEnemyColor.a);
-                    _hoverRing = NewRing(col);
+                    _hoverRing = _useDecals ? NewDecalRing(col, isBuilding) : NewLegacyRing(col);
                     _hoverFor = h;
+                    _hoverIsBuilding = isBuilding;
                 }
 
-                UpdateRingTransform(_hoverRing, h, isBuilding: _em.HasComponent<BuildingTag>(h));
+                UpdateRingTransform(_hoverRing, h, _hoverIsBuilding);
                 UpdateRingColor(_hoverRing, GetFactionTint(h, HoverEnemyColor.a));
             }
             else
@@ -162,7 +190,126 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
-        private Material MakeRingMaterial()
+        // =====================================================================
+        // DECAL RING CREATION
+        // =====================================================================
+
+        private GameObject NewDecalRing(Color color, bool isBuilding)
+        {
+            var go = new GameObject(isBuilding ? "SelectionDecalSquare" : "SelectionDecalCircle");
+
+            var decal = go.AddComponent<DecalProjector>();
+
+            // Clone base material so each ring can have its own color
+            var baseMat = isBuilding
+                ? DecalHelper.GetSquareSelectionMaterial()
+                : DecalHelper.GetCircleSelectionMaterial();
+
+            decal.material = new Material(baseMat);
+            SetDecalColor(decal, color);
+            decal.drawDistance = 500f;
+            decal.fadeFactor = 1f;
+            decal.size = new Vector3(2f, ProjectionDepth, 2f);
+
+            // Point downward to project onto terrain
+            go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+
+            return go;
+        }
+
+        // =====================================================================
+        // RING TRANSFORM UPDATE
+        // =====================================================================
+
+        private void UpdateRingTransform(GameObject ring, Entity e, bool isBuilding)
+        {
+            if (!_em.HasComponent<LocalTransform>(e)) return;
+            var xf = _em.GetComponentData<LocalTransform>(e);
+            var pos = (Vector3)xf.Position;
+
+            var decal = ring.GetComponent<DecalProjector>();
+            if (decal != null)
+            {
+                // Position above terrain, projecting downward
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z) + ProjectionDepth / 2f;
+
+                if (isBuilding && _em.HasComponent<BuildingSize>(e))
+                {
+                    var size = _em.GetComponentData<BuildingSize>(e);
+                    decal.size = new Vector3(
+                        size.Width + DecalPadding,
+                        ProjectionDepth,
+                        size.Height + DecalPadding
+                    );
+                }
+                else
+                {
+                    float r = MinRadius;
+                    if (_em.HasComponent<Radius>(e))
+                        r = Mathf.Max(MinRadius, _em.GetComponentData<Radius>(e).Value);
+                    if (isBuilding)
+                        r = Mathf.Max(r, BuildingRadius);
+
+                    float d = r * 2f + DecalPadding;
+                    decal.size = new Vector3(d, ProjectionDepth, d);
+                }
+
+                ring.transform.position = pos;
+            }
+            else
+            {
+                // Legacy cylinder path
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z) + 0.04f;
+
+                float r = MinRadius;
+                if (_em.HasComponent<Radius>(e))
+                    r = Mathf.Max(MinRadius, _em.GetComponentData<Radius>(e).Value);
+                if (isBuilding)
+                    r = Mathf.Max(r, BuildingRadius);
+
+                ring.transform.position = pos;
+                ring.transform.localScale = new Vector3(r * 2f, 0.03f, r * 2f);
+            }
+        }
+
+        // =====================================================================
+        // COLOR UPDATE
+        // =====================================================================
+
+        private void UpdateRingColor(GameObject ring, Color color)
+        {
+            if (ring == null) return;
+
+            var decal = ring.GetComponent<DecalProjector>();
+            if (decal != null)
+            {
+                SetDecalColor(decal, color);
+                return;
+            }
+
+            // Legacy path
+            var mr = ring.GetComponent<MeshRenderer>();
+            if (mr == null) return;
+            var mat = mr.sharedMaterial;
+            if (mat != null) SetMatColor(mat, color);
+        }
+
+        private void SetDecalColor(DecalProjector decal, Color color)
+        {
+            if (decal.material != null)
+            {
+                if (decal.material.HasProperty("_BaseColor"))
+                    decal.material.SetColor("_BaseColor", color);
+                else if (decal.material.HasProperty("Base_Color"))
+                    decal.material.SetColor("Base_Color", color);
+            }
+        }
+
+        // =====================================================================
+        // LEGACY FALLBACK
+        // =====================================================================
+
+        private Material MakeLegacyRingMaterial()
         {
             Shader sh =
                 Shader.Find("Universal Render Pipeline/Unlit") ??
@@ -178,14 +325,12 @@ namespace TheWaningBorder.UI.HUD
             return m;
         }
 
-        private GameObject NewRing(Color color)
+        private GameObject NewLegacyRing(Color color)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             go.name = "SelectionRing";
             go.transform.rotation = Quaternion.identity;
 
-            // Destroy collider entirely — disabled colliders can still interfere
-            // with physics queries and crystal collection raycasting
             var mc = go.GetComponent<Collider>();
             if (mc) Destroy(mc);
 
@@ -204,34 +349,9 @@ namespace TheWaningBorder.UI.HUD
             if (m.HasProperty("_Color")) m.SetColor("_Color", c);
         }
 
-        private void UpdateRingColor(GameObject ring, Color color)
-        {
-            if (ring == null) return;
-            var mr = ring.GetComponent<MeshRenderer>();
-            if (mr == null) return;
-            var mat = mr.sharedMaterial;
-            if (mat != null) SetMatColor(mat, color);
-        }
-
-        private void UpdateRingTransform(GameObject ring, Entity e, bool isBuilding)
-        {
-            if (!_em.HasComponent<LocalTransform>(e)) return;
-            var xf = _em.GetComponentData<LocalTransform>(e);
-            var pos = (Vector3)xf.Position;
-
-            // Project ring onto terrain surface (not entity Y which may be stale)
-            // This makes the ring appear as a ground decal under the unit
-            pos.y = TerrainUtility.GetHeight(pos.x, pos.z) + YOffset;
-
-            float r = MinRadius;
-            if (_em.HasComponent<Radius>(e))
-                r = Mathf.Max(MinRadius, _em.GetComponentData<Radius>(e).Value);
-            if (isBuilding)
-                r = Mathf.Max(r, BuildingRadius);
-
-            ring.transform.position = pos;
-            ring.transform.localScale = new Vector3(r * 2f, Mathf.Max(0.01f, RingThicknessY), r * 2f);
-        }
+        // =====================================================================
+        // HELPERS
+        // =====================================================================
 
         private void ClearHoverRing()
         {

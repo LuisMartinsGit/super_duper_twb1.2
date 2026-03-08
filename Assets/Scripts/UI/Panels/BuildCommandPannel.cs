@@ -29,6 +29,15 @@ namespace TheWaningBorder.UI.Panels
         public static bool IsPlacingBuilding;
         public static bool SuppressClicksThisFrame;
 
+        /// <summary>Current building ID being placed, or null if not placing.</summary>
+        public static string CurrentBuildId => _activeInstance != null ? _activeInstance._currentBuildId : null;
+
+        /// <summary>Whether the current placement position is valid.</summary>
+        public static bool PlacementIsValid => _activeInstance != null ? _activeInstance._placementValid : true;
+
+        private static BuilderCommandPanel _activeInstance;
+        private string _currentBuildId;
+
         private EntityWorld _world;
         private EntityManager _em;
 
@@ -79,6 +88,7 @@ namespace TheWaningBorder.UI.Panels
 
         void Awake()
         {
+            _activeInstance = this;
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             _padding = new RectOffset(10, 10, 10, 10);
 
@@ -113,24 +123,24 @@ namespace TheWaningBorder.UI.Panels
                         }
                     }
 
-                    // Snap building placement to grid cell center so buildings
-                    // align with the passability grid and are marked as obstacles correctly.
+                    // Snap building placement to grid (rect-aware for even/odd dimensions).
                     var snapGrid = PassabilityGrid.Instance;
                     if (snapGrid != null && _currentBuild != BuildType.Wall)
                     {
-                        float3 snapped = snapGrid.SnapToGrid((float3)p);
+                        var buildSize = BuildingSizeConfig.GetSize(BuildId(_currentBuild));
+                        float3 snapped = snapGrid.SnapToGridRect((float3)p, buildSize);
                         p = new Vector3(snapped.x, snapped.y, snapped.z);
                     }
 
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
 
-                    // Check placement validity for non-wall buildings
+                    // Check placement validity for non-wall buildings (AABB collision)
                     if (_currentBuild != BuildType.Wall)
                     {
                         _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
-                        float radius = BuildCommandHelper.GetBuildingRadius(BuildId(_currentBuild));
+                        var buildSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
                         _placementValid = BuildCommandHelper.IsValidBuildPosition(
-                            _em, (float3)_placingInstance.transform.position, radius);
+                            _em, (float3)_placingInstance.transform.position, buildSize);
                         UpdatePreviewColor(_placementValid);
                     }
                 }
@@ -222,6 +232,7 @@ namespace TheWaningBorder.UI.Panels
         public void StartPlacement()
         {
             CancelPlacement();
+            _currentBuildId = BuildId(_currentBuild);
 
             var prefab = _currentBuild switch
             {

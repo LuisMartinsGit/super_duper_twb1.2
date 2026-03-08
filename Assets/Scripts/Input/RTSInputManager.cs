@@ -148,7 +148,7 @@ namespace TheWaningBorder.Input
                     _attackMoveMode = false;
                     _patrolMode = false;
                 }
-                else if (SelectionSystem.HasSelection())
+                else if (RTSInput.HasSelection)
                 {
                     SelectionSystem.ClearSelection();
                 }

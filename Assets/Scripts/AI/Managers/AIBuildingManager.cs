@@ -252,10 +252,13 @@ namespace TheWaningBorder.AI
         private Entity CreateBuilding(ref SystemState state, Faction faction,
             FixedString64Bytes buildingType, float3 position, EntityCommandBuffer ecb)
         {
-            // Snap to grid cell center so the building aligns with the passability grid
+            // Snap to grid (rect-aware for even/odd building dimensions)
             var snapGrid = PassabilityGrid.Instance;
             if (snapGrid != null)
-                position = snapGrid.SnapToGrid(position);
+            {
+                var buildSize = BuildingSizeConfig.GetSize(buildingType.ToString());
+                position = snapGrid.SnapToGridRect(position, buildSize);
+            }
 
             // Delegate to BuildingFactory — single source of truth for building creation.
             // The factory handles stats from TechTreeDB, building-specific components,

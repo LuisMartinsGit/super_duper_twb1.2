@@ -80,10 +80,18 @@ namespace TheWaningBorder.UI.HUD
                 _markerObj.transform.position = rallyWorld;
                 _markerObj.transform.Rotate(Vector3.up, 90f * Time.deltaTime);
 
-                // Show line from building to rally point
+                // Show terrain-hugging line from building to rally point
                 _lineRenderer.gameObject.SetActive(true);
-                _lineRenderer.SetPosition(0, buildWorld);
-                _lineRenderer.SetPosition(1, rallyWorld);
+                const int segments = 10;
+                _lineRenderer.positionCount = segments + 1;
+                for (int s = 0; s <= segments; s++)
+                {
+                    float t = (float)s / segments;
+                    float x = Mathf.Lerp(buildWorld.x, rallyWorld.x, t);
+                    float z = Mathf.Lerp(buildWorld.z, rallyWorld.z, t);
+                    float y = TerrainUtility.GetHeight(x, z) + 0.3f;
+                    _lineRenderer.SetPosition(s, new Vector3(x, y, z));
+                }
 
                 break; // Only show one rally point
             }

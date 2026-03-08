@@ -45,6 +45,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(PopulationProvider)
             );
 
@@ -54,7 +55,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Hut");
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.SetComponentData(entity, new PopulationProvider { Amount = DefaultPopulation });
 
             // Combat type tags
@@ -89,7 +92,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent<HutTag>(entity);
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Hut");
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new PopulationProvider { Amount = DefaultPopulation });
 
             // Combat type tags

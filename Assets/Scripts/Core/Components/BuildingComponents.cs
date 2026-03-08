@@ -343,6 +343,23 @@ public struct VaultStorage : IComponentData
     public float LockDuration;   // Seconds to lock after deposit/withdraw (180 = 3 min)
 }
 
+// ==================== Building Size (Grid-Aligned) ====================
+
+/// <summary>
+/// Grid-aligned rectangular size for buildings.
+/// Width (X-axis) and Height (Z-axis) in whole grid cells (1m each).
+/// Max dimension: 5. Minimum: 1.
+/// Buildings with this component use AABB collision instead of circle collision.
+/// The Radius component is kept for backward compatibility (set to max(Width,Height)/2).
+/// </summary>
+public struct BuildingSize : IComponentData
+{
+    /// <summary>Width in grid cells along the X axis (1-5).</summary>
+    public int Width;
+    /// <summary>Height in grid cells along the Z axis (1-5).</summary>
+    public int Height;
+}
+
 // ==================== Terrain Obstacles ====================
 
 /// <summary>
