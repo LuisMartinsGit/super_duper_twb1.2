@@ -232,30 +232,19 @@ public struct FlowFieldLookup
     private const float BlendRadius = 6f;
 
     /// <summary>
-    /// Given a unit position and its goal, return the movement direction
-    /// using flow fields when available, with smooth blending near the goal.
+    /// Given a unit position, return the movement direction from a cached flow field.
+    /// The snappedDest parameter must come from FlowFieldManager.RequestFlowField()
+    /// (via FlowField.DestinationIndex) to ensure the same snap-to-passable and
+    /// coarse-grid snapping logic is used for both caching and lookup.
     /// Returns the direct-line direction as fallback.
-    /// Mirrors FlowFieldMovementHelper.GetDirection but uses NativeArrays only.
     /// </summary>
-    public float3 GetDirection(float3 position, float3 goal, float3 directDir, float distToGoal)
+    /// <param name="position">Unit's current world position.</param>
+    /// <param name="snappedDest">Snapped destination cell index from FlowField.DestinationIndex, or -1 if no field.</param>
+    /// <param name="directDir">Pre-computed normalized direct-line direction.</param>
+    /// <param name="distToGoal">Pre-computed distance to goal (horizontal).</param>
+    public float3 GetDirection(float3 position, int snappedDest, float3 directDir, float distToGoal)
     {
-        if (!IsValid) return directDir;
-
-        // Convert goal to destination cell index (same snapping as manager)
-        int gx = (int)math.floor((goal.x - Origin.x) / CellSize);
-        int gy = (int)math.floor((goal.z - Origin.z) / CellSize);
-        if (gx < 0 || gx >= GridWidth || gy < 0 || gy >= GridHeight)
-            return directDir;
-
-        int destIndex = gy * GridWidth + gx;
-
-        // Snap to same coarser grid as FlowFieldManager for cache lookup
-        const int SnapCells = 4;
-        int sx = (gx / SnapCells) * SnapCells + SnapCells / 2;
-        int sy = (gy / SnapCells) * SnapCells + SnapCells / 2;
-        sx = math.min(sx, GridWidth - 1);
-        sy = math.min(sy, GridHeight - 1);
-        int snappedDest = sy * GridWidth + sx;
+        if (!IsValid || snappedDest < 0) return directDir;
 
         // Look up slot for this destination
         if (!DestToSlot.TryGetValue(snappedDest, out int slot))

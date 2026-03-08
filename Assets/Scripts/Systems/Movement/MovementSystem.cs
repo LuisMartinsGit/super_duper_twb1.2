@@ -266,12 +266,19 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                // Pre-warm flow field cache for this destination
+                // Request/lookup flow field for this destination.
+                // The snapped destination index from RequestFlowField ensures the
+                // lookup uses the same cache key as the manager (including snap-to-passable).
+                int snappedDest = -1;
                 if (ffm != null)
-                    ffm.RequestFlowField(goal);
+                {
+                    var field = ffm.RequestFlowField(goal);
+                    if (field.HasValue)
+                        snappedDest = field.Value.DestinationIndex;
+                }
 
                 // Flow-field direction lookup (NativeArray-based, falls back to direct-line)
-                dir = ffLookup.GetDirection(pos, goal, dir, dist);
+                dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
 
                 // === Per-unit direction smoothing ===
                 // Lerp toward raw flow field direction to prevent cell-boundary oscillation.
