@@ -172,6 +172,8 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
             managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
             managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC key)
+            managersGO.AddComponent<AStarPathStore>();               // A* per-unit path storage
+            managersGO.AddComponent<PathfindingToggleHUD>();         // FF/A* toggle button (F5)
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
@@ -241,10 +243,10 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeAI()
         {
-            // Sandbox mode: no AI opponents
-            if (GameSettings.IsSandbox)
+            // Sandbox / PathfindingTest: no AI opponents
+            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest)
             {
-                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox mode)");
+                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox/PathfindingTest mode)");
                 return;
             }
 

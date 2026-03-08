@@ -4,6 +4,7 @@
 
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Core.Commands.Types
@@ -44,8 +45,16 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.AddComponent<DesiredDestination>(unit);
             em.SetComponentData(unit, new DesiredDestination { Position = destination, Has = 1 });
 
-            // Pre-warm flow field cache for this destination
-            FlowFieldManager.Instance?.RequestFlowField(destination);
+            // Pre-warm pathfinding for this destination
+            if (GameSettings.UseFlowFields)
+            {
+                FlowFieldManager.Instance?.RequestFlowField(destination);
+            }
+            else
+            {
+                var pos = em.GetComponentData<LocalTransform>(unit).Position;
+                AStarPathStore.Instance?.RequestPath(unit, pos, destination);
+            }
 
             // Add UserMoveOrder to prevent auto-targeting from overriding
             if (!em.HasComponent<UserMoveOrder>(unit))

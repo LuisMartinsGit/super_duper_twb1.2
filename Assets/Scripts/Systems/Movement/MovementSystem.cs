@@ -192,10 +192,11 @@ namespace TheWaningBorder.Systems.Movement
             // PHASE 2: Move units toward their destinations
             // =============================================================================
 
-            // Read FlowFieldLookup from manager (NativeArray-based, no managed singleton
-            // access in the movement loop). Falls back to direct-line if unavailable.
-            var ffm = FlowFieldManager.Instance;
+            // Pathfinding mode: flow fields (shared BFS) or A* (per-unit paths)
+            bool useFlowFields = GameSettings.UseFlowFields;
+            var ffm = useFlowFields ? FlowFieldManager.Instance : null;
             var ffLookup = (ffm != null) ? ffm.CurrentLookup : default;
+            var astarStore = useFlowFields ? null : AStarPathStore.Instance;
 
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
@@ -266,19 +267,51 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                // Request/lookup flow field for this destination.
-                // The snapped destination index from RequestFlowField ensures the
-                // lookup uses the same cache key as the manager (including snap-to-passable).
-                int snappedDest = -1;
-                if (ffm != null)
+                // === PATHFINDING DIRECTION ===
+                if (!useFlowFields && astarStore != null && em.HasComponent<AStarPathIndex>(entity))
                 {
-                    var field = ffm.RequestFlowField(goal);
-                    if (field.HasValue)
-                        snappedDest = field.Value.DestinationIndex;
-                }
+                    // A* waypoint following
+                    var pathIdx = em.GetComponentData<AStarPathIndex>(entity);
+                    if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 wp))
+                    {
+                        float3 toWp = wp - pos;
+                        toWp.y = 0f;
+                        float wpDist = math.length(toWp);
 
-                // Flow-field direction lookup (NativeArray-based, falls back to direct-line)
-                dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
+                        if (wpDist < StopDistance * 2f)
+                        {
+                            // Advance to next waypoint
+                            pathIdx.CurrentWaypoint++;
+                            ecb.SetComponent(entity, pathIdx);
+
+                            // Check if more waypoints remain
+                            if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 nextWp))
+                            {
+                                toWp = nextWp - pos;
+                                toWp.y = 0f;
+                                wpDist = math.length(toWp);
+                            }
+                            // else: path exhausted, fall through — the DesiredDestination
+                            // arrival check at line ~243 handles final stop
+                        }
+
+                        if (wpDist > 1e-4f)
+                            dir = toWp / wpDist;
+                    }
+                    // else: no path available, keep direct-line dir
+                }
+                else
+                {
+                    // Flow field direction lookup
+                    int snappedDest = -1;
+                    if (ffm != null)
+                    {
+                        var field = ffm.RequestFlowField(goal);
+                        if (field.HasValue)
+                            snappedDest = field.Value.DestinationIndex;
+                    }
+                    dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
+                }
 
                 // === Per-unit direction smoothing ===
                 // Lerp toward raw flow field direction to prevent cell-boundary oscillation.
