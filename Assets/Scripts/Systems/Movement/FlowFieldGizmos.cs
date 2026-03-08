@@ -186,28 +186,52 @@ namespace TheWaningBorder.Systems.Movement
 
             float arrowLen = cs * 0.38f;
             float headLen = cs * 0.12f;
+            int gw = lookup.GridWidth;
+            int gh = lookup.GridHeight;
+            int cellsPerField = lookup.CellsPerField;
 
             foreach (var kvp in slotsToDraw)
             {
                 int slot = kvp.Value;
-                int cellsPerField = lookup.CellsPerField;
 
                 for (int cy = minCell.y; cy <= maxCell.y; cy++)
                 {
                     for (int cx = minCell.x; cx <= maxCell.x; cx++)
                     {
-                        int dirIdx = slot * cellsPerField + cy * lookup.GridWidth + cx;
-                        if (dirIdx < 0 || dirIdx >= lookup.DirectionData.Length) continue;
+                        // ── 5×5 Gaussian kernel convolution (matches GetDirection) ──
+                        float2 weightedSum = float2.zero;
+                        float totalWeight = 0f;
 
-                        float2 dir2 = lookup.DirectionData[dirIdx];
-                        if (math.lengthsq(dir2) < 1e-6f) continue;
+                        for (int dy = -2; dy <= 2; dy++)
+                        {
+                            int nz = cy + dy;
+                            if (nz < 0 || nz >= gh) continue;
 
-                        float2 dirN = math.normalize(dir2);
+                            for (int dx = -2; dx <= 2; dx++)
+                            {
+                                int nx = cx + dx;
+                                if (nx < 0 || nx >= gw) continue;
+
+                                int idx = slot * cellsPerField + nz * gw + nx;
+                                if (idx < 0 || idx >= lookup.DirectionData.Length) continue;
+
+                                float2 cellDir = lookup.DirectionData[idx];
+                                if (math.lengthsq(cellDir) < 1e-6f) continue;
+
+                                float w = GaussianWeight5x5(dx, dy);
+                                weightedSum += cellDir * w;
+                                totalWeight += w;
+                            }
+                        }
+
+                        if (totalWeight < 1e-6f || math.lengthsq(weightedSum) < 1e-6f) continue;
+
+                        float2 dirN = math.normalize(weightedSum);
 
                         float3 worldPos = grid.CellToWorld(new int2(cx, cy));
                         Vector3 center = new Vector3(worldPos.x, worldPos.y + HeightOffset + 0.1f, worldPos.z);
 
-                        // Arrow shaft: from center toward direction
+                        // Arrow shaft: from center toward convolved direction
                         Vector3 dir3 = new Vector3(dirN.x, 0f, dirN.y);
                         Vector3 tip = center + dir3 * arrowLen;
 
@@ -216,13 +240,36 @@ namespace TheWaningBorder.Systems.Movement
 
                         // Arrowhead: two small lines from the tip
                         Gizmos.color = ArrowHeadColor;
-                        Vector3 perp = new Vector3(-dir3.z, 0f, dir3.x); // perpendicular
+                        Vector3 perp = new Vector3(-dir3.z, 0f, dir3.x);
                         Vector3 back = -dir3 * headLen;
                         Gizmos.DrawLine(tip, tip + back + perp * headLen * 0.6f);
                         Gizmos.DrawLine(tip, tip + back - perp * headLen * 0.6f);
                     }
                 }
             }
+        }
+
+        // =====================================================================
+        // KERNEL (mirrors FlowFieldLookup.GaussianWeight5x5)
+        // =====================================================================
+
+        /// <summary>
+        /// 5×5 Gaussian kernel weight (σ = 1.0).
+        /// Must match FlowFieldLookup.GaussianWeight5x5 exactly.
+        /// </summary>
+        private static float GaussianWeight5x5(int dx, int dy)
+        {
+            int d2 = dx * dx + dy * dy;
+            return d2 switch
+            {
+                0 => 1.0000f,
+                1 => 0.6065f,
+                2 => 0.3679f,
+                4 => 0.1353f,
+                5 => 0.0821f,
+                8 => 0.0183f,
+                _ => 0f,
+            };
         }
     }
 }
