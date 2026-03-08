@@ -46,20 +46,17 @@ namespace TheWaningBorder.Systems.Movement
             var ffm = FlowFieldManager.Instance;
             if (ffm == null) return directDir;
 
+            // Request flow field (also queues generation if not cached)
+            var field = ffm.RequestFlowField(goal);
+            if (field == null) return directDir;
+
             // Try NativeArray-based lookup first (Burst-compatible path)
             var lookup = ffm.CurrentLookup;
             if (lookup.IsValid)
             {
-                // Ensure flow field is queued for generation
-                ffm.RequestFlowField(goal);
-
-                // Delegate to FlowFieldLookup (same logic, NativeArray-only)
-                return lookup.GetDirection(position, goal, directDir, distToGoal);
+                // Use the manager's snapped destination to avoid lookup mismatch
+                return lookup.GetDirection(position, field.Value.DestinationIndex, directDir, distToGoal);
             }
-
-            // Fallback: direct managed FlowField access (pre-initialization)
-            var field = ffm.RequestFlowField(goal);
-            if (field == null) return directDir;
 
             var grid = PassabilityGrid.Instance;
             if (grid == null) return directDir;
