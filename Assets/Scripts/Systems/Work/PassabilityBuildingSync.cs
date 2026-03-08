@@ -83,7 +83,10 @@ namespace TheWaningBorder.Systems.Work
                     HasSize = (byte)(hasSize ? 1 : 0)
                 };
                 if (hasSize)
-                    record.Size = em.GetComponentData<BuildingSize>(entity);
+                {
+                    var bs = em.GetComponentData<BuildingSize>(entity);
+                    record.Size = new int2(bs.Width, bs.Height);
+                }
                 currentBuildings.Add(entity, record);
             }
 
