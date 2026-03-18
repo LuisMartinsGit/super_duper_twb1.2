@@ -86,10 +86,15 @@ namespace TheWaningBorder.Entities
 
             // NO PresentationId — leader is invisible (no mesh/collider)
 
-            // Add member buffer
-            var memberBuffer = em.AddBuffer<BattalionMember>(leader);
+            // Add member buffer (populated AFTER all structural changes)
+            em.AddBuffer<BattalionMember>(leader);
 
             // ── Create member entities ──
+            // IMPORTANT: Collect in temp array first — UnitFactory.Create() and
+            // AddComponentData() perform structural changes that invalidate DynamicBuffer refs.
+            int memberCount = rows * cols;
+            var members = new Entity[memberCount];
+
             for (int row = 0; row < rows; row++)
             {
                 for (int col = 0; col < cols; col++)
@@ -124,10 +129,14 @@ namespace TheWaningBorder.Entities
                     if (em.HasComponent<StuckState>(member))
                         em.RemoveComponent<StuckState>(member);
 
-                    // Append to leader buffer
-                    memberBuffer.Add(new BattalionMember { Value = member });
+                    members[row * cols + col] = member;
                 }
             }
+
+            // Populate buffer AFTER all structural changes — ref is now stable
+            var memberBuffer = em.GetBuffer<BattalionMember>(leader);
+            for (int i = 0; i < memberCount; i++)
+                memberBuffer.Add(new BattalionMember { Value = members[i] });
 
             return leader;
         }

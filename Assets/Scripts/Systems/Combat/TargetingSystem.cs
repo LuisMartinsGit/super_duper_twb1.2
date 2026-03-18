@@ -52,8 +52,10 @@ namespace TheWaningBorder.Systems.Combat
             ProcessAttackCommands(ref state, ref ecb);
 
             // Build enemy arrays ONCE for both auto-acquire and return-to-guard phases
+            // Exclude BattalionLeader — invisible entities with 1 HP must not be targetable
             var enemyQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, FactionTag, Health>()
+                .WithNone<BattalionLeader>()
                 .Build();
 
             using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
