@@ -51,6 +51,31 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
+            // Phase 1.5: Remove dead members from battalion buffers
+            int originalDeadCount = deadEntities.Length;
+            for (int i = 0; i < originalDeadCount; i++)
+            {
+                var dead = deadEntities[i];
+                if (!state.EntityManager.HasComponent<BattalionMemberData>(dead)) continue;
+
+                var memberData = state.EntityManager.GetComponentData<BattalionMemberData>(dead);
+                var leader = memberData.Leader;
+                if (leader == Entity.Null || !state.EntityManager.Exists(leader)) continue;
+                if (!state.EntityManager.HasBuffer<BattalionMember>(leader)) continue;
+
+                var buffer = state.EntityManager.GetBuffer<BattalionMember>(leader);
+                for (int j = buffer.Length - 1; j >= 0; j--)
+                {
+                    if (buffer[j].Value == dead) { buffer.RemoveAt(j); break; }
+                }
+
+                // If battalion is now empty, kill the leader too
+                if (buffer.Length == 0)
+                {
+                    deadEntities.Add(leader);
+                }
+            }
+
             if (deadEntities.Length > 0)
             {
                 // Build O(1) lookup set from dead entities list

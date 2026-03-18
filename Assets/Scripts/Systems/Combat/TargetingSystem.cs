@@ -209,8 +209,9 @@ namespace TheWaningBorder.Systems.Combat
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
-                .WithNone<CanBuild>()       // Builders are passive workers
-                .WithNone<MinerTag>()       // Miners are handled by MiningSystem
+                .WithNone<CanBuild>()           // Builders are passive workers
+                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<BattalionLeader>()    // Invisible leaders should not auto-acquire
                 .WithEntityAccess())
             {
                 // Skip units that already have an active target
@@ -294,6 +295,7 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<AttackCommand>()
                 .WithNone<CanBuild>()
                 .WithNone<MinerTag>()
+                .WithNone<BattalionLeader>()
                 .WithEntityAccess())
             {
                 // Skip units that already have an active target
@@ -342,6 +344,7 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<AttackCommand>()
                 .WithNone<CanBuild>()
                 .WithNone<MinerTag>()
+                .WithNone<BattalionLeader>()
                 .WithEntityAccess())
             {
                 // Skip units that already have an active target
@@ -394,8 +397,9 @@ namespace TheWaningBorder.Systems.Combat
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
-                .WithNone<CanBuild>()       // Builders are passive workers
-                .WithNone<MinerTag>()       // Miners are handled by MiningSystem
+                .WithNone<CanBuild>()           // Builders are passive workers
+                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<BattalionLeader>()    // Invisible leaders should not fight
                 .WithEntityAccess())
             {
                 // Skip units that have an active target
