@@ -188,6 +188,24 @@ namespace TheWaningBorder.Input
                 IssueHoldPositionToSelection();
             }
 
+            // D - Set battalion stance to Defensive
+            if (UnityEngine.Input.GetKeyDown(KeyCode.D))
+            {
+                IssueStanceToSelection(BattalionStance.Defensive);
+            }
+
+            // F - Set battalion stance to Default (Formation)
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F))
+            {
+                IssueStanceToSelection(BattalionStance.Default);
+            }
+
+            // G - Set battalion stance to Aggressive
+            if (UnityEngine.Input.GetKeyDown(KeyCode.G))
+            {
+                IssueStanceToSelection(BattalionStance.Aggressive);
+            }
+
             // Control groups (1-9)
             for (int i = 0; i < 9; i++)
             {
@@ -381,6 +399,38 @@ namespace TheWaningBorder.Input
                 if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssueHoldPosition(_em, e, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
+        private void IssueStanceToSelection(BattalionStance stance)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            // Track leaders already processed to avoid duplicates
+            var processed = new HashSet<Entity>();
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+
+                // Resolve to battalion leader
+                Entity leader = Entity.Null;
+                if (_em.HasComponent<BattalionLeader>(e))
+                {
+                    leader = e;
+                }
+                else if (_em.HasComponent<BattalionMemberData>(e))
+                {
+                    leader = _em.GetComponentData<BattalionMemberData>(e).Leader;
+                }
+
+                if (leader == Entity.Null || !_em.Exists(leader)) continue;
+                if (processed.Contains(leader)) continue;
+                processed.Add(leader);
+
+                CommandRouter.IssueStanceChange(_em, leader, stance, CommandRouter.CommandSource.LocalPlayer);
             }
         }
 

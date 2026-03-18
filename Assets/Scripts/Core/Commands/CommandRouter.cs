@@ -360,6 +360,26 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // BATTALION STANCE COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Set the stance on a battalion leader entity.
+        /// Stance controls how battalion members engage enemies.
+        /// </summary>
+        public static void IssueStanceChange(EntityManager em, Entity leader,
+            BattalionStance stance, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (leader == Entity.Null || !em.Exists(leader)) return;
+            if (!em.HasComponent<BattalionStanceData>(leader)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] StanceChange: {leader.Index} -> {stance} (Source: {source})");
+
+            em.SetComponentData(leader, new BattalionStanceData { Value = stance });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // INTERNAL ROUTING LOGIC
         // ═══════════════════════════════════════════════════════════════
 
