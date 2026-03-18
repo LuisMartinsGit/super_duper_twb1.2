@@ -362,6 +362,7 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssueStop(_em, e, CommandRouter.CommandSource.LocalPlayer);
             }
@@ -377,6 +378,7 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssueHoldPosition(_em, e, CommandRouter.CommandSource.LocalPlayer);
             }
@@ -402,6 +404,7 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue; // Buildings can't attack-move
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssueAttack(_em, e, target, CommandRouter.CommandSource.LocalPlayer);
             }
@@ -598,6 +601,7 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssuePatrol(_em, e, destination, CommandRouter.CommandSource.LocalPlayer);
             }
@@ -617,6 +621,9 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
+                    continue;
+                // Battalion members follow formation automatically; only route to leader
+                if (_em.HasComponent<BattalionMemberData>(e))
                     continue;
 
                 units.Add(e);
@@ -715,6 +722,9 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
+                    continue;
+                // Battalion members follow formation automatically; only route to leader
+                if (_em.HasComponent<BattalionMemberData>(e))
                     continue;
 
                 units.Add(e);

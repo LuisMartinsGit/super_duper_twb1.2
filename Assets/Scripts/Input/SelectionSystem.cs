@@ -227,6 +227,12 @@ namespace TheWaningBorder.Input
             var e = RaycastPickEntity();
             float now = Time.time;
 
+            // Battalion resolution: if clicked entity is a member, resolve to leader
+            if (e != Entity.Null && _em.Exists(e) && _em.HasComponent<BattalionMemberData>(e))
+            {
+                e = _em.GetComponentData<BattalionMemberData>(e).Leader;
+            }
+
             // Check for double-click on a unit of the same type
             if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e)
                 && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
@@ -265,7 +271,18 @@ namespace TheWaningBorder.Input
 
             if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e))
             {
-                _selection.Add(e);
+                // If selecting a battalion leader, add leader + all members
+                if (_em.HasComponent<BattalionLeader>(e) && _em.HasBuffer<BattalionMember>(e))
+                {
+                    _selection.Add(e);
+                    var buf = _em.GetBuffer<BattalionMember>(e);
+                    for (int i = 0; i < buf.Length; i++)
+                        if (_em.Exists(buf[i].Value)) _selection.Add(buf[i].Value);
+                }
+                else
+                {
+                    _selection.Add(e);
+                }
             }
         }
         
@@ -290,6 +307,7 @@ namespace TheWaningBorder.Input
 
             float screenW = Screen.width;
             float screenH = Screen.height;
+            var addedBattalionLeaders = new HashSet<Entity>();
 
             for (int i = 0; i < ents.Length; i++)
             {
@@ -297,6 +315,9 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByPlayer(e)) continue;
                 if (_em.GetComponentData<UnitTag>(e).Class != unitClass) continue;
+
+                // Skip individual battalion members (they come in via their leader)
+                if (_em.HasComponent<BattalionMemberData>(e)) continue;
 
                 if (!mapWide)
                 {
@@ -310,7 +331,22 @@ namespace TheWaningBorder.Input
                     if (screenPos.y < 0f || screenPos.y > screenH) continue;
                 }
 
-                _selection.Add(e);
+                // If entity is a battalion leader, add leader + all members
+                if (_em.HasComponent<BattalionLeader>(e) && !addedBattalionLeaders.Contains(e))
+                {
+                    addedBattalionLeaders.Add(e);
+                    _selection.Add(e);
+                    if (_em.HasBuffer<BattalionMember>(e))
+                    {
+                        var buf = _em.GetBuffer<BattalionMember>(e);
+                        for (int j = 0; j < buf.Length; j++)
+                            if (_em.Exists(buf[j].Value)) _selection.Add(buf[j].Value);
+                    }
+                }
+                else if (!_em.HasComponent<BattalionLeader>(e))
+                {
+                    _selection.Add(e);
+                }
             }
 
             ents.Dispose();
@@ -330,11 +366,17 @@ namespace TheWaningBorder.Input
             var query = _em.CreateEntityQuery(typeof(LocalTransform), typeof(FactionTag));
             var ents = query.ToEntityArray(Allocator.Temp);
 
+            // Track which battalion leaders are already added to avoid duplicates
+            var addedBattalionLeaders = new HashSet<Entity>();
+
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByPlayer(e)) continue; // Box select only own units
+
+                // Skip invisible battalion leaders (they have no visual bounds)
+                if (_em.HasComponent<BattalionLeader>(e)) continue;
 
                 // Project entity bounds to screen
                 Bounds worldBounds = ComputeEntityWorldBounds(e);
@@ -345,7 +387,28 @@ namespace TheWaningBorder.Input
 
                 // Check overlap
                 if (screenRect.Overlaps(screenBounds, true))
-                    _selection.Add(e);
+                {
+                    // If entity is a battalion member, resolve to leader + all members
+                    if (_em.HasComponent<BattalionMemberData>(e))
+                    {
+                        var leader = _em.GetComponentData<BattalionMemberData>(e).Leader;
+                        if (leader != Entity.Null && _em.Exists(leader) && !addedBattalionLeaders.Contains(leader))
+                        {
+                            addedBattalionLeaders.Add(leader);
+                            _selection.Add(leader);
+                            if (_em.HasBuffer<BattalionMember>(leader))
+                            {
+                                var buf = _em.GetBuffer<BattalionMember>(leader);
+                                for (int j = 0; j < buf.Length; j++)
+                                    if (_em.Exists(buf[j].Value)) _selection.Add(buf[j].Value);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _selection.Add(e);
+                    }
+                }
             }
 
             ents.Dispose();
