@@ -92,7 +92,6 @@ namespace TheWaningBorder.Entities
             // ── Create member entities ──
             // IMPORTANT: Collect in temp array first — UnitFactory.Create() and
             // AddComponentData() perform structural changes that invalidate DynamicBuffer refs.
-            int memberCount = rows * cols;
             var members = new Entity[memberCount];
 
             for (int row = 0; row < rows; row++)
