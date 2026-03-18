@@ -100,7 +100,27 @@ namespace TheWaningBorder.UI.HUD
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
 
+            // Skip individual battalion members (they share the leader's bar)
+            if (_em.HasComponent<BattalionMemberData>(e)) return;
+
             var hp = _em.GetComponentData<Health>(e);
+
+            // Battalion leaders: aggregate HP from all living members
+            if (_em.HasComponent<BattalionLeader>(e) && _em.HasBuffer<BattalionMember>(e))
+            {
+                int totalHP = 0, totalMaxHP = 0;
+                var buf = _em.GetBuffer<BattalionMember>(e);
+                for (int j = 0; j < buf.Length; j++)
+                {
+                    if (!_em.Exists(buf[j].Value)) continue;
+                    if (!_em.HasComponent<Health>(buf[j].Value)) continue;
+                    var mhp = _em.GetComponentData<Health>(buf[j].Value);
+                    totalHP += mhp.Value;
+                    totalMaxHP += mhp.Max;
+                }
+                hp = new Health { Value = totalHP, Max = totalMaxHP };
+            }
+
             if (hp.Max <= 0) return;
 
             var pos = _em.GetComponentData<LocalTransform>(e).Position;
