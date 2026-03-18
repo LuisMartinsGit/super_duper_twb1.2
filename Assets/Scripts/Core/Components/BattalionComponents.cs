@@ -46,3 +46,34 @@ public struct BattalionMemberData : IComponentData
     public int Column;  // 0..Columns-1
     public int Row;     // 0..Rows-1
 }
+
+// ==================== Battalion Stance ====================
+
+/// <summary>
+/// Battalion stance controlling engagement behavior.
+/// </summary>
+public enum BattalionStance : byte
+{
+    Default = 0,    // Auto-acquire within LOS, pursue up to 25 units from guard point, then return
+    Defensive = 1,  // No auto-acquire; return fire only if attacker is within attack range
+    Aggressive = 2  // Auto-acquire and pursue without distance limit (existing behavior)
+}
+
+/// <summary>
+/// Attached to the battalion leader. Controls how members engage enemies.
+/// Members do NOT carry this -- they look up their leader's stance via BattalionMemberData.Leader.
+/// </summary>
+public struct BattalionStanceData : IComponentData
+{
+    public BattalionStance Value;
+}
+
+/// <summary>
+/// Set on a unit when it takes damage. Records the attacking entity.
+/// Used by TargetingSystem to implement Defensive stance return-fire behavior.
+/// Cleared each frame by TargetingSystem after processing.
+/// </summary>
+public struct LastAttackerEntity : IComponentData
+{
+    public Entity Value;
+}
