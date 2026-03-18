@@ -58,6 +58,7 @@ namespace TheWaningBorder.Entities
                 typeof(StuckState),
                 typeof(BattalionTag),
                 typeof(BattalionLeader),
+                typeof(BattalionStanceData),
                 typeof(PopulationCost)
             );
 
@@ -83,6 +84,7 @@ namespace TheWaningBorder.Entities
                 LeashDistance = DefaultLeashDistance,
                 UnitId = new FixedString64Bytes(unitId)
             });
+            em.SetComponentData(leader, new BattalionStanceData { Value = BattalionStance.Default });
 
             // NO PresentationId — leader is invisible (no mesh/collider)
 
