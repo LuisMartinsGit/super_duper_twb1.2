@@ -194,7 +194,25 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
-            // Create unit via centralized UnitFactory (handles all unit types including culture units)
+            // Check if unit class should spawn as a battalion (Melee or Ranged)
+            var unitClass = UnitFactory.GetUnitClass(unitId);
+            if (unitClass == UnitClass.Melee || unitClass == UnitClass.Ranged)
+            {
+                Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
+                TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
+
+                // Rally point handling for leader
+                if (hasRally)
+                {
+                    em.SetComponentData(leader, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                    em.SetComponentData(leader, new GuardPoint { Position = rallyTarget, Has = 1 });
+                }
+
+                UnityEngine.Debug.Log($"Spawned {unitId} battalion for {faction} at {finalPos}");
+                return;
+            }
+
+            // Create individual unit via centralized UnitFactory (economy, siege, support, etc.)
             Entity unit = UnitFactory.Create(em, unitId, finalPos, faction);
 
             // Apply all completed tech effects to the newly spawned unit
