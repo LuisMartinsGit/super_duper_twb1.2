@@ -349,6 +349,22 @@ namespace TheWaningBorder.UI.Menus
                 ApplySandboxToggle(newSandbox);
             }
 
+            // Battalion test toggle
+            bool isBatTest = GameSettings.Mode == GameMode.BattalionTest;
+            bool newBatTest = GUILayout.Toggle(isBatTest, "  Battalion Test (spawns 2 test battalions)");
+            if (newBatTest != isBatTest)
+            {
+                if (newBatTest)
+                {
+                    _sandbox = false;
+                    GameSettings.Mode = GameMode.BattalionTest;
+                }
+                else
+                {
+                    GameSettings.Mode = GameMode.FreeForAll;
+                }
+            }
+
             GUILayout.Space(10);
 
             // Fog of war

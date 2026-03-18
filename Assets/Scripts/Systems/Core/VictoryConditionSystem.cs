@@ -53,11 +53,11 @@ namespace TheWaningBorder.UI.HUD
 
             _gameStartTime = Time.time;
 
-            // Sandbox mode: no victory conditions
-            if (GameSettings.IsSandbox)
+            // Sandbox / BattalionTest mode: no victory conditions
+            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.BattalionTest)
             {
                 _initialized = false;
-                Debug.Log("[VictoryConditionSystem] Disabled (Sandbox mode)");
+                Debug.Log("[VictoryConditionSystem] Disabled (Sandbox/BattalionTest mode)");
                 return;
             }
 

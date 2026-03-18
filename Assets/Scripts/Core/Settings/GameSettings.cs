@@ -10,7 +10,8 @@ public enum GameMode
 {
     FreeForAll,
     SoloVsCurse,
-    Sandbox
+    Sandbox,
+    BattalionTest
 }
 
 public enum SpawnLayout

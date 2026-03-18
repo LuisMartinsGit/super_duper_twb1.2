@@ -54,6 +54,15 @@ namespace TheWaningBorder.Bootstrap
             // 0. Ensure ECS world exists (may have been disposed on previous game exit)
             EnsureECSWorld();
 
+            // Battalion test mode: minimal bootstrap with just battalions
+            if (GameSettings.Mode == GameMode.BattalionTest)
+            {
+                InitializeDataSystems();
+                PathfindingTestSetup.Bootstrap();
+                Debug.Log("[GameBootstrap] BattalionTest mode initialized");
+                return;
+            }
+
             // 1. Initialize core data systems (TechTreeDB)
             InitializeDataSystems();
 
