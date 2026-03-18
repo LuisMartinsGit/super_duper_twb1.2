@@ -161,7 +161,7 @@ namespace TheWaningBorder.Systems.Combat
 
                         if (t >= 0.95f || distToTarget < HitRadius)
                         {
-                            ApplyDamage(em, proj, targetEntity, targetIsAlive);
+                            ApplyDamage(em, proj, targetEntity, targetIsAlive, arr.Shooter);
                             shouldDestroy = true;
                         }
                         else
