@@ -13,6 +13,7 @@ using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.World.Terrain;
+using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -34,11 +35,11 @@ namespace TheWaningBorder.Bootstrap
             GameSettings.IsObserver = false;
 
             // Ensure ECS world
-            var world = World.DefaultGameObjectInjectionWorld;
+            var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
                 DefaultWorldInitialization.Initialize("Default World");
-                world = World.DefaultGameObjectInjectionWorld;
+                world = EntityWorld.DefaultGameObjectInjectionWorld;
             }
             var em = world.EntityManager;
 
