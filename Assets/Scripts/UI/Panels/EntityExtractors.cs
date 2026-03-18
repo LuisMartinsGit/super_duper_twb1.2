@@ -370,6 +370,22 @@ namespace TheWaningBorder.UI
 
             if (!em.Exists(entity)) return info;
 
+            // Check if this is a battalion entity (leader or member) — show stance panel
+            if (em.HasComponent<BattalionLeader>(entity))
+            {
+                info.Type = ActionType.BattalionStance;
+                return info;
+            }
+            if (em.HasComponent<BattalionMemberData>(entity))
+            {
+                var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
+                {
+                    info.Type = ActionType.BattalionStance;
+                    return info;
+                }
+            }
+
             // Check if this is a builder (can place buildings)
             if (em.HasComponent<CanBuild>(entity))
             {

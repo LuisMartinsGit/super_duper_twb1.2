@@ -11,6 +11,7 @@ using TheWaningBorder.UI;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Core.Commands;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -96,6 +97,10 @@ namespace TheWaningBorder.UI.Panels
 
                 case ActionType.TempleUpgrade:
                     DrawTempleLevelUpPanel(entity, actionInfo);
+                    break;
+
+                case ActionType.BattalionStance:
+                    DrawStancePanel(entity, em);
                     break;
             }
         }
@@ -1507,6 +1512,113 @@ namespace TheWaningBorder.UI.Panels
         /// <summary>
         /// Check if pointer is over this panel.
         /// </summary>
+        // ═══════════════════════════════════════════════════════════════════════
+        // BATTALION STANCE PANEL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawStancePanel(Entity entity, EntityManager em)
+        {
+            // Resolve to leader entity
+            Entity leader = Entity.Null;
+            if (em.HasComponent<BattalionLeader>(entity))
+            {
+                leader = entity;
+            }
+            else if (em.HasComponent<BattalionMemberData>(entity))
+            {
+                leader = em.GetComponentData<BattalionMemberData>(entity).Leader;
+            }
+
+            if (leader == Entity.Null || !em.Exists(leader)) return;
+            if (!em.HasComponent<BattalionStanceData>(leader)) return;
+
+            var currentStance = em.GetComponentData<BattalionStanceData>(leader).Value;
+
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            GUILayout.Label("Battalion Stance", _headerStyle);
+            GUILayout.Space(8);
+
+            // Current stance display
+            string stanceLabel = currentStance switch
+            {
+                BattalionStance.Defensive => "Defensive",
+                BattalionStance.Default => "Default",
+                BattalionStance.Aggressive => "Aggressive",
+                _ => "Unknown"
+            };
+            GUILayout.Label($"Current: {stanceLabel}", _labelStyle);
+            GUILayout.Space(8);
+
+            // 3 horizontal stance buttons
+            GUILayout.BeginHorizontal();
+
+            float btnWidth = (innerRect.width - 12f) / 3f;
+
+            // Defensive button
+            DrawStanceButton("[D] Defensive", BattalionStance.Defensive, currentStance, leader, em, btnWidth);
+            GUILayout.Space(6);
+            // Default button
+            DrawStanceButton("[F] Default", BattalionStance.Default, currentStance, leader, em, btnWidth);
+            GUILayout.Space(6);
+            // Aggressive button
+            DrawStanceButton("[G] Aggressive", BattalionStance.Aggressive, currentStance, leader, em, btnWidth);
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(10);
+
+            // Stance description
+            string desc = currentStance switch
+            {
+                BattalionStance.Defensive => "Members hold position and only return fire when attacked.",
+                BattalionStance.Default => "Members auto-engage enemies within range but stay near formation.",
+                BattalionStance.Aggressive => "Members pursue enemies without distance limits.",
+                _ => ""
+            };
+            GUILayout.Label(desc, _smallStyle);
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawStanceButton(string label, BattalionStance stance, BattalionStance current,
+            Entity leader, EntityManager em, float width)
+        {
+            bool isActive = stance == current;
+
+            // Golden highlight for active stance
+            var prevBg = GUI.backgroundColor;
+            if (isActive)
+                GUI.backgroundColor = new Color(0.83f, 0.66f, 0.26f, 1f);
+
+            if (GUILayout.Button(label, _buttonStyle, GUILayout.Width(width), GUILayout.Height(28f)))
+            {
+                CommandRouter.IssueStanceChange(em, leader, stance);
+                BuilderCommandPanel.SuppressClicksThisFrame = true;
+            }
+
+            GUI.backgroundColor = prevBg;
+        }
+
         public static bool IsPointerOver()
         {
             if (!PanelVisible) return false;

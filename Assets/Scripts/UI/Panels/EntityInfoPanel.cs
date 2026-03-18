@@ -191,6 +191,34 @@ namespace TheWaningBorder.UI.Panels
                     GUILayout.Label($"Speed: {info.Speed.Value:F1}", _labelStyle);
             }
 
+            // Battalion stance display
+            {
+                var stanceEntity = UnifiedUIManager.GetFirstSelectedEntity();
+                var stanceEm = UnifiedUIManager.GetEntityManager();
+                if (stanceEntity != Entity.Null && !stanceEm.Equals(default(EntityManager)))
+                {
+                    Entity stanceLeader = Entity.Null;
+                    if (stanceEm.HasComponent<BattalionLeader>(stanceEntity))
+                        stanceLeader = stanceEntity;
+                    else if (stanceEm.HasComponent<BattalionMemberData>(stanceEntity))
+                        stanceLeader = stanceEm.GetComponentData<BattalionMemberData>(stanceEntity).Leader;
+
+                    if (stanceLeader != Entity.Null && stanceEm.Exists(stanceLeader)
+                        && stanceEm.HasComponent<BattalionStanceData>(stanceLeader))
+                    {
+                        var stance = stanceEm.GetComponentData<BattalionStanceData>(stanceLeader).Value;
+                        string stanceLabel = stance switch
+                        {
+                            BattalionStance.Defensive => "Defensive",
+                            BattalionStance.Default => "Default",
+                            BattalionStance.Aggressive => "Aggressive",
+                            _ => "Unknown"
+                        };
+                        GUILayout.Label($"Stance: {stanceLabel}", _labelStyle);
+                    }
+                }
+            }
+
             // Resource generation (buildings)
             if (info.HasResourceGeneration)
             {
