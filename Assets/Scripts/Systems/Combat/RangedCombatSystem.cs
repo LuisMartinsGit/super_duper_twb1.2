@@ -186,7 +186,7 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
                 // =============================================================================
-                // BEHAVIOR: Too far - CHASE (unless holding position)
+                // BEHAVIOR: Too far - CHASE (unless holding position or defensive stance)
                 // =============================================================================
                 else
                 {
@@ -198,6 +198,24 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<AttackCommand>(entity))
                             ecb.RemoveComponent<AttackCommand>(entity);
                         continue;
+                    }
+
+                    // Defensive stance battalion members do NOT chase — clear target instead
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                        if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
+                        {
+                            var stance = em.GetComponentData<BattalionStanceData>(memberData.Leader);
+                            if (stance.Value == BattalionStance.Defensive)
+                            {
+                                tgt.Value = Entity.Null;
+                                archer.AimTimer = 0;
+                                if (em.HasComponent<AttackCommand>(entity))
+                                    ecb.RemoveComponent<AttackCommand>(entity);
+                                continue;
+                            }
+                        }
                     }
 
                     archer.IsRetreating = 0;

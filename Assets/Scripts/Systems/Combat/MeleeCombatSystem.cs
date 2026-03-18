@@ -148,6 +148,12 @@ namespace TheWaningBorder.Systems.Combat
                             });
                         }
 
+                        // Track attacker entity for defensive stance return-fire
+                        if (!em.HasComponent<LastAttackerEntity>(tgt.Value))
+                            ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
+                        else
+                            ecb.SetComponent(tgt.Value, new LastAttackerEntity { Value = entity });
+
                         // Reset cooldown
                         cd.Timer = cd.Cooldown;
                     }
@@ -162,6 +168,23 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<AttackCommand>(entity))
                             ecb.RemoveComponent<AttackCommand>(entity);
                         continue;
+                    }
+
+                    // Defensive stance battalion members do NOT chase — clear target instead
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                        if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
+                        {
+                            var stance = em.GetComponentData<BattalionStanceData>(memberData.Leader);
+                            if (stance.Value == BattalionStance.Defensive)
+                            {
+                                tgt.Value = Entity.Null;
+                                if (em.HasComponent<AttackCommand>(entity))
+                                    ecb.RemoveComponent<AttackCommand>(entity);
+                                continue;
+                            }
+                        }
                     }
 
                     // Chase target

@@ -113,7 +113,7 @@ namespace TheWaningBorder.Systems.Combat
 
                             if (t >= 0.95f || distToTarget < HitRadius)
                             {
-                                ApplyDamage(em, proj, targetEntity, targetIsAlive);
+                                ApplyDamage(em, proj, targetEntity, targetIsAlive, arr.Shooter);
                                 shouldDestroy = true;
                             }
                             else
@@ -217,7 +217,7 @@ namespace TheWaningBorder.Systems.Combat
         /// Shared between arrow and laser impact paths.
         /// </summary>
         private static void ApplyDamage(EntityManager em, in Projectile proj,
-            Entity targetEntity, bool targetIsAlive)
+            Entity targetEntity, bool targetIsAlive, Entity shooter = default)
         {
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
@@ -258,6 +258,15 @@ namespace TheWaningBorder.Systems.Combat
                 em.SetComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
             else
                 em.AddComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
+
+            // Track attacker entity for defensive stance return-fire
+            if (shooter != Entity.Null && em.Exists(shooter))
+            {
+                if (em.HasComponent<LastAttackerEntity>(targetEntity))
+                    em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
+                else
+                    em.AddComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
+            }
         }
 
         /// <summary>
