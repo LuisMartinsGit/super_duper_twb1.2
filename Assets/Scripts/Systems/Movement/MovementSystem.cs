@@ -200,6 +200,7 @@ namespace TheWaningBorder.Systems.Movement
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
+                .WithNone<BattalionMemberData>()
                 .WithEntityAccess())
             {
                 if (dd.ValueRO.Has == 0) continue;
