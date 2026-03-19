@@ -17,10 +17,11 @@ namespace TheWaningBorder.Systems.Movement
     ///
     /// Two-pass algorithm:
     ///   Pass 1 — compute each member's slot and distance; find the max distance.
-    ///   Pass 2 — derive a shared arrival time from maxDist / leaderSpeed so that
-    ///            all members converge at roughly the same moment.  Members whose
-    ///            slot is closer move slower; members farther away move faster
-    ///            (clamped to their own MoveSpeed).
+    ///   Pass 2 — ratio-based speed scaling: each member moves at its own speed
+    ///            scaled by (dist / maxDist).  Members closer to their slot move
+    ///            slower and arrive first; members farther away move at full speed.
+    ///            On a new command, ahead members naturally slow while behind
+    ///            members catch up.
     ///
     /// CRITICAL: Members do NOT have DesiredDestination, do NOT use flow fields.
     /// Movement is pure position step in this system only.
@@ -94,9 +95,7 @@ namespace TheWaningBorder.Systems.Movement
                     if (s > 0f) leaderSpeed = s;
                 }
 
-                const float SettleThreshold = 0.1f;
-
-                // ── Pass 2: move each member toward its slot ──
+                // ── Pass 2: move each member toward its slot — ratio-based speed ──
                 for (int i = 0; i < count; i++)
                 {
                     if (memberDistances[i] < 0f) continue; // invalid member
@@ -106,28 +105,34 @@ namespace TheWaningBorder.Systems.Movement
                     float3 slotWorldPos = slotPositions[i];
                     float dist = memberDistances[i];
 
+                    // Safety: strip DesiredDestination if combat system added one
+                    if (em.HasComponent<DesiredDestination>(member))
+                        em.RemoveComponent<DesiredDestination>(member);
+
                     float3 newPos;
 
-                    if (maxDist < SettleThreshold || dist < 0.01f)
+                    if (dist < 0.01f)
                     {
-                        // Formation is settled — tight lerp for micro-adjustments
-                        float lerpRate = bl.FollowSpeed * dt;
-                        newPos = math.lerp(memberXf.Position, slotWorldPos, math.saturate(lerpRate));
+                        // Already at slot — snap and wait for others
+                        newPos = slotWorldPos;
                     }
                     else
                     {
-                        // Speed-proportional constant-velocity movement
-                        float arrivalTime = maxDist / math.max(leaderSpeed, 0.1f);
-                        float memberSpeed = dist / math.max(arrivalTime, 0.016f);
-
-                        // Clamp to member's own MoveSpeed
+                        // Each member moves at its own MoveSpeed, scaled by distance ratio
+                        float memberSpeed = leaderSpeed;
                         if (em.HasComponent<MoveSpeed>(member))
                         {
-                            float memberMaxSpeed = em.GetComponentData<MoveSpeed>(member).Value;
-                            memberSpeed = math.min(memberSpeed, memberMaxSpeed);
+                            float ms = em.GetComponentData<MoveSpeed>(member).Value;
+                            if (ms > 0f) memberSpeed = ms;
                         }
 
-                        float step = math.min(memberSpeed * dt, dist);
+                        // ratio: close members move slowly, far members move at full speed.
+                        // On a new command, ahead members (small dist) naturally slow
+                        // while behind members (large dist) catch up.
+                        float ratio = dist / math.max(maxDist, 0.01f);
+                        float scaledSpeed = memberSpeed * math.max(ratio, 0.15f);
+
+                        float step = math.min(scaledSpeed * dt, dist);
                         float3 dir = math.normalizesafe(slotWorldPos - memberXf.Position);
                         newPos = memberXf.Position + dir * step;
                     }

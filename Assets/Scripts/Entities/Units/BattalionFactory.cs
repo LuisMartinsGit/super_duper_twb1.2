@@ -17,8 +17,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BattalionFactory
     {
-        private const int DefaultColumns = 5;
-        private const int DefaultRows = 3;
+        private const int DefaultColumns = 3;
+        private const int DefaultRows = 5;
         private const float DefaultSpacing = 1.5f;
         private const float DefaultFollowSpeed = 8f;
         private const float DefaultLeashDistance = 10f;

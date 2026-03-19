@@ -170,24 +170,16 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Defensive stance battalion members do NOT chase — clear target instead
+                    // Battalion members NEVER chase — formation controls their movement
                     if (em.HasComponent<BattalionMemberData>(entity))
                     {
-                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
-                        if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
-                        {
-                            var stance = em.GetComponentData<BattalionStanceData>(memberData.Leader);
-                            if (stance.Value == BattalionStance.Defensive)
-                            {
-                                tgt.Value = Entity.Null;
-                                if (em.HasComponent<AttackCommand>(entity))
-                                    ecb.RemoveComponent<AttackCommand>(entity);
-                                continue;
-                            }
-                        }
+                        tgt.Value = Entity.Null;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
                     }
 
-                    // Chase target
+                    // Chase target (only non-battalion units reach here)
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination

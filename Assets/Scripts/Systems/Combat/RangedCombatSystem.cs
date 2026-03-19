@@ -101,6 +101,10 @@ namespace TheWaningBorder.Systems.Combat
                 // =============================================================================
                 if (dist < minRange)
                 {
+                    // Battalion members do NOT retreat independently
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                        continue;
+
                     archer.IsRetreating = 1;
                     archer.AimTimer = 0;
 
@@ -132,10 +136,13 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     archer.IsRetreating = 0;
 
-                    // Stop moving when in range
+                    // Stop moving when in range; remove stale DesiredDestination on battalion members
                     if (em.HasComponent<DesiredDestination>(entity))
                     {
-                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
+                        if (em.HasComponent<BattalionMemberData>(entity))
+                            ecb.RemoveComponent<DesiredDestination>(entity);
+                        else
+                            ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
                     // Calculate dynamic aim time based on distance
@@ -200,22 +207,14 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Defensive stance battalion members do NOT chase — clear target instead
+                    // Battalion members NEVER chase — formation controls their movement
                     if (em.HasComponent<BattalionMemberData>(entity))
                     {
-                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
-                        if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
-                        {
-                            var stance = em.GetComponentData<BattalionStanceData>(memberData.Leader);
-                            if (stance.Value == BattalionStance.Defensive)
-                            {
-                                tgt.Value = Entity.Null;
-                                archer.AimTimer = 0;
-                                if (em.HasComponent<AttackCommand>(entity))
-                                    ecb.RemoveComponent<AttackCommand>(entity);
-                                continue;
-                            }
-                        }
+                        tgt.Value = Entity.Null;
+                        archer.AimTimer = 0;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
                     }
 
                     archer.IsRetreating = 0;

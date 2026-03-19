@@ -19,8 +19,8 @@ public struct BattalionTag : IComponentData { }
 /// </summary>
 public struct BattalionLeader : IComponentData
 {
-    public int Columns;               // 5
-    public int Rows;                  // 3
+    public int Columns;               // 3
+    public int Rows;                  // 5
     public float Spacing;             // 1.5f (meters between slots)
     public float FollowSpeed;         // 8f (lerp speed for members)
     public float LeashDistance;       // 10f (teleport threshold)
