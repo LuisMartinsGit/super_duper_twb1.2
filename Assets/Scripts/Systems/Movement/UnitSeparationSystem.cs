@@ -79,6 +79,7 @@ namespace TheWaningBorder.Systems.Movement
             // =============================================================================
             var unitQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, Radius, UnitTag>()
+                .WithNone<BattalionLeader>()
                 .Build();
 
             var unitCount = unitQuery.CalculateEntityCount();
@@ -217,6 +218,7 @@ namespace TheWaningBorder.Systems.Movement
                 // Re-query units to get updated positions (after unit-unit separation)
                 var unitQuery2 = SystemAPI.QueryBuilder()
                     .WithAll<LocalTransform, Radius, UnitTag>()
+                    .WithNone<BattalionLeader>()
                     .Build();
                 var units2 = unitQuery2.ToEntityArray(Allocator.Temp);
                 var unitPos2 = unitQuery2.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -299,6 +301,7 @@ namespace TheWaningBorder.Systems.Movement
                 // Re-query units to get positions after building push
                 var unitQuery3 = SystemAPI.QueryBuilder()
                     .WithAll<LocalTransform, Radius, UnitTag>()
+                    .WithNone<BattalionLeader>()
                     .Build();
                 var units3 = unitQuery3.ToEntityArray(Allocator.Temp);
                 var unitPos3 = unitQuery3.ToComponentDataArray<LocalTransform>(Allocator.Temp);
