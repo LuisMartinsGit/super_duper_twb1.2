@@ -103,7 +103,10 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     // Battalion members do NOT retreat independently
                     if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        archer.AimTimer = 0;
                         continue;
+                    }
 
                     archer.IsRetreating = 1;
                     archer.AimTimer = 0;
