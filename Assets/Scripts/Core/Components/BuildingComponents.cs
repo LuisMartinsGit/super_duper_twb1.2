@@ -206,19 +206,6 @@ public struct TrainQueueItem : IBufferElementData
     public FixedString64Bytes UnitId;
 }
 
-// Legacy production system (consider deprecating in favor of TrainingState)
-public struct ProductionQueue : IBufferElementData
-{
-    public UnitClass Class;
-}
-
-public struct ProductionState : IComponentData
-{
-    public float Timer;        // Time left to finish current item (<=0 means idle)
-    public float BaseTime;     // Base production time per unit
-    public UnitClass CurrentClass;
-}
-
 // ==================== Building Combat ====================
 
 /// <summary>
