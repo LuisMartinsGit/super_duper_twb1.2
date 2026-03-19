@@ -73,6 +73,7 @@ namespace TheWaningBorder.UI.HUD
             {
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<UnitTag>(entity)) continue;
+                if (_em.HasComponent<BattalionMemberData>(entity)) continue; // Members follow formation, not destinations
                 if (!_em.HasComponent<DesiredDestination>(entity)) continue;
                 if (!_em.HasComponent<LocalTransform>(entity)) continue;
 

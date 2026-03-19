@@ -33,6 +33,9 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit)) return;
 
+            // Battalion members are positioned by BattalionSyncSystem — never give them movement state
+            if (em.HasComponent<BattalionMemberData>(unit)) return;
+
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
 
