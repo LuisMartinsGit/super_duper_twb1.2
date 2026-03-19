@@ -17,8 +17,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BattalionFactory
     {
-        private const int DefaultColumns = 3;
-        private const int DefaultRows = 5;
+        private const int DefaultColumns = 5;
+        private const int DefaultRows = 3;
         private const float DefaultSpacing = 1.5f;
         private const float DefaultFollowSpeed = 8f;
         private const float DefaultLeashDistance = 10f;
@@ -100,12 +100,9 @@ namespace TheWaningBorder.Entities
             {
                 for (int col = 0; col < cols; col++)
                 {
-                    // Compute initial slot position relative to leader
-                    float3 slotOffset = new float3(
-                        (col - (cols - 1) * 0.5f) * DefaultSpacing,
-                        0f,
-                        -(row * DefaultSpacing)
-                    );
+                    // Compute initial slot position relative to leader (centered)
+                    float3 slotOffset = BattalionFormation.ComputeSlotOffset(
+                        col, row, cols, rows, DefaultSpacing);
                     float3 memberPos = spawnPos + slotOffset;
 
                     // Create unit via standard factory (gets PresentationId, collider, etc.)

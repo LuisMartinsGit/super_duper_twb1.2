@@ -51,12 +51,9 @@ namespace TheWaningBorder.Systems.Movement
                     var memberData = em.GetComponentData<BattalionMemberData>(member);
                     var memberXf = em.GetComponentData<LocalTransform>(member);
 
-                    // Compute slot position (same formula as BattalionSyncSystem)
-                    float3 localOffset = new float3(
-                        (memberData.Column - (bl.Columns - 1) * 0.5f) * bl.Spacing,
-                        0f,
-                        -(memberData.Row * bl.Spacing)
-                    );
+                    // Compute slot position via shared helper (centered on leader)
+                    float3 localOffset = BattalionFormation.ComputeSlotOffset(
+                        memberData.Column, memberData.Row, bl.Columns, bl.Rows, bl.Spacing);
                     float3 slotWorldPos = leaderPos + math.mul(leaderRot, localOffset);
                     slotWorldPos.y = TerrainUtility.GetHeight(slotWorldPos.x, slotWorldPos.z);
 

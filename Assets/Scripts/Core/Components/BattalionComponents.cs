@@ -4,6 +4,7 @@
 
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 // ==================== Battalion Components ====================
 
@@ -76,4 +77,22 @@ public struct BattalionStanceData : IComponentData
 public struct LastAttackerEntity : IComponentData
 {
     public Entity Value;
+}
+
+// ==================== Battalion Formation Utility ====================
+
+/// <summary>
+/// Shared helper for computing formation slot offsets.
+/// Centres the formation on the leader entity (both X and Z axes).
+/// </summary>
+public static class BattalionFormation
+{
+    public static float3 ComputeSlotOffset(int col, int row, int cols, int rows, float spacing)
+    {
+        return new float3(
+            (col - (cols - 1) * 0.5f) * spacing,
+            0f,
+            -(row - (rows - 1) * 0.5f) * spacing
+        );
+    }
 }

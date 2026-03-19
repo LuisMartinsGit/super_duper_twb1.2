@@ -1,7 +1,9 @@
 // BattalionSyncSystem.cs
-// Lerps battalion members toward their formation slot positions each frame
+// Moves battalion members toward their formation slot positions each frame
+// using speed-aware constant-velocity movement so all members converge together.
 // Location: Assets/Scripts/Systems/Movement/BattalionSyncSystem.cs
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -13,13 +15,15 @@ namespace TheWaningBorder.Systems.Movement
     /// Per-frame system that moves battalion members toward their formation slots.
     /// Runs AFTER MovementSystem so the leader position is already updated.
     ///
-    /// For each leader entity:
-    ///   - Read leader position and rotation
-    ///   - For each member in buffer: compute world-space slot from leader transform + formation offset
-    ///   - Lerp member position toward slot, snap Y to terrain, copy leader rotation
+    /// Two-pass algorithm:
+    ///   Pass 1 — compute each member's slot and distance; find the max distance.
+    ///   Pass 2 — derive a shared arrival time from maxDist / leaderSpeed so that
+    ///            all members converge at roughly the same moment.  Members whose
+    ///            slot is closer move slower; members farther away move faster
+    ///            (clamped to their own MoveSpeed).
     ///
     /// CRITICAL: Members do NOT have DesiredDestination, do NOT use flow fields.
-    /// Movement is pure position lerp in this system only.
+    /// Movement is pure position step in this system only.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(MovementSystem))]
@@ -46,28 +50,87 @@ namespace TheWaningBorder.Systems.Movement
                 var bl = leader.ValueRO;
                 float3 leaderPos = leaderXf.ValueRO.Position;
                 quaternion leaderRot = leaderXf.ValueRO.Rotation;
-                float lerpRate = bl.FollowSpeed * dt;
 
-                for (int i = 0; i < buffer.Length; i++)
+                int count = buffer.Length;
+                var slotPositions = new NativeArray<float3>(count, Allocator.Temp);
+                var memberDistances = new NativeArray<float>(count, Allocator.Temp);
+
+                // ── Pass 1: compute slot positions and find max distance ──
+                float maxDist = 0f;
+
+                for (int i = 0; i < count; i++)
                 {
                     var member = buffer[i].Value;
-                    if (!em.Exists(member)) continue;
-                    if (!em.HasComponent<LocalTransform>(member)) continue;
-                    if (!em.HasComponent<BattalionMemberData>(member)) continue;
+                    if (!em.Exists(member) ||
+                        !em.HasComponent<LocalTransform>(member) ||
+                        !em.HasComponent<BattalionMemberData>(member))
+                    {
+                        slotPositions[i] = float3.zero;
+                        memberDistances[i] = -1f; // sentinel: skip
+                        continue;
+                    }
 
                     var memberData = em.GetComponentData<BattalionMemberData>(member);
-                    var memberXf = em.GetComponentData<LocalTransform>(member);
 
-                    // Compute world-space slot position from leader transform + formation offset
-                    float3 localOffset = new float3(
-                        (memberData.Column - (bl.Columns - 1) * 0.5f) * bl.Spacing,
-                        0f,
-                        -(memberData.Row * bl.Spacing)
-                    );
+                    // Centered offset via shared helper
+                    float3 localOffset = BattalionFormation.ComputeSlotOffset(
+                        memberData.Column, memberData.Row, bl.Columns, bl.Rows, bl.Spacing);
                     float3 slotWorldPos = leaderPos + math.mul(leaderRot, localOffset);
+                    slotPositions[i] = slotWorldPos;
 
-                    // Lerp member position toward slot
-                    float3 newPos = math.lerp(memberXf.Position, slotWorldPos, math.saturate(lerpRate));
+                    var memberXf = em.GetComponentData<LocalTransform>(member);
+                    float3 diff = slotWorldPos - memberXf.Position;
+                    diff.y = 0f; // ignore vertical for distance calc
+                    float dist = math.length(diff);
+                    memberDistances[i] = dist;
+                    if (dist > maxDist) maxDist = dist;
+                }
+
+                // Leader speed for arrival-time calculation
+                float leaderSpeed = bl.FollowSpeed; // fallback
+                if (em.HasComponent<MoveSpeed>(entity))
+                {
+                    float s = em.GetComponentData<MoveSpeed>(entity).Value;
+                    if (s > 0f) leaderSpeed = s;
+                }
+
+                const float SettleThreshold = 0.1f;
+
+                // ── Pass 2: move each member toward its slot ──
+                for (int i = 0; i < count; i++)
+                {
+                    if (memberDistances[i] < 0f) continue; // invalid member
+
+                    var member = buffer[i].Value;
+                    var memberXf = em.GetComponentData<LocalTransform>(member);
+                    float3 slotWorldPos = slotPositions[i];
+                    float dist = memberDistances[i];
+
+                    float3 newPos;
+
+                    if (maxDist < SettleThreshold || dist < 0.01f)
+                    {
+                        // Formation is settled — tight lerp for micro-adjustments
+                        float lerpRate = bl.FollowSpeed * dt;
+                        newPos = math.lerp(memberXf.Position, slotWorldPos, math.saturate(lerpRate));
+                    }
+                    else
+                    {
+                        // Speed-proportional constant-velocity movement
+                        float arrivalTime = maxDist / math.max(leaderSpeed, 0.1f);
+                        float memberSpeed = dist / math.max(arrivalTime, 0.016f);
+
+                        // Clamp to member's own MoveSpeed
+                        if (em.HasComponent<MoveSpeed>(member))
+                        {
+                            float memberMaxSpeed = em.GetComponentData<MoveSpeed>(member).Value;
+                            memberSpeed = math.min(memberSpeed, memberMaxSpeed);
+                        }
+
+                        float step = math.min(memberSpeed * dt, dist);
+                        float3 dir = math.normalizesafe(slotWorldPos - memberXf.Position);
+                        newPos = memberXf.Position + dir * step;
+                    }
 
                     // Snap Y to terrain height
                     newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
@@ -76,6 +139,9 @@ namespace TheWaningBorder.Systems.Movement
                     em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
                         newPos, leaderRot, memberXf.Scale));
                 }
+
+                slotPositions.Dispose();
+                memberDistances.Dispose();
             }
         }
     }
