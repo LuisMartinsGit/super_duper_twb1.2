@@ -58,6 +58,46 @@ namespace TheWaningBorder.Systems.Movement
                 float3 leaderPos = leaderXf.ValueRO.Position;
                 quaternion leaderRot = leaderXf.ValueRO.Rotation;
 
+                // ── BFME2 about-face: detect direction reversal and mirror rows ──
+                float3 currentForward = math.mul(leaderRot, new float3(0, 0, 1));
+                currentForward.y = 0;
+                currentForward = math.normalizesafe(currentForward, new float3(0, 0, 1));
+
+                float3 formFwd = bl.FormationForward;
+                formFwd.y = 0;
+                formFwd = math.normalizesafe(formFwd, new float3(0, 0, 1));
+
+                float dot = math.dot(currentForward, formFwd);
+                bool mirrored = bl.RowMirrored != 0;
+
+                // When leader's facing diverges >90° from formation forward, toggle mirror
+                if (dot < 0f && !mirrored)
+                {
+                    mirrored = true;
+                    var blw = bl;
+                    blw.RowMirrored = 1;
+                    blw.FormationForward = currentForward;
+                    em.SetComponentData(entity, blw);
+                }
+                else if (dot >= 0f && mirrored)
+                {
+                    // Leader has rotated back toward formation forward — un-mirror
+                    mirrored = false;
+                    var blw = bl;
+                    blw.RowMirrored = 0;
+                    blw.FormationForward = currentForward;
+                    em.SetComponentData(entity, blw);
+                }
+                else if (dot >= 0.95f)
+                {
+                    // Smoothly track formation forward when aligned (prevents stale reference)
+                    var blw = bl;
+                    blw.FormationForward = currentForward;
+                    em.SetComponentData(entity, blw);
+                }
+
+                int maxRow = bl.Rows - 1;
+
                 int count = buffer.Length;
                 var slotPositions = new NativeArray<float3>(count, Allocator.Temp);
                 var memberDistances = new NativeArray<float>(count, Allocator.Temp);
@@ -79,9 +119,12 @@ namespace TheWaningBorder.Systems.Movement
 
                     var memberData = em.GetComponentData<BattalionMemberData>(member);
 
+                    // BFME2 about-face: when mirrored, back row becomes front row
+                    int effectiveRow = mirrored ? (maxRow - memberData.Row) : memberData.Row;
+
                     // Centered offset via shared helper
                     float3 localOffset = BattalionFormation.ComputeSlotOffset(
-                        memberData.Column, memberData.Row, bl.Columns, bl.Rows, bl.Spacing);
+                        memberData.Column, effectiveRow, bl.Columns, bl.Rows, bl.Spacing);
                     float3 slotWorldPos = leaderPos + math.mul(leaderRot, localOffset);
                     slotPositions[i] = slotWorldPos;
 
