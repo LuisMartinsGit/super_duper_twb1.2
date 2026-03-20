@@ -82,8 +82,7 @@ namespace TheWaningBorder.Entities
                 Spacing = DefaultSpacing,
                 FollowSpeed = DefaultFollowSpeed,
                 LeashDistance = DefaultLeashDistance,
-                UnitId = new FixedString64Bytes(unitId),
-                FormationRot = quaternion.identity
+                UnitId = new FixedString64Bytes(unitId)
             });
             em.SetComponentData(leader, new BattalionStanceData { Value = BattalionStance.Default });
 

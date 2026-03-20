@@ -25,7 +25,6 @@ public struct BattalionLeader : IComponentData
     public float FollowSpeed;         // 8f (lerp speed for members)
     public float LeashDistance;       // 10f (teleport threshold)
     public FixedString64Bytes UnitId; // e.g. "Swordsman" for display
-    public quaternion FormationRot;   // Smoothly interpolated formation orientation
 }
 
 /// <summary>

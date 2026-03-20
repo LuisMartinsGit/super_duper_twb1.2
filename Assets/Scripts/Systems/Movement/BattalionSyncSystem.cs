@@ -1,6 +1,8 @@
 // BattalionSyncSystem.cs
-// Moves battalion members toward their formation slot positions each frame
-// using speed-aware constant-velocity movement so all members converge together.
+// Moves battalion members toward their formation slot positions each frame.
+// On direction change the formation grid rotates instantly and members are
+// reassigned to whichever slot is closest (front-to-back greedy), so nobody
+// crosses paths.  This replicates the BFME2 about-face behaviour.
 // Location: Assets/Scripts/Systems/Movement/BattalionSyncSystem.cs
 
 using Unity.Collections;
@@ -11,33 +13,10 @@ using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Systems.Movement
 {
-    /// <summary>
-    /// Per-frame system that moves battalion members toward their formation slots.
-    /// Runs AFTER MovementSystem so the leader position is already updated.
-    ///
-    /// Formation orientation uses a smoothly interpolated quaternion (FormationRot)
-    /// instead of the raw leader facing. This prevents the formation grid from
-    /// snapping on 180° turns, which would cause all members to cross paths.
-    /// Instead, the grid gradually pivots and members slide to their new positions.
-    ///
-    /// Two-pass algorithm:
-    ///   Pass 1 — compute each member's slot and distance; find the max distance.
-    ///   Pass 2 — ratio-based speed scaling so all members arrive together.
-    ///
-    /// CRITICAL: Members do NOT have DesiredDestination, do NOT use flow fields.
-    /// Movement is pure position step in this system only.
-    /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(MovementSystem))]
     public partial struct BattalionSyncSystem : ISystem
     {
-        /// <summary>
-        /// Formation rotation speed in radians per second.
-        /// ~180°/s = π rad/s — fast enough to keep up during normal movement,
-        /// slow enough to prevent snap-crossing on reversal.
-        /// </summary>
-        private const float FormationRotSpeed = 3.14159f;
-
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BattalionLeader>();
@@ -49,13 +28,11 @@ namespace TheWaningBorder.Systems.Movement
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
 
-            // ECB for deferred structural changes — avoids invalidating the
-            // SystemAPI.Query iteration when stripping stale DesiredDestination.
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             foreach (var (leader, leaderXf, entity) in SystemAPI
-                .Query<RefRW<BattalionLeader>, RefRO<LocalTransform>>()
+                .Query<RefRO<BattalionLeader>, RefRO<LocalTransform>>()
                 .WithAll<BattalionTag>()
                 .WithEntityAccess())
             {
@@ -66,86 +43,148 @@ namespace TheWaningBorder.Systems.Movement
                 float3 leaderPos = leaderXf.ValueRO.Position;
                 quaternion leaderRot = leaderXf.ValueRO.Rotation;
 
-                // ── Smooth formation rotation ──
-                // FormationRot slerps toward the leader's facing direction.
-                // This prevents instant slot-flipping on 180° turns.
-                quaternion formRot = bl.FormationRot;
+                int cols = bl.Columns;
+                int rows = bl.Rows;
+                float spacing = bl.Spacing;
+                int slotCount = cols * rows;
+                int memberCount = buffer.Length;
 
-                // Initialize if zero (first frame or legacy data)
-                if (math.lengthsq(formRot.value) < 0.001f)
-                    formRot = leaderRot;
-
-                // Slerp toward leader's current facing
-                // Use angle-limited slerp: max rotation = FormationRotSpeed * dt
-                float angle = AngleBetween(formRot, leaderRot);
-                if (angle > 0.001f)
+                // ── 1. Compute all slot world positions (using leader rotation directly) ──
+                var slotWorldPositions = new NativeArray<float3>(slotCount, Allocator.Temp);
+                for (int row = 0; row < rows; row++)
                 {
-                    float maxStep = FormationRotSpeed * dt;
-                    float t = math.saturate(maxStep / angle);
-                    formRot = math.slerp(formRot, leaderRot, t);
-                }
-                else
-                {
-                    formRot = leaderRot;
+                    for (int col = 0; col < cols; col++)
+                    {
+                        int idx = row * cols + col;
+                        float3 localOffset = BattalionFormation.ComputeSlotOffset(col, row, cols, rows, spacing);
+                        slotWorldPositions[idx] = leaderPos + math.mul(leaderRot, localOffset);
+                    }
                 }
 
-                // Write back
-                leader.ValueRW.FormationRot = formRot;
+                // ── 2. Collect living members and their current positions ──
+                var members      = new NativeArray<Entity>(memberCount, Allocator.Temp);
+                var memberPos    = new NativeArray<float3>(memberCount, Allocator.Temp);
+                var memberAlive  = new NativeArray<bool>(memberCount, Allocator.Temp);
+                int aliveCount = 0;
 
-                int count = buffer.Length;
-                var slotPositions = new NativeArray<float3>(count, Allocator.Temp);
-                var memberDistances = new NativeArray<float>(count, Allocator.Temp);
+                for (int i = 0; i < memberCount; i++)
+                {
+                    var m = buffer[i].Value;
+                    members[i] = m;
+                    if (em.Exists(m) && em.HasComponent<LocalTransform>(m) && em.HasComponent<BattalionMemberData>(m))
+                    {
+                        memberPos[i] = em.GetComponentData<LocalTransform>(m).Position;
+                        memberAlive[i] = true;
+                        aliveCount++;
+                    }
+                    else
+                    {
+                        memberPos[i] = float3.zero;
+                        memberAlive[i] = false;
+                    }
+                }
 
-                // ── Pass 1: compute slot positions and find max distance ──
+                // ── 3. Greedy nearest-slot assignment (front row first) ──
+                // For each slot (iterated row 0 → last row, i.e. front-to-back),
+                // pick the closest unassigned living member.
+                var slotAssignment = new NativeArray<int>(slotCount, Allocator.Temp); // slotIdx → memberIdx
+                var memberUsed     = new NativeArray<bool>(memberCount, Allocator.Temp);
+
+                for (int s = 0; s < slotCount; s++)
+                    slotAssignment[s] = -1;
+
+                int slotsToFill = math.min(slotCount, aliveCount);
+
+                for (int s = 0; s < slotCount && slotsToFill > 0; s++)
+                {
+                    float3 slotPos = slotWorldPositions[s];
+                    float bestDist = float.MaxValue;
+                    int bestMember = -1;
+
+                    for (int m = 0; m < memberCount; m++)
+                    {
+                        if (!memberAlive[m] || memberUsed[m]) continue;
+
+                        float3 diff = slotPos - memberPos[m];
+                        diff.y = 0f;
+                        float d = math.lengthsq(diff); // squared is fine for comparison
+                        if (d < bestDist)
+                        {
+                            bestDist = d;
+                            bestMember = m;
+                        }
+                    }
+
+                    if (bestMember >= 0)
+                    {
+                        slotAssignment[s] = bestMember;
+                        memberUsed[bestMember] = true;
+                        slotsToFill--;
+                    }
+                }
+
+                // ── 4. Write new slot assignments onto member components ──
+                for (int s = 0; s < slotCount; s++)
+                {
+                    int mi = slotAssignment[s];
+                    if (mi < 0) continue;
+
+                    int newCol = s % cols;
+                    int newRow = s / cols;
+
+                    var md = em.GetComponentData<BattalionMemberData>(members[mi]);
+                    if (md.Column != newCol || md.Row != newRow)
+                    {
+                        md.Column = newCol;
+                        md.Row = newRow;
+                        em.SetComponentData(members[mi], md);
+                    }
+                }
+
+                // ── 5. Compute per-member target positions and max distance ──
+                var targetPositions  = new NativeArray<float3>(memberCount, Allocator.Temp);
+                var memberDistances  = new NativeArray<float>(memberCount, Allocator.Temp);
                 float maxDist = 0f;
 
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < memberCount; i++)
                 {
-                    var member = buffer[i].Value;
-                    if (!em.Exists(member) ||
-                        !em.HasComponent<LocalTransform>(member) ||
-                        !em.HasComponent<BattalionMemberData>(member))
+                    if (!memberAlive[i])
                     {
-                        slotPositions[i] = float3.zero;
-                        memberDistances[i] = -1f; // sentinel: skip
+                        memberDistances[i] = -1f;
                         continue;
                     }
 
-                    var memberData = em.GetComponentData<BattalionMemberData>(member);
+                    var md = em.GetComponentData<BattalionMemberData>(members[i]);
+                    float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
+                    float3 slotWorld = leaderPos + math.mul(leaderRot, localOffset);
+                    targetPositions[i] = slotWorld;
 
-                    // Centered offset via shared helper, rotated by SMOOTH formation rotation
-                    float3 localOffset = BattalionFormation.ComputeSlotOffset(
-                        memberData.Column, memberData.Row, bl.Columns, bl.Rows, bl.Spacing);
-                    float3 slotWorldPos = leaderPos + math.mul(formRot, localOffset);
-                    slotPositions[i] = slotWorldPos;
-
-                    var memberXf = em.GetComponentData<LocalTransform>(member);
-                    float3 diff = slotWorldPos - memberXf.Position;
-                    diff.y = 0f; // ignore vertical for distance calc
+                    float3 diff = slotWorld - memberPos[i];
+                    diff.y = 0f;
                     float dist = math.length(diff);
                     memberDistances[i] = dist;
                     if (dist > maxDist) maxDist = dist;
                 }
 
-                // Leader speed for arrival-time calculation
-                float leaderSpeed = bl.FollowSpeed; // fallback
+                // Leader speed fallback
+                float leaderSpeed = bl.FollowSpeed;
                 if (em.HasComponent<MoveSpeed>(entity))
                 {
                     float s = em.GetComponentData<MoveSpeed>(entity).Value;
                     if (s > 0f) leaderSpeed = s;
                 }
 
-                // ── Pass 2: move each member toward its slot — ratio-based speed ──
-                for (int i = 0; i < count; i++)
+                // ── 6. Move each member toward its assigned slot ──
+                for (int i = 0; i < memberCount; i++)
                 {
-                    if (memberDistances[i] < 0f) continue; // invalid member
+                    if (memberDistances[i] < 0f) continue;
 
-                    var member = buffer[i].Value;
+                    var member = members[i];
                     var memberXf = em.GetComponentData<LocalTransform>(member);
-                    float3 slotWorldPos = slotPositions[i];
+                    float3 target = targetPositions[i];
                     float dist = memberDistances[i];
 
-                    // Safety: strip DesiredDestination if combat system added one (deferred via ECB)
+                    // Strip stale DesiredDestination
                     if (em.HasComponent<DesiredDestination>(member))
                         ecb.RemoveComponent<DesiredDestination>(member);
 
@@ -153,12 +192,10 @@ namespace TheWaningBorder.Systems.Movement
 
                     if (dist < 0.01f)
                     {
-                        // Already at slot — snap and wait for others
-                        newPos = slotWorldPos;
+                        newPos = target;
                     }
                     else
                     {
-                        // Each member moves at its own MoveSpeed, scaled by distance ratio
                         float memberSpeed = leaderSpeed;
                         if (em.HasComponent<MoveSpeed>(member))
                         {
@@ -166,38 +203,29 @@ namespace TheWaningBorder.Systems.Movement
                             if (ms > 0f) memberSpeed = ms;
                         }
 
-                        // ratio: close members move slowly, far members move at full speed.
-                        // On a new command, ahead members (small dist) naturally slow
-                        // while behind members (large dist) catch up.
                         float ratio = dist / math.max(maxDist, 0.01f);
                         float scaledSpeed = memberSpeed * math.max(ratio, 0.15f);
-
                         float step = math.min(scaledSpeed * dt, dist);
-                        float3 dir = math.normalizesafe(slotWorldPos - memberXf.Position);
+                        float3 dir = math.normalizesafe(target - memberXf.Position);
                         newPos = memberXf.Position + dir * step;
                     }
 
-                    // Snap Y to terrain height
                     newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
 
-                    // Update member transform: position from formation, facing from leader
                     em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
                         newPos, leaderRot, memberXf.Scale));
                 }
 
-                slotPositions.Dispose();
+                // Cleanup
+                slotWorldPositions.Dispose();
+                members.Dispose();
+                memberPos.Dispose();
+                memberAlive.Dispose();
+                slotAssignment.Dispose();
+                memberUsed.Dispose();
+                targetPositions.Dispose();
                 memberDistances.Dispose();
             }
-        }
-
-        /// <summary>
-        /// Returns the angle in radians between two quaternions.
-        /// </summary>
-        private static float AngleBetween(quaternion a, quaternion b)
-        {
-            float d = math.dot(a.value, b.value);
-            // Clamp to handle floating point errors
-            return 2f * math.acos(math.min(math.abs(d), 1f));
         }
     }
 }
