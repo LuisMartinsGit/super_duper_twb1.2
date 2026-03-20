@@ -705,6 +705,10 @@ namespace TheWaningBorder.Core.Commands
                 em.GetBuffer<PatrolWaypoint>(unit).Clear();
             if (em.HasComponent<HoldPositionTag>(unit))
                 em.RemoveComponent<HoldPositionTag>(unit);
+            if (em.HasComponent<CommandQueueActive>(unit))
+                em.RemoveComponent<CommandQueueActive>(unit);
+            if (em.HasBuffer<QueuedCommand>(unit))
+                em.GetBuffer<QueuedCommand>(unit).Clear();
         }
     }
 }
