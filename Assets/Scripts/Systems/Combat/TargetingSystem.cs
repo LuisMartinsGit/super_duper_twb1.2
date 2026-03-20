@@ -90,9 +90,11 @@ namespace TheWaningBorder.Systems.Combat
         private void InitializeCombatComponents(ref SystemState state, ref EntityCommandBuffer ecb)
         {
             // Initialize GuardPoint for units that don't have one
+            // Skip battalion members — they are positioned by BattalionSyncSystem, not movement
             foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
                 .WithNone<GuardPoint>()
+                .WithNone<BattalionMemberData>()
                 .WithEntityAccess())
             {
                 ecb.AddComponent(entity, new GuardPoint
@@ -507,14 +509,25 @@ namespace TheWaningBorder.Systems.Combat
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
+                .WithNone<HealCommand>()        // Healers actively healing should not snap back
                 .WithNone<CanBuild>()           // Builders are passive workers
                 .WithNone<MinerTag>()           // Miners are handled by MiningSystem
                 .WithNone<BattalionLeader>()    // Invisible leaders should not fight
+                .WithNone<BattalionMemberData>() // Members are positioned by BattalionSyncSystem
                 .WithEntityAccess())
             {
                 // Skip units that have an active target
                 if (rtgTarget.ValueRO.Value != Entity.Null) continue;
                 if (guardPoint.ValueRO.Has == 0) continue;
+
+                // Skip healers actively healing (HealCommand is consumed immediately
+                // by LitharchHealingSystem, so check LitharchState.IsHealing instead)
+                if (em.HasComponent<LitharchState>(entity))
+                {
+                    var ls = em.GetComponentData<LitharchState>(entity);
+                    if (ls.IsHealing != 0 && ls.HealTarget != Entity.Null && em.Exists(ls.HealTarget))
+                        continue;
+                }
 
                 var myPos = transform.ValueRO.Position;
                 var gpPos = guardPoint.ValueRO.Position;

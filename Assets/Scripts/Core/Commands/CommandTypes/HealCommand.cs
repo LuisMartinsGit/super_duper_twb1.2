@@ -178,6 +178,12 @@ namespace TheWaningBorder.Core.Commands.Types
                         Has = 1
                     });
                 }
+
+                // Update guard point so healer doesn't snap back to spawn
+                if (em.HasComponent<GuardPoint>(healer))
+                    em.SetComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
+                else
+                    em.AddComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
             }
         }
     }

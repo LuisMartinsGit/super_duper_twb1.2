@@ -147,6 +147,10 @@ namespace TheWaningBorder.Systems.Combat
                                 Has = 1
                             });
                         }
+
+                        // Update guard point so ProcessReturnToGuard doesn't snap healer back
+                        if (em.HasComponent<GuardPoint>(entity))
+                            ecb.SetComponent(entity, new GuardPoint { Position = targetPos, Has = 1 });
                     }
                     else
                     {
