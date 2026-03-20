@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
@@ -80,7 +81,28 @@ namespace TheWaningBorder.UI.HUD
                 var dest = _em.GetComponentData<DesiredDestination>(entity);
                 if (dest.Has == 0) continue;
 
-                var pos = _em.GetComponentData<LocalTransform>(entity).Position;
+                // For battalion leaders, use average position of living members
+                float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
+                if (_em.HasComponent<BattalionLeader>(entity) && _em.HasBuffer<BattalionMember>(entity))
+                {
+                    var members = _em.GetBuffer<BattalionMember>(entity);
+                    if (members.Length > 0)
+                    {
+                        float3 sum = float3.zero;
+                        int count = 0;
+                        for (int m = 0; m < members.Length; m++)
+                        {
+                            var member = members[m].Value;
+                            if (_em.Exists(member) && _em.HasComponent<LocalTransform>(member))
+                            {
+                                sum += _em.GetComponentData<LocalTransform>(member).Position;
+                                count++;
+                            }
+                        }
+                        if (count > 0) pos = sum / count;
+                    }
+                }
+
                 float unitY = TerrainUtility.GetHeight(pos.x, pos.z) + 0.15f;
                 float destY = TerrainUtility.GetHeight(dest.Position.x, dest.Position.z) + 0.15f;
 

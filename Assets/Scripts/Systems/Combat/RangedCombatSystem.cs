@@ -148,16 +148,8 @@ namespace TheWaningBorder.Systems.Combat
                             ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
-                    // Calculate dynamic aim time based on distance
-                    // Closer = faster aim, farther = slower aim
-                    var minAimTime = 0.3f;
-                    var maxAimTime = 1.2f;
-                    var aimRange = maxAimTime - minAimTime;
-                    float rangeDelta = maxRange - minRange;
-                    float distRatio = rangeDelta > 0.001f
-                        ? math.saturate((dist - minRange) / rangeDelta)
-                        : 0.5f;
-                    archer.AimTimeRequired = minAimTime + (aimRange * distRatio);
+                    // Use the unit's configured AimTimeRequired as-is
+                    // (set per-unit in entity factories: Archer=0.5, Ballista=1.0, etc.)
 
                     // Accumulate aim time
                     archer.AimTimer += dt;
@@ -189,8 +181,11 @@ namespace TheWaningBorder.Systems.Combat
                         CreateArrow(ref ecb, myPos, targetPos, dist, entity,
                             faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType);
 
-                        // Reset state
-                        archer.CooldownTimer = 1.5f;
+                        // Reset state — use unit's configured cooldown
+                        float cooldownValue = 1.5f;
+                        if (em.HasComponent<AttackCooldown>(entity))
+                            cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
+                        archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;
                         archer.IsFiring = 0;
                     }

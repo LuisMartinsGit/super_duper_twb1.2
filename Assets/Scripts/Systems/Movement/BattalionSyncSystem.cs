@@ -33,12 +33,18 @@ namespace TheWaningBorder.Systems.Movement
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BattalionLeader>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+
+            // ECB for deferred structural changes — avoids invalidating the
+            // SystemAPI.Query iteration when stripping stale DesiredDestination.
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             foreach (var (leader, leaderXf, entity) in SystemAPI
                 .Query<RefRO<BattalionLeader>, RefRO<LocalTransform>>()
@@ -105,9 +111,9 @@ namespace TheWaningBorder.Systems.Movement
                     float3 slotWorldPos = slotPositions[i];
                     float dist = memberDistances[i];
 
-                    // Safety: strip DesiredDestination if combat system added one
+                    // Safety: strip DesiredDestination if combat system added one (deferred via ECB)
                     if (em.HasComponent<DesiredDestination>(member))
-                        em.RemoveComponent<DesiredDestination>(member);
+                        ecb.RemoveComponent<DesiredDestination>(member);
 
                     float3 newPos;
 

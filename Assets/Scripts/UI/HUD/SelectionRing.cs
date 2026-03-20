@@ -89,6 +89,9 @@ namespace TheWaningBorder.UI.HUD
                 var e = want[i];
                 if (!_em.Exists(e)) continue;
 
+                // Skip invisible battalion leaders — no visual indicator
+                if (_em.HasComponent<BattalionLeader>(e)) continue;
+
                 if (!_rings.TryGetValue(e, out var go) || go == null)
                 {
                     var selCol = GetFactionTint(e, SelectedColor.a);
