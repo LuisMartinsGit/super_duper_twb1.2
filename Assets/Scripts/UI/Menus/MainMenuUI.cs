@@ -18,10 +18,13 @@ namespace TheWaningBorder.UI.Menus
             MainMenu,
             SkirmishLobby,
             MultiplayerLobby,
-            Options
+            Options,
+            Scenarios
         }
 
         private MenuState _currentState = MenuState.MainMenu;
+        private MenuState? _pendingState = null;
+        private ScenarioType? _pendingScenario = null;
 
         // Sub-components
         private SkirmishLobbyUI _skirmishLobby;
@@ -30,8 +33,11 @@ namespace TheWaningBorder.UI.Menus
 
         // Window styling
         private Rect _mainMenuRect;
+        private Rect _scenarioRect;
         private GUIStyle _buttonStyle;
         private bool _stylesInitialized = false;
+
+        private const string GameSceneName = "Game";
 
         void Awake()
         {
@@ -54,6 +60,24 @@ namespace TheWaningBorder.UI.Menus
             _optionsMenu.OnBackPressed += () => SetState(MenuState.MainMenu);
         }
 
+        void Update()
+        {
+            // Apply deferred state changes outside OnGUI to avoid Layout/Repaint mismatch
+            if (_pendingScenario.HasValue)
+            {
+                var scenario = _pendingScenario.Value;
+                _pendingScenario = null;
+                LaunchScenario(scenario);
+                return;
+            }
+            if (_pendingState.HasValue)
+            {
+                var next = _pendingState.Value;
+                _pendingState = null;
+                SetState(next);
+            }
+        }
+
         void OnGUI()
         {
             InitStyles();
@@ -62,9 +86,17 @@ namespace TheWaningBorder.UI.Menus
             {
                 _mainMenuRect = new Rect(
                     (Screen.width - 240) * 0.5f,
-                    (Screen.height - 240) * 0.5f,
-                    240, 240);
+                    (Screen.height - 280) * 0.5f,
+                    240, 280);
                 _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "");
+            }
+            else if (_currentState == MenuState.Scenarios)
+            {
+                _scenarioRect = new Rect(
+                    (Screen.width - 300) * 0.5f,
+                    (Screen.height - 300) * 0.5f,
+                    300, 300);
+                _scenarioRect = GUI.Window(10002, _scenarioRect, DrawScenarios, "Scenarios");
             }
         }
 
@@ -87,14 +119,14 @@ namespace TheWaningBorder.UI.Menus
             // Skirmish button
             if (GUILayout.Button("Skirmish", GUILayout.Height(36)))
             {
-                SetState(MenuState.SkirmishLobby);
+                _pendingState = MenuState.SkirmishLobby;
             }
             GUILayout.Space(6);
 
             // Multiplayer button
             if (GUILayout.Button("Multiplayer", GUILayout.Height(36)))
             {
-                SetState(MenuState.MultiplayerLobby);
+                _pendingState = MenuState.MultiplayerLobby;
             }
             GUILayout.Space(6);
 
@@ -107,10 +139,17 @@ namespace TheWaningBorder.UI.Menus
             GUI.enabled = true;
             GUILayout.Space(6);
 
+            // Scenarios button
+            if (GUILayout.Button("Scenarios", GUILayout.Height(36)))
+            {
+                _pendingState = MenuState.Scenarios;
+            }
+            GUILayout.Space(6);
+
             // Options button
             if (GUILayout.Button("Options", GUILayout.Height(36)))
             {
-                SetState(MenuState.Options);
+                _pendingState = MenuState.Options;
             }
             GUILayout.Space(6);
 
@@ -121,6 +160,54 @@ namespace TheWaningBorder.UI.Menus
             }
 
             GUI.DragWindow(new Rect(0, 0, 10000, 25));
+        }
+
+        private void DrawScenarios(int windowId)
+        {
+            GUILayout.Space(8);
+
+            if (GUILayout.Button("Large Melee Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeMelee;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Large Ranged Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeRanged;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Large Mixed Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeMixed;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Healer Test", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.HealerTest;
+            }
+            GUILayout.Space(12);
+
+            if (GUILayout.Button("Back", GUILayout.Height(30)))
+            {
+                _pendingState = MenuState.MainMenu;
+            }
+
+            GUI.DragWindow(new Rect(0, 0, 10000, 25));
+        }
+
+        private void LaunchScenario(ScenarioType scenario)
+        {
+            GameSettings.Mode = GameMode.Scenario;
+            GameSettings.ActiveScenario = scenario;
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.TotalPlayers = 2;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.FogOfWarEnabled = false;
+            LoadingScreen.Show(GameSceneName);
         }
 
         private void SetState(MenuState newState)

@@ -13,6 +13,7 @@ using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.UI.Menus;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Bootstrap
@@ -45,6 +46,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Create managers
             var managersGO = new GameObject("BattalionTestManagers");
+            managersGO.AddComponent<EntityViewManager>();
             managersGO.AddComponent<PresentationSpawnSystem>();
             managersGO.AddComponent<SelectionSystem>();
             managersGO.AddComponent<RTSInputManager>();
@@ -52,6 +54,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<SelectionRings>();
             managersGO.AddComponent<FloatingHealthBars>();
             managersGO.AddComponent<ResourceHUD>();
+            managersGO.AddComponent<UnitIndicatorSystem>();
             Object.DontDestroyOnLoad(managersGO);
 
             // Create terrain if missing
@@ -90,6 +93,9 @@ namespace TheWaningBorder.Bootstrap
 
             // Focus camera on player battalion
             GameCamera.FocusOn(new Vector3(playerPos.x, playerPos.y, playerPos.z), instant: true);
+
+            // Dismiss loading screen
+            LoadingScreen.NotifyReady();
 
             Debug.Log("[PathfindingTestSetup] Battalion test ready: Blue + Red Swordsman battalions spawned");
         }

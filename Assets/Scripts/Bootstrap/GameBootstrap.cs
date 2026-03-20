@@ -37,6 +37,9 @@ namespace TheWaningBorder.Bootstrap
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()
         {
+            // Reset static state — required when domain reload is disabled
+            _didSetupThisScene = false;
+
             SceneManager.sceneLoaded -= OnSceneLoadedHandler;
             SceneManager.sceneLoaded += OnSceneLoadedHandler;
             OnSceneLoadedHandler(SceneManager.GetActiveScene(), LoadSceneMode.Single);
@@ -60,6 +63,15 @@ namespace TheWaningBorder.Bootstrap
                 InitializeDataSystems();
                 PathfindingTestSetup.Bootstrap();
                 Debug.Log("[GameBootstrap] BattalionTest mode initialized");
+                return;
+            }
+
+            // Scenario mode: minimal bootstrap with predefined combat layouts
+            if (GameSettings.Mode == GameMode.Scenario)
+            {
+                InitializeDataSystems();
+                ScenarioSetup.Bootstrap();
+                Debug.Log($"[GameBootstrap] Scenario mode initialized: {GameSettings.ActiveScenario}");
                 return;
             }
 
@@ -172,6 +184,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
+            managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs

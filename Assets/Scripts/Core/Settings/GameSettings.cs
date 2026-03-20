@@ -11,7 +11,16 @@ public enum GameMode
     FreeForAll,
     SoloVsCurse,
     Sandbox,
-    BattalionTest
+    BattalionTest,
+    Scenario
+}
+
+public enum ScenarioType
+{
+    LargeMelee,
+    LargeRanged,
+    LargeMixed,
+    HealerTest
 }
 
 public enum SpawnLayout
@@ -53,6 +62,9 @@ public static class GameSettings
 
     /// <summary>Current game mode.</summary>
     public static GameMode Mode = GameMode.FreeForAll;
+
+    /// <summary>Active scenario (only used when Mode == Scenario).</summary>
+    public static ScenarioType ActiveScenario = ScenarioType.LargeMelee;
 
     /// <summary>Whether the local player is observing (no units, no commands, full visibility).</summary>
     public static bool IsObserver = false;
