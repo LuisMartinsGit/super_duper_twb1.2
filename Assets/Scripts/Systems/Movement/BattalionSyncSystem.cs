@@ -15,13 +15,14 @@ namespace TheWaningBorder.Systems.Movement
     /// Per-frame system that moves battalion members toward their formation slots.
     /// Runs AFTER MovementSystem so the leader position is already updated.
     ///
+    /// Formation orientation uses a smoothly interpolated quaternion (FormationRot)
+    /// instead of the raw leader facing. This prevents the formation grid from
+    /// snapping on 180° turns, which would cause all members to cross paths.
+    /// Instead, the grid gradually pivots and members slide to their new positions.
+    ///
     /// Two-pass algorithm:
     ///   Pass 1 — compute each member's slot and distance; find the max distance.
-    ///   Pass 2 — ratio-based speed scaling: each member moves at its own speed
-    ///            scaled by (dist / maxDist).  Members closer to their slot move
-    ///            slower and arrive first; members farther away move at full speed.
-    ///            On a new command, ahead members naturally slow while behind
-    ///            members catch up.
+    ///   Pass 2 — ratio-based speed scaling so all members arrive together.
     ///
     /// CRITICAL: Members do NOT have DesiredDestination, do NOT use flow fields.
     /// Movement is pure position step in this system only.
@@ -30,6 +31,13 @@ namespace TheWaningBorder.Systems.Movement
     [UpdateAfter(typeof(MovementSystem))]
     public partial struct BattalionSyncSystem : ISystem
     {
+        /// <summary>
+        /// Formation rotation speed in radians per second.
+        /// ~180°/s = π rad/s — fast enough to keep up during normal movement,
+        /// slow enough to prevent snap-crossing on reversal.
+        /// </summary>
+        private const float FormationRotSpeed = 3.14159f;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BattalionLeader>();
@@ -47,7 +55,7 @@ namespace TheWaningBorder.Systems.Movement
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             foreach (var (leader, leaderXf, entity) in SystemAPI
-                .Query<RefRO<BattalionLeader>, RefRO<LocalTransform>>()
+                .Query<RefRW<BattalionLeader>, RefRO<LocalTransform>>()
                 .WithAll<BattalionTag>()
                 .WithEntityAccess())
             {
@@ -58,53 +66,31 @@ namespace TheWaningBorder.Systems.Movement
                 float3 leaderPos = leaderXf.ValueRO.Position;
                 quaternion leaderRot = leaderXf.ValueRO.Rotation;
 
-                // ── BFME2 about-face: detect direction reversal and mirror rows ──
-                // FormationForward tracks the direction the grid is "logically" oriented.
-                // When the leader faces the opposite way (dot < threshold), we mirror
-                // rows so the back row becomes the front — members do an about-face
-                // in place instead of crossing paths.
-                float3 currentForward = math.mul(leaderRot, new float3(0, 0, 1));
-                currentForward.y = 0;
-                currentForward = math.normalizesafe(currentForward, new float3(0, 0, 1));
+                // ── Smooth formation rotation ──
+                // FormationRot slerps toward the leader's facing direction.
+                // This prevents instant slot-flipping on 180° turns.
+                quaternion formRot = bl.FormationRot;
 
-                float3 formFwd = bl.FormationForward;
-                formFwd.y = 0;
-                formFwd = math.normalizesafe(formFwd, new float3(0, 0, 1));
+                // Initialize if zero (first frame or legacy data)
+                if (math.lengthsq(formRot.value) < 0.001f)
+                    formRot = leaderRot;
 
-                float dot = math.dot(currentForward, formFwd);
-                bool mirrored = bl.RowMirrored != 0;
-
-                // Hysteresis thresholds to prevent oscillation at edge angles
-                const float MirrorOnThreshold  = -0.2f;  // ~102° to trigger mirror
-                const float MirrorOffThreshold =  0.3f;  // ~73°  to release mirror
-
-                if (!mirrored && dot < MirrorOnThreshold)
+                // Slerp toward leader's current facing
+                // Use angle-limited slerp: max rotation = FormationRotSpeed * dt
+                float angle = AngleBetween(formRot, leaderRot);
+                if (angle > 0.001f)
                 {
-                    // Leader reversed >~100° from formation forward → mirror rows
-                    // Keep FormationForward unchanged so the dot stays negative
-                    mirrored = true;
-                    var blw = bl;
-                    blw.RowMirrored = 1;
-                    em.SetComponentData(entity, blw);
+                    float maxStep = FormationRotSpeed * dt;
+                    float t = math.saturate(maxStep / angle);
+                    formRot = math.slerp(formRot, leaderRot, t);
                 }
-                else if (mirrored && dot > MirrorOffThreshold)
+                else
                 {
-                    // Leader rotated back toward original formation forward → un-mirror
-                    mirrored = false;
-                    var blw = bl;
-                    blw.RowMirrored = 0;
-                    blw.FormationForward = currentForward;
-                    em.SetComponentData(entity, blw);
-                }
-                else if (!mirrored && dot >= 0.9f)
-                {
-                    // Smoothly track formation forward when well-aligned and not mirrored
-                    var blw = bl;
-                    blw.FormationForward = currentForward;
-                    em.SetComponentData(entity, blw);
+                    formRot = leaderRot;
                 }
 
-                int maxRow = bl.Rows - 1;
+                // Write back
+                leader.ValueRW.FormationRot = formRot;
 
                 int count = buffer.Length;
                 var slotPositions = new NativeArray<float3>(count, Allocator.Temp);
@@ -127,13 +113,10 @@ namespace TheWaningBorder.Systems.Movement
 
                     var memberData = em.GetComponentData<BattalionMemberData>(member);
 
-                    // BFME2 about-face: when mirrored, back row becomes front row
-                    int effectiveRow = mirrored ? (maxRow - memberData.Row) : memberData.Row;
-
-                    // Centered offset via shared helper
+                    // Centered offset via shared helper, rotated by SMOOTH formation rotation
                     float3 localOffset = BattalionFormation.ComputeSlotOffset(
-                        memberData.Column, effectiveRow, bl.Columns, bl.Rows, bl.Spacing);
-                    float3 slotWorldPos = leaderPos + math.mul(leaderRot, localOffset);
+                        memberData.Column, memberData.Row, bl.Columns, bl.Rows, bl.Spacing);
+                    float3 slotWorldPos = leaderPos + math.mul(formRot, localOffset);
                     slotPositions[i] = slotWorldPos;
 
                     var memberXf = em.GetComponentData<LocalTransform>(member);
@@ -197,7 +180,7 @@ namespace TheWaningBorder.Systems.Movement
                     // Snap Y to terrain height
                     newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
 
-                    // Update member transform: position + leader rotation
+                    // Update member transform: position from formation, facing from leader
                     em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
                         newPos, leaderRot, memberXf.Scale));
                 }
@@ -205,6 +188,16 @@ namespace TheWaningBorder.Systems.Movement
                 slotPositions.Dispose();
                 memberDistances.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Returns the angle in radians between two quaternions.
+        /// </summary>
+        private static float AngleBetween(quaternion a, quaternion b)
+        {
+            float d = math.dot(a.value, b.value);
+            // Clamp to handle floating point errors
+            return 2f * math.acos(math.min(math.abs(d), 1f));
         }
     }
 }

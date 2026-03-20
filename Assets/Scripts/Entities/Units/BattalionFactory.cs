@@ -83,8 +83,7 @@ namespace TheWaningBorder.Entities
                 FollowSpeed = DefaultFollowSpeed,
                 LeashDistance = DefaultLeashDistance,
                 UnitId = new FixedString64Bytes(unitId),
-                RowMirrored = 0,
-                FormationForward = new float3(0, 0, 1) // default: facing +Z (north)
+                FormationRot = quaternion.identity
             });
             em.SetComponentData(leader, new BattalionStanceData { Value = BattalionStance.Default });
 
