@@ -143,6 +143,10 @@ namespace TheWaningBorder.Input
                 {
                     InGameMenuPanel.Toggle();
                 }
+                else if (PlanningModeOverlay.IsActive)
+                {
+                    PlanningModeOverlay.Cancel();
+                }
                 else if (_attackMoveMode || _patrolMode)
                 {
                     _attackMoveMode = false;
@@ -206,6 +210,19 @@ namespace TheWaningBorder.Input
                 IssueStanceToSelection(BattalionStance.Defensive);
             }
 
+            // Z - Toggle planning mode (BFME2); Enter also executes
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Z))
+            {
+                if (PlanningModeOverlay.IsActive)
+                    PlanningModeOverlay.ExecuteAll(_em);
+                else
+                    PlanningModeOverlay.Toggle();
+            }
+            if (PlanningModeOverlay.IsActive && UnityEngine.Input.GetKeyDown(KeyCode.Return))
+            {
+                PlanningModeOverlay.ExecuteAll(_em);
+            }
+
             // Control groups (1-9)
             for (int i = 0; i < 9; i++)
             {
@@ -260,6 +277,33 @@ namespace TheWaningBorder.Input
                 return;
 
             if (!TryGetClickPoint(out float3 clickWorld)) return;
+
+            // ── Planning mode intercept: queue into plan list instead of executing ──
+            if (PlanningModeOverlay.IsActive)
+            {
+                var target0 = RaycastPickEntity();
+                var targetType0 = DetermineTargetType(target0);
+                var cmdType = QueuedCommandType.Move;
+                if (_attackMoveMode) { cmdType = QueuedCommandType.AttackMove; _attackMoveMode = false; }
+                else if (_patrolMode) { cmdType = QueuedCommandType.Patrol; _patrolMode = false; }
+
+                foreach (var e in selection)
+                {
+                    if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
+                    if (!IsOwnedByLocalPlayer(e)) continue;
+                    if (_em.HasComponent<BattalionMemberData>(e)) continue;
+                    PlanningModeOverlay.AddPlan(e, cmdType, clickWorld);
+                }
+                return;
+            }
+
+            // ── Shift+Right-Click: queue waypoint instead of replacing command ──
+            bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
+            if (shift && !_attackMoveMode && !_patrolMode)
+            {
+                QueueWaypointForSelection(clickWorld);
+                return;
+            }
 
             // Determine target and issue appropriate command
             var target = RaycastPickEntity();
@@ -735,29 +779,56 @@ namespace TheWaningBorder.Input
             // Arrival time = how long the slowest unit takes to cover the max distance
             float arrivalTime = maxDist / slowestSpeed;
 
-            // Issue moves with formation speed overrides for synchronized arrival
+            // Issue moves — all units move at the slowest speed (BFME2 group move)
             for (int i = 0; i < count; i++)
             {
                 CommandRouter.IssueMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
 
-                if (arrivalTime > 0.1f && dists[i] > 0.5f)
-                {
-                    float formationSpeed = Mathf.Min(dists[i] / arrivalTime, speeds[i]);
-                    formationSpeed = Mathf.Max(formationSpeed, 0.5f);
-
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.SetComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                    else
-                        _em.AddComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                }
+                if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                    _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
                 else
-                {
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.RemoveComponent<FormationSpeedOverride>(units[i]);
-                }
+                    _em.AddComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
             }
         }
-        
+
+        /// <summary>
+        /// Shift+right-click: queue a move waypoint on each selected unit instead of replacing their current command.
+        /// </summary>
+        private void QueueWaypointForSelection(float3 clickWorld)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue;
+
+                // If unit has no current destination, issue move directly
+                bool hasDest = _em.HasComponent<DesiredDestination>(e)
+                    && _em.GetComponentData<DesiredDestination>(e).Has != 0;
+                bool hasQueue = _em.HasComponent<CommandQueueActive>(e);
+
+                if (!hasDest && !hasQueue)
+                {
+                    CommandRouter.IssueMove(_em, e, clickWorld, CommandRouter.CommandSource.LocalPlayer);
+                    continue;
+                }
+
+                // Append to command queue
+                if (!_em.HasBuffer<QueuedCommand>(e))
+                    _em.AddBuffer<QueuedCommand>(e);
+                _em.GetBuffer<QueuedCommand>(e).Add(new QueuedCommand
+                {
+                    Type = QueuedCommandType.Move,
+                    TargetPosition = clickWorld,
+                    TargetEntity = Entity.Null
+                });
+
+                if (!_em.HasComponent<CommandQueueActive>(e))
+                    _em.AddComponent<CommandQueueActive>(e);
+            }
+        }
+
         private void IssueAttackMoveFormation(float3 clickWorld)
         {
             var selection = SelectionSystem.CurrentSelection;
@@ -841,21 +912,11 @@ namespace TheWaningBorder.Input
             {
                 CommandRouter.IssueAttackMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
 
-                if (arrivalTime > 0.1f && dists[i] > 0.5f)
-                {
-                    float formationSpeed = Mathf.Min(dists[i] / arrivalTime, speeds[i]);
-                    formationSpeed = Mathf.Max(formationSpeed, 0.5f);
-
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.SetComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                    else
-                        _em.AddComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                }
+                // All units move at slowest speed (BFME2 group move)
+                if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                    _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
                 else
-                {
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.RemoveComponent<FormationSpeedOverride>(units[i]);
-                }
+                    _em.AddComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
             }
         }
 
