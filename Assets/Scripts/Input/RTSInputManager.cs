@@ -188,22 +188,22 @@ namespace TheWaningBorder.Input
                 IssueHoldPositionToSelection();
             }
 
-            // D - Set battalion stance to Defensive
+            // D - Set battalion stance to Aggressive (BFME2 layout)
             if (UnityEngine.Input.GetKeyDown(KeyCode.D))
             {
-                IssueStanceToSelection(BattalionStance.Defensive);
+                IssueStanceToSelection(BattalionStance.Aggressive);
             }
 
-            // F - Set battalion stance to Default (Formation)
+            // F - Set battalion stance to Default / Standard (BFME2 layout)
             if (UnityEngine.Input.GetKeyDown(KeyCode.F))
             {
                 IssueStanceToSelection(BattalionStance.Default);
             }
 
-            // G - Set battalion stance to Aggressive
+            // G - Set battalion stance to Defensive (BFME2 layout)
             if (UnityEngine.Input.GetKeyDown(KeyCode.G))
             {
-                IssueStanceToSelection(BattalionStance.Aggressive);
+                IssueStanceToSelection(BattalionStance.Defensive);
             }
 
             // Control groups (1-9)
