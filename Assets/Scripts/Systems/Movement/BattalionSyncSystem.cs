@@ -59,6 +59,10 @@ namespace TheWaningBorder.Systems.Movement
                 quaternion leaderRot = leaderXf.ValueRO.Rotation;
 
                 // ── BFME2 about-face: detect direction reversal and mirror rows ──
+                // FormationForward tracks the direction the grid is "logically" oriented.
+                // When the leader faces the opposite way (dot < threshold), we mirror
+                // rows so the back row becomes the front — members do an about-face
+                // in place instead of crossing paths.
                 float3 currentForward = math.mul(leaderRot, new float3(0, 0, 1));
                 currentForward.y = 0;
                 currentForward = math.normalizesafe(currentForward, new float3(0, 0, 1));
@@ -70,27 +74,31 @@ namespace TheWaningBorder.Systems.Movement
                 float dot = math.dot(currentForward, formFwd);
                 bool mirrored = bl.RowMirrored != 0;
 
-                // When leader's facing diverges >90° from formation forward, toggle mirror
-                if (dot < 0f && !mirrored)
+                // Hysteresis thresholds to prevent oscillation at edge angles
+                const float MirrorOnThreshold  = -0.2f;  // ~102° to trigger mirror
+                const float MirrorOffThreshold =  0.3f;  // ~73°  to release mirror
+
+                if (!mirrored && dot < MirrorOnThreshold)
                 {
+                    // Leader reversed >~100° from formation forward → mirror rows
+                    // Keep FormationForward unchanged so the dot stays negative
                     mirrored = true;
                     var blw = bl;
                     blw.RowMirrored = 1;
-                    blw.FormationForward = currentForward;
                     em.SetComponentData(entity, blw);
                 }
-                else if (dot >= 0f && mirrored)
+                else if (mirrored && dot > MirrorOffThreshold)
                 {
-                    // Leader has rotated back toward formation forward — un-mirror
+                    // Leader rotated back toward original formation forward → un-mirror
                     mirrored = false;
                     var blw = bl;
                     blw.RowMirrored = 0;
                     blw.FormationForward = currentForward;
                     em.SetComponentData(entity, blw);
                 }
-                else if (dot >= 0.95f)
+                else if (!mirrored && dot >= 0.9f)
                 {
-                    // Smoothly track formation forward when aligned (prevents stale reference)
+                    // Smoothly track formation forward when well-aligned and not mirrored
                     var blw = bl;
                     blw.FormationForward = currentForward;
                     em.SetComponentData(entity, blw);
