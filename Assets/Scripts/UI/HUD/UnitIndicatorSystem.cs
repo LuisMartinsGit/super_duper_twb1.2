@@ -44,6 +44,7 @@ namespace TheWaningBorder.UI.HUD
         private static readonly Color PursuingColor = new Color(1f, 0.85f, 0.1f, 0.8f);
         private static readonly Color AttackingColor = new Color(1f, 0.15f, 0.15f, 0.8f);
         private static readonly Color TakingDamageColor = new Color(1f, 0.1f, 0.8f, 0.9f);
+        private static readonly Color HealingColor = new Color(0.1f, 0.9f, 0.2f, 0.9f);
 
         private EntityWorld _world;
         private EntityManager _em;
@@ -54,6 +55,10 @@ namespace TheWaningBorder.UI.HUD
             public GameObject Arrow;
             public GameObject Circle;
             public MeshRenderer CircleRenderer;
+            public GameObject CrossH;       // Horizontal bar of the cross
+            public GameObject CrossV;       // Vertical bar of the cross
+            public MeshRenderer CrossHRenderer;
+            public MeshRenderer CrossVRenderer;
         }
 
         private readonly Dictionary<Entity, Indicators> _indicators = new();
@@ -89,6 +94,8 @@ namespace TheWaningBorder.UI.HUD
             {
                 if (kv.Value.Arrow != null) Destroy(kv.Value.Arrow);
                 if (kv.Value.Circle != null) Destroy(kv.Value.Circle);
+                if (kv.Value.CrossH != null) Destroy(kv.Value.CrossH);
+                if (kv.Value.CrossV != null) Destroy(kv.Value.CrossV);
             }
             _indicators.Clear();
             if (_baseMat != null) Destroy(_baseMat);
@@ -112,6 +119,8 @@ namespace TheWaningBorder.UI.HUD
                 {
                     if (ind.Arrow != null) Destroy(ind.Arrow);
                     if (ind.Circle != null) Destroy(ind.Circle);
+                    if (ind.CrossH != null) Destroy(ind.CrossH);
+                    if (ind.CrossV != null) Destroy(ind.CrossV);
                 }
                 _indicators.Remove(e);
             }
@@ -150,8 +159,17 @@ namespace TheWaningBorder.UI.HUD
                 {
                     Arrow = CreateArrow(),
                     Circle = CreateCircle(out var circleRenderer),
-                    CircleRenderer = circleRenderer
+                    CircleRenderer = circleRenderer,
+                    CrossH = CreateCrossBar(out var crossHR),
+                    CrossV = CreateCrossBar(out var crossVR),
+                    CrossHRenderer = crossHR,
+                    CrossVRenderer = crossVR
                 };
+                // Rotate vertical bar 90° around Y to form the cross
+                ind.CrossV.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+                // Cross starts hidden
+                ind.CrossH.SetActive(false);
+                ind.CrossV.SetActive(false);
                 _indicators[entity] = ind;
             }
 
@@ -193,14 +211,39 @@ namespace TheWaningBorder.UI.HUD
                     ind.Arrow.transform.rotation = Quaternion.Euler(90f, angle, 0f);
                 }
 
-                // ── State Circle ──
-                if (ind.Circle != null)
-                {
-                    Vector3 circlePos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
-                    ind.Circle.transform.position = circlePos;
+                // ── State Indicator (circle or cross) ──
+                var unitState = DetermineState(entity);
+                Color stateColor = StateToColor(unitState);
+                Vector3 indicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
 
-                    Color stateColor = DetermineStateColor(entity);
-                    SetMaterialColor(ind.CircleRenderer.sharedMaterial, stateColor);
+                if (unitState == UnitState.Healing)
+                {
+                    // Show green cross, hide circle
+                    if (ind.Circle != null) ind.Circle.SetActive(false);
+                    if (ind.CrossH != null)
+                    {
+                        ind.CrossH.SetActive(true);
+                        ind.CrossH.transform.position = indicatorPos;
+                        SetMaterialColor(ind.CrossHRenderer.sharedMaterial, HealingColor);
+                    }
+                    if (ind.CrossV != null)
+                    {
+                        ind.CrossV.SetActive(true);
+                        ind.CrossV.transform.position = indicatorPos;
+                        SetMaterialColor(ind.CrossVRenderer.sharedMaterial, HealingColor);
+                    }
+                }
+                else
+                {
+                    // Show circle, hide cross
+                    if (ind.CrossH != null) ind.CrossH.SetActive(false);
+                    if (ind.CrossV != null) ind.CrossV.SetActive(false);
+                    if (ind.Circle != null)
+                    {
+                        ind.Circle.SetActive(true);
+                        ind.Circle.transform.position = indicatorPos;
+                        SetMaterialColor(ind.CircleRenderer.sharedMaterial, stateColor);
+                    }
                 }
             }
         }
@@ -209,11 +252,21 @@ namespace TheWaningBorder.UI.HUD
         // STATE DETECTION
         // ═══════════════════════════════════════════════════════════════
 
-        private Color DetermineStateColor(Entity entity)
+        private enum UnitState { Idle, Moving, Pursuing, Attacking, TakingDamage, Healing }
+
+        private UnitState DetermineState(Entity entity)
         {
-            // Taking damage (highest priority — flashes briefly since LastAttackerEntity is cleared each frame)
+            // Taking damage (highest priority)
             if (_em.HasComponent<LastAttackerEntity>(entity))
-                return TakingDamageColor;
+                return UnitState.TakingDamage;
+
+            // Healing (Litharch actively healing a target)
+            if (_em.HasComponent<LitharchState>(entity))
+            {
+                var ls = _em.GetComponentData<LitharchState>(entity);
+                if (ls.IsHealing != 0 && ls.HealTarget != Entity.Null && _em.Exists(ls.HealTarget))
+                    return UnitState.Healing;
+            }
 
             bool hasTarget = _em.HasComponent<Target>(entity) &&
                              _em.GetComponentData<Target>(entity).Value != Entity.Null;
@@ -232,13 +285,26 @@ namespace TheWaningBorder.UI.HUD
             }
 
             if (hasTarget && !isMoving)
-                return AttackingColor;   // In range, fighting
+                return UnitState.Attacking;
             if (hasTarget && isMoving)
-                return PursuingColor;    // Chasing target
+                return UnitState.Pursuing;
             if (isMoving)
-                return MovingColor;      // Moving to destination
+                return UnitState.Moving;
 
-            return IdleColor;
+            return UnitState.Idle;
+        }
+
+        private Color StateToColor(UnitState s)
+        {
+            switch (s)
+            {
+                case UnitState.TakingDamage: return TakingDamageColor;
+                case UnitState.Healing: return HealingColor;
+                case UnitState.Attacking: return AttackingColor;
+                case UnitState.Pursuing: return PursuingColor;
+                case UnitState.Moving: return MovingColor;
+                default: return IdleColor;
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -279,6 +345,32 @@ namespace TheWaningBorder.UI.HUD
             renderer = go.GetComponent<MeshRenderer>();
             var mat = new Material(_baseMat);
             SetMaterialColor(mat, IdleColor);
+            renderer.sharedMaterial = mat;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+
+            return go;
+        }
+
+        /// <summary>
+        /// Creates one bar of the healing cross (a thin flat quad).
+        /// Two bars at 90° form the cross shape.
+        /// </summary>
+        private GameObject CreateCrossBar(out MeshRenderer renderer)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = "CrossBar";
+            // Thin flat bar: wide on X, thin on Y, narrow on Z (one bar)
+            // The horizontal bar: scale (0.3, 0.04, 0.1)
+            // The vertical bar will be rotated 90°
+            go.transform.localScale = new Vector3(circleRadius * 2.5f, circleThickness, circleRadius * 0.7f);
+
+            var col = go.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+
+            renderer = go.GetComponent<MeshRenderer>();
+            var mat = new Material(_baseMat);
+            SetMaterialColor(mat, HealingColor);
             renderer.sharedMaterial = mat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
