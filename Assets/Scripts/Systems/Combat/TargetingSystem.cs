@@ -250,7 +250,14 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         stance = em.GetComponentData<BattalionStanceData>(memberData.Leader).Value;
                     }
+                }
 
+                // ── Stance-aware LOS multiplier (BFME2: Aggressive +50%, Defensive -90%) ──
+                if (stance == BattalionStance.Aggressive) los *= 1.5f;
+                else if (stance == BattalionStance.Defensive) los *= 0.1f;
+
+                if (isBattalionMember)
+                {
                     // ── DEFENSIVE: No auto-acquire. Return fire only if attacker in attack range. ──
                     if (stance == BattalionStance.Defensive)
                     {
@@ -383,6 +390,18 @@ namespace TheWaningBorder.Systems.Combat
                 var myFaction = faction.ValueRO.Value;
                 var los = lineOfSight.ValueRO.Radius;
 
+                // Stance-aware LOS multiplier
+                if (em.HasComponent<BattalionMemberData>(entity))
+                {
+                    var md = em.GetComponentData<BattalionMemberData>(entity);
+                    if (em.Exists(md.Leader) && em.HasComponent<BattalionStanceData>(md.Leader))
+                    {
+                        var st = em.GetComponentData<BattalionStanceData>(md.Leader).Value;
+                        if (st == BattalionStance.Aggressive) los *= 1.5f;
+                        else if (st == BattalionStance.Defensive) los *= 0.1f;
+                    }
+                }
+
                 // Find nearest enemy within line of sight
                 Entity bestAMTarget = Entity.Null;
                 float bestAMDist = float.MaxValue;
@@ -431,6 +450,18 @@ namespace TheWaningBorder.Systems.Combat
                 var myPos = transform.ValueRO.Position;
                 var myFaction = faction.ValueRO.Value;
                 var los = lineOfSight.ValueRO.Radius;
+
+                // Stance-aware LOS multiplier
+                if (em.HasComponent<BattalionMemberData>(entity))
+                {
+                    var md = em.GetComponentData<BattalionMemberData>(entity);
+                    if (em.Exists(md.Leader) && em.HasComponent<BattalionStanceData>(md.Leader))
+                    {
+                        var st = em.GetComponentData<BattalionStanceData>(md.Leader).Value;
+                        if (st == BattalionStance.Aggressive) los *= 1.5f;
+                        else if (st == BattalionStance.Defensive) los *= 0.1f;
+                    }
+                }
 
                 // Find nearest enemy within line of sight
                 Entity bestPatrolTarget = Entity.Null;
