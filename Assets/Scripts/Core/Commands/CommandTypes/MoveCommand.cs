@@ -97,6 +97,17 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear heal
             if (em.HasComponent<HealCommand>(unit))
                 em.RemoveComponent<HealCommand>(unit);
+            // Clear Litharch healing state (healer uses LitharchState internally)
+            if (em.HasComponent<LitharchState>(unit))
+            {
+                var ls = em.GetComponentData<LitharchState>(unit);
+                if (ls.IsHealing != 0)
+                {
+                    ls.HealTarget = Entity.Null;
+                    ls.IsHealing = 0;
+                    em.SetComponentData(unit, ls);
+                }
+            }
         }
     }
 }

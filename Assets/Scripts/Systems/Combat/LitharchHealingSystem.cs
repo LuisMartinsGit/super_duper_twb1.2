@@ -58,6 +58,17 @@ namespace TheWaningBorder.Systems.Combat
                          .WithNone<HealCommand>()
                          .WithEntityAccess())
             {
+                // UserMoveOrder = player/AI issued a manual command — cancel healing, obey command
+                if (em.HasComponent<UserMoveOrder>(entity))
+                {
+                    if (lithState.ValueRO.IsHealing != 0)
+                    {
+                        lithState.ValueRW.HealTarget = Entity.Null;
+                        lithState.ValueRW.IsHealing = 0;
+                    }
+                    continue;
+                }
+
                 // Skip if already has a valid heal target
                 if (lithState.ValueRO.HealTarget != Entity.Null &&
                     em.Exists(lithState.ValueRO.HealTarget))
