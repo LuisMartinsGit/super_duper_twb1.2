@@ -60,6 +60,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<ProjectileVisualSystem>();
             managersGO.AddComponent<MovementLineDisplay>();
             managersGO.AddComponent<UnitIndicatorSystem>();
+            managersGO.AddComponent<PlanningModeOverlay>();
             Object.DontDestroyOnLoad(managersGO);
 
             // Create terrain
