@@ -1574,14 +1574,14 @@ namespace TheWaningBorder.UI.Panels
 
             float btnWidth = (innerRect.width - 12f) / 3f;
 
-            // Defensive button
-            DrawStanceButton("[D] Defensive", BattalionStance.Defensive, currentStance, leader, em, btnWidth);
+            // Aggressive button (D key — BFME2 layout)
+            DrawStanceButton("[D] Aggressive", BattalionStance.Aggressive, currentStance, leader, em, btnWidth);
             GUILayout.Space(6);
-            // Default button
-            DrawStanceButton("[F] Default", BattalionStance.Default, currentStance, leader, em, btnWidth);
+            // Default / Standard button
+            DrawStanceButton("[F] Standard", BattalionStance.Default, currentStance, leader, em, btnWidth);
             GUILayout.Space(6);
-            // Aggressive button
-            DrawStanceButton("[G] Aggressive", BattalionStance.Aggressive, currentStance, leader, em, btnWidth);
+            // Defensive button (G key — BFME2 layout)
+            DrawStanceButton("[G] Defensive", BattalionStance.Defensive, currentStance, leader, em, btnWidth);
 
             GUILayout.EndHorizontal();
 
