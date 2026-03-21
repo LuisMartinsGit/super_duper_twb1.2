@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -82,9 +83,21 @@ namespace TheWaningBorder.Entities
                 Spacing = DefaultSpacing,
                 FollowSpeed = DefaultFollowSpeed,
                 LeashDistance = DefaultLeashDistance,
-                UnitId = new FixedString64Bytes(unitId)
+                UnitId = new FixedString64Bytes(unitId),
+                FormationRot = quaternion.identity,
+                DestinationRot = quaternion.identity,
+                HasDestinationRot = 0,
+                LastAssignmentRot = quaternion.identity,
+                NeedsReassignment = 0
             });
             em.SetComponentData(leader, new BattalionStanceData { Value = BattalionStance.Default });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(leader, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             // NO PresentationId — leader is invisible (no mesh/collider)
 

@@ -35,7 +35,7 @@ namespace TheWaningBorder.Multiplayer
         // CONSTANTS
         // ═══════════════════════════════════════════════════════════════════════
         
-        public const int BROADCAST_PORT = 27015;
+        public const int BROADCAST_PORT = 47515;
         public const float BROADCAST_INTERVAL = 1.0f;
         public const float LOBBY_SYNC_INTERVAL = 0.5f;
         public const float DISCOVERY_TIMEOUT = 5.0f;
@@ -98,6 +98,119 @@ namespace TheWaningBorder.Multiplayer
         public Dictionary<string, LobbyClientInfo> ConnectedClients => _connectedClients;
 
         // ═══════════════════════════════════════════════════════════════════════
+        // FIREWALL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private static bool _firewallChecked;
+
+        /// <summary>
+        /// Try to add Windows Firewall rules for the game's UDP ports.
+        /// Runs once per session. Silently continues if it fails (user may not have admin rights).
+        /// </summary>
+        private static void EnsureFirewallRules()
+        {
+            if (_firewallChecked) return;
+            _firewallChecked = true;
+
+            try
+            {
+                // Add inbound UDP rule for broadcast port
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = $"advfirewall firewall add rule name=\"The Waning Border Multiplayer\" dir=in action=allow protocol=UDP localport={BROADCAST_PORT} enable=yes",
+                    UseShellExecute = true,
+                    Verb = "runas",        // Request elevation
+                    CreateNoWindow = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                };
+
+                var proc = System.Diagnostics.Process.Start(psi);
+                if (proc != null)
+                {
+                    proc.WaitForExit(5000);
+                    if (proc.ExitCode == 0)
+                        Debug.Log("[LobbyManager] Firewall rule added successfully");
+                    else
+                        Debug.LogWarning("[LobbyManager] Firewall rule may not have been added (non-zero exit code)");
+                }
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // User cancelled UAC prompt — that's fine
+                Debug.LogWarning("[LobbyManager] Firewall rule not added (UAC cancelled). Manual firewall config may be needed.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[LobbyManager] Could not add firewall rule: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Create a UDP broadcast socket bound to a specific port.
+        /// Uses UdpClient(port) which binds during construction, then enables broadcast.
+        /// If that fails with AccessDenied, falls back to building a raw Socket
+        /// with ExclusiveAddressUse=false before binding.
+        /// </summary>
+        private static UdpClient CreateBroadcastSocket(int port)
+        {
+            // Attempt 1: Simple UdpClient(port) — works in most cases
+            try
+            {
+                var udp = new UdpClient(port);
+                udp.EnableBroadcast = true;
+                udp.Client.ReceiveTimeout = 1;
+                return udp;
+            }
+            catch (SocketException)
+            {
+                // Fall through to raw socket approach
+            }
+
+            // Attempt 2: Raw socket with ExclusiveAddressUse=false for port sharing
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.ExclusiveAddressUse = false;
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+            socket.ReceiveTimeout = 1;
+            socket.Bind(new IPEndPoint(IPAddress.Any, port));
+
+            // Swap socket into a new UdpClient
+            var fallback = new UdpClient();
+            fallback.Client.Close();
+            fallback.Client = socket;
+            return fallback;
+        }
+
+        /// <summary>
+        /// Properly close and dispose a UdpClient, releasing the port immediately.
+        /// </summary>
+        private static void DisposeSocket(ref UdpClient socket)
+        {
+            if (socket == null) return;
+            try { socket.Client?.Shutdown(SocketShutdown.Both); } catch { }
+            try { socket.Client?.Close(); } catch { }
+            try { socket.Close(); } catch { }
+            try { socket.Dispose(); } catch { }
+            socket = null;
+        }
+
+        /// <summary>
+        /// Format a SocketException into a user-friendly message.
+        /// </summary>
+        private string FormatSocketError(SocketException se)
+        {
+            return se.SocketErrorCode switch
+            {
+                SocketError.AddressAlreadyInUse =>
+                    $"Port {BROADCAST_PORT} in use. Close other game instances or restart Unity.",
+                SocketError.AccessDenied =>
+                    $"Port {BROADCAST_PORT} access denied. Run Unity as Administrator, or check Windows Firewall.",
+                _ => $"{se.Message} (error {se.SocketErrorCode})"
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALIZATION
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -122,11 +235,7 @@ namespace TheWaningBorder.Multiplayer
 
             try
             {
-                _hostSocket = new UdpClient();
-                _hostSocket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _hostSocket.Client.Bind(new IPEndPoint(IPAddress.Any, BROADCAST_PORT));
-                _hostSocket.EnableBroadcast = true;
-                _hostSocket.Client.ReceiveTimeout = 1;
+                _hostSocket = CreateBroadcastSocket(BROADCAST_PORT);
 
                 // Setup slot 0 as host
                 _slots[0].Type = LobbySlotType.Human;
@@ -138,13 +247,8 @@ namespace TheWaningBorder.Multiplayer
             }
             catch (SocketException se)
             {
-                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
-                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
-                    : se.SocketErrorCode == SocketError.AccessDenied
-                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
-                        : se.Message;
-                OnError?.Invoke($"Network error: {hint}");
-                Debug.LogError($"[LobbyManager] Host socket error: {hint}");
+                OnError?.Invoke($"Network error: {FormatSocketError(se)}");
+                Debug.LogError($"[LobbyManager] Host socket error: {FormatSocketError(se)} (code: {se.SocketErrorCode})");
                 return false;
             }
             catch (Exception e)
@@ -167,10 +271,7 @@ namespace TheWaningBorder.Multiplayer
             try
             {
                 // Broadcast listener for game discovery
-                _broadcastListener = new UdpClient();
-                _broadcastListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _broadcastListener.Client.Bind(new IPEndPoint(IPAddress.Any, BROADCAST_PORT));
-                _broadcastListener.Client.ReceiveTimeout = 1;
+                _broadcastListener = CreateBroadcastSocket(BROADCAST_PORT);
 
                 // Private socket for direct messages
                 _clientSocket = new UdpClient(0);
@@ -182,13 +283,8 @@ namespace TheWaningBorder.Multiplayer
             }
             catch (SocketException se)
             {
-                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
-                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
-                    : se.SocketErrorCode == SocketError.AccessDenied
-                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
-                        : se.Message;
-                OnError?.Invoke($"Network error: {hint}");
-                Debug.LogError($"[LobbyManager] Client socket error: {hint}");
+                OnError?.Invoke($"Network error: {FormatSocketError(se)}");
+                Debug.LogError($"[LobbyManager] Client socket error: {FormatSocketError(se)} (code: {se.SocketErrorCode})");
                 return false;
             }
             catch (Exception e)
@@ -204,13 +300,9 @@ namespace TheWaningBorder.Multiplayer
         /// </summary>
         public void Shutdown()
         {
-            try { _hostSocket?.Close(); } catch { }
-            try { _broadcastListener?.Close(); } catch { }
-            try { _clientSocket?.Close(); } catch { }
-            
-            _hostSocket = null;
-            _broadcastListener = null;
-            _clientSocket = null;
+            DisposeSocket(ref _hostSocket);
+            DisposeSocket(ref _broadcastListener);
+            DisposeSocket(ref _clientSocket);
             
             _isHost = false;
             _isConnected = false;

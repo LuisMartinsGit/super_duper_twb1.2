@@ -85,6 +85,21 @@ namespace TheWaningBorder.Core.Commands.Types
             // Remove AttackMoveTag if present (patrol replaces attack-move)
             if (em.HasComponent<AttackMoveTag>(unit))
                 em.RemoveComponent<AttackMoveTag>(unit);
+
+            // Battalion leader: store destination facing
+            if (em.HasComponent<BattalionLeader>(unit))
+            {
+                float3 dir = destination - startPos;
+                dir.y = 0;
+                if (math.lengthsq(dir) < 0.01f)
+                    dir = new float3(0, 0, 1);
+                dir = math.normalize(dir);
+                var bl = em.GetComponentData<BattalionLeader>(unit);
+                bl.DestinationRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                bl.HasDestinationRot = 1;
+                bl.NeedsReassignment = 1;
+                em.SetComponentData(unit, bl);
+            }
         }
 
         private static void ClearConflictingCommands(EntityManager em, Entity unit)

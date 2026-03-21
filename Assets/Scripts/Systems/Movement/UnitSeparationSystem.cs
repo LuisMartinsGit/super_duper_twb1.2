@@ -298,10 +298,12 @@ namespace TheWaningBorder.Systems.Movement
                 var obstaclePositions = obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
-                // Re-query units to get positions after building push
+                // Re-query units to get positions after building push.
+                // Battalion members are now included — individual tree obstacles
+                // (radius 0.75) are small enough to push without forcefield scattering.
+                // The old exclusion was needed when forests were single 12-radius obstacles.
                 var unitQuery3 = SystemAPI.QueryBuilder()
                     .WithAll<LocalTransform, Radius, UnitTag>()
-                    .WithNone<BattalionLeader>()
                     .Build();
                 var units3 = unitQuery3.ToEntityArray(Allocator.Temp);
                 var unitPos3 = unitQuery3.ToComponentDataArray<LocalTransform>(Allocator.Temp);

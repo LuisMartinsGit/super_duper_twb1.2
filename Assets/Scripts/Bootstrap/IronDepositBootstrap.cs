@@ -8,6 +8,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -177,6 +178,13 @@ namespace TheWaningBorder.Bootstrap
             {
                 RemainingIron = IronPerDeposit,
                 Depleted = 0
+            });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
             });
 
             return entity;

@@ -85,8 +85,14 @@ namespace TheWaningBorder.Systems.Combat
                 var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
                 var dist = DistXZ(myPos, targetPos);
 
+                // Account for target's physical radius (buildings are larger)
+                float targetRadius = 0f;
+                if (em.HasComponent<Radius>(tgt.Value))
+                    targetRadius = em.GetComponentData<Radius>(tgt.Value).Value;
+                float effectiveMeleeRange = MeleeRange + targetRadius;
+
                 // In melee range - attack
-                if (dist <= MeleeRange)
+                if (dist <= effectiveMeleeRange)
                 {
                     // Stop moving when in range
                     if (em.HasComponent<DesiredDestination>(entity))
@@ -133,26 +139,31 @@ namespace TheWaningBorder.Systems.Combat
                         int finalDamage = CombatModifiers.CalculateFinalDamage(
                             baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod);
 
-                        // Apply damage
+                        // Apply damage — use immediate write so multiple attackers
+                        // in the same frame correctly stack damage (not last-write-wins via ECB)
                         var health = em.GetComponentData<Health>(tgt.Value);
                         health.Value -= finalDamage;
                         if (health.Value < 0) health.Value = 0;
-                        ecb.SetComponent(tgt.Value, health);
+                        em.SetComponentData(tgt.Value, health);
 
                         // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
                         if (em.HasComponent<FactionTag>(entity))
                         {
-                            ecb.AddComponent(tgt.Value, new LastDamagedByFaction
+                            var lastDamaged = new LastDamagedByFaction
                             {
                                 Value = em.GetComponentData<FactionTag>(entity).Value
-                            });
+                            };
+                            if (em.HasComponent<LastDamagedByFaction>(tgt.Value))
+                                em.SetComponentData(tgt.Value, lastDamaged);
+                            else
+                                ecb.AddComponent(tgt.Value, lastDamaged);
                         }
 
                         // Track attacker entity for defensive stance return-fire
-                        if (!em.HasComponent<LastAttackerEntity>(tgt.Value))
-                            ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
+                        if (em.HasComponent<LastAttackerEntity>(tgt.Value))
+                            em.SetComponentData(tgt.Value, new LastAttackerEntity { Value = entity });
                         else
-                            ecb.SetComponent(tgt.Value, new LastAttackerEntity { Value = entity });
+                            ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
 
                         // Reset cooldown
                         cd.Timer = cd.Cooldown;

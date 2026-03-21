@@ -32,10 +32,10 @@ namespace TheWaningBorder.AI
         public static float MineCheckInterval = 5.0f;
 
         /// <summary>Target miners to assign per iron deposit.</summary>
-        public static int TargetMinersPerMine = 3;
+        public static int TargetMinersPerMine = 2;
 
-        /// <summary>Hard cap on total miners in early game (3 mines x 3 each).</summary>
-        public static int MaxMiners = 9;
+        /// <summary>Hard cap on total miners.</summary>
+        public static int MaxMiners = 6;
 
         /// <summary>Below this Supplies threshold the AI flags NeedsMoreSupplyIncome.</summary>
         public static int MinSuppliesThreshold = 200;

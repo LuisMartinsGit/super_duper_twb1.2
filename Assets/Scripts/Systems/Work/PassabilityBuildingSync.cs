@@ -43,7 +43,7 @@ namespace TheWaningBorder.Systems.Work
         {
             _timer = 0f;
             _knownBuildings = new NativeHashMap<Entity, BuildingRecord>(128, Allocator.Persistent);
-            _knownObstacles = new NativeHashMap<Entity, BuildingRecord>(32, Allocator.Persistent);
+            _knownObstacles = new NativeHashMap<Entity, BuildingRecord>(512, Allocator.Persistent);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -119,7 +119,7 @@ namespace TheWaningBorder.Systems.Work
             // ─────────────────────────────────────────────────────────────────
 
             // Collect current obstacles
-            var currentObstacles = new NativeHashMap<Entity, BuildingRecord>(32, Allocator.Temp);
+            var currentObstacles = new NativeHashMap<Entity, BuildingRecord>(512, Allocator.Temp);
 
             foreach (var (transform, radius, entity) in SystemAPI
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()

@@ -131,6 +131,33 @@ namespace TheWaningBorder.UI.Common
         }
 
         /// <summary>
+        /// Format a cost with rich text coloring.
+        /// Resources the player cannot afford are shown in red; affordable ones in the given color hex.
+        /// </summary>
+        public static string FormatCostRich(TheWaningBorder.Core.Cost cost, TheWaningBorder.Core.Cost available, string affordHex = "#b8e6b8")
+        {
+            if (cost.IsZero) return "Free";
+
+            var sb = new System.Text.StringBuilder(128);
+
+            void Add(string name, int needed, int have)
+            {
+                if (needed <= 0) return;
+                if (sb.Length > 0) sb.Append("  ");
+                string hex = have >= needed ? affordHex : "#ff5555";
+                sb.Append($"<color={hex}>{name} {needed}</color>");
+            }
+
+            Add("S", cost.Supplies, available.Supplies);
+            Add("Fe", cost.Iron, available.Iron);
+            Add("Cr", cost.Crystal, available.Crystal);
+            Add("Vs", cost.Veilsteel, available.Veilsteel);
+            Add("Gl", cost.Glow, available.Glow);
+
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Draw a progress bar.
         /// </summary>
         public static void DrawProgressBar(Rect rect, float progress, Color fillColor, Color bgColor)
@@ -260,12 +287,24 @@ namespace TheWaningBorder.UI.Common
             {
                 var e = sel[i];
                 if (!manager.Exists(e)) continue;
-                if (!manager.HasComponent<FactionTag>(e)) continue;
+                if (!IsValidSelectable(manager, e)) continue;
 
                 return e;
             }
 
             return Entity.Null;
+        }
+
+        /// <summary>
+        /// Check if an entity is valid for UI selection display.
+        /// Accepts faction-owned entities and neutral resource deposits.
+        /// </summary>
+        private static bool IsValidSelectable(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<FactionTag>(e)) return true;
+            if (em.HasComponent<IronMineTag>(e)) return true;
+            if (em.HasComponent<CadaverTag>(e)) return true;
+            return false;
         }
 
         /// <summary>
@@ -325,7 +364,7 @@ namespace TheWaningBorder.UI.Common
             for (int i = 0; i < sel.Count; i++)
             {
                 var e = sel[i];
-                if (manager.Exists(e) && manager.HasComponent<FactionTag>(e))
+                if (manager.Exists(e) && IsValidSelectable(manager, e))
                     result.Add(e);
             }
             return result;
@@ -345,7 +384,7 @@ namespace TheWaningBorder.UI.Common
             int count = 0;
             for (int i = 0; i < sel.Count; i++)
             {
-                if (manager.Exists(sel[i]) && manager.HasComponent<FactionTag>(sel[i]))
+                if (manager.Exists(sel[i]) && IsValidSelectable(manager, sel[i]))
                     count++;
             }
             return count;

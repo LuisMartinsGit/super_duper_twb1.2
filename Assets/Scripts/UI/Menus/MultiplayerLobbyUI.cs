@@ -29,7 +29,7 @@ namespace TheWaningBorder.UI.Menus
         public event Action OnBackPressed;
 
         private const string GameSceneName = "Game";
-        private const int BROADCAST_PORT = 27015;
+        private const int BROADCAST_PORT = 47515;
         private const float BROADCAST_INTERVAL = 1.0f;
         private const float LOBBY_SYNC_INTERVAL = 0.5f;
         private const float DISCOVERY_TIMEOUT = 5.0f;
@@ -451,17 +451,14 @@ namespace TheWaningBorder.UI.Menus
 
             try
             {
-                _hostSocket = new UdpClient(BROADCAST_PORT);
-                _hostSocket.EnableBroadcast = true;
+                _hostSocket = CreateBroadcastSocket(BROADCAST_PORT);
                 Debug.Log($"[MultiplayerLobby] Host listening on port {BROADCAST_PORT}");
             }
             catch (SocketException se)
             {
                 string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
-                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
-                    : se.SocketErrorCode == SocketError.AccessDenied
-                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
-                        : se.Message;
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
+                    : $"Socket error ({se.SocketErrorCode}): {se.Message}";
                 _error = $"Network error: {hint}";
                 Debug.LogError($"[MultiplayerLobby] Host socket error: {hint}");
             }
@@ -478,12 +475,10 @@ namespace TheWaningBorder.UI.Menus
 
             try
             {
-                // Broadcast listener (shared port)
-                _clientBroadcastSocket = new UdpClient();
-                _clientBroadcastSocket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _clientBroadcastSocket.Client.Bind(new IPEndPoint(IPAddress.Any, BROADCAST_PORT));
+                // Broadcast listener (shared port — must use raw socket to avoid double-bind)
+                _clientBroadcastSocket = CreateBroadcastSocket(BROADCAST_PORT);
 
-                // Private socket (random port)
+                // Private socket (random port for direct host communication)
                 _clientPrivateSocket = new UdpClient(0);
                 _clientPrivatePort = (ushort)((IPEndPoint)_clientPrivateSocket.Client.LocalEndPoint).Port;
 
@@ -492,10 +487,8 @@ namespace TheWaningBorder.UI.Menus
             catch (SocketException se)
             {
                 string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
-                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances."
-                    : se.SocketErrorCode == SocketError.AccessDenied
-                        ? $"Port {BROADCAST_PORT} blocked. Check Windows Firewall settings."
-                        : se.Message;
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
+                    : $"Socket error ({se.SocketErrorCode}): {se.Message}";
                 _error = $"Network error: {hint}";
                 Debug.LogError($"[MultiplayerLobby] Client socket error: {hint}");
             }
@@ -753,18 +746,60 @@ namespace TheWaningBorder.UI.Menus
 
         private void Cleanup()
         {
-            _hostSocket?.Close();
-            _hostSocket = null;
-
-            _clientBroadcastSocket?.Close();
-            _clientBroadcastSocket = null;
-
-            _clientPrivateSocket?.Close();
-            _clientPrivateSocket = null;
+            DisposeSocket(ref _hostSocket);
+            DisposeSocket(ref _clientBroadcastSocket);
+            DisposeSocket(ref _clientPrivateSocket);
 
             _discoveredGames.Clear();
             _isHost = false;
             _mySlotIndex = -1;
+        }
+
+        /// <summary>
+        /// Properly close and dispose a UdpClient, releasing the port immediately.
+        /// </summary>
+        private static void DisposeSocket(ref UdpClient socket)
+        {
+            if (socket == null) return;
+            try { socket.Client?.Close(); } catch { }
+            try { socket.Close(); } catch { }
+            try { socket.Dispose(); } catch { }
+            socket = null;
+        }
+
+        /// <summary>
+        /// Create a UDP broadcast socket bound to a specific port.
+        /// Uses UdpClient(port) which binds during construction.
+        /// Falls back to raw Socket with ReuseAddress if port is shared.
+        /// </summary>
+        private static UdpClient CreateBroadcastSocket(int port)
+        {
+            // Attempt 1: Standard UdpClient(port) — simplest, works when port is free
+            try
+            {
+                var udp = new UdpClient(port);
+                udp.EnableBroadcast = true;
+                udp.Client.ReceiveTimeout = 1;
+                return udp;
+            }
+            catch (SocketException)
+            {
+                // Port may be shared (host+client on same machine) — fall through
+            }
+
+            // Attempt 2: Raw socket with ReuseAddress for port sharing
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.ExclusiveAddressUse = false;
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+            socket.ReceiveTimeout = 1;
+            socket.Bind(new IPEndPoint(IPAddress.Any, port));
+
+            // Wrap in UdpClient — close the auto-created socket first
+            var fallback = new UdpClient();
+            fallback.Client.Close();
+            fallback.Client = socket;
+            return fallback;
         }
     }
 }

@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -12,15 +13,21 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalMainNode
     {
-        private const int DefaultHP = 1500;
+        private const int DefaultHP = 4000;
         private const float DefaultRadius = 2.5f;
         private const float DefaultSpreadRadius = 15f;
         private const float DefaultSpreadPerTick = 1f;
-        private const float DefaultTickInterval = 30f;
+        private const float DefaultTickInterval = 45f;
         private const float DefaultIncomePerTick = 0f;
-        private const float DefaultHarassTimer = 120f;
+        private const float DefaultHarassTimer = 60f;
         private const int DefaultBuildCost = 2000;
         private const int PresentationID = 310;
+
+        // Main node self-defense turret — fires at attackers
+        private const float AttackRange = 18f;
+        private const int AttackDamage = 25;
+        private const float AttackCooldown = 1.2f;
+        private const int AttackMaxTargets = 3;
 
         /// <summary>
         /// Create CrystalMainNode using EntityManager.
@@ -37,8 +44,11 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalTag),
                 typeof(CrystalMainNodeTag),
                 typeof(CrystalNode),
+                typeof(CrystalNodeLevel),
                 typeof(CrystalAIState),
-                typeof(CrystalResourceValue)
+                typeof(CrystalResourceValue),
+                typeof(BuildingRangedAttack),
+                typeof(Defense)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
@@ -58,6 +68,7 @@ namespace TheWaningBorder.Entities
                 CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            em.SetComponentData(entity, new CrystalNodeLevel { Value = 1 });
             em.SetComponentData(entity, new CrystalAIState
             {
                 HarassTimer = DefaultHarassTimer,
@@ -70,8 +81,27 @@ namespace TheWaningBorder.Entities
                 BuildCost = DefaultBuildCost
             });
 
+            // Self-defense turret
+            em.SetComponentData(entity, new BuildingRangedAttack
+            {
+                Range = AttackRange,
+                Damage = AttackDamage,
+                Cooldown = AttackCooldown,
+                Timer = 0f,
+                MaxTargets = AttackMaxTargets
+            });
+            em.SetComponentData(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
 
             return entity;
         }
@@ -102,6 +132,7 @@ namespace TheWaningBorder.Entities
                 CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            ecb.AddComponent(entity, new CrystalNodeLevel { Value = 1 });
             ecb.AddComponent(entity, new CrystalAIState
             {
                 HarassTimer = DefaultHarassTimer,
@@ -114,8 +145,27 @@ namespace TheWaningBorder.Entities
                 BuildCost = DefaultBuildCost
             });
 
+            // Self-defense turret
+            ecb.AddComponent(entity, new BuildingRangedAttack
+            {
+                Range = AttackRange,
+                Damage = AttackDamage,
+                Cooldown = AttackCooldown,
+                Timer = 0f,
+                MaxTargets = AttackMaxTargets
+            });
+            ecb.AddComponent(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
 
             return entity;
         }

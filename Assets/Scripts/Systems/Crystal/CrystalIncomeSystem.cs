@@ -14,7 +14,7 @@ namespace TheWaningBorder.Systems.Crystal
     {
         private float _timer;
         private const float TickInterval = 1.0f;
-        private const float IncomePerAreaUnit = 0.1f;
+        private const float IncomePerAreaUnit = 0.03f;
         private const float TileRadius = 2.0f; // matches CrystalSpreadSystem
 
         public void OnCreate(ref SystemState state)

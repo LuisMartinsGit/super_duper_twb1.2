@@ -9,6 +9,7 @@ using TheWaningBorder.Input;
 using TheWaningBorder.World.FogOfWar;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Systems.Visibility;
+using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Core.Commands;
 
 namespace TheWaningBorder.World.Minimap
@@ -218,13 +219,34 @@ namespace TheWaningBorder.World.Minimap
             if (_terrain == null)
                 _terrain = ProceduralTerrain.Instance;
 
+            // Dark foliage green for forest areas on the minimap
+            Color forestGround = new Color(0.12f, 0.28f, 0.08f, 1f);
+
             for (int y = 0; y < samples; y++)
             {
                 float vz = Mathf.Lerp(minZ, maxZ, (y + 0.5f) / samples);
                 for (int x = 0; x < samples; x++)
                 {
                     float vx = Mathf.Lerp(minX, maxX, (x + 0.5f) / samples);
-                    _bgBuffer[y * samples + x] = SampleGroundColor(vx, vz, x, y);
+                    Color col = SampleGroundColor(vx, vz, x, y);
+
+                    // Overlay forest areas: blend to dark green within forest radii
+                    foreach (var (center, radius) in ObstacleBootstrap.ForestPositions)
+                    {
+                        float dx = vx - center.x;
+                        float dz = vz - center.z;
+                        float distSq = dx * dx + dz * dz;
+                        float rSq = radius * radius;
+                        if (distSq < rSq)
+                        {
+                            // Smooth blend: fully green at center, fade at edges
+                            float t = 1f - (distSq / rSq);
+                            col = Color.Lerp(col, forestGround, t * 0.85f);
+                            break;
+                        }
+                    }
+
+                    _bgBuffer[y * samples + x] = col;
                 }
             }
         }
@@ -436,20 +458,18 @@ namespace TheWaningBorder.World.Minimap
                 }
             }
 
-            // Draw obstacle blips (forests = dark green, rocks = grey) — always visible
+            // Draw obstacle blips (rocks = grey) — always visible
+            // Forests are shown as areas on the background, not as blips.
+            // Individual tree entities have ObstacleTag but no PresentationId, so
+            // _obstaclesQ (which requires PresentationId) only matches rocks.
             using (var xfs = _obstaclesQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-            using (var pids = _obstaclesQ.ToComponentDataArray<PresentationId>(Allocator.Temp))
             {
-                Color forestColor = new Color(0.12f, 0.30f, 0.08f);
                 Color rockColor = new Color(0.38f, 0.36f, 0.33f);
 
                 for (int i = 0; i < xfs.Length; i++)
                 {
-                    var pos = xfs[i].Position;
-                    Color c = pids[i].Id == 400 ? forestColor : rockColor;
-                    int radius = pids[i].Id == 400 ? 3 : 2;
-                    int2 p = WorldToPixel(pos);
-                    DrawDisc(p.x, p.y, radius, c);
+                    int2 p = WorldToPixel(xfs[i].Position);
+                    DrawDisc(p.x, p.y, 2, rockColor);
                 }
             }
 

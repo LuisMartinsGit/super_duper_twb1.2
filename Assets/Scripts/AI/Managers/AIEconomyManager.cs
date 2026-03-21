@@ -9,6 +9,7 @@ using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.AI
 {
@@ -82,6 +83,9 @@ namespace TheWaningBorder.AI
                     {
                         AILogger.Log(faction, "ECONOMY", "Skipping miner check — no GathererHut exists yet");
                     }
+
+                    // Crystal cadaver mining — send idle miners to harvest crystal from corpses
+                    AssignMinersToCadavers(ref state, faction);
                 }
 
                 // 4-7. Barracks, military, crystal hunting — handled by AIMilitaryManager + AICrystalHuntBehavior
@@ -681,6 +685,119 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "ECONOMY",
                     $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{AITuning.SmelterTargetMiners})");
             }
+        }
+
+        /// <summary>
+        /// Proactively sends idle AI miners to harvest crystal from cadavers (dead crystal creatures).
+        /// MiningSystem auto-finds cadavers within SearchRadius (50f), but cadavers may be far away.
+        /// This method searches the whole map for non-depleted cadavers and assigns idle miners.
+        /// </summary>
+        private void AssignMinersToCadavers(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find non-depleted cadavers on the map
+            var cadaverList = new NativeList<Entity>(Allocator.Temp);
+            var cadaverPositions = new NativeList<float3>(Allocator.Temp);
+
+            foreach (var (cadaverState, transform, entity) in SystemAPI
+                .Query<RefRO<CadaverState>, RefRO<LocalTransform>>()
+                .WithAll<CadaverTag>()
+                .WithEntityAccess())
+            {
+                if (cadaverState.ValueRO.Depleted == 1) continue;
+                cadaverList.Add(entity);
+                cadaverPositions.Add(transform.ValueRO.Position);
+            }
+
+            if (cadaverList.Length == 0)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                return;
+            }
+
+            // Find idle miners of this faction (not already gathering, no build/forge orders)
+            var idleMiners = new NativeList<Entity>(Allocator.Temp);
+            var minerPositions = new NativeList<float3>(Allocator.Temp);
+
+            foreach (var (minerState, fTag, transform, entity) in SystemAPI
+                .Query<RefRO<MinerState>, RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<MinerTag>()
+                .WithNone<ForgeSupplyOrder, BuildOrder, GatherCommand>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value != faction) continue;
+                if (minerState.ValueRO.State != MinerWorkState.Idle) continue;
+                idleMiners.Add(entity);
+                minerPositions.Add(transform.ValueRO.Position);
+            }
+
+            if (idleMiners.Length == 0)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                idleMiners.Dispose();
+                minerPositions.Dispose();
+                return;
+            }
+
+            // Find dropoff location (nearest Hall or GathererHut)
+            Entity dropoff = Entity.Null;
+            float3 basePos = float3.zero;
+            foreach (var (fTag, transform, entity) in SystemAPI
+                .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<HallTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    dropoff = entity;
+                    basePos = transform.ValueRO.Position;
+                    break;
+                }
+            }
+
+            if (dropoff == Entity.Null)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                idleMiners.Dispose();
+                minerPositions.Dispose();
+                return;
+            }
+
+            // Assign up to 2 idle miners to the nearest cadaver
+            int assigned = 0;
+            for (int m = 0; m < idleMiners.Length && assigned < 2; m++)
+            {
+                // Find nearest cadaver to this miner
+                float bestDist = float.MaxValue;
+                int bestIdx = -1;
+                for (int c = 0; c < cadaverList.Length; c++)
+                {
+                    float dist = math.distance(minerPositions[m], cadaverPositions[c]);
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        bestIdx = c;
+                    }
+                }
+
+                if (bestIdx < 0) continue;
+
+                GatherCommandHelper.Execute(em, idleMiners[m], cadaverList[bestIdx], dropoff);
+                assigned++;
+
+                AILogger.Log(faction, "ECONOMY",
+                    $"Assigned miner to cadaver (crystal) at ({cadaverPositions[bestIdx].x:F0},{cadaverPositions[bestIdx].z:F0}), dist={bestDist:F0}");
+            }
+
+            cadaverList.Dispose();
+            cadaverPositions.Dispose();
+            idleMiners.Dispose();
+            minerPositions.Dispose();
         }
 
         /// <summary>

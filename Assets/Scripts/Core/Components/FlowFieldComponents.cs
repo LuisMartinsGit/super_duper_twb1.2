@@ -210,6 +210,9 @@ public struct FlowFieldLookup
     /// <summary>Maps destination cell index to slot index in DirectionData.</summary>
     [ReadOnly] public NativeHashMap<int, int> DestToSlot;
 
+    /// <summary>Passability grid cells (0 = passable). Used for line-of-sight checks.</summary>
+    [ReadOnly] public NativeArray<byte> PassabilityCells;
+
     /// <summary>Number of cells per flow field (Width * Height).</summary>
     public int CellsPerField;
 
@@ -233,10 +236,10 @@ public struct FlowFieldLookup
 
     /// <summary>
     /// Given a unit position, return the movement direction from a cached flow field.
-    /// The snappedDest parameter must come from FlowFieldManager.RequestFlowField()
-    /// (via FlowField.DestinationIndex) to ensure the same snap-to-passable and
-    /// coarse-grid snapping logic is used for both caching and lookup.
-    /// Returns the direct-line direction as fallback.
+    /// Checks if the direct path is clear by sampling cells ahead:
+    /// - If all cells along the direct path are passable, uses direct direction for smooth movement.
+    /// - If any cell ahead is blocked, follows the flow field direction around obstacles.
+    /// Near the destination, always uses direct direction for precise arrival.
     /// </summary>
     /// <param name="position">Unit's current world position.</param>
     /// <param name="snappedDest">Snapped destination cell index from FlowField.DestinationIndex, or -1 if no field.</param>
@@ -246,11 +249,15 @@ public struct FlowFieldLookup
     {
         if (!IsValid || snappedDest < 0) return directDir;
 
+        // Near destination: always use direct-line for precise arrival
+        if (distToGoal < BlendRadius)
+            return directDir;
+
         // Look up slot for this destination
         if (!DestToSlot.TryGetValue(snappedDest, out int slot))
             return directDir;
 
-        // Simple per-cell lookup (smoothing is handled per-unit in MovementSystem)
+        // Per-cell flow field lookup
         int cx = (int)math.floor((position.x - Origin.x) / CellSize);
         int cz = (int)math.floor((position.z - Origin.z) / CellSize);
         cx = math.clamp(cx, 0, GridWidth - 1);
@@ -268,13 +275,33 @@ public struct FlowFieldLookup
 
         float3 flowDir = math.normalizesafe(new float3(flowDir2.x, 0f, flowDir2.y));
 
-        // Blend: near destination use direct-line for precise arrival,
-        // far from destination use flow field for obstacle avoidance.
-        if (distToGoal < BlendRadius)
+        // Check if the direct path is clear by sampling cells ahead.
+        // Only use direct direction if there are no obstacles in the way.
+        // This replaces the old dot-product agreement check which let units
+        // walk into forests when the flow field direction was close to direct.
+        if (PassabilityCells.IsCreated)
         {
-            float t = distToGoal / BlendRadius;
-            float3 blended = math.lerp(directDir, flowDir, t);
-            return math.normalizesafe(blended);
+            float lookAhead = math.min(distToGoal, CellSize * 20f);
+            bool pathClear = true;
+
+            for (float d = CellSize; d <= lookAhead; d += CellSize)
+            {
+                float3 checkPos = position + directDir * d;
+                int checkX = (int)math.floor((checkPos.x - Origin.x) / CellSize);
+                int checkZ = (int)math.floor((checkPos.z - Origin.z) / CellSize);
+                checkX = math.clamp(checkX, 0, GridWidth - 1);
+                checkZ = math.clamp(checkZ, 0, GridHeight - 1);
+
+                int cellIdx = checkZ * GridWidth + checkX;
+                if (cellIdx >= 0 && cellIdx < PassabilityCells.Length && PassabilityCells[cellIdx] != 0)
+                {
+                    pathClear = false;
+                    break;
+                }
+            }
+
+            if (pathClear)
+                return directDir;
         }
 
         return flowDir;

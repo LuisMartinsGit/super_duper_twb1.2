@@ -1,6 +1,7 @@
 // File: Assets/Scripts/Systems/Crystal/CrystalDeathDropSystem.cs
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Combat;
@@ -8,17 +9,29 @@ using TheWaningBorder.Systems.Combat;
 namespace TheWaningBorder.Systems.Crystal
 {
     /// <summary>
-    /// Intercepts crystal entity deaths (units and buildings) before DeathSystem
-    /// destroys them. Spawns a mineable loot pile (Cadaver) at the death position
-    /// containing 50% of the entity's build cost as crystal.
+    /// Intercepts curse entity deaths (units and buildings with CrystalResourceValue)
+    /// before DeathSystem destroys them. Spawns a crystal node (Cadaver) at the
+    /// death position worth the entity's BuildCost in gatherable crystal.
     ///
-    /// Any entity with both Health &lt;= 0 and CrystalResourceValue gets a cadaver
-    /// spawned at its position. The cadaver amount = BuildCost / 2.
+    /// ALL curse entity deaths drop crystal nodes. The only limit is a cap of
+    /// 32 crystal nodes alive on the map at once — players can clear them to
+    /// allow more to spawn.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ProjectileSystem))]
+    [UpdateAfter(typeof(MeleeCombatSystem))]
+    [UpdateAfter(typeof(RangedCombatSystem))]
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct CrystalDeathDropSystem : ISystem
     {
+        private const int MaxCrystalNodes = 32;
+
+        /// <summary>Radius for cadavers dropped by main curse nodes (large).</summary>
+        private const float MainNodeCadaverRadius = 2.0f;
+
+        /// <summary>Default cadaver radius for regular curse entities.</summary>
+        private const float DefaultCadaverRadius = 0.8f;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<CrystalResourceValue>();
@@ -27,6 +40,12 @@ namespace TheWaningBorder.Systems.Crystal
         public void OnUpdate(ref SystemState state)
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var em = state.EntityManager;
+
+            // Count existing crystal nodes (cadavers) on the map
+            int activeNodes = 0;
+            foreach (var _ in SystemAPI.Query<RefRO<CadaverTag>>())
+                activeNodes++;
 
             foreach (var (health, transform, resourceValue, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<CrystalResourceValue>>()
@@ -34,16 +53,23 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 if (health.ValueRO.Value > 0) continue;
 
-                var pos = transform.ValueRO.Position;
-                int lootAmount = resourceValue.ValueRO.BuildCost / 2;
+                int lootAmount = resourceValue.ValueRO.BuildCost;
+                if (lootAmount <= 0) continue;
 
-                if (lootAmount > 0)
-                {
-                    Cadaver.Create(ecb, pos, lootAmount);
-                }
+                // Respect the cap — skip drop but keep processing deaths
+                if (activeNodes >= MaxCrystalNodes) continue;
+
+                var pos = transform.ValueRO.Position;
+
+                // Main curse nodes leave behind larger crystal deposits
+                bool isMainNode = em.HasComponent<CrystalMainNodeTag>(entity);
+                float radius = isMainNode ? MainNodeCadaverRadius : DefaultCadaverRadius;
+
+                Cadaver.Create(ecb, pos, lootAmount, radius);
+                activeNodes++;
             }
 
-            ecb.Playback(state.EntityManager);
+            ecb.Playback(em);
             ecb.Dispose();
         }
     }

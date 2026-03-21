@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -58,6 +59,13 @@ namespace TheWaningBorder.Entities
             });
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
 
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
@@ -89,6 +97,13 @@ namespace TheWaningBorder.Entities
                 MaxTargets = TurretMaxTargets
             });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });

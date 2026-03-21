@@ -812,6 +812,100 @@ namespace TheWaningBorder.World.Terrain
             _data.SetAlphamaps(minX, minZ, splat);
         }
 
+        /// <summary>
+        /// Removes cursed ground paint from the terrain splatmap at a world position.
+        /// Called when cursed ground tiles recede after their owner node is destroyed.
+        /// Redistributes the curse weight back to the other terrain layers proportionally.
+        /// </summary>
+        public void UnpaintCursedGround(float worldX, float worldZ, float radius)
+        {
+            if (_terrain == null || _data == null) return;
+
+            var layers = _data.terrainLayers;
+            int curseIndex = IndexOf(layers, curse);
+            if (curseIndex < 0) return;
+
+            int res = _data.alphamapResolution;
+            int layerCount = layers.Length;
+
+            float terrainPosX = _terrain.transform.position.x;
+            float terrainPosZ = _terrain.transform.position.z;
+            float terrainSizeX = _data.size.x;
+            float terrainSizeZ = _data.size.z;
+
+            float normX = (worldX - terrainPosX) / terrainSizeX;
+            float normZ = (worldZ - terrainPosZ) / terrainSizeZ;
+
+            int centerPixelX = Mathf.RoundToInt(normX * res);
+            int centerPixelZ = Mathf.RoundToInt(normZ * res);
+            int pixelRadius = Mathf.CeilToInt((radius * 1.3f / terrainSizeX) * res);
+
+            int minX = Mathf.Max(0, centerPixelX - pixelRadius);
+            int maxX = Mathf.Min(res - 1, centerPixelX + pixelRadius);
+            int minZ = Mathf.Max(0, centerPixelZ - pixelRadius);
+            int maxZ = Mathf.Min(res - 1, centerPixelZ + pixelRadius);
+
+            int width = maxX - minX + 1;
+            int height = maxZ - minZ + 1;
+            if (width <= 0 || height <= 0) return;
+
+            float[,,] splat = _data.GetAlphamaps(minX, minZ, width, height);
+
+            float basePixelRadius = (radius / terrainSizeX) * res;
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float dx = (minX + x) - centerPixelX;
+                    float dz = (minZ + z) - centerPixelZ;
+                    float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+                    if (dist > basePixelRadius * 1.3f) continue;
+
+                    float existingCurse = splat[z, x, curseIndex];
+                    if (existingCurse < 0.01f) continue;
+
+                    // Falloff: remove more at center, less at edge
+                    float t = 1f - dist / (basePixelRadius * 1.3f);
+                    t = Mathf.Clamp01(t);
+                    float removeAmount = existingCurse * t;
+
+                    float newCurse = existingCurse - removeAmount;
+                    if (newCurse < 0.01f) newCurse = 0f;
+
+                    // Redistribute removed curse weight to other layers proportionally
+                    float freed = existingCurse - newCurse;
+                    float otherTotal = 0f;
+                    for (int l = 0; l < layerCount; l++)
+                    {
+                        if (l != curseIndex) otherTotal += splat[z, x, l];
+                    }
+
+                    if (otherTotal > 0.001f)
+                    {
+                        float scaleFactor = (otherTotal + freed) / otherTotal;
+                        for (int l = 0; l < layerCount; l++)
+                        {
+                            if (l != curseIndex)
+                                splat[z, x, l] *= scaleFactor;
+                        }
+                    }
+                    else
+                    {
+                        // No other layers present — assign freed weight to grass (index 1)
+                        int grassIndex = IndexOf(layers, grass);
+                        if (grassIndex >= 0)
+                            splat[z, x, grassIndex] = freed;
+                    }
+
+                    splat[z, x, curseIndex] = newCurse;
+                }
+            }
+
+            _data.SetAlphamaps(minX, minZ, splat);
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // NOISE HELPER FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════

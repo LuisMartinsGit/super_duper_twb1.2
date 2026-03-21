@@ -8,6 +8,7 @@ using Unity.Collections;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI
 {
@@ -123,6 +124,23 @@ namespace TheWaningBorder.UI
                     info.CurrentHealth = totalHP;
                     info.MaxHealth = totalMaxHP;
                     info.Description = $"{memberCount}/{bl.Columns * bl.Rows} soldiers";
+                }
+            }
+            else if (em.HasComponent<CrystalMainNodeTag>(entity))
+            {
+                info.Type = "Crystal Hive";
+                info.Name = "Crystal Main Node";
+                if (em.HasComponent<CrystalNodeLevel>(entity))
+                {
+                    int level = em.GetComponentData<CrystalNodeLevel>(entity).Value;
+                    string threat = level switch { 1 => "Low Threat", 2 => "Moderate Threat", _ => "High Threat" };
+                    info.Description = $"Level {level} — {threat}";
+                }
+                if (em.HasComponent<CrystalNode>(entity))
+                {
+                    var cn = em.GetComponentData<CrystalNode>(entity);
+                    int pct = cn.SpreadRadius > 0 ? (int)(cn.CurrentRingRadius / cn.SpreadRadius * 100f) : 0;
+                    info.Description += $"\nSpread: {pct}%";
                 }
             }
             else if (em.HasComponent<BuildingTag>(entity))
@@ -443,6 +461,49 @@ namespace TheWaningBorder.UI
             return info;
         }
 
+        /// <summary>
+        /// Get the current faction resources as a Cost for rich tooltip formatting.
+        /// </summary>
+        private static Cost GetFactionResourcesAsCost(EntityManager em, Faction faction)
+        {
+            if (em.Equals(default(EntityManager))) return default;
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return default;
+            return new Cost
+            {
+                Supplies = res.Supplies,
+                Iron = res.Iron,
+                Crystal = res.Crystal,
+                Veilsteel = res.Veilsteel,
+                Glow = res.Glow
+            };
+        }
+
+        /// <summary>
+        /// Build a rich-text tooltip for an action button.
+        /// Shows name, cost (color-coded), training time, and any requirement lines in red.
+        /// </summary>
+        private static string BuildTooltip(string name, string subtitle, Cost cost, Cost available, float trainingTime = 0f, string requirement = null)
+        {
+            var sb = new System.Text.StringBuilder(128);
+            sb.Append($"<b>{name}</b>");
+            if (!string.IsNullOrEmpty(subtitle))
+                sb.Append($"  <color=#b0a890>({subtitle})</color>");
+
+            // Cost line
+            sb.Append("\nCost: ");
+            sb.Append(UIHelpers.FormatCostRich(cost, available));
+
+            // Training/build time
+            if (trainingTime > 0f)
+                sb.Append($"\nTime: {trainingTime:F0}s");
+
+            // Requirement (shown in red)
+            if (!string.IsNullOrEmpty(requirement))
+                sb.Append($"\n<color=#ff5555>{requirement}</color>");
+
+            return sb.ToString();
+        }
+
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
         private static readonly HashSet<string> BuildableBuildings = new()
         {
@@ -491,6 +552,9 @@ namespace TheWaningBorder.UI
                 ? EntityInfoExtractor.GetFactionEra(em, faction)
                 : 1;
 
+            // Get current resources for rich tooltip coloring
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
             if (TechTreeDB.Instance != null)
             {
                 foreach (var building in TechTreeDB.Instance.GetAllBuildings())
@@ -505,10 +569,6 @@ namespace TheWaningBorder.UI
                     // Data-driven culture gating: buildings with culture prefix require that culture
                     byte requiredCulture = GetRequiredCulture(building.id);
                     if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
-                        continue;
-
-                    // Era gating: buildings with minEra require that era or higher
-                    if (building.minEra > 0 && building.minEra > factionEra)
                         continue;
 
                     // Alanthor cannot build Gatherer's Huts (they use walls for income)
@@ -526,14 +586,26 @@ namespace TheWaningBorder.UI
                         ? FactionEconomy.CanAfford(em, faction, cost)
                         : true;
 
+                    // Era gating: show button disabled with requirement text instead of hiding
+                    bool eraLocked = building.minEra > 0 && building.minEra > factionEra;
+                    string requirement = eraLocked ? $"Requires: Era {building.minEra}" : null;
+
+                    string tooltip = BuildTooltip(
+                        building.name,
+                        building.role,
+                        cost,
+                        available,
+                        requirement: requirement
+                    );
+
                     actions.Add(new ActionButton
                     {
                         Id = building.id,
                         Label = building.name,
-                        Tooltip = building.role ?? "",
+                        Tooltip = tooltip,
                         Cost = cost,
-                        Enabled = true,
-                        CanAfford = canAfford,
+                        Enabled = !eraLocked,
+                        CanAfford = canAfford && !eraLocked,
                         Icon = null
                     });
                 }
@@ -582,6 +654,9 @@ namespace TheWaningBorder.UI
                 hallEntities.Dispose();
             }
 
+            // Get current resources for rich tooltip coloring
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
             // Only show units this building can train (from its "trains" array)
             foreach (var unitId in buildingDef.trains)
             {
@@ -599,11 +674,19 @@ namespace TheWaningBorder.UI
                     Crystal = unit.cost.Crystal
                 } : default;
 
+                string tooltip = BuildTooltip(
+                    unit.name,
+                    unit.unitClass,
+                    cost,
+                    available,
+                    trainingTime: unit.trainingTime
+                );
+
                 actions.Add(new ActionButton
                 {
                     Id = unit.id,
                     Label = unit.name,
-                    Tooltip = unit.unitClass ?? "",
+                    Tooltip = tooltip,
                     Cost = cost,
                     Enabled = true,
                     CanAfford = FactionEconomy.CanAfford(em, faction, cost),
@@ -707,6 +790,7 @@ namespace TheWaningBorder.UI
             if (buildingDef.research == null || buildingDef.research.Length == 0) return actions;
 
             var researchState = TheWaningBorder.Economy.FactionResearchState.Instance;
+            Cost available = GetFactionResourcesAsCost(em, faction);
 
             foreach (var techId in buildingDef.research)
             {
@@ -731,11 +815,18 @@ namespace TheWaningBorder.UI
                 bool canAfford = FactionEconomy.CanAfford(em, faction, cost);
                 bool meetsPrereqs = researchState == null || researchState.MeetsPrerequisites(faction, tech.prerequisites);
 
-                string tooltip = tech.desc ?? tech.effect ?? "";
+                string requirement = null;
                 if (!meetsPrereqs && tech.prerequisites != null)
-                    tooltip = $"Requires: {string.Join(", ", tech.prerequisites)}\n{tooltip}";
-                if (tech.researchTime > 0)
-                    tooltip += $"\nTime: {tech.researchTime}s";
+                    requirement = $"Requires: {string.Join(", ", tech.prerequisites)}";
+
+                string tooltip = BuildTooltip(
+                    tech.name,
+                    tech.desc ?? tech.effect,
+                    cost,
+                    available,
+                    trainingTime: tech.researchTime,
+                    requirement: requirement
+                );
 
                 actions.Add(new ActionButton
                 {
@@ -855,6 +946,8 @@ namespace TheWaningBorder.UI
             string unitId = SectConfig.GetSectUnitId(sectId);
             if (string.IsNullOrEmpty(unitId)) return actions;
 
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
             // Look up the unit in TechTreeDB for cost/stats
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var unit))
             {
@@ -865,11 +958,13 @@ namespace TheWaningBorder.UI
                     Crystal = unit.cost.Crystal
                 } : default;
 
+                string tooltip = BuildTooltip(unit.name, unit.unitClass, cost, available, trainingTime: unit.trainingTime);
+
                 actions.Add(new ActionButton
                 {
                     Id = unit.id,
                     Label = unit.name,
-                    Tooltip = unit.unitClass ?? "",
+                    Tooltip = tooltip,
                     Cost = cost,
                     Enabled = true,
                     CanAfford = FactionEconomy.CanAfford(em, faction, cost),
@@ -880,14 +975,15 @@ namespace TheWaningBorder.UI
             {
                 // Fallback if unit not in TechTreeDB — show with placeholder cost
                 string displayName = SectConfig.GetDisplayName(sectId) + " Unit";
+                var fallbackCost = Cost.Of(supplies: 100, iron: 50);
                 actions.Add(new ActionButton
                 {
                     Id = unitId,
                     Label = displayName,
-                    Tooltip = "Sect unique unit",
-                    Cost = Cost.Of(supplies: 100, iron: 50),
+                    Tooltip = BuildTooltip(displayName, "Sect unit", fallbackCost, available),
+                    Cost = fallbackCost,
                     Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: 100, iron: 50)),
+                    CanAfford = FactionEconomy.CanAfford(em, faction, fallbackCost),
                     Icon = null
                 });
             }
@@ -914,6 +1010,8 @@ namespace TheWaningBorder.UI
             if (researchState != null && researchState.HasResearched(faction, techId))
                 return actions;
 
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
             // Look up the tech in TechTreeDB for cost
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetTechnology(techId, out var tech))
             {
@@ -927,9 +1025,13 @@ namespace TheWaningBorder.UI
                 } : default;
 
                 string techName = tech.name ?? SectConfig.GetTechDisplayName(sectId);
-                string tooltip = SectConfig.GetTechDescription(sectId);
-                if (tech.researchTime > 0)
-                    tooltip += $"\nTime: {tech.researchTime}s";
+                string tooltip = BuildTooltip(
+                    techName,
+                    SectConfig.GetTechDescription(sectId),
+                    cost,
+                    available,
+                    trainingTime: tech.researchTime
+                );
 
                 actions.Add(new ActionButton
                 {
@@ -953,7 +1055,7 @@ namespace TheWaningBorder.UI
                 {
                     Id = techId,
                     Label = techName,
-                    Tooltip = techDesc,
+                    Tooltip = BuildTooltip(techName, techDesc, fallbackCost, available),
                     Cost = fallbackCost,
                     Enabled = true,
                     CanAfford = FactionEconomy.CanAfford(em, faction, fallbackCost),

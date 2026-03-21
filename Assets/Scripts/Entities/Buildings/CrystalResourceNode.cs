@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -60,6 +61,13 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
             em.SetComponentData(entity, new OwnerNode { Value = Entity.Null });
 
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
 
@@ -94,6 +102,13 @@ namespace TheWaningBorder.Entities
             });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
             ecb.AddComponent(entity, new OwnerNode { Value = Entity.Null });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });

@@ -25,6 +25,11 @@ public struct BattalionLeader : IComponentData
     public float FollowSpeed;         // 8f (lerp speed for members)
     public float LeashDistance;       // 10f (teleport threshold)
     public FixedString64Bytes UnitId; // e.g. "Swordsman" for display
+    public quaternion FormationRot;   // Stable formation rotation — locked when idle/arrived, updated only during meaningful movement
+    public quaternion DestinationRot;  // Target facing at destination — set on move command, applied on arrival
+    public byte HasDestinationRot;     // 0 = no pending arrival rotation, 1 = snap to DestinationRot on arrival
+    public quaternion LastAssignmentRot; // FormationRot at the time of last greedy reassignment — used to detect significant direction changes
+    public byte NeedsReassignment;      // 1 = force greedy reassignment next frame (set on new move command)
 }
 
 /// <summary>

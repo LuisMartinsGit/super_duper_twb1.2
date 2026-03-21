@@ -69,10 +69,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 35 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 50 });
 
             // Combat type tags
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Siege });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 
             return entity;
@@ -114,10 +114,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 35 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 50 });
 
             // Combat type tags
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 
             return entity;

@@ -3,6 +3,7 @@
 // Uses random positions with terrain height/slope checks and minimum
 // distance from player bases.
 
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -22,6 +23,12 @@ namespace TheWaningBorder.Bootstrap
         public const int ForestPresentationId = 400;
         public const int RockPresentationId = 401;
 
+        /// <summary>
+        /// Forest center positions and radii, populated at spawn time.
+        /// Used by MinimapRenderer to draw forest areas on the background.
+        /// </summary>
+        public static readonly List<(float3 center, float radius)> ForestPositions = new();
+
         // Forest settings
         private const int MinForestClusters = 10;
         private const int MaxForestClusters = 18;
@@ -31,6 +38,11 @@ namespace TheWaningBorder.Bootstrap
         private const float ForestMaxSlope = 0.2f;
         private const float ForestMinDistFromPlayers = 50f;
         private const float ForestMinDistFromOther = 25f;
+
+        // Individual tree obstacle settings
+        private const float TreeObstacleRadius = 0.75f; // 1.5 unit diameter cylinder per tree
+        private const int MinTreesPerForest = 20;
+        private const int MaxTreesPerForest = 31; // exclusive upper bound → 20-30 trees
 
         // Rock settings
         private const int MinRockFormations = 6;
@@ -76,7 +88,7 @@ namespace TheWaningBorder.Bootstrap
                     ForestMinDistFromPlayers, ForestMinDistFromOther,
                     out float3 pos))
                 {
-                    CreateObstacleEntity(em, pos, ForestRadius, ForestPresentationId);
+                    CreateForestWithTrees(em, pos);
                     placedPositions.Add(pos);
                     forestsSpawned++;
                 }
@@ -189,6 +201,72 @@ namespace TheWaningBorder.Bootstrap
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Create a forest: a visual root entity (no ObstacleTag) plus individual tree
+        /// obstacles on the passability grid. Trees use the same RNG as PresentationSpawnSystem
+        /// so blocked cells align with visual tree positions.
+        /// </summary>
+        private static void CreateForestWithTrees(EntityManager em, float3 center)
+        {
+            // Create visual-only forest root (no ObstacleTag → UnitSeparationSystem ignores it)
+            var forestEntity = em.CreateEntity(
+                typeof(LocalTransform),
+                typeof(Radius),
+                typeof(PresentationId)
+            );
+
+            em.SetComponentData(forestEntity, LocalTransform.FromPosition(center));
+            em.SetComponentData(forestEntity, new Radius { Value = ForestRadius });
+            em.SetComponentData(forestEntity, new PresentationId { Id = ForestPresentationId });
+
+            // Store for minimap rendering
+            ForestPositions.Add((center, ForestRadius));
+
+            // Generate tree positions with the same RNG seed as PresentationSpawnSystem
+            var treeRng = new System.Random(forestEntity.Index + 12345);
+            int treeCount = treeRng.Next(MinTreesPerForest, MaxTreesPerForest);
+
+            var grid = PassabilityGrid.Instance;
+
+            for (int t = 0; t < treeCount; t++)
+            {
+                // Position (matches PresentationSpawnSystem.CreateProceduralForest)
+                float angle = (float)(treeRng.NextDouble() * System.Math.PI * 2.0);
+                float dist = (float)(treeRng.NextDouble() * ForestRadius * 0.65f);
+                float offsetX = (float)System.Math.Cos(angle) * dist;
+                float offsetZ = (float)System.Math.Sin(angle) * dist;
+
+                // Advance RNG to stay in sync with presentation (treeHeight, trunkRadius, canopyRadius, greenVariation)
+                treeRng.NextDouble(); // treeHeight
+                treeRng.NextDouble(); // trunkRadius
+                treeRng.NextDouble(); // canopyRadius
+                treeRng.NextDouble(); // greenVariation
+
+                float3 treeWorldPos = new float3(
+                    center.x + offsetX,
+                    TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ),
+                    center.z + offsetZ
+                );
+
+                // Create individual tree obstacle entity for physical collision
+                var treeEntity = em.CreateEntity(
+                    typeof(ObstacleTag),
+                    typeof(LocalTransform),
+                    typeof(Radius)
+                );
+                em.SetComponentData(treeEntity, LocalTransform.FromPosition(treeWorldPos));
+                em.SetComponentData(treeEntity, new Radius { Value = TreeObstacleRadius });
+
+                // Block passability around each tree trunk.
+                // Use at least cellSize so every tree reliably blocks 1+ grid cells.
+                if (grid != null)
+                {
+                    float blockRadius = math.max(TreeObstacleRadius, grid.CellSize);
+                    grid.BlockObstacle(treeWorldPos, blockRadius);
+                }
+            }
         }
 
         /// <summary>

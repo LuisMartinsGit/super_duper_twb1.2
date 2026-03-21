@@ -69,13 +69,16 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // === Main Node Spread ===
-            foreach (var (crystalNode, transform, entity) in SystemAPI
-                .Query<RefRW<CrystalNode>, RefRO<LocalTransform>>()
+            foreach (var (crystalNode, nodeLevel, transform, entity) in SystemAPI
+                .Query<RefRW<CrystalNode>, RefRW<CrystalNodeLevel>, RefRO<LocalTransform>>()
                 .WithAll<CrystalMainNodeTag>()
                 .WithEntityAccess())
             {
                 ref var node = ref crystalNode.ValueRW;
                 if (node.Enabled == 0) continue;
+
+                // Update node level from current spread radius
+                nodeLevel.ValueRW.Value = CrystalNodeLevel.FromRadius(node.CurrentRingRadius);
 
                 // Tick timer
                 node.TickTimer += dt;
@@ -85,8 +88,9 @@ namespace TheWaningBorder.Systems.Creatures
                 // Ring already at max radius -- nothing to spread
                 if (node.CurrentRingRadius >= node.SpreadRadius) continue;
 
-                // Fixed ring expansion step
-                float ringStep = BaseRingStep;
+                // Level-based ring step: fast early, slow late
+                int level = nodeLevel.ValueRW.Value;
+                float ringStep = level == 1 ? 3.0f : level == 2 ? 2.0f : 1.0f;
 
                 // Advance the ring frontier
                 float prevRadius = node.CurrentRingRadius;

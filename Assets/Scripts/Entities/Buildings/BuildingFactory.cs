@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -30,7 +31,7 @@ namespace TheWaningBorder.Entities
         /// <returns>Created entity</returns>
         public static Entity Create(EntityManager em, string buildingId, float3 position, Faction faction)
         {
-            return buildingId switch
+            Entity entity = buildingId switch
             {
                 "Hall" => Hall.Create(em, position, faction),
                 "Barracks" => Barracks.Create(em, position, faction),
@@ -72,6 +73,15 @@ namespace TheWaningBorder.Entities
                 "Chapel_Sect_UnmakersGrasp" => CreateChapel(em, SectConfig.UnmakersGrasp, position, faction),
                 _ => CreateDefault(em, buildingId, position, faction)
             };
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
+            return entity;
         }
 
         /// <summary>
@@ -79,7 +89,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, string buildingId, float3 position, Faction faction)
         {
-            return buildingId switch
+            Entity entity = buildingId switch
             {
                 "Hall" => Hall.Create(ecb, position, faction),
                 "Barracks" => Barracks.Create(ecb, position, faction),
@@ -120,6 +130,15 @@ namespace TheWaningBorder.Entities
                 "Chapel_Sect_UnmakersGrasp" => CreateChapelECB(ecb, SectConfig.UnmakersGrasp, position, faction),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
+            return entity;
         }
 
         /// <summary>

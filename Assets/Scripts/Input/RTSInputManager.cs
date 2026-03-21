@@ -976,8 +976,8 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
 
-                // Can attack if has Damage component
-                if (_em.HasComponent<Damage>(e))
+                // Can attack if has Damage component or is a battalion leader
+                if (_em.HasComponent<Damage>(e) || _em.HasComponent<BattalionLeader>(e))
                     caps.CanAttack = true;
 
                 // Can gather if is a miner

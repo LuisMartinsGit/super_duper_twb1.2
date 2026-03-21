@@ -462,6 +462,7 @@ namespace TheWaningBorder.Systems.Movement
             {
                 DirectionData = _lookupDirectionData,
                 DestToSlot = _lookupDestToSlot,
+                PassabilityCells = grid.Cells,
                 CellsPerField = _totalCells,
                 GridWidth = grid.Width,
                 GridHeight = grid.Height,
@@ -573,6 +574,7 @@ namespace TheWaningBorder.Systems.Movement
             {
                 DirectionData = _lookupDirectionData,
                 DestToSlot = _lookupDestToSlot,
+                PassabilityCells = grid.Cells,
                 CellsPerField = _totalCells,
                 GridWidth = grid.Width,
                 GridHeight = grid.Height,

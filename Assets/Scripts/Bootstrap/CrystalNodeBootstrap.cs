@@ -106,8 +106,49 @@ namespace TheWaningBorder.Bootstrap
                 em.SetComponentData(bankEntity, new FactionResources { Crystal = 100 * nodesSpawned });
             }
 
+            // Spawn a small crystal resource patch near each player's starting position
+            SpawnStartingCrystalPatches(em, playerPositions, ref random);
+
             Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes, bank initialised with {100 * nodesSpawned} crystal");
             return nodesSpawned;
+        }
+
+        /// <summary>
+        /// Spawn a cluster of crystal cadavers near each player's Hall.
+        /// Gives players early access to crystal for economy/research.
+        /// </summary>
+        private static void SpawnStartingCrystalPatches(EntityManager em, float3[] playerPositions, ref Unity.Mathematics.Random random)
+        {
+            const int CadaversPerPlayer = 3;
+            const int CrystalPerCadaver = 15;
+            const float PatchDistance = 12f;  // Distance from Hall
+            const float PatchSpread = 4f;     // Spread between cadavers
+
+            for (int p = 0; p < playerPositions.Length; p++)
+            {
+                // Place patch in a random direction from the Hall
+                float angle = random.NextFloat(0f, math.PI * 2f);
+                float3 patchCenter = playerPositions[p] + new float3(
+                    math.cos(angle) * PatchDistance,
+                    0f,
+                    math.sin(angle) * PatchDistance
+                );
+
+                for (int c = 0; c < CadaversPerPlayer; c++)
+                {
+                    float3 offset = new float3(
+                        random.NextFloat(-PatchSpread, PatchSpread),
+                        0f,
+                        random.NextFloat(-PatchSpread, PatchSpread)
+                    );
+                    float3 pos = patchCenter + offset;
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+
+                    Cadaver.Create(em, pos, CrystalPerCadaver, 0.6f);
+                }
+            }
+
+            Debug.Log($"[CrystalNodeBootstrap] Spawned {CadaversPerPlayer} starting crystal cadavers for each of {playerPositions.Length} players");
         }
 
         /// <summary>

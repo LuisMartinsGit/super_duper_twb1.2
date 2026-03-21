@@ -4,6 +4,7 @@
 
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Core.Commands.Types
@@ -67,6 +68,24 @@ namespace TheWaningBorder.Core.Commands.Types
             // Remove it if present from a previous command.
             if (em.HasComponent<UserMoveOrder>(unit))
                 em.RemoveComponent<UserMoveOrder>(unit);
+
+            // Battalion leader: store destination facing so formation rotates to match preview on arrival
+            if (em.HasComponent<BattalionLeader>(unit))
+            {
+                float3 currentPos = em.HasComponent<LocalTransform>(unit)
+                    ? em.GetComponentData<LocalTransform>(unit).Position
+                    : destination;
+                float3 dir = destination - currentPos;
+                dir.y = 0;
+                if (math.lengthsq(dir) < 0.01f)
+                    dir = new float3(0, 0, 1);
+                dir = math.normalize(dir);
+                var bl = em.GetComponentData<BattalionLeader>(unit);
+                bl.DestinationRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                bl.HasDestinationRot = 1;
+                bl.NeedsReassignment = 1;
+                em.SetComponentData(unit, bl);
+            }
         }
 
         private static void ClearConflictingCommands(EntityManager em, Entity unit)

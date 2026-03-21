@@ -13,13 +13,13 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Veilstinger
     {
-        private const float DefaultHP = 40f;
+        private const float DefaultHP = 65f;
         private const float DefaultSpeed = 4.0f;
         private const float DefaultDamage = 18f;
         private const float DefaultLoS = 28f;
         private const float DefaultMinRange = 8f;
         private const float DefaultMaxRange = 24f;
-        private const float DefaultAimTime = 0.4f;
+        private const float DefaultAimTime = 0.2f;
         private const float DefaultRadius = 0.5f;
         private const int PresentationID = 321;
 
@@ -73,7 +73,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 80 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 150 });
 
             // Veilstinger-specific dual-target state
             em.SetComponentData(entity, new VeilstingerState
@@ -132,7 +132,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 80 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 150 });
 
             // Veilstinger-specific dual-target state
             ecb.AddComponent(entity, new VeilstingerState

@@ -218,11 +218,17 @@ namespace TheWaningBorder.Systems.Combat
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
 
+                    // Move to a position just inside max range, not all the way to target
+                    float3 toTarget = targetPos - myPos;
+                    float3 dirToTarget = math.normalizesafe(toTarget);
+                    float stopDist = maxRange - 2f; // Stop 2 units inside max range
+                    float3 chasePos = targetPos - dirToTarget * stopDist;
+
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chasePos,
                             Has = 1
                         });
                     }
@@ -230,7 +236,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         ecb.SetComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chasePos,
                             Has = 1
                         });
                     }

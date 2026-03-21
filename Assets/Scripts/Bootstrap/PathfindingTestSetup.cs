@@ -56,6 +56,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<ResourceHUD>();
             managersGO.AddComponent<UnitIndicatorSystem>();
             managersGO.AddComponent<PlanningModeOverlay>();
+            managersGO.AddComponent<FormationPreview>();
             Object.DontDestroyOnLoad(managersGO);
 
             // Create terrain if missing

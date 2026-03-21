@@ -41,7 +41,11 @@ namespace TheWaningBorder.UI.Panels
         private GUIStyle _ageUpStyle;
         private GUIStyle _requireStyle;
         private RectOffset _padding;
+        private GUIStyle _tooltipStyle;
         private bool _stylesInit = false;
+
+        /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
+        private string _hoveredTooltip;
 
         /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
         private int _selectedChapelSlot = -1;
@@ -61,6 +65,7 @@ namespace TheWaningBorder.UI.Panels
         void OnGUI()
         {
             PanelVisible = false;
+            _hoveredTooltip = null;
 
             // Only show actions for own entities, not enemy
             if (!UnifiedUIManager.IsSelectionOwnedByPlayer()) return;
@@ -76,6 +81,12 @@ namespace TheWaningBorder.UI.Panels
             if (actionInfo.Type == ActionType.None) return;
 
             InitStyles();
+
+            // Guard against Layout/Repaint control count mismatches.
+            // Entity state can change between IMGUI passes causing different
+            // control counts which throws ArgumentException.
+            try
+            {
 
             switch (actionInfo.Type)
             {
@@ -103,6 +114,16 @@ namespace TheWaningBorder.UI.Panels
                     DrawStancePanel(entity, em);
                     break;
             }
+
+            } // end try
+            catch (System.ArgumentException)
+            {
+                // Layout/Repaint control count mismatch — entity state changed between passes.
+                // Silently skip this frame; next frame will re-sync.
+            }
+
+            // Draw floating tooltip above the panel (outside any BeginArea)
+            DrawFloatingTooltip();
         }
 
         private void InitStyles()
@@ -154,6 +175,21 @@ namespace TheWaningBorder.UI.Panels
                 fontSize = 11,
                 wordWrap = true,
                 normal = { textColor = new Color(0.7f, 0.5f, 0.3f) }
+            };
+
+            _tooltipStyle = new GUIStyle(GUI.skin.box)
+            {
+                wordWrap = true,
+                richText = true,
+                fontSize = 12,
+                normal = {
+                    textColor = new Color(0.9f, 0.85f, 0.7f),
+                    background = UIHelpers.MakeBorderedTexture(64, 64,
+                        new Color(0.05f, 0.06f, 0.14f, 0.97f),
+                        new Color(0.83f, 0.66f, 0.26f, 0.6f), 1)
+                },
+                alignment = TextAnchor.UpperLeft,
+                padding = new RectOffset(8, 8, 6, 6)
             };
 
             _stylesInit = true;
@@ -1059,25 +1095,33 @@ namespace TheWaningBorder.UI.Panels
             {
                 var button = actions[i];
 
-                // Disable if can't afford
+                // Disable if can't afford or requirements not met
                 bool wasEnabled = GUI.enabled;
-                if (!button.CanAfford) GUI.enabled = false;
+                if (!button.CanAfford || !button.Enabled) GUI.enabled = false;
 
-                // Button content with tooltip
+                // Button content (no GUIContent tooltip — we handle hover manually)
                 string label = button.Label;
-                var content = new GUIContent(label, button.Tooltip);
 
-                if (GUILayout.Button(content, _buttonStyle,
+                if (GUILayout.Button(label, _buttonStyle,
                     GUILayout.Width(ButtonSize), GUILayout.Height(ButtonSize)))
                 {
                     onClick?.Invoke(button);
                 }
 
+                // Check hover for tooltip (works even on disabled buttons)
+                var btnRect = GUILayoutUtility.GetLastRect();
+                if (Event.current.type == EventType.Repaint && !string.IsNullOrEmpty(button.Tooltip))
+                {
+                    // Convert local area rect to screen-space for hover check
+                    var mousePos = Event.current.mousePosition;
+                    if (btnRect.Contains(mousePos))
+                        _hoveredTooltip = button.Tooltip;
+                }
+
                 // Draw icon on top if available
                 if (button.Icon != null)
                 {
-                    var rect = GUILayoutUtility.GetLastRect();
-                    GUI.DrawTexture(rect, button.Icon, ScaleMode.ScaleToFit);
+                    GUI.DrawTexture(btnRect, button.Icon, ScaleMode.ScaleToFit);
                 }
 
                 GUI.enabled = wasEnabled;
@@ -1093,21 +1137,37 @@ namespace TheWaningBorder.UI.Panels
             }
 
             GUILayout.EndHorizontal();
+        }
 
-            // Tooltip display at bottom of button grid
-            if (!string.IsNullOrEmpty(GUI.tooltip))
-            {
-                GUILayout.Space(2);
-                var tipStyle = new GUIStyle(GUI.skin.box)
-                {
-                    wordWrap = true,
-                    fontSize = 11,
-                    normal = { textColor = new Color(0.9f, 0.85f, 0.7f) },
-                    alignment = TextAnchor.MiddleLeft,
-                    padding = new RectOffset(4, 4, 2, 2)
-                };
-                GUILayout.Label(GUI.tooltip, tipStyle);
-            }
+        /// <summary>
+        /// Draw a floating tooltip box above the action panel.
+        /// Called at the end of OnGUI, outside any BeginArea, so it isn't clipped.
+        /// </summary>
+        private void DrawFloatingTooltip()
+        {
+            if (string.IsNullOrEmpty(_hoveredTooltip)) return;
+            if (!_stylesInit) return;
+
+            // Measure tooltip size
+            var content = new GUIContent(_hoveredTooltip);
+            float maxWidth = 280f;
+            float width = maxWidth;
+            float height = _tooltipStyle.CalcHeight(content, width);
+
+            // Position above the panel
+            float x = PanelRect.x;
+            float y = PanelRect.y - height - 4f;
+
+            // Clamp to screen
+            if (x + width > Screen.width) x = Screen.width - width - 4f;
+            if (y < 0) y = 0;
+
+            var tooltipRect = new Rect(x, y, width, height);
+
+            // Draw with high depth so it renders on top
+            GUI.depth = -100;
+            GUI.Label(tooltipRect, content, _tooltipStyle);
+            GUI.depth = 0;
         }
 
         private void DrawProgressBar(TrainingInfo info)

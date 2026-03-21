@@ -69,7 +69,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 350 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 500 });
 
             // Godsplinter-specific siege/laser state
             em.SetComponentData(entity, new GodsplinterState
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 350 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 500 });
 
             // Godsplinter-specific siege/laser state
             ecb.AddComponent(entity, new GodsplinterState

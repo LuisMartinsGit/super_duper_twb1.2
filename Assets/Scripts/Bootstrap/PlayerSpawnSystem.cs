@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Bootstrap
@@ -28,6 +29,10 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
+
+            // Reset network ID generator so all clients assign IDs in the same deterministic order
+            NetworkIdGenerator.Reset();
+
             int playerCount = GameSettings.TotalPlayers;
             
             // Calculate spawn positions based on layout

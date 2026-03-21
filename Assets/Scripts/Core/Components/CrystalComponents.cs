@@ -49,6 +49,25 @@ public struct CrystalNode : IComponentData
     public byte Enabled;
 }
 
+/// <summary>
+/// Per-node level derived from CurrentRingRadius.
+/// Level 1 (radius 0-5):  Fast spread, only Crystallings — easy to farm.
+/// Level 2 (radius 5-10): Moderate spread, Veilstingers unlocked.
+/// Level 3 (radius 10+):  Slow spread, Godsplinters unlocked — dangerous.
+/// </summary>
+public struct CrystalNodeLevel : IComponentData
+{
+    public int Value; // 1, 2, or 3
+
+    /// <summary>Compute level from current spread radius.</summary>
+    public static int FromRadius(float radius)
+    {
+        if (radius >= 10f) return 3;
+        if (radius >= 5f) return 2;
+        return 1;
+    }
+}
+
 // ==================== Crystal AI State ====================
 
 /// <summary>
@@ -60,7 +79,8 @@ public struct CrystalAIState : IComponentData
     public float HarassTimer;
     public float BuildTimer;
     public float UnitSpawnTimer;
-    public byte Phase;
+    public float ExpansionTimer;
+    public byte Phase; // Kept for backwards compat but driven by CrystalNodeLevel
 }
 
 // ==================== Crystal Unit / Resource ====================
@@ -178,6 +198,18 @@ public struct RestorationAura : IComponentData
     public float Radius;
     public float HealPerSecond;
     public float HealTimer;
+}
+
+// ==================== Cursed Ground Recession ====================
+
+/// <summary>
+/// Applied to cursed ground tiles whose owner node has been destroyed.
+/// The tile will fade out and be destroyed over time.
+/// </summary>
+public struct CursedGroundReceding : IComponentData
+{
+    /// <summary>Seconds remaining before this tile is destroyed.</summary>
+    public float TimeRemaining;
 }
 
 // ==================== Laser Projectile ====================

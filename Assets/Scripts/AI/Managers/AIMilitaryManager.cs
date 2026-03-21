@@ -144,7 +144,11 @@ namespace TheWaningBorder.AI
             militaryState.TotalArchers = 0;
             militaryState.TotalSiegeUnits = 0;
 
-            foreach (var (unitTag, factionTag) in SystemAPI.Query<RefRO<UnitTag>, RefRO<FactionTag>>())
+            // Count battalion leaders as 1 unit each, skip battalion members
+            // (a trained Swordsman/Archer spawns as 1 leader + 15 members — count as 1)
+            foreach (var (unitTag, factionTag) in
+                SystemAPI.Query<RefRO<UnitTag>, RefRO<FactionTag>>()
+                .WithNone<BattalionMemberData>())
             {
                 if (factionTag.ValueRO.Value != faction) continue;
 
@@ -485,7 +489,7 @@ namespace TheWaningBorder.AI
 
             foreach (var (unitTag, factionTag, entity) in
                 SystemAPI.Query<RefRO<UnitTag>, RefRO<FactionTag>>()
-                .WithNone<ArmyTag>()
+                .WithNone<ArmyTag, BattalionMemberData>()
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value != faction) continue;
@@ -526,7 +530,18 @@ namespace TheWaningBorder.AI
                     Entity unit = unassigned[i];
 
                     int strength = 1;
-                    if (em.HasComponent<Damage>(unit))
+                    if (em.HasComponent<BattalionLeader>(unit) && em.HasBuffer<BattalionMember>(unit))
+                    {
+                        // Battalion leader strength = sum of member damage values
+                        var members = em.GetBuffer<BattalionMember>(unit);
+                        for (int m = 0; m < members.Length; m++)
+                        {
+                            if (members[m].Value != Entity.Null && em.Exists(members[m].Value)
+                                && em.HasComponent<Damage>(members[m].Value))
+                                strength += em.GetComponentData<Damage>(members[m].Value).Value;
+                        }
+                    }
+                    else if (em.HasComponent<Damage>(unit))
                         strength = em.GetComponentData<Damage>(unit).Value;
 
                     armyUnits.Add(new ArmyUnit { Unit = unit, Strength = strength });

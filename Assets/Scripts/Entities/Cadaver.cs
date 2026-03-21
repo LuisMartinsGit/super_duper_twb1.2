@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -38,6 +39,23 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, int crystalAmount)
         {
+            return Create(em, position, crystalAmount, DefaultRadius);
+        }
+
+        /// <summary>
+        /// Create Cadaver using EntityCommandBuffer for deferred creation.
+        /// </summary>
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, int crystalAmount)
+        {
+            return Create(ecb, position, crystalAmount, DefaultRadius);
+        }
+
+        /// <summary>
+        /// Create Cadaver using EntityManager with custom crystal amount and radius.
+        /// Main node deaths produce larger cadavers.
+        /// </summary>
+        public static Entity Create(EntityManager em, float3 position, int crystalAmount, float radius)
+        {
             var entity = em.CreateEntity(
                 typeof(PresentationId),
                 typeof(LocalTransform),
@@ -53,16 +71,23 @@ namespace TheWaningBorder.Entities
                 RemainingCrystal = crystalAmount,
                 Depleted = 0
             });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new Radius { Value = radius });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             return entity;
         }
 
         /// <summary>
-        /// Create Cadaver using EntityCommandBuffer with a custom crystal amount.
-        /// Used by death drop system to set loot based on entity build cost.
+        /// Create Cadaver using EntityCommandBuffer with custom crystal amount and radius.
+        /// Main node deaths produce larger cadavers.
         /// </summary>
-        public static Entity Create(EntityCommandBuffer ecb, float3 position, int crystalAmount)
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, int crystalAmount, float radius)
         {
             var entity = ecb.CreateEntity();
 
@@ -74,7 +99,14 @@ namespace TheWaningBorder.Entities
                 RemainingCrystal = crystalAmount,
                 Depleted = 0
             });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             return entity;
         }

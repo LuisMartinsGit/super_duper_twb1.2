@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -28,7 +29,7 @@ namespace TheWaningBorder.Entities
         /// <returns>Created entity</returns>
         public static Entity Create(EntityManager em, string unitId, float3 position, Faction faction)
         {
-            return unitId switch
+            Entity entity = unitId switch
             {
                 "Builder" => Builder.Create(em, position, faction),
                 "Miner" => Miner.Create(em, position, faction),
@@ -69,6 +70,15 @@ namespace TheWaningBorder.Entities
                 "Sect_Nullblade" => Nullblade.Create(em, position, faction),
                 _ => CreateDefault(em, unitId, position, faction)
             };
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
+            return entity;
         }
 
         /// <summary>
@@ -77,7 +87,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, string unitId, float3 position, Faction faction)
         {
-            return unitId switch
+            Entity entity = unitId switch
             {
                 "Builder" => Builder.Create(ecb, position, faction),
                 "Miner" => Miner.Create(ecb, position, faction),
@@ -118,6 +128,15 @@ namespace TheWaningBorder.Entities
                 "Sect_Nullblade" => Nullblade.Create(ecb, position, faction),
                 _ => CreateDefault(ecb, unitId, position, faction)
             };
+
+            // Assign network ID for multiplayer lockstep synchronization
+            ecb.AddComponent(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
+            return entity;
         }
 
         /// <summary>
