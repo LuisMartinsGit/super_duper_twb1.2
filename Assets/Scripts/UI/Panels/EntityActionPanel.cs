@@ -231,7 +231,7 @@ namespace TheWaningBorder.UI.Panels
             DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
             {
                 BuilderCommandPanel.TriggerBuildingPlacement(button.Id);
-            }, overrideButtonSize: 110f);
+            }, overrideButtonSize: 55f);
 
             GUI.enabled = true;
 
