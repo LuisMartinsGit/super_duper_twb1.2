@@ -717,6 +717,18 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.NetworkRole = NetworkRole.Server;
             GameSettings.LocalPlayerFaction = Faction.Blue;
 
+            // Sync lobby network slot types into LobbyConfig so AI bootstrap
+            // knows which factions are human-controlled
+            GameSettings.FactionToPlayerMapping.Clear();
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                if (_networkSlots[i].Type == SlotType.Human)
+                {
+                    GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
+                }
+            }
+
             // Notify clients
             string msg = $"{MSG_START}{_port}";
             byte[] data = Encoding.UTF8.GetBytes(msg);
@@ -739,6 +751,18 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Client;
             GameSettings.LocalPlayerFaction = LobbyConfig.Slots[_mySlotIndex].Faction;
+
+            // Sync lobby network slot types into LobbyConfig so AI bootstrap
+            // knows which factions are human-controlled
+            GameSettings.FactionToPlayerMapping.Clear();
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                if (_networkSlots[i].Type == SlotType.Human)
+                {
+                    GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
+                }
+            }
 
             Cleanup();
             SceneManager.LoadScene(GameSceneName);
