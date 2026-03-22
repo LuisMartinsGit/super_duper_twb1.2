@@ -510,12 +510,15 @@ namespace TheWaningBorder.UI.Menus
                 GUILayout.EndHorizontal();
             }
 
-            // Map size
+            // Map size — button toggle: Small (50) / Medium (75) / Large (125)
             GUILayout.BeginHorizontal();
             GUILayout.Label("Map Size:", GUILayout.Width(60));
-            string sizeLabel = _mapHalfSize <= 50 ? "Small" : _mapHalfSize <= 100 ? "Medium" : "Large";
-            GUILayout.Label($"{sizeLabel} ({_mapHalfSize * 2})", GUILayout.Width(120));
-            _mapHalfSize = (int)GUILayout.HorizontalSlider(_mapHalfSize, 40, 150, GUILayout.Width(120));
+            if (GUILayout.Toggle(_mapHalfSize <= 50, "Small", "Button", GUILayout.Width(60)))
+                _mapHalfSize = 50;
+            if (GUILayout.Toggle(_mapHalfSize > 50 && _mapHalfSize <= 100, "Medium", "Button", GUILayout.Width(70)))
+                _mapHalfSize = 75;
+            if (GUILayout.Toggle(_mapHalfSize > 100, "Large", "Button", GUILayout.Width(60)))
+                _mapHalfSize = 125;
             GUILayout.EndHorizontal();
 
             // Toggles
