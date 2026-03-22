@@ -502,10 +502,18 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.Train:
                     if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
                     {
-                        string unitId = cmd.BuildingId; // Unit type carried in BuildingId field
+                        string unitId = cmd.BuildingId;
                         var queue = em.GetBuffer<TrainQueueItem>(entity);
                         queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
                         Debug.Log($"[Lockstep] Executed Train '{unitId}' from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.PlaceBuilding:
+                    {
+                        Faction buildFaction = (Faction)cmd.EntityNetworkId;
+                        var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
+                        Debug.Log($"[Lockstep] Executed PlaceBuilding '{cmd.BuildingId}' at {cmd.TargetPosition} faction={buildFaction} from player {cmd.PlayerIndex}");
                     }
                     break;
             }

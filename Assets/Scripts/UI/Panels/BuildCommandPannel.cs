@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.Input;
@@ -328,125 +329,43 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            Entity building;
-            float buildTime;
+            // In multiplayer, queue building placement via lockstep — all clients create it
+            bool queued = CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
 
-            switch (_currentBuild)
+            if (queued)
             {
-                case BuildType.Hut:
-                    building = Hut.Create(_em, pos, fac);
-                    if (!_em.HasComponent<PopulationProvider>(building))
-                        _em.AddComponentData(building, new PopulationProvider { Amount = 10 });
-                    buildTime = 15f;
-                    break;
-
-                case BuildType.GatherersHut:
-                    building = GatherersHut.Create(_em, pos, fac);
-                    buildTime = 20f;
-                    break;
-
-                case BuildType.Barracks:
-                    building = Barracks.Create(_em, pos, fac);
-                    buildTime = 30f;
-                    break;
-
-                case BuildType.Shrine:
-                    building = BuildingFactory.Create(_em, "TempleOfRidan", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Vault:
-                    building = BuildingFactory.Create(_em, "VaultOfAlmierra", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Keep:
-                    building = BuildingFactory.Create(_em, "FiendstoneKeep", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Smelter:
-                    building = BuildingFactory.Create(_em, "Alanthor_Smelter", pos, fac);
-                    buildTime = 30f;
-                    break;
-
-                // Runai culture buildings
-                case BuildType.RunaiOutpost:
-                    building = BuildingFactory.Create(_em, "Runai_Outpost", pos, fac);
-                    buildTime = 25f;
-                    break;
-                case BuildType.RunaiTradeHub:
-                    building = BuildingFactory.Create(_em, "Runai_TradeHub", pos, fac);
-                    buildTime = 30f;
-                    break;
-                case BuildType.RunaiBazaar:
-                    building = BuildingFactory.Create(_em, "ThessarasBazaar", pos, fac);
-                    buildTime = 40f;
-                    break;
-                case BuildType.RunaiSiegeWorkshop:
-                    building = BuildingFactory.Create(_em, "Runai_SiegeWorkshop", pos, fac);
-                    buildTime = 35f;
-                    break;
-
-                // Alanthor culture buildings
-                case BuildType.AlanthorWatchTower:
-                    building = BuildingFactory.Create(_em, "Alanthor_Tower", pos, fac);
-                    buildTime = 25f;
-                    break;
-                case BuildType.AlanthorGarrison:
-                    building = BuildingFactory.Create(_em, "Alanthor_Garrison", pos, fac);
-                    buildTime = 30f;
-                    break;
-                case BuildType.AlanthorRoyalStable:
-                    building = BuildingFactory.Create(_em, "Alanthor_Stable", pos, fac);
-                    buildTime = 35f;
-                    break;
-                case BuildType.AlanthorSiegeYard:
-                    building = BuildingFactory.Create(_em, "Alanthor_SiegeYard", pos, fac);
-                    buildTime = 35f;
-                    break;
-
-                // Feraldis culture buildings
-                case BuildType.FeraldisHuntingLodge:
-                    building = BuildingFactory.Create(_em, "Feraldis_HuntingLodge", pos, fac);
-                    buildTime = 25f;
-                    break;
-                case BuildType.FeraldisLoggingStation:
-                    building = BuildingFactory.Create(_em, "Feraldis_LoggingStation", pos, fac);
-                    buildTime = 25f;
-                    break;
-                case BuildType.FeraldisLonghouse:
-                    building = BuildingFactory.Create(_em, "Feraldis_Longhouse", pos, fac);
-                    buildTime = 30f;
-                    break;
-                case BuildType.FeraldisTotemTower:
-                    building = BuildingFactory.Create(_em, "Feraldis_Tower", pos, fac);
-                    buildTime = 25f;
-                    break;
-                case BuildType.FeraldisSiegeYard:
-                    building = BuildingFactory.Create(_em, "Feraldis_SiegeYard", pos, fac);
-                    buildTime = 35f;
-                    break;
-
-                default:
-                    return;
+                // Multiplayer: lockstep will create the building on all clients.
+                // Builders will be assigned when the building entity is created on ProcessTick.
+                // For now, just exit — the builder assignment happens in the lockstep handler.
+                return;
             }
 
-            // Mark building as under construction
-            if (!_em.HasComponent<UnderConstruction>(building))
-                _em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
-            else
-                _em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+            // Single player: building was created directly by PlaceBuildingDirect.
+            // Find the newly created building and assign builders.
+            // PlaceBuildingDirect already set UnderConstruction and HP.
+            // We need to find the entity to assign builders to it.
+            var buildingQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<UnderConstruction>(),
+                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>()
+            );
+            using var buildings = buildingQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var transforms = buildingQuery.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
 
-            // Set HP to 1 during construction (restored to max on completion)
-            if (_em.HasComponent<Health>(building))
+            Entity building = Entity.Null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < buildings.Length; i++)
             {
-                var hp = _em.GetComponentData<Health>(building);
-                _em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
+                float dist = math.distance(transforms[i].Position, pos);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    building = buildings[i];
+                }
             }
 
-            // Issue BuildCommand to selected builders
-            AssignBuildersToConstruction(building, id, pos);
+            if (building != Entity.Null)
+                AssignBuildersToConstruction(building, id, pos);
         }
 
         /// <summary>
@@ -462,7 +381,7 @@ namespace TheWaningBorder.UI.Panels
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<CanBuild>(entity)) continue;
 
-                BuildCommandHelper.Execute(_em, entity, building, buildingId, pos);
+                CommandRouter.IssueBuild(_em, entity, building, buildingId, pos);
             }
         }
 

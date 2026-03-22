@@ -412,6 +412,89 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // PLACE BUILDING COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a place-building command. Creates the building on all clients via lockstep.
+        /// Returns true if the command was queued (multiplayer) or executed (singleplayer).
+        /// In multiplayer, the caller must NOT create the building locally — lockstep will do it.
+        /// </summary>
+        public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
+            Faction faction, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] PlaceBuilding: {buildingId} at {position} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                var cmd = new LockstepCommand
+                {
+                    Type = LockstepCommandType.PlaceBuilding,
+                    BuildingId = buildingId,
+                    TargetPosition = position,
+                    EntityNetworkId = (int)faction // Carry faction in EntityNetworkId
+                };
+                LockstepServiceLocator.Instance.QueueCommand(cmd);
+                return true; // Queued — caller must NOT create entity locally
+            }
+            else
+            {
+                // Single player — create immediately
+                PlaceBuildingDirect(em, buildingId, position, faction);
+                return false; // Created locally — caller can proceed
+            }
+        }
+
+        /// <summary>
+        /// Execute building placement: create entity, mark under construction, set HP to 1.
+        /// Called by lockstep ExecuteCommand on all clients, or directly in singleplayer.
+        /// </summary>
+        public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
+        {
+            Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
+
+            // Mark as under construction
+            float buildTime = GetBuildTime(buildingId);
+            if (!em.HasComponent<UnderConstruction>(building))
+                em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+            else
+                em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+
+            // Set HP to 1 during construction
+            if (em.HasComponent<Health>(building))
+            {
+                var hp = em.GetComponentData<Health>(building);
+                em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
+            }
+
+            // Hut needs PopulationProvider
+            if (buildingId == "Hut" && !em.HasComponent<PopulationProvider>(building))
+                em.AddComponentData(building, new PopulationProvider { Amount = 10 });
+
+            return building;
+        }
+
+        private static float GetBuildTime(string buildingId)
+        {
+            return buildingId switch
+            {
+                "Hut" => 15f,
+                "GatherersHut" => 20f,
+                "Barracks" => 30f,
+                "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
+                "Alanthor_Smelter" or "Alanthor_Garrison" => 30f,
+                "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
+                    or "Feraldis_Tower" or "Runai_Outpost" => 25f,
+                "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
+                "Alanthor_Stable" or "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
+                    or "Feraldis_SiegeYard" => 35f,
+                "ThessarasBazaar" => 40f,
+                _ => 30f
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // INTERNAL ROUTING LOGIC
         // ═══════════════════════════════════════════════════════════════
 
