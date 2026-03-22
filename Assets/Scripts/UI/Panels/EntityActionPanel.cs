@@ -227,10 +227,11 @@ namespace TheWaningBorder.UI.Panels
 
             GUI.enabled = !BuilderCommandPanel.IsPlacingBuilding;
 
+            // Use larger buttons (3 per row) for building icons
             DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
             {
                 BuilderCommandPanel.TriggerBuildingPlacement(button.Id);
-            });
+            }, overrideButtonSize: 110f);
 
             GUI.enabled = true;
 
@@ -1065,7 +1066,8 @@ namespace TheWaningBorder.UI.Panels
             GUI.Label(rect, $"{info.TimeRemaining:F1}s", timeStyle);
         }
 
-        private void DrawActionGrid(Entity entity, ActionButton[] actions, System.Action<ActionButton> onClick)
+        private void DrawActionGrid(Entity entity, ActionButton[] actions, System.Action<ActionButton> onClick,
+            float overrideButtonSize = 0f)
         {
             if (actions == null || actions.Length == 0)
             {
@@ -1073,7 +1075,8 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            int buttonsPerRow = Mathf.FloorToInt((PanelWidth - PanelPadding * 2f) / (ButtonSize + ButtonSpacing));
+            float btnSize = overrideButtonSize > 0f ? overrideButtonSize : ButtonSize;
+            int buttonsPerRow = Mathf.FloorToInt((PanelWidth - PanelPadding * 2f) / (btnSize + ButtonSpacing));
             if (buttonsPerRow < 1) buttonsPerRow = 1;
             int row = 0;
 
@@ -1087,11 +1090,11 @@ namespace TheWaningBorder.UI.Panels
                 bool wasEnabled = GUI.enabled;
                 if (!button.CanAfford || !button.Enabled) GUI.enabled = false;
 
-                // Button content (no GUIContent tooltip — we handle hover manually)
-                string label = button.Label;
+                // If icon available, show empty button + icon overlay; otherwise show text label
+                string label = button.Icon != null ? "" : button.Label;
 
                 if (GUILayout.Button(label, _buttonStyle,
-                    GUILayout.Width(ButtonSize), GUILayout.Height(ButtonSize)))
+                    GUILayout.Width(btnSize), GUILayout.Height(btnSize)))
                 {
                     onClick?.Invoke(button);
                 }
@@ -1100,16 +1103,17 @@ namespace TheWaningBorder.UI.Panels
                 var btnRect = GUILayoutUtility.GetLastRect();
                 if (Event.current.type == EventType.Repaint && !string.IsNullOrEmpty(button.Tooltip))
                 {
-                    // Convert local area rect to screen-space for hover check
                     var mousePos = Event.current.mousePosition;
                     if (btnRect.Contains(mousePos))
                         _hoveredTooltip = button.Tooltip;
                 }
 
-                // Draw icon on top if available
+                // Draw icon on top of button, filling the full area
                 if (button.Icon != null)
                 {
-                    GUI.DrawTexture(btnRect, button.Icon, ScaleMode.ScaleToFit);
+                    // Slight inset so the button border is visible
+                    var iconRect = new Rect(btnRect.x + 2, btnRect.y + 2, btnRect.width - 4, btnRect.height - 4);
+                    GUI.DrawTexture(iconRect, button.Icon, ScaleMode.ScaleToFit);
                 }
 
                 GUI.enabled = wasEnabled;

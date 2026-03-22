@@ -378,6 +378,31 @@ namespace TheWaningBorder.UI
     /// </summary>
     public static class EntityActionExtractor
     {
+        // Icon cache: loaded once from Resources/UI/Icons/Buildings/
+        private static readonly Dictionary<string, UnityEngine.Texture2D> _buildingIconCache = new();
+
+        /// <summary>
+        /// Load a building icon from Resources/UI/Icons/Buildings/.
+        /// Maps building IDs to icon filenames where they differ.
+        /// Returns null if no icon exists for that building.
+        /// </summary>
+        private static UnityEngine.Texture2D GetBuildingIcon(string buildingId)
+        {
+            if (_buildingIconCache.TryGetValue(buildingId, out var cached))
+                return cached;
+
+            // Map building IDs to icon filenames where they differ
+            string iconName = buildingId switch
+            {
+                "TempleOfRidan" => "ShrineOfAhridan",
+                _ => buildingId
+            };
+
+            var tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{iconName}");
+            _buildingIconCache[buildingId] = tex; // Cache even null to avoid repeated lookups
+            return tex;
+        }
+
         public static EntityActionInfo GetActionInfo(Entity entity, EntityManager em)
         {
             var info = new EntityActionInfo
@@ -606,7 +631,7 @@ namespace TheWaningBorder.UI
                         Cost = cost,
                         Enabled = !eraLocked,
                         CanAfford = canAfford && !eraLocked,
-                        Icon = null
+                        Icon = GetBuildingIcon(building.id)
                     });
                 }
             }
