@@ -34,10 +34,17 @@ namespace TheWaningBorder.Systems.Work
         // Cached queries — created once in OnCreate, reused every frame
         private EntityQuery _hallDropoffQuery;
         private EntityQuery _hutDropoffQuery;
+        private EntityQuery _cadaverQuery;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();
+
+            _cadaverQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<CadaverTag>(),
+                ComponentType.ReadOnly<CadaverState>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
 
             _hallDropoffQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<HallTag>(),
@@ -114,26 +121,28 @@ namespace TheWaningBorder.Systems.Work
 
         private void ProcessMovingToCadaver(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
         {
-            // Check if cadaver still exists
+            // Check if cadaver still exists or is depleted — auto-find next in LOS
+            bool needNewTarget = false;
             if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
             {
-                miner.State = MinerWorkState.Idle;
-                miner.GatheringResource = 0;
-                miner.AssignedDeposit = Entity.Null;
-                return;
+                needNewTarget = true;
             }
-
-            // Check if cadaver is depleted
-            if (em.HasComponent<CadaverState>(miner.AssignedDeposit))
+            else if (em.HasComponent<CadaverState>(miner.AssignedDeposit))
             {
                 var cadaverState = em.GetComponentData<CadaverState>(miner.AssignedDeposit);
                 if (cadaverState.Depleted == 1)
+                    needNewTarget = true;
+            }
+
+            if (needNewTarget)
+            {
+                if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
                 {
                     miner.State = MinerWorkState.Idle;
                     miner.GatheringResource = 0;
                     miner.AssignedDeposit = Entity.Null;
-                    return;
                 }
+                return;
             }
 
             var cadaverPos = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
@@ -235,10 +244,13 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // Node depleted and nothing to carry - go idle
-                        miner.State = MinerWorkState.Idle;
-                        miner.GatheringResource = 0;
-                        miner.AssignedDeposit = Entity.Null;
+                        // Node depleted and nothing to carry — try to find next cadaver in LOS
+                        if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
+                        {
+                            miner.State = MinerWorkState.Idle;
+                            miner.GatheringResource = 0;
+                            miner.AssignedDeposit = Entity.Null;
+                        }
                     }
                 }
                 // else: keep gathering (stay in Gathering state)
@@ -319,11 +331,14 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    // Cadaver depleted - go idle, MiningSystem will find next target
-                    miner.State = MinerWorkState.Idle;
-                    miner.GatheringResource = 0;
-                    miner.AssignedDeposit = Entity.Null;
+                    // Cadaver depleted — try to find next cadaver in LOS
                     miner.DropoffTarget = Entity.Null;
+                    if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
+                    {
+                        miner.State = MinerWorkState.Idle;
+                        miner.GatheringResource = 0;
+                        miner.AssignedDeposit = Entity.Null;
+                    }
                 }
             }
         }
@@ -394,6 +409,54 @@ namespace TheWaningBorder.Systems.Work
                     });
                 }
             }
+        }
+
+        /// <summary>
+        /// Find nearest non-depleted cadaver within the miner's line-of-sight range.
+        /// Assigns the miner to it and sets movement destination.
+        /// Returns true if a new cadaver was found.
+        /// </summary>
+        private bool TryAssignNearestCadaver(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
+        {
+            float los = 10f;
+            if (em.HasComponent<LineOfSight>(entity))
+                los = em.GetComponentData<LineOfSight>(entity).Radius;
+
+            using var cadavers = _cadaverQuery.ToEntityArray(Allocator.Temp);
+            using var cadaverStates = _cadaverQuery.ToComponentDataArray<CadaverState>(Allocator.Temp);
+            using var cadaverTransforms = _cadaverQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity bestCadaver = Entity.Null;
+            float bestDist = float.MaxValue;
+            float3 bestPos = float3.zero;
+
+            for (int i = 0; i < cadavers.Length; i++)
+            {
+                if (cadaverStates[i].Depleted == 1) continue;
+                if (cadaverStates[i].RemainingCrystal <= 0) continue;
+
+                float dist = DistXZ(pos, cadaverTransforms[i].Position);
+                if (dist <= los && dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestCadaver = cadavers[i];
+                    bestPos = cadaverTransforms[i].Position;
+                }
+            }
+
+            if (bestCadaver == Entity.Null) return false;
+
+            // Assign miner to new cadaver
+            miner.AssignedDeposit = bestCadaver;
+            miner.GatheringResource = 1;
+            miner.State = MinerWorkState.MovingToDeposit;
+
+            if (em.HasComponent<DesiredDestination>(entity))
+                em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+            else
+                em.AddComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+
+            return true;
         }
 
         /// <summary>
