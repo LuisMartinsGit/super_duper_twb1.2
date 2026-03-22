@@ -42,6 +42,7 @@ namespace TheWaningBorder.UI.Menus
         private const string MSG_LEAVE = "TWB_LEAVE|";
         private const string MSG_START = "TWB_START|";
         private const string MSG_ACCEPT = "TWB_ACCEPT|";
+        private const string MSG_COLOR = "TWB_COLOR|";
 
         // State machine
         private enum LobbyState
@@ -71,6 +72,7 @@ namespace TheWaningBorder.UI.Menus
         private int _spawnSeed = GameSettings.SpawnSeed;
         private bool _fogOfWar = GameSettings.FogOfWarEnabled;
         private int _mapHalfSize = GameSettings.MapHalfSize;
+        private bool _crystalCurse = GameSettings.CrystalCurseEnabled;
 
         // Network state
         private UdpClient _hostSocket;
@@ -79,6 +81,7 @@ namespace TheWaningBorder.UI.Menus
         private ushort _clientPrivatePort;
         private bool _isHost;
         private int _mySlotIndex = -1;
+        private IPEndPoint _hostEndpoint;
 
         // Game discovery
         private class DiscoveredGame
@@ -244,6 +247,15 @@ namespace TheWaningBorder.UI.Menus
                 _port = newPort;
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Players:", GUILayout.Width(100));
+            if (GUILayout.Button("-", GUILayout.Width(30)) && LobbyConfig.ActiveSlotCount > 2)
+                LobbyConfig.ActiveSlotCount--;
+            GUILayout.Label(LobbyConfig.ActiveSlotCount.ToString(), GUILayout.Width(30));
+            if (GUILayout.Button("+", GUILayout.Width(30)) && LobbyConfig.ActiveSlotCount < 8)
+                LobbyConfig.ActiveSlotCount++;
+            GUILayout.EndHorizontal();
+
             GUILayout.Space(20);
 
             GUILayout.BeginHorizontal();
@@ -336,6 +348,9 @@ namespace TheWaningBorder.UI.Menus
                 DrawNetworkSlot(i, isHost: false);
             GUILayout.EndScrollView();
 
+            GUILayout.Space(10);
+            DrawMapOptionsReadOnly();
+
             GUILayout.FlexibleSpace();
 
             if (GUILayout.Button("Leave", GUILayout.Height(36), GUILayout.Width(100)))
@@ -364,23 +379,38 @@ namespace TheWaningBorder.UI.Menus
         private void DrawNetworkSlot(int index, bool isHost)
         {
             var slot = _networkSlots[index];
-            var faction = LobbyConfig.Slots[index].Faction;
 
             GUILayout.BeginHorizontal(_slotStyle);
 
+            // Color swatch — clickable for host (any slot) or client (own slot only)
             Color oldColor = GUI.color;
             GUI.color = LobbyConfig.Slots[index].GetFactionColor();
-            GUILayout.Label("■", GUILayout.Width(20));
+            bool canChangeColor = isHost || index == _mySlotIndex;
+            if (canChangeColor)
+            {
+                if (GUILayout.Button("■", GUILayout.Width(24), GUILayout.Height(20)))
+                {
+                    if (isHost)
+                        CycleSlotColor(index);
+                    else
+                        SendColorChange(index);
+                }
+            }
+            else
+            {
+                GUILayout.Label("■", GUILayout.Width(24));
+            }
             GUI.color = oldColor;
 
-            GUILayout.Label(faction.ToString(), _factionLabelStyle, GUILayout.Width(60));
+            // Faction name
+            GUILayout.Label(LobbyConfig.Slots[index].Faction.ToString(), _factionLabelStyle, GUILayout.Width(60));
 
+            // Slot content
             if (slot.Type == SlotType.Human)
             {
                 string label = string.IsNullOrEmpty(slot.PlayerName) ? "Player" : slot.PlayerName;
                 if (index == 0) label += " (Host)";
                 if (index == _mySlotIndex && !_isHost) label += " (You)";
-
                 GUI.color = Color.cyan;
                 GUILayout.Label(label);
                 GUI.color = Color.white;
@@ -400,17 +430,17 @@ namespace TheWaningBorder.UI.Menus
                     GUILayout.Label($"AI ({slot.AIDifficulty})");
                 }
             }
-            else
+            else // Empty
             {
                 if (isHost)
                 {
-                    if (GUILayout.Button("Empty", GUILayout.Width(50)))
+                    if (GUILayout.Button("Open", GUILayout.Width(50)))
                         slot.Type = SlotType.AI;
-                    GUILayout.Label("(Open)");
+                    GUILayout.Label("(Waiting for player)");
                 }
                 else
                 {
-                    GUILayout.Label("Empty");
+                    GUILayout.Label("Open");
                 }
             }
 
@@ -418,10 +448,48 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.EndHorizontal();
         }
 
+        private void CycleSlotColor(int slotIndex)
+        {
+            var slot = LobbyConfig.Slots[slotIndex];
+            int current = slot.ColorIndex;
+            for (int i = 1; i < FactionColors.ColorCount; i++)
+            {
+                int next = (current + i) % FactionColors.ColorCount;
+                if (!IsColorInUse(next, slotIndex))
+                {
+                    slot.ColorIndex = next;
+                    return;
+                }
+            }
+        }
+
+        private bool IsColorInUse(int colorIndex, int excludeSlot)
+        {
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                if (i == excludeSlot) continue;
+                if (LobbyConfig.Slots[i].ColorIndex == colorIndex)
+                    return true;
+            }
+            return false;
+        }
+
+        private void SendColorChange(int slotIndex)
+        {
+            // Client cycles color locally and sends to host
+            CycleSlotColor(slotIndex);
+            int newColor = LobbyConfig.Slots[slotIndex].ColorIndex;
+            string msg = $"{MSG_COLOR}{slotIndex}|{newColor}";
+            byte[] data = Encoding.UTF8.GetBytes(msg);
+            if (_clientPrivateSocket != null && _hostEndpoint != null)
+                _clientPrivateSocket.Send(data, data.Length, _hostEndpoint);
+        }
+
         private void DrawMapOptions()
         {
-            GUILayout.Label("<b>Map Options</b>", _headerStyle);
+            GUILayout.Label("<b>Map & Game Settings</b>", _headerStyle);
 
+            // Layout
             GUILayout.BeginHorizontal();
             GUILayout.Label("Layout:", GUILayout.Width(60));
             if (GUILayout.Toggle(_layout == SpawnLayout.Circle, "Circle", "Button", GUILayout.Width(70)))
@@ -430,7 +498,40 @@ namespace TheWaningBorder.UI.Menus
                 _layout = SpawnLayout.TwoSides;
             GUILayout.EndHorizontal();
 
+            // 2-Sides preset (only if TwoSides selected)
+            if (_layout == SpawnLayout.TwoSides)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Sides:", GUILayout.Width(60));
+                string[] presets = { "L-R", "U-D", "LU", "LD", "RU", "RD" };
+                int twoIdx = (int)_twoSides;
+                if (GUILayout.Button(presets[twoIdx], GUILayout.Width(50)))
+                    _twoSides = (TwoSidesPreset)((twoIdx + 1) % presets.Length);
+                GUILayout.EndHorizontal();
+            }
+
+            // Map size
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Map Size:", GUILayout.Width(60));
+            string sizeLabel = _mapHalfSize <= 50 ? "Small" : _mapHalfSize <= 100 ? "Medium" : "Large";
+            GUILayout.Label($"{sizeLabel} ({_mapHalfSize * 2})", GUILayout.Width(120));
+            _mapHalfSize = (int)GUILayout.HorizontalSlider(_mapHalfSize, 40, 150, GUILayout.Width(120));
+            GUILayout.EndHorizontal();
+
+            // Toggles
             _fogOfWar = GUILayout.Toggle(_fogOfWar, " Fog of War");
+            _crystalCurse = GUILayout.Toggle(_crystalCurse, " Crystal Curse");
+        }
+
+        private void DrawMapOptionsReadOnly()
+        {
+            GUILayout.Label("<b>Map & Game Settings</b>", _headerStyle);
+            string layoutStr = _layout == SpawnLayout.TwoSides ? "2-Sides" : "Circle";
+            string sizeLabel = _mapHalfSize <= 50 ? "Small" : _mapHalfSize <= 100 ? "Medium" : "Large";
+            GUILayout.Label($"  Layout: {layoutStr}");
+            GUILayout.Label($"  Map Size: {sizeLabel} ({_mapHalfSize * 2})");
+            GUILayout.Label($"  Fog of War: {(_fogOfWar ? "On" : "Off")}");
+            GUILayout.Label($"  Crystal Curse: {(_crystalCurse ? "On" : "Off")}");
         }
 
         // ==================== NETWORKING ====================
@@ -603,6 +704,19 @@ namespace TheWaningBorder.UI.Menus
                     }
                 }
             }
+            else if (msg.StartsWith(MSG_COLOR))
+            {
+                var parts = msg.Substring(MSG_COLOR.Length).Split('|');
+                if (parts.Length >= 2)
+                {
+                    int slotIndex = int.Parse(parts[0]);
+                    int colorIndex = int.Parse(parts[1]);
+                    if (slotIndex > 0 && slotIndex < LobbyConfig.ActiveSlotCount && !IsColorInUse(colorIndex, slotIndex))
+                    {
+                        LobbyConfig.Slots[slotIndex].ColorIndex = colorIndex;
+                    }
+                }
+            }
         }
 
         private void HandleClientBroadcast(string msg, IPEndPoint remote)
@@ -631,6 +745,7 @@ namespace TheWaningBorder.UI.Menus
             if (msg.StartsWith(MSG_ACCEPT))
             {
                 _mySlotIndex = int.Parse(msg.Substring(MSG_ACCEPT.Length));
+                _hostEndpoint = remote;
                 _state = LobbyState.ClientLobby;
                 Debug.Log($"[Client] Accepted into slot {_mySlotIndex}");
             }
@@ -644,6 +759,8 @@ namespace TheWaningBorder.UI.Menus
                 ushort gamePort = ushort.Parse(startParts[0]);
                 int seed = startParts.Length > 1 ? int.Parse(startParts[1]) : 12345;
                 int lockstepPort = startParts.Length > 2 ? int.Parse(startParts[2]) : gamePort + 1;
+                bool crystalCurse = startParts.Length > 3 ? int.Parse(startParts[3]) != 0 : true;
+                GameSettings.CrystalCurseEnabled = crystalCurse;
                 StartAsClient(remote.Address.ToString(), gamePort, seed, lockstepPort);
             }
         }
@@ -658,46 +775,53 @@ namespace TheWaningBorder.UI.Menus
 
         private void SyncLobbyState()
         {
-            // Build lobby state message
             var sb = new System.Text.StringBuilder();
             sb.Append(MSG_LOBBY);
             sb.Append(LobbyConfig.ActiveSlotCount);
+            // Map settings: layout|twoSides|mapSize|fogOfWar|crystalCurse
+            sb.Append($"|{(int)_layout}|{(int)_twoSides}|{_mapHalfSize}|{(_fogOfWar ? 1 : 0)}|{(_crystalCurse ? 1 : 0)}");
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
-                sb.Append($"|{(int)slot.Type},{slot.PlayerName},{(int)slot.AIDifficulty}");
+                sb.Append($"|{(int)slot.Type},{slot.PlayerName},{(int)slot.AIDifficulty},{LobbyConfig.Slots[i].ColorIndex}");
             }
 
             byte[] data = Encoding.UTF8.GetBytes(sb.ToString());
-
-            // Send to all connected clients
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
                 if (slot.Type == SlotType.Human && slot.Endpoint != null)
-                {
                     _hostSocket.Send(data, data.Length, new IPEndPoint(slot.Endpoint.Address, slot.ClientPort));
-                }
             }
         }
 
         private void ParseLobbyState(string msg)
         {
             var parts = msg.Substring(MSG_LOBBY.Length).Split('|');
-            if (parts.Length < 1) return;
+            if (parts.Length < 6) return; // slotCount + 5 map settings minimum
 
             int slotCount = int.Parse(parts[0]);
             LobbyConfig.ActiveSlotCount = slotCount;
 
-            for (int i = 0; i < slotCount && i + 1 < parts.Length; i++)
+            // Parse map settings
+            if (parts.Length > 1) _layout = (SpawnLayout)int.Parse(parts[1]);
+            if (parts.Length > 2) _twoSides = (TwoSidesPreset)int.Parse(parts[2]);
+            if (parts.Length > 3) _mapHalfSize = int.Parse(parts[3]);
+            if (parts.Length > 4) _fogOfWar = int.Parse(parts[4]) != 0;
+            if (parts.Length > 5) _crystalCurse = int.Parse(parts[5]) != 0;
+
+            // Parse slot data (starts at index 6)
+            for (int i = 0; i < slotCount && i + 6 < parts.Length; i++)
             {
-                var slotParts = parts[i + 1].Split(',');
+                var slotParts = parts[i + 6].Split(',');
                 if (slotParts.Length >= 3)
                 {
                     _networkSlots[i].Type = (SlotType)int.Parse(slotParts[0]);
                     _networkSlots[i].PlayerName = slotParts[1];
                     _networkSlots[i].AIDifficulty = (LobbyAIDifficulty)int.Parse(slotParts[2]);
+                    if (slotParts.Length >= 4)
+                        LobbyConfig.Slots[i].ColorIndex = int.Parse(slotParts[3]);
                 }
             }
         }
@@ -716,7 +840,10 @@ namespace TheWaningBorder.UI.Menus
         {
             // Apply settings
             GameSettings.SpawnLayout = _layout;
+            GameSettings.TwoSides = _twoSides;
+            GameSettings.MapHalfSize = _mapHalfSize;
             GameSettings.FogOfWarEnabled = _fogOfWar;
+            GameSettings.CrystalCurseEnabled = _crystalCurse;
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Server;
             GameSettings.LocalPlayerFaction = Faction.Blue;
@@ -755,8 +882,11 @@ namespace TheWaningBorder.UI.Menus
             }
             Debug.Log($"[MultiplayerLobby] Total remote players for lockstep: {bootstrap.RemotePlayers.Count}");
 
-            // Notify clients — include seed and lockstep port
-            string msg = $"{MSG_START}{_port}|{_spawnSeed}|{lockstepPort}";
+            // Apply color selections before scene load
+            LobbyConfig.ApplyColorSelections();
+
+            // Notify clients — include seed, lockstep port, and crystal curse flag
+            string msg = $"{MSG_START}{_port}|{_spawnSeed}|{lockstepPort}|{(_crystalCurse ? 1 : 0)}";
             byte[] data = Encoding.UTF8.GetBytes(msg);
 
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
@@ -778,6 +908,10 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.NetworkRole = NetworkRole.Client;
             GameSettings.LocalPlayerFaction = LobbyConfig.Slots[_mySlotIndex].Faction;
             GameSettings.SpawnSeed = seed;
+            GameSettings.SpawnLayout = _layout;
+            GameSettings.TwoSides = _twoSides;
+            GameSettings.MapHalfSize = _mapHalfSize;
+            GameSettings.FogOfWarEnabled = _fogOfWar;
 
             // Sync lobby network slot types into LobbyConfig so AI bootstrap
             // knows which factions are human-controlled
@@ -795,6 +929,8 @@ namespace TheWaningBorder.UI.Menus
             int clientPort = lockstepPort + _mySlotIndex;
             var bootstrap = CreateLockstepBootstrap();
             bootstrap.ConfigureAsClient(hostIp, lockstepPort, clientPort, _mySlotIndex, GameSettings.LocalPlayerFaction);
+
+            LobbyConfig.ApplyColorSelections();
 
             Cleanup();
             SceneManager.LoadScene(GameSceneName);

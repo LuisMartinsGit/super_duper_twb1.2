@@ -105,6 +105,9 @@ public static class GameSettings
     /// <summary>Whether fog of war is enabled.</summary>
     public static bool FogOfWarEnabled = false;
 
+    /// <summary>Whether the Crystal Curse faction spawns on this map.</summary>
+    public static bool CrystalCurseEnabled = true;
+
     // ==================== Multiplayer Settings ====================
 
     /// <summary>Whether the current game is a multiplayer session.</summary>

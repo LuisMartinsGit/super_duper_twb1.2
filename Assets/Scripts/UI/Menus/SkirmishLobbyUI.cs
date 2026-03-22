@@ -45,6 +45,7 @@ namespace TheWaningBorder.UI.Menus
 
         // Game settings
         private bool _maxResources = GameSettings.MaxStartingResources;
+        private bool _crystalCurse = GameSettings.CrystalCurseEnabled;
         private bool _sandbox = false;
         private bool _isObserver = false;
 
@@ -376,6 +377,14 @@ namespace TheWaningBorder.UI.Menus
 
             GUILayout.Space(10);
 
+            // Crystal Curse
+            GUILayout.Label("<b>Crystal Curse</b>", _headerStyle);
+            _crystalCurse = GUILayout.Toggle(_crystalCurse, _crystalCurse
+                ? " Enabled (NPC curse faction spawns)"
+                : " Disabled (no crystal threat)");
+
+            GUILayout.Space(10);
+
             // Starting resources
             GUILayout.Label("<b>Starting Resources</b>", _headerStyle);
             GUI.enabled = !_sandbox; // Sandbox forces max resources
@@ -669,6 +678,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.FogOfWarEnabled = _fogOfWar;
             GameSettings.MapHalfSize = _mapHalfSize;
             GameSettings.MaxStartingResources = _maxResources;
+            GameSettings.CrystalCurseEnabled = _crystalCurse;
             GameSettings.IsObserver = _isObserver;
 
             if (_sandbox)
