@@ -19,6 +19,7 @@ using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Research;
 using TheWaningBorder.Systems.Movement;
+using TheWaningBorder.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -73,6 +74,13 @@ namespace TheWaningBorder.Bootstrap
                 ScenarioSetup.Bootstrap();
                 Debug.Log($"[GameBootstrap] Scenario mode initialized: {GameSettings.ActiveScenario}");
                 return;
+            }
+
+            // 0.5. Initialize lockstep BEFORE anything else in multiplayer
+            // This ensures LockstepServiceLocator.Instance is available when commands are issued
+            if (GameSettings.IsMultiplayer && LockstepBootstrap.Instance != null)
+            {
+                LockstepBootstrap.Instance.InitializeLockstepNow();
             }
 
             // 1. Initialize core data systems (TechTreeDB)
