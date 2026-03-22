@@ -92,6 +92,7 @@ namespace TheWaningBorder.Multiplayer
         
         public bool LogTicks = false;
         public bool LogCommands = false;
+        private float _debugTimer = 0f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ILockstepService IMPLEMENTATION
@@ -117,16 +118,20 @@ namespace TheWaningBorder.Multiplayer
         /// </summary>
         public void QueueCommand(LockstepCommand cmd)
         {
-            if (!_isSimulationRunning) return;
-            
+            if (!_isSimulationRunning)
+            {
+                Debug.LogWarning($"[Lockstep] QueueCommand called but simulation not running! Type={cmd.Type}");
+                return;
+            }
+
             cmd.PlayerIndex = _localPlayerIndex;
             cmd.Tick = _currentTick + INPUT_DELAY_TICKS;
             cmd.CommandIndex = _localCommandBuffer.Count;
-            
+
             _localCommandBuffer.Add(cmd);
-            
-            if (LogCommands)
-                Debug.Log($"[Lockstep] Queued command type {cmd.Type} for tick {cmd.Tick}");
+
+            // Always log commands during debugging
+            Debug.Log($"[Lockstep] QUEUED cmd={cmd.Type} entity={cmd.EntityNetworkId} for tick={cmd.Tick} (current={_currentTick})");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -161,9 +166,25 @@ namespace TheWaningBorder.Multiplayer
             if (!_isSimulationRunning) return;
 
             ReceiveNetworkMessages();
-            
+
             _tickAccumulator += Time.deltaTime;
-            
+
+            // Periodic debug: log tick state every 3 seconds
+            _debugTimer += Time.deltaTime;
+            if (_debugTimer >= 3f)
+            {
+                _debugTimer = 0f;
+                var sb = new StringBuilder();
+                sb.Append($"[Lockstep] Tick={_currentTick}, Cmds={_localCommandBuffer.Count}");
+                foreach (var player in _remotePlayers)
+                {
+                    int confirmed = _confirmedTicks.GetValueOrDefault(player.PlayerIndex, -999);
+                    sb.Append($", P{player.PlayerIndex}confirmed={confirmed}");
+                }
+                sb.Append($", CanAdvance={CanAdvanceTick()}");
+                Debug.Log(sb.ToString());
+            }
+
             while (_tickAccumulator >= TICK_DURATION)
             {
                 if (CanAdvanceTick())
@@ -640,8 +661,8 @@ namespace TheWaningBorder.Multiplayer
             _remoteCommands[tick][playerIndex] = commands;
             _confirmedTicks[playerIndex] = Math.Max(_confirmedTicks.GetValueOrDefault(playerIndex, -1), tick);
 
-            if (LogCommands)
-                Debug.Log($"[Lockstep] Received tick {tick} from player {playerIndex} with {cmdCount} commands");
+            // Always log received ticks during debugging
+            Debug.Log($"[Lockstep] RECEIVED tick={tick} from player={playerIndex} cmds={cmdCount}");
 
             // Host relays to other clients
             if (_isHost)
