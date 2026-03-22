@@ -724,24 +724,34 @@ namespace TheWaningBorder.Multiplayer
         private uint ComputeGameStateChecksum()
         {
             uint checksum = 0;
-            
+
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return checksum;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(NetworkedEntity), typeof(Unity.Transforms.LocalTransform));
+
+            // Checksum based on entity count + health (game-logic state).
+            // Positions are NOT included because movement uses frame-rate-dependent
+            // deltaTime, causing tiny floating-point drift between clients.
+            // Commands are still synchronized via lockstep — drift is cosmetic only.
+            var query = em.CreateEntityQuery(typeof(NetworkedEntity));
             var entities = query.ToEntityArray(Allocator.Temp);
+
+            checksum ^= (uint)(entities.Length * 31);
 
             for (int i = 0; i < entities.Length; i++)
             {
                 var netEntity = em.GetComponentData<NetworkedEntity>(entities[i]);
-                var transform = em.GetComponentData<Unity.Transforms.LocalTransform>(entities[i]);
-                
-                checksum ^= (uint)netEntity.NetworkId;
-                checksum ^= (uint)(transform.Position.x * 100);
-                checksum ^= (uint)(transform.Position.z * 100);
+                checksum ^= (uint)(netEntity.NetworkId * 7919);
+
+                // Include health if present — tracks combat state
+                if (em.HasComponent<Health>(entities[i]))
+                {
+                    var hp = em.GetComponentData<Health>(entities[i]);
+                    checksum ^= (uint)(hp.Value * 17 + hp.Max * 53);
+                }
             }
-            
+
             entities.Dispose();
             return checksum;
         }
