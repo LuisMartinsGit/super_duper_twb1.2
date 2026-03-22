@@ -251,12 +251,14 @@ namespace TheWaningBorder.Multiplayer
             _remoteCommands.Clear();
             _confirmedTicks.Clear();
             _checksums.Clear();
-            
-            // Initialize confirmed ticks for all players
-            _confirmedTicks[_localPlayerIndex] = -1;
+
+            // Initialize confirmed ticks — start at INPUT_DELAY_TICKS so the first
+            // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
+            // waiting for each other's tick confirmation before either can broadcast.
+            _confirmedTicks[_localPlayerIndex] = INPUT_DELAY_TICKS;
             foreach (var player in _remotePlayers)
             {
-                _confirmedTicks[player.PlayerIndex] = -1;
+                _confirmedTicks[player.PlayerIndex] = INPUT_DELAY_TICKS;
             }
             
             Debug.Log("[Lockstep] Simulation started");
