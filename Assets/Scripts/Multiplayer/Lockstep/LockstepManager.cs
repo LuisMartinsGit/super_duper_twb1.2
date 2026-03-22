@@ -405,12 +405,25 @@ namespace TheWaningBorder.Multiplayer
 
             var em = world.EntityManager;
 
-            Entity entity = FindEntityByNetworkId(cmd.EntityNetworkId);
-            if (entity == Entity.Null && cmd.Type != LockstepCommandType.SetRally)
+            // PlaceBuilding and Train don't require an existing entity lookup —
+            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building
+            Entity entity = Entity.Null;
+            bool needsEntity = cmd.Type != LockstepCommandType.SetRally
+                            && cmd.Type != LockstepCommandType.PlaceBuilding;
+
+            if (needsEntity)
             {
-                if (LogCommands)
-                    Debug.LogWarning($"[Lockstep] Entity not found for network ID {cmd.EntityNetworkId}");
-                return;
+                entity = FindEntityByNetworkId(cmd.EntityNetworkId);
+                if (entity == Entity.Null)
+                {
+                    Debug.LogWarning($"[Lockstep] Entity not found for network ID {cmd.EntityNetworkId}, cmd={cmd.Type}");
+                    return;
+                }
+            }
+            else if (cmd.Type != LockstepCommandType.PlaceBuilding)
+            {
+                // SetRally and others that might use entity optionally
+                entity = FindEntityByNetworkId(cmd.EntityNetworkId);
             }
 
             Entity targetEntity = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
