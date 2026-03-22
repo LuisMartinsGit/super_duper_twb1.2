@@ -356,12 +356,9 @@ namespace TheWaningBorder.Multiplayer
 
         private void ProcessTick(int tick)
         {
-            if (LogTicks)
-                Debug.Log($"[Lockstep] Processing tick {tick}");
-
             // Gather all commands for this tick
             var allCommands = new List<LockstepCommand>();
-            
+
             // Remote commands
             if (_remoteCommands.TryGetValue(tick, out var tickCommands))
             {
@@ -370,6 +367,9 @@ namespace TheWaningBorder.Multiplayer
                     allCommands.AddRange(playerCommands);
                 }
             }
+
+            if (allCommands.Count > 0)
+                Debug.Log($"[Lockstep] ProcessTick({tick}) executing {allCommands.Count} commands");
 
             // Sort for determinism (by player index, then command index)
             allCommands.Sort((a, b) =>
