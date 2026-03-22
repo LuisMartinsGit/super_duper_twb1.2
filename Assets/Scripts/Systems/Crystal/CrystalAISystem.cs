@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
 using Cost = TheWaningBorder.Core.Cost;
 
@@ -70,9 +71,12 @@ namespace TheWaningBorder.Systems.Crystal
 
             int crystalBank = resources.Crystal;
 
-            // Deterministic random seed — use tick counter, not elapsed time,
-            // so host and client produce identical AI decisions
-            _decisionTick++;
+            // Deterministic random seed — in multiplayer, use lockstep tick (guaranteed
+            // synchronized between host and client). In singleplayer, use local counter.
+            if (GameSettings.IsMultiplayer && LockstepServiceLocator.IsActive)
+                _decisionTick = LockstepServiceLocator.Instance.CurrentTick;
+            else
+                _decisionTick++;
             var random = new Unity.Mathematics.Random(
                 (uint)(_decisionTick * 7919 + GameSettings.SpawnSeed + 1));
 
