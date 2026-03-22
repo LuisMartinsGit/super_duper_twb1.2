@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Core.Multiplayer;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Core.Commands
 {
