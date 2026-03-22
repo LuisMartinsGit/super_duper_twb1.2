@@ -245,7 +245,8 @@ namespace TheWaningBorder.Systems.Work
                     else
                     {
                         // Node depleted and nothing to carry — try to find next cadaver in LOS
-                        if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
+                        var minerPos = em.GetComponentData<LocalTransform>(entity).Position;
+                        if (!TryAssignNearestCadaver(ref miner, em, entity, minerPos))
                         {
                             miner.State = MinerWorkState.Idle;
                             miner.GatheringResource = 0;
