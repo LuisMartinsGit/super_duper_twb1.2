@@ -380,6 +380,38 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // TRAIN COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a train command to queue a unit at a building.
+        /// </summary>
+        public static void IssueTrain(EntityManager em, Entity building, string unitId,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (building == Entity.Null || !em.Exists(building)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] Train: {building.Index} -> {unitId} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueTrainForLockstep(em, building, unitId);
+            }
+            else
+            {
+                TrainCommandDirect(em, building, unitId);
+            }
+        }
+
+        private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
+        {
+            if (!em.HasBuffer<TrainQueueItem>(building)) return;
+            var queue = em.GetBuffer<TrainQueueItem>(building);
+            queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // INTERNAL ROUTING LOGIC
         // ═══════════════════════════════════════════════════════════════
 
@@ -645,6 +677,25 @@ namespace TheWaningBorder.Core.Commands
                 Type = LockstepCommandType.Convert,
                 EntityNetworkId = minerId,
                 TargetEntityId = keepId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId)
+        {
+            int buildingId = GetNetworkId(em, building);
+
+            if (buildingId <= 0)
+            {
+                TrainCommandDirect(em, building, unitId);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.Train,
+                EntityNetworkId = buildingId,
+                BuildingId = unitId // Reuse BuildingId field to carry the unit type
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

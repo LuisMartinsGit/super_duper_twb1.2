@@ -3,6 +3,7 @@
 // Location: Assets/Scripts/Core/Multiplayer/LockstepTypes.cs
 
 using System;
+using System.Globalization;
 using System.Net;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -78,7 +79,11 @@ namespace TheWaningBorder.Core.Multiplayer
         /// </summary>
         public string Serialize()
         {
-            return $"{(int)Type},{EntityNetworkId},{TargetPosition.x:F2},{TargetPosition.y:F2},{TargetPosition.z:F2},{TargetEntityId},{SecondaryTargetId},{BuildingId ?? ""}";
+            // Use InvariantCulture to ensure '.' decimal separator on all locales
+            var c = CultureInfo.InvariantCulture;
+            return string.Format(c, "{0},{1},{2:F2},{3:F2},{4:F2},{5},{6},{7}",
+                (int)Type, EntityNetworkId, TargetPosition.x, TargetPosition.y, TargetPosition.z,
+                TargetEntityId, SecondaryTargetId, BuildingId ?? "");
         }
 
         /// <summary>
@@ -91,16 +96,18 @@ namespace TheWaningBorder.Core.Multiplayer
                 string[] parts = data.Split(',');
                 if (parts.Length < 7) return null;
 
+                // Use InvariantCulture to parse '.' decimal separator on all locales
+                var c = CultureInfo.InvariantCulture;
                 return new LockstepCommand
                 {
-                    Type = (LockstepCommandType)int.Parse(parts[0]),
-                    EntityNetworkId = int.Parse(parts[1]),
+                    Type = (LockstepCommandType)int.Parse(parts[0], c),
+                    EntityNetworkId = int.Parse(parts[1], c),
                     TargetPosition = new float3(
-                        float.Parse(parts[2]),
-                        float.Parse(parts[3]),
-                        float.Parse(parts[4])),
-                    TargetEntityId = int.Parse(parts[5]),
-                    SecondaryTargetId = int.Parse(parts[6]),
+                        float.Parse(parts[2], c),
+                        float.Parse(parts[3], c),
+                        float.Parse(parts[4], c)),
+                    TargetEntityId = int.Parse(parts[5], c),
+                    SecondaryTargetId = int.Parse(parts[6], c),
                     BuildingId = parts.Length > 7 ? parts[7] : ""
                 };
             }

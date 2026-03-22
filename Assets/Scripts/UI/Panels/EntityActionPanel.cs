@@ -298,14 +298,10 @@ namespace TheWaningBorder.UI.Panels
                     return;
                 }
 
-                // Add to training queue
-                if (em.HasBuffer<TrainQueueItem>(entity))
-                {
-                    var queue = em.GetBuffer<TrainQueueItem>(entity);
-                    queue.Add(new TrainQueueItem { UnitId = button.Id });
-                    Debug.Log($"Queued {button.Id} for training");
-                    Event.current.Use();
-                }
+                // Add to training queue (via CommandRouter for multiplayer sync)
+                CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                Debug.Log($"Queued {button.Id} for training");
+                Event.current.Use();
             });
 
             GUILayout.Space(8);
@@ -399,13 +395,9 @@ namespace TheWaningBorder.UI.Panels
                         return;
                     }
 
-                    if (em.HasBuffer<TrainQueueItem>(entity))
-                    {
-                        var queue = em.GetBuffer<TrainQueueItem>(entity);
-                        queue.Add(new TrainQueueItem { UnitId = button.Id });
-                        Debug.Log($"Queued {button.Id} for training");
-                        Event.current.Use();
-                    }
+                    CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                    Debug.Log($"Queued {button.Id} for training");
+                    Event.current.Use();
                 });
 
                 GUILayout.Space(4);
@@ -954,13 +946,9 @@ namespace TheWaningBorder.UI.Panels
                         return;
                     }
 
-                    if (em.HasBuffer<TrainQueueItem>(entity))
-                    {
-                        var queue = em.GetBuffer<TrainQueueItem>(entity);
-                        queue.Add(new TrainQueueItem { UnitId = button.Id });
-                        Debug.Log($"Queued {button.Id} for training");
-                        Event.current.Use();
-                    }
+                    CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                    Debug.Log($"Queued {button.Id} for training");
+                    Event.current.Use();
                 });
 
                 GUILayout.Space(4);

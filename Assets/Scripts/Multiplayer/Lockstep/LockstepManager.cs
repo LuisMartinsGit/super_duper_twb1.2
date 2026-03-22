@@ -498,6 +498,16 @@ namespace TheWaningBorder.Multiplayer
                     HoldPositionCommandHelper.Execute(em, entity);
                     if (LogCommands) Debug.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
                     break;
+
+                case LockstepCommandType.Train:
+                    if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        string unitId = cmd.BuildingId; // Unit type carried in BuildingId field
+                        var queue = em.GetBuffer<TrainQueueItem>(entity);
+                        queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+                        Debug.Log($"[Lockstep] Executed Train '{unitId}' from player {cmd.PlayerIndex}");
+                    }
+                    break;
             }
         }
 
