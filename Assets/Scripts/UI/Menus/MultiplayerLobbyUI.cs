@@ -743,14 +743,17 @@ namespace TheWaningBorder.UI.Menus
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
+                Debug.Log($"[MultiplayerLobby] Slot {i}: Type={slot.Type}, Endpoint={slot.Endpoint}, Faction={LobbyConfig.Slots[i].Faction}");
                 if (slot.Type == SlotType.Human && slot.Endpoint != null)
                 {
                     bootstrap.AddRemotePlayer(
                         slot.Endpoint.Address.ToString(),
                         lockstepPort + i,
                         LobbyConfig.Slots[i].Faction);
+                    Debug.Log($"[MultiplayerLobby] Added remote player {i} at {slot.Endpoint.Address}:{lockstepPort + i}");
                 }
             }
+            Debug.Log($"[MultiplayerLobby] Total remote players for lockstep: {bootstrap.RemotePlayers.Count}");
 
             // Notify clients — include seed and lockstep port
             string msg = $"{MSG_START}{_port}|{_spawnSeed}|{lockstepPort}";
