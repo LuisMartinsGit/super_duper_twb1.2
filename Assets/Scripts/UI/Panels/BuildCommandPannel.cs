@@ -329,43 +329,17 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            // In multiplayer, queue building placement via lockstep — all clients create it
-            bool queued = CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
-
-            if (queued)
+            if (GameSettings.IsMultiplayer)
             {
-                // Multiplayer: lockstep will create the building on all clients.
-                // Builders will be assigned when the building entity is created on ProcessTick.
-                // For now, just exit — the builder assignment happens in the lockstep handler.
+                // Multiplayer: queue via lockstep — building created on all clients at same tick
+                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
+                // Builder assignment: builders will auto-chain to nearby unfinished structures
                 return;
             }
 
-            // Single player: building was created directly by PlaceBuildingDirect.
-            // Find the newly created building and assign builders.
-            // PlaceBuildingDirect already set UnderConstruction and HP.
-            // We need to find the entity to assign builders to it.
-            var buildingQuery = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<UnderConstruction>(),
-                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>()
-            );
-            using var buildings = buildingQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var transforms = buildingQuery.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
-
-            Entity building = Entity.Null;
-            float bestDist = float.MaxValue;
-            for (int i = 0; i < buildings.Length; i++)
-            {
-                float dist = math.distance(transforms[i].Position, pos);
-                if (dist < bestDist)
-                {
-                    bestDist = dist;
-                    building = buildings[i];
-                }
-            }
-
-            if (building != Entity.Null)
-                AssignBuildersToConstruction(building, id, pos);
+            // Single player: create building directly and assign builders
+            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac);
+            AssignBuildersToConstruction(building, id, pos);
         }
 
         /// <summary>
