@@ -67,7 +67,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
-            var random = new Unity.Mathematics.Random((uint)(System.DateTime.Now.Ticks ^ 0xBEEF));
+            var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xBEEF));
 
             var playerPositions = GetPlayerPositions(em);
             int half = GameSettings.MapHalfSize;

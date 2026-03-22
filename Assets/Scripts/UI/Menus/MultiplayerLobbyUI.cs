@@ -9,7 +9,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using TheWaningBorder.Core.Config; 
+using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -639,8 +640,11 @@ namespace TheWaningBorder.UI.Menus
             }
             else if (msg.StartsWith(MSG_START))
             {
-                ushort gamePort = ushort.Parse(msg.Substring(MSG_START.Length));
-                StartAsClient(remote.Address.ToString(), gamePort);
+                var startParts = msg.Substring(MSG_START.Length).Split('|');
+                ushort gamePort = ushort.Parse(startParts[0]);
+                int seed = startParts.Length > 1 ? int.Parse(startParts[1]) : 12345;
+                int lockstepPort = startParts.Length > 2 ? int.Parse(startParts[2]) : gamePort + 1;
+                StartAsClient(remote.Address.ToString(), gamePort, seed, lockstepPort);
             }
         }
 
@@ -729,8 +733,27 @@ namespace TheWaningBorder.UI.Menus
                 }
             }
 
-            // Notify clients
-            string msg = $"{MSG_START}{_port}";
+            // Set shared random seed so all clients generate the same world
+            GameSettings.SpawnSeed = _spawnSeed;
+
+            // Create LockstepBootstrap to carry config across scene load
+            int lockstepPort = _port + 1;
+            var bootstrap = CreateLockstepBootstrap();
+            bootstrap.ConfigureAsHost(lockstepPort, new List<RemotePlayerInfo>());
+            for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var slot = _networkSlots[i];
+                if (slot.Type == SlotType.Human && slot.Endpoint != null)
+                {
+                    bootstrap.AddRemotePlayer(
+                        slot.Endpoint.Address.ToString(),
+                        lockstepPort + i,
+                        LobbyConfig.Slots[i].Faction);
+                }
+            }
+
+            // Notify clients — include seed and lockstep port
+            string msg = $"{MSG_START}{_port}|{_spawnSeed}|{lockstepPort}";
             byte[] data = Encoding.UTF8.GetBytes(msg);
 
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
@@ -746,11 +769,12 @@ namespace TheWaningBorder.UI.Menus
             SceneManager.LoadScene(GameSceneName);
         }
 
-        private void StartAsClient(string hostIp, ushort port)
+        private void StartAsClient(string hostIp, ushort port, int seed, int lockstepPort)
         {
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Client;
             GameSettings.LocalPlayerFaction = LobbyConfig.Slots[_mySlotIndex].Faction;
+            GameSettings.SpawnSeed = seed;
 
             // Sync lobby network slot types into LobbyConfig so AI bootstrap
             // knows which factions are human-controlled
@@ -763,6 +787,11 @@ namespace TheWaningBorder.UI.Menus
                     GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
                 }
             }
+
+            // Create LockstepBootstrap to carry config across scene load
+            int clientPort = lockstepPort + _mySlotIndex;
+            var bootstrap = CreateLockstepBootstrap();
+            bootstrap.ConfigureAsClient(hostIp, lockstepPort, clientPort, _mySlotIndex, GameSettings.LocalPlayerFaction);
 
             Cleanup();
             SceneManager.LoadScene(GameSceneName);
@@ -777,6 +806,22 @@ namespace TheWaningBorder.UI.Menus
             _discoveredGames.Clear();
             _isHost = false;
             _mySlotIndex = -1;
+        }
+
+        /// <summary>
+        /// Create a LockstepBootstrap that persists across scene loads.
+        /// Carries multiplayer configuration from lobby to game scene.
+        /// </summary>
+        private static TheWaningBorder.Multiplayer.LockstepBootstrap CreateLockstepBootstrap()
+        {
+            // Destroy existing instance if any (from previous game)
+            if (TheWaningBorder.Multiplayer.LockstepBootstrap.Instance != null)
+            {
+                Destroy(TheWaningBorder.Multiplayer.LockstepBootstrap.Instance.gameObject);
+            }
+
+            var go = new GameObject("LockstepBootstrap");
+            return go.AddComponent<TheWaningBorder.Multiplayer.LockstepBootstrap>();
         }
 
         /// <summary>
