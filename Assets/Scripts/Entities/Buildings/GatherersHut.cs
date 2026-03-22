@@ -53,7 +53,7 @@ namespace TheWaningBorder.Entities
             );
 
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
@@ -88,7 +88,7 @@ namespace TheWaningBorder.Entities
             var entity = ecb.CreateEntity();
 
             ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new GathererHutTag());
@@ -125,7 +125,7 @@ namespace TheWaningBorder.Entities
             var entity = ecb.CreateEntity();
 
             ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new GathererHutTag());

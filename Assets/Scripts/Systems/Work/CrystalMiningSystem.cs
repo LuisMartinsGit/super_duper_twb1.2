@@ -205,13 +205,21 @@ namespace TheWaningBorder.Systems.Work
                 cadaverState.RemainingCrystal -= toGather;
                 miner.CurrentLoad += toGather;
 
+                bool justDepleted = false;
                 if (cadaverState.RemainingCrystal <= 0)
                 {
                     cadaverState.RemainingCrystal = 0;
                     cadaverState.Depleted = 1;
+                    justDepleted = true;
                 }
 
                 em.SetComponentData(miner.AssignedDeposit, cadaverState);
+
+                // Destroy depleted cadaver after updating state
+                if (justDepleted)
+                {
+                    em.DestroyEntity(miner.AssignedDeposit);
+                }
 
                 // Only return to base when carrying max load or node is depleted (carry capacity includes tech bonus)
                 int effectiveMaxCarry = MaxCarryAmount + miner.CarryCapacityBonus;

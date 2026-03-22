@@ -119,8 +119,8 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void SpawnStartingCrystalPatches(EntityManager em, float3[] playerPositions, ref Unity.Mathematics.Random random)
         {
-            const int CadaversPerPlayer = 3;
-            const int CrystalPerCadaver = 15;
+            const int CadaversPerPlayer = 5;
+            const int CrystalPerCadaver = 80;
             const float PatchDistance = 12f;  // Distance from Hall
             const float PatchSpread = 4f;     // Spread between cadavers
 
