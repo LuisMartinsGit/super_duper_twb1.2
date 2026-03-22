@@ -769,25 +769,12 @@ namespace TheWaningBorder.UI.Menus
 
         /// <summary>
         /// Create a UDP broadcast socket bound to a specific port.
-        /// Uses UdpClient(port) which binds during construction.
-        /// Falls back to raw Socket with ReuseAddress if port is shared.
+        /// Builds a raw Socket with ReuseAddress BEFORE binding, then wraps
+        /// it in UdpClient(AddressFamily) which does NOT auto-bind.
         /// </summary>
         private static UdpClient CreateBroadcastSocket(int port)
         {
-            // Attempt 1: Standard UdpClient(port) — simplest, works when port is free
-            try
-            {
-                var udp = new UdpClient(port);
-                udp.EnableBroadcast = true;
-                udp.Client.ReceiveTimeout = 1;
-                return udp;
-            }
-            catch (SocketException)
-            {
-                // Port may be shared (host+client on same machine) — fall through
-            }
-
-            // Attempt 2: Raw socket with ReuseAddress for port sharing
+            // Create raw socket — NOT bound yet
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             socket.ExclusiveAddressUse = false;
             socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -795,11 +782,12 @@ namespace TheWaningBorder.UI.Menus
             socket.ReceiveTimeout = 1;
             socket.Bind(new IPEndPoint(IPAddress.Any, port));
 
-            // Wrap in UdpClient — close the auto-created socket first
-            var fallback = new UdpClient();
-            fallback.Client.Close();
-            fallback.Client = socket;
-            return fallback;
+            // UdpClient(AddressFamily) creates an internal socket but does NOT bind it.
+            // We close that unused socket and swap in our pre-bound one.
+            var udp = new UdpClient(AddressFamily.InterNetwork);
+            udp.Client.Close();
+            udp.Client = socket;
+            return udp;
         }
     }
 }

@@ -175,8 +175,8 @@ namespace TheWaningBorder.Multiplayer
             socket.ReceiveTimeout = 1;
             socket.Bind(new IPEndPoint(IPAddress.Any, port));
 
-            // Swap socket into a new UdpClient
-            var fallback = new UdpClient();
+            // UdpClient(AddressFamily) does NOT auto-bind — safe to swap socket
+            var fallback = new UdpClient(AddressFamily.InterNetwork);
             fallback.Client.Close();
             fallback.Client = socket;
             return fallback;
