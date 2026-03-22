@@ -7,7 +7,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Core.Multiplayer;
-using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Core.Commands
 {
@@ -468,10 +467,6 @@ namespace TheWaningBorder.Core.Commands
                 var hp = em.GetComponentData<Health>(building);
                 em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
             }
-
-            // Hut needs PopulationProvider
-            if (buildingId == "Hut" && !em.HasComponent<PopulationProvider>(building))
-                em.AddComponentData(building, new PopulationProvider { Amount = 10 });
 
             return building;
         }
