@@ -847,6 +847,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Server;
             GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TotalPlayers = LobbyConfig.ActiveSlotCount;
 
             // Sync lobby network slot types into LobbyConfig so AI bootstrap
             // knows which factions are human-controlled
@@ -907,6 +908,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Client;
             GameSettings.LocalPlayerFaction = LobbyConfig.Slots[_mySlotIndex].Faction;
+            GameSettings.TotalPlayers = LobbyConfig.ActiveSlotCount;
             GameSettings.SpawnSeed = seed;
             GameSettings.SpawnLayout = _layout;
             GameSettings.TwoSides = _twoSides;
