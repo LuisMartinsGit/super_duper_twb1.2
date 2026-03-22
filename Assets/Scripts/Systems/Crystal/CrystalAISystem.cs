@@ -31,6 +31,7 @@ namespace TheWaningBorder.Systems.Crystal
     public partial class CrystalAISystem : SystemBase
     {
         private float _decisionTimer;
+        private int _decisionTick;  // Deterministic tick counter for multiplayer sync
         private const float DecisionInterval = 5.0f; // AI thinks every 5 seconds
 
         // Building costs (crystal) — tuned so curse expands slowly early
@@ -69,9 +70,11 @@ namespace TheWaningBorder.Systems.Crystal
 
             int crystalBank = resources.Crystal;
 
-            // Get a random seed for this tick
+            // Deterministic random seed — use tick counter, not elapsed time,
+            // so host and client produce identical AI decisions
+            _decisionTick++;
             var random = new Unity.Mathematics.Random(
-                (uint)(World.Time.ElapsedTime * 1000 + 1));
+                (uint)(_decisionTick * 7919 + GameSettings.SpawnSeed + 1));
 
             // Collect query data into temp arrays to iterate safely
             var query = em.CreateEntityQuery(

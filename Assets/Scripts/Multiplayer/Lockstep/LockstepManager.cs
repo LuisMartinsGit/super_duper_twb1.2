@@ -163,13 +163,27 @@ namespace TheWaningBorder.Multiplayer
             {
                 if (CanAdvanceTick())
                 {
+                    // Store local commands in _remoteCommands so ProcessTick executes them
+                    // alongside any remote commands for deterministic execution order
+                    int futureTick = _currentTick + INPUT_DELAY_TICKS;
+                    if (_localCommandBuffer.Count > 0)
+                    {
+                        if (!_remoteCommands.ContainsKey(futureTick))
+                            _remoteCommands[futureTick] = new Dictionary<int, List<LockstepCommand>>();
+                        _remoteCommands[futureTick][_localPlayerIndex] = new List<LockstepCommand>(_localCommandBuffer);
+                    }
+
+                    // Confirm our own tick so we don't block ourselves
+                    _confirmedTicks[_localPlayerIndex] = Math.Max(
+                        _confirmedTicks.GetValueOrDefault(_localPlayerIndex, -1), futureTick);
+
+                    // Broadcast local commands to remote players
+                    BroadcastTick(futureTick, _localCommandBuffer);
+                    _localCommandBuffer.Clear();
+
                     ProcessTick(_currentTick);
                     _currentTick++;
                     _tickAccumulator -= TICK_DURATION;
-                    
-                    // Send our commands for future tick
-                    BroadcastTick(_currentTick + INPUT_DELAY_TICKS, _localCommandBuffer);
-                    _localCommandBuffer.Clear();
                 }
                 else
                 {
