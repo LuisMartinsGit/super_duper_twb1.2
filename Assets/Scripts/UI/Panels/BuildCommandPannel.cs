@@ -333,7 +333,21 @@ namespace TheWaningBorder.UI.Panels
             {
                 // Multiplayer: queue via lockstep — building created on all clients at same tick
                 CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
-                // Builder assignment: builders will auto-chain to nearby unfinished structures
+
+                // Send selected builders to the build position — the building entity doesn't
+                // exist yet (created 2 ticks later), so we issue Build with Entity.Null target.
+                // BuildCommandHelper handles null target by moving to position and auto-finding
+                // the nearest UnderConstruction building when the builder arrives.
+                var sel = SelectionSystem.CurrentSelection;
+                if (sel != null)
+                {
+                    foreach (var entity in sel)
+                    {
+                        if (!_em.Exists(entity)) continue;
+                        if (!_em.HasComponent<CanBuild>(entity)) continue;
+                        CommandRouter.IssueBuild(_em, entity, Entity.Null, id, pos);
+                    }
+                }
                 return;
             }
 

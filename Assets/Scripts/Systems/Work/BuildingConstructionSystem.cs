@@ -429,9 +429,19 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // No valid target building - clear command
-                        // (Building creation should happen elsewhere, e.g., UI system)
-                        ecb.RemoveComponent<BuildCommand>(entity);
+                        // Target building is null or destroyed — find nearest UnderConstruction
+                        // building at the build position. This handles the multiplayer case where
+                        // the building is created via lockstep AFTER the build command was issued.
+                        Entity nearest = FindNearestUnderConstruction(em, targetPos, BuildRange * 2f);
+                        if (nearest != Entity.Null)
+                        {
+                            if (!em.HasComponent<BuildOrder>(entity))
+                                ecb.AddComponent(entity, new BuildOrder { Site = nearest });
+                            else
+                                ecb.SetComponent(entity, new BuildOrder { Site = nearest });
+                            ecb.RemoveComponent<BuildCommand>(entity);
+                        }
+                        // else: building not placed yet — keep waiting (don't clear command)
                     }
                 }
             }
@@ -440,6 +450,37 @@ namespace TheWaningBorder.Systems.Work
         private static float DistXZ(float3 a, float3 b)
         {
             return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
+        }
+
+        /// <summary>
+        /// Find the nearest building with UnderConstruction within searchRadius of position.
+        /// Used when a BuildCommand has no target entity (multiplayer: building created via lockstep).
+        /// </summary>
+        private static Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<UnderConstruction>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity nearest = Entity.Null;
+            float bestDist = searchRadius;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                float dist = DistXZ(position, transforms[i].Position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    nearest = entities[i];
+                }
+            }
+
+            return nearest;
         }
     }
 }
