@@ -225,9 +225,13 @@ namespace TheWaningBorder.Systems.Work
                 em.SetComponentData(miner.AssignedDeposit, cadaverState);
 
                 // Destroy depleted cadaver after updating state
-                if (justDepleted)
+                if (justDepleted && em.Exists(miner.AssignedDeposit))
                 {
+                    // Remove from presentation system tracking first
+                    if (em.HasComponent<PresentationId>(miner.AssignedDeposit))
+                        em.RemoveComponent<PresentationId>(miner.AssignedDeposit);
                     em.DestroyEntity(miner.AssignedDeposit);
+                    miner.AssignedDeposit = Entity.Null;
                 }
 
                 // Only return to base when carrying max load or node is depleted (carry capacity includes tech bonus)

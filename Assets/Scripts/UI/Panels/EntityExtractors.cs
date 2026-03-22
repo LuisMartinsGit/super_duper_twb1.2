@@ -176,7 +176,7 @@ namespace TheWaningBorder.UI
                 {
                     var cadState = em.GetComponentData<CadaverState>(entity);
                     info.ResourceRemaining = cadState.RemainingCrystal;
-                    info.ResourceMax = 10;
+                    info.ResourceMax = cadState.MaxCrystal > 0 ? cadState.MaxCrystal : cadState.RemainingCrystal;
                     info.ResourceTypeName = "Crystal";
                     info.Description = cadState.Depleted == 1 ? "Depleted" : "Harvestable crystal";
                 }

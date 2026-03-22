@@ -132,6 +132,9 @@ public struct CadaverState : IComponentData
     /// <summary>Crystal remaining in this cadaver.</summary>
     public int RemainingCrystal;
 
+    /// <summary>Initial crystal amount (for UI display).</summary>
+    public int MaxCrystal;
+
     /// <summary>1 = fully harvested, 0 = still has crystal.</summary>
     public byte Depleted;
 }

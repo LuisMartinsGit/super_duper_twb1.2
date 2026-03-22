@@ -69,6 +69,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new CadaverState
             {
                 RemainingCrystal = crystalAmount,
+                MaxCrystal = crystalAmount,
                 Depleted = 0
             });
             em.SetComponentData(entity, new Radius { Value = radius });
@@ -97,6 +98,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new CadaverState
             {
                 RemainingCrystal = crystalAmount,
+                MaxCrystal = crystalAmount,
                 Depleted = 0
             });
             ecb.AddComponent(entity, new Radius { Value = radius });
