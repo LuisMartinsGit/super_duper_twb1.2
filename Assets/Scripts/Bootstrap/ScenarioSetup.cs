@@ -3,6 +3,7 @@
 // Location: Assets/Scripts/Bootstrap/ScenarioSetup.cs
 
 using UnityEngine;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Entities;
@@ -14,6 +15,7 @@ using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.UI.Menus;
+using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Bootstrap
@@ -33,10 +35,10 @@ namespace TheWaningBorder.Bootstrap
         {
             Debug.Log($"[ScenarioSetup] Starting scenario: {GameSettings.ActiveScenario}");
 
-            GameSettings.TotalPlayers = 2;
+            GameSettings.TotalPlayers = GameSettings.ActiveScenario == ScenarioType.FourWayCultures ? 4 : 2;
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
-            GameSettings.IsObserver = false;
+            GameSettings.IsObserver = GameSettings.ActiveScenario == ScenarioType.FourWayCultures;
 
             // Ensure ECS world
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -102,6 +104,9 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.HealerTest:
                     SpawnHealerTest(em);
+                    break;
+                case ScenarioType.FourWayCultures:
+                    SpawnFourWayCultures(em);
                     break;
             }
 
@@ -184,6 +189,62 @@ namespace TheWaningBorder.Bootstrap
             UnitFactory.Create(em, "Litharch", healerPos, Faction.Blue);
 
             Debug.Log("[ScenarioSetup] Healer test: 1 battalion at 50% HP + 1 Litharch");
+        }
+
+        /// <summary>
+        /// Four-way battle: Basic (Blue/south), Alanthor (Red/east), Runai (Green/north), Feraldis (Yellow/west).
+        /// All armies attack-move toward center at game start.
+        /// </summary>
+        private static void SpawnFourWayCultures(EntityManager em)
+        {
+            float offset = ArmySeparation * 0.7f;
+            float3 center = float3.zero;
+
+            // Blue (south) — basic Swordsman + Archer
+            var blueCenter = new float3(0, 0, -offset);
+            SpawnArmyRow(em, "Swordsman", Faction.Blue, 3, blueCenter);
+            SpawnArmyRow(em, "Archer", Faction.Blue, 3, blueCenter + new float3(0, 0, -RowSpacing));
+            AttackMoveAllBattalions(em, Faction.Blue, center);
+
+            // Red (east) — Alanthor: Sentinel front, Crossbowman back
+            var redCenter = new float3(offset, 0, 0);
+            SpawnArmyRow(em, "Alanthor_Sentinel", Faction.Red, 3, redCenter);
+            SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 3, redCenter + new float3(RowSpacing, 0, 0));
+            AttackMoveAllBattalions(em, Faction.Red, center);
+
+            // Green (north) — Runai: Spearman front, Skirmisher back
+            var greenCenter = new float3(0, 0, offset);
+            SpawnArmyRow(em, "Runai_Spearman", Faction.Green, 3, greenCenter);
+            SpawnArmyRow(em, "Runai_Skirmisher", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing));
+            AttackMoveAllBattalions(em, Faction.Green, center);
+
+            // Yellow (west) — Feraldis: Hunter + WarboarRider
+            var yellowCenter = new float3(-offset, 0, 0);
+            SpawnArmyRow(em, "Feraldis_Hunter", Faction.Yellow, 3, yellowCenter);
+            SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing, 0, 0));
+            AttackMoveAllBattalions(em, Faction.Yellow, center);
+
+            Debug.Log("[ScenarioSetup] Four-way cultures: Blue(basic) vs Red(Alanthor) vs Green(Runai) vs Yellow(Feraldis)");
+        }
+
+        /// <summary>
+        /// Issue attack-move toward a destination for all battalion leaders of the given faction.
+        /// </summary>
+        private static void AttackMoveAllBattalions(EntityManager em, Faction faction, float3 destination)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BattalionLeader>(),
+                ComponentType.ReadOnly<FactionTag>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                AttackMoveCommandHelper.Execute(em, entities[i], destination);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════

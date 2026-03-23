@@ -58,11 +58,14 @@ namespace TheWaningBorder.Systems.Crystal
             var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            foreach (var (transform, target, veilState, damage, faction, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<VeilstingerState>, RefRO<Damage>, RefRO<FactionTag>>()
+            foreach (var (transform, target, veilState, damage, faction, health, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<VeilstingerState>, RefRO<Damage>, RefRO<FactionTag>, RefRO<Health>>()
                 .WithAll<CrystalUnitTag>()
                 .WithEntityAccess())
             {
+                // Skip dead veilstingers — they may be destroyed before ECB playback
+                if (health.ValueRO.Value <= 0) continue;
+
                 ref var tgt = ref target.ValueRW;
                 ref var vs = ref veilState.ValueRW;
 

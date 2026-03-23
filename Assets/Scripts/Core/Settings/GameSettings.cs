@@ -20,7 +20,8 @@ public enum ScenarioType
     LargeMelee,
     LargeRanged,
     LargeMixed,
-    HealerTest
+    HealerTest,
+    FourWayCultures
 }
 
 public enum SpawnLayout

@@ -39,6 +39,7 @@ namespace TheWaningBorder.Systems.Work
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MinerTag>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
             _cadaverQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<CadaverTag>(),
@@ -65,6 +66,9 @@ namespace TheWaningBorder.Systems.Work
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             foreach (var (minerState, transform, faction, entity) in SystemAPI
                 .Query<RefRW<MinerState>, RefRO<LocalTransform>, RefRO<FactionTag>>()
@@ -100,15 +104,15 @@ namespace TheWaningBorder.Systems.Work
                 switch (miner.State)
                 {
                     case MinerWorkState.MovingToDeposit:
-                        ProcessMovingToCadaver(ref miner, em, entity, pos);
+                        ProcessMovingToCadaver(ref miner, em, ref ecb, entity, pos);
                         break;
 
                     case MinerWorkState.Gathering:
-                        ProcessGatheringCrystal(ref miner, em, entity, fac, dt);
+                        ProcessGatheringCrystal(ref miner, em, ref ecb, entity, fac, dt);
                         break;
 
                     case MinerWorkState.ReturningToBase:
-                        ProcessReturningToBase(ref miner, em, entity, pos, fac);
+                        ProcessReturningToBase(ref miner, em, ref ecb, entity, pos, fac);
                         break;
 
                     case MinerWorkState.Idle:
@@ -119,7 +123,7 @@ namespace TheWaningBorder.Systems.Work
             }
         }
 
-        private void ProcessMovingToCadaver(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
+        private void ProcessMovingToCadaver(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos)
         {
             // Check if cadaver still exists or is depleted — auto-find next in LOS
             bool needNewTarget = false;
@@ -136,7 +140,7 @@ namespace TheWaningBorder.Systems.Work
 
             if (needNewTarget)
             {
-                if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
+                if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
                 {
                     miner.State = MinerWorkState.Idle;
                     miner.GatheringResource = 0;
@@ -162,7 +166,7 @@ namespace TheWaningBorder.Systems.Work
             }
         }
 
-        private void ProcessGatheringCrystal(ref MinerState miner, EntityManager em, Entity entity, Faction fac, float dt)
+        private void ProcessGatheringCrystal(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, Faction fac, float dt)
         {
             miner.GatherTimer += dt;
 
@@ -182,7 +186,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
+                        SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -197,7 +201,7 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
+                        SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
@@ -224,13 +228,12 @@ namespace TheWaningBorder.Systems.Work
 
                 em.SetComponentData(miner.AssignedDeposit, cadaverState);
 
-                // Destroy depleted cadaver after updating state
+                // Destroy depleted cadaver via ECB (structural changes not allowed during iteration)
                 if (justDepleted && em.Exists(miner.AssignedDeposit))
                 {
-                    // Remove from presentation system tracking first
                     if (em.HasComponent<PresentationId>(miner.AssignedDeposit))
-                        em.RemoveComponent<PresentationId>(miner.AssignedDeposit);
-                    em.DestroyEntity(miner.AssignedDeposit);
+                        ecb.RemoveComponent<PresentationId>(miner.AssignedDeposit);
+                    ecb.DestroyEntity(miner.AssignedDeposit);
                     miner.AssignedDeposit = Entity.Null;
                 }
 
@@ -244,13 +247,13 @@ namespace TheWaningBorder.Systems.Work
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
+                        SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
                         // Node depleted and nothing to carry — try to find next cadaver in LOS
                         var minerPos = em.GetComponentData<LocalTransform>(entity).Position;
-                        if (!TryAssignNearestCadaver(ref miner, em, entity, minerPos))
+                        if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, minerPos))
                         {
                             miner.State = MinerWorkState.Idle;
                             miner.GatheringResource = 0;
@@ -262,13 +265,13 @@ namespace TheWaningBorder.Systems.Work
             }
         }
 
-        private void ProcessReturningToBase(ref MinerState miner, EntityManager em, Entity entity, float3 pos, Faction fac)
+        private void ProcessReturningToBase(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac)
         {
             // Check if dropoff target still exists
             if (miner.DropoffTarget == Entity.Null || !em.Exists(miner.DropoffTarget))
             {
                 // Try to find a new dropoff
-                SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
+                SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                 if (miner.DropoffTarget == Entity.Null)
                 {
                     // No dropoff available - go idle
@@ -327,7 +330,7 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        em.AddComponentData(entity, new DesiredDestination
+                        ecb.AddComponent(entity, new DesiredDestination
                         {
                             Position = cadaverPos,
                             Has = 1
@@ -338,7 +341,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     // Cadaver depleted — try to find next cadaver in LOS
                     miner.DropoffTarget = Entity.Null;
-                    if (!TryAssignNearestCadaver(ref miner, em, entity, pos))
+                    if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
                     {
                         miner.State = MinerWorkState.Idle;
                         miner.GatheringResource = 0;
@@ -352,7 +355,7 @@ namespace TheWaningBorder.Systems.Work
         /// Find the nearest Hall or GathererHut of the miner's faction and set it as dropoff target.
         /// </summary>
         private static void SetDropoffDestination(
-            ref MinerState miner, EntityManager em, Entity minerEntity,
+            ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity minerEntity,
             Faction fac, EntityQuery hallQuery, EntityQuery hutQuery)
         {
             Entity nearest = Entity.Null;
@@ -407,7 +410,7 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    em.AddComponentData(minerEntity, new DesiredDestination
+                    ecb.AddComponent(minerEntity, new DesiredDestination
                     {
                         Position = dropoffPos,
                         Has = 1
@@ -421,7 +424,7 @@ namespace TheWaningBorder.Systems.Work
         /// Assigns the miner to it and sets movement destination.
         /// Returns true if a new cadaver was found.
         /// </summary>
-        private bool TryAssignNearestCadaver(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
+        private bool TryAssignNearestCadaver(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos)
         {
             float los = 10f;
             if (em.HasComponent<LineOfSight>(entity))
@@ -459,7 +462,7 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
             else
-                em.AddComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+                ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
 
             return true;
         }

@@ -94,8 +94,8 @@ namespace TheWaningBorder.UI.Menus
             {
                 _scenarioRect = new Rect(
                     (Screen.width - 300) * 0.5f,
-                    (Screen.height - 300) * 0.5f,
-                    300, 300);
+                    (Screen.height - 360) * 0.5f,
+                    300, 360);
                 _scenarioRect = GUI.Window(10002, _scenarioRect, DrawScenarios, "Scenarios");
             }
         }
@@ -187,6 +187,12 @@ namespace TheWaningBorder.UI.Menus
             if (GUILayout.Button("Healer Test", GUILayout.Height(36)))
             {
                 _pendingScenario = ScenarioType.HealerTest;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Four-Way Cultures (4 armies)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.FourWayCultures;
             }
             GUILayout.Space(12);
 
