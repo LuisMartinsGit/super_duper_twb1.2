@@ -7,21 +7,22 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Hunter unit - Feraldis culture ranged infantry.
-    /// Fast ranged unit with hit-and-run tactics. Fragile but quick.
-    /// Uses ArcherState for ranged aim/retreat behavior.
+    /// Hunter unit - Feraldis culture axe thrower.
+    /// Short-range ranged unit that throws axes. Never retreats — fights in melee
+    /// when enemies close in. Unarmored but high damage and good mobility.
+    /// Uses ArcherState with MinRange=0 so they keep firing at point blank.
     /// </summary>
     public static class Hunter
     {
         // Default stats (used if TechTreeDB unavailable)
-        private const float DefaultHP = 100f;
+        private const float DefaultHP = 90f;
         private const float DefaultSpeed = 5.7f;
-        private const float DefaultDamage = 11f;
-        private const float DefaultLoS = 15f;
-        private const float DefaultMinRange = 4f;
-        private const float DefaultMaxRange = 12f;
+        private const float DefaultDamage = 16f;
+        private const float DefaultLoS = 12f;
+        private const float DefaultMinRange = 0f;
+        private const float DefaultMaxRange = 8f;
         private const float DefaultCooldown = 1.2f;
-        private const float DefaultAimTime = 0.5f;
+        private const float DefaultAimTime = 0.3f;
         private const int PresentationID = 338;
 
         /// <summary>
@@ -43,7 +44,7 @@ namespace TheWaningBorder.Entities
                 if (def.speed > 0) speed = def.speed;
                 if (def.damage > 0) damage = def.damage;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
-                if (def.minAttackRange > 0) minRange = def.minAttackRange;
+                if (def.minAttackRange >= 0) minRange = def.minAttackRange;
                 if (def.attackRange > 0) maxRange = def.attackRange;
                 if (def.attackCooldown > 0) cooldown = def.attackCooldown;
             }
@@ -78,7 +79,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
             em.SetComponentData(entity, new PopulationCost { Amount = 1 });
 
-            // Archer-specific state for ranged behavior
+            // Axe thrower state — MinRange=0 means never retreats, fights at point blank
             em.SetComponentData(entity, new ArcherState
             {
                 AimTimer = 0,
@@ -90,9 +91,9 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
-            // Combat type tags
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            // Combat type tags — Melee damage type (throwing axes), unarmored
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;
@@ -117,7 +118,7 @@ namespace TheWaningBorder.Entities
                 if (def.speed > 0) speed = def.speed;
                 if (def.damage > 0) damage = def.damage;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
-                if (def.minAttackRange > 0) minRange = def.minAttackRange;
+                if (def.minAttackRange >= 0) minRange = def.minAttackRange;
                 if (def.attackRange > 0) maxRange = def.attackRange;
                 if (def.attackCooldown > 0) cooldown = def.attackCooldown;
             }
@@ -138,7 +139,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
             ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
 
-            // Archer-specific state for ranged behavior
+            // Axe thrower state — MinRange=0, never retreats
             ecb.AddComponent(entity, new ArcherState
             {
                 AimTimer = 0,
@@ -150,9 +151,9 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
-            // Combat type tags
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            // Combat type tags — Melee damage type (throwing axes), unarmored
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;

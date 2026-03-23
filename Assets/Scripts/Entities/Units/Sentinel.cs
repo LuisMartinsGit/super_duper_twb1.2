@@ -66,7 +66,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = DefaultRadius });
-            em.SetComponentData(entity, new PopulationCost { Amount = 1 });
+            em.SetComponentData(entity, new PopulationCost { Amount = 2 });
 
             // Combat type tags - very high defense
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
@@ -108,7 +108,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
-            ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
+            ecb.AddComponent(entity, new PopulationCost { Amount = 2 });
 
             // Combat type tags - very high defense
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

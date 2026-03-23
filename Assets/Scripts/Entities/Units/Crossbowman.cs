@@ -76,7 +76,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = 0.5f });
             em.SetComponentData(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            em.SetComponentData(entity, new PopulationCost { Amount = 1 });
+            em.SetComponentData(entity, new PopulationCost { Amount = 2 });
 
             // Archer-specific state for ranged behavior
             em.SetComponentData(entity, new ArcherState
@@ -136,7 +136,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = 0.5f });
             ecb.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
+            ecb.AddComponent(entity, new PopulationCost { Amount = 2 });
 
             // Archer-specific state for ranged behavior
             ecb.AddComponent(entity, new ArcherState

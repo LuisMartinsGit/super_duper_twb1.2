@@ -200,28 +200,32 @@ namespace TheWaningBorder.Bootstrap
             float offset = ArmySeparation * 0.7f;
             float3 center = float3.zero;
 
-            // Blue (south) — basic Swordsman + Archer
+            // Blue (south) — basic: Swordsman front, Archer back
             var blueCenter = new float3(0, 0, -offset);
-            SpawnArmyRow(em, "Swordsman", Faction.Blue, 3, blueCenter);
-            SpawnArmyRow(em, "Archer", Faction.Blue, 3, blueCenter + new float3(0, 0, -RowSpacing));
+            SpawnArmyRow(em, "Swordsman", Faction.Blue, 4, blueCenter);
+            SpawnArmyRow(em, "Archer", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing));
             AttackMoveAllBattalions(em, Faction.Blue, center);
 
-            // Red (east) — Alanthor: Sentinel front, Crossbowman back
+            // Red (east) — Alanthor: Sentinel front, Crossbowman behind, Cataphract flankers
+            // Fewer battalions (expensive pop 2 units) but higher quality
             var redCenter = new float3(offset, 0, 0);
-            SpawnArmyRow(em, "Alanthor_Sentinel", Faction.Red, 3, redCenter);
-            SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 3, redCenter + new float3(RowSpacing, 0, 0));
+            SpawnArmyRow(em, "Alanthor_Sentinel", Faction.Red, 2, redCenter);
+            SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(RowSpacing, 0, 0));
+            SpawnArmyRow(em, "Alanthor_Cataphract", Faction.Red, 2, redCenter + new float3(RowSpacing * 0.5f, 0, ArmySpacing));
             AttackMoveAllBattalions(em, Faction.Red, center);
 
-            // Green (north) — Runai: Spearman front, Skirmisher back
+            // Green (north) — Runai: Spearman front, Skirmisher mid, Raider (mounted archer) flanks
             var greenCenter = new float3(0, 0, offset);
             SpawnArmyRow(em, "Runai_Spearman", Faction.Green, 3, greenCenter);
             SpawnArmyRow(em, "Runai_Skirmisher", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing));
+            SpawnArmyRow(em, "Runai_Raider", Faction.Green, 2, greenCenter + new float3(0, 0, RowSpacing * 2));
             AttackMoveAllBattalions(em, Faction.Green, center);
 
-            // Yellow (west) — Feraldis: Hunter + WarboarRider
+            // Yellow (west) — Feraldis: Berserker horde front, Hunter (axe thrower) mid, WarboarRider rear
             var yellowCenter = new float3(-offset, 0, 0);
-            SpawnArmyRow(em, "Feraldis_Hunter", Faction.Yellow, 3, yellowCenter);
-            SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing, 0, 0));
+            SpawnArmyRow(em, "Berserker", Faction.Yellow, 4, yellowCenter);
+            SpawnArmyRow(em, "Feraldis_Hunter", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing, 0, 0));
+            SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 2, yellowCenter + new float3(-RowSpacing * 2, 0, 0));
             AttackMoveAllBattalions(em, Faction.Yellow, center);
 
             Debug.Log("[ScenarioSetup] Four-way cultures: Blue(basic) vs Red(Alanthor) vs Green(Runai) vs Yellow(Feraldis)");

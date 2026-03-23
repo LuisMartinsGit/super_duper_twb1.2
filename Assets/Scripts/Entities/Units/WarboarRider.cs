@@ -13,9 +13,9 @@ namespace TheWaningBorder.Entities
     public static class WarboarRider
     {
         // Default stats (used if TechTreeDB unavailable)
-        private const float DefaultHP = 160f;
-        private const float DefaultSpeed = 7.0f;
-        private const float DefaultDamage = 16f;
+        private const float DefaultHP = 200f;
+        private const float DefaultSpeed = 5.8f;
+        private const float DefaultDamage = 20f;
         private const float DefaultLoS = 10f;
         private const float DefaultAttackCooldown = 1.0f;
         private const float DefaultRadius = 0.6f;

@@ -16,7 +16,7 @@ namespace TheWaningBorder.Entities
         // Default stats (used if TechTreeDB unavailable)
         private const float DefaultHP = 220f;
         private const float DefaultSpeed = 2.8f;
-        private const float DefaultDamage = 40f;
+        private const float DefaultDamage = 50f;
         private const float DefaultLoS = 26f;
         private const float DefaultMinRange = 10f;
         private const float DefaultMaxRange = 24f;
