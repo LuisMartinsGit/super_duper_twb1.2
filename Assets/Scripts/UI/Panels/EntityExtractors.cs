@@ -271,6 +271,11 @@ namespace TheWaningBorder.UI
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
+            if (em.HasComponent<TradingPostTag>(entity))
+            {
+                int num = em.HasComponent<TradingPostData>(entity) ? em.GetComponentData<TradingPostData>(entity).PostNumber : 0;
+                return num > 0 ? $"Trading Post #{num}" : "Trading Post";
+            }
             if (em.HasComponent<BazaarTag>(entity)) return "Bazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
             // Alanthor culture buildings
@@ -535,7 +540,7 @@ namespace TheWaningBorder.UI
             "Hut", "GatherersHut", "Barracks", "TempleOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
-            "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar", "Runai_SiegeWorkshop",
+            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings
             "Alanthor_Tower", "Alanthor_Garrison", "Alanthor_Stable", "Alanthor_SiegeYard",
             // Feraldis culture buildings
@@ -1104,6 +1109,7 @@ namespace TheWaningBorder.UI
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
+            if (em.HasComponent<TradingPostTag>(entity)) return "Runai_TradingPost";
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
             // Alanthor culture buildings

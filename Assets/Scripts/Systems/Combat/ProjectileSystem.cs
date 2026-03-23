@@ -1,6 +1,7 @@
 // File: Assets/Scripts/Systems/Combat/ProjectileSystem.cs
 using System.Runtime.CompilerServices;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -31,9 +32,18 @@ namespace TheWaningBorder.Systems.Combat
         // Terrain collision margin above ground for lasers
         private const float TerrainCollisionMargin = 0.5f;
 
+        // Cached query for AOE splash targets
+        private EntityQuery _aoeTargetQuery;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+
+            _aoeTargetQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadWrite<Health>()
+            );
         }
 
         // Not Burst-compiled: laser path uses managed TerrainUtility.GetHeight
@@ -206,6 +216,13 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (shouldDestroy)
                 {
+                    // AOE splash damage on impact
+                    if (em.HasComponent<AOEProjectile>(entity))
+                    {
+                        ApplyAOEDamage(em, ecb, proj, em.GetComponentData<AOEProjectile>(entity),
+                            trans.Position, arrow.ValueRO.Shooter);
+                    }
+
                     ecb.DestroyEntity(entity);
                 }
             }
@@ -267,6 +284,68 @@ namespace TheWaningBorder.Systems.Combat
                     em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
                 else
                     ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
+            }
+        }
+
+        /// <summary>
+        /// Apply AOE splash damage to all enemies within radius of impact point.
+        /// Skips the primary target (already damaged by ApplyDamage).
+        /// </summary>
+        private void ApplyAOEDamage(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
+            in AOEProjectile aoe, float3 impactPos, Entity shooter)
+        {
+            using var entities = _aoeTargetQuery.ToEntityArray(Allocator.Temp);
+            using var transforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var factions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            float radiusSq = aoe.Radius * aoe.Radius;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                // Skip same faction
+                if (factions[i].Value == proj.Faction) continue;
+                // Skip primary target (already hit)
+                if (entities[i] == proj.Target) continue;
+
+                float distSq = math.distancesq(impactPos, transforms[i].Position);
+                if (distSq > radiusSq) continue;
+
+                // Check health > 0
+                var hp = em.GetComponentData<Health>(entities[i]);
+                if (hp.Value <= 0) continue;
+
+                // Get target's armor and defense
+                ArmorType armorType = ArmorType.InfantryLight;
+                if (em.HasComponent<ArmorTypeData>(entities[i]))
+                    armorType = em.GetComponentData<ArmorTypeData>(entities[i]).Value;
+
+                int defenseValue = 0;
+                if (em.HasComponent<Defense>(entities[i]))
+                    defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(entities[i]), proj.DmgType);
+
+                float crystalMod = 1.0f;
+                if (em.HasComponent<CrystalDebuff>(entities[i]))
+                    crystalMod = 1f + em.GetComponentData<CrystalDebuff>(entities[i]).AttPenalty;
+
+                int splashDmg = CombatModifiers.CalculateFinalDamage(
+                    proj.Damage, proj.DmgType, armorType, defenseValue, 1.0f, crystalMod);
+
+                hp.Value = math.max(0, hp.Value - splashDmg);
+                em.SetComponentData(entities[i], hp);
+
+                // Track last damager for kill credit
+                if (em.HasComponent<LastDamagedByFaction>(entities[i]))
+                    em.SetComponentData(entities[i], new LastDamagedByFaction { Value = proj.Faction });
+                else
+                    ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
+
+                if (shooter != Entity.Null && em.Exists(shooter))
+                {
+                    if (em.HasComponent<LastAttackerEntity>(entities[i]))
+                        em.SetComponentData(entities[i], new LastAttackerEntity { Value = shooter });
+                    else
+                        ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
+                }
             }
         }
 

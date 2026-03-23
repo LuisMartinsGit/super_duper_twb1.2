@@ -1,78 +1,108 @@
 // TradeComponents.cs
-// Components for the Runai trade route system
+// Components for the Runai trading post chain system
 // Place in: Assets/Scripts/Core/Components/Trade/
 
 using Unity.Entities;
 
-// ==================== Trade Route (on TradeHub buildings) ====================
+// ==================== Trading Post (Building) ====================
+
+/// <summary>Marker tag for Trading Post buildings. Runai-exclusive, max 10 per faction.</summary>
+public struct TradingPostTag : IComponentData { }
 
 /// <summary>
-/// Defines a trade route from a TradeHub to its nearest same-faction Outpost.
-/// Attached to TradeHub entities after construction completes.
-/// Route income is proportional to distance: longer routes = more profit.
+/// Data for a trading post in the sequential chain.
+/// Posts are numbered in build order. Traders traverse the chain 1→2→...→N→reverse.
 /// </summary>
-public struct TradeRoute : IComponentData
+public struct TradingPostData : IComponentData
 {
-    /// <summary>The target Outpost entity for this route</summary>
-    public Entity OutpostEntity;
-
-    /// <summary>Distance between TradeHub and Outpost positions</summary>
-    public float RouteLength;
-
-    /// <summary>Number of caravans currently active on this route (max 3)</summary>
-    public int ActiveCaravans;
-
-    /// <summary>Countdown timer until next caravan spawns (resets to 22s)</summary>
-    public float SpawnTimer;
-
-    /// <summary>1 = valid route found, 0 = no same-faction Outpost available</summary>
-    public byte RouteValid;
+    /// <summary>1-based sequential number assigned at construction. Gaps stay on destruction.</summary>
+    public int PostNumber;
 }
 
-// ==================== Caravan Unit ====================
+// ==================== Trade Lane (on lower-numbered post of each pair) ====================
 
-/// <summary>Marker tag for caravan units. Caravans are uncontrollable auto-trade units.</summary>
+/// <summary>
+/// Tracks the lane between this post and the next-higher-numbered post.
+/// Manages trader spawning and patrol unit count for this lane segment.
+/// </summary>
+public struct TradeLane : IComponentData
+{
+    /// <summary>The trading post with the next-higher PostNumber</summary>
+    public Entity NextPost;
+
+    /// <summary>Number of active traders on this lane (max 2)</summary>
+    public int ActiveTraders;
+
+    /// <summary>Countdown timer for spawning the 2nd trader (starts at 240s)</summary>
+    public float SecondTraderTimer;
+
+    /// <summary>Number of patrol units spawned for this lane (target: 5)</summary>
+    public int PatrolUnitsSpawned;
+
+    /// <summary>1 = NextPost still exists, 0 = invalid</summary>
+    public byte LaneValid;
+}
+
+// ==================== Trader Unit ====================
+
+/// <summary>Marker tag for trader (caravan) units. Uncontrollable auto-trade units.</summary>
 public struct CaravanTag : IComponentData { }
 
 /// <summary>
-/// State data for a caravan traveling a trade route.
-/// Caravans shuttle between a TradeHub (origin) and Outpost (destination),
-/// depositing Supplies on arrival at the Outpost.
+/// State for a trader traversing the trading post chain.
+/// Traders travel Post 1→2→...→N then reverse N→...→2→1, depositing cargo at each stop.
 /// </summary>
-public struct CaravanState : IComponentData
+public struct TraderState : IComponentData
 {
-    /// <summary>TradeHub entity where this caravan originates</summary>
-    public Entity Origin;
-
-    /// <summary>Outpost entity where this caravan delivers cargo</summary>
-    public Entity Destination;
+    /// <summary>The trading post the trader is currently heading toward</summary>
+    public Entity CurrentDestPost;
 
     /// <summary>Supplies currently being carried</summary>
     public float CurrentCargo;
 
-    /// <summary>Max supplies per trip, calculated from route length + tariff</summary>
+    /// <summary>Max supplies per leg, calculated from distance between posts</summary>
     public float MaxCargo;
 
-    /// <summary>0 = traveling to Outpost, 1 = returning to TradeHub</summary>
-    public byte IsReturning;
+    /// <summary>1 = ascending post numbers (1→2→3), 0 = descending (3→2→1)</summary>
+    public byte IsForward;
 
-    /// <summary>The escort unit entity paired with this caravan</summary>
-    public Entity EscortEntity;
+    /// <summary>PostNumber of the destination post (for quick lookup)</summary>
+    public int DestPostNumber;
+
+    /// <summary>The lane entity this trader belongs to (for ActiveTraders bookkeeping)</summary>
+    public Entity OwnerLanePost;
 }
 
-// ==================== Caravan Escort Unit ====================
-
-/// <summary>Marker tag for caravan escort units. Auto-follows and defends its caravan.</summary>
-public struct CaravanEscortTag : IComponentData { }
+// ==================== Trade Patrol Unit ====================
 
 /// <summary>
-/// Links an escort unit to its caravan. Escort follows the caravan
-/// and auto-attacks nearby enemies. Dies when its caravan dies.
+/// Links a patrol unit to its lane's two endpoints.
+/// Patrol units are uncontrollable and walk between the two posts.
 /// </summary>
-public struct CaravanEscort : IComponentData
+public struct TradePatrolData : IComponentData
 {
-    /// <summary>The caravan entity this escort is protecting</summary>
-    public Entity CaravanEntity;
+    /// <summary>Lower-numbered trading post of the lane</summary>
+    public Entity PostA;
+
+    /// <summary>Higher-numbered trading post of the lane</summary>
+    public Entity PostB;
+}
+
+// ==================== Trade Upgrades (stub for future) ====================
+
+/// <summary>
+/// Faction-wide trade upgrades. Stub component for future implementation.
+/// </summary>
+public struct TradeUpgrades : IComponentData
+{
+    /// <summary>0-3, each level +15% trade income</summary>
+    public byte IncomeBoost;
+
+    /// <summary>0-3, each level +30 HP and +0.5 speed to traders</summary>
+    public byte TraderToughness;
+
+    /// <summary>0 or 1, enables arrows on trading posts and armed traders</summary>
+    public byte ArmedTrade;
 }
 
 // ==================== Kill Credit Tracking ====================

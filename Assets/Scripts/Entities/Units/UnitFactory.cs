@@ -45,7 +45,7 @@ namespace TheWaningBorder.Entities
                 "Runai_Spearman" => Spearman.Create(em, position, faction),
                 "Runai_Skirmisher" => Skirmisher.Create(em, position, faction),
                 "Runai_Raider" => Raider.Create(em, position, faction),
-                "Runai_SandBallista" => SandBallista.Create(em, position, faction),
+                "Runai_Catapult" => Catapult.Create(em, position, faction),
                 // Alanthor culture units
                 "Alanthor_Sentinel" => Sentinel.Create(em, position, faction),
                 "Alanthor_Crossbowman" => Crossbowman.Create(em, position, faction),
@@ -103,7 +103,7 @@ namespace TheWaningBorder.Entities
                 "Runai_Spearman" => Spearman.Create(ecb, position, faction),
                 "Runai_Skirmisher" => Skirmisher.Create(ecb, position, faction),
                 "Runai_Raider" => Raider.Create(ecb, position, faction),
-                "Runai_SandBallista" => SandBallista.Create(ecb, position, faction),
+                "Runai_Catapult" => Catapult.Create(ecb, position, faction),
                 // Alanthor culture units
                 "Alanthor_Sentinel" => Sentinel.Create(ecb, position, faction),
                 "Alanthor_Crossbowman" => Crossbowman.Create(ecb, position, faction),
@@ -169,7 +169,7 @@ namespace TheWaningBorder.Entities
                 "Runai_Spearman" => UnitClass.Melee,
                 "Runai_Skirmisher" => UnitClass.Ranged,
                 "Runai_Raider" => UnitClass.Melee,
-                "Runai_SandBallista" => UnitClass.Siege,
+                "Runai_Catapult" => UnitClass.Siege,
                 // Alanthor culture units
                 "Alanthor_Sentinel" => UnitClass.Melee,
                 "Alanthor_Crossbowman" => UnitClass.Ranged,
@@ -217,7 +217,7 @@ namespace TheWaningBorder.Entities
                 "Runai_Spearman" => 330,
                 "Runai_Skirmisher" => 331,
                 "Runai_Raider" => 332,
-                "Runai_SandBallista" => 333,
+                "Runai_Catapult" => 333,
                 // Alanthor culture units
                 "Alanthor_Sentinel" => 334,
                 "Alanthor_Crossbowman" => 335,

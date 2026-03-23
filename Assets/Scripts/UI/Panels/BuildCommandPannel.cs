@@ -310,6 +310,17 @@ namespace TheWaningBorder.UI.Panels
 
             var id = BuildId(_currentBuild);
 
+            // Block trading post if faction already has 10
+            if (id == "Runai_TradingPost")
+            {
+                int tpCount = BuildingFactory.GetFactionBuildingCount<TradingPostTag>(_em, fac);
+                if (tpCount >= 10)
+                {
+                    PlayerNotificationSystem.Notify("Maximum 10 Trading Posts");
+                    return;
+                }
+            }
+
             // Block choice building if faction already has one
             if (BuildingFactory.IsChoiceBuilding(id))
             {

@@ -45,6 +45,7 @@ namespace TheWaningBorder.Entities
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
+                "Runai_TradingPost" => CreateRunaiTradingPost(em, position, faction),
                 "ThessarasBazaar" => CreateRunaiBazaar(em, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshop(em, position, faction),
                 // Alanthor culture buildings
@@ -102,6 +103,7 @@ namespace TheWaningBorder.Entities
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
+                "Runai_TradingPost" => CreateRunaiTradingPostECB(ecb, position, faction),
                 "ThessarasBazaar" => CreateRunaiBazaarECB(ecb, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshopECB(ecb, position, faction),
                 // Alanthor culture buildings
@@ -271,6 +273,23 @@ namespace TheWaningBorder.Entities
             }
             entities.Dispose();
             return result;
+        }
+
+        /// <summary>
+        /// Count how many buildings of a given tag type a faction has (built or under construction).
+        /// </summary>
+        public static int GetFactionBuildingCount<T>(EntityManager em, Faction faction) where T : unmanaged, IComponentData
+        {
+            var query = em.CreateEntityQuery(typeof(T), typeof(FactionTag), typeof(BuildingTag));
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+
+            int count = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value == faction) count++;
+            }
+            return count;
         }
 
         private static string GetBuildingIdFromEntity(EntityManager em, Entity entity)
@@ -532,6 +551,31 @@ namespace TheWaningBorder.Entities
             em.AddComponent<TradeHubTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Trading Post — numbered chain node. Max 10 per faction.
+        /// PostNumber assigned by TradingPostSystem on construction complete.
+        /// </summary>
+        private static Entity CreateRunaiTradingPost(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 800f, los = 16f, radius = 1.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 355 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.AddComponent<TradingPostTag>(entity);
+            em.AddComponentData(entity, new TradingPostData { PostNumber = 0 }); // Assigned by TradingPostSystem
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
@@ -1137,6 +1181,26 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent<TradeHubTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return entity;
+        }
+
+        private static Entity CreateRunaiTradingPostECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 800f, los = 16f, radius = 1.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 355 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent<TradingPostTag>(entity);
+            ecb.AddComponent(entity, new TradingPostData { PostNumber = 0 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }

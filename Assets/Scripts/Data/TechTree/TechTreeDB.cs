@@ -208,7 +208,7 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Runai_Spearman");
             ParseUnit(json, "Runai_Skirmisher");
             ParseUnit(json, "Runai_Raider");
-            ParseUnit(json, "Runai_SandBallista");
+            ParseUnit(json, "Runai_Catapult");
             ParseUnit(json, "Runai_Caravan");
             ParseUnit(json, "Runai_Escort");
 

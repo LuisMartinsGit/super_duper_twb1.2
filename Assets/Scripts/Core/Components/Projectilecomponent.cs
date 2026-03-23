@@ -35,3 +35,23 @@ public struct Projectile : IComponentData
     /// <summary>Damage type of the projectile (for damage modifier lookup)</summary>
     public DamageType DmgType;
 }
+
+/// <summary>
+/// Marks a projectile as dealing area-of-effect damage on impact.
+/// All enemies within Radius of the impact point take splash damage.
+/// </summary>
+public struct AOEProjectile : IComponentData
+{
+    /// <summary>Splash damage radius in world units</summary>
+    public float Radius;
+}
+
+/// <summary>
+/// Added to units (e.g. Catapult) whose projectiles should deal AOE damage.
+/// RangedCombatSystem copies this to spawned projectiles as AOEProjectile.
+/// </summary>
+public struct AOEShooterData : IComponentData
+{
+    /// <summary>Splash damage radius copied to projectiles</summary>
+    public float Radius;
+}

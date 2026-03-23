@@ -40,6 +40,7 @@ namespace TheWaningBorder.Data
             // Runai Culture Buildings
             { "Runai_Outpost",           Cost.Of(supplies: 140, iron: 20) },
             { "Runai_TradeHub",          Cost.Of(supplies: 240, iron: 40) },
+            { "Runai_TradingPost",       Cost.Of(supplies: 200, iron: 30) },
             { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
             { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, crystal: 60) },
 

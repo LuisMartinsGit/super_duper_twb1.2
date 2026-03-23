@@ -178,8 +178,11 @@ namespace TheWaningBorder.Systems.Combat
                             dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
                         // Create arrow projectile
+                        bool isAOE = em.HasComponent<AOEShooterData>(entity);
+                        float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
                         CreateArrow(ref ecb, myPos, targetPos, dist, entity,
-                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType);
+                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType,
+                            isAOE, aoeRadius);
 
                         // Reset state — use unit's configured cooldown
                         float cooldownValue = 1.5f;
@@ -271,7 +274,7 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         private void CreateArrow(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
-            DamageType dmgType = DamageType.Ranged)
+            DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -318,6 +321,9 @@ namespace TheWaningBorder.Systems.Combat
                 Faction = faction,
                 DmgType = dmgType
             });
+
+            if (isAOE)
+                ecb.AddComponent(arrow, new AOEProjectile { Radius = aoeRadius });
         }
 
         private static float DistXZ(float3 a, float3 b)
