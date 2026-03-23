@@ -49,17 +49,8 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new PopulationCost { Amount = 0 });
             em.SetComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
-            // Caravan-specific components
+            // Caravan-specific components (TraderState added by TradingPostSystem after creation)
             em.AddComponent<CaravanTag>(entity);
-            em.AddComponentData(entity, new CaravanState
-            {
-                Origin = Entity.Null,
-                Destination = Entity.Null,
-                CurrentCargo = 0f,
-                MaxCargo = 0f,
-                IsReturning = 0,
-                EscortEntity = Entity.Null
-            });
             em.AddComponentData(entity, new LastDamagedByFaction { Value = faction });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 
@@ -84,17 +75,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new PopulationCost { Amount = 0 });
             ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
-            // Caravan-specific components
+            // Caravan-specific components (TraderState added by TradingPostSystem after creation)
             ecb.AddComponent<CaravanTag>(entity);
-            ecb.AddComponent(entity, new CaravanState
-            {
-                Origin = Entity.Null,
-                Destination = Entity.Null,
-                CurrentCargo = 0f,
-                MaxCargo = 0f,
-                IsReturning = 0,
-                EscortEntity = Entity.Null
-            });
             ecb.AddComponent(entity, new LastDamagedByFaction { Value = faction });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 

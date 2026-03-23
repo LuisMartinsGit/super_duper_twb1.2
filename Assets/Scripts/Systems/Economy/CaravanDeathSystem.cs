@@ -69,42 +69,7 @@ namespace TheWaningBorder.Systems.Economy
                 // DeathSystem will handle actual entity destruction
             }
 
-            // =============================================================
-            // Process dead traders with old CaravanState (backward compat)
-            // =============================================================
-            foreach (var (health, caravan, lastDamager, entity) in SystemAPI
-                .Query<RefRO<Health>, RefRO<CaravanState>, RefRO<LastDamagedByFaction>>()
-                .WithAll<CaravanTag>()
-                .WithEntityAccess())
-            {
-                if (health.ValueRO.Value > 0) continue;
-
-                int lootAmount = (int)(caravan.ValueRO.CurrentCargo * DeathLootFraction);
-                if (lootAmount > 0)
-                {
-                    Faction killerFaction = lastDamager.ValueRO.Value;
-                    FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootAmount));
-                }
-
-                Entity escort = caravan.ValueRO.EscortEntity;
-                if (em.Exists(escort) && em.HasComponent<Health>(escort))
-                {
-                    var escortHealth = em.GetComponentData<Health>(escort);
-                    if (escortHealth.Value > 0)
-                    {
-                        escortHealth.Value = 0;
-                        ecb.SetComponent(escort, escortHealth);
-                    }
-                }
-
-                Entity origin = caravan.ValueRO.Origin;
-                if (em.Exists(origin) && em.HasComponent<TradeRoute>(origin))
-                {
-                    var route = em.GetComponentData<TradeRoute>(origin);
-                    route.ActiveCaravans = math.max(0, route.ActiveCaravans - 1);
-                    ecb.SetComponent(origin, route);
-                }
-            }
+            // Old CaravanState system removed — all traders now use TraderState
         }
     }
 }

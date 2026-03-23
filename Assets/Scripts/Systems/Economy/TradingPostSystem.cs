@@ -242,10 +242,6 @@ namespace TheWaningBorder.Systems.Economy
 
             Entity trader = Caravan.Create(em, spawnPos + new float3(2f, 0f, 0f), faction);
 
-            // Replace CaravanState with TraderState
-            if (em.HasComponent<CaravanState>(trader))
-                em.RemoveComponent<CaravanState>(trader);
-
             em.AddComponentData(trader, new TraderState
             {
                 CurrentDestPost = nextPost,
