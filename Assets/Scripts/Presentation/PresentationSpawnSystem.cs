@@ -260,6 +260,14 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
+        // === SOLDIER UNIT: procedural humanoid from primitives ===
+        if (presentationId == 201) // Swordsman
+        {
+            var go = SoldierModelBuilder.Create(pos, entity);
+            ApplyFactionColor(go, entity);
+            return go;
+        }
+
         // === CRYSTAL LOOT PILE (cadaver): procedural crystal cluster on the ground ===
         if (presentationId == 301)
         {
@@ -377,9 +385,27 @@ public class PresentationSpawnSystem : MonoBehaviour
         }
         else
         {
-            // Units: apply faction color to all materials
+            // Units: check if any renderer has "faction" in the name (procedural models)
+            // If so, only color those accent parts; otherwise color all materials (legacy prefabs)
+            bool hasFactionParts = false;
             foreach (var renderer in go.GetComponentsInChildren<Renderer>())
             {
+                if (renderer.gameObject.name.IndexOf("faction",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    hasFactionParts = true;
+                    break;
+                }
+            }
+
+            foreach (var renderer in go.GetComponentsInChildren<Renderer>())
+            {
+                // If model has dedicated faction parts, only color those
+                if (hasFactionParts &&
+                    renderer.gameObject.name.IndexOf("faction",
+                        System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
                 foreach (var mat in renderer.materials)
                 {
                     if (mat.HasProperty("_Color"))
