@@ -23,6 +23,11 @@ namespace TheWaningBorder.Core.Multiplayer
         bool IsHost { get; }
         
         /// <summary>
+        /// Current simulation tick number. Used for deterministic seeding.
+        /// </summary>
+        int CurrentTick { get; }
+
+        /// <summary>
         /// Queue a command for lockstep synchronization.
         /// </summary>
         void QueueCommand(LockstepCommand cmd);

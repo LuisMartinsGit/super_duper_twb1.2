@@ -92,25 +92,29 @@ namespace TheWaningBorder.Multiplayer
         {
             // Only initialize in the Game scene
             if (scene.name != "Game") return;
-            
-            // Don't re-initialize
+
+            // Don't re-initialize (may have been called synchronously by GameBootstrap already)
             if (_initialized) return;
-            
+
             // Only for multiplayer games
             if (!GameSettings.IsMultiplayer) return;
 
-            StartCoroutine(InitializeLockstep());
+            // Fallback: if GameBootstrap didn't call InitializeLockstepNow(), do it via coroutine
+            StartCoroutine(InitializeLockstepDeferred());
         }
 
-        private IEnumerator InitializeLockstep()
+        /// <summary>
+        /// Initialize lockstep SYNCHRONOUSLY. Called by GameBootstrap BEFORE AI initialization
+        /// to guarantee LockstepServiceLocator.Instance is available when commands are first issued.
+        /// </summary>
+        public void InitializeLockstepNow()
         {
-            // Wait for scene to fully load and entities to be created
-            yield return null;
-            yield return null;
+            if (_initialized) return;
+            if (!GameSettings.IsMultiplayer) return;
 
-            Debug.Log($"[LockstepBootstrap] Initializing - IsHost: {IsHost}, LocalPlayer: {LocalPlayerIndex}, Faction: {LocalFaction}");
+            Debug.Log($"[LockstepBootstrap] Initializing synchronously - IsHost: {IsHost}, LocalPlayer: {LocalPlayerIndex}, Faction: {LocalFaction}");
 
-            // Create LockstepManager if needed
+            // Create LockstepManager
             var lockstep = LockstepManager.Instance;
             if (lockstep == null)
             {
@@ -128,14 +132,22 @@ namespace TheWaningBorder.Multiplayer
                 lockstep.InitializeAsClient(LocalPort, HostIP, HostPort, LocalPlayerIndex, LocalFaction);
             }
 
-            // Wait for network ID assignment
-            yield return null;
-
-            // Start simulation
+            // Start simulation immediately
             lockstep.StartSimulation();
 
             _initialized = true;
-            Debug.Log("[LockstepBootstrap] Lockstep simulation started!");
+            Debug.Log("[LockstepBootstrap] Lockstep simulation started (synchronous)!");
+        }
+
+        private IEnumerator InitializeLockstepDeferred()
+        {
+            // Fallback path — only used if GameBootstrap didn't call InitializeLockstepNow()
+            yield return null;
+            yield return null;
+
+            if (_initialized) yield break; // Already initialized synchronously
+
+            InitializeLockstepNow();
         }
 
         // ═══════════════════════════════════════════════════════════════════════

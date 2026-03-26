@@ -9,7 +9,19 @@ using System.Collections.Generic;
 public enum GameMode
 {
     FreeForAll,
-    SoloVsCurse
+    SoloVsCurse,
+    Sandbox,
+    BattalionTest,
+    Scenario
+}
+
+public enum ScenarioType
+{
+    LargeMelee,
+    LargeRanged,
+    LargeMixed,
+    HealerTest,
+    FourWayCultures
 }
 
 public enum SpawnLayout
@@ -52,6 +64,15 @@ public static class GameSettings
     /// <summary>Current game mode.</summary>
     public static GameMode Mode = GameMode.FreeForAll;
 
+    /// <summary>Active scenario (only used when Mode == Scenario).</summary>
+    public static ScenarioType ActiveScenario = ScenarioType.LargeMelee;
+
+    /// <summary>Whether the local player is observing (no units, no commands, full visibility).</summary>
+    public static bool IsObserver = false;
+
+    /// <summary>Convenience: true when current mode is Sandbox.</summary>
+    public static bool IsSandbox => Mode == GameMode.Sandbox;
+
     // ==================== Spawn Settings ====================
 
     /// <summary>Minimum distance from map edge for spawns.</summary>
@@ -72,6 +93,11 @@ public static class GameSettings
     /// <summary>Seed for reproducible spawn randomness.</summary>
     public static int SpawnSeed = 1234567;
 
+    // ==================== Economy Settings ====================
+
+    /// <summary>Start every faction with 100,000 of each resource (debug / sandbox).</summary>
+    public static bool MaxStartingResources = false;
+
     // ==================== Map Settings ====================
 
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
@@ -79,6 +105,9 @@ public static class GameSettings
 
     /// <summary>Whether fog of war is enabled.</summary>
     public static bool FogOfWarEnabled = false;
+
+    /// <summary>Whether the Crystal Curse faction spawns on this map.</summary>
+    public static bool CrystalCurseEnabled = true;
 
     // ==================== Multiplayer Settings ====================
 

@@ -1,5 +1,4 @@
 // File: Assets/Scripts/Systems/Combat/RangedCombatSystem.cs
-using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -9,22 +8,22 @@ namespace TheWaningBorder.Systems.Combat
 {
     /// <summary>
     /// Handles ranged combat processing for archer units.
-    /// 
+    ///
     /// Features:
     /// - Minimum range enforcement with retreat behavior
     /// - Dynamic aim time based on distance
     /// - Height-based damage modifiers for arrows
+    /// - Damage-type propagation to projectiles (via DmgType on Projectile)
     /// - Arrow projectile creation
     /// - Attack cooldown management
-    /// 
+    ///
     /// Archers will:
     /// - Retreat if enemies get too close (below MinRange)
     /// - Stop and aim when in optimal range
     /// - Chase enemies that are too far away
-    /// 
+    ///
     /// Runs after TargetingSystem to process acquired targets.
     /// </summary>
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct RangedCombatSystem : ISystem
@@ -39,13 +38,11 @@ namespace TheWaningBorder.Systems.Combat
         private const float MaxHeightBonus = 0.20f;
         private const float MaxHeightPenalty = -0.20f;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -72,8 +69,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    archer.CurrentTarget = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -86,8 +81,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    archer.CurrentTarget = Entity.Null;
-                    ecb.RemoveComponent<Target>(entity);
                     if (em.HasComponent<AttackCommand>(entity))
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
@@ -95,7 +88,6 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
-                archer.CurrentTarget = tgt.Value;
                 var myPos = transform.ValueRO.Position;
                 var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
                 var dist = DistXZ(myPos, targetPos);
@@ -109,6 +101,13 @@ namespace TheWaningBorder.Systems.Combat
                 // =============================================================================
                 if (dist < minRange)
                 {
+                    // Battalion members do NOT retreat independently
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        archer.AimTimer = 0;
+                        continue;
+                    }
+
                     archer.IsRetreating = 1;
                     archer.AimTimer = 0;
 
@@ -140,19 +139,17 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     archer.IsRetreating = 0;
 
-                    // Stop moving when in range
+                    // Stop moving when in range; remove stale DesiredDestination on battalion members
                     if (em.HasComponent<DesiredDestination>(entity))
                     {
-                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
+                        if (em.HasComponent<BattalionMemberData>(entity))
+                            ecb.RemoveComponent<DesiredDestination>(entity);
+                        else
+                            ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
-                    // Calculate dynamic aim time based on distance
-                    // Closer = faster aim, farther = slower aim
-                    var minAimTime = 0.3f;
-                    var maxAimTime = 1.2f;
-                    var aimRange = maxAimTime - minAimTime;
-                    var distRatio = (dist - minRange) / (maxRange - minRange);
-                    archer.AimTimeRequired = minAimTime + (aimRange * distRatio);
+                    // Use the unit's configured AimTimeRequired as-is
+                    // (set per-unit in entity factories: Archer=0.5, Ballista=1.0, etc.)
 
                     // Accumulate aim time
                     archer.AimTimer += dt;
@@ -166,29 +163,75 @@ namespace TheWaningBorder.Systems.Combat
                         float heightModifier = CalculateHeightDamageModifier(myPos.y, targetPos.y);
                         int finalDamage = CalculateFinalDamage(damage.ValueRO.Value, heightModifier);
 
-                        // Create arrow projectile
-                        CreateArrow(ref ecb, myPos, targetPos, dist, entity,
-                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value);
+                        // Crystal buff on attacker (bonus damage)
+                        if (em.HasComponent<CrystalBuff>(entity))
+                        {
+                            var buff = em.GetComponentData<CrystalBuff>(entity);
+                            finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
+                        }
+                        // Note: CrystalDebuff on target is applied at projectile impact, not here
+                        finalDamage = math.max(1, finalDamage);
 
-                        // Reset state
-                        archer.CooldownTimer = 1.5f;
+                        // Get shooter's damage type (default Ranged for archers)
+                        DamageType dmgType = DamageType.Ranged;
+                        if (em.HasComponent<DamageTypeData>(entity))
+                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
+                        // Create arrow projectile
+                        bool isAOE = em.HasComponent<AOEShooterData>(entity);
+                        float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
+                        CreateArrow(ref ecb, myPos, targetPos, dist, entity,
+                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType,
+                            isAOE, aoeRadius);
+
+                        // Reset state — use unit's configured cooldown
+                        float cooldownValue = 1.5f;
+                        if (em.HasComponent<AttackCooldown>(entity))
+                            cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
+                        archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;
                         archer.IsFiring = 0;
                     }
                 }
                 // =============================================================================
-                // BEHAVIOR: Too far - CHASE
+                // BEHAVIOR: Too far - CHASE (unless holding position or defensive stance)
                 // =============================================================================
                 else
                 {
+                    // Hold position units do NOT chase - clear target instead
+                    if (em.HasComponent<HoldPositionTag>(entity))
+                    {
+                        tgt.Value = Entity.Null;
+                        archer.AimTimer = 0;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
+                    }
+
+                    // Battalion members NEVER chase — formation controls their movement
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        tgt.Value = Entity.Null;
+                        archer.AimTimer = 0;
+                        if (em.HasComponent<AttackCommand>(entity))
+                            ecb.RemoveComponent<AttackCommand>(entity);
+                        continue;
+                    }
+
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
+
+                    // Move to a position just inside max range, not all the way to target
+                    float3 toTarget = targetPos - myPos;
+                    float3 dirToTarget = math.normalizesafe(toTarget);
+                    float stopDist = maxRange - 2f; // Stop 2 units inside max range
+                    float3 chasePos = targetPos - dirToTarget * stopDist;
 
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chasePos,
                             Has = 1
                         });
                     }
@@ -196,7 +239,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         ecb.SetComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chasePos,
                             Has = 1
                         });
                     }
@@ -208,7 +251,6 @@ namespace TheWaningBorder.Systems.Combat
         /// Calculate height-based damage modifier.
         /// Returns multiplier: 0.8 to 1.2 (±20% cap)
         /// </summary>
-        [BurstCompile]
         private static float CalculateHeightDamageModifier(float attackerHeight, float targetHeight)
         {
             float heightDiff = attackerHeight - targetHeight;
@@ -220,7 +262,6 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Apply damage with minimum guarantee and height modifier.
         /// </summary>
-        [BurstCompile]
         private static int CalculateFinalDamage(int baseDamage, float heightModifier)
         {
             float modifiedDamage = baseDamage * heightModifier;
@@ -231,9 +272,9 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Create an arrow projectile entity.
         /// </summary>
-        [BurstCompile]
         private void CreateArrow(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
-            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity)
+            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
+            DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -277,8 +318,12 @@ namespace TheWaningBorder.Systems.Combat
                 FlightTime = estimatedFlightTime,
                 Damage = damage,
                 Target = targetEntity,  // Store target entity for homing
-                Faction = faction
+                Faction = faction,
+                DmgType = dmgType
             });
+
+            if (isAOE)
+                ecb.AddComponent(arrow, new AOEProjectile { Radius = aoeRadius });
         }
 
         private static float DistXZ(float3 a, float3 b)

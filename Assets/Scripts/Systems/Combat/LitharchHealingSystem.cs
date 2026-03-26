@@ -7,7 +7,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
-using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Combat
@@ -59,6 +58,17 @@ namespace TheWaningBorder.Systems.Combat
                          .WithNone<HealCommand>()
                          .WithEntityAccess())
             {
+                // UserMoveOrder = player/AI issued a manual command — cancel healing, obey command
+                if (em.HasComponent<UserMoveOrder>(entity))
+                {
+                    if (lithState.ValueRO.IsHealing != 0)
+                    {
+                        lithState.ValueRW.HealTarget = Entity.Null;
+                        lithState.ValueRW.IsHealing = 0;
+                    }
+                    continue;
+                }
+
                 // Skip if already has a valid heal target
                 if (lithState.ValueRO.HealTarget != Entity.Null &&
                     em.Exists(lithState.ValueRO.HealTarget))
@@ -148,6 +158,10 @@ namespace TheWaningBorder.Systems.Combat
                                 Has = 1
                             });
                         }
+
+                        // Update guard point so ProcessReturnToGuard doesn't snap healer back
+                        if (em.HasComponent<GuardPoint>(entity))
+                            ecb.SetComponent(entity, new GuardPoint { Position = targetPos, Has = 1 });
                     }
                     else
                     {

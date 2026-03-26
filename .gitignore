@@ -147,6 +147,7 @@ desktop.ini
 *~
 
 # ===========================
-# Claude Code local
+# Local secrets & Claude Code
 # ===========================
 .claude/
+.env

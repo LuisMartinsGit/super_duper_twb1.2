@@ -9,7 +9,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using TheWaningBorder.Core.Config; 
+using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -29,7 +30,7 @@ namespace TheWaningBorder.UI.Menus
         public event Action OnBackPressed;
 
         private const string GameSceneName = "Game";
-        private const int BROADCAST_PORT = 47777;
+        private const int BROADCAST_PORT = 47515;
         private const float BROADCAST_INTERVAL = 1.0f;
         private const float LOBBY_SYNC_INTERVAL = 0.5f;
         private const float DISCOVERY_TIMEOUT = 5.0f;
@@ -41,6 +42,7 @@ namespace TheWaningBorder.UI.Menus
         private const string MSG_LEAVE = "TWB_LEAVE|";
         private const string MSG_START = "TWB_START|";
         private const string MSG_ACCEPT = "TWB_ACCEPT|";
+        private const string MSG_COLOR = "TWB_COLOR|";
 
         // State machine
         private enum LobbyState
@@ -70,6 +72,7 @@ namespace TheWaningBorder.UI.Menus
         private int _spawnSeed = GameSettings.SpawnSeed;
         private bool _fogOfWar = GameSettings.FogOfWarEnabled;
         private int _mapHalfSize = GameSettings.MapHalfSize;
+        private bool _crystalCurse = GameSettings.CrystalCurseEnabled;
 
         // Network state
         private UdpClient _hostSocket;
@@ -78,6 +81,7 @@ namespace TheWaningBorder.UI.Menus
         private ushort _clientPrivatePort;
         private bool _isHost;
         private int _mySlotIndex = -1;
+        private IPEndPoint _hostEndpoint;
 
         // Game discovery
         private class DiscoveredGame
@@ -243,6 +247,15 @@ namespace TheWaningBorder.UI.Menus
                 _port = newPort;
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Players:", GUILayout.Width(100));
+            if (GUILayout.Button("-", GUILayout.Width(30)) && LobbyConfig.ActiveSlotCount > 2)
+                LobbyConfig.ActiveSlotCount--;
+            GUILayout.Label(LobbyConfig.ActiveSlotCount.ToString(), GUILayout.Width(30));
+            if (GUILayout.Button("+", GUILayout.Width(30)) && LobbyConfig.ActiveSlotCount < 8)
+                LobbyConfig.ActiveSlotCount++;
+            GUILayout.EndHorizontal();
+
             GUILayout.Space(20);
 
             GUILayout.BeginHorizontal();
@@ -335,6 +348,9 @@ namespace TheWaningBorder.UI.Menus
                 DrawNetworkSlot(i, isHost: false);
             GUILayout.EndScrollView();
 
+            GUILayout.Space(10);
+            DrawMapOptionsReadOnly();
+
             GUILayout.FlexibleSpace();
 
             if (GUILayout.Button("Leave", GUILayout.Height(36), GUILayout.Width(100)))
@@ -363,23 +379,38 @@ namespace TheWaningBorder.UI.Menus
         private void DrawNetworkSlot(int index, bool isHost)
         {
             var slot = _networkSlots[index];
-            var faction = LobbyConfig.Slots[index].Faction;
 
             GUILayout.BeginHorizontal(_slotStyle);
 
+            // Color swatch — clickable for host (any slot) or client (own slot only)
             Color oldColor = GUI.color;
             GUI.color = LobbyConfig.Slots[index].GetFactionColor();
-            GUILayout.Label("■", GUILayout.Width(20));
+            bool canChangeColor = isHost || index == _mySlotIndex;
+            if (canChangeColor)
+            {
+                if (GUILayout.Button("■", GUILayout.Width(24), GUILayout.Height(20)))
+                {
+                    if (isHost)
+                        CycleSlotColor(index);
+                    else
+                        SendColorChange(index);
+                }
+            }
+            else
+            {
+                GUILayout.Label("■", GUILayout.Width(24));
+            }
             GUI.color = oldColor;
 
-            GUILayout.Label(faction.ToString(), _factionLabelStyle, GUILayout.Width(60));
+            // Faction name
+            GUILayout.Label(LobbyConfig.Slots[index].Faction.ToString(), _factionLabelStyle, GUILayout.Width(60));
 
+            // Slot content
             if (slot.Type == SlotType.Human)
             {
                 string label = string.IsNullOrEmpty(slot.PlayerName) ? "Player" : slot.PlayerName;
                 if (index == 0) label += " (Host)";
                 if (index == _mySlotIndex && !_isHost) label += " (You)";
-
                 GUI.color = Color.cyan;
                 GUILayout.Label(label);
                 GUI.color = Color.white;
@@ -399,17 +430,17 @@ namespace TheWaningBorder.UI.Menus
                     GUILayout.Label($"AI ({slot.AIDifficulty})");
                 }
             }
-            else
+            else // Empty
             {
                 if (isHost)
                 {
-                    if (GUILayout.Button("Empty", GUILayout.Width(50)))
+                    if (GUILayout.Button("Open", GUILayout.Width(50)))
                         slot.Type = SlotType.AI;
-                    GUILayout.Label("(Open)");
+                    GUILayout.Label("(Waiting for player)");
                 }
                 else
                 {
-                    GUILayout.Label("Empty");
+                    GUILayout.Label("Open");
                 }
             }
 
@@ -417,10 +448,48 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.EndHorizontal();
         }
 
+        private void CycleSlotColor(int slotIndex)
+        {
+            var slot = LobbyConfig.Slots[slotIndex];
+            int current = slot.ColorIndex;
+            for (int i = 1; i < FactionColors.ColorCount; i++)
+            {
+                int next = (current + i) % FactionColors.ColorCount;
+                if (!IsColorInUse(next, slotIndex))
+                {
+                    slot.ColorIndex = next;
+                    return;
+                }
+            }
+        }
+
+        private bool IsColorInUse(int colorIndex, int excludeSlot)
+        {
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                if (i == excludeSlot) continue;
+                if (LobbyConfig.Slots[i].ColorIndex == colorIndex)
+                    return true;
+            }
+            return false;
+        }
+
+        private void SendColorChange(int slotIndex)
+        {
+            // Client cycles color locally and sends to host
+            CycleSlotColor(slotIndex);
+            int newColor = LobbyConfig.Slots[slotIndex].ColorIndex;
+            string msg = $"{MSG_COLOR}{slotIndex}|{newColor}";
+            byte[] data = Encoding.UTF8.GetBytes(msg);
+            if (_clientPrivateSocket != null && _hostEndpoint != null)
+                _clientPrivateSocket.Send(data, data.Length, _hostEndpoint);
+        }
+
         private void DrawMapOptions()
         {
-            GUILayout.Label("<b>Map Options</b>", _headerStyle);
+            GUILayout.Label("<b>Map & Game Settings</b>", _headerStyle);
 
+            // Layout
             GUILayout.BeginHorizontal();
             GUILayout.Label("Layout:", GUILayout.Width(60));
             if (GUILayout.Toggle(_layout == SpawnLayout.Circle, "Circle", "Button", GUILayout.Width(70)))
@@ -429,7 +498,43 @@ namespace TheWaningBorder.UI.Menus
                 _layout = SpawnLayout.TwoSides;
             GUILayout.EndHorizontal();
 
+            // 2-Sides preset (only if TwoSides selected)
+            if (_layout == SpawnLayout.TwoSides)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Sides:", GUILayout.Width(60));
+                string[] presets = { "L-R", "U-D", "LU", "LD", "RU", "RD" };
+                int twoIdx = (int)_twoSides;
+                if (GUILayout.Button(presets[twoIdx], GUILayout.Width(50)))
+                    _twoSides = (TwoSidesPreset)((twoIdx + 1) % presets.Length);
+                GUILayout.EndHorizontal();
+            }
+
+            // Map size — button toggle: Small (50) / Medium (75) / Large (125)
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Map Size:", GUILayout.Width(60));
+            if (GUILayout.Toggle(_mapHalfSize <= 50, "Small", "Button", GUILayout.Width(60)))
+                _mapHalfSize = 50;
+            if (GUILayout.Toggle(_mapHalfSize > 50 && _mapHalfSize <= 100, "Medium", "Button", GUILayout.Width(70)))
+                _mapHalfSize = 75;
+            if (GUILayout.Toggle(_mapHalfSize > 100, "Large", "Button", GUILayout.Width(60)))
+                _mapHalfSize = 125;
+            GUILayout.EndHorizontal();
+
+            // Toggles
             _fogOfWar = GUILayout.Toggle(_fogOfWar, " Fog of War");
+            _crystalCurse = GUILayout.Toggle(_crystalCurse, " Crystal Curse");
+        }
+
+        private void DrawMapOptionsReadOnly()
+        {
+            GUILayout.Label("<b>Map & Game Settings</b>", _headerStyle);
+            string layoutStr = _layout == SpawnLayout.TwoSides ? "2-Sides" : "Circle";
+            string sizeLabel = _mapHalfSize <= 50 ? "Small" : _mapHalfSize <= 100 ? "Medium" : "Large";
+            GUILayout.Label($"  Layout: {layoutStr}");
+            GUILayout.Label($"  Map Size: {sizeLabel} ({_mapHalfSize * 2})");
+            GUILayout.Label($"  Fog of War: {(_fogOfWar ? "On" : "Off")}");
+            GUILayout.Label($"  Crystal Curse: {(_crystalCurse ? "On" : "Off")}");
         }
 
         // ==================== NETWORKING ====================
@@ -451,9 +556,16 @@ namespace TheWaningBorder.UI.Menus
 
             try
             {
-                _hostSocket = new UdpClient(BROADCAST_PORT);
-                _hostSocket.EnableBroadcast = true;
+                _hostSocket = CreateBroadcastSocket(BROADCAST_PORT);
                 Debug.Log($"[MultiplayerLobby] Host listening on port {BROADCAST_PORT}");
+            }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
+                    : $"Socket error ({se.SocketErrorCode}): {se.Message}";
+                _error = $"Network error: {hint}";
+                Debug.LogError($"[MultiplayerLobby] Host socket error: {hint}");
             }
             catch (Exception e)
             {
@@ -468,16 +580,22 @@ namespace TheWaningBorder.UI.Menus
 
             try
             {
-                // Broadcast listener (shared port)
-                _clientBroadcastSocket = new UdpClient();
-                _clientBroadcastSocket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _clientBroadcastSocket.Client.Bind(new IPEndPoint(IPAddress.Any, BROADCAST_PORT));
+                // Broadcast listener (shared port — must use raw socket to avoid double-bind)
+                _clientBroadcastSocket = CreateBroadcastSocket(BROADCAST_PORT);
 
-                // Private socket (random port)
+                // Private socket (random port for direct host communication)
                 _clientPrivateSocket = new UdpClient(0);
                 _clientPrivatePort = (ushort)((IPEndPoint)_clientPrivateSocket.Client.LocalEndPoint).Port;
 
                 Debug.Log($"[MultiplayerLobby] Client listening on broadcast:{BROADCAST_PORT}, private:{_clientPrivatePort}");
+            }
+            catch (SocketException se)
+            {
+                string hint = se.SocketErrorCode == SocketError.AddressAlreadyInUse
+                    ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
+                    : $"Socket error ({se.SocketErrorCode}): {se.Message}";
+                _error = $"Network error: {hint}";
+                Debug.LogError($"[MultiplayerLobby] Client socket error: {hint}");
             }
             catch (Exception e)
             {
@@ -589,6 +707,19 @@ namespace TheWaningBorder.UI.Menus
                     }
                 }
             }
+            else if (msg.StartsWith(MSG_COLOR))
+            {
+                var parts = msg.Substring(MSG_COLOR.Length).Split('|');
+                if (parts.Length >= 2)
+                {
+                    int slotIndex = int.Parse(parts[0]);
+                    int colorIndex = int.Parse(parts[1]);
+                    if (slotIndex > 0 && slotIndex < LobbyConfig.ActiveSlotCount && !IsColorInUse(colorIndex, slotIndex))
+                    {
+                        LobbyConfig.Slots[slotIndex].ColorIndex = colorIndex;
+                    }
+                }
+            }
         }
 
         private void HandleClientBroadcast(string msg, IPEndPoint remote)
@@ -617,6 +748,7 @@ namespace TheWaningBorder.UI.Menus
             if (msg.StartsWith(MSG_ACCEPT))
             {
                 _mySlotIndex = int.Parse(msg.Substring(MSG_ACCEPT.Length));
+                _hostEndpoint = remote;
                 _state = LobbyState.ClientLobby;
                 Debug.Log($"[Client] Accepted into slot {_mySlotIndex}");
             }
@@ -626,8 +758,13 @@ namespace TheWaningBorder.UI.Menus
             }
             else if (msg.StartsWith(MSG_START))
             {
-                ushort gamePort = ushort.Parse(msg.Substring(MSG_START.Length));
-                StartAsClient(remote.Address.ToString(), gamePort);
+                var startParts = msg.Substring(MSG_START.Length).Split('|');
+                ushort gamePort = ushort.Parse(startParts[0]);
+                int seed = startParts.Length > 1 ? int.Parse(startParts[1]) : 12345;
+                int lockstepPort = startParts.Length > 2 ? int.Parse(startParts[2]) : gamePort + 1;
+                bool crystalCurse = startParts.Length > 3 ? int.Parse(startParts[3]) != 0 : true;
+                GameSettings.CrystalCurseEnabled = crystalCurse;
+                StartAsClient(remote.Address.ToString(), gamePort, seed, lockstepPort);
             }
         }
 
@@ -641,46 +778,53 @@ namespace TheWaningBorder.UI.Menus
 
         private void SyncLobbyState()
         {
-            // Build lobby state message
             var sb = new System.Text.StringBuilder();
             sb.Append(MSG_LOBBY);
             sb.Append(LobbyConfig.ActiveSlotCount);
+            // Map settings: layout|twoSides|mapSize|fogOfWar|crystalCurse
+            sb.Append($"|{(int)_layout}|{(int)_twoSides}|{_mapHalfSize}|{(_fogOfWar ? 1 : 0)}|{(_crystalCurse ? 1 : 0)}");
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
-                sb.Append($"|{(int)slot.Type},{slot.PlayerName},{(int)slot.AIDifficulty}");
+                sb.Append($"|{(int)slot.Type},{slot.PlayerName},{(int)slot.AIDifficulty},{LobbyConfig.Slots[i].ColorIndex}");
             }
 
             byte[] data = Encoding.UTF8.GetBytes(sb.ToString());
-
-            // Send to all connected clients
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
                 if (slot.Type == SlotType.Human && slot.Endpoint != null)
-                {
                     _hostSocket.Send(data, data.Length, new IPEndPoint(slot.Endpoint.Address, slot.ClientPort));
-                }
             }
         }
 
         private void ParseLobbyState(string msg)
         {
             var parts = msg.Substring(MSG_LOBBY.Length).Split('|');
-            if (parts.Length < 1) return;
+            if (parts.Length < 6) return; // slotCount + 5 map settings minimum
 
             int slotCount = int.Parse(parts[0]);
             LobbyConfig.ActiveSlotCount = slotCount;
 
-            for (int i = 0; i < slotCount && i + 1 < parts.Length; i++)
+            // Parse map settings
+            if (parts.Length > 1) _layout = (SpawnLayout)int.Parse(parts[1]);
+            if (parts.Length > 2) _twoSides = (TwoSidesPreset)int.Parse(parts[2]);
+            if (parts.Length > 3) _mapHalfSize = int.Parse(parts[3]);
+            if (parts.Length > 4) _fogOfWar = int.Parse(parts[4]) != 0;
+            if (parts.Length > 5) _crystalCurse = int.Parse(parts[5]) != 0;
+
+            // Parse slot data (starts at index 6)
+            for (int i = 0; i < slotCount && i + 6 < parts.Length; i++)
             {
-                var slotParts = parts[i + 1].Split(',');
+                var slotParts = parts[i + 6].Split(',');
                 if (slotParts.Length >= 3)
                 {
                     _networkSlots[i].Type = (SlotType)int.Parse(slotParts[0]);
                     _networkSlots[i].PlayerName = slotParts[1];
                     _networkSlots[i].AIDifficulty = (LobbyAIDifficulty)int.Parse(slotParts[2]);
+                    if (slotParts.Length >= 4)
+                        LobbyConfig.Slots[i].ColorIndex = int.Parse(slotParts[3]);
                 }
             }
         }
@@ -699,13 +843,54 @@ namespace TheWaningBorder.UI.Menus
         {
             // Apply settings
             GameSettings.SpawnLayout = _layout;
+            GameSettings.TwoSides = _twoSides;
+            GameSettings.MapHalfSize = _mapHalfSize;
             GameSettings.FogOfWarEnabled = _fogOfWar;
+            GameSettings.CrystalCurseEnabled = _crystalCurse;
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Server;
             GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TotalPlayers = LobbyConfig.ActiveSlotCount;
 
-            // Notify clients
-            string msg = $"{MSG_START}{_port}";
+            // Sync lobby network slot types into LobbyConfig so AI bootstrap
+            // knows which factions are human-controlled
+            GameSettings.FactionToPlayerMapping.Clear();
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                if (_networkSlots[i].Type == SlotType.Human)
+                {
+                    GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
+                }
+            }
+
+            // Set shared random seed so all clients generate the same world
+            GameSettings.SpawnSeed = _spawnSeed;
+
+            // Create LockstepBootstrap to carry config across scene load
+            int lockstepPort = _port + 1;
+            var bootstrap = CreateLockstepBootstrap();
+            bootstrap.ConfigureAsHost(lockstepPort, new List<RemotePlayerInfo>());
+            for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var slot = _networkSlots[i];
+                Debug.Log($"[MultiplayerLobby] Slot {i}: Type={slot.Type}, Endpoint={slot.Endpoint}, Faction={LobbyConfig.Slots[i].Faction}");
+                if (slot.Type == SlotType.Human && slot.Endpoint != null)
+                {
+                    bootstrap.AddRemotePlayer(
+                        slot.Endpoint.Address.ToString(),
+                        lockstepPort + i,
+                        LobbyConfig.Slots[i].Faction);
+                    Debug.Log($"[MultiplayerLobby] Added remote player {i} at {slot.Endpoint.Address}:{lockstepPort + i}");
+                }
+            }
+            Debug.Log($"[MultiplayerLobby] Total remote players for lockstep: {bootstrap.RemotePlayers.Count}");
+
+            // Apply color selections before scene load
+            LobbyConfig.ApplyColorSelections();
+
+            // Notify clients — include seed, lockstep port, and crystal curse flag
+            string msg = $"{MSG_START}{_port}|{_spawnSeed}|{lockstepPort}|{(_crystalCurse ? 1 : 0)}";
             byte[] data = Encoding.UTF8.GetBytes(msg);
 
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
@@ -721,11 +906,36 @@ namespace TheWaningBorder.UI.Menus
             SceneManager.LoadScene(GameSceneName);
         }
 
-        private void StartAsClient(string hostIp, ushort port)
+        private void StartAsClient(string hostIp, ushort port, int seed, int lockstepPort)
         {
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Client;
             GameSettings.LocalPlayerFaction = LobbyConfig.Slots[_mySlotIndex].Faction;
+            GameSettings.TotalPlayers = LobbyConfig.ActiveSlotCount;
+            GameSettings.SpawnSeed = seed;
+            GameSettings.SpawnLayout = _layout;
+            GameSettings.TwoSides = _twoSides;
+            GameSettings.MapHalfSize = _mapHalfSize;
+            GameSettings.FogOfWarEnabled = _fogOfWar;
+
+            // Sync lobby network slot types into LobbyConfig so AI bootstrap
+            // knows which factions are human-controlled
+            GameSettings.FactionToPlayerMapping.Clear();
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                if (_networkSlots[i].Type == SlotType.Human)
+                {
+                    GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
+                }
+            }
+
+            // Create LockstepBootstrap to carry config across scene load
+            int clientPort = lockstepPort + _mySlotIndex;
+            var bootstrap = CreateLockstepBootstrap();
+            bootstrap.ConfigureAsClient(hostIp, lockstepPort, clientPort, _mySlotIndex, GameSettings.LocalPlayerFaction);
+
+            LobbyConfig.ApplyColorSelections();
 
             Cleanup();
             SceneManager.LoadScene(GameSceneName);
@@ -733,18 +943,64 @@ namespace TheWaningBorder.UI.Menus
 
         private void Cleanup()
         {
-            _hostSocket?.Close();
-            _hostSocket = null;
-
-            _clientBroadcastSocket?.Close();
-            _clientBroadcastSocket = null;
-
-            _clientPrivateSocket?.Close();
-            _clientPrivateSocket = null;
+            DisposeSocket(ref _hostSocket);
+            DisposeSocket(ref _clientBroadcastSocket);
+            DisposeSocket(ref _clientPrivateSocket);
 
             _discoveredGames.Clear();
             _isHost = false;
             _mySlotIndex = -1;
+        }
+
+        /// <summary>
+        /// Create a LockstepBootstrap that persists across scene loads.
+        /// Carries multiplayer configuration from lobby to game scene.
+        /// </summary>
+        private static TheWaningBorder.Multiplayer.LockstepBootstrap CreateLockstepBootstrap()
+        {
+            // Destroy existing instance if any (from previous game)
+            if (TheWaningBorder.Multiplayer.LockstepBootstrap.Instance != null)
+            {
+                Destroy(TheWaningBorder.Multiplayer.LockstepBootstrap.Instance.gameObject);
+            }
+
+            var go = new GameObject("LockstepBootstrap");
+            return go.AddComponent<TheWaningBorder.Multiplayer.LockstepBootstrap>();
+        }
+
+        /// <summary>
+        /// Properly close and dispose a UdpClient, releasing the port immediately.
+        /// </summary>
+        private static void DisposeSocket(ref UdpClient socket)
+        {
+            if (socket == null) return;
+            try { socket.Client?.Close(); } catch { }
+            try { socket.Close(); } catch { }
+            try { socket.Dispose(); } catch { }
+            socket = null;
+        }
+
+        /// <summary>
+        /// Create a UDP broadcast socket bound to a specific port.
+        /// Builds a raw Socket with ReuseAddress BEFORE binding, then wraps
+        /// it in UdpClient(AddressFamily) which does NOT auto-bind.
+        /// </summary>
+        private static UdpClient CreateBroadcastSocket(int port)
+        {
+            // Create raw socket — NOT bound yet
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.ExclusiveAddressUse = false;
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+            socket.ReceiveTimeout = 1;
+            socket.Bind(new IPEndPoint(IPAddress.Any, port));
+
+            // UdpClient(AddressFamily) creates an internal socket but does NOT bind it.
+            // We close that unused socket and swap in our pre-bound one.
+            var udp = new UdpClient(AddressFamily.InterNetwork);
+            udp.Client.Close();
+            udp.Client = socket;
+            return udp;
         }
     }
 }

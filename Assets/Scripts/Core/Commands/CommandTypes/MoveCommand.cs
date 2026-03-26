@@ -4,6 +4,8 @@
 
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Core.Commands.Types
 {
@@ -30,6 +32,9 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit)) return;
 
+            // Battalion members are positioned by BattalionSyncSystem — never give them movement state
+            if (em.HasComponent<BattalionMemberData>(unit)) return;
+
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
 
@@ -43,6 +48,9 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.AddComponent<DesiredDestination>(unit);
             em.SetComponentData(unit, new DesiredDestination { Position = destination, Has = 1 });
 
+            // Pre-warm flow field cache for this destination
+            FlowFieldManager.Instance?.RequestFlowField(destination);
+
             // Add UserMoveOrder to prevent auto-targeting from overriding
             if (!em.HasComponent<UserMoveOrder>(unit))
                 em.AddComponent<UserMoveOrder>(unit);
@@ -52,6 +60,24 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
             else
                 em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
+
+            // Battalion leader: store destination facing so formation rotates to match preview on arrival
+            if (em.HasComponent<BattalionLeader>(unit))
+            {
+                float3 currentPos = em.HasComponent<LocalTransform>(unit)
+                    ? em.GetComponentData<LocalTransform>(unit).Position
+                    : destination;
+                float3 dir = destination - currentPos;
+                dir.y = 0;
+                if (math.lengthsq(dir) < 0.01f)
+                    dir = new float3(0, 0, 1);
+                dir = math.normalize(dir);
+                var bl = em.GetComponentData<BattalionLeader>(unit);
+                bl.DestinationRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                bl.HasDestinationRot = 1;
+                bl.NeedsReassignment = 1;
+                em.SetComponentData(unit, bl);
+            }
         }
 
         /// <summary>
@@ -90,6 +116,17 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear heal
             if (em.HasComponent<HealCommand>(unit))
                 em.RemoveComponent<HealCommand>(unit);
+            // Clear Litharch healing state (healer uses LitharchState internally)
+            if (em.HasComponent<LitharchState>(unit))
+            {
+                var ls = em.GetComponentData<LitharchState>(unit);
+                if (ls.IsHealing != 0)
+                {
+                    ls.HealTarget = Entity.Null;
+                    ls.IsHealing = 0;
+                    em.SetComponentData(unit, ls);
+                }
+            }
         }
     }
 }

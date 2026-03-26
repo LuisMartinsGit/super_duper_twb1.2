@@ -17,21 +17,27 @@ namespace TheWaningBorder.UI.Menus
         {
             MainMenu,
             SkirmishLobby,
-            MultiplayerLobby
+            MultiplayerLobby,
+            Options,
+            Scenarios
         }
 
         private MenuState _currentState = MenuState.MainMenu;
+        private MenuState? _pendingState = null;
+        private ScenarioType? _pendingScenario = null;
 
         // Sub-components
         private SkirmishLobbyUI _skirmishLobby;
         private MultiplayerLobbyUI _multiplayerLobby;
+        private OptionsMenuUI _optionsMenu;
 
         // Window styling
-        private Rect _mainMenuRect = new Rect(40, 40, 320, 340);
-        private GUIStyle _titleStyle;
+        private Rect _mainMenuRect;
+        private Rect _scenarioRect;
         private GUIStyle _buttonStyle;
-        private GUIStyle _disabledStyle;
         private bool _stylesInitialized = false;
+
+        private const string GameSceneName = "Game";
 
         void Awake()
         {
@@ -45,9 +51,31 @@ namespace TheWaningBorder.UI.Menus
             _multiplayerLobby = gameObject.AddComponent<MultiplayerLobbyUI>();
             _multiplayerLobby.enabled = false;
 
+            _optionsMenu = gameObject.AddComponent<OptionsMenuUI>();
+            _optionsMenu.enabled = false;
+
             // Subscribe to back events
             _skirmishLobby.OnBackPressed += () => SetState(MenuState.MainMenu);
             _multiplayerLobby.OnBackPressed += () => SetState(MenuState.MainMenu);
+            _optionsMenu.OnBackPressed += () => SetState(MenuState.MainMenu);
+        }
+
+        void Update()
+        {
+            // Apply deferred state changes outside OnGUI to avoid Layout/Repaint mismatch
+            if (_pendingScenario.HasValue)
+            {
+                var scenario = _pendingScenario.Value;
+                _pendingScenario = null;
+                LaunchScenario(scenario);
+                return;
+            }
+            if (_pendingState.HasValue)
+            {
+                var next = _pendingState.Value;
+                _pendingState = null;
+                SetState(next);
+            }
         }
 
         void OnGUI()
@@ -56,7 +84,19 @@ namespace TheWaningBorder.UI.Menus
 
             if (_currentState == MenuState.MainMenu)
             {
-                _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "The Waning Border");
+                _mainMenuRect = new Rect(
+                    (Screen.width - 240) * 0.5f,
+                    (Screen.height - 280) * 0.5f,
+                    240, 280);
+                _mainMenuRect = GUI.Window(10001, _mainMenuRect, DrawMainMenu, "");
+            }
+            else if (_currentState == MenuState.Scenarios)
+            {
+                _scenarioRect = new Rect(
+                    (Screen.width - 300) * 0.5f,
+                    (Screen.height - 360) * 0.5f,
+                    300, 360);
+                _scenarioRect = GUI.Window(10002, _scenarioRect, DrawScenarios, "Scenarios");
             }
         }
 
@@ -64,77 +104,116 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInitialized) return;
 
-            _titleStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 14
             };
-
-            _disabledStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 14
-            };
-            _disabledStyle.normal.textColor = Color.gray;
 
             _stylesInitialized = true;
         }
 
         private void DrawMainMenu(int windowId)
         {
-            GUILayout.Space(20);
-
-            // Title
-            GUILayout.Label("Main Menu", _titleStyle);
-            GUILayout.Space(30);
+            GUILayout.Space(8);
 
             // Skirmish button
-            if (GUILayout.Button("Skirmish", GUILayout.Height(45)))
+            if (GUILayout.Button("Skirmish", GUILayout.Height(36)))
             {
-                SetState(MenuState.SkirmishLobby);
+                _pendingState = MenuState.SkirmishLobby;
             }
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
             // Multiplayer button
-            if (GUILayout.Button("Multiplayer", GUILayout.Height(45)))
+            if (GUILayout.Button("Multiplayer", GUILayout.Height(36)))
             {
-                SetState(MenuState.MultiplayerLobby);
+                _pendingState = MenuState.MultiplayerLobby;
             }
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
             // Campaign button (placeholder - disabled)
             GUI.enabled = false;
-            if (GUILayout.Button("Campaign (Coming Soon)", GUILayout.Height(45)))
+            if (GUILayout.Button("Campaign (Coming Soon)", GUILayout.Height(36)))
             {
                 // Placeholder
             }
             GUI.enabled = true;
-            GUILayout.Space(10);
+            GUILayout.Space(6);
 
-            // Options button (placeholder - disabled)
-            GUI.enabled = false;
-            if (GUILayout.Button("Options (Coming Soon)", GUILayout.Height(45)))
+            // Scenarios button
+            if (GUILayout.Button("Scenarios", GUILayout.Height(36)))
             {
-                // Placeholder
+                _pendingState = MenuState.Scenarios;
             }
-            GUI.enabled = true;
+            GUILayout.Space(6);
 
-            GUILayout.FlexibleSpace();
+            // Options button
+            if (GUILayout.Button("Options", GUILayout.Height(36)))
+            {
+                _pendingState = MenuState.Options;
+            }
+            GUILayout.Space(6);
 
             // Exit button
-            if (GUILayout.Button("Exit", GUILayout.Height(40)))
+            if (GUILayout.Button("Exit", GUILayout.Height(36)))
             {
                 ExitGame();
             }
 
-            GUILayout.Space(10);
+            GUI.DragWindow(new Rect(0, 0, 10000, 25));
+        }
+
+        private void DrawScenarios(int windowId)
+        {
+            GUILayout.Space(8);
+
+            if (GUILayout.Button("Large Melee Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeMelee;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Large Ranged Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeRanged;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Large Mixed Battle (6v6)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.LargeMixed;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Healer Test", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.HealerTest;
+            }
+            GUILayout.Space(6);
+
+            if (GUILayout.Button("Four-Way Cultures (4 armies)", GUILayout.Height(36)))
+            {
+                _pendingScenario = ScenarioType.FourWayCultures;
+            }
+            GUILayout.Space(12);
+
+            if (GUILayout.Button("Back", GUILayout.Height(30)))
+            {
+                _pendingState = MenuState.MainMenu;
+            }
 
             GUI.DragWindow(new Rect(0, 0, 10000, 25));
+        }
+
+        private void LaunchScenario(ScenarioType scenario)
+        {
+            GameSettings.Mode = GameMode.Scenario;
+            GameSettings.ActiveScenario = scenario;
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.TotalPlayers = 2;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.FogOfWarEnabled = false;
+            LoadingScreen.Show(GameSceneName);
         }
 
         private void SetState(MenuState newState)
@@ -144,6 +223,7 @@ namespace TheWaningBorder.UI.Menus
             // Enable/disable sub-components
             _skirmishLobby.enabled = (newState == MenuState.SkirmishLobby);
             _multiplayerLobby.enabled = (newState == MenuState.MultiplayerLobby);
+            _optionsMenu.enabled = (newState == MenuState.Options);
 
             // Initialize lobbies
             if (newState == MenuState.SkirmishLobby)

@@ -70,6 +70,9 @@ namespace TheWaningBorder.Entities
                 ConversionTimer = 0f
             });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
             return entity;
         }
 
@@ -107,6 +110,9 @@ namespace TheWaningBorder.Entities
                 MaxCrystal = DefaultMaxCrystal,
                 ConversionTimer = 0f
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
@@ -148,6 +154,9 @@ namespace TheWaningBorder.Entities
                 MaxCrystal = DefaultMaxCrystal,
                 ConversionTimer = 0f
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }

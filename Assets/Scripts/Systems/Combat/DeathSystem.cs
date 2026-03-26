@@ -15,6 +15,11 @@ namespace TheWaningBorder.Systems.Combat
     /// so they don't hold stale references to dead entities.
     ///
     /// Runs after all combat systems so damage is fully resolved first.
+    /// Uses EndSimulationEntityCommandBufferSystem so entity destruction is
+    /// deferred until after all other systems' ECB commands have played back.
+    /// This prevents "entity does not exist" errors from TargetingSystem and
+    /// combat systems whose deferred commands reference entities destroyed here.
+    ///
     /// Visual cleanup is handled by PresentationSpawnSystem which detects
     /// destroyed entities and removes their GameObjects.
     /// </summary>
@@ -25,17 +30,20 @@ namespace TheWaningBorder.Systems.Combat
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<Health>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             // Phase 1: Collect all dead entities
             var deadEntities = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (health, entity) in SystemAPI
                          .Query<RefRO<Health>>()
+                         .WithNone<BattalionLeader>()
                          .WithEntityAccess())
             {
                 if (health.ValueRO.Value <= 0)
@@ -44,20 +52,46 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
+            // Phase 1.5: Remove dead members from battalion buffers
+            int originalDeadCount = deadEntities.Length;
+            for (int i = 0; i < originalDeadCount; i++)
+            {
+                var dead = deadEntities[i];
+                if (!state.EntityManager.HasComponent<BattalionMemberData>(dead)) continue;
+
+                var memberData = state.EntityManager.GetComponentData<BattalionMemberData>(dead);
+                var leader = memberData.Leader;
+                if (leader == Entity.Null || !state.EntityManager.Exists(leader)) continue;
+                if (!state.EntityManager.HasBuffer<BattalionMember>(leader)) continue;
+
+                var buffer = state.EntityManager.GetBuffer<BattalionMember>(leader);
+                for (int j = buffer.Length - 1; j >= 0; j--)
+                {
+                    if (buffer[j].Value == dead) { buffer.RemoveAt(j); break; }
+                }
+
+                // If battalion is now empty, kill the leader too
+                if (buffer.Length == 0)
+                {
+                    deadEntities.Add(leader);
+                }
+            }
+
             if (deadEntities.Length > 0)
             {
+                // Build O(1) lookup set from dead entities list
+                var deadSet = new NativeHashSet<Entity>(deadEntities.Length, Allocator.Temp);
+                for (int i = 0; i < deadEntities.Length; i++)
+                    deadSet.Add(deadEntities[i]);
+
                 // Phase 2: Clean up Target references pointing to dead entities
                 foreach (var (target, entity) in SystemAPI
                              .Query<RefRW<Target>>()
                              .WithEntityAccess())
                 {
-                    for (int i = 0; i < deadEntities.Length; i++)
+                    if (deadSet.Contains(target.ValueRO.Value))
                     {
-                        if (target.ValueRO.Value == deadEntities[i])
-                        {
-                            ecb.RemoveComponent<Target>(entity);
-                            break;
-                        }
+                        ecb.SetComponent(entity, new Target { Value = Entity.Null });
                     }
                 }
 
@@ -66,17 +100,16 @@ namespace TheWaningBorder.Systems.Combat
                              .Query<RefRO<AttackCommand>>()
                              .WithEntityAccess())
                 {
-                    for (int i = 0; i < deadEntities.Length; i++)
+                    if (deadSet.Contains(attackCmd.ValueRO.Target))
                     {
-                        if (attackCmd.ValueRO.Target == deadEntities[i])
-                        {
-                            ecb.RemoveComponent<AttackCommand>(entity);
-                            break;
-                        }
+                        ecb.RemoveComponent<AttackCommand>(entity);
                     }
                 }
 
-                // Phase 4: Destroy dead entities
+                deadSet.Dispose();
+
+                // Phase 4: Destroy dead entities (deferred — plays back last since
+                // DeathSystem updates after all combat systems)
                 for (int i = 0; i < deadEntities.Length; i++)
                 {
                     ecb.DestroyEntity(deadEntities[i]);
@@ -84,8 +117,6 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             deadEntities.Dispose();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
         }
     }
 }

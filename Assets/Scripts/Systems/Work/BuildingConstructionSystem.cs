@@ -223,7 +223,78 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<DeferredDefense>(building);
             }
 
+            // Shrine RP bonus: grant +1 RP when a ChapelSmall completes if faction has a temple
+            if (em.HasComponent<ChapelSmallTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                GrantShrineRPBonus(em, faction);
+            }
+
+            // Temple RP bonus: grant +1 RP when a Temple of Ridan completes construction
+            if (em.HasComponent<TempleTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                GrantTempleConstructionRP(em, faction);
+            }
+
             UnityEngine.Debug.Log($"Building {building.Index} construction complete!");
+        }
+
+        /// <summary>
+        /// Grant +1 Religion Point when a Shrine (ChapelSmall) completes construction,
+        /// if the faction has a Temple of Ridan.
+        /// </summary>
+        private void GrantShrineRPBonus(EntityManager em, Faction faction)
+        {
+            // Check if faction has a temple
+            var templeQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleTag>(),
+                ComponentType.ReadOnly<FactionTag>()
+            );
+
+            using var temples = templeQuery.ToEntityArray(Allocator.Temp);
+            using var templeFactions = templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            bool hasTemple = false;
+            for (int i = 0; i < temples.Length; i++)
+            {
+                if (templeFactions[i].Value == faction)
+                {
+                    hasTemple = true;
+                    break;
+                }
+            }
+
+            if (!hasTemple) return;
+
+            // Grant RP to faction bank
+            if (FactionEconomy.TryGetBank(em, faction, out var bank))
+            {
+                if (em.HasComponent<ReligionPoints>(bank))
+                {
+                    var rp = em.GetComponentData<ReligionPoints>(bank);
+                    rp.Value += TempleLevelConfig.ShrineBonus;
+                    em.SetComponentData(bank, rp);
+                    UnityEngine.Debug.Log($"[ShrineBonus] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for shrine construction");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Grant +1 Religion Point when the Temple of Ridan completes construction.
+        /// </summary>
+        private void GrantTempleConstructionRP(EntityManager em, Faction faction)
+        {
+            if (FactionEconomy.TryGetBank(em, faction, out var bank))
+            {
+                if (em.HasComponent<ReligionPoints>(bank))
+                {
+                    var rp = em.GetComponentData<ReligionPoints>(bank);
+                    rp.Value += TempleLevelConfig.ShrineBonus;
+                    em.SetComponentData(bank, rp);
+                    UnityEngine.Debug.Log($"[TempleRP] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for Temple of Ridan construction");
+                }
+            }
         }
 
         /// <summary>
@@ -358,9 +429,19 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // No valid target building - clear command
-                        // (Building creation should happen elsewhere, e.g., UI system)
-                        ecb.RemoveComponent<BuildCommand>(entity);
+                        // Target building is null or destroyed — find nearest UnderConstruction
+                        // building at the build position. This handles the multiplayer case where
+                        // the building is created via lockstep AFTER the build command was issued.
+                        Entity nearest = FindNearestUnderConstruction(em, targetPos, BuildRange * 2f);
+                        if (nearest != Entity.Null)
+                        {
+                            if (!em.HasComponent<BuildOrder>(entity))
+                                ecb.AddComponent(entity, new BuildOrder { Site = nearest });
+                            else
+                                ecb.SetComponent(entity, new BuildOrder { Site = nearest });
+                            ecb.RemoveComponent<BuildCommand>(entity);
+                        }
+                        // else: building not placed yet — keep waiting (don't clear command)
                     }
                 }
             }
@@ -369,6 +450,37 @@ namespace TheWaningBorder.Systems.Work
         private static float DistXZ(float3 a, float3 b)
         {
             return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
+        }
+
+        /// <summary>
+        /// Find the nearest building with UnderConstruction within searchRadius of position.
+        /// Used when a BuildCommand has no target entity (multiplayer: building created via lockstep).
+        /// </summary>
+        private static Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<UnderConstruction>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity nearest = Entity.Null;
+            float bestDist = searchRadius;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                float dist = DistXZ(position, transforms[i].Position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    nearest = entities[i];
+                }
+            }
+
+            return nearest;
         }
     }
 }

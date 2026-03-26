@@ -170,16 +170,17 @@ namespace TheWaningBorder.AI
 
             float3 interceptPos = math.lerp(basePos, threatPos, 0.3f);
 
-            foreach (var (factionTag, transform, entity) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
-                .WithAll<UnitTag>()
-                .WithNone<ScoutAssignment>() // Don't pull scouts
-                .WithNone<MinerTag>()        // Don't pull miners from mining
-                .WithNone<CanBuild>()        // Don't pull builders from construction
+            foreach (var (factionTag, unitTag, transform, entity) in
+                SystemAPI.Query<RefRO<FactionTag>, RefRO<UnitTag>, RefRO<LocalTransform>>()
+                .WithNone<MinerTag>()            // Don't pull miners from mining
+                .WithNone<CanBuild>()            // Don't pull builders from construction
+                .WithNone<BattalionMemberData>() // Members follow their leader, not individual commands
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value != faction) continue;
-                if (!em.HasComponent<Damage>(entity)) continue;
+                if (unitTag.ValueRO.Class == UnitClass.Scout) continue; // Scouts keep exploring
+                // Battalion leaders don't have Damage — check members for combat capability
+                if (!em.HasComponent<Damage>(entity) && !em.HasComponent<BattalionLeader>(entity)) continue;
 
                 deferredMoves.Add(new DeferredMove { Unit = entity, Destination = interceptPos });
             }
@@ -193,16 +194,17 @@ namespace TheWaningBorder.AI
             // Calculate rally point (between base and threat, closer to base)
             float3 rallyPoint = math.lerp(basePos, threatPos, 0.25f);
 
-            foreach (var (factionTag, transform, entity) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
-                .WithAll<UnitTag>()
-                .WithNone<ArmyTag>()   // Not already in an army
-                .WithNone<MinerTag>()  // Don't pull miners from mining
-                .WithNone<CanBuild>()  // Don't pull builders from construction
+            foreach (var (factionTag, unitTag, transform, entity) in
+                SystemAPI.Query<RefRO<FactionTag>, RefRO<UnitTag>, RefRO<LocalTransform>>()
+                .WithNone<ArmyTag>()             // Not already in an army
+                .WithNone<MinerTag>()            // Don't pull miners from mining
+                .WithNone<CanBuild>()            // Don't pull builders from construction
+                .WithNone<BattalionMemberData>() // Members follow their leader, not individual commands
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value != faction) continue;
-                if (!em.HasComponent<Damage>(entity)) continue;
+                if (unitTag.ValueRO.Class == UnitClass.Scout) continue; // Scouts keep exploring
+                if (!em.HasComponent<Damage>(entity) && !em.HasComponent<BattalionLeader>(entity)) continue;
 
                 // Check if unit is idle (no current target or destination)
                 bool isIdle = true;

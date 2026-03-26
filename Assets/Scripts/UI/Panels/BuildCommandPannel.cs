@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.Input;
@@ -40,13 +41,25 @@ namespace TheWaningBorder.UI.Panels
         private GameObject _placingInstance;
 
         // Build type
-        public enum BuildType { Hut, GatherersHut, Barracks, Shrine, Vault, Keep, Wall, Smelter }
+        public enum BuildType
+        {
+            Hut, GatherersHut, Barracks, Shrine, Vault, Keep, Wall, Smelter,
+            // Runai culture buildings
+            RunaiOutpost, RunaiTradeHub, RunaiBazaar, RunaiSiegeWorkshop,
+            // Alanthor culture buildings
+            AlanthorWatchTower, AlanthorGarrison, AlanthorRoyalStable, AlanthorSiegeYard,
+            // Feraldis culture buildings
+            FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard
+        }
         private BuildType _currentBuild = BuildType.Hut;
 
         // Wall chain-placement state
         private bool _wallPlacingSecondHub;
         private Entity _wallFirstHub;
         private float3 _wallFirstHubPos;
+
+        // Placement validity
+        private bool _placementValid = true;
 
         // Wall hub snapping
         private const float WallHubSnapDistance = 2.0f;
@@ -102,10 +115,24 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
+
+                    // Check placement validity for non-wall buildings
+                    if (_currentBuild != BuildType.Wall)
+                    {
+                        _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
+                        float radius = BuildCommandHelper.GetBuildingRadius(BuildId(_currentBuild));
+                        _placementValid = BuildCommandHelper.IsValidBuildPosition(
+                            _em, (float3)_placingInstance.transform.position, radius);
+                        UpdatePreviewColor(_placementValid);
+                    }
                 }
 
                 // Confirm placement
-                if (UnityEngine.Input.GetMouseButtonDown(0))
+                if (UnityEngine.Input.GetMouseButtonDown(0) && _currentBuild != BuildType.Wall && !_placementValid)
+                {
+                    PlayerNotificationSystem.Notify("Invalid placement");
+                }
+                if (UnityEngine.Input.GetMouseButtonDown(0) && (_currentBuild == BuildType.Wall || _placementValid))
                 {
                     var pos = _placingInstance.transform.position;
 
@@ -161,6 +188,22 @@ namespace TheWaningBorder.UI.Panels
                 "FiendstoneKeep" => BuildType.Keep,
                 "Alanthor_Wall" => BuildType.Wall,
                 "Alanthor_Smelter" => BuildType.Smelter,
+                // Runai culture buildings
+                "Runai_Outpost" => BuildType.RunaiOutpost,
+                "Runai_TradeHub" => BuildType.RunaiTradeHub,
+                "ThessarasBazaar" => BuildType.RunaiBazaar,
+                "Runai_SiegeWorkshop" => BuildType.RunaiSiegeWorkshop,
+                // Alanthor culture buildings
+                "Alanthor_Tower" => BuildType.AlanthorWatchTower,
+                "Alanthor_Garrison" => BuildType.AlanthorGarrison,
+                "Alanthor_Stable" => BuildType.AlanthorRoyalStable,
+                "Alanthor_SiegeYard" => BuildType.AlanthorSiegeYard,
+                // Feraldis culture buildings
+                "Feraldis_HuntingLodge" => BuildType.FeraldisHuntingLodge,
+                "Feraldis_LoggingStation" => BuildType.FeraldisLoggingStation,
+                "Feraldis_Longhouse" => BuildType.FeraldisLonghouse,
+                "Feraldis_Tower" => BuildType.FeraldisTotemTower,
+                "Feraldis_SiegeYard" => BuildType.FeraldisSiegeYard,
                 _ => BuildType.Hut
             };
 
@@ -243,6 +286,22 @@ namespace TheWaningBorder.UI.Panels
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
         }
 
+        private void UpdatePreviewColor(bool valid)
+        {
+            if (_placingInstance == null) return;
+            Color tint = valid
+                ? new Color(0.5f, 1f, 0.5f, 0.5f)
+                : new Color(1f, 0.3f, 0.3f, 0.5f);
+            foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
+            {
+                foreach (var mat in renderer.materials)
+                {
+                    if (mat.HasProperty("_Color"))
+                        mat.color = tint;
+                }
+            }
+        }
+
         private void SpawnSelectedBuilding(float3 pos)
         {
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
@@ -251,13 +310,24 @@ namespace TheWaningBorder.UI.Panels
 
             var id = BuildId(_currentBuild);
 
+            // Block trading post if faction already has 10
+            if (id == "Runai_TradingPost")
+            {
+                int tpCount = BuildingFactory.GetFactionBuildingCount<TradingPostTag>(_em, fac);
+                if (tpCount >= 10)
+                {
+                    PlayerNotificationSystem.Notify("Maximum 10 Trading Posts");
+                    return;
+                }
+            }
+
             // Block choice building if faction already has one
             if (BuildingFactory.IsChoiceBuilding(id))
             {
                 var existing = BuildingFactory.GetFactionChoiceBuilding(_em, fac);
                 if (existing != null)
                 {
-                    Debug.LogWarning($"Already have choice building '{existing}' — cannot build {id}");
+                    PlayerNotificationSystem.Notify("Already have a choice building");
                     return;
                 }
             }
@@ -266,70 +336,34 @@ namespace TheWaningBorder.UI.Panels
 
             if (!FactionEconomy.Spend(_em, fac, cost))
             {
-                Debug.LogWarning($"Cannot afford {id}");
+                PlayerNotificationSystem.NotifyError("Not enough resources");
                 return;
             }
 
-            Entity building;
-            float buildTime;
-
-            switch (_currentBuild)
+            if (GameSettings.IsMultiplayer)
             {
-                case BuildType.Hut:
-                    building = Hut.Create(_em, pos, fac);
-                    if (!_em.HasComponent<PopulationProvider>(building))
-                        _em.AddComponentData(building, new PopulationProvider { Amount = 10 });
-                    buildTime = 15f;
-                    break;
+                // Multiplayer: queue via lockstep — building created on all clients at same tick
+                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
 
-                case BuildType.GatherersHut:
-                    building = GatherersHut.Create(_em, pos, fac);
-                    buildTime = 20f;
-                    break;
-
-                case BuildType.Barracks:
-                    building = Barracks.Create(_em, pos, fac);
-                    buildTime = 30f;
-                    break;
-
-                case BuildType.Shrine:
-                    building = BuildingFactory.Create(_em, "TempleOfRidan", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Vault:
-                    building = BuildingFactory.Create(_em, "VaultOfAlmierra", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Keep:
-                    building = BuildingFactory.Create(_em, "FiendstoneKeep", pos, fac);
-                    buildTime = 40f;
-                    break;
-
-                case BuildType.Smelter:
-                    building = BuildingFactory.Create(_em, "Alanthor_Smelter", pos, fac);
-                    buildTime = 30f;
-                    break;
-
-                default:
-                    return;
+                // Send selected builders to the build position — the building entity doesn't
+                // exist yet (created 2 ticks later), so we issue Build with Entity.Null target.
+                // BuildCommandHelper handles null target by moving to position and auto-finding
+                // the nearest UnderConstruction building when the builder arrives.
+                var sel = SelectionSystem.CurrentSelection;
+                if (sel != null)
+                {
+                    foreach (var entity in sel)
+                    {
+                        if (!_em.Exists(entity)) continue;
+                        if (!_em.HasComponent<CanBuild>(entity)) continue;
+                        CommandRouter.IssueBuild(_em, entity, Entity.Null, id, pos);
+                    }
+                }
+                return;
             }
 
-            // Mark building as under construction
-            if (!_em.HasComponent<UnderConstruction>(building))
-                _em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
-            else
-                _em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
-
-            // Set HP to 1 during construction (restored to max on completion)
-            if (_em.HasComponent<Health>(building))
-            {
-                var hp = _em.GetComponentData<Health>(building);
-                _em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
-            }
-
-            // Issue BuildCommand to selected builders
+            // Single player: create building directly and assign builders
+            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac);
             AssignBuildersToConstruction(building, id, pos);
         }
 
@@ -346,7 +380,7 @@ namespace TheWaningBorder.UI.Panels
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<CanBuild>(entity)) continue;
 
-                BuildCommandHelper.Execute(_em, entity, building, buildingId, pos);
+                CommandRouter.IssueBuild(_em, entity, building, buildingId, pos);
             }
         }
 
@@ -372,6 +406,22 @@ namespace TheWaningBorder.UI.Panels
             BuildType.Keep => "FiendstoneKeep",
             BuildType.Wall => "Alanthor_Wall",
             BuildType.Smelter => "Alanthor_Smelter",
+            // Runai culture buildings
+            BuildType.RunaiOutpost => "Runai_Outpost",
+            BuildType.RunaiTradeHub => "Runai_TradeHub",
+            BuildType.RunaiBazaar => "ThessarasBazaar",
+            BuildType.RunaiSiegeWorkshop => "Runai_SiegeWorkshop",
+            // Alanthor culture buildings
+            BuildType.AlanthorWatchTower => "Alanthor_Tower",
+            BuildType.AlanthorGarrison => "Alanthor_Garrison",
+            BuildType.AlanthorRoyalStable => "Alanthor_Stable",
+            BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
+            // Feraldis culture buildings
+            BuildType.FeraldisHuntingLodge => "Feraldis_HuntingLodge",
+            BuildType.FeraldisLoggingStation => "Feraldis_LoggingStation",
+            BuildType.FeraldisLonghouse => "Feraldis_Longhouse",
+            BuildType.FeraldisTotemTower => "Feraldis_Tower",
+            BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
             _ => "Hut"
         };
 
@@ -398,7 +448,7 @@ namespace TheWaningBorder.UI.Panels
 
                 if (!FactionEconomy.Spend(_em, fac, cost))
                 {
-                    Debug.LogWarning("Cannot afford Alanthor Wall hub");
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
                     return;
                 }
 

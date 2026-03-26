@@ -92,6 +92,7 @@ namespace TheWaningBorder.Multiplayer
         
         public bool LogTicks = false;
         public bool LogCommands = false;
+        private float _debugTimer = 0f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ILockstepService IMPLEMENTATION
@@ -108,20 +109,29 @@ namespace TheWaningBorder.Multiplayer
         public bool IsHost => _isHost;
 
         /// <summary>
+        /// Current simulation tick number. Used for deterministic seeding.
+        /// </summary>
+        public int CurrentTick => _currentTick;
+
+        /// <summary>
         /// Queue a command for lockstep synchronization.
         /// </summary>
         public void QueueCommand(LockstepCommand cmd)
         {
-            if (!_isSimulationRunning) return;
-            
+            if (!_isSimulationRunning)
+            {
+                Debug.LogWarning($"[Lockstep] QueueCommand called but simulation not running! Type={cmd.Type}");
+                return;
+            }
+
             cmd.PlayerIndex = _localPlayerIndex;
             cmd.Tick = _currentTick + INPUT_DELAY_TICKS;
             cmd.CommandIndex = _localCommandBuffer.Count;
-            
+
             _localCommandBuffer.Add(cmd);
-            
-            if (LogCommands)
-                Debug.Log($"[Lockstep] Queued command type {cmd.Type} for tick {cmd.Tick}");
+
+            // Always log commands during debugging
+            Debug.Log($"[Lockstep] QUEUED cmd={cmd.Type} entity={cmd.EntityNetworkId} for tick={cmd.Tick} (current={_currentTick})");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -156,20 +166,50 @@ namespace TheWaningBorder.Multiplayer
             if (!_isSimulationRunning) return;
 
             ReceiveNetworkMessages();
-            
+
             _tickAccumulator += Time.deltaTime;
-            
+
+            // Periodic debug: log tick state every 3 seconds
+            _debugTimer += Time.deltaTime;
+            if (_debugTimer >= 3f)
+            {
+                _debugTimer = 0f;
+                var sb = new StringBuilder();
+                sb.Append($"[Lockstep] Tick={_currentTick}, Cmds={_localCommandBuffer.Count}");
+                foreach (var player in _remotePlayers)
+                {
+                    int confirmed = _confirmedTicks.GetValueOrDefault(player.PlayerIndex, -999);
+                    sb.Append($", P{player.PlayerIndex}confirmed={confirmed}");
+                }
+                sb.Append($", CanAdvance={CanAdvanceTick()}");
+                Debug.Log(sb.ToString());
+            }
+
             while (_tickAccumulator >= TICK_DURATION)
             {
                 if (CanAdvanceTick())
                 {
+                    // Store local commands in _remoteCommands so ProcessTick executes them
+                    // alongside any remote commands for deterministic execution order
+                    int futureTick = _currentTick + INPUT_DELAY_TICKS;
+                    if (_localCommandBuffer.Count > 0)
+                    {
+                        if (!_remoteCommands.ContainsKey(futureTick))
+                            _remoteCommands[futureTick] = new Dictionary<int, List<LockstepCommand>>();
+                        _remoteCommands[futureTick][_localPlayerIndex] = new List<LockstepCommand>(_localCommandBuffer);
+                    }
+
+                    // Confirm our own tick so we don't block ourselves
+                    _confirmedTicks[_localPlayerIndex] = Math.Max(
+                        _confirmedTicks.GetValueOrDefault(_localPlayerIndex, -1), futureTick);
+
+                    // Broadcast local commands to remote players
+                    BroadcastTick(futureTick, _localCommandBuffer);
+                    _localCommandBuffer.Clear();
+
                     ProcessTick(_currentTick);
                     _currentTick++;
                     _tickAccumulator -= TICK_DURATION;
-                    
-                    // Send our commands for future tick
-                    BroadcastTick(_currentTick + INPUT_DELAY_TICKS, _localCommandBuffer);
-                    _localCommandBuffer.Clear();
                 }
                 else
                 {
@@ -232,12 +272,14 @@ namespace TheWaningBorder.Multiplayer
             _remoteCommands.Clear();
             _confirmedTicks.Clear();
             _checksums.Clear();
-            
-            // Initialize confirmed ticks for all players
-            _confirmedTicks[_localPlayerIndex] = -1;
+
+            // Initialize confirmed ticks — start at INPUT_DELAY_TICKS so the first
+            // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
+            // waiting for each other's tick confirmation before either can broadcast.
+            _confirmedTicks[_localPlayerIndex] = INPUT_DELAY_TICKS;
             foreach (var player in _remotePlayers)
             {
-                _confirmedTicks[player.PlayerIndex] = -1;
+                _confirmedTicks[player.PlayerIndex] = INPUT_DELAY_TICKS;
             }
             
             Debug.Log("[Lockstep] Simulation started");
@@ -314,12 +356,9 @@ namespace TheWaningBorder.Multiplayer
 
         private void ProcessTick(int tick)
         {
-            if (LogTicks)
-                Debug.Log($"[Lockstep] Processing tick {tick}");
-
             // Gather all commands for this tick
             var allCommands = new List<LockstepCommand>();
-            
+
             // Remote commands
             if (_remoteCommands.TryGetValue(tick, out var tickCommands))
             {
@@ -328,6 +367,9 @@ namespace TheWaningBorder.Multiplayer
                     allCommands.AddRange(playerCommands);
                 }
             }
+
+            if (allCommands.Count > 0)
+                Debug.Log($"[Lockstep] ProcessTick({tick}) executing {allCommands.Count} commands");
 
             // Sort for determinism (by player index, then command index)
             allCommands.Sort((a, b) =>
@@ -363,12 +405,25 @@ namespace TheWaningBorder.Multiplayer
 
             var em = world.EntityManager;
 
-            Entity entity = FindEntityByNetworkId(cmd.EntityNetworkId);
-            if (entity == Entity.Null && cmd.Type != LockstepCommandType.SetRally)
+            // PlaceBuilding and Train don't require an existing entity lookup —
+            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building
+            Entity entity = Entity.Null;
+            bool needsEntity = cmd.Type != LockstepCommandType.SetRally
+                            && cmd.Type != LockstepCommandType.PlaceBuilding;
+
+            if (needsEntity)
             {
-                if (LogCommands)
-                    Debug.LogWarning($"[Lockstep] Entity not found for network ID {cmd.EntityNetworkId}");
-                return;
+                entity = FindEntityByNetworkId(cmd.EntityNetworkId);
+                if (entity == Entity.Null)
+                {
+                    Debug.LogWarning($"[Lockstep] Entity not found for network ID {cmd.EntityNetworkId}, cmd={cmd.Type}");
+                    return;
+                }
+            }
+            else if (cmd.Type != LockstepCommandType.PlaceBuilding)
+            {
+                // SetRally and others that might use entity optionally
+                entity = FindEntityByNetworkId(cmd.EntityNetworkId);
             }
 
             Entity targetEntity = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
@@ -423,6 +478,55 @@ namespace TheWaningBorder.Multiplayer
                             em.AddComponent<RallyPoint>(entity);
                         em.SetComponentData(entity, new RallyPoint { Position = cmd.TargetPosition, Has = 1 });
                         if (LogCommands) Debug.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.AttackMove:
+                    AttackMoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
+                    if (LogCommands) Debug.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.Repair:
+                    if (targetEntity != Entity.Null)
+                    {
+                        RepairCommandHelper.Execute(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Convert:
+                    if (targetEntity != Entity.Null)
+                    {
+                        ConvertCommandHelper.Execute(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Patrol:
+                    PatrolCommandHelper.Execute(em, entity, cmd.TargetPosition);
+                    if (LogCommands) Debug.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.HoldPosition:
+                    HoldPositionCommandHelper.Execute(em, entity);
+                    if (LogCommands) Debug.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.Train:
+                    if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        string unitId = cmd.BuildingId;
+                        var queue = em.GetBuffer<TrainQueueItem>(entity);
+                        queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+                        Debug.Log($"[Lockstep] Executed Train '{unitId}' from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.PlaceBuilding:
+                    {
+                        Faction buildFaction = (Faction)cmd.EntityNetworkId;
+                        var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
+                        Debug.Log($"[Lockstep] Executed PlaceBuilding '{cmd.BuildingId}' at {cmd.TargetPosition} faction={buildFaction} from player {cmd.PlayerIndex}");
                     }
                     break;
             }
@@ -588,8 +692,8 @@ namespace TheWaningBorder.Multiplayer
             _remoteCommands[tick][playerIndex] = commands;
             _confirmedTicks[playerIndex] = Math.Max(_confirmedTicks.GetValueOrDefault(playerIndex, -1), tick);
 
-            if (LogCommands)
-                Debug.Log($"[Lockstep] Received tick {tick} from player {playerIndex} with {cmdCount} commands");
+            // Always log received ticks during debugging
+            Debug.Log($"[Lockstep] RECEIVED tick={tick} from player={playerIndex} cmds={cmdCount}");
 
             // Host relays to other clients
             if (_isHost)
@@ -633,24 +737,34 @@ namespace TheWaningBorder.Multiplayer
         private uint ComputeGameStateChecksum()
         {
             uint checksum = 0;
-            
+
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return checksum;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(NetworkedEntity), typeof(Unity.Transforms.LocalTransform));
+
+            // Checksum based on entity count + health (game-logic state).
+            // Positions are NOT included because movement uses frame-rate-dependent
+            // deltaTime, causing tiny floating-point drift between clients.
+            // Commands are still synchronized via lockstep — drift is cosmetic only.
+            var query = em.CreateEntityQuery(typeof(NetworkedEntity));
             var entities = query.ToEntityArray(Allocator.Temp);
+
+            checksum ^= (uint)(entities.Length * 31);
 
             for (int i = 0; i < entities.Length; i++)
             {
                 var netEntity = em.GetComponentData<NetworkedEntity>(entities[i]);
-                var transform = em.GetComponentData<Unity.Transforms.LocalTransform>(entities[i]);
-                
-                checksum ^= (uint)netEntity.NetworkId;
-                checksum ^= (uint)(transform.Position.x * 100);
-                checksum ^= (uint)(transform.Position.z * 100);
+                checksum ^= (uint)(netEntity.NetworkId * 7919);
+
+                // Include health if present — tracks combat state
+                if (em.HasComponent<Health>(entities[i]))
+                {
+                    var hp = em.GetComponentData<Health>(entities[i]);
+                    checksum ^= (uint)(hp.Value * 17 + hp.Max * 53);
+                }
             }
-            
+
             entities.Dispose();
             return checksum;
         }

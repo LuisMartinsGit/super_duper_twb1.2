@@ -15,6 +15,7 @@ namespace TheWaningBorder.AI
         private const float MISSION_UPDATE_INTERVAL = 4.0f;
         private const int MIN_DEFENSE_STRENGTH = 3;
         private const int MIN_ATTACK_STRENGTH = 5;
+        private const double BLIND_ATTACK_DELAY = 180.0; // 3 min before attacking without sightings
 
         private NativeHashMap<int, int> _nextMissionId;
 
@@ -115,7 +116,18 @@ namespace TheWaningBorder.AI
             }
             else if (sightings.Length == 0 && availableStrength >= attackThreshold)
             {
-                AILogger.Log(brain.Owner, "MISSION", "Attack blocked — no enemy sightings");
+                // No sightings — after enough time, attack toward nearest enemy base
+                double elapsed = SystemAPI.Time.ElapsedTime;
+                if (elapsed >= BLIND_ATTACK_DELAY)
+                {
+                    AILogger.Log(brain.Owner, "MISSION", "No sightings — creating blind attack toward enemy base");
+                    CreateBlindAttackMission(ref state, brain, availableStrength, ecb);
+                }
+                else
+                {
+                    AILogger.Log(brain.Owner, "MISSION",
+                        $"Attack blocked — no sightings, waiting {BLIND_ATTACK_DELAY - elapsed:F0}s more");
+                }
             }
             else if (availableStrength < attackThreshold)
             {
@@ -249,6 +261,69 @@ namespace TheWaningBorder.AI
                 ecb.AddComponent(missionEntity, new FactionTag { Value = brain.Owner });
                 ecb.AddBuffer<AssignedArmy>(missionEntity);
             }
+        }
+
+        /// <summary>
+        /// When scouts haven't found enemies after BLIND_ATTACK_DELAY, attack the nearest
+        /// enemy Hall directly. Ensures the AI eventually attacks even without scouting intel.
+        /// </summary>
+        private void CreateBlindAttackMission(ref SystemState state, AIBrain brain,
+            int availableStrength, EntityCommandBuffer ecb)
+        {
+            // Find nearest enemy Hall
+            float3 basePos = GetBasePosition(ref state, brain.Owner);
+            float3 bestTarget = float3.zero;
+            float bestDist = float.MaxValue;
+            Faction targetFaction = Faction.Blue;
+
+            foreach (var (factionTag, transform, building) in
+                SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<BuildingTag>>())
+            {
+                if (factionTag.ValueRO.Value == brain.Owner) continue;
+                if (building.ValueRO.IsBase == 0) continue;
+
+                float dist = math.distance(basePos, transform.ValueRO.Position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestTarget = transform.ValueRO.Position;
+                    targetFaction = factionTag.ValueRO.Value;
+                }
+            }
+
+            if (bestDist >= float.MaxValue) return; // No enemy base found
+
+            // Check if attack mission already exists near this target
+            foreach (var (mission, fTag) in SystemAPI.Query<RefRO<AIMission>, RefRO<FactionTag>>())
+            {
+                if (fTag.ValueRO.Value == brain.Owner &&
+                    mission.ValueRO.Type == MissionType.Attack &&
+                    mission.ValueRO.Status != MissionStatus.Completed)
+                {
+                    if (math.distance(mission.ValueRO.TargetPosition, bestTarget) < 30f)
+                        return; // Already have an attack mission there
+                }
+            }
+
+            int missionId = GetNextMissionId(brain.Owner);
+            var missionEntity = ecb.CreateEntity();
+
+            ecb.AddComponent(missionEntity, new AIMission
+            {
+                MissionId = missionId,
+                Type = MissionType.Attack,
+                Status = MissionStatus.Pending,
+                TargetPosition = bestTarget,
+                TargetFaction = targetFaction,
+                RequiredStrength = MIN_ATTACK_STRENGTH,
+                AssignedStrength = 0,
+                CreatedTime = SystemAPI.Time.ElapsedTime,
+                LastUpdateTime = SystemAPI.Time.ElapsedTime,
+                Priority = 7
+            });
+
+            ecb.AddComponent(missionEntity, new FactionTag { Value = brain.Owner });
+            ecb.AddBuffer<AssignedArmy>(missionEntity);
         }
 
         private void CreateRaidMissions(ref SystemState state, AIBrain brain,

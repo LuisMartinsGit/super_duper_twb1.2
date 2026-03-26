@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Research;
 
 namespace TheWaningBorder.Systems.Training
 {
@@ -57,9 +58,11 @@ namespace TheWaningBorder.Systems.Training
             var deferredSpawns = new NativeList<DeferredSpawn>(4, Allocator.Temp);
 
             // ═══════════ Phase 1: Process timers, collect spawn requests ═══════════
+            // Exclude BatchTrainingTag entities — those are handled by BatchTrainingSystem
+            // Exclude AgeUpState entities — Hall can't train during age-up
             foreach (var (ts, entity) in SystemAPI
                          .Query<RefRW<TrainingState>>()
-                         .WithNone<UnderConstruction>()
+                         .WithNone<UnderConstruction, BatchTrainingTag, AgeUpState>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<TrainQueueItem>(entity);
@@ -88,13 +91,13 @@ namespace TheWaningBorder.Systems.Training
                     // Tick training timer
                     ts.ValueRW.Remaining -= dt;
 
-                    if (ts.ValueRO.Remaining <= 0f && queue.Length > 0)
+                    if (ts.ValueRW.Remaining <= 0f && queue.Length > 0)
                     {
                         // Training complete - check population before spawning
                         var unitId = queue[0].UnitId.ToString();
                         var em = state.EntityManager;
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
-                        int requiredPop = GetUnitPopulationCost(unitId);
+                        int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId);
 
                         // Include units already spawned this frame in the capacity check
                         int facKey = (int)faction;
@@ -158,22 +161,6 @@ namespace TheWaningBorder.Systems.Training
         }
 
         /// <summary>
-        /// Get population cost for a unit type.
-        /// </summary>
-        private static int GetUnitPopulationCost(string unitId)
-        {
-            return unitId switch
-            {
-                "Builder" => 1,
-                "Archer" => 1,
-                "Swordsman" => 1,
-                "Miner" => 1,
-                "Scout" => 1,
-                _ => 1 // Default
-            };
-        }
-
-        /// <summary>
         /// Spawns a unit from its ID. Cost already paid when queued.
         /// </summary>
         private static void SpawnUnit(ref SystemState state, EntityCommandBuffer ecb, Entity building, string unitId)
@@ -207,47 +194,29 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
-            // Create unit based on type
-            Entity unit;
-            switch (unitId)
+            // Check if unit class should spawn as a battalion (Melee or Ranged)
+            var unitClass = UnitFactory.GetUnitClass(unitId);
+            if (unitClass == UnitClass.Melee || unitClass == UnitClass.Ranged)
             {
-                case "Swordsman":
-                    unit = Swordsman.Create(em, finalPos, faction);
-                    break;
-                case "Archer":
-                    unit = Archer.Create(em, finalPos, faction);
-                    break;
-                case "Builder":
-                    unit = Builder.Create(em, finalPos, faction);
-                    break;
-                case "Miner":
-                    unit = Miner.Create(em, finalPos, faction);
-                    break;
-                case "Scout":
-                    unit = Scout.Create(em, finalPos, faction);
-                    break;
-                case "Litharch":
-                    unit = Litharch.Create(em, finalPos, faction);
-                    break;
-                case "Berserker":
-                case "Feraldis_Berserker":
-                    unit = Berserker.Create(em, finalPos, faction);
-                    break;
-                default:
-                    unit = Swordsman.Create(em, finalPos, faction);
-                    UnityEngine.Debug.LogWarning($"Unknown unit type '{unitId}', spawning Swordsman");
-                    break;
+                Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
+                TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
+
+                // Rally point handling for leader
+                if (hasRally)
+                {
+                    em.SetComponentData(leader, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                    em.SetComponentData(leader, new GuardPoint { Position = rallyTarget, Has = 1 });
+                }
+
+                UnityEngine.Debug.Log($"Spawned {unitId} battalion for {faction} at {finalPos}");
+                return;
             }
 
-            // Apply stats from TechTreeDB
-            if (TechTreeDB.Instance != null &&
-                TechTreeDB.Instance.TryGetUnit(unitId, out var udef))
-            {
-                ecb.SetComponent(unit, new Health { Value = (int)udef.hp, Max = (int)udef.hp });
-                ecb.SetComponent(unit, new MoveSpeed { Value = udef.speed });
-                ecb.SetComponent(unit, new Damage { Value = (int)udef.damage });
-                ecb.SetComponent(unit, new LineOfSight { Radius = udef.lineOfSight });
-            }
+            // Create individual unit via centralized UnitFactory (economy, siege, support, etc.)
+            Entity unit = UnitFactory.Create(em, unitId, finalPos, faction);
+
+            // Apply all completed tech effects to the newly spawned unit
+            TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
 
             // Issue move command to rally point if one is set
             if (hasRally)

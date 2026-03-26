@@ -57,6 +57,7 @@ namespace TheWaningBorder.AI
             if (count == 0) return;
 
             int cols = (int)math.ceil(math.sqrt(count));
+            int rows = (int)math.ceil((float)count / cols);
             int row = 0, col = 0;
 
             for (int i = 0; i < units.Length; i++)
@@ -66,7 +67,7 @@ namespace TheWaningBorder.AI
                 float3 offset = new float3(
                     (col - cols / 2f) * spacing,
                     0,
-                    (row - cols / 2f) * spacing
+                    (row - rows / 2f) * spacing
                 );
 
                 float3 targetPos = destination + offset;
@@ -99,6 +100,7 @@ namespace TheWaningBorder.AI
             if (count == 0) return;
 
             int cols = (int)math.ceil(math.sqrt(count));
+            int rows = (int)math.ceil((float)count / cols);
             int row = 0, col = 0;
 
             for (int i = 0; i < armyUnits.Length; i++)
@@ -109,7 +111,7 @@ namespace TheWaningBorder.AI
                 float3 offset = new float3(
                     (col - cols / 2f) * spacing,
                     0,
-                    (row - cols / 2f) * spacing
+                    (row - rows / 2f) * spacing
                 );
 
                 float3 targetPos = destination + offset;

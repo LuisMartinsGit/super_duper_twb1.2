@@ -24,7 +24,8 @@ namespace TheWaningBorder.Core.Config
     {
         Empty = 0,
         Human = 1,
-        AI = 2
+        AI = 2,
+        Observer = 3
     }
 
     /// <summary>
@@ -35,7 +36,8 @@ namespace TheWaningBorder.Core.Config
     {
         Empty = 0,
         Human = 1,
-        AI = 2
+        AI = 2,
+        Observer = 3
     }
 
     /// <summary>
@@ -130,7 +132,9 @@ namespace TheWaningBorder.Core.Config
 
         public static void SetupSinglePlayer(int playerCount)
         {
-            ActiveSlotCount = Mathf.Clamp(playerCount, 2, 8);
+            // Allow 1 player in Sandbox mode, otherwise min 2
+            int minPlayers = GameSettings.IsSandbox ? 1 : 2;
+            ActiveSlotCount = Mathf.Clamp(playerCount, minPlayers, 8);
 
             for (int i = 0; i < 8; i++)
             {

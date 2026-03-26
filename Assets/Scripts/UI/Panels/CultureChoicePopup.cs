@@ -3,13 +3,10 @@
 
 using UnityEngine;
 using Unity.Entities;
-using Unity.Transforms;
-using Unity.Mathematics;
-using Unity.Collections;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
-using TheWaningBorder.Entities;
+using TheWaningBorder.UI.HUD;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -235,69 +232,31 @@ namespace TheWaningBorder.UI.Panels
             // 1. Spend resources
             if (!FactionEconomy.Spend(em, _faction, CultureConfig.AgeUpCost))
             {
-                Debug.LogWarning("[CultureChoicePopup] Cannot afford age-up cost!");
+                PlayerNotificationSystem.NotifyError("Not enough resources to advance");
                 return;
             }
 
-            // 2. Set FactionProgress.Culture on the Hall entity
-            if (em.Exists(_hallEntity) && em.HasComponent<FactionProgress>(_hallEntity))
+            // 2. Add AgeUpState timer to the Hall — completion handled by AgeUpSystem
+            if (em.Exists(_hallEntity))
             {
-                var progress = em.GetComponentData<FactionProgress>(_hallEntity);
-                progress.Culture = culture;
-                em.SetComponentData(_hallEntity, progress);
+                float duration = CultureConfig.AgeUpDuration;
+                if (!em.HasComponent<AgeUpState>(_hallEntity))
+                {
+                    em.AddComponentData(_hallEntity, new AgeUpState
+                    {
+                        Culture = culture,
+                        Duration = duration,
+                        Remaining = duration
+                    });
+                }
             }
 
-            // 3. Scale the Hall 1.3x
-            if (em.Exists(_hallEntity) && em.HasComponent<LocalTransform>(_hallEntity))
-            {
-                var lt = em.GetComponentData<LocalTransform>(_hallEntity);
-                lt.Scale = 1.3f;
-                em.SetComponentData(_hallEntity, lt);
-            }
+            // 3. Register culture with FactionColors so UI/rendering picks it up immediately
+            FactionColors.SetFactionCulture(_faction, culture);
 
-            // 4. Culture-specific effects
-            if (culture == Cultures.Alanthor)
-            {
-                // Start 2-minute self-destruct countdown on all faction GathererHuts
-                StartGathererHutSelfDestruct(em, _faction);
-            }
-
-            Debug.Log($"[CultureChoicePopup] {_faction} advanced to Era 2 — culture: {CultureConfig.GetName(culture)}");
+            Debug.Log($"[CultureChoicePopup] {_faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)} ({CultureConfig.AgeUpDuration}s)");
 
             Close();
-        }
-
-        /// <summary>
-        /// When Alanthor is chosen, all existing GathererHuts of this faction
-        /// receive a 2-minute self-destruct timer with 80% cost refund.
-        /// </summary>
-        private static void StartGathererHutSelfDestruct(EntityManager em, Faction faction)
-        {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<UnderConstruction>(),
-                ComponentType.Exclude<SelfDestructTimer>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            int count = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                em.AddComponentData(entities[i], new SelfDestructTimer
-                {
-                    TimeRemaining = 120f, // 2 minutes
-                    RefundPaid = 0
-                });
-                count++;
-            }
-
-            if (count > 0)
-                Debug.Log($"[CultureChoicePopup] {count} Gatherer's Hut(s) marked for self-destruct (2 min)");
         }
 
         // ═══════════════════════════════════════════════════════════

@@ -17,6 +17,9 @@ using TheWaningBorder.AI;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Systems.Research;
+using TheWaningBorder.Systems.Movement;
+using TheWaningBorder.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -35,6 +38,9 @@ namespace TheWaningBorder.Bootstrap
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()
         {
+            // Reset static state — required when domain reload is disabled
+            _didSetupThisScene = false;
+
             SceneManager.sceneLoaded -= OnSceneLoadedHandler;
             SceneManager.sceneLoaded += OnSceneLoadedHandler;
             OnSceneLoadedHandler(SceneManager.GetActiveScene(), LoadSceneMode.Single);
@@ -51,6 +57,31 @@ namespace TheWaningBorder.Bootstrap
 
             // 0. Ensure ECS world exists (may have been disposed on previous game exit)
             EnsureECSWorld();
+
+            // Battalion test mode: minimal bootstrap with just battalions
+            if (GameSettings.Mode == GameMode.BattalionTest)
+            {
+                InitializeDataSystems();
+                PathfindingTestSetup.Bootstrap();
+                Debug.Log("[GameBootstrap] BattalionTest mode initialized");
+                return;
+            }
+
+            // Scenario mode: minimal bootstrap with predefined combat layouts
+            if (GameSettings.Mode == GameMode.Scenario)
+            {
+                InitializeDataSystems();
+                ScenarioSetup.Bootstrap();
+                Debug.Log($"[GameBootstrap] Scenario mode initialized: {GameSettings.ActiveScenario}");
+                return;
+            }
+
+            // 0.5. Initialize lockstep BEFORE anything else in multiplayer
+            // This ensures LockstepServiceLocator.Instance is available when commands are issued
+            if (GameSettings.IsMultiplayer && LockstepBootstrap.Instance != null)
+            {
+                LockstepBootstrap.Instance.InitializeLockstepNow();
+            }
 
             // 1. Initialize core data systems (TechTreeDB)
             InitializeDataSystems();
@@ -161,9 +192,18 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
+            managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
+            managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
+            managersGO.AddComponent<FormationPreview>();        // Formation preview arrows at destination
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
+            managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
+            managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
+            managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
+            managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
+            managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
+            managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC key)
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
@@ -183,11 +223,33 @@ namespace TheWaningBorder.Bootstrap
                 Debug.Log("[GameBootstrap] Created ProceduralTerrain");
             }
 
-            // Initialize fog of war if enabled
-            if (GameSettings.FogOfWarEnabled)
+            // Create passability grid for flow-field pathfinding (needs terrain)
+            var existingGrid = Object.FindFirstObjectByType<PassabilityGrid>();
+            if (existingGrid == null)
+            {
+                var gridGO = new GameObject("PassabilityGrid");
+                gridGO.AddComponent<PassabilityGrid>();
+                Debug.Log("[GameBootstrap] Created PassabilityGrid");
+            }
+
+            // Create flow field manager for obstacle-aware pathfinding (needs grid)
+            var existingFFM = Object.FindFirstObjectByType<FlowFieldManager>();
+            if (existingFFM == null)
+            {
+                var ffmGO = new GameObject("FlowFieldManager");
+                ffmGO.AddComponent<FlowFieldManager>();
+                Debug.Log("[GameBootstrap] Created FlowFieldManager");
+            }
+
+            // Initialize fog of war if enabled (disabled for Observer - they see everything)
+            if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)
             {
                 FogOfWarManager.SetupFogOfWar();
                 Debug.Log("[GameBootstrap] Fog of war initialized");
+            }
+            else if (GameSettings.IsObserver)
+            {
+                Debug.Log("[GameBootstrap] Fog of war disabled (Observer mode)");
             }
         }
 
@@ -211,6 +273,13 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeAI()
         {
+            // Sandbox mode: no AI opponents
+            if (GameSettings.IsSandbox)
+            {
+                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox mode)");
+                return;
+            }
+
             AIBootstrap.InitializeAIPlayers(GameSettings.TotalPlayers, GameSettings.LocalPlayerFaction);
 
             for (int i = 0; i < GameSettings.TotalPlayers; i++)

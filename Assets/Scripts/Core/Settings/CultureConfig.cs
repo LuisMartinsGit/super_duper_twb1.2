@@ -40,12 +40,17 @@ public static class CultureConfig
         "Fierce warband culture.\nBonus: Hunting bonuses, aggressive units."
     };
 
-    // ==================== Age-Up Cost ====================
+    // ==================== Age-Up Cost & Duration ====================
 
     /// <summary>
     /// Resource cost to advance from Era 1 to Era 2.
     /// </summary>
     public static readonly Cost AgeUpCost = Cost.Of(supplies: 1000, iron: 200, crystal: 150);
+
+    /// <summary>
+    /// Time in seconds for the age-up process to complete after culture is chosen.
+    /// </summary>
+    public static float AgeUpDuration = 60f;
 
     // ==================== Lookup Methods ====================
 

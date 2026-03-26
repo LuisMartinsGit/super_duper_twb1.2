@@ -131,6 +131,33 @@ namespace TheWaningBorder.UI.Common
         }
 
         /// <summary>
+        /// Format a cost with rich text coloring.
+        /// Resources the player cannot afford are shown in red; affordable ones in the given color hex.
+        /// </summary>
+        public static string FormatCostRich(TheWaningBorder.Core.Cost cost, TheWaningBorder.Core.Cost available, string affordHex = "#b8e6b8")
+        {
+            if (cost.IsZero) return "Free";
+
+            var sb = new System.Text.StringBuilder(128);
+
+            void Add(string name, int needed, int have)
+            {
+                if (needed <= 0) return;
+                if (sb.Length > 0) sb.Append("  ");
+                string hex = have >= needed ? affordHex : "#ff5555";
+                sb.Append($"<color={hex}>{name} {needed}</color>");
+            }
+
+            Add("S", cost.Supplies, available.Supplies);
+            Add("Fe", cost.Iron, available.Iron);
+            Add("Cr", cost.Crystal, available.Crystal);
+            Add("Vs", cost.Veilsteel, available.Veilsteel);
+            Add("Gl", cost.Glow, available.Glow);
+
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Draw a progress bar.
         /// </summary>
         public static void DrawProgressBar(Rect rect, float progress, Color fillColor, Color bgColor)
@@ -229,7 +256,9 @@ namespace TheWaningBorder.UI.Common
             gameObject.AddComponent<Panels.EntityInfoPanel>();
             gameObject.AddComponent<Panels.EntityActionPanel>();
             gameObject.AddComponent<Panels.CultureChoicePopup>();
+            gameObject.AddComponent<Panels.TechTreePanel>();
             gameObject.AddComponent<HUD.FloatingHealthBars>();
+            gameObject.AddComponent<HUD.PlayerNotificationSystem>();
         }
 
         void Update()
@@ -258,12 +287,24 @@ namespace TheWaningBorder.UI.Common
             {
                 var e = sel[i];
                 if (!manager.Exists(e)) continue;
-                if (!manager.HasComponent<FactionTag>(e)) continue;
+                if (!IsValidSelectable(manager, e)) continue;
 
                 return e;
             }
 
             return Entity.Null;
+        }
+
+        /// <summary>
+        /// Check if an entity is valid for UI selection display.
+        /// Accepts faction-owned entities and neutral resource deposits.
+        /// </summary>
+        private static bool IsValidSelectable(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<FactionTag>(e)) return true;
+            if (em.HasComponent<IronMineTag>(e)) return true;
+            if (em.HasComponent<CadaverTag>(e)) return true;
+            return false;
         }
 
         /// <summary>
@@ -288,7 +329,9 @@ namespace TheWaningBorder.UI.Common
         {
             return Panels.EntityInfoPanel.IsPointerOver()
                 || Panels.EntityActionPanel.IsPointerOver()
-                || Panels.CultureChoicePopup.IsPointerOver();
+                || Panels.CultureChoicePopup.IsPointerOver()
+                || Panels.TechTreePanel.IsPointerOver()
+                || SpellPanel.IsPointerOverPanel;
         }
 
         /// <summary>
@@ -304,6 +347,55 @@ namespace TheWaningBorder.UI.Common
                 return world.EntityManager;
 
             return default;
+        }
+
+        /// <summary>
+        /// Get all currently selected entities (valid and existing).
+        /// </summary>
+        public static System.Collections.Generic.List<Entity> GetAllSelectedEntities()
+        {
+            var sel = SelectionSystem.CurrentSelection;
+            if (sel == null) return new System.Collections.Generic.List<Entity>();
+
+            var manager = GetEntityManager();
+            if (manager.Equals(default(EntityManager))) return new System.Collections.Generic.List<Entity>();
+
+            var result = new System.Collections.Generic.List<Entity>(sel.Count);
+            for (int i = 0; i < sel.Count; i++)
+            {
+                var e = sel[i];
+                if (manager.Exists(e) && IsValidSelectable(manager, e))
+                    result.Add(e);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Get count of valid selected entities.
+        /// </summary>
+        public static int GetSelectionCount()
+        {
+            var sel = SelectionSystem.CurrentSelection;
+            if (sel == null) return 0;
+
+            var manager = GetEntityManager();
+            if (manager.Equals(default(EntityManager))) return 0;
+
+            int count = 0;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (manager.Exists(sel[i]) && IsValidSelectable(manager, sel[i]))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Returns true if more than one entity is selected.
+        /// </summary>
+        public static bool IsMultiSelection()
+        {
+            return GetSelectionCount() > 1;
         }
     }
 }

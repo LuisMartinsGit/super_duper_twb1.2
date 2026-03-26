@@ -31,6 +31,9 @@ public struct EntityDisplayInfo
     public bool HasResourceGeneration;
     public float? SuppliesPerMinute;
     public int? IronPerMinute;
+    public int? CrystalPerMinute;
+    public int? VeilsteelPerMinute;
+    public int? GlowPerMinute;
 
     // Miner info
     public bool HasMinerInfo;
@@ -55,6 +58,7 @@ public struct EntityDisplayInfo
         public ActionType Type;
         public List<ActionButton> Actions;
         public TrainingInfo? TrainingState;
+        public ResearchInfo? ResearchState;
     }
 
     /// <summary>
@@ -65,7 +69,10 @@ public struct EntityDisplayInfo
         None,
         BuildingPlacement,
         UnitTraining,
-        VaultManagement
+        VaultManagement,
+        UnitTrainingAndResearch,
+        TempleUpgrade,
+        BattalionStance
     }
 
     /// <summary>
@@ -93,10 +100,25 @@ public struct TrainingInfo
     public int QueuePosition;
     public string CurrentUnitId;
     public float TimeRemaining;
-    public string[] Queue;           // ADD THIS - queue of unit IDs
-    
+    public string[] Queue;           // Queue of unit IDs (excludes currently training)
+    public int QueueCapacity;        // Total items in buffer (including currently training)
+
     // Computed property for convenience
-        public bool IsTraining;       // ADD THIS (set when constructing the struct)
+        public bool IsTraining;       // Set when constructing the struct
 }
-    
+
+    /// <summary>
+    /// Research queue information for the action panel.
+    /// </summary>
+    public struct ResearchInfo
+    {
+        public string CurrentTechId;
+        public string CurrentTechName;
+        public float Progress;         // 0..1
+        public float Total;
+        public float TimeRemaining;
+        public string[] Queue;
+        public bool IsResearching;
+    }
+
 }

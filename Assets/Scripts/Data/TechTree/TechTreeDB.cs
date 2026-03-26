@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Mathematics;
 using TheWaningBorder.Data;
 
 [DefaultExecutionOrder(-10000)]
@@ -64,6 +65,11 @@ public sealed class TechTreeDB : MonoBehaviour
     /// Get all unit definitions.
     /// </summary>
     public IEnumerable<UnitDef> GetAllUnits() => _unitsById.Values;
+
+    /// <summary>
+    /// Get all technology definitions.
+    /// </summary>
+    public IEnumerable<TechnologyDef> GetAllTechnologies() => _technologiesById.Values;
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIFECYCLE
@@ -190,6 +196,35 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Alanthor_Cataphract");
             ParseUnit(json, "Alanthor_Ballista");
 
+            // Parse Era 2 - Runai
+            Debug.Log("[TechTreeDB] Parsing Runai (Era 2)...");
+            ParseBuilding(json, "ThessarasBazaar");
+            ParseBuilding(json, "Runai_Outpost");
+            ParseBuilding(json, "Runai_TradeHub");
+            ParseBuilding(json, "Runai_Vault");
+            ParseBuilding(json, "Runai_VeilsteelFoundry");
+            ParseBuilding(json, "Runai_SiegeWorkshop");
+
+            ParseUnit(json, "Runai_Spearman");
+            ParseUnit(json, "Runai_Skirmisher");
+            ParseUnit(json, "Runai_Raider");
+            ParseUnit(json, "Runai_Catapult");
+            ParseUnit(json, "Runai_Caravan");
+            ParseUnit(json, "Runai_Escort");
+
+            // Parse Runai Technologies
+            ParseTechnology(json, "Runai_LongHaulTariffs");
+            ParseTechnology(json, "Runai_PackBazaar");
+            ParseTechnology(json, "Runai_EscortedCaravans");
+
+            // Parse Technologies (Era 1)
+            Debug.Log("[TechTreeDB] Parsing Technologies...");
+            ParseTechnology(json, "Research_Era2");
+            ParseTechnology(json, "ImprovedTools");
+            ParseTechnology(json, "StorageCarts");
+            ParseTechnology(json, "BasicDrills");
+            ParseTechnology(json, "WoodenArmor");
+
             // Parse Sects
             Debug.Log("[TechTreeDB] Parsing Sects...");
             ParseAllSects(json);
@@ -297,7 +332,8 @@ public sealed class TechTreeDB : MonoBehaviour
             defense = ParseDefenseBlock(buildingJson),
             trains = ParseStringArray(buildingJson, "trains"),
             research = ParseStringArray(buildingJson, "research"),
-            cost = ParseCostBlock(buildingJson)
+            cost = ParseCostBlock(buildingJson),
+            minEra = (int)ParseFloat(buildingJson, "minEra", 0, 0)
         };
 
         _buildingsById[buildingId] = building;
@@ -381,7 +417,9 @@ public sealed class TechTreeDB : MonoBehaviour
             role = ParseString(techJson, "role", ""),
             researchTime = ParseFloat(techJson, "researchTime", 0, 30),
             researchAt = ParseString(techJson, "researchAt", ""),
-            cost = ParseCostBlock(techJson)
+            cost = ParseCostBlock(techJson),
+            prerequisites = ParseStringArray(techJson, "requires"),
+            effects = ParseTechEffects(techJson)
         };
 
         _technologiesById[techId] = tech;
@@ -395,38 +433,140 @@ public sealed class TechTreeDB : MonoBehaviour
     {
         int sectsIndex = json.IndexOf("\"sects\":");
         if (sectsIndex == -1) return;
-        
+
         int listIndex = json.IndexOf("\"list\":", sectsIndex);
         if (listIndex == -1) return;
-        
+
         int arrayStart = json.IndexOf("[", listIndex);
         if (arrayStart == -1) return;
-        
+
         int searchPos = arrayStart;
         int arrayEnd = json.IndexOf("]", arrayStart);
-        
+
         while (true)
         {
             int sectStart = json.IndexOf("{", searchPos);
             if (sectStart == -1 || sectStart > arrayEnd) break;
-            
+
             int sectEnd = FindMatchingBrace(json, sectStart);
             if (sectEnd == -1) break;
-            
+
             string sectJson = json.Substring(sectStart, sectEnd - sectStart + 1);
-            
+
             var sect = new SectDef
             {
                 id = ParseString(sectJson, "id", ""),
                 order = ParseString(sectJson, "order", ""),
                 affinity = ParseString(sectJson, "affinity", "")
             };
-            
+
             if (!string.IsNullOrEmpty(sect.id))
+            {
                 _sectsById[sect.id] = sect;
-            
+
+                // Parse embedded unit definition (JSON id → "Sect_" + normalized id)
+                ParseSectUnit(sectJson, sect.id);
+
+                // Parse embedded tech definition (JSON id → "Tech_" + id)
+                ParseSectTech(sectJson, sect.id);
+            }
+
             searchPos = sectEnd + 1;
         }
+    }
+
+    /// <summary>
+    /// Parse the "unit" block embedded inside a sect JSON entry.
+    /// Normalizes the ID to "Sect_" + PascalCase (e.g., "Golem_Autark" → "Sect_GolemAutark").
+    /// Registers the unit in _unitsById so chapel training can look it up.
+    /// </summary>
+    void ParseSectUnit(string sectJson, string sectId)
+    {
+        int unitIndex = sectJson.IndexOf("\"unit\":");
+        if (unitIndex == -1) return;
+
+        int blockStart = sectJson.IndexOf("{", unitIndex);
+        if (blockStart == -1) return;
+
+        int blockEnd = FindMatchingBrace(sectJson, blockStart);
+        if (blockEnd == -1) return;
+
+        string unitJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
+        string rawId = ParseString(unitJson, "id", "");
+        if (string.IsNullOrEmpty(rawId)) return;
+
+        // Normalize: "Golem_Autark" → "GolemAutark", then prefix with "Sect_"
+        string normalizedId = "Sect_" + rawId.Replace("_", "");
+
+        var unit = new UnitDef
+        {
+            id = normalizedId,
+            unitClass = ParseString(unitJson, "class", ""),
+            name = rawId.Replace("_", " "),  // "Golem_Autark" → "Golem Autark"
+            hp = ParseFloat(unitJson, "hp", 0, 100),
+            speed = ParseFloat(unitJson, "speed", 0, 5),
+            trainingTime = ParseFloat(unitJson, "trainingTime", 0, 15),  // Default 15s
+            damage = ParseFloat(unitJson, "damage", 0, 10),
+            attackRange = ParseFloat(unitJson, "attackRange", 0, 1.5f),
+            minAttackRange = ParseFloat(unitJson, "minAttackRange", 0, 0f),
+            lineOfSight = ParseFloat(unitJson, "lineOfSight", 0, 14),  // Default 14
+            armorType = ParseString(unitJson, "armorType", "infantry_heavy"),
+            damageType = ParseString(unitJson, "damageType", "melee"),
+            defense = ParseDefenseBlock(unitJson),
+            cost = ParseCostBlock(unitJson)
+        };
+
+        // Apply default cost if none specified in JSON
+        if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Crystal == 0))
+        {
+            unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
+        }
+
+        _unitsById[normalizedId] = unit;
+        Debug.Log($"[TechTreeDB] Sect unit: {normalizedId} (from {sectId}) HP={unit.hp} Dmg={unit.damage}");
+    }
+
+    /// <summary>
+    /// Parse the "tech" block embedded inside a sect JSON entry.
+    /// Normalizes the ID to "Tech_" + raw id (e.g., "DietaryMandate" → "Tech_DietaryMandate").
+    /// Registers the tech in _technologiesById so chapel research can look it up.
+    /// </summary>
+    void ParseSectTech(string sectJson, string sectId)
+    {
+        int techIndex = sectJson.IndexOf("\"tech\":");
+        if (techIndex == -1) return;
+
+        int blockStart = sectJson.IndexOf("{", techIndex);
+        if (blockStart == -1) return;
+
+        int blockEnd = FindMatchingBrace(sectJson, blockStart);
+        if (blockEnd == -1) return;
+
+        string techJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
+        string rawId = ParseString(techJson, "id", "");
+        if (string.IsNullOrEmpty(rawId)) return;
+
+        // Prefix with "Tech_"
+        string normalizedId = "Tech_" + rawId;
+
+        var tech = new TechnologyDef
+        {
+            id = normalizedId,
+            name = rawId.Replace("_", " "),  // Already PascalCase in JSON, just clean underscores
+            effect = ParseString(techJson, "effect", ""),
+            desc = ParseString(techJson, "effect", ""),  // Use effect as desc
+            researchTime = ParseFloat(techJson, "researchTime", 0, 45),  // Default 45s
+            cost = ParseCostBlock(techJson)
+        };
+
+        // Apply default cost if none specified
+        if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Crystal == 0))
+        {
+            tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
+        }
+
+        _technologiesById[normalizedId] = tech;
+        Debug.Log($"[TechTreeDB] Sect tech: {normalizedId} (from {sectId}) Time={tech.researchTime}s");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -476,6 +616,29 @@ public sealed class TechTreeDB : MonoBehaviour
         cost.Glow = (int)ParseFloat(costBlock, "Glow", 0, 0);
         
         return cost;
+    }
+
+    TechEffects ParseTechEffects(string json)
+    {
+        int effectsIndex = json.IndexOf("\"effects\":");
+        if (effectsIndex == -1) return null;
+
+        int blockStart = json.IndexOf("{", effectsIndex);
+        int blockEnd = json.IndexOf("}", blockStart);
+
+        if (blockStart == -1 || blockEnd == -1) return null;
+
+        string effectsBlock = json.Substring(blockStart, blockEnd - blockStart + 1);
+
+        var effects = new TechEffects
+        {
+            gatherSpeedMult = ParseFloat(effectsBlock, "gatherSpeedMult", 0, 0),
+            carryCapacityBonus = (int)ParseFloat(effectsBlock, "carryCapacityBonus", 0, 0),
+            meleeAttackSpeedMult = ParseFloat(effectsBlock, "meleeAttackSpeedMult", 0, 0),
+            meleeDefenseAdd = (int)ParseFloat(effectsBlock, "meleeDefenseAdd", 0, 0)
+        };
+
+        return effects.HasAnyEffect ? effects : null;
     }
 
     string[] ParseStringArray(string json, string fieldName)
@@ -562,5 +725,91 @@ public sealed class TechTreeDB : MonoBehaviour
         if (end == -1) return defaultValue;
         
         return json.Substring(start + 1, end - start - 1);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMBAT MODIFIER MATRIX
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// Static lookup for damage-type x armor-type modifier matrix and final damage calculation.
+/// Lazy-initialized on first access. Thread-safe via static initializer.
+///
+/// Matrix layout:
+///   Rows = DamageType (Melee, Ranged, Siege, Magic, True)
+///   Cols = ArmorType  (InfantryLight, InfantryHeavy, Ranged, Cavalry, Structure, StructureHuman)
+/// </summary>
+public static class CombatModifiers
+{
+    // 5 damage types x 6 armor types
+    private static readonly float[,] _modifiers;
+
+    static CombatModifiers()
+    {
+        _modifiers = new float[5, 6];
+
+        // Melee vs: Light=1.0, Heavy=1.0, Ranged=1.1, Cavalry=0.9, Structure=0.2, StructHuman=0.2
+        _modifiers[0, 0] = 1.0f;  _modifiers[0, 1] = 1.0f;  _modifiers[0, 2] = 1.1f;
+        _modifiers[0, 3] = 0.9f;  _modifiers[0, 4] = 0.2f;  _modifiers[0, 5] = 0.2f;
+
+        // Ranged vs: 1.1, 0.9, 1.0, 0.8, 0.15, 0.15
+        _modifiers[1, 0] = 1.1f;  _modifiers[1, 1] = 0.9f;  _modifiers[1, 2] = 1.0f;
+        _modifiers[1, 3] = 0.8f;  _modifiers[1, 4] = 0.15f; _modifiers[1, 5] = 0.15f;
+
+        // Siege vs: 0.6, 0.8, 0.8, 0.7, 3.0, 2.4
+        _modifiers[2, 0] = 0.6f;  _modifiers[2, 1] = 0.8f;  _modifiers[2, 2] = 0.8f;
+        _modifiers[2, 3] = 0.7f;  _modifiers[2, 4] = 3.0f;  _modifiers[2, 5] = 2.4f;
+
+        // Magic vs: 1.1, 0.9, 1.1, 1.0, 0.5, 0.45
+        _modifiers[3, 0] = 1.1f;  _modifiers[3, 1] = 0.9f;  _modifiers[3, 2] = 1.1f;
+        _modifiers[3, 3] = 1.0f;  _modifiers[3, 4] = 0.5f;  _modifiers[3, 5] = 0.45f;
+
+        // True vs: all 1.0 (ignores armor type)
+        _modifiers[4, 0] = 1.0f;  _modifiers[4, 1] = 1.0f;  _modifiers[4, 2] = 1.0f;
+        _modifiers[4, 3] = 1.0f;  _modifiers[4, 4] = 1.0f;  _modifiers[4, 5] = 1.0f;
+    }
+
+    /// <summary>
+    /// Look up the damage modifier for a given damage-type attacking a given armor-type.
+    /// </summary>
+    public static float GetModifier(DamageType dmg, ArmorType armor)
+    {
+        return _modifiers[(int)dmg, (int)armor];
+    }
+
+    /// <summary>
+    /// Extract the defense value relevant to the incoming damage type.
+    /// True damage always returns 0 (bypasses defense).
+    /// </summary>
+    public static int GetDefenseValue(Defense def, DamageType dmgType)
+    {
+        return dmgType switch
+        {
+            DamageType.Melee  => def.Melee,
+            DamageType.Ranged => def.Ranged,
+            DamageType.Siege  => def.Siege,
+            DamageType.Magic  => def.Magic,
+            DamageType.True   => 0, // True damage ignores defense
+            _ => 0
+        };
+    }
+
+    /// <summary>
+    /// Full damage pipeline:
+    ///   1. Type modifier   (damage type vs armor type matrix)
+    ///   2. Height modifier  (attacker elevation advantage/disadvantage)
+    ///   3. Crystal modifier (buff/debuff multiplier)
+    ///   4. Defense reduction (diminishing returns: def / (def + 100))
+    ///
+    /// Returns at least 1 damage.
+    /// </summary>
+    public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
+        ArmorType armorType, int defenseValue, float heightMod, float crystalMod)
+    {
+        float typeModifier  = GetModifier(dmgType, armorType);
+        float defReduction  = 1f - (defenseValue / (float)(defenseValue + 100));
+        int   finalDmg      = (int)math.round(baseDamage * typeModifier * heightMod * crystalMod * defReduction);
+        return math.max(1, finalDmg);
     }
 }

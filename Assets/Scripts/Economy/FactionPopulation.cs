@@ -193,18 +193,24 @@ namespace TheWaningBorder.Economy
                 "Swordsman" => 1,
                 "Litharch" => 1,
                 
+                // Runai units
+                "Runai_Spearman" => 1,
+                "Runai_Skirmisher" => 1,
+                "Runai_Raider" => 1,
+                "Runai_Catapult" => 2,
+
                 // Feraldis units
                 "Feraldis_Berserker" => 1,
                 "Feraldis_Hunter" => 1,
-                "Feraldis_WarboarRider" => 2,
-                "Feraldis_SiegeRam" => 3,
-                
+                "Feraldis_WarboarRider" => 1,
+                "Feraldis_SiegeRam" => 2,
+
                 // Alanthor units
                 "Alanthor_Sentinel" => 1,
                 "Alanthor_Crossbowman" => 1,
                 "Alanthor_Cataphract" => 2,
-                "Alanthor_Ballista" => 3,
-                
+                "Alanthor_Ballista" => 2,
+
                 // Default for unknown units
                 _ => 1
             };

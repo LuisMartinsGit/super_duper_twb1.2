@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 
@@ -15,10 +16,6 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(AIEconomyManager))]
     public partial struct AIBuildingManager : ISystem
     {
-        private const float BUILD_CHECK_INTERVAL = 3.0f;
-        private const int TARGET_BUILDERS = 3;
-        private const int MAX_BUILDERS = 5;
-
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -77,9 +74,9 @@ namespace TheWaningBorder.AI
 
             int queueSize = buildingState.QueuedConstructions;
             if (queueSize > 3)
-                buildingState.DesiredBuilders = math.min(MAX_BUILDERS, TARGET_BUILDERS + 1);
+                buildingState.DesiredBuilders = math.min(AITuning.MaxBuilders, AITuning.TargetBuilders + 1);
             else
-                buildingState.DesiredBuilders = TARGET_BUILDERS;
+                buildingState.DesiredBuilders = AITuning.TargetBuilders;
 
             int queuedBuilders = CountQueuedBuilders(ref state, faction);
             int totalBuilders = builderCount + queuedBuilders;
@@ -178,7 +175,16 @@ namespace TheWaningBorder.AI
                            resources.ValueRO.Crystal >= buildingDef.cost.Crystal;
                 }
 
-                return resources.ValueRO.Supplies >= 100;
+                // TechTreeDB unavailable — fall back to static BuildCosts table
+                if (BuildCosts.TryGet(buildingType.ToString(), out var fallbackCost))
+                {
+                    return resources.ValueRO.Supplies >= fallbackCost.Supplies &&
+                           resources.ValueRO.Iron >= fallbackCost.Iron &&
+                           resources.ValueRO.Crystal >= fallbackCost.Crystal;
+                }
+
+                // Unknown building — deny construction
+                return false;
             }
 
             return false;
@@ -229,9 +235,13 @@ namespace TheWaningBorder.AI
                     res.Veilsteel -= buildingDef.cost.Veilsteel;
                     res.Glow -= buildingDef.cost.Glow;
                 }
-                else
+                else if (BuildCosts.TryGet(buildingType.ToString(), out var fallbackCost))
                 {
-                    res.Supplies -= 100;
+                    res.Supplies -= fallbackCost.Supplies;
+                    res.Iron -= fallbackCost.Iron;
+                    res.Crystal -= fallbackCost.Crystal;
+                    res.Veilsteel -= fallbackCost.Veilsteel;
+                    res.Glow -= fallbackCost.Glow;
                 }
 
                 break;
@@ -241,117 +251,125 @@ namespace TheWaningBorder.AI
         private Entity CreateBuilding(ref SystemState state, Faction faction,
             FixedString64Bytes buildingType, float3 position, EntityCommandBuffer ecb)
         {
-            string typeStr = buildingType.ToString();
+            // Delegate to BuildingFactory — single source of truth for building creation.
+            // The factory handles stats from TechTreeDB, building-specific components,
+            // and all Era 1 + culture buildings.
+            var buildingId = buildingType.ToString();
+            Entity building = BuildingFactory.Create(ecb, buildingId, position, faction);
 
-            // Load stats from TechTreeDB
-            float hp = 500f;
-            float los = 14f;
-            float radius = 1.5f;
-            float buildTime = 20f;
+            if (building == Entity.Null)
+                return Entity.Null;
 
-            if (TechTreeDB.Instance != null &&
-                TechTreeDB.Instance.TryGetBuilding(typeStr, out var buildingDef))
-            {
-                if (buildingDef.hp > 0) hp = buildingDef.hp;
-                if (buildingDef.lineOfSight > 0) los = buildingDef.lineOfSight;
-                if (buildingDef.radius > 0) radius = buildingDef.radius;
-            }
+            // Mark as under construction so builders must complete it
+            // (mirrors the player path in BuilderCommandPanel.SpawnSelectedBuilding)
+            float buildTime = GetBuildTime(buildingId);
+            ecb.AddComponent(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
-            var building = ecb.CreateEntity();
-
-            // Per-building scale (GatherersHut prefab has baked root scale 0.44)
-            float scale = buildingType.Equals("GatherersHut") ? 0.44f : 1f;
-
-            // Common components for all buildings
-            ecb.AddComponent(building, LocalTransform.FromPositionRotationScale(
-                position, quaternion.identity, scale));
-            ecb.AddComponent(building, new FactionTag { Value = faction });
-            ecb.AddComponent(building, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(building, new Health { Value = 1, Max = (int)hp });
-            ecb.AddComponent(building, new LineOfSight { Radius = los });
-            ecb.AddComponent(building, new Radius { Value = radius });
-
-            // Under construction — builder must finish it
-            ecb.AddComponent(building, new Buildable { BuildTimeSeconds = buildTime });
-            ecb.AddComponent(building, new UnderConstruction { Progress = 0, Total = buildTime });
-
-            // Building-specific components
-            if (buildingType.Equals("GatherersHut"))
-            {
-                ecb.AddComponent(building, new GathererHutTag());
-                ecb.AddComponent(building, new SuppliesIncome { PerTick = 15f, Interval = 10f });
-                ecb.AddComponent(building, new PresentationId { Id = 101 });
-            }
-            else if (buildingType.Equals("Hut"))
-            {
-                ecb.AddComponent<HutTag>(building);
-                ecb.AddComponent(building, new PopulationProvider { Amount = 10 });
-                ecb.AddComponent(building, new PresentationId { Id = 102 });
-            }
-            else if (buildingType.Equals("Barracks"))
-            {
-                ecb.AddComponent<BarracksTag>(building);
-                ecb.AddComponent(building, new TrainingState { Busy = 0, Remaining = 0 });
-                ecb.AddBuffer<TrainQueueItem>(building);
-                ecb.AddComponent(building, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-                ecb.AddComponent(building, new PresentationId { Id = 510 });
-            }
-            else if (buildingType.Equals("Hall"))
-            {
-                ecb.AddComponent(building, new BuildingTag { IsBase = 1 });
-                ecb.AddComponent<HallTag>(building);
-                ecb.AddComponent(building, new SuppliesIncome { PerTick = 50f, Interval = 15f });
-                ecb.AddComponent(building, new TrainingState { Busy = 0, Remaining = 0 });
-                ecb.AddBuffer<TrainQueueItem>(building);
-                ecb.AddComponent(building, new PopulationProvider { Amount = 20 });
-                ecb.AddComponent(building, new FactionProgress { Culture = Cultures.None });
-                ecb.AddComponent(building, new RallyPoint { Position = position + new float3(5f, 0, 5f), Has = 1 });
-                ecb.AddComponent(building, new BuildingRangedAttack
-                {
-                    Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
-                });
-                ecb.AddComponent(building, new PresentationId { Id = 100 });
-            }
-            else if (buildingType.Equals("TempleOfRidan"))
-            {
-                ecb.AddComponent<TempleTag>(building);
-                ecb.AddComponent<ChoiceBuildingTag>(building);
-                ecb.AddComponent(building, new TrainingState { Busy = 0, Remaining = 0 });
-                ecb.AddBuffer<TrainQueueItem>(building);
-                ecb.AddComponent(building, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-                ecb.AddComponent(building, new PresentationId { Id = 520 });
-            }
-            else if (buildingType.Equals("VaultOfAlmierra"))
-            {
-                ecb.AddComponent<VaultTag>(building);
-                ecb.AddComponent<ChoiceBuildingTag>(building);
-                ecb.AddComponent(building, new VaultStorage
-                {
-                    ResourceType = 0, StoredAmount = 0f,
-                    InterestRate = 0.03f, LockTimer = 0f, LockDuration = 180f
-                });
-                ecb.AddComponent(building, new PresentationId { Id = 530 });
-            }
-            else if (buildingType.Equals("FiendstoneKeep"))
-            {
-                ecb.AddComponent(building, new BuildingTag { IsBase = 1 });
-                ecb.AddComponent<FiendstoneKeepTag>(building);
-                ecb.AddComponent<ChoiceBuildingTag>(building);
-                ecb.AddComponent(building, new PopulationProvider { Amount = 20 });
-                ecb.AddComponent(building, new BuildingRangedAttack
-                {
-                    Range = 25f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 3
-                });
-                ecb.AddComponent(building, new PresentationId { Id = 540 });
-            }
-            else
-            {
-                // Default unknown building
-                ecb.AddComponent(building, new PresentationId { Id = BuildingFactory.GetPresentationId(typeStr) });
-            }
+            // Set HP to 1 during construction (restored to max on completion)
+            int maxHP = GetDefaultMaxHP(buildingId);
+            ecb.SetComponent(building, new Health { Value = 1, Max = maxHP });
 
             return building;
         }
+
+        /// <summary>
+        /// Returns the build time for a building type.
+        /// Values match those in BuilderCommandPanel.SpawnSelectedBuilding.
+        /// </summary>
+        private static float GetBuildTime(string buildingId)
+        {
+            return buildingId switch
+            {
+                "Hall"                   => 30f,
+                "Hut"                    => 15f,
+                "GatherersHut"           => 20f,
+                "Barracks"               => 30f,
+                "TempleOfRidan"          => 40f,
+                "VaultOfAlmierra"        => 40f,
+                "FiendstoneKeep"         => 40f,
+                "Alanthor_Smelter"       => 30f,
+                "Runai_Outpost"          => 25f,
+                "Runai_TradeHub"         => 30f,
+                "ThessarasBazaar"        => 40f,
+                "Runai_SiegeWorkshop"    => 35f,
+                "Alanthor_Tower"         => 25f,
+                "Alanthor_Garrison"      => 30f,
+                "Alanthor_Stable"        => 35f,
+                "Alanthor_SiegeYard"     => 35f,
+                "Feraldis_HuntingLodge"  => 25f,
+                "Feraldis_LoggingStation" => 25f,
+                "Feraldis_Longhouse"     => 30f,
+                "Feraldis_Tower"         => 25f,
+                "Feraldis_SiegeYard"     => 35f,
+                _                        => 25f  // Reasonable default
+            };
+        }
+
+        /// <summary>
+        /// Returns the default max HP for a building type.
+        /// Uses TechTreeDB when available, otherwise falls back to hardcoded defaults
+        /// matching the values in BuildingFactory.
+        /// </summary>
+        private static int GetDefaultMaxHP(string buildingId)
+        {
+            // Prefer TechTreeDB (authoritative source)
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding(buildingId, out var def))
+            {
+                if (def.hp > 0) return (int)def.hp;
+            }
+
+            // Fallback defaults matching BuildingFactory hardcoded values
+            return buildingId switch
+            {
+                "Hall"                   => 2400,
+                "Hut"                    => 600,
+                "GatherersHut"           => 800,
+                "Barracks"               => 600,
+                "TempleOfRidan"          => 800,
+                "VaultOfAlmierra"        => 1200,
+                "FiendstoneKeep"         => 2000,
+                "Alanthor_Smelter"       => 1000,
+                "Runai_Outpost"          => 900,
+                "Runai_TradeHub"         => 1200,
+                "ThessarasBazaar"        => 2700,
+                "Runai_SiegeWorkshop"    => 1100,
+                "Alanthor_Tower"         => 950,
+                "Alanthor_Garrison"      => 1500,
+                "Alanthor_Stable"        => 1300,
+                "Alanthor_SiegeYard"     => 1100,
+                "Feraldis_HuntingLodge"  => 1000,
+                "Feraldis_LoggingStation" => 1000,
+                "Feraldis_Longhouse"     => 1400,
+                "Feraldis_Tower"         => 900,
+                "Feraldis_SiegeYard"     => 1200,
+                _                        => 1000  // Reasonable default
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TODO: Era 2+ culture building logic (Issue #91)
+        //
+        // The AI currently only builds Era 1 buildings (Hall, Hut, GatherersHut,
+        // Barracks) plus the three choice buildings. After aging up, each culture
+        // unlocks additional building types that the AI does not yet request:
+        //
+        //   Runai:    Runai_Outpost, Runai_TradeHub, ThessarasBazaar,
+        //             Runai_SiegeWorkshop
+        //   Alanthor: Alanthor_Tower, Alanthor_Garrison, Alanthor_Stable,
+        //             Alanthor_SiegeYard, Alanthor_Smelter, Alanthor_Crucible,
+        //             KingsCourt
+        //   Feraldis: Feraldis_HuntingLodge, Feraldis_LoggingStation,
+        //             Feraldis_Longhouse, Feraldis_Tower, Feraldis_SiegeYard,
+        //             Feraldis_BeastPen, Feraldis_Foundry
+        //
+        // Implementation plan:
+        //   1. After age-up, read the faction's culture from FactionProgress
+        //   2. Add culture-specific build order priorities to AITuning
+        //   3. Queue culture buildings via BuildRequest (BuildingFactory.Create
+        //      already supports all of these types)
+        //   4. Handle prerequisite chains (e.g., Garrison before Stable)
+        //   5. Adjust military unit training to use culture-specific barracks
+        // ═══════════════════════════════════════════════════════════════════════
 
         private void AssignIdleBuildersToTasks(ref SystemState state, Faction faction, EntityCommandBuffer ecb)
         {

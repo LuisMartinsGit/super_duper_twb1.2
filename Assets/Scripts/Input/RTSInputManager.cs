@@ -12,6 +12,7 @@ using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.UI.Panels;
+using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Entities;
 
 namespace TheWaningBorder.Input
@@ -38,16 +39,15 @@ namespace TheWaningBorder.Input
         [Header("Formation")]
         [SerializeField] private float formationSpacing = 2.0f;
         
-        [Header("Debug")]
-        [SerializeField] private bool showHelp = true;
-        
         // ═══════════════════════════════════════════════════════════════════════
         // STATE
         // ═══════════════════════════════════════════════════════════════════════
         
         private EntityWorld _world;
         private EntityManager _em;
-        
+        private bool _attackMoveMode = false;
+        private bool _patrolMode = false;
+
         /// <summary>
         /// Currently hovered entity (for UI highlighting).
         /// </summary>
@@ -62,6 +62,10 @@ namespace TheWaningBorder.Input
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated)
                 _em = _world.EntityManager;
+
+            // Ensure ControlGroupSystem exists
+            if (FindObjectOfType<ControlGroupSystem>() == null)
+                gameObject.AddComponent<ControlGroupSystem>();
         }
 
         void Update()
@@ -76,12 +80,16 @@ namespace TheWaningBorder.Input
             if (ShouldBlockInput())
                 return;
 
+            // Update hover state (always allowed, even for observers)
+            UpdateHover();
+
+            // Observer mode: block all commands but allow hover/selection
+            if (GameSettings.IsObserver)
+                return;
+
             // Handle hotkeys
             HandleHotkeys();
-            
-            // Update hover state
-            UpdateHover();
-            
+
             // Handle right-click commands
             HandleRightClick();
         }
@@ -103,8 +111,20 @@ namespace TheWaningBorder.Input
             if (EntityActionPanel.IsPointerOver() || EntityInfoPanel.IsPointerOver())
                 return true;
 
+            // Block if mouse is over spell panel
+            if (SpellPanel.IsPointerOverPanel)
+                return true;
+
+            // Block if culture choice popup is visible (modal dialog)
+            if (CultureChoicePopup.IsVisible)
+                return true;
+
             // Block during building placement
             if (BuilderCommandPanel.IsPlacingBuilding)
+                return true;
+
+            // Block if in-game menu is open
+            if (InGameMenuPanel.IsOpen)
                 return true;
 
             return false;
@@ -116,10 +136,112 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - Clear selection
+            // ESC - cascading: close menu > cancel modes > clear selection > open menu
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
-                SelectionSystem.ClearSelection();
+                if (InGameMenuPanel.IsOpen)
+                {
+                    InGameMenuPanel.Toggle();
+                }
+                else if (PlanningModeOverlay.IsActive)
+                {
+                    PlanningModeOverlay.Cancel();
+                }
+                else if (_attackMoveMode || _patrolMode)
+                {
+                    _attackMoveMode = false;
+                    _patrolMode = false;
+                }
+                else if (SelectionSystem.CurrentSelection != null && SelectionSystem.CurrentSelection.Count > 0)
+                {
+                    SelectionSystem.ClearSelection();
+                }
+                else
+                {
+                    InGameMenuPanel.Toggle();
+                }
+            }
+
+            // A - Enter attack-move mode
+            if (UnityEngine.Input.GetKeyDown(KeyCode.A))
+            {
+                _attackMoveMode = true;
+                _patrolMode = false;
+            }
+
+            // P - Enter patrol mode
+            if (UnityEngine.Input.GetKeyDown(KeyCode.P))
+            {
+                _patrolMode = true;
+                _attackMoveMode = false;
+            }
+
+            // S - Stop all selected units
+            if (UnityEngine.Input.GetKeyDown(KeyCode.S))
+            {
+                _attackMoveMode = false;
+                _patrolMode = false;
+                IssueStopToSelection();
+            }
+
+            // H - Hold position for all selected units
+            if (UnityEngine.Input.GetKeyDown(KeyCode.H))
+            {
+                _attackMoveMode = false;
+                _patrolMode = false;
+                IssueHoldPositionToSelection();
+            }
+
+            // D - Set battalion stance to Aggressive (BFME2 layout)
+            if (UnityEngine.Input.GetKeyDown(KeyCode.D))
+            {
+                IssueStanceToSelection(BattalionStance.Aggressive);
+            }
+
+            // F - Set battalion stance to Default / Standard (BFME2 layout)
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F))
+            {
+                IssueStanceToSelection(BattalionStance.Default);
+            }
+
+            // G - Set battalion stance to Defensive (BFME2 layout)
+            if (UnityEngine.Input.GetKeyDown(KeyCode.G))
+            {
+                IssueStanceToSelection(BattalionStance.Defensive);
+            }
+
+            // Z - Toggle planning mode (BFME2); Enter also executes
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Z))
+            {
+                if (PlanningModeOverlay.IsActive)
+                    PlanningModeOverlay.ExecuteAll(_em);
+                else
+                    PlanningModeOverlay.Toggle();
+            }
+            if (PlanningModeOverlay.IsActive && UnityEngine.Input.GetKeyDown(KeyCode.Return))
+            {
+                PlanningModeOverlay.ExecuteAll(_em);
+            }
+
+            // Control groups (1-9)
+            for (int i = 0; i < 9; i++)
+            {
+                if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha1 + i))
+                {
+                    bool ctrl = UnityEngine.Input.GetKey(KeyCode.LeftControl)
+                             || UnityEngine.Input.GetKey(KeyCode.RightControl);
+                    bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift)
+                              || UnityEngine.Input.GetKey(KeyCode.RightShift);
+
+                    if (ctrl)
+                        ControlGroupSystem.AssignGroup(i);
+                    else if (shift)
+                        ControlGroupSystem.AddToGroup(i);
+                    else
+                        ControlGroupSystem.HandleRecallOrCenter(i);
+
+                    break;
+                }
             }
         }
         
@@ -156,9 +278,73 @@ namespace TheWaningBorder.Input
 
             if (!TryGetClickPoint(out float3 clickWorld)) return;
 
+            // ── Planning mode intercept: queue into plan list instead of executing ──
+            if (PlanningModeOverlay.IsActive)
+            {
+                var target0 = RaycastPickEntity();
+                var targetType0 = DetermineTargetType(target0);
+                var cmdType = QueuedCommandType.Move;
+                if (_attackMoveMode) { cmdType = QueuedCommandType.AttackMove; _attackMoveMode = false; }
+                else if (_patrolMode) { cmdType = QueuedCommandType.Patrol; _patrolMode = false; }
+
+                foreach (var e in selection)
+                {
+                    if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
+                    if (!IsOwnedByLocalPlayer(e)) continue;
+                    if (_em.HasComponent<BattalionMemberData>(e)) continue;
+                    PlanningModeOverlay.AddPlan(e, cmdType, clickWorld);
+                }
+                return;
+            }
+
+            // ── Shift+Right-Click: queue waypoint instead of replacing command ──
+            bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
+            if (shift && !_attackMoveMode && !_patrolMode)
+            {
+                QueueWaypointForSelection(clickWorld);
+                return;
+            }
+
             // Determine target and issue appropriate command
             var target = RaycastPickEntity();
             var targetType = DetermineTargetType(target);
+
+            // Attack-move mode: A + right-click
+            if (_attackMoveMode)
+            {
+                _attackMoveMode = false;
+                var amCaps = DetermineCapabilities();
+
+                if (targetType == TargetType.Enemy && amCaps.CanAttack)
+                {
+                    // Clicking enemy in attack-move mode issues normal attack
+                    IssueAttackCommands(target);
+                }
+                else if (targetType == TargetType.Ground || targetType == TargetType.FriendlyUnit
+                         || targetType == TargetType.FriendlyBuilding || targetType == TargetType.Resource)
+                {
+                    // Clicking ground (or non-enemy) issues attack-move formation
+                    IssueAttackMoveFormation(clickWorld);
+                }
+                return;
+            }
+
+            // Patrol mode: P + right-click
+            if (_patrolMode)
+            {
+                _patrolMode = false;
+                if (targetType == TargetType.Enemy)
+                {
+                    var pCaps = DetermineCapabilities();
+                    if (pCaps.CanAttack)
+                        IssueAttackCommands(target);
+                }
+                else
+                {
+                    IssuePatrolCommands(clickWorld);
+                }
+                return;
+            }
 
             // If ONLY owned buildings are selected and right-clicking ground, set rally point
             if (targetType == TargetType.Ground && HasOnlyOwnedBuildings())
@@ -209,6 +395,16 @@ namespace TheWaningBorder.Input
 
                 case TargetType.Ground:
                 default:
+                    // If miners are selected and click is near a deposit, gather instead of move
+                    if (capabilities.CanGather)
+                    {
+                        Entity nearbyDeposit = FindNearestResourceNearClick(clickWorld);
+                        if (nearbyDeposit != Entity.Null)
+                        {
+                            IssueGatherCommands(nearbyDeposit);
+                            break;
+                        }
+                    }
                     IssueFormationMove(clickWorld);
                     break;
             }
@@ -218,6 +414,70 @@ namespace TheWaningBorder.Input
         // COMMAND ISSUANCE
         // ═══════════════════════════════════════════════════════════════════════
         
+        private void IssueStopToSelection()
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
+
+                CommandRouter.IssueStop(_em, e, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
+        private void IssueHoldPositionToSelection()
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
+
+                CommandRouter.IssueHoldPosition(_em, e, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
+        private void IssueStanceToSelection(BattalionStance stance)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            // Track leaders already processed to avoid duplicates
+            var processed = new HashSet<Entity>();
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+
+                // Resolve to battalion leader
+                Entity leader = Entity.Null;
+                if (_em.HasComponent<BattalionLeader>(e))
+                {
+                    leader = e;
+                }
+                else if (_em.HasComponent<BattalionMemberData>(e))
+                {
+                    leader = _em.GetComponentData<BattalionMemberData>(e).Leader;
+                }
+
+                if (leader == Entity.Null || !_em.Exists(leader)) continue;
+                if (processed.Contains(leader)) continue;
+                processed.Add(leader);
+
+                CommandRouter.IssueStanceChange(_em, leader, stance, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
         private void SetRallyPoints(float3 position)
         {
             foreach (var e in SelectionSystem.CurrentSelection)
@@ -238,6 +498,7 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue; // Buildings can't attack-move
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
                 CommandRouter.IssueAttack(_em, e, target, CommandRouter.CommandSource.LocalPlayer);
             }
@@ -427,6 +688,19 @@ namespace TheWaningBorder.Input
             }
         }
 
+        private void IssuePatrolCommands(float3 destination)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
+
+                CommandRouter.IssuePatrol(_em, e, destination, CommandRouter.CommandSource.LocalPlayer);
+            }
+        }
+
         private void IssueFormationMove(float3 clickWorld)
         {
             var selection = SelectionSystem.CurrentSelection;
@@ -441,6 +715,9 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
+                    continue;
+                // Battalion members follow formation automatically; only route to leader
+                if (_em.HasComponent<BattalionMemberData>(e))
                     continue;
 
                 units.Add(e);
@@ -502,29 +779,147 @@ namespace TheWaningBorder.Input
             // Arrival time = how long the slowest unit takes to cover the max distance
             float arrivalTime = maxDist / slowestSpeed;
 
-            // Issue moves with formation speed overrides for synchronized arrival
+            // Issue moves — all units move at the slowest speed (BFME2 group move)
             for (int i = 0; i < count; i++)
             {
                 CommandRouter.IssueMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
 
-                if (arrivalTime > 0.1f && dists[i] > 0.5f)
-                {
-                    float formationSpeed = Mathf.Min(dists[i] / arrivalTime, speeds[i]);
-                    formationSpeed = Mathf.Max(formationSpeed, 0.5f);
-
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.SetComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                    else
-                        _em.AddComponentData(units[i], new FormationSpeedOverride { Value = formationSpeed });
-                }
+                if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                    _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
                 else
-                {
-                    if (_em.HasComponent<FormationSpeedOverride>(units[i]))
-                        _em.RemoveComponent<FormationSpeedOverride>(units[i]);
-                }
+                    _em.AddComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
             }
         }
-        
+
+        /// <summary>
+        /// Shift+right-click: queue a move waypoint on each selected unit instead of replacing their current command.
+        /// </summary>
+        private void QueueWaypointForSelection(float3 clickWorld)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (_em.HasComponent<BattalionMemberData>(e)) continue;
+
+                // If unit has no current destination, issue move directly
+                bool hasDest = _em.HasComponent<DesiredDestination>(e)
+                    && _em.GetComponentData<DesiredDestination>(e).Has != 0;
+                bool hasQueue = _em.HasComponent<CommandQueueActive>(e);
+
+                if (!hasDest && !hasQueue)
+                {
+                    CommandRouter.IssueMove(_em, e, clickWorld, CommandRouter.CommandSource.LocalPlayer);
+                    continue;
+                }
+
+                // Append to command queue
+                if (!_em.HasBuffer<QueuedCommand>(e))
+                    _em.AddBuffer<QueuedCommand>(e);
+                _em.GetBuffer<QueuedCommand>(e).Add(new QueuedCommand
+                {
+                    Type = QueuedCommandType.Move,
+                    TargetPosition = clickWorld,
+                    TargetEntity = Entity.Null
+                });
+
+                if (!_em.HasComponent<CommandQueueActive>(e))
+                    _em.AddComponent<CommandQueueActive>(e);
+            }
+        }
+
+        private void IssueAttackMoveFormation(float3 clickWorld)
+        {
+            var selection = SelectionSystem.CurrentSelection;
+
+            // Collect movable units with their positions and speeds (only owned units)
+            var units = new List<Entity>();
+            var positions = new List<float3>();
+            var speeds = new List<float>();
+
+            foreach (var e in selection)
+            {
+                if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
+                    continue;
+                if (!IsOwnedByLocalPlayer(e))
+                    continue;
+                // Battalion members follow formation automatically; only route to leader
+                if (_em.HasComponent<BattalionMemberData>(e))
+                    continue;
+
+                units.Add(e);
+                positions.Add(_em.HasComponent<LocalTransform>(e)
+                    ? _em.GetComponentData<LocalTransform>(e).Position
+                    : float3.zero);
+                speeds.Add(_em.HasComponent<MoveSpeed>(e)
+                    ? _em.GetComponentData<MoveSpeed>(e).Value
+                    : 3.5f);
+            }
+
+            int count = units.Count;
+            if (count == 0) return;
+
+            // Calculate formation grid
+            int cols = Mathf.CeilToInt(Mathf.Sqrt(count));
+            int rows = Mathf.CeilToInt((float)count / cols);
+
+            // Get camera-relative directions
+            var cam = Camera.main;
+            Vector3 camForward = cam
+                ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized
+                : Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, camForward).normalized;
+
+            float3 forward = new float3(camForward.x, camForward.y, camForward.z);
+            float3 rightF3 = new float3(right.x, right.y, right.z);
+
+            // Top-left of formation
+            float3 topLeft = clickWorld
+                - rightF3 * ((cols - 1) * formationSpacing * 0.5f)
+                + forward * ((rows - 1) * formationSpacing * 0.5f);
+
+            // Calculate slots and find slowest speed / max distance
+            var slots = new float3[count];
+            var dists = new float[count];
+            float slowestSpeed = float.MaxValue;
+            float maxDist = 0f;
+
+            for (int i = 0; i < count; i++)
+            {
+                int row = i / cols;
+                int col = i % cols;
+                slots[i] = topLeft + rightF3 * (col * formationSpacing) - forward * (row * formationSpacing);
+
+                float3 to = slots[i] - positions[i];
+                to.y = 0;
+                dists[i] = math.length(to);
+
+                if (speeds[i] > 0 && speeds[i] < slowestSpeed)
+                    slowestSpeed = speeds[i];
+                if (dists[i] > maxDist)
+                    maxDist = dists[i];
+            }
+
+            if (slowestSpeed <= 0f || slowestSpeed == float.MaxValue)
+                slowestSpeed = 3.5f;
+
+            // Arrival time = how long the slowest unit takes to cover the max distance
+            float arrivalTime = maxDist / slowestSpeed;
+
+            // Issue attack-move with formation speed overrides for synchronized arrival
+            for (int i = 0; i < count; i++)
+            {
+                CommandRouter.IssueAttackMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
+
+                // All units move at slowest speed (BFME2 group move)
+                if (_em.HasComponent<FormationSpeedOverride>(units[i]))
+                    _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
+                else
+                    _em.AddComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // TARGET TYPE DETECTION
         // ═══════════════════════════════════════════════════════════════════════
@@ -537,7 +932,7 @@ namespace TheWaningBorder.Input
                 return TargetType.Ground;
 
             // Check if it's a resource node (iron mine or crystal node)
-            if (_em.HasComponent<TheWaningBorder.AI.IronMineTag>(target))
+            if (_em.HasComponent<IronMineTag>(target))
                 return TargetType.Resource;
             if (_em.HasComponent<CadaverTag>(target))
                 return TargetType.Resource;
@@ -581,8 +976,8 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
 
-                // Can attack if has Damage component
-                if (_em.HasComponent<Damage>(e))
+                // Can attack if has Damage component or is a battalion leader
+                if (_em.HasComponent<Damage>(e) || _em.HasComponent<BattalionLeader>(e))
                     caps.CanAttack = true;
 
                 // Can gather if is a miner
@@ -608,27 +1003,6 @@ namespace TheWaningBorder.Input
             return _em.HasComponent<LitharchTag>(e);
         }
         
-        private bool HasSelectedBuildings()
-        {
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (_em.Exists(e) && _em.HasComponent<BuildingTag>(e))
-                    return true;
-            }
-            return false;
-        }
-
-        private bool HasOnlyBuildings()
-        {
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!_em.HasComponent<BuildingTag>(e))
-                    return false;
-            }
-            return true;
-        }
-
         /// <summary>
         /// Returns true if the entity belongs to the local player's faction.
         /// </summary>
@@ -713,7 +1087,30 @@ namespace TheWaningBorder.Input
             ents.Dispose();
             return nearest;
         }
-        
+
+        /// <summary>
+        /// Searches for the nearest non-depleted resource deposit (iron mine or cadaver)
+        /// near the click position. Uses the first selected miner's LineOfSight radius
+        /// as the search range, or 30 units as a fallback.
+        /// </summary>
+        private Entity FindNearestResourceNearClick(float3 clickPos)
+        {
+            // Determine search radius from the first selected miner's LOS
+            float searchRadius = 30f;
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (!_em.HasComponent<MinerTag>(e)) continue;
+
+                if (_em.HasComponent<LineOfSight>(e))
+                    searchRadius = _em.GetComponentData<LineOfSight>(e).Radius;
+                break;
+            }
+
+            return GatherCommandHelper.FindNearestDepositNearPosition(_em, clickPos, searchRadius);
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // RAYCASTING
         // ═══════════════════════════════════════════════════════════════════════
@@ -765,21 +1162,28 @@ namespace TheWaningBorder.Input
 
         void OnGUI()
         {
-            if (!showHelp) return;
-            
-            GUILayout.BeginArea(new Rect(10, 10, 300, 200));
-            GUILayout.Label("Controls:");
-            GUILayout.Label("Left-click: Select unit");
-            GUILayout.Label("Left-drag: Box select");
-            GUILayout.Label("Right-click: Move/Attack/Gather");
-            GUILayout.Label("ESC: Clear selection");
-
-            if (GameSettings.IsMultiplayer)
+            // Mode indicators as centered banner at top of screen
+            if (_attackMoveMode || _patrolMode)
             {
-                GUILayout.Label($"Faction: {GameSettings.LocalPlayerFaction}");
-                GUILayout.Label("Multiplayer: Active");
+                string modeText = _attackMoveMode ? "ATTACK-MOVE MODE" : "PATROL MODE";
+                float bannerW = 250f;
+                float bannerH = 30f;
+                float bannerX = (Screen.width - bannerW) * 0.5f;
+                float bannerY = 50f;
+
+                GUI.color = new Color(0f, 0f, 0f, 0.7f);
+                GUI.DrawTexture(new Rect(bannerX, bannerY, bannerW, bannerH), Texture2D.whiteTexture);
+                GUI.color = new Color(1f, 0.85f, 0.3f);
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Bold,
+                    fontSize = 14
+                };
+                style.normal.textColor = new Color(1f, 0.85f, 0.3f);
+                GUI.Label(new Rect(bannerX, bannerY, bannerW, bannerH), modeText, style);
+                GUI.color = Color.white;
             }
-            GUILayout.EndArea();
         }
     }
     

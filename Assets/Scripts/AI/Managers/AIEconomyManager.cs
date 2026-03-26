@@ -9,6 +9,7 @@ using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.AI
 {
@@ -16,14 +17,6 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(Unity.Transforms.TransformSystemGroup))]
     public partial struct AIEconomyManager : ISystem
     {
-        private const float MINE_CHECK_INTERVAL = 5.0f;
-        private const int TARGET_MINERS_PER_MINE = 3;
-        private const int MAX_MINERS = 9; // Cap: 3 mines × 3 miners each in early game
-        private const int MIN_SUPPLIES_THRESHOLD = 200;
-        private const int TARGET_GATHERERS_HUTS = 3;
-        private const int CRYSTAL_FOR_CHOICE_BUILDING = 100;
-        private const float CHOICE_BUILDING_CHECK_INTERVAL = 15.0f;
-
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -90,6 +83,9 @@ namespace TheWaningBorder.AI
                     {
                         AILogger.Log(faction, "ECONOMY", "Skipping miner check — no GathererHut exists yet");
                     }
+
+                    // Crystal cadaver mining — send idle miners to harvest crystal from corpses
+                    AssignMinersToCadavers(ref state, faction);
                 }
 
                 // 4-7. Barracks, military, crystal hunting — handled by AIMilitaryManager + AICrystalHuntBehavior
@@ -99,6 +95,20 @@ namespace TheWaningBorder.AI
 
                 // 9. Age up (requires completed choice building + resources)
                 CheckAgeUp(ref state, brain.ValueRO, ecb);
+
+                // 10. Vault management — deposit surplus resources for interest (Alanthor)
+                if (time >= economy.LastVaultCheck + AITuning.VaultCheckInterval)
+                {
+                    economy.LastVaultCheck = time;
+                    ManageVaults(ref state, faction);
+                }
+
+                // 11. Smelter management — assign idle miners to supply forges (Alanthor)
+                if (time >= economy.LastSmelterCheck + AITuning.SmelterCheckInterval)
+                {
+                    economy.LastSmelterCheck = time;
+                    ManageSmelters(ref state, faction);
+                }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
 
@@ -152,7 +162,7 @@ namespace TheWaningBorder.AI
             }
 
             economy.AssignedMiners = currentMiners;
-            economy.DesiredMiners = math.min(mineCount * TARGET_MINERS_PER_MINE, MAX_MINERS);
+            economy.DesiredMiners = math.min(mineCount * AITuning.TargetMinersPerMine, AITuning.MaxMiners);
 
             // MiningSystem auto-finds deposits for AI miners when they're idle,
             // so we just need to ensure enough miners are trained.
@@ -174,12 +184,12 @@ namespace TheWaningBorder.AI
             {
                 if (factionTag.ValueRO.Value != faction) continue;
 
-                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < MIN_SUPPLIES_THRESHOLD ? (byte)1 : (byte)0;
+                economy.NeedsMoreSupplyIncome = resources.ValueRO.Supplies < AITuning.MinSuppliesThreshold ? (byte)1 : (byte)0;
                 economy.NeedsMoreIronIncome = resources.ValueRO.Iron < 100 ? (byte)1 : (byte)0;
 
                 // Always want GathererHuts — keep at base target in early game
                 // Don't escalate to 5 early: that drains supplies needed for miners/barracks
-                economy.DesiredGatherersHuts = TARGET_GATHERERS_HUTS;
+                economy.DesiredGatherersHuts = AITuning.TargetGatherersHuts;
 
                 break;
             }
@@ -334,7 +344,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            if (crystalAmount < CRYSTAL_FOR_CHOICE_BUILDING) return;
+            if (crystalAmount < AITuning.CrystalForChoiceBuilding) return;
 
             // Check no pending choice building request
             foreach (var (brainComp, buildReqs) in SystemAPI.Query<RefRO<AIBrain>, DynamicBuffer<BuildRequest>>())
@@ -343,8 +353,7 @@ namespace TheWaningBorder.AI
 
                 for (int i = 0; i < buildReqs.Length; i++)
                 {
-                    string bt = buildReqs[i].BuildingType.ToString();
-                    if (bt == "TempleOfRidan" || bt == "VaultOfAlmierra" || bt == "FiendstoneKeep")
+                    if (BuildingFactory.IsChoiceBuilding(buildReqs[i].BuildingType.ToString()))
                         return; // Already pending
                 }
 
@@ -405,7 +414,7 @@ namespace TheWaningBorder.AI
             foreach (var (factionTag, progress, buildingTag, entity) in
                 SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionProgress>, RefRO<BuildingTag>>()
                 .WithAll<HallTag>()
-                .WithNone<UnderConstruction>()
+                .WithNone<UnderConstruction, AgeUpState>()
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value == faction)
@@ -457,36 +466,338 @@ namespace TheWaningBorder.AI
                 _ => Cultures.Runai // Balanced
             };
 
-            // Set FactionProgress.Culture on the Hall (non-structural write, safe)
-            var progress_val = em.GetComponentData<FactionProgress>(hallEntity);
-            progress_val.Culture = culture;
-            em.SetComponentData(hallEntity, progress_val);
-
-            // Scale the Hall 1.3x (non-structural write, safe)
-            var lt = em.GetComponentData<LocalTransform>(hallEntity);
-            lt.Scale = 1.3f;
-            em.SetComponentData(hallEntity, lt);
-
-            // Culture-specific effects — use ECB for structural changes
-            if (culture == Cultures.Alanthor)
+            // Add AgeUpState timer to the Hall — completion handled by AgeUpSystem
+            float duration = CultureConfig.AgeUpDuration;
+            ecb.AddComponent(hallEntity, new AgeUpState
             {
-                // Start 2-minute self-destruct countdown on all faction GathererHuts
-                foreach (var (ghTag, ghFaction, ghEntity) in
-                    SystemAPI.Query<RefRO<GathererHutTag>, RefRO<FactionTag>>()
-                    .WithNone<UnderConstruction, SelfDestructTimer>()
-                    .WithEntityAccess())
+                Culture = culture,
+                Duration = duration,
+                Remaining = duration
+            });
+
+            // Register culture with FactionColors so other systems can query it
+            FactionColors.SetFactionCulture(faction, culture);
+
+            AILogger.Log(faction, "ECONOMY", $"=== STARTED AGE-UP to Era 2 — culture: {CultureConfig.GetName(culture)} ({duration}s) ===");
+            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+        }
+
+        /// <summary>
+        /// Manages vault deposits for AI factions.
+        /// Finds a completed vault, picks the highest-surplus resource type, and deposits excess.
+        /// VaultStorage.ResourceType: 0=None, 1=Supplies, 2=Iron, 3=Crystal, 4=Veilsteel, 5=Glow.
+        /// </summary>
+        private void ManageVaults(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed vault
+            Entity vaultEntity = Entity.Null;
+            VaultStorage vaultData = default;
+
+            foreach (var (vault, fTag, entity) in SystemAPI
+                .Query<RefRO<VaultStorage>, RefRO<FactionTag>>()
+                .WithAll<VaultTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
                 {
-                    if (ghFaction.ValueRO.Value != faction) continue;
-                    ecb.AddComponent(ghEntity, new SelfDestructTimer
+                    vaultEntity = entity;
+                    vaultData = vault.ValueRO;
+                    break;
+                }
+            }
+
+            if (vaultEntity == Entity.Null) return;
+
+            // Skip if vault is locked
+            if (vaultData.LockTimer > 0f) return;
+
+            // Get faction resources
+            FactionResources resources = default;
+            foreach (var (fTag, res) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionResources>>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    resources = res.ValueRO;
+                    break;
+                }
+            }
+
+            // If vault already has a resource type set, deposit more of the same
+            int resourceType = vaultData.ResourceType;
+
+            if (resourceType == 0)
+            {
+                // Pick the resource type with highest surplus above threshold
+                int bestType = 0;
+                int bestSurplus = 0;
+
+                // 1=Supplies, 2=Iron, 3=Crystal
+                if (resources.Supplies > AITuning.VaultSurplusThreshold && resources.Supplies > bestSurplus)
+                { bestType = 1; bestSurplus = resources.Supplies; }
+                if (resources.Iron > AITuning.VaultSurplusThreshold && resources.Iron > bestSurplus)
+                { bestType = 2; bestSurplus = resources.Iron; }
+                if (resources.Crystal > AITuning.VaultSurplusThreshold && resources.Crystal > bestSurplus)
+                { bestType = 3; bestSurplus = resources.Crystal; }
+
+                if (bestType == 0) return; // No surplus worth depositing
+                resourceType = bestType;
+            }
+
+            // Check if we can afford the deposit
+            int available = resourceType switch
+            {
+                1 => resources.Supplies,
+                2 => resources.Iron,
+                3 => resources.Crystal,
+                4 => resources.Veilsteel,
+                5 => resources.Glow,
+                _ => 0
+            };
+
+            // Only deposit if we have surplus above threshold
+            if (available <= AITuning.VaultSurplusThreshold) return;
+            int depositAmount = math.min(AITuning.VaultDepositAmount, available - AITuning.VaultSurplusThreshold);
+            if (depositAmount <= 0) return;
+
+            // Spend from faction bank
+            Cost cost = resourceType switch
+            {
+                1 => Cost.Of(supplies: depositAmount),
+                2 => Cost.Of(iron: depositAmount),
+                3 => Cost.Of(crystal: depositAmount),
+                4 => Cost.Of(veilsteel: depositAmount),
+                5 => Cost.Of(glow: depositAmount),
+                _ => default
+            };
+
+            if (!FactionEconomy.Spend(em, faction, cost)) return;
+
+            // Deposit into vault
+            vaultData.ResourceType = resourceType;
+            vaultData.StoredAmount += depositAmount;
+            vaultData.LockTimer = vaultData.LockDuration;
+            em.SetComponentData(vaultEntity, vaultData);
+
+            AILogger.Log(faction, "ECONOMY",
+                $"Vault deposit: {depositAmount} of type {resourceType}, total stored: {(int)vaultData.StoredAmount}");
+        }
+
+        /// <summary>
+        /// Manages smelter supply for AI factions.
+        /// Finds idle miners and assigns ForgeSupplyOrders to supply the faction's smelter.
+        /// </summary>
+        private void ManageSmelters(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find this faction's completed smelter with ForgeStorage
+            Entity smelterEntity = Entity.Null;
+
+            foreach (var (forge, fTag, entity) in SystemAPI
+                .Query<RefRO<ForgeStorage>, RefRO<FactionTag>>()
+                .WithAll<SmelterTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    smelterEntity = entity;
+                    break;
+                }
+            }
+
+            if (smelterEntity == Entity.Null) return;
+
+            // Count miners already supplying this smelter
+            int assignedSuppliers = 0;
+            foreach (var (supplyOrder, fTag) in SystemAPI
+                .Query<RefRO<ForgeSupplyOrder>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                    assignedSuppliers++;
+            }
+
+            if (assignedSuppliers >= AITuning.SmelterTargetMiners)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Smelter already has {assignedSuppliers}/{AITuning.SmelterTargetMiners} supply miners");
+                return;
+            }
+
+            int needed = AITuning.SmelterTargetMiners - assignedSuppliers;
+
+            // Find idle miners of this faction (no ForgeSupplyOrder, idle state, no build order)
+            var idleMiners = new NativeList<Entity>(Allocator.Temp);
+
+            foreach (var (minerState, fTag, entity) in SystemAPI
+                .Query<RefRO<MinerState>, RefRO<FactionTag>>()
+                .WithAll<MinerTag>()
+                .WithNone<ForgeSupplyOrder, BuildOrder>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value != faction) continue;
+                if (minerState.ValueRO.State == MinerWorkState.Idle)
+                    idleMiners.Add(entity);
+            }
+
+            int toAssign = math.min(needed, idleMiners.Length);
+
+            for (int i = 0; i < toAssign; i++)
+            {
+                Entity miner = idleMiners[i];
+
+                // Reset miner state
+                var ms = em.GetComponentData<MinerState>(miner);
+                ms.State = MinerWorkState.Idle;
+                ms.AssignedDeposit = Entity.Null;
+                ms.DropoffTarget = Entity.Null;
+                em.SetComponentData(miner, ms);
+
+                // Assign forge supply order (same pattern as RTSInputManager)
+                if (em.HasComponent<ForgeSupplyOrder>(miner))
+                {
+                    em.SetComponentData(miner, new ForgeSupplyOrder
                     {
-                        TimeRemaining = 120f,
-                        RefundPaid = 0
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
+                    });
+                }
+                else
+                {
+                    em.AddComponentData(miner, new ForgeSupplyOrder
+                    {
+                        Forge = smelterEntity,
+                        ResourceType = 0,
+                        Phase = 0
                     });
                 }
             }
 
-            AILogger.Log(faction, "ECONOMY", $"=== AGED UP to Era 2 — culture: {CultureConfig.GetName(culture)} ===");
-            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} aged up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+            idleMiners.Dispose();
+
+            if (toAssign > 0)
+            {
+                AILogger.Log(faction, "ECONOMY",
+                    $"Assigned {toAssign} idle miners to supply smelter ({assignedSuppliers + toAssign}/{AITuning.SmelterTargetMiners})");
+            }
+        }
+
+        /// <summary>
+        /// Proactively sends idle AI miners to harvest crystal from cadavers (dead crystal creatures).
+        /// MiningSystem auto-finds cadavers within SearchRadius (50f), but cadavers may be far away.
+        /// This method searches the whole map for non-depleted cadavers and assigns idle miners.
+        /// </summary>
+        private void AssignMinersToCadavers(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Find non-depleted cadavers on the map
+            var cadaverList = new NativeList<Entity>(Allocator.Temp);
+            var cadaverPositions = new NativeList<float3>(Allocator.Temp);
+
+            foreach (var (cadaverState, transform, entity) in SystemAPI
+                .Query<RefRO<CadaverState>, RefRO<LocalTransform>>()
+                .WithAll<CadaverTag>()
+                .WithEntityAccess())
+            {
+                if (cadaverState.ValueRO.Depleted == 1) continue;
+                cadaverList.Add(entity);
+                cadaverPositions.Add(transform.ValueRO.Position);
+            }
+
+            if (cadaverList.Length == 0)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                return;
+            }
+
+            // Find idle miners of this faction (not already gathering, no build/forge orders)
+            var idleMiners = new NativeList<Entity>(Allocator.Temp);
+            var minerPositions = new NativeList<float3>(Allocator.Temp);
+
+            foreach (var (minerState, fTag, transform, entity) in SystemAPI
+                .Query<RefRO<MinerState>, RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<MinerTag>()
+                .WithNone<ForgeSupplyOrder, BuildOrder, GatherCommand>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value != faction) continue;
+                if (minerState.ValueRO.State != MinerWorkState.Idle) continue;
+                idleMiners.Add(entity);
+                minerPositions.Add(transform.ValueRO.Position);
+            }
+
+            if (idleMiners.Length == 0)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                idleMiners.Dispose();
+                minerPositions.Dispose();
+                return;
+            }
+
+            // Find dropoff location (nearest Hall or GathererHut)
+            Entity dropoff = Entity.Null;
+            float3 basePos = float3.zero;
+            foreach (var (fTag, transform, entity) in SystemAPI
+                .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<HallTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    dropoff = entity;
+                    basePos = transform.ValueRO.Position;
+                    break;
+                }
+            }
+
+            if (dropoff == Entity.Null)
+            {
+                cadaverList.Dispose();
+                cadaverPositions.Dispose();
+                idleMiners.Dispose();
+                minerPositions.Dispose();
+                return;
+            }
+
+            // Assign up to 2 idle miners to the nearest cadaver
+            int assigned = 0;
+            for (int m = 0; m < idleMiners.Length && assigned < 2; m++)
+            {
+                // Find nearest cadaver to this miner
+                float bestDist = float.MaxValue;
+                int bestIdx = -1;
+                for (int c = 0; c < cadaverList.Length; c++)
+                {
+                    float dist = math.distance(minerPositions[m], cadaverPositions[c]);
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        bestIdx = c;
+                    }
+                }
+
+                if (bestIdx < 0) continue;
+
+                GatherCommandHelper.Execute(em, idleMiners[m], cadaverList[bestIdx], dropoff);
+                assigned++;
+
+                AILogger.Log(faction, "ECONOMY",
+                    $"Assigned miner to cadaver (crystal) at ({cadaverPositions[bestIdx].x:F0},{cadaverPositions[bestIdx].z:F0}), dist={bestDist:F0}");
+            }
+
+            cadaverList.Dispose();
+            cadaverPositions.Dispose();
+            idleMiners.Dispose();
+            minerPositions.Dispose();
         }
 
         /// <summary>

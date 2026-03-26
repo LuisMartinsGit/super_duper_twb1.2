@@ -6,9 +6,12 @@ using Unity.Entities;
 using Unity.Collections;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Input;
 using TheWaningBorder.UI;
 using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Core.Commands;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -21,10 +24,14 @@ namespace TheWaningBorder.UI.Panels
         public static Rect PanelRect { get; private set; }
 
         private const float PanelWidth = 370f;
-        private const float PanelHeight = 260f;
         private const float PanelPadding = 10f;
-        private const float ButtonSize = 64f;
-        private const float ButtonSpacing = 8f;
+        private const float ButtonSize = 22f;
+        private const float ButtonSpacing = 3f;
+
+        /// <summary>Maximum number of items allowed in a training queue.</summary>
+        private const int MAX_TRAIN_QUEUE = 5;
+        private const float QueueSlotSize = 22f;
+        private const float QueueSlotSpacing = 2f;
 
         private GUIStyle _boxStyle;
         private GUIStyle _headerStyle;
@@ -34,7 +41,21 @@ namespace TheWaningBorder.UI.Panels
         private GUIStyle _ageUpStyle;
         private GUIStyle _requireStyle;
         private RectOffset _padding;
+        private GUIStyle _tooltipStyle;
         private bool _stylesInit = false;
+
+        /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
+        private string _hoveredTooltip;
+
+        /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
+        private int _selectedChapelSlot = -1;
+
+        /// <summary>Cost to build a chapel at a temple slot.</summary>
+        private static readonly TheWaningBorder.Core.Cost ChapelBuildCost =
+            TheWaningBorder.Core.Cost.Of(supplies: 200, iron: 100, crystal: 50);
+
+        /// <summary>Build time in seconds for a temple chapel.</summary>
+        private const float ChapelBuildTime = 30f;
 
         void Awake()
         {
@@ -44,6 +65,7 @@ namespace TheWaningBorder.UI.Panels
         void OnGUI()
         {
             PanelVisible = false;
+            _hoveredTooltip = null;
 
             // Only show actions for own entities, not enemy
             if (!UnifiedUIManager.IsSelectionOwnedByPlayer()) return;
@@ -60,6 +82,12 @@ namespace TheWaningBorder.UI.Panels
 
             InitStyles();
 
+            // Guard against Layout/Repaint control count mismatches.
+            // Entity state can change between IMGUI passes causing different
+            // control counts which throws ArgumentException.
+            try
+            {
+
             switch (actionInfo.Type)
             {
                 case ActionType.BuildingPlacement:
@@ -70,10 +98,32 @@ namespace TheWaningBorder.UI.Panels
                     DrawUnitTrainingPanel(entity, actionInfo);
                     break;
 
+                case ActionType.UnitTrainingAndResearch:
+                    DrawUnitTrainingAndResearchPanel(entity, actionInfo);
+                    break;
+
                 case ActionType.VaultManagement:
                     DrawVaultPanel(entity);
                     break;
+
+                case ActionType.TempleUpgrade:
+                    DrawTempleLevelUpPanel(entity, actionInfo);
+                    break;
+
+                case ActionType.BattalionStance:
+                    DrawStancePanel(entity, em);
+                    break;
             }
+
+            } // end try
+            catch (System.ArgumentException)
+            {
+                // Layout/Repaint control count mismatch — entity state changed between passes.
+                // Silently skip this frame; next frame will re-sync.
+            }
+
+            // Draw floating tooltip above the panel (outside any BeginArea)
+            DrawFloatingTooltip();
         }
 
         private void InitStyles()
@@ -127,6 +177,21 @@ namespace TheWaningBorder.UI.Panels
                 normal = { textColor = new Color(0.7f, 0.5f, 0.3f) }
             };
 
+            _tooltipStyle = new GUIStyle(GUI.skin.box)
+            {
+                wordWrap = true,
+                richText = true,
+                fontSize = 12,
+                normal = {
+                    textColor = new Color(0.9f, 0.85f, 0.7f),
+                    background = UIHelpers.MakeBorderedTexture(64, 64,
+                        new Color(0.05f, 0.06f, 0.14f, 0.97f),
+                        new Color(0.83f, 0.66f, 0.26f, 0.6f), 1)
+                },
+                alignment = TextAnchor.UpperLeft,
+                padding = new RectOffset(8, 8, 6, 6)
+            };
+
             _stylesInit = true;
         }
 
@@ -135,10 +200,10 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
-                Screen.height - PanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                PanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -162,10 +227,11 @@ namespace TheWaningBorder.UI.Panels
 
             GUI.enabled = !BuilderCommandPanel.IsPlacingBuilding;
 
+            // Use larger buttons (3 per row) for building icons
             DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
             {
                 BuilderCommandPanel.TriggerBuildingPlacement(button.Id);
-            });
+            }, overrideButtonSize: 55f);
 
             GUI.enabled = true;
 
@@ -177,10 +243,10 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = true;
 
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
-                Screen.height - PanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                PanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -207,29 +273,36 @@ namespace TheWaningBorder.UI.Panels
                 if (em.HasComponent<FactionTag>(entity))
                     faction = em.GetComponentData<FactionTag>(entity).Value;
 
+                // Enforce queue limit
+                if (em.HasBuffer<TrainQueueItem>(entity))
+                {
+                    var q = em.GetBuffer<TrainQueueItem>(entity);
+                    if (q.Length >= MAX_TRAIN_QUEUE)
+                    {
+                        PlayerNotificationSystem.Notify("Training queue full");
+                        return;
+                    }
+                }
+
                 // Check population capacity before queuing
                 int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
                 if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
                 {
-                    Debug.LogWarning("Population limit reached — cannot train more units");
+                    PlayerNotificationSystem.Notify("Population cap reached");
                     return;
                 }
 
                 // Deduct cost when adding to queue
                 if (!FactionEconomy.Spend(em, faction, button.Cost))
                 {
-                    Debug.LogWarning($"Cannot afford to train {button.Id}");
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
                     return;
                 }
 
-                // Add to training queue
-                if (em.HasBuffer<TrainQueueItem>(entity))
-                {
-                    var queue = em.GetBuffer<TrainQueueItem>(entity);
-                    queue.Add(new TrainQueueItem { UnitId = button.Id });
-                    Debug.Log($"Queued {button.Id} for training");
-                    Event.current.Use();
-                }
+                // Add to training queue (via CommandRouter for multiplayer sync)
+                CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                Debug.Log($"Queued {button.Id} for training");
+                Event.current.Use();
             });
 
             GUILayout.Space(8);
@@ -241,10 +314,10 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.Space(6);
             }
 
-            // Training queue
-            if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.Queue != null)
+            // Training queue with interactive cancel slots
+            if (actionInfo.TrainingState.HasValue)
             {
-                DrawQueue(actionInfo.TrainingState.Value.Queue);
+                DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
             }
 
             // ── Age-Up Section (Hall only, Era 1 only) ──
@@ -253,8 +326,447 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.EndArea();
         }
 
+        /// <summary>Scroll position for the temple panel (sect list can be long).</summary>
+        private Vector2 _templePanelScroll;
+
         /// <summary>
-        /// Draw the "Advance to Era 2" button on the Hall if still in Era 1.
+        /// Draw the Temple of Ridan level-up panel with training section and upgrade button.
+        /// Shows training actions, training progress/queue, and a level-up button below.
+        /// </summary>
+        private void DrawTempleLevelUpPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+            _templePanelScroll = GUILayout.BeginScrollView(_templePanelScroll);
+
+            // ── Training Section ──
+            if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
+            {
+                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Space(4);
+
+                DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+                {
+                    var em = UnifiedUIManager.GetEntityManager();
+                    if (!em.Exists(entity)) return;
+
+                    Faction faction = GameSettings.LocalPlayerFaction;
+                    if (em.HasComponent<FactionTag>(entity))
+                        faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                    // Enforce queue limit
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var q = em.GetBuffer<TrainQueueItem>(entity);
+                        if (q.Length >= MAX_TRAIN_QUEUE)
+                        {
+                            PlayerNotificationSystem.Notify("Training queue full");
+                            return;
+                        }
+                    }
+
+                    int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
+                    if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
+                    {
+                        PlayerNotificationSystem.Notify("Population cap reached");
+                        return;
+                    }
+
+                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        return;
+                    }
+
+                    CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                    Debug.Log($"Queued {button.Id} for training");
+                    Event.current.Use();
+                });
+
+                GUILayout.Space(4);
+
+                // Training progress bar
+                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.IsTraining)
+                {
+                    DrawProgressBar(actionInfo.TrainingState.Value);
+                    GUILayout.Space(4);
+                }
+
+                // Training queue with interactive cancel slots
+                if (actionInfo.TrainingState.HasValue)
+                    DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
+            }
+
+            // ── Temple Level-Up Section ──
+            DrawTempleLevelUpSection(entity);
+
+            // ── Chapel Slot Diagram ──
+            DrawTempleChapelSlots(entity);
+
+            // ── Sect Adoption Section ──
+            {
+                var em2 = UnifiedUIManager.GetEntityManager();
+                Faction sectFaction = GameSettings.LocalPlayerFaction;
+                if (!em2.Equals(default(EntityManager)) && em2.Exists(entity) &&
+                    em2.HasComponent<FactionTag>(entity))
+                    sectFaction = em2.GetComponentData<FactionTag>(entity).Value;
+
+                SectAdoptionPanel.Draw(sectFaction);
+            }
+
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Draw the temple level-up button and status.
+        /// Shows current level, upgrade cost, and a button to upgrade.
+        /// </summary>
+        private void DrawTempleLevelUpSection(Entity entity)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<TempleTag>(entity)) return;
+            if (!em.HasComponent<TempleLevel>(entity)) return;
+
+            var templeLevel = em.GetComponentData<TempleLevel>(entity);
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+
+            // Current level display
+            string levelText = templeLevel.Level >= TempleLevelConfig.MaxLevel
+                ? $"Temple Level {templeLevel.Level} (Maximum)"
+                : $"Temple Level {templeLevel.Level}";
+            GUILayout.Label(levelText, _labelStyle);
+
+            // Max level reached — no upgrade button
+            if (templeLevel.Level >= TempleLevelConfig.MaxLevel)
+            {
+                GUILayout.Label("All eras unlocked", _smallStyle);
+                return;
+            }
+
+            // Under construction — cannot upgrade
+            if (em.HasComponent<UnderConstruction>(entity))
+            {
+                GUILayout.Label("Complete construction first", _requireStyle);
+                return;
+            }
+
+            // Currently upgrading — show progress bar
+            if (em.HasComponent<TempleUpgradeState>(entity))
+            {
+                var upgrade = em.GetComponentData<TempleUpgradeState>(entity);
+                float pct = 1f - (upgrade.Remaining / upgrade.Duration);
+                int secs = Mathf.CeilToInt(upgrade.Remaining);
+                GUILayout.Label($"Upgrading to Level {upgrade.TargetLevel}... {(int)(pct * 100)}% ({secs}s)", _labelStyle);
+
+                // Progress bar
+                var barRect = GUILayoutUtility.GetRect(0, 12, GUILayout.ExpandWidth(true));
+                GUI.color = new Color(0.2f, 0.2f, 0.2f);
+                GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+                GUI.color = new Color(0.83f, 0.66f, 0.26f);
+                GUI.DrawTexture(new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                return;
+            }
+
+            // Must be Era 2 (culture chosen) before first temple upgrade
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            int currentEra = EntityInfoExtractor.GetFactionEra(em, faction);
+            if (currentEra < 2)
+            {
+                GUILayout.Label("Advance to Era 2 first (culture choice)", _requireStyle);
+                return;
+            }
+
+            int nextLevel = templeLevel.Level + 1;
+            int nextEra = TempleLevelConfig.GetEraForLevel(nextLevel);
+            var upgradeCost = TempleLevelConfig.GetUpgradeCost(templeLevel.Level);
+            int rpGrant = TempleLevelConfig.GetRPGranted(nextLevel);
+            float duration = TempleLevelConfig.GetUpgradeDuration(templeLevel.Level);
+
+            bool canAfford = FactionEconomy.CanAfford(em, faction, upgradeCost);
+
+            bool wasEnabled = GUI.enabled;
+            if (!canAfford) GUI.enabled = false;
+
+            string buttonText = $"Upgrade to Level {nextLevel} (Era {nextEra}) — {(int)duration}s";
+            if (GUILayout.Button(buttonText, _ageUpStyle, GUILayout.Height(36)))
+            {
+                // Spend resources and start upgrade timer
+                if (!FactionEconomy.Spend(em, faction, upgradeCost))
+                {
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
+                }
+                else
+                {
+                    // Start timed upgrade — TempleUpgradeSystem will complete it
+                    em.AddComponentData(entity, new TempleUpgradeState
+                    {
+                        TargetLevel = nextLevel,
+                        Duration = duration,
+                        Remaining = duration
+                    });
+
+                    Debug.Log($"[TempleUpgrade] {faction} started temple upgrade to Level {nextLevel} ({duration}s)");
+                    PlayerNotificationSystem.Notify($"Temple upgrade started ({(int)duration}s)");
+                }
+            }
+
+            GUI.enabled = wasEnabled;
+
+            // Cost display
+            if (!upgradeCost.IsZero)
+            {
+                string costText = UIHelpers.FormatCost(upgradeCost);
+                var costStyle = new GUIStyle(_requireStyle)
+                {
+                    normal = { textColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) }
+                };
+                GUILayout.Label($"Cost: {costText}", costStyle);
+            }
+
+            GUILayout.Label($"Grants: +{rpGrant} Religion Points", _smallStyle);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TEMPLE CHAPEL SLOT DIAGRAM
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Draw chapel slots as a compact vertical list.
+        /// Empty slots can be clicked to open a sect picker.
+        /// Building slots show progress. Complete slots show sect name.
+        /// </summary>
+        private void DrawTempleChapelSlots(Entity entity)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<TempleTag>(entity)) return;
+            if (!em.HasBuffer<TempleChapelSlot>(entity)) return;
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            var slots = em.GetBuffer<TempleChapelSlot>(entity);
+            if (slots.Length == 0) return;
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+            GUILayout.Label("Chapel Slots", _headerStyle);
+            GUILayout.Space(4);
+
+            // ── Compact vertical list ──
+            for (int i = 0; i < slots.Length && i < 7; i++)
+            {
+                var slot = slots[i];
+                GUILayout.BeginHorizontal();
+
+                // Slot number label
+                GUILayout.Label($"#{i + 1}", _smallStyle, GUILayout.Width(24));
+
+                if (slot.State == 0)
+                {
+                    // Empty slot — clickable button to open sect picker
+                    GUI.color = new Color(0.4f, 0.4f, 0.4f);
+                    if (GUILayout.Button("Build Chapel", GUILayout.Height(20)))
+                    {
+                        _selectedChapelSlot = (_selectedChapelSlot == i) ? -1 : i;
+                    }
+                    GUI.color = Color.white;
+                }
+                else if (slot.State == 1)
+                {
+                    // Building — progress display
+                    float pct = slot.BuildTime > 0 ? slot.BuildProgress / slot.BuildTime : 0f;
+                    string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
+                    GUI.color = new Color(0.9f, 0.6f, 0.1f);
+                    GUILayout.Label($"{sectName} — {(int)(pct * 100)}%", _smallStyle);
+                    GUI.color = Color.white;
+                }
+                else if (slot.State == 2)
+                {
+                    // Complete — green button with sect name
+                    string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
+                    GUI.color = new Color(0.2f, 0.7f, 0.3f);
+                    if (GUILayout.Button(sectName, GUILayout.Height(20)))
+                    {
+                        if (slot.Chapel != Entity.Null && em.Exists(slot.Chapel))
+                        {
+                            SelectionSystem.ClearSelection();
+                            SelectionSystem.AddToSelection(slot.Chapel);
+                        }
+                    }
+                    GUI.color = Color.white;
+                }
+
+                GUILayout.EndHorizontal();
+            }
+
+            // ── Sect Picker (when an empty slot is selected) ──
+            if (_selectedChapelSlot >= 0 && _selectedChapelSlot < slots.Length)
+            {
+                var selectedSlot = slots[_selectedChapelSlot];
+                if (selectedSlot.State == 0)
+                {
+                    DrawChapelSectPicker(entity, faction, em, slots);
+                }
+                else
+                {
+                    _selectedChapelSlot = -1; // Slot is no longer empty
+                }
+            }
+        }
+
+        /// <summary>
+        /// Draw the sect picker dropdown for building a chapel at the selected slot.
+        /// Shows only adopted sects that don't already have a chapel built.
+        /// </summary>
+        private void DrawChapelSectPicker(Entity temple, Faction faction, EntityManager em,
+            DynamicBuffer<TempleChapelSlot> slots)
+        {
+            GUILayout.Space(6);
+            GUILayout.Label($"Build Chapel at Slot #{_selectedChapelSlot + 1}", _labelStyle);
+
+            // Get adopted sects
+            var sectState = FactionSectState.Instance;
+            if (sectState == null)
+            {
+                GUILayout.Label("No sect data available", _requireStyle);
+                return;
+            }
+
+            var adoptedSects = sectState.GetAdoptedSects(faction);
+            if (adoptedSects == null || adoptedSects.Count == 0)
+            {
+                GUILayout.Label("Adopt sects first (see below)", _requireStyle);
+                return;
+            }
+
+            // Find which sects already have a chapel in a slot
+            var usedSects = new System.Collections.Generic.HashSet<string>();
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (slot.State != 0 && slot.SectId.ToString().Length > 0)
+                {
+                    usedSects.Add(slot.SectId.ToString());
+                }
+            }
+
+            // Show cost
+            string costText = UIHelpers.FormatCost(ChapelBuildCost);
+            bool canAfford = FactionEconomy.CanAfford(em, faction, ChapelBuildCost);
+            var costColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
+            var costStyle = new GUIStyle(_smallStyle) { normal = { textColor = costColor } };
+            GUILayout.Label($"Cost: {costText} | Build Time: {ChapelBuildTime}s", costStyle);
+
+            GUILayout.Space(4);
+
+            bool anyAvailable = false;
+            foreach (var sectId in adoptedSects)
+            {
+                if (usedSects.Contains(sectId)) continue; // Already has a chapel
+                anyAvailable = true;
+
+                string displayName = SectConfig.GetDisplayName(sectId);
+                string passive = SectConfig.GetPassiveDescription(sectId);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{displayName}", _labelStyle, GUILayout.Width(160));
+
+                bool wasEnabled = GUI.enabled;
+                if (!canAfford) GUI.enabled = false;
+
+                if (GUILayout.Button("Build", GUILayout.Width(60), GUILayout.Height(24)))
+                {
+                    // Spend resources
+                    if (FactionEconomy.Spend(em, faction, ChapelBuildCost))
+                    {
+                        // Set slot to building state
+                        var slot = slots[_selectedChapelSlot];
+                        slot.State = 1;
+                        slot.SectId = new Unity.Collections.FixedString64Bytes(sectId);
+                        slot.BuildProgress = 0f;
+                        slot.BuildTime = ChapelBuildTime;
+                        slots[_selectedChapelSlot] = slot;
+
+                        _selectedChapelSlot = -1; // Close picker
+                        Debug.Log($"[TempleUI] Started building chapel '{sectId}' at slot");
+                        PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
+                    }
+                    else
+                    {
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                    }
+                }
+
+                GUI.enabled = wasEnabled;
+                GUILayout.EndHorizontal();
+
+                // Passive effect description
+                if (!string.IsNullOrEmpty(passive))
+                {
+                    GUILayout.Label($"  {passive}", _smallStyle);
+                }
+            }
+
+            if (!anyAvailable)
+            {
+                GUILayout.Label("All adopted sects already have chapels", _requireStyle);
+            }
+
+            // Cancel button
+            GUILayout.Space(4);
+            if (GUILayout.Button("Cancel", GUILayout.Height(20)))
+            {
+                _selectedChapelSlot = -1;
+            }
+        }
+
+        /// <summary>
+        /// Draw the "Advance to Era 2" button on the Hall if still in Era 1,
+        /// or an age-up progress bar if the timer is active.
         /// </summary>
         private void DrawAgeUpSection(Entity entity)
         {
@@ -264,6 +776,13 @@ namespace TheWaningBorder.UI.Panels
 
             // Only for Hall buildings
             if (!em.HasComponent<HallTag>(entity)) return;
+
+            // If age-up timer is active, show progress bar instead of button
+            if (em.HasComponent<AgeUpState>(entity))
+            {
+                DrawAgeUpProgressBar(em, entity);
+                return;
+            }
 
             // Only if still Era 1 (no culture chosen yet)
             if (!em.HasComponent<FactionProgress>(entity)) return;
@@ -312,7 +831,243 @@ namespace TheWaningBorder.UI.Panels
             }
         }
 
-        private void DrawActionGrid(Entity entity, ActionButton[] actions, System.Action<ActionButton> onClick)
+        /// <summary>
+        /// Draw age-up progress bar while AgeUpState timer is active on a Hall.
+        /// </summary>
+        private void DrawAgeUpProgressBar(EntityManager em, Entity entity)
+        {
+            var ageUp = em.GetComponentData<AgeUpState>(entity);
+            float elapsed = ageUp.Duration - ageUp.Remaining;
+            float pct = (ageUp.Duration > 0f) ? Mathf.Clamp01(elapsed / ageUp.Duration) : 1f;
+            int seconds = Mathf.CeilToInt(Mathf.Max(0f, ageUp.Remaining));
+
+            string cultureName = CultureConfig.GetName(ageUp.Culture);
+
+            GUILayout.Space(10);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(6);
+
+            // Label
+            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {seconds}s", _labelStyle);
+            GUILayout.Space(4);
+
+            // Progress bar background
+            var barRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.15f, 0.15f, 0.2f, 1f);
+            GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+
+            // Progress bar fill (golden)
+            var fillRect = new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height);
+            GUI.color = UIHelpers.ThemeGold;
+            GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+
+            // Percentage text centered on bar
+            GUI.color = Color.white;
+            GUI.Label(barRect, $"{Mathf.RoundToInt(pct * 100f)}%",
+                new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 12,
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = Color.white }
+                });
+
+            GUI.color = Color.white;
+        }
+
+        /// <summary>
+        /// Panel for buildings that support both unit training and technology research (e.g. Barracks, Hall).
+        /// Training section on top, research section below with a separator.
+        /// </summary>
+        private void DrawUnitTrainingAndResearchPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            // ── Training Section ──
+            if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
+            {
+                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Space(4);
+
+                DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+                {
+                    var em = UnifiedUIManager.GetEntityManager();
+                    if (!em.Exists(entity)) return;
+
+                    Faction faction = GameSettings.LocalPlayerFaction;
+                    if (em.HasComponent<FactionTag>(entity))
+                        faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                    // Enforce queue limit
+                    if (em.HasBuffer<TrainQueueItem>(entity))
+                    {
+                        var q = em.GetBuffer<TrainQueueItem>(entity);
+                        if (q.Length >= MAX_TRAIN_QUEUE)
+                        {
+                            PlayerNotificationSystem.Notify("Training queue full");
+                            return;
+                        }
+                    }
+
+                    int popCost = PopulationHelper.GetUnitPopulationCost(button.Id.ToString());
+                    if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
+                    {
+                        PlayerNotificationSystem.Notify("Population cap reached");
+                        return;
+                    }
+
+                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        return;
+                    }
+
+                    CommandRouter.IssueTrain(em, entity, button.Id.ToString());
+                    Debug.Log($"Queued {button.Id} for training");
+                    Event.current.Use();
+                });
+
+                GUILayout.Space(4);
+
+                // Training progress bar
+                if (actionInfo.TrainingState.HasValue && actionInfo.TrainingState.Value.IsTraining)
+                {
+                    DrawProgressBar(actionInfo.TrainingState.Value);
+                    GUILayout.Space(4);
+                }
+
+                // Training queue with interactive cancel slots
+                if (actionInfo.TrainingState.HasValue)
+                    DrawInteractiveQueue(entity, actionInfo.TrainingState.Value);
+            }
+
+            // ── Age-Up Section (Hall only) ──
+            DrawAgeUpSection(entity);
+
+            // ── Research Section ──
+            var researchActions = EntityActionExtractor.GetResearchActions(entity, UnifiedUIManager.GetEntityManager());
+            bool hasResearchProgress = actionInfo.ResearchState.HasValue && actionInfo.ResearchState.Value.IsResearching;
+
+            if (researchActions.Count > 0 || hasResearchProgress)
+            {
+                GUILayout.Space(8);
+
+                // Separator line
+                var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+                GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+                GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+                GUI.color = Color.white;
+
+                GUILayout.Space(6);
+                GUILayout.Label("Research", _headerStyle);
+                GUILayout.Space(4);
+
+                // Research buttons
+                if (researchActions.Count > 0)
+                {
+                    DrawActionGrid(entity, researchActions.ToArray(), (button) =>
+                    {
+                        var em = UnifiedUIManager.GetEntityManager();
+                        if (!em.Exists(entity)) return;
+
+                        Faction faction = GameSettings.LocalPlayerFaction;
+                        if (em.HasComponent<FactionTag>(entity))
+                            faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                        if (!FactionEconomy.Spend(em, faction, button.Cost))
+                        {
+                            PlayerNotificationSystem.NotifyError("Not enough resources");
+                            return;
+                        }
+
+                        if (em.HasBuffer<ResearchQueueItem>(entity))
+                        {
+                            var queue = em.GetBuffer<ResearchQueueItem>(entity);
+                            queue.Add(new ResearchQueueItem
+                            {
+                                TechId = new Unity.Collections.FixedString64Bytes(button.Id)
+                            });
+                            Debug.Log($"Queued research: {button.Id}");
+                            Event.current.Use();
+                        }
+                    });
+                }
+
+                GUILayout.Space(4);
+
+                // Research progress bar
+                if (hasResearchProgress)
+                {
+                    var rInfo = actionInfo.ResearchState.Value;
+                    DrawResearchProgressBar(rInfo);
+                    GUILayout.Space(4);
+                }
+
+                // Research queue
+                if (actionInfo.ResearchState.HasValue && actionInfo.ResearchState.Value.Queue != null
+                    && actionInfo.ResearchState.Value.Queue.Length > 0)
+                {
+                    DrawResearchQueue(actionInfo.ResearchState.Value.Queue);
+                }
+            }
+
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Draw a progress bar for active research.
+        /// </summary>
+        private void DrawResearchProgressBar(ResearchInfo info)
+        {
+            GUILayout.Label($"Researching: {info.CurrentTechName}", _labelStyle);
+
+            var rect = GUILayoutUtility.GetRect(0, 18, GUILayout.ExpandWidth(true));
+
+            // Dark navy background
+            GUI.color = new Color(0.04f, 0.05f, 0.12f, 1f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+
+            // Blue-ish fill (to distinguish from golden training bar)
+            GUI.color = new Color(0.30f, 0.55f, 0.85f, 1f);
+            GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width * info.Progress, rect.height), Texture2D.whiteTexture);
+
+            GUI.color = Color.white;
+
+            var timeStyle = new GUIStyle(_smallStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+            GUI.Label(rect, $"{info.TimeRemaining:F1}s", timeStyle);
+        }
+
+        private void DrawActionGrid(Entity entity, ActionButton[] actions, System.Action<ActionButton> onClick,
+            float overrideButtonSize = 0f)
         {
             if (actions == null || actions.Length == 0)
             {
@@ -320,7 +1075,9 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            int buttonsPerRow = 4;
+            float btnSize = overrideButtonSize > 0f ? overrideButtonSize : ButtonSize;
+            int buttonsPerRow = Mathf.FloorToInt((PanelWidth - PanelPadding * 2f) / (btnSize + ButtonSpacing));
+            if (buttonsPerRow < 1) buttonsPerRow = 1;
             int row = 0;
 
             GUILayout.BeginHorizontal();
@@ -329,43 +1086,34 @@ namespace TheWaningBorder.UI.Panels
             {
                 var button = actions[i];
 
-                // Disable if can't afford
+                // Disable if can't afford or requirements not met
                 bool wasEnabled = GUI.enabled;
-                if (!button.CanAfford) GUI.enabled = false;
+                if (!button.CanAfford || !button.Enabled) GUI.enabled = false;
 
-                // Button content
+                // If icon available, show empty button + icon overlay; otherwise show text label
                 string label = button.Icon != null ? "" : button.Label;
-                var content = new GUIContent(label, button.Tooltip);
 
-                if (GUILayout.Button(content, _buttonStyle,
-                    GUILayout.Width(ButtonSize), GUILayout.Height(ButtonSize)))
+                if (GUILayout.Button(label, _buttonStyle,
+                    GUILayout.Width(btnSize), GUILayout.Height(btnSize)))
                 {
                     onClick?.Invoke(button);
                 }
 
-                // Draw icon on top
-                if (button.Icon != null)
+                // Check hover for tooltip (works even on disabled buttons)
+                var btnRect = GUILayoutUtility.GetLastRect();
+                if (Event.current.type == EventType.Repaint && !string.IsNullOrEmpty(button.Tooltip))
                 {
-                    var rect = GUILayoutUtility.GetLastRect();
-                    var iconRect = new Rect(rect.x + 4, rect.y + 4, rect.width - 8, rect.height - 20);
-                    GUI.DrawTexture(iconRect, button.Icon, ScaleMode.ScaleToFit);
-
-                    // Draw label below icon
-                    var labelRect = new Rect(rect.x, rect.y + rect.height - 18, rect.width, 16);
-                    GUI.Label(labelRect, button.Label, _smallStyle);
+                    var mousePos = Event.current.mousePosition;
+                    if (btnRect.Contains(mousePos))
+                        _hoveredTooltip = button.Tooltip;
                 }
 
-                // Cost indicator
-                if (!button.Cost.IsZero)
+                // Draw icon on top of button, filling the full area
+                if (button.Icon != null)
                 {
-                    var rect = GUILayoutUtility.GetLastRect();
-                    var costStr = FormatShortCost(button.Cost);
-                    var costStyle = new GUIStyle(_smallStyle)
-                    {
-                        normal = { textColor = button.CanAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) },
-                        alignment = TextAnchor.LowerRight
-                    };
-                    GUI.Label(rect, costStr, costStyle);
+                    // Slight inset so the button border is visible
+                    var iconRect = new Rect(btnRect.x + 2, btnRect.y + 2, btnRect.width - 4, btnRect.height - 4);
+                    GUI.DrawTexture(iconRect, button.Icon, ScaleMode.ScaleToFit);
                 }
 
                 GUI.enabled = wasEnabled;
@@ -381,6 +1129,37 @@ namespace TheWaningBorder.UI.Panels
             }
 
             GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// Draw a floating tooltip box above the action panel.
+        /// Called at the end of OnGUI, outside any BeginArea, so it isn't clipped.
+        /// </summary>
+        private void DrawFloatingTooltip()
+        {
+            if (string.IsNullOrEmpty(_hoveredTooltip)) return;
+            if (!_stylesInit) return;
+
+            // Measure tooltip size
+            var content = new GUIContent(_hoveredTooltip);
+            float maxWidth = 280f;
+            float width = maxWidth;
+            float height = _tooltipStyle.CalcHeight(content, width);
+
+            // Position above the panel
+            float x = PanelRect.x;
+            float y = PanelRect.y - height - 4f;
+
+            // Clamp to screen
+            if (x + width > Screen.width) x = Screen.width - width - 4f;
+            if (y < 0) y = 0;
+
+            var tooltipRect = new Rect(x, y, width, height);
+
+            // Draw with high depth so it renders on top
+            GUI.depth = -100;
+            GUI.Label(tooltipRect, content, _tooltipStyle);
+            GUI.depth = 0;
         }
 
         private void DrawProgressBar(TrainingInfo info)
@@ -408,7 +1187,167 @@ namespace TheWaningBorder.UI.Panels
             GUI.Label(rect, $"{info.TimeRemaining:F1}s", timeStyle);
         }
 
-        private void DrawQueue(string[] queue)
+        /// <summary>
+        /// Draw interactive training queue with clickable slots.
+        /// Shows all queue items as visual slots (including currently training).
+        /// Right-click on a queued (non-training) slot cancels it and refunds resources.
+        /// </summary>
+        private void DrawInteractiveQueue(Entity entity, TrainingInfo info)
+        {
+            int totalInQueue = info.QueueCapacity; // includes currently training item
+            GUILayout.Label($"Queue: {totalInQueue}/{MAX_TRAIN_QUEUE}", _smallStyle);
+
+            // Build the full slot list: currently training + pending queue
+            // info.Queue excludes the currently training item, so reconstruct full list
+            string[] allSlots = new string[totalInQueue];
+            int idx = 0;
+            if (info.IsTraining && info.CurrentUnitId != null)
+            {
+                allSlots[0] = info.CurrentUnitId;
+                idx = 1;
+            }
+            if (info.Queue != null)
+            {
+                for (int i = 0; i < info.Queue.Length && idx < allSlots.Length; i++, idx++)
+                    allSlots[idx] = info.Queue[i];
+            }
+
+            GUILayout.BeginHorizontal();
+
+            for (int slot = 0; slot < MAX_TRAIN_QUEUE; slot++)
+            {
+                bool occupied = slot < totalInQueue && allSlots[slot] != null;
+                bool isTrainingSlot = slot == 0 && info.IsTraining;
+
+                // Reserve a rect for the slot
+                var slotRect = GUILayoutUtility.GetRect(QueueSlotSize, QueueSlotSize,
+                    GUILayout.Width(QueueSlotSize), GUILayout.Height(QueueSlotSize));
+
+                if (occupied)
+                {
+                    // Background: golden for training slot, darker for queued
+                    if (isTrainingSlot)
+                    {
+                        GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.6f);
+                    }
+                    else
+                    {
+                        GUI.color = new Color(0.15f, 0.18f, 0.30f, 0.9f);
+                    }
+                    GUI.DrawTexture(slotRect, Texture2D.whiteTexture);
+
+                    // Border
+                    GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.5f);
+                    DrawSlotBorder(slotRect, 1);
+
+                    GUI.color = Color.white;
+
+                    // Unit name abbreviation (first 3 chars)
+                    string abbrev = allSlots[slot].Length > 3
+                        ? allSlots[slot].Substring(0, 3)
+                        : allSlots[slot];
+                    var slotLabelStyle = new GUIStyle(_smallStyle)
+                    {
+                        alignment = TextAnchor.MiddleCenter,
+                        fontSize = 10,
+                        normal = { textColor = isTrainingSlot ? Color.white : new Color(0.9f, 0.88f, 0.82f) }
+                    };
+                    GUI.Label(slotRect, abbrev, slotLabelStyle);
+
+                    // Right-click to cancel (only for non-training slots)
+                    if (!isTrainingSlot && Event.current.type == EventType.MouseDown
+                        && Event.current.button == 1 && slotRect.Contains(Event.current.mousePosition))
+                    {
+                        CancelQueueItem(entity, slot);
+                        Event.current.Use();
+                    }
+
+                    // Tooltip on hover for occupied slots
+                    if (slotRect.Contains(Event.current.mousePosition))
+                    {
+                        string tip = isTrainingSlot
+                            ? $"Training: {allSlots[slot]}"
+                            : $"{allSlots[slot]} (right-click to cancel)";
+                        GUI.Label(new Rect(Event.current.mousePosition.x + 12,
+                            Event.current.mousePosition.y - 16, 180, 20), tip, _smallStyle);
+                    }
+                }
+                else
+                {
+                    // Empty slot — dark navy outline
+                    GUI.color = new Color(0.08f, 0.10f, 0.20f, 0.6f);
+                    GUI.DrawTexture(slotRect, Texture2D.whiteTexture);
+                    GUI.color = new Color(0.3f, 0.3f, 0.4f, 0.4f);
+                    DrawSlotBorder(slotRect, 1);
+                    GUI.color = Color.white;
+                }
+
+                GUILayout.Space(QueueSlotSpacing);
+            }
+
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// Cancel a training queue item at the given buffer index and refund its cost.
+        /// Index 0 is the currently training item (should not be cancelled via this method).
+        /// </summary>
+        private static void CancelQueueItem(Entity entity, int bufferIndex)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager)) || !em.Exists(entity)) return;
+            if (!em.HasBuffer<TrainQueueItem>(entity)) return;
+
+            var queue = em.GetBuffer<TrainQueueItem>(entity);
+            if (bufferIndex < 0 || bufferIndex >= queue.Length) return;
+
+            // Don't cancel the currently training item (index 0 when busy)
+            if (bufferIndex == 0 && em.HasComponent<TrainingState>(entity))
+            {
+                var ts = em.GetComponentData<TrainingState>(entity);
+                if (ts.Busy != 0) return;
+            }
+
+            string unitId = queue[bufferIndex].UnitId.ToString();
+
+            // Refund the unit's cost
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            var cost = EntityActionExtractor.GetUnitCost(unitId);
+            if (!cost.IsZero)
+            {
+                FactionEconomy.Add(em, faction, cost);
+                Debug.Log($"Cancelled {unitId}, refunded {cost}");
+            }
+            else
+            {
+                Debug.Log($"Cancelled {unitId} (no cost to refund)");
+            }
+
+            queue.RemoveAt(bufferIndex);
+        }
+
+        /// <summary>
+        /// Draw a 1px border around a rect.
+        /// </summary>
+        private static void DrawSlotBorder(Rect rect, int width)
+        {
+            // Top
+            GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, width), Texture2D.whiteTexture);
+            // Bottom
+            GUI.DrawTexture(new Rect(rect.x, rect.yMax - width, rect.width, width), Texture2D.whiteTexture);
+            // Left
+            GUI.DrawTexture(new Rect(rect.x, rect.y, width, rect.height), Texture2D.whiteTexture);
+            // Right
+            GUI.DrawTexture(new Rect(rect.xMax - width, rect.y, width, rect.height), Texture2D.whiteTexture);
+        }
+
+        /// <summary>
+        /// Simple text-based queue display for research (non-interactive).
+        /// </summary>
+        private void DrawResearchQueue(string[] queue)
         {
             if (queue.Length == 0) return;
 
@@ -433,12 +1372,11 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = true;
 
-            float vaultPanelHeight = 320f;
             var panelRect = new Rect(
-                PanelPadding + 300f + PanelPadding,
-                Screen.height - vaultPanelHeight - PanelPadding,
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
                 PanelWidth,
-                vaultPanelHeight
+                ResourceHUD.HudBarHeight
             );
             PanelRect = panelRect;
 
@@ -626,6 +1564,113 @@ namespace TheWaningBorder.UI.Panels
         /// <summary>
         /// Check if pointer is over this panel.
         /// </summary>
+        // ═══════════════════════════════════════════════════════════════════════
+        // BATTALION STANCE PANEL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawStancePanel(Entity entity, EntityManager em)
+        {
+            // Resolve to leader entity
+            Entity leader = Entity.Null;
+            if (em.HasComponent<BattalionLeader>(entity))
+            {
+                leader = entity;
+            }
+            else if (em.HasComponent<BattalionMemberData>(entity))
+            {
+                leader = em.GetComponentData<BattalionMemberData>(entity).Leader;
+            }
+
+            if (leader == Entity.Null || !em.Exists(leader)) return;
+            if (!em.HasComponent<BattalionStanceData>(leader)) return;
+
+            var currentStance = em.GetComponentData<BattalionStanceData>(leader).Value;
+
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            GUILayout.Label("Battalion Stance", _headerStyle);
+            GUILayout.Space(8);
+
+            // Current stance display
+            string stanceLabel = currentStance switch
+            {
+                BattalionStance.Defensive => "Defensive",
+                BattalionStance.Default => "Default",
+                BattalionStance.Aggressive => "Aggressive",
+                _ => "Unknown"
+            };
+            GUILayout.Label($"Current: {stanceLabel}", _labelStyle);
+            GUILayout.Space(8);
+
+            // 3 horizontal stance buttons
+            GUILayout.BeginHorizontal();
+
+            float btnWidth = (innerRect.width - 12f) / 3f;
+
+            // Aggressive button (D key — BFME2 layout)
+            DrawStanceButton("[D] Aggressive", BattalionStance.Aggressive, currentStance, leader, em, btnWidth);
+            GUILayout.Space(6);
+            // Default / Standard button
+            DrawStanceButton("[F] Standard", BattalionStance.Default, currentStance, leader, em, btnWidth);
+            GUILayout.Space(6);
+            // Defensive button (G key — BFME2 layout)
+            DrawStanceButton("[G] Defensive", BattalionStance.Defensive, currentStance, leader, em, btnWidth);
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(10);
+
+            // Stance description
+            string desc = currentStance switch
+            {
+                BattalionStance.Defensive => "Members hold position and only return fire when attacked.",
+                BattalionStance.Default => "Members auto-engage enemies within range but stay near formation.",
+                BattalionStance.Aggressive => "Members pursue enemies without distance limits.",
+                _ => ""
+            };
+            GUILayout.Label(desc, _smallStyle);
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawStanceButton(string label, BattalionStance stance, BattalionStance current,
+            Entity leader, EntityManager em, float width)
+        {
+            bool isActive = stance == current;
+
+            // Golden highlight for active stance
+            var prevBg = GUI.backgroundColor;
+            if (isActive)
+                GUI.backgroundColor = new Color(0.83f, 0.66f, 0.26f, 1f);
+
+            if (GUILayout.Button(label, _buttonStyle, GUILayout.Width(width), GUILayout.Height(28f)))
+            {
+                CommandRouter.IssueStanceChange(em, leader, stance);
+                BuilderCommandPanel.SuppressClicksThisFrame = true;
+            }
+
+            GUI.backgroundColor = prevBg;
+        }
+
         public static bool IsPointerOver()
         {
             if (!PanelVisible) return false;

@@ -105,6 +105,11 @@ namespace TheWaningBorder.Entities
                 SearchTimer = 0f
             });
 
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });
+
             return entity;
         }
 
@@ -119,32 +124,5 @@ namespace TheWaningBorder.Entities
             ecb.Dispose();
             return entity;
         }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // LITHARCH COMPONENTS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Marker tag for Litharch healer units.
-    /// </summary>
-    public struct LitharchTag : IComponentData { }
-
-    /// <summary>
-    /// Litharch healer state tracking.
-    /// </summary>
-    public struct LitharchState : IComponentData
-    {
-        /// <summary>Current unit being healed</summary>
-        public Entity HealTarget;
-
-        /// <summary>Time accumulator for healing ticks</summary>
-        public float HealTimer;
-
-        /// <summary>1 if actively healing, 0 otherwise</summary>
-        public byte IsHealing;
-
-        /// <summary>Timer for searching for new heal targets</summary>
-        public float SearchTimer;
     }
 }

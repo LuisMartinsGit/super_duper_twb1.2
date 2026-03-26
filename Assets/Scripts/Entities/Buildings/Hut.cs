@@ -57,6 +57,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new PopulationProvider { Amount = DefaultPopulation });
 
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
             return entity;
         }
 
@@ -88,6 +91,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new PopulationProvider { Amount = DefaultPopulation });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }

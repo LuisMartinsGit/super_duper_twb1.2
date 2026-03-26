@@ -31,6 +31,10 @@ namespace TheWaningBorder.Data
         public string[] trains;         // unit IDs this building can train
         public string[] research;       // technology IDs this building can research
         
+        // ==================== Era Gating ====================
+        /// <summary>Minimum era required to build (0 = no restriction)</summary>
+        public int minEra;
+
         // ==================== Economy ====================
         public CostBlock cost;
         

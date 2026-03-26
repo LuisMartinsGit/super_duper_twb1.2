@@ -70,6 +70,11 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new PopulationCost { Amount = 1 });
 
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
+
             return entity;
         }
 
@@ -108,6 +113,11 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new PopulationCost { Amount = 1 });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;
         }

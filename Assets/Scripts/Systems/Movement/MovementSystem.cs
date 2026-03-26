@@ -1,5 +1,6 @@
 // File: Assets/Scripts/Systems/Movement/MovementSystem.cs
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -14,11 +15,14 @@ namespace TheWaningBorder.Systems.Movement
     /// - Moves units toward their destinations each frame
     /// - Updates rotation to face movement direction
     /// - Manages UserMoveOrder tag lifecycle
-    /// 
+    ///
     /// Combat logic is handled by UnifiedCombatSystem.
     /// IMPORTANT: Does NOT remove AttackCommand - lets UnifiedCombatSystem handle it
+    ///
+    /// Flow field direction lookup uses FlowFieldLookup struct (NativeArray-based)
+    /// instead of managed FlowFieldMovementHelper singleton, enabling future
+    /// Burst compilation of the movement loop when TerrainUtility is also refactored.
     /// </summary>
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MovementSystem : ISystem
     {
@@ -34,7 +38,6 @@ namespace TheWaningBorder.Systems.Movement
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
@@ -103,6 +106,12 @@ namespace TheWaningBorder.Systems.Movement
                     ecb.AddComponent<UserMoveOrder>(entity);
                 }
 
+                // Reset smoothing state for fresh movement
+                if (em.HasComponent<SmoothedDirection>(entity))
+                    ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
+                if (em.HasComponent<StuckState>(entity))
+                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+
                 // DON'T remove AttackCommand here - let UnifiedCombatSystem see the MoveCommand
                 // and skip attack processing for this entity
 
@@ -111,11 +120,87 @@ namespace TheWaningBorder.Systems.Movement
             }
 
             // =============================================================================
+            // PHASE 1b: Process AttackMoveCommand -> DesiredDestination conversion
+            // Same as MoveCommand but adds AttackMoveTag instead of UserMoveOrder
+            // =============================================================================
+            foreach (var (amc, entity) in SystemAPI.Query<RefRO<AttackMoveCommand>>().WithEntityAccess())
+            {
+                // Buildings don't move
+                if (SystemAPI.HasComponent<BuildingTag>(entity))
+                {
+                    ecb.RemoveComponent<AttackMoveCommand>(entity);
+                    continue;
+                }
+
+                // Set guard point to attack-move destination
+                if (em.HasComponent<GuardPoint>(entity))
+                {
+                    ecb.SetComponent(entity, new GuardPoint
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+
+                // Set destination
+                if (!em.HasComponent<DesiredDestination>(entity))
+                {
+                    ecb.AddComponent(entity, new DesiredDestination
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+                else
+                {
+                    ecb.SetComponent(entity, new DesiredDestination
+                    {
+                        Position = amc.ValueRO.Destination,
+                        Has = 1
+                    });
+                }
+
+                // Clear Target
+                if (em.HasComponent<Target>(entity))
+                {
+                    ecb.SetComponent(entity, new Target { Value = Entity.Null });
+                }
+
+                // Add AttackMoveTag if not present
+                if (!em.HasComponent<AttackMoveTag>(entity))
+                {
+                    ecb.AddComponent<AttackMoveTag>(entity);
+                }
+
+                // Remove UserMoveOrder if present (attack-move units should NOT have this)
+                if (em.HasComponent<UserMoveOrder>(entity))
+                {
+                    ecb.RemoveComponent<UserMoveOrder>(entity);
+                }
+
+                // Reset smoothing state for fresh movement
+                if (em.HasComponent<SmoothedDirection>(entity))
+                    ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
+                if (em.HasComponent<StuckState>(entity))
+                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+
+                // Remove AttackMoveCommand itself - it's been processed
+                ecb.RemoveComponent<AttackMoveCommand>(entity);
+            }
+
+            // =============================================================================
             // PHASE 2: Move units toward their destinations
             // =============================================================================
+
+            // Read FlowFieldLookup from manager (NativeArray-based, no managed singleton
+            // access in the movement loop). Falls back to direct-line if unavailable.
+            var ffm = FlowFieldManager.Instance;
+            var ffLookup = (ffm != null) ? ffm.CurrentLookup : default;
+
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
+                .WithNone<BattalionMemberData>()
                 .WithEntityAccess())
             {
                 if (dd.ValueRO.Has == 0) continue;
@@ -126,6 +211,12 @@ namespace TheWaningBorder.Systems.Movement
                     dd.ValueRW.Has = 0;
                     continue;
                 }
+
+                // Lazy-add new components (safe via ECB — structural change deferred)
+                if (!em.HasComponent<SmoothedDirection>(entity))
+                    ecb.AddComponent(entity, new SmoothedDirection { Value = float3.zero });
+                if (!em.HasComponent<StuckState>(entity))
+                    ecb.AddComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                 // Get move speed: FormationSpeedOverride > MoveSpeed > default
                 float speed = DefaultMoveSpeed;
@@ -155,9 +246,15 @@ namespace TheWaningBorder.Systems.Movement
                     dd.ValueRW.Has = 0;
 
                     // Remove UserMoveOrder tag when destination reached
-                    // This allows auto-targeting to resume
                     if (em.HasComponent<UserMoveOrder>(entity))
                         ecb.RemoveComponent<UserMoveOrder>(entity);
+
+                    // Remove AttackMoveTag when destination reached
+                    if (em.HasComponent<AttackMoveTag>(entity))
+                        ecb.RemoveComponent<AttackMoveTag>(entity);
+
+                    // NOTE: PatrolTag is NOT removed here.
+                    // PatrolSystem will detect Has==0 and set the next waypoint.
 
                     // Remove formation speed override
                     if (em.HasComponent<FormationSpeedOverride>(entity))
@@ -170,53 +267,141 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                var t = xf.ValueRO;
-
-                // Smooth rotation toward movement direction
-                float facingDot = 1f;
-                if (math.lengthsq(dir) > 1e-8f)
+                // Request/lookup flow field for this destination.
+                // The snapped destination index from RequestFlowField ensures the
+                // lookup uses the same cache key as the manager (including snap-to-passable).
+                int snappedDest = -1;
+                if (ffm != null)
                 {
-                    float3 fwd = math.normalize(new float3(dir.x, 0f, dir.z));
-                    quaternion targetRot = quaternion.RotateY(math.atan2(fwd.x, fwd.z));
-
-                    // Slerp toward target rotation at TurnSpeed
-                    float maxTurn = TurnSpeed * dt;
-                    t.Rotation = SmoothSlerp(t.Rotation, targetRot, maxTurn);
-
-                    // Measure how well unit faces its goal (1 = facing, 0 = perpendicular, -1 = backwards)
-                    float3 currentFwd = math.mul(t.Rotation, new float3(0, 0, 1));
-                    facingDot = math.dot(new float3(currentFwd.x, 0, currentFwd.z), fwd);
+                    var field = ffm.RequestFlowField(goal);
+                    if (field.HasValue)
+                        snappedDest = field.Value.DestinationIndex;
                 }
 
-                // Scale movement by facing: full speed when facing goal, reduced when turning
-                // Clamp so units still creep forward even while turning (min 20% speed)
-                float facingFactor = math.clamp(facingDot, 0.2f, 1f);
-                float step = math.min(speed * dt * facingFactor, dist);
-                float3 nextPos = pos + dir * step;
+                // Flow-field direction lookup (NativeArray-based, falls back to direct-line)
+                dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
 
-                // === SLOPE CHECK: block movement onto impassable steep terrain ===
-                float hCenter = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
-                float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
-                float hR = TerrainUtility.GetHeight(nextPos.x + SlopeCheckStep, nextPos.z);
-                float hD = TerrainUtility.GetHeight(nextPos.x, nextPos.z - SlopeCheckStep);
-                float hU = TerrainUtility.GetHeight(nextPos.x, nextPos.z + SlopeCheckStep);
-                float dX = (hR - hL) / (SlopeCheckStep * 2f);
-                float dZ = (hU - hD) / (SlopeCheckStep * 2f);
-                float slopeAtNext = math.sqrt(dX * dX + dZ * dZ);
-
-                if (slopeAtNext > MaxWalkableSlope)
+                // === Per-unit direction smoothing ===
+                // Lerp toward raw flow field direction to prevent cell-boundary oscillation.
+                float3 smoothedDir = dir;
+                if (em.HasComponent<SmoothedDirection>(entity))
                 {
-                    // Terrain too steep — stop moving
-                    dd.ValueRW.Has = 0;
-                    if (em.HasComponent<UserMoveOrder>(entity))
-                        ecb.RemoveComponent<UserMoveOrder>(entity);
-                    if (em.HasComponent<FormationSpeedOverride>(entity))
-                        ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                    float3 prev = em.GetComponentData<SmoothedDirection>(entity).Value;
+                    if (math.lengthsq(prev) > 1e-8f)
+                    {
+                        const float SmoothRate = 12f;
+                        smoothedDir = math.normalizesafe(math.lerp(prev, dir, math.saturate(SmoothRate * dt)));
+                    }
+                    ecb.SetComponent(entity, new SmoothedDirection { Value = smoothedDir });
+                }
+
+                var t = xf.ValueRO;
+
+                // === Cosmetic rotation (does NOT affect speed) ===
+                if (math.lengthsq(smoothedDir) > 1e-8f)
+                {
+                    float3 fwd = math.normalize(new float3(smoothedDir.x, 0f, smoothedDir.z));
+                    quaternion targetRot = quaternion.RotateY(math.atan2(fwd.x, fwd.z));
+                    float maxTurn = TurnSpeed * dt;
+                    SmoothSlerp(in t.Rotation, in targetRot, maxTurn, out var smoothed);
+                    t.Rotation = smoothed;
+                }
+
+                // === Full speed movement — no facingFactor ===
+                float step = math.min(speed * dt, dist);
+                float3 nextPos = pos + smoothedDir * step;
+
+                // === PASSABILITY CHECK ===
+                bool blocked = false;
+                var passGrid = PassabilityGrid.Instance;
+                if (passGrid != null)
+                {
+                    int2 nextCell = passGrid.WorldToCell(nextPos);
+                    if (!passGrid.IsPassable(nextCell))
+                        blocked = true;
+                }
+
+                // === SLOPE CHECK ===
+                if (!blocked)
+                {
+                    float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
+                    float hR = TerrainUtility.GetHeight(nextPos.x + SlopeCheckStep, nextPos.z);
+                    float hD = TerrainUtility.GetHeight(nextPos.x, nextPos.z - SlopeCheckStep);
+                    float hU = TerrainUtility.GetHeight(nextPos.x, nextPos.z + SlopeCheckStep);
+                    float dX = (hR - hL) / (SlopeCheckStep * 2f);
+                    float dZ = (hU - hD) / (SlopeCheckStep * 2f);
+                    float slopeAtNext = math.sqrt(dX * dX + dZ * dZ);
+                    if (slopeAtNext > MaxWalkableSlope)
+                        blocked = true;
+                }
+
+                // === STUCK DETECTION with 3-tier escalation ===
+                if (blocked)
+                {
+                    if (em.HasComponent<StuckState>(entity))
+                    {
+                        var stuck = em.GetComponentData<StuckState>(entity);
+                        stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
+
+                        if (stuck.Counter > 30)
+                        {
+                            // Tier 3 (30+ frames ≈ 0.5s): cancel destination entirely
+                            dd.ValueRW.Has = 0;
+                            if (em.HasComponent<UserMoveOrder>(entity))
+                                ecb.RemoveComponent<UserMoveOrder>(entity);
+                            if (em.HasComponent<AttackMoveTag>(entity))
+                                ecb.RemoveComponent<AttackMoveTag>(entity);
+                            if (em.HasComponent<FormationSpeedOverride>(entity))
+                                ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                            ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                        }
+                        else if (stuck.Counter > 5)
+                        {
+                            // Tier 2 (6-30 frames): try perpendicular directions
+                            byte attempt = (byte)(stuck.LastAttempt == 1 ? 2 : 1);
+                            float3 perp = attempt == 1
+                                ? new float3(-smoothedDir.z, 0f, smoothedDir.x)
+                                : new float3(smoothedDir.z, 0f, -smoothedDir.x);
+                            perp = math.normalizesafe(perp);
+
+                            float3 perpPos = pos + perp * step;
+                            bool perpBlocked = false;
+                            if (passGrid != null)
+                            {
+                                int2 perpCell = passGrid.WorldToCell(perpPos);
+                                if (!passGrid.IsPassable(perpCell))
+                                    perpBlocked = true;
+                            }
+
+                            if (!perpBlocked)
+                            {
+                                perpPos.y = TerrainUtility.GetHeight(perpPos.x, perpPos.z);
+                                t.Position = perpPos;
+                            }
+
+                            stuck.LastAttempt = attempt;
+                            ecb.SetComponent(entity, stuck);
+                        }
+                        else
+                        {
+                            // Tier 1 (1-5 frames): retry same direction, flow field may update
+                            ecb.SetComponent(entity, stuck);
+                        }
+                    }
+
+                    // Always write back rotation even when blocked (cosmetic update)
+                    xf.ValueRW = t;
                     continue;
                 }
 
-                t.Position = nextPos;
+                // Not blocked — reset stuck counter
+                if (em.HasComponent<StuckState>(entity))
+                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
+                // === Terrain height snap ===
+                nextPos.y = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
+
+                t.Position = nextPos;
                 xf.ValueRW = t;
             }
         }
@@ -224,26 +409,35 @@ namespace TheWaningBorder.Systems.Movement
         /// Slerp from current to target rotation, clamped to maxAngle radians.
         /// </summary>
         [BurstCompile]
-        private static quaternion SmoothSlerp(quaternion from, quaternion to, float maxAngle)
+        private static void SmoothSlerp(in quaternion from, in quaternion to, float maxAngle, out quaternion result)
         {
             // Ensure shortest path
-            float dot = math.dot(from.value, to.value);
+            float4 toVal = to.value;
+            float dot = math.dot(from.value, toVal);
             if (dot < 0f)
             {
-                to.value = -to.value;
+                toVal = -toVal;
                 dot = -dot;
             }
 
+            quaternion toFixed = new quaternion(toVal);
+
             // Already aligned
             if (dot > 0.9999f)
-                return to;
+            {
+                result = toFixed;
+                return;
+            }
 
             float angle = math.acos(math.clamp(dot, -1f, 1f)) * 2f;
             if (angle <= maxAngle)
-                return to;
+            {
+                result = toFixed;
+                return;
+            }
 
             float t = maxAngle / angle;
-            return math.slerp(from, to, t);
+            result = math.slerp(from, toFixed, t);
         }
     }
 }

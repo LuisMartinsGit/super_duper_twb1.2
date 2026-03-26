@@ -8,7 +8,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
-using TheWaningBorder.AI; // IronMineTag
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -49,7 +49,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
-            var random = new Unity.Mathematics.Random((uint)(System.DateTime.Now.Ticks ^ 0xDEAD));
+            var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xDEAD));
 
             var playerPositions = GetPlayerPositions(em);
             int half = GameSettings.MapHalfSize;
@@ -178,6 +178,13 @@ namespace TheWaningBorder.Bootstrap
             {
                 RemainingIron = IronPerDeposit,
                 Depleted = 0
+            });
+
+            // Assign network ID for multiplayer lockstep synchronization
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
             });
 
             return entity;

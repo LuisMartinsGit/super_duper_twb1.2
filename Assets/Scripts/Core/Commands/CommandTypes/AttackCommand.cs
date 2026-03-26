@@ -2,6 +2,7 @@
 // Attack command component and execution logic
 // Location: Assets/Scripts/Core/Commands/CommandTypes/AttackCommand.cs
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -31,6 +32,67 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit) || !em.Exists(target)) return;
 
+            // Battalion leader: move leader toward target, propagate attack to members
+            if (em.HasComponent<BattalionLeader>(unit) && em.HasBuffer<BattalionMember>(unit))
+            {
+                var targetPos = em.GetComponentData<LocalTransform>(target).Position;
+                var leaderPos = em.GetComponentData<LocalTransform>(unit).Position;
+
+                // Copy member entities to a local array BEFORE any structural changes
+                // (structural changes like RemoveComponent invalidate DynamicBuffer handles)
+                var membersBuffer = em.GetBuffer<BattalionMember>(unit);
+                int memberCount = membersBuffer.Length;
+                var memberEntities = new NativeArray<Entity>(memberCount, Allocator.Temp);
+                for (int i = 0; i < memberCount; i++)
+                    memberEntities[i] = membersBuffer[i].Value;
+
+                // Check if battalion contains ranged units — stop at firing range
+                bool hasRanged = false;
+                float maxRange = 25f;
+                for (int i = 0; i < memberCount; i++)
+                {
+                    var m = memberEntities[i];
+                    if (m != Entity.Null && em.Exists(m) && em.HasComponent<ArcherTag>(m))
+                    {
+                        hasRanged = true;
+                        if (em.HasComponent<ArcherState>(m))
+                            maxRange = em.GetComponentData<ArcherState>(m).MaxRange;
+                        break;
+                    }
+                }
+
+                if (hasRanged)
+                {
+                    // Move leader to a position just inside max range
+                    float3 dir = math.normalizesafe(targetPos - leaderPos);
+                    float dist = math.distance(leaderPos, targetPos);
+                    float stopAt = maxRange - 3f; // Stop 3 units inside max range
+                    if (dist > stopAt)
+                    {
+                        float3 movePos = targetPos - dir * stopAt;
+                        MoveCommandHelper.Execute(em, unit, movePos);
+                    }
+                }
+                else
+                {
+                    // Melee battalion: move to target position
+                    MoveCommandHelper.Execute(em, unit, targetPos);
+                }
+
+                // Set target on all members so combat systems pick it up
+                // (uses the copied array — safe after structural changes)
+                for (int i = 0; i < memberCount; i++)
+                {
+                    var member = memberEntities[i];
+                    if (member == Entity.Null || !em.Exists(member)) continue;
+
+                    ClearConflictingCommands(em, member);
+                    SetupAttack(em, member, target);
+                }
+                memberEntities.Dispose();
+                return;
+            }
+
             // Clear conflicting commands (but NOT MoveCommand - combat system handles chasing)
             ClearConflictingCommands(em, unit);
 
@@ -47,8 +109,9 @@ namespace TheWaningBorder.Core.Commands.Types
         public static bool CanExecute(EntityManager em, Entity unit, Entity target)
         {
             if (!em.Exists(unit) || !em.Exists(target)) return false;
-            if (!em.HasComponent<Damage>(unit)) return false;
-            
+            // Battalion leaders have no Damage — their members do the fighting
+            if (!em.HasComponent<Damage>(unit) && !em.HasComponent<BattalionLeader>(unit)) return false;
+
             // Verify not attacking friendly unit
             if (em.HasComponent<FactionTag>(unit) && em.HasComponent<FactionTag>(target))
             {
@@ -73,6 +136,12 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear heal
             if (em.HasComponent<HealCommand>(unit))
                 em.RemoveComponent<HealCommand>(unit);
+            // Clear Litharch healing state
+            if (em.HasComponent<LitharchState>(unit))
+            {
+                var ls = em.GetComponentData<LitharchState>(unit);
+                if (ls.IsHealing != 0) { ls.HealTarget = Entity.Null; ls.IsHealing = 0; em.SetComponentData(unit, ls); }
+            }
 
             // Clear UserMoveOrder to allow combat system to take over
             if (em.HasComponent<UserMoveOrder>(unit))

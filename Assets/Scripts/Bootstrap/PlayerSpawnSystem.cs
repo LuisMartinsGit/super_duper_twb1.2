@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Bootstrap
@@ -28,6 +29,10 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
+
+            // Reset network ID generator so all clients assign IDs in the same deterministic order
+            NetworkIdGenerator.Reset();
+
             int playerCount = GameSettings.TotalPlayers;
             
             // Calculate spawn positions based on layout
@@ -36,7 +41,7 @@ namespace TheWaningBorder.Bootstrap
             for (int i = 0; i < playerCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
-                if (slot == null || slot.Type == SlotType.Empty) continue;
+                if (slot == null || slot.Type == SlotType.Empty || slot.Type == SlotType.Observer) continue;
 
                 var faction = slot.Faction;
                 var spawnPos = positions[i];
@@ -50,19 +55,19 @@ namespace TheWaningBorder.Bootstrap
         {
             // Ensure position is on land and at correct height
             float3 spawnPos = EnsureValidSpawnPosition(position);
-            
-            // Spawn Hall (main base)
-            Hall.Create(em, spawnPos, faction);
 
-            // Spawn starting Builders around the Hall
+            // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
+            BuildingFactory.Create(em, "Hall", spawnPos, faction);
+
+            // Spawn starting Builders — use UnitFactory for NetworkedEntity assignment
             float offset = 3f;
             float3 builderPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
             float3 builderPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
             float3 builderPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
-            
-            Builder.Create(em, builderPos1, faction);
-            Builder.Create(em, builderPos2, faction);
-            Builder.Create(em, builderPos3, faction);
+
+            UnitFactory.Create(em, "Builder", builderPos1, faction);
+            UnitFactory.Create(em, "Builder", builderPos2, faction);
+            UnitFactory.Create(em, "Builder", builderPos3, faction);
         }
 
         /// <summary>

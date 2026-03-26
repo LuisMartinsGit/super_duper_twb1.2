@@ -93,6 +93,7 @@ namespace TheWaningBorder.World.Terrain
         public TerrainLayer dirt;
         public TerrainLayer rock;
         public TerrainLayer snow;
+        public TerrainLayer curse;
 
         [Header("Texture Settings")]
         public int textureResolution = 512;
@@ -264,6 +265,9 @@ namespace TheWaningBorder.World.Terrain
 
             if (snow == null)
                 snow = CreateTerrainLayer("Snow", GenerateSnowTexture(texOffsetX, texOffsetY), tileSize);
+
+            if (curse == null)
+                curse = CreateTerrainLayer("Curse", GenerateCurseTexture(texOffsetX, texOffsetY), tileSize);
 
             Debug.Log("[ProceduralTerrain] Generated terrain layer textures");
         }
@@ -629,6 +633,277 @@ namespace TheWaningBorder.World.Terrain
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Bilinear;
             return tex;
+        }
+
+        Texture2D GenerateCurseTexture(float offsetX, float offsetY)
+        {
+            var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
+
+            // Dark purple corruption palette
+            var baseCorrupt = new Color(0.12f, 0.04f, 0.18f);
+            var deepViolet  = new Color(0.20f, 0.06f, 0.28f);
+            var glowPurple  = new Color(0.35f, 0.10f, 0.45f);
+            var darkVein    = new Color(0.06f, 0.02f, 0.10f);
+            var crystalBit  = new Color(0.50f, 0.15f, 0.60f);
+
+            for (int y = 0; y < textureResolution; y++)
+            {
+                for (int x = 0; x < textureResolution; x++)
+                {
+                    float u = x / (float)textureResolution;
+                    float v = y / (float)textureResolution;
+
+                    // Multi-octave corruption noise
+                    float noise = Mathf.PerlinNoise(u * 30 + offsetX, v * 30 + offsetY) * 0.4f;
+                    noise += Mathf.PerlinNoise(u * 60 + offsetX, v * 60 + offsetY) * 0.35f;
+                    noise += Mathf.PerlinNoise(u * 120 + offsetX, v * 120 + offsetY) * 0.25f;
+
+                    Color c = Color.Lerp(baseCorrupt, deepViolet, noise);
+
+                    // Vein-like dark streaks
+                    float veins = Mathf.PerlinNoise(u * 80 + offsetY, v * 80 + offsetX);
+                    veins = Mathf.Pow(Mathf.Abs(veins * 2f - 1f), 3f);
+                    c = Color.Lerp(c, darkVein, veins * 0.5f);
+
+                    // Glowing patches
+                    float glow = Mathf.PerlinNoise(u * 15 + offsetX * 2, v * 15 + offsetY * 2);
+                    if (glow > 0.6f)
+                    {
+                        float glowAmount = (glow - 0.6f) * 2.5f;
+                        c = Color.Lerp(c, glowPurple, glowAmount * 0.5f);
+                    }
+
+                    // Small bright crystal specks
+                    float specks = Mathf.PerlinNoise(u * 250 + offsetY * 3, v * 250 + offsetX * 3);
+                    if (specks > 0.9f)
+                    {
+                        c = Color.Lerp(c, crystalBit, (specks - 0.9f) * 5f);
+                    }
+
+                    tex.SetPixel(x, y, c);
+                }
+            }
+
+            tex.Apply();
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            return tex;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CURSED GROUND TERRAIN PAINTING
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Paint cursed ground texture onto the terrain splatmap at a world position.
+        /// Called by PresentationSpawnSystem when a cursed ground entity is detected.
+        /// </summary>
+        /// <summary>
+        /// Paints cursed ground on the terrain splatmap with organic, noise-distorted edges.
+        /// Adjacent curse patches blend seamlessly into continuous coverage.
+        ///
+        /// Edge distortion uses multi-octave Perlin noise keyed to world position,
+        /// so overlapping circles merge into one continuous organic shape rather
+        /// than looking like a collection of perfect circles.
+        /// </summary>
+        public void PaintCursedGround(float worldX, float worldZ, float radius)
+        {
+            if (_terrain == null || _data == null) return;
+
+            var layers = _data.terrainLayers;
+            int curseIndex = IndexOf(layers, curse);
+            if (curseIndex < 0) return;
+
+            int res = _data.alphamapResolution;
+            int layerCount = layers.Length;
+
+            float terrainPosX = _terrain.transform.position.x;
+            float terrainPosZ = _terrain.transform.position.z;
+            float terrainSizeX = _data.size.x;
+            float terrainSizeZ = _data.size.z;
+
+            float normX = (worldX - terrainPosX) / terrainSizeX;
+            float normZ = (worldZ - terrainPosZ) / terrainSizeZ;
+
+            int centerPixelX = Mathf.RoundToInt(normX * res);
+            int centerPixelZ = Mathf.RoundToInt(normZ * res);
+            // Extend paint region by 30% to accommodate noise bulges
+            int pixelRadius = Mathf.CeilToInt((radius * 1.3f / terrainSizeX) * res);
+
+            int minX = Mathf.Max(0, centerPixelX - pixelRadius);
+            int maxX = Mathf.Min(res - 1, centerPixelX + pixelRadius);
+            int minZ = Mathf.Max(0, centerPixelZ - pixelRadius);
+            int maxZ = Mathf.Min(res - 1, centerPixelZ + pixelRadius);
+
+            int width = maxX - minX + 1;
+            int height = maxZ - minZ + 1;
+            if (width <= 0 || height <= 0) return;
+
+            float[,,] splat = _data.GetAlphamaps(minX, minZ, width, height);
+
+            // Noise parameters for organic edge distortion
+            // Use world-space coordinates so adjacent patches share the same noise field
+            // and blend into one continuous organic shape
+            const float noiseScale1 = 0.15f;  // Large scale waviness
+            const float noiseScale2 = 0.35f;  // Medium detail
+            const float noiseScale3 = 0.7f;   // Fine tendrils
+            const float noiseStrength = 0.35f; // How much the radius varies (±35%)
+
+            float basePixelRadius = (radius / terrainSizeX) * res;
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float dx = (minX + x) - centerPixelX;
+                    float dz = (minZ + z) - centerPixelZ;
+                    float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+                    // Use world-space pixel position for noise (shared across all patches)
+                    float worldPixelX = (minX + x) * (terrainSizeX / res) + terrainPosX;
+                    float worldPixelZ = (minZ + z) * (terrainSizeZ / res) + terrainPosZ;
+
+                    // Multi-octave Perlin noise for organic edge shape
+                    float noise = Mathf.PerlinNoise(worldPixelX * noiseScale1 + 100f, worldPixelZ * noiseScale1 + 100f) * 0.5f
+                                + Mathf.PerlinNoise(worldPixelX * noiseScale2 + 200f, worldPixelZ * noiseScale2 + 200f) * 0.3f
+                                + Mathf.PerlinNoise(worldPixelX * noiseScale3 + 300f, worldPixelZ * noiseScale3 + 300f) * 0.2f;
+                    // Remap noise from 0..1 to -1..1 range
+                    float noiseOffset = (noise - 0.5f) * 2f * noiseStrength;
+
+                    // Distorted radius at this pixel
+                    float localRadius = basePixelRadius * (1f + noiseOffset);
+                    if (localRadius < 1f) localRadius = 1f;
+
+                    if (dist > localRadius) continue;
+
+                    // Smooth falloff from center to distorted edge
+                    float t = 1f - dist / localRadius;
+                    t = t * t * (3f - 2f * t); // smoothstep
+                    float curseWeight = t * 0.95f;
+
+                    // Blend: take the max so overlapping patches merge smoothly
+                    float existingCurse = splat[z, x, curseIndex];
+                    float newCurse = Mathf.Max(existingCurse, curseWeight);
+                    float curseIncrease = newCurse - existingCurse;
+
+                    if (curseIncrease <= 0.001f) continue;
+
+                    // Reduce all other layers proportionally to maintain sum = 1
+                    float otherTotal = 0f;
+                    for (int l = 0; l < layerCount; l++)
+                    {
+                        if (l != curseIndex) otherTotal += splat[z, x, l];
+                    }
+
+                    if (otherTotal > 0.001f)
+                    {
+                        float scaleFactor = (1f - newCurse) / otherTotal;
+                        for (int l = 0; l < layerCount; l++)
+                        {
+                            if (l != curseIndex)
+                                splat[z, x, l] *= scaleFactor;
+                        }
+                    }
+
+                    splat[z, x, curseIndex] = newCurse;
+                }
+            }
+
+            _data.SetAlphamaps(minX, minZ, splat);
+        }
+
+        /// <summary>
+        /// Removes cursed ground paint from the terrain splatmap at a world position.
+        /// Called when cursed ground tiles recede after their owner node is destroyed.
+        /// Redistributes the curse weight back to the other terrain layers proportionally.
+        /// </summary>
+        public void UnpaintCursedGround(float worldX, float worldZ, float radius)
+        {
+            if (_terrain == null || _data == null) return;
+
+            var layers = _data.terrainLayers;
+            int curseIndex = IndexOf(layers, curse);
+            if (curseIndex < 0) return;
+
+            int res = _data.alphamapResolution;
+            int layerCount = layers.Length;
+
+            float terrainPosX = _terrain.transform.position.x;
+            float terrainPosZ = _terrain.transform.position.z;
+            float terrainSizeX = _data.size.x;
+            float terrainSizeZ = _data.size.z;
+
+            float normX = (worldX - terrainPosX) / terrainSizeX;
+            float normZ = (worldZ - terrainPosZ) / terrainSizeZ;
+
+            int centerPixelX = Mathf.RoundToInt(normX * res);
+            int centerPixelZ = Mathf.RoundToInt(normZ * res);
+            int pixelRadius = Mathf.CeilToInt((radius * 1.3f / terrainSizeX) * res);
+
+            int minX = Mathf.Max(0, centerPixelX - pixelRadius);
+            int maxX = Mathf.Min(res - 1, centerPixelX + pixelRadius);
+            int minZ = Mathf.Max(0, centerPixelZ - pixelRadius);
+            int maxZ = Mathf.Min(res - 1, centerPixelZ + pixelRadius);
+
+            int width = maxX - minX + 1;
+            int height = maxZ - minZ + 1;
+            if (width <= 0 || height <= 0) return;
+
+            float[,,] splat = _data.GetAlphamaps(minX, minZ, width, height);
+
+            float basePixelRadius = (radius / terrainSizeX) * res;
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float dx = (minX + x) - centerPixelX;
+                    float dz = (minZ + z) - centerPixelZ;
+                    float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+                    if (dist > basePixelRadius * 1.3f) continue;
+
+                    float existingCurse = splat[z, x, curseIndex];
+                    if (existingCurse < 0.01f) continue;
+
+                    // Falloff: remove more at center, less at edge
+                    float t = 1f - dist / (basePixelRadius * 1.3f);
+                    t = Mathf.Clamp01(t);
+                    float removeAmount = existingCurse * t;
+
+                    float newCurse = existingCurse - removeAmount;
+                    if (newCurse < 0.01f) newCurse = 0f;
+
+                    // Redistribute removed curse weight to other layers proportionally
+                    float freed = existingCurse - newCurse;
+                    float otherTotal = 0f;
+                    for (int l = 0; l < layerCount; l++)
+                    {
+                        if (l != curseIndex) otherTotal += splat[z, x, l];
+                    }
+
+                    if (otherTotal > 0.001f)
+                    {
+                        float scaleFactor = (otherTotal + freed) / otherTotal;
+                        for (int l = 0; l < layerCount; l++)
+                        {
+                            if (l != curseIndex)
+                                splat[z, x, l] *= scaleFactor;
+                        }
+                    }
+                    else
+                    {
+                        // No other layers present — assign freed weight to grass (index 1)
+                        int grassIndex = IndexOf(layers, grass);
+                        if (grassIndex >= 0)
+                            splat[z, x, grassIndex] = freed;
+                    }
+
+                    splat[z, x, curseIndex] = newCurse;
+                }
+            }
+
+            _data.SetAlphamaps(minX, minZ, splat);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1143,6 +1418,7 @@ namespace TheWaningBorder.World.Terrain
             if (dirt != null) list.Add(dirt);
             if (rock != null) list.Add(rock);
             if (snow != null) list.Add(snow);
+            if (curse != null) list.Add(curse);
             return list.ToArray();
         }
 

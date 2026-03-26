@@ -76,7 +76,11 @@ namespace TheWaningBorder.Economy
                 {
                     var facKey = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(facKey, out var supplies))
+                    {
                         bank.ValueRW.Supplies += supplies;
+                        if (bank.ValueRO.Supplies > FactionResources.ResourceCap)
+                            bank.ValueRW.Supplies = FactionResources.ResourceCap;
+                    }
                 }
             }
             suppliesPerFaction.Dispose();
@@ -113,6 +117,7 @@ namespace TheWaningBorder.Economy
                         resources.Crystal += income.Crystal * missed;
                         resources.Veilsteel += income.Veilsteel * missed;
                         resources.Glow += income.Glow * missed;
+                        resources.Clamp();
                         bank.ValueRW = resources;
                     }
 

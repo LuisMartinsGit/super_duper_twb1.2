@@ -41,6 +41,15 @@ public struct ArcherTag : IComponentData { }
 /// <summary>Marker tag for Berserker units (converted from miners at Fiendstone Keep).</summary>
 public struct BerserkerTag : IComponentData { }
 
+/// <summary>Marker tag for Cavalry units (mounted). Used for anti-cavalry bonus detection.</summary>
+public struct CavalryTag : IComponentData { }
+
+/// <summary>Marker tag for Siege units (anti-structure specialists).</summary>
+public struct SiegeTag : IComponentData { }
+
+/// <summary>Marker tag for Spearman units (anti-cavalry bonus).</summary>
+public struct SpearmanTag : IComponentData { }
+
 // ==================== Archer State ====================
 
 /// <summary>
@@ -48,13 +57,11 @@ public struct BerserkerTag : IComponentData { }
 /// </summary>
 public struct ArcherState : IComponentData
 {
-    public Entity CurrentTarget;
     public float AimTimer;           // Time spent aiming at current target
     public float AimTimeRequired;    // How long to aim before firing
     public float CooldownTimer;      // Time until can fire again
     public float MinRange;           // Minimum attack range
     public float MaxRange;           // Maximum attack range
-    public float HeightRangeMod;     // Range bonus/penalty per unit height difference
     public byte IsRetreating;        // 1 if backing away from too-close enemy
     public byte IsFiring;            // 1 when actively firing
 }
@@ -68,14 +75,6 @@ public struct ArrowProjectile : IComponentData
     public float Gravity;        // Gravity constant (typically -9.81)
     public Entity Shooter;       // Who shot it (for friendly fire checking)
     public bool IsParabolic;     // false = horizontal, true = parabolic arc
-}
-
-/// <summary>
-/// Visual cleanup timer for landed arrows.
-/// </summary>
-public struct ArrowLanded : IComponentData
-{
-    public float TimeLeft; // Seconds until arrow visual is removed
 }
 
 // ==================== Miner Components ====================
@@ -105,15 +104,20 @@ public struct MinerState : IComponentData
     public MinerWorkState State;     // Current work state
     public byte GatheringResource;   // 0=Iron, 1=Crystal
     public Entity DropoffTarget;     // Hall/GathererHut to return crystal to
-}
 
-/// <summary>
-/// Target mine for a miner unit.
-/// </summary>
-public struct MiningTarget : IComponentData
-{
-    public Entity Mine;
-    public float3 TargetPosition;
+    // ---- Tech-modified stats ----
+    /// <summary>
+    /// Multiplier for gather speed (default 1.0). Higher = faster gathering.
+    /// Modified by researched technologies (e.g. ImprovedTools gives 1.15).
+    /// Stacks multiplicatively across multiple techs.
+    /// </summary>
+    public float GatherSpeedMultiplier;
+
+    /// <summary>
+    /// Flat bonus added to max carry capacity (default 0).
+    /// Modified by researched technologies (e.g. StorageCarts gives +10).
+    /// </summary>
+    public int CarryCapacityBonus;
 }
 
 // ==================== Forge Supply ====================
@@ -149,6 +153,31 @@ public struct CanHeal : IComponentData
 {
     public float HealRate;     // HP per second
     public float HealRange;    // Max distance to target
+}
+
+// ==================== Litharch Components ====================
+
+/// <summary>
+/// Marker tag for Litharch healer units.
+/// </summary>
+public struct LitharchTag : IComponentData { }
+
+/// <summary>
+/// Litharch healer state tracking.
+/// </summary>
+public struct LitharchState : IComponentData
+{
+    /// <summary>Current unit being healed</summary>
+    public Entity HealTarget;
+
+    /// <summary>Time accumulator for healing ticks</summary>
+    public float HealTimer;
+
+    /// <summary>1 if actively healing, 0 otherwise</summary>
+    public byte IsHealing;
+
+    /// <summary>Timer for searching for new heal targets</summary>
+    public float SearchTimer;
 }
 
 // ==================== Army System ====================

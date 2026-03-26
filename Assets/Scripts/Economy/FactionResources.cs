@@ -4,6 +4,7 @@
 
 using Unity.Entities;
 using Unity.Collections;
+using Unity.Mathematics;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Economy
@@ -18,22 +19,37 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public struct FactionResources : IComponentData
     {
+        /// <summary>Hard cap for every resource type</summary>
+        public const int ResourceCap = 100_000;
+
         /// <summary>Basic resource - used for most construction and training</summary>
         public int Supplies;
-        
+
         /// <summary>Industrial resource - used for military and advanced structures</summary>
         public int Iron;
-        
+
         /// <summary>Magical resource - used for temples and magical units</summary>
         public int Crystal;
-        
+
         /// <summary>Rare resource - used for elite units and advanced technologies</summary>
         public int Veilsteel;
-        
+
         /// <summary>Energy resource - used for special abilities and ultimate powers</summary>
         public int Glow;
-        
+
         // ==================== Helpers ====================
+
+        /// <summary>
+        /// Clamp every resource to ResourceCap. Burst-safe.
+        /// </summary>
+        public void Clamp()
+        {
+            if (Supplies > ResourceCap) Supplies = ResourceCap;
+            if (Iron > ResourceCap) Iron = ResourceCap;
+            if (Crystal > ResourceCap) Crystal = ResourceCap;
+            if (Veilsteel > ResourceCap) Veilsteel = ResourceCap;
+            if (Glow > ResourceCap) Glow = ResourceCap;
+        }
         
         /// <summary>
         /// Create resources with specified values.
@@ -50,11 +66,6 @@ namespace TheWaningBorder.Economy
                 Glow = glow
             };
         }
-        
-        /// <summary>
-        /// Default starting resources for a new faction.
-        /// </summary>
-        public static FactionResources DefaultStart => Of(supplies: 5000, iron: 5000, crystal: 5000, veilsteel: 5000, glow: 5000);
         
         /// <summary>
         /// Check if faction has at least the specified resources.
@@ -81,6 +92,32 @@ namespace TheWaningBorder.Economy
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════════
+    // FACTION ERA & RELIGION POINTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Tracks the current era of a faction (1-5).
+    /// Era 1 = start, Era 2 = culture chosen, Era 3-5 = temple level-ups.
+    /// Attached to faction bank entity alongside FactionResources.
+    /// </summary>
+    public struct FactionEra : IComponentData
+    {
+        /// <summary>Current era (1-5)</summary>
+        public int Value;
+    }
+
+    /// <summary>
+    /// Tracks cumulative Religion Points (RP) for a faction.
+    /// RP are granted by temple level-ups and shrine construction.
+    /// Attached to faction bank entity alongside FactionResources.
+    /// </summary>
+    public struct ReligionPoints : IComponentData
+    {
+        /// <summary>Cumulative religion points</summary>
+        public int Value;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // RESOURCE TICK STATE
     // ═══════════════════════════════════════════════════════════════════════

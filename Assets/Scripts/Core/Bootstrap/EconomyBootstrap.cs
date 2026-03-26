@@ -88,7 +88,9 @@ namespace TheWaningBorder.Economy
                 typeof(FactionTag),
                 typeof(FactionResources),
                 typeof(ResourceTickState),
-                typeof(FactionPopulation)
+                typeof(FactionPopulation),
+                typeof(FactionEra),
+                typeof(ReligionPoints)
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -114,6 +116,9 @@ namespace TheWaningBorder.Economy
                     ? (int)math.floor(world.Time.ElapsedTime)
                     : 0
             });
+
+            em.SetComponentData(bank, new FactionEra { Value = 1 });
+            em.SetComponentData(bank, new ReligionPoints { Value = 0 });
 
             return bank;
         }
@@ -163,13 +168,16 @@ namespace TheWaningBorder.Economy
 
                 if (TryGetFactionBank(em, faction, out var bank))
                 {
+                    bool max = GameSettings.MaxStartingResources;
+                    int cap = FactionResources.ResourceCap;
+
                     em.SetComponentData(bank, new FactionResources
                     {
-                        Supplies = StartingSupplies,
-                        Iron = StartingIron,
-                        Crystal = StartingCrystal,
-                        Veilsteel = StartingVeilsteel,
-                        Glow = StartingGlow
+                        Supplies  = max ? cap : StartingSupplies,
+                        Iron      = max ? cap : StartingIron,
+                        Crystal   = max ? cap : StartingCrystal,
+                        Veilsteel = max ? cap : StartingVeilsteel,
+                        Glow      = max ? cap : StartingGlow
                     });
 
                     em.SetComponentData(bank, new FactionPopulation
@@ -177,6 +185,17 @@ namespace TheWaningBorder.Economy
                         Current = 0,
                         Max = 0
                     });
+
+                    // Reset era and religion points
+                    if (em.HasComponent<FactionEra>(bank))
+                        em.SetComponentData(bank, new FactionEra { Value = 1 });
+                    else
+                        em.AddComponentData(bank, new FactionEra { Value = 1 });
+
+                    if (em.HasComponent<ReligionPoints>(bank))
+                        em.SetComponentData(bank, new ReligionPoints { Value = 0 });
+                    else
+                        em.AddComponentData(bank, new ReligionPoints { Value = 0 });
                 }
             }
 
@@ -205,25 +224,29 @@ namespace TheWaningBorder.Economy
             return false;
         }
 
-        // Then fix the method signature (around line 205):
         private static Entity CreateFactionBank(EntityManager em, Faction faction, EntityWorld world)
         {
             var bank = em.CreateEntity(
                 typeof(FactionTag),
                 typeof(FactionResources),
                 typeof(ResourceTickState),
-                typeof(FactionPopulation)
+                typeof(FactionPopulation),
+                typeof(FactionEra),
+                typeof(ReligionPoints)
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
 
+            bool max = GameSettings.MaxStartingResources;
+            int cap = FactionResources.ResourceCap;
+
             em.SetComponentData(bank, new FactionResources
             {
-                Supplies = StartingSupplies,
-                Iron = StartingIron,
-                Crystal = StartingCrystal,
-                Veilsteel = StartingVeilsteel,
-                Glow = StartingGlow
+                Supplies  = max ? cap : StartingSupplies,
+                Iron      = max ? cap : StartingIron,
+                Crystal   = max ? cap : StartingCrystal,
+                Veilsteel = max ? cap : StartingVeilsteel,
+                Glow      = max ? cap : StartingGlow
             });
 
             em.SetComponentData(bank, new FactionPopulation
@@ -236,6 +259,9 @@ namespace TheWaningBorder.Economy
             {
                 LastWholeSecond = (int)math.floor(world.Time.ElapsedTime)
             });
+
+            em.SetComponentData(bank, new FactionEra { Value = 1 });
+            em.SetComponentData(bank, new ReligionPoints { Value = 0 });
 
             return bank;
         }

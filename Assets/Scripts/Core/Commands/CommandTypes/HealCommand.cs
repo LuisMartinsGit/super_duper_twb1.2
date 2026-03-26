@@ -2,6 +2,7 @@
 // Heal command component and execution logic
 // Location: Assets/Scripts/Core/Commands/CommandTypes/HealCommand.cs
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -93,9 +94,58 @@ namespace TheWaningBorder.Core.Commands.Types
             var healerFaction = em.GetComponentData<FactionTag>(healer).Value;
             var healerPos = em.GetComponentData<LocalTransform>(healer).Position;
 
-            // TODO: Implement proper nearest target search
-            // For now, return Entity.Null
-            return Entity.Null;
+            // Query all units that could be heal candidates
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<Health>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            var entities = query.ToEntityArray(Allocator.Temp);
+            var healths = query.ToComponentDataArray<Health>(Allocator.Temp);
+            var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity bestTarget = Entity.Null;
+            float bestDist = float.MaxValue;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                // Skip self
+                if (entities[i] == healer) continue;
+
+                // Same faction only
+                if (factions[i].Value != healerFaction) continue;
+
+                // Skip unhealable units
+                if (em.HasComponent<UnhealableTag>(entities[i])) continue;
+
+                // Skip dead units
+                if (healths[i].Value <= 0) continue;
+
+                // Skip full-health units
+                if (healths[i].Value >= healths[i].Max) continue;
+
+                // XZ distance check
+                float dist = math.distance(
+                    new float2(healerPos.x, healerPos.z),
+                    new float2(transforms[i].Position.x, transforms[i].Position.z)
+                );
+
+                if (dist <= maxRange && dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestTarget = entities[i];
+                }
+            }
+
+            entities.Dispose();
+            healths.Dispose();
+            factions.Dispose();
+            transforms.Dispose();
+
+            return bestTarget;
         }
 
         private static void SetupHeal(EntityManager em, Entity healer, Entity target)
@@ -120,6 +170,20 @@ namespace TheWaningBorder.Core.Commands.Types
                         Has = 1
                     });
                 }
+                else
+                {
+                    em.AddComponentData(healer, new DesiredDestination
+                    {
+                        Position = targetPos,
+                        Has = 1
+                    });
+                }
+
+                // Update guard point so healer doesn't snap back to spawn
+                if (em.HasComponent<GuardPoint>(healer))
+                    em.SetComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
+                else
+                    em.AddComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
             }
         }
     }

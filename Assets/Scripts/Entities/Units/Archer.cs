@@ -81,16 +81,19 @@ namespace TheWaningBorder.Entities
             // Archer-specific state
             em.SetComponentData(entity, new ArcherState
             {
-                CurrentTarget = Entity.Null,
                 AimTimer = 0,
                 AimTimeRequired = DefaultAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                HeightRangeMod = 4f,
                 IsRetreating = 0,
                 IsFiring = 0
             });
+
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 1, Siege = 0, Magic = 0 });
 
             return entity;
         }
@@ -139,16 +142,19 @@ namespace TheWaningBorder.Entities
             // Archer-specific state
             ecb.AddComponent(entity, new ArcherState
             {
-                CurrentTarget = Entity.Null,
                 AimTimer = 0,
                 AimTimeRequired = DefaultAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                HeightRangeMod = 4f,
                 IsRetreating = 0,
                 IsFiring = 0
             });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 1, Siege = 0, Magic = 0 });
 
             return entity;
         }

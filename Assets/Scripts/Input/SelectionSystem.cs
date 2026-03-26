@@ -1,5 +1,5 @@
 // SelectionSystem.cs
-// Handles entity selection (click and box select)
+// Handles entity selection (click, double-click, and box select)
 // Part of: Input/
 
 using System.Collections.Generic;
@@ -10,16 +10,18 @@ using Unity.Transforms;
 using Unity.Collections;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.UI.Panels;
+using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.World.Terrain;
-using TheWaningBorder.AI;
 
 namespace TheWaningBorder.Input
 {
     /// <summary>
     /// Manages entity selection for the local player.
-    /// Supports single-click selection and drag box selection.
-    /// 
+    /// Supports single-click, double-click (select all of same type), and drag box selection.
+    /// Double-click selects all on-screen units of the same UnitClass.
+    /// Ctrl+double-click selects all units of that type map-wide.
+    ///
     /// Static access: SelectionSystem.CurrentSelection
     /// </summary>
     public class SelectionSystem : MonoBehaviour
@@ -96,6 +98,12 @@ namespace TheWaningBorder.Input
         // GUI textures
         private Texture2D _boxTexture;
         private Texture2D _borderTexture;
+
+        // Double-click detection
+        private const float DoubleClickThreshold = 0.3f;
+        private float _lastClickTime = -1f;
+        private UnitClass _lastClickedClass;
+        private bool _lastClickWasUnit;
         
         // ═══════════════════════════════════════════════════════════════════════
         // LIFECYCLE
@@ -158,6 +166,14 @@ namespace TheWaningBorder.Input
             if (EntityInfoPanel.IsPointerOver() || EntityActionPanel.IsPointerOver())
                 return true;
 
+            // Block if mouse is over spell panel
+            if (SpellPanel.IsPointerOverPanel)
+                return true;
+
+            // Block if culture choice popup is visible (modal dialog)
+            if (CultureChoicePopup.IsVisible)
+                return true;
+
             // Block during building placement
             if (BuilderCommandPanel.IsPlacingBuilding)
                 return true;
@@ -209,14 +225,133 @@ namespace TheWaningBorder.Input
         private void ClickSelect()
         {
             var e = RaycastPickEntity();
+            float now = Time.time;
+
+            // Battalion resolution: if clicked entity is a member, resolve to leader
+            if (e != Entity.Null && _em.Exists(e) && _em.HasComponent<BattalionMemberData>(e))
+            {
+                e = _em.GetComponentData<BattalionMemberData>(e).Leader;
+            }
+
+            // Check for double-click on a unit of the same type
+            if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e)
+                && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
+            {
+                var clickedClass = _em.GetComponentData<UnitTag>(e).Class;
+
+                if (_lastClickWasUnit
+                    && clickedClass == _lastClickedClass
+                    && (now - _lastClickTime) < DoubleClickThreshold)
+                {
+                    // Double-click detected: select all units of this type
+                    bool mapWide = UnityEngine.Input.GetKey(KeyCode.LeftControl)
+                                || UnityEngine.Input.GetKey(KeyCode.RightControl);
+                    SelectAllOfType(clickedClass, mapWide);
+
+                    // Reset so a third click doesn't re-trigger
+                    _lastClickWasUnit = false;
+                    _lastClickTime = -1f;
+                    return;
+                }
+
+                // Record this click for potential double-click
+                _lastClickTime = now;
+                _lastClickedClass = clickedClass;
+                _lastClickWasUnit = true;
+            }
+            else
+            {
+                // Clicked something that isn't an owned unit — reset tracking
+                _lastClickWasUnit = false;
+                _lastClickTime = -1f;
+            }
+
+            // Normal single-click selection
             _selection.Clear();
-            
+
             if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e))
             {
-                _selection.Add(e);
+                // If selecting a battalion leader, add leader + all members
+                if (_em.HasComponent<BattalionLeader>(e) && _em.HasBuffer<BattalionMember>(e))
+                {
+                    _selection.Add(e);
+                    var buf = _em.GetBuffer<BattalionMember>(e);
+                    for (int i = 0; i < buf.Length; i++)
+                        if (_em.Exists(buf[i].Value)) _selection.Add(buf[i].Value);
+                }
+                else
+                {
+                    _selection.Add(e);
+                }
             }
         }
         
+        // ═══════════════════════════════════════════════════════════════════════
+        // DOUBLE-CLICK SELECT ALL OF TYPE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Selects all player-owned units of the given UnitClass.
+        /// If mapWide is false, only units currently visible on screen are selected.
+        /// If mapWide is true (Ctrl+double-click), all units of that type are selected regardless of screen position.
+        /// </summary>
+        private void SelectAllOfType(UnitClass unitClass, bool mapWide)
+        {
+            var cam = Camera.main;
+            if (!cam && !mapWide) return;
+
+            _selection.Clear();
+
+            var query = _em.CreateEntityQuery(typeof(LocalTransform), typeof(FactionTag), typeof(UnitTag));
+            var ents = query.ToEntityArray(Allocator.Temp);
+
+            float screenW = Screen.width;
+            float screenH = Screen.height;
+            var addedBattalionLeaders = new HashSet<Entity>();
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByPlayer(e)) continue;
+                if (_em.GetComponentData<UnitTag>(e).Class != unitClass) continue;
+
+                // Skip individual battalion members (they come in via their leader)
+                if (_em.HasComponent<BattalionMemberData>(e)) continue;
+
+                if (!mapWide)
+                {
+                    // Check that the unit is on screen
+                    var pos = _em.GetComponentData<LocalTransform>(e).Position;
+                    Vector3 screenPos = cam.WorldToScreenPoint(new Vector3(pos.x, pos.y, pos.z));
+
+                    // Behind camera or outside viewport
+                    if (screenPos.z <= 0f) continue;
+                    if (screenPos.x < 0f || screenPos.x > screenW) continue;
+                    if (screenPos.y < 0f || screenPos.y > screenH) continue;
+                }
+
+                // If entity is a battalion leader, add leader + all members
+                if (_em.HasComponent<BattalionLeader>(e) && !addedBattalionLeaders.Contains(e))
+                {
+                    addedBattalionLeaders.Add(e);
+                    _selection.Add(e);
+                    if (_em.HasBuffer<BattalionMember>(e))
+                    {
+                        var buf = _em.GetBuffer<BattalionMember>(e);
+                        for (int j = 0; j < buf.Length; j++)
+                            if (_em.Exists(buf[j].Value)) _selection.Add(buf[j].Value);
+                    }
+                }
+                else if (!_em.HasComponent<BattalionLeader>(e))
+                {
+                    _selection.Add(e);
+                }
+            }
+
+            ents.Dispose();
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // BOX SELECTION
         // ═══════════════════════════════════════════════════════════════════════
@@ -231,11 +366,17 @@ namespace TheWaningBorder.Input
             var query = _em.CreateEntityQuery(typeof(LocalTransform), typeof(FactionTag));
             var ents = query.ToEntityArray(Allocator.Temp);
 
+            // Track which battalion leaders are already added to avoid duplicates
+            var addedBattalionLeaders = new HashSet<Entity>();
+
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByPlayer(e)) continue; // Box select only own units
+
+                // Skip invisible battalion leaders (they have no visual bounds)
+                if (_em.HasComponent<BattalionLeader>(e)) continue;
 
                 // Project entity bounds to screen
                 Bounds worldBounds = ComputeEntityWorldBounds(e);
@@ -246,12 +387,85 @@ namespace TheWaningBorder.Input
 
                 // Check overlap
                 if (screenRect.Overlaps(screenBounds, true))
-                    _selection.Add(e);
+                {
+                    // If entity is a battalion member, resolve to leader + all members
+                    if (_em.HasComponent<BattalionMemberData>(e))
+                    {
+                        var leader = _em.GetComponentData<BattalionMemberData>(e).Leader;
+                        if (leader != Entity.Null && _em.Exists(leader) && !addedBattalionLeaders.Contains(leader))
+                        {
+                            addedBattalionLeaders.Add(leader);
+                            _selection.Add(leader);
+                            if (_em.HasBuffer<BattalionMember>(leader))
+                            {
+                                var buf = _em.GetBuffer<BattalionMember>(leader);
+                                for (int j = 0; j < buf.Length; j++)
+                                    if (_em.Exists(buf[j].Value)) _selection.Add(buf[j].Value);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _selection.Add(e);
+                    }
+                }
             }
 
             ents.Dispose();
+
+            // Post-filter: prioritize units over buildings, military over economic
+            FilterBoxSelection();
         }
-        
+
+        /// <summary>
+        /// Filter box selection results:
+        /// 1. If mix of units and buildings → keep only units
+        /// 2. If mix of military and economic units → keep only military
+        /// </summary>
+        private void FilterBoxSelection()
+        {
+            if (_selection.Count <= 1) return;
+
+            var units = new List<Entity>();
+            var buildings = new List<Entity>();
+
+            foreach (var e in _selection)
+            {
+                if (_em.HasComponent<UnitTag>(e)) units.Add(e);
+                else if (_em.HasComponent<BuildingTag>(e)) buildings.Add(e);
+            }
+
+            // Prioritize units over buildings
+            if (units.Count > 0 && buildings.Count > 0)
+            {
+                _selection.Clear();
+                _selection.AddRange(units);
+            }
+
+            // Among units, prioritize military over economic
+            if (units.Count > 1)
+            {
+                var military = new List<Entity>();
+                var economic = new List<Entity>();
+
+                foreach (var e in _selection)
+                {
+                    if (!_em.HasComponent<UnitTag>(e)) continue;
+                    var cls = _em.GetComponentData<UnitTag>(e).Class;
+                    if (cls == UnitClass.Economy || cls == UnitClass.Miner)
+                        economic.Add(e);
+                    else
+                        military.Add(e);
+                }
+
+                if (military.Count > 0 && economic.Count > 0)
+                {
+                    _selection.Clear();
+                    _selection.AddRange(military);
+                }
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // SELECTION VALIDATION
         // ═══════════════════════════════════════════════════════════════════════

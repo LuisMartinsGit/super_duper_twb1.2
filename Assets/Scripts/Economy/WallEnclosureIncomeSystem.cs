@@ -215,6 +215,19 @@ namespace TheWaningBorder.Economy
                                 Elapsed = 0f
                             });
 
+                            // Store polygon vertices so GathererHutIncomeSystem can
+                            // perform point-in-polygon tests without re-walking the graph.
+                            em.AddBuffer<WallEnclosureVertex>(incomeEntity);
+                            var vertexBuf = em.GetBuffer<WallEnclosureVertex>(incomeEntity);
+                            for (int ci = 0; ci < cycle.Length; ci++)
+                            {
+                                var hubPos = hubTransforms[cycle[ci]].Position;
+                                vertexBuf.Add(new WallEnclosureVertex
+                                {
+                                    Position = new float2(hubPos.x, hubPos.z)
+                                });
+                            }
+
                             // Mark all hubs in this cycle so we don't recount them
                             for (int ci = 0; ci < cycle.Length; ci++)
                                 usedInCycle.Add(cycle[ci]);

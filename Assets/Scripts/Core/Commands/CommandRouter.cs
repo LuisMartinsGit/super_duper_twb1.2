@@ -103,6 +103,59 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // ATTACK-MOVE COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue an attack-move command to a unit.
+        /// Unit moves toward destination while auto-engaging enemies along the way.
+        /// </summary>
+        public static void IssueAttackMove(EntityManager em, Entity unit, float3 destination,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] AttackMove: {unit.Index} -> {destination} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueAttackMoveForLockstep(em, unit, destination);
+            }
+            else
+            {
+                AttackMoveCommandHelper.Execute(em, unit, destination);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PATROL COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a patrol command to a unit.
+        /// Unit patrols back and forth between its current position and the destination,
+        /// auto-engaging enemies along the way.
+        /// </summary>
+        public static void IssuePatrol(EntityManager em, Entity unit, float3 destination,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] Patrol: {unit.Index} -> {destination} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueuePatrolForLockstep(em, unit, destination);
+            }
+            else
+            {
+                PatrolCommandHelper.Execute(em, unit, destination);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // STOP COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -124,6 +177,32 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 CommandHelper.ClearAllCommands(em, unit);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // HOLD POSITION COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a hold position command to a unit.
+        /// Unit stops and attacks enemies in range but does not chase.
+        /// </summary>
+        public static void IssueHoldPosition(EntityManager em, Entity unit,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] HoldPosition: {unit.Index} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueHoldPositionForLockstep(em, unit);
+            }
+            else
+            {
+                HoldPositionCommandHelper.Execute(em, unit);
             }
         }
 
@@ -281,6 +360,137 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // BATTALION STANCE COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Set the stance on a battalion leader entity.
+        /// Stance controls how battalion members engage enemies.
+        /// </summary>
+        public static void IssueStanceChange(EntityManager em, Entity leader,
+            BattalionStance stance, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (leader == Entity.Null || !em.Exists(leader)) return;
+            if (!em.HasComponent<BattalionStanceData>(leader)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] StanceChange: {leader.Index} -> {stance} (Source: {source})");
+
+            em.SetComponentData(leader, new BattalionStanceData { Value = stance });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // TRAIN COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a train command to queue a unit at a building.
+        /// </summary>
+        public static void IssueTrain(EntityManager em, Entity building, string unitId,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (building == Entity.Null || !em.Exists(building)) return;
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] Train: {building.Index} -> {unitId} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueTrainForLockstep(em, building, unitId);
+            }
+            else
+            {
+                TrainCommandDirect(em, building, unitId);
+            }
+        }
+
+        private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
+        {
+            if (!em.HasBuffer<TrainQueueItem>(building)) return;
+            var queue = em.GetBuffer<TrainQueueItem>(building);
+            queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PLACE BUILDING COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a place-building command. Creates the building on all clients via lockstep.
+        /// Returns true if the command was queued (multiplayer) or executed (singleplayer).
+        /// In multiplayer, the caller must NOT create the building locally — lockstep will do it.
+        /// </summary>
+        public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
+            Faction faction, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] PlaceBuilding: {buildingId} at {position} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                var cmd = new LockstepCommand
+                {
+                    Type = LockstepCommandType.PlaceBuilding,
+                    BuildingId = buildingId,
+                    TargetPosition = position,
+                    EntityNetworkId = (int)faction // Carry faction in EntityNetworkId
+                };
+                LockstepServiceLocator.Instance.QueueCommand(cmd);
+                return true; // Queued — caller must NOT create entity locally
+            }
+            else
+            {
+                // Single player — create immediately
+                PlaceBuildingDirect(em, buildingId, position, faction);
+                return false; // Created locally — caller can proceed
+            }
+        }
+
+        /// <summary>
+        /// Execute building placement: create entity, mark under construction, set HP to 1.
+        /// Called by lockstep ExecuteCommand on all clients, or directly in singleplayer.
+        /// </summary>
+        public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
+        {
+            Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
+
+            // Mark as under construction
+            float buildTime = GetBuildTime(buildingId);
+            if (!em.HasComponent<UnderConstruction>(building))
+                em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+            else
+                em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+
+            // Set HP to 1 during construction
+            if (em.HasComponent<Health>(building))
+            {
+                var hp = em.GetComponentData<Health>(building);
+                em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
+            }
+
+            return building;
+        }
+
+        private static float GetBuildTime(string buildingId)
+        {
+            return buildingId switch
+            {
+                "Hut" => 15f,
+                "GatherersHut" => 20f,
+                "Barracks" => 30f,
+                "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
+                "Alanthor_Smelter" or "Alanthor_Garrison" => 30f,
+                "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
+                    or "Feraldis_Tower" or "Runai_Outpost" => 25f,
+                "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
+                "Alanthor_Stable" or "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
+                    or "Feraldis_SiegeYard" => 35f,
+                "ThessarasBazaar" => 40f,
+                _ => 30f
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // INTERNAL ROUTING LOGIC
         // ═══════════════════════════════════════════════════════════════
 
@@ -354,6 +564,25 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        private static void QueueAttackMoveForLockstep(EntityManager em, Entity unit, float3 destination)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
+                AttackMoveCommandHelper.Execute(em, unit, destination);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.AttackMove,
+                EntityNetworkId = networkId,
+                TargetPosition = destination
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
         private static void QueueStopForLockstep(EntityManager em, Entity unit)
         {
             int networkId = GetNetworkId(em, unit);
@@ -366,6 +595,23 @@ namespace TheWaningBorder.Core.Commands
             var cmd = new LockstepCommand
             {
                 Type = LockstepCommandType.Stop,
+                EntityNetworkId = networkId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueHoldPositionForLockstep(EntityManager em, Entity unit)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                HoldPositionCommandHelper.Execute(em, unit);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.HoldPosition,
                 EntityNetworkId = networkId
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
@@ -468,10 +714,28 @@ namespace TheWaningBorder.Core.Commands
 
             var cmd = new LockstepCommand
             {
-                Type = LockstepCommandType.Build, // Reuse Build type for repair
+                Type = LockstepCommandType.Repair,
                 EntityNetworkId = builderId,
-                TargetEntityId = buildingId,
-                BuildingId = "_repair" // Special marker to differentiate from build
+                TargetEntityId = buildingId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueuePatrolForLockstep(EntityManager em, Entity unit, float3 destination)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
+                PatrolCommandHelper.Execute(em, unit, destination);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.Patrol,
+                EntityNetworkId = networkId,
+                TargetPosition = destination
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
@@ -489,10 +753,28 @@ namespace TheWaningBorder.Core.Commands
 
             var cmd = new LockstepCommand
             {
-                Type = LockstepCommandType.Build, // Reuse Build type
+                Type = LockstepCommandType.Convert,
                 EntityNetworkId = minerId,
-                TargetEntityId = keepId,
-                BuildingId = "_convert" // Special marker for convert
+                TargetEntityId = keepId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId)
+        {
+            int buildingId = GetNetworkId(em, building);
+
+            if (buildingId <= 0)
+            {
+                TrainCommandDirect(em, building, unitId);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.Train,
+                EntityNetworkId = buildingId,
+                BuildingId = unitId // Reuse BuildingId field to carry the unit type
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
@@ -533,12 +815,41 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<RepairOrder>(unit);
             if (em.HasComponent<Types.HealCommand>(unit))
                 em.RemoveComponent<Types.HealCommand>(unit);
+            // Clear Litharch healing state (healing system uses LitharchState, not HealCommand)
+            if (em.HasComponent<LitharchState>(unit))
+            {
+                var ls = em.GetComponentData<LitharchState>(unit);
+                if (ls.IsHealing != 0)
+                {
+                    ls.HealTarget = Entity.Null;
+                    ls.IsHealing = 0;
+                    em.SetComponentData(unit, ls);
+                }
+            }
             if (em.HasComponent<Types.ConvertCommand>(unit))
                 em.RemoveComponent<Types.ConvertCommand>(unit);
             if (em.HasComponent<DesiredDestination>(unit))
                 em.SetComponentData(unit, new DesiredDestination { Has = 0 });
             if (em.HasComponent<UserMoveOrder>(unit))
                 em.RemoveComponent<UserMoveOrder>(unit);
+            if (em.HasComponent<AttackMoveTag>(unit))
+                em.RemoveComponent<AttackMoveTag>(unit);
+            if (em.HasComponent<Types.AttackMoveCommand>(unit))
+                em.RemoveComponent<Types.AttackMoveCommand>(unit);
+            if (em.HasComponent<PatrolTag>(unit))
+                em.RemoveComponent<PatrolTag>(unit);
+            if (em.HasComponent<PatrolAgent>(unit))
+                em.RemoveComponent<PatrolAgent>(unit);
+            if (em.HasComponent<Types.PatrolCommand>(unit))
+                em.RemoveComponent<Types.PatrolCommand>(unit);
+            if (em.HasBuffer<PatrolWaypoint>(unit))
+                em.GetBuffer<PatrolWaypoint>(unit).Clear();
+            if (em.HasComponent<HoldPositionTag>(unit))
+                em.RemoveComponent<HoldPositionTag>(unit);
+            if (em.HasComponent<CommandQueueActive>(unit))
+                em.RemoveComponent<CommandQueueActive>(unit);
+            if (em.HasBuffer<QueuedCommand>(unit))
+                em.GetBuffer<QueuedCommand>(unit).Clear();
         }
     }
 }

@@ -53,13 +53,16 @@ namespace TheWaningBorder.Entities
             );
 
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
@@ -85,7 +88,7 @@ namespace TheWaningBorder.Entities
             var entity = ecb.CreateEntity();
 
             ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new GathererHutTag());
@@ -93,6 +96,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
@@ -119,7 +125,7 @@ namespace TheWaningBorder.Entities
             var entity = ecb.CreateEntity();
 
             ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.44f));
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new GathererHutTag());
@@ -128,6 +134,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = buildTime });
             ecb.AddComponent(entity, new Buildable { BuildTimeSeconds = buildTime });
+
+            // Combat type tags
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }

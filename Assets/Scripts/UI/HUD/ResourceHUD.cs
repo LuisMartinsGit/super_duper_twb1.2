@@ -1,47 +1,81 @@
 // File: Assets/Scripts/UI/HUD/ResourceHUD.cs
-// Resource Display — Dark Navy + Golden theme
+// Resource Display — Dark Navy + Golden theme, bottom-left panel (height matches minimap)
 
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine;
 using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
 
 
+
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
-    /// IMGUI-based resource HUD — dark navy bar with golden accents.
+    /// IMGUI-based resource HUD — dark navy panel with golden accents.
+    /// Displays resources in the bottom-left corner, height matching the minimap (256px).
+    /// Shows: Population, Religion Points, Supplies, Iron, Crystal, Veilsteel, Glow.
     /// </summary>
     public class ResourceHUD : MonoBehaviour
     {
         [Header("Config")]
         [SerializeField] private Faction humanFaction = GameSettings.LocalPlayerFaction;
         [SerializeField] private float refreshInterval = 0.25f;
-        [SerializeField] private float topBarHeight = 38f;
-        [SerializeField] private float leftPadding = 10f;
-        [SerializeField] private float pillSpacing = 8f;
 
-        /// <summary>Returns true if the mouse is over the top resource bar.</summary>
-        public static bool IsPointerOverTopBar { get; private set; }
+        // ── HUD bar constants (shared with EntityInfoPanel / EntityActionPanel) ──
+        // Height and bottom margin match the minimap (256px, 20px offset).
+        public const float HudBarHeight = 256f;
+        public const float HudBottomMargin = 20f;
+        public const float HudLeftMargin = 20f;
+        public const float PanelGap = 6f;
+
+        // Panel layout constants
+        public const float PanelWidth = 200f;
+        private const float PanelPadding = 8f;
+        private const float RowHeight = 22f;
+        private const float RowSpacing = 2f;
+        private const float HeaderHeight = 26f;
+        private const int ResourceRowCount = 7; // Pop, RP, Supplies, Iron, Crystal, Veilsteel, Glow
+
+        /// <summary>Returns true if the mouse is over the resource panel.</summary>
+        public static bool IsPointerOverResourcePanel { get; private set; }
+
+        // Keep the old name as well so any future references still compile
+        public static bool IsPointerOverTopBar => IsPointerOverResourcePanel;
 
         private EntityWorld _world;
         private EntityManager _em;
         private EntityQuery _banksQuery;
         private EntityQuery _populationQuery;
+        private EntityQuery _rpQuery;
 
         private readonly Dictionary<Faction, FactionResources> _cache = new();
         private readonly Dictionary<Faction, (int current, int max)> _popCache = new();
+        private readonly Dictionary<Faction, int> _rpCache = new();
         private float _timer;
 
+        // Menu button constants
+        private const float MenuBtnWidth = 80f;
+        private const float MenuBtnHeight = 30f;
+        private const float MenuBtnMargin = 10f;
+
+        // Alanthor wall income
+        private EntityQuery _wallIncomeQuery;
+        private float _wallIncome;
+
         // Styles
-        private GUIStyle _topBarBg;
-        private GUIStyle _pillBg;
-        private GUIStyle _pillText;
-        private Texture2D _texTopBar, _texPill;
+        private GUIStyle _panelBg;
+        private GUIStyle _rowBg;
+        private GUIStyle _labelStyle;
+        private GUIStyle _valueStyle;
+        private GUIStyle _headerStyle;
+        private GUIStyle _menuButtonStyle;
+        private Texture2D _texPanel, _texRow, _texMenuBtn, _texMenuBtnHover;
         private bool _stylesBuilt = false;
+
+        // Cached panel rect for pointer detection
+        private Rect _panelRect;
 
         private void Awake()
         {
@@ -57,8 +91,20 @@ namespace TheWaningBorder.UI.HUD
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<FactionPopulation>());
 
-            _texTopBar = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
-            _texPill = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
+            _rpQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<ReligionPoints>());
+
+            _texPanel = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
+            _texRow = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
+            _texMenuBtn = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.85f));
+            _texMenuBtnHover = MakeTex(2, 2, new Color(0.12f, 0.14f, 0.28f, 0.9f));
+
+            // Alanthor wall income query
+            _wallIncomeQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallEnclosureIncomeTag>(),
+                ComponentType.ReadOnly<SuppliesIncome>(),
+                ComponentType.ReadOnly<FactionTag>());
 
             RefreshNow();
         }
@@ -77,6 +123,7 @@ namespace TheWaningBorder.UI.HUD
         {
             _cache.Clear();
             _popCache.Clear();
+            _rpCache.Clear();
 
             var world = _world ?? EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
@@ -101,26 +148,83 @@ namespace TheWaningBorder.UI.HUD
             {
                 _popCache[popTags[i].Value] = (pops[i].Current, pops[i].Max);
             }
+
+            // Get religion points
+            using var rpEntities = _rpQuery.ToEntityArray(Allocator.Temp);
+            using var rpTags = _rpQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var rpData = _rpQuery.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+
+            for (int i = 0; i < rpEntities.Length; i++)
+            {
+                _rpCache[rpTags[i].Value] = rpData[i].Value;
+            }
+
+            // Get Alanthor wall enclosure income
+            _wallIncome = 0f;
+            var localFaction = GameSettings.LocalPlayerFaction;
+            if (FactionColors.GetFactionCulture(localFaction) == Cultures.Alanthor)
+            {
+                using var wallEntities = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
+                using var wallTags = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var wallIncomes = _wallIncomeQuery.ToComponentDataArray<SuppliesIncome>(Allocator.Temp);
+                for (int i = 0; i < wallEntities.Length; i++)
+                {
+                    if (wallTags[i].Value == localFaction)
+                        _wallIncome += wallIncomes[i].PerMinute;
+                }
+            }
         }
 
         private void OnGUI()
         {
             if (!_stylesBuilt) BuildStyles();
+
+            // Always draw Menu button in top-left
+            DrawMenuButton();
+
             if (_cache.Count == 0) return;
 
-            DrawAllFactionsTopBar();
+            DrawResourcePanel();
         }
 
         private void BuildStyles()
         {
-            _topBarBg = new GUIStyle { normal = { background = _texTopBar } };
-            _pillBg = new GUIStyle { normal = { background = _texPill } };
-            _pillText = new GUIStyle(GUI.skin.label)
+            _panelBg = new GUIStyle { normal = { background = _texPanel } };
+            _rowBg = new GUIStyle { normal = { background = _texRow } };
+
+            _labelStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                fontSize = 12,
+                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
+            };
+
+            _valueStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleRight,
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white }
+            };
+
+            _headerStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleLeft,
                 fontSize = 13,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
             };
+
+            _menuButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontStyle = FontStyle.Bold,
+                fontSize = 13,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { background = _texMenuBtn, textColor = new Color(0.83f, 0.66f, 0.26f) },
+                hover = { background = _texMenuBtnHover, textColor = new Color(0.93f, 0.76f, 0.36f) },
+                active = { background = _texMenuBtnHover, textColor = Color.white }
+            };
+
             _stylesBuilt = true;
         }
 
@@ -134,132 +238,111 @@ namespace TheWaningBorder.UI.HUD
             return t;
         }
 
-        private void DrawAllFactionsTopBar()
+        private void DrawResourcePanel()
         {
-            // Only show the local player's resources (not enemy factions)
             var localFaction = GameSettings.LocalPlayerFaction;
             if (!_cache.ContainsKey(localFaction)) return;
-
-            DrawFactionBar(localFaction, 0f);
-
-            IsPointerOverTopBar = UnityEngine.Input.mousePosition.y >= Screen.height - (topBarHeight + 4f);
-        }
-
-        private void DrawFactionBar(Faction faction, float yOffset)
-        {
-            if (!_cache.TryGetValue(faction, out var res)) return;
+            if (!_cache.TryGetValue(localFaction, out var res)) return;
 
             int curPop = 0, maxPop = 0;
-            if (_popCache.TryGetValue(faction, out var pop))
+            if (_popCache.TryGetValue(localFaction, out var pop))
             {
                 curPop = pop.current;
                 maxPop = pop.max;
             }
 
-            Color factionColor = GetFactionColor(faction);
-            string factionName = GetFactionName(faction);
-
-            // Dark navy top bar
-            var topBarRect = new Rect(0, yOffset, Screen.width, topBarHeight);
-            GUI.color = Color.white;
-            GUI.Box(topBarRect, "", _topBarBg);
-
-            // Golden bottom border line
-            var borderRect = new Rect(0, yOffset + topBarHeight - 2f, Screen.width, 2f);
-            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.7f);
-            GUI.DrawTexture(borderRect, Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            // Faction label (golden)
-            var labelStyle = new GUIStyle(_pillText)
+            int rp = 0;
+            if (_rpCache.TryGetValue(localFaction, out var rpVal))
             {
-                fontStyle = FontStyle.Bold,
-                fontSize = 14,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-            GUI.Label(new Rect(leftPadding, yOffset + 8f, 100f, 22f), factionName, labelStyle);
+                rp = rpVal;
+            }
 
-            // Resource pills
-            float xPos = leftPadding + 100f;
+            // Panel dimensions — height matches minimap
+            float panelX = HudLeftMargin;
+            float panelY = Screen.height - HudBarHeight - HudBottomMargin;
 
-            DrawResourcePill(xPos, yOffset, "Supplies", res.Supplies.ToString(), new Color(1f, 0.85f, 0.4f));
-            xPos += 120f + pillSpacing;
+            _panelRect = new Rect(panelX, panelY, PanelWidth, HudBarHeight);
 
-            DrawResourcePill(xPos, yOffset, "Iron", res.Iron.ToString(), new Color(0.7f, 0.7f, 0.8f));
-            xPos += 100f + pillSpacing;
+            // Draw panel background
+            GUI.color = Color.white;
+            GUI.Box(_panelRect, "", _panelBg);
 
-            DrawResourcePill(xPos, yOffset, "Crystal", res.Crystal.ToString(), new Color(0.6f, 0.8f, 1f));
-            xPos += 110f + pillSpacing;
+            // Golden border (top, bottom, left, right)
+            Color borderColor = new Color(0.83f, 0.66f, 0.26f, 0.7f);
+            GUI.color = borderColor;
+            GUI.DrawTexture(new Rect(panelX, panelY, PanelWidth, 2f), Texture2D.whiteTexture);                      // top
+            GUI.DrawTexture(new Rect(panelX, panelY + HudBarHeight - 2f, PanelWidth, 2f), Texture2D.whiteTexture);  // bottom
+            GUI.DrawTexture(new Rect(panelX, panelY, 2f, HudBarHeight), Texture2D.whiteTexture);                     // left
+            GUI.DrawTexture(new Rect(panelX + PanelWidth - 2f, panelY, 2f, HudBarHeight), Texture2D.whiteTexture);  // right
+            GUI.color = Color.white;
 
-            DrawResourcePill(xPos, yOffset, "Veilsteel", res.Veilsteel.ToString(), new Color(0.8f, 0.5f, 1f));
-            xPos += 120f + pillSpacing;
+            // Header
+            float yPos = panelY + PanelPadding;
+            GUI.Label(new Rect(panelX + PanelPadding, yPos, PanelWidth - PanelPadding * 2, HeaderHeight),
+                      "RESOURCES", _headerStyle);
+            yPos += HeaderHeight;
 
-            DrawResourcePill(xPos, yOffset, "Glow", res.Glow.ToString(), new Color(1f, 1f, 0.6f));
-            xPos += 100f + pillSpacing;
-
-            // Population
+            // Resource rows: Pop, RP, Supplies, Iron, Crystal, Veilsteel, Glow
             string popText = $"{curPop}/{maxPop}";
             Color popColor = curPop >= maxPop ? new Color(1f, 0.3f, 0.3f) : new Color(0.6f, 1f, 0.6f);
-            DrawResourcePill(xPos, yOffset, "Pop", popText, popColor);
+
+            DrawResourceRow(panelX, ref yPos, "Pop", popText, popColor);
+            DrawResourceRow(panelX, ref yPos, "RP", rp.ToString(), new Color(1f, 0.75f, 0.3f));
+            DrawResourceRow(panelX, ref yPos, "Supplies", res.Supplies.ToString(), new Color(1f, 0.85f, 0.4f));
+            DrawResourceRow(panelX, ref yPos, "Iron", res.Iron.ToString(), new Color(0.7f, 0.7f, 0.8f));
+            DrawResourceRow(panelX, ref yPos, "Crystal", res.Crystal.ToString(), new Color(0.6f, 0.8f, 1f));
+            DrawResourceRow(panelX, ref yPos, "Veilsteel", res.Veilsteel.ToString(), new Color(0.8f, 0.5f, 1f));
+            DrawResourceRow(panelX, ref yPos, "Glow", res.Glow.ToString(), new Color(1f, 1f, 0.6f));
+
+            // Alanthor wall income (inside the panel, not a separate sub-bar)
+            if (_wallIncome > 0f)
+            {
+                yPos += RowSpacing * 2;
+                Color alanthorGreen = CultureConfig.AlanthorPrimary;
+                DrawResourceRow(panelX, ref yPos, "Wall Income", $"+{_wallIncome:F0}/min", alanthorGreen);
+            }
+
+            // Pointer detection — convert mouse position from bottom-left origin to GUI top-left origin
+            Vector2 mousePos = UnityEngine.Input.mousePosition;
+            float guiMouseY = Screen.height - mousePos.y;
+            IsPointerOverResourcePanel = _panelRect.Contains(new Vector2(mousePos.x, guiMouseY));
         }
 
-        private void DrawResourcePill(float x, float y, string label, string value, Color color)
+        private void DrawResourceRow(float panelX, ref float yPos, string label, string value, Color labelColor)
         {
-            var pillRect = new Rect(x, y + 4f, 110f, topBarHeight - 8f);
-            GUI.Box(pillRect, "", _pillBg);
+            float rowX = panelX + PanelPadding;
+            float rowWidth = PanelWidth - PanelPadding * 2;
 
-            var labelStyle = new GUIStyle(_pillText)
+            // Row background
+            var rowRect = new Rect(rowX, yPos, rowWidth, RowHeight);
+            GUI.Box(rowRect, "", _rowBg);
+
+            // Label (left-aligned, colored)
+            var styledLabel = new GUIStyle(_labelStyle)
             {
-                normal = { textColor = color },
-                fontSize = 12
+                normal = { textColor = labelColor }
             };
+            GUI.Label(new Rect(rowX + 6f, yPos, rowWidth * 0.5f, RowHeight), label, styledLabel);
 
-            var valueStyle = new GUIStyle(_pillText)
-            {
-                normal = { textColor = Color.white },
-                fontSize = 16,
-                fontStyle = FontStyle.Bold
-            };
+            // Value (right-aligned, white)
+            GUI.Label(new Rect(rowX + rowWidth * 0.4f, yPos, rowWidth * 0.55f, RowHeight), value, _valueStyle);
 
-            var labelRect = new Rect(x + 6f, y + 3f, 100f, 14f);
-            var valueRect = new Rect(x + 6f, y + 16f, 100f, 18f);
-
-            GUI.Label(labelRect, label, labelStyle);
-            GUI.Label(valueRect, value, valueStyle);
+            yPos += RowHeight + RowSpacing;
         }
 
-        private Color GetFactionColor(Faction faction)
+        private void DrawMenuButton()
         {
-            return faction switch
+            var btnRect = new Rect(MenuBtnMargin, MenuBtnMargin, MenuBtnWidth, MenuBtnHeight);
+            if (GUI.Button(btnRect, "Menu", _menuButtonStyle))
             {
-                Faction.Blue => new Color(0.3f, 0.5f, 1f),
-                Faction.Red => new Color(1f, 0.3f, 0.3f),
-                Faction.Green => new Color(0.3f, 1f, 0.3f),
-                Faction.Yellow => new Color(1f, 1f, 0.3f),
-                Faction.Purple => new Color(0.8f, 0.3f, 1f),
-                Faction.Orange => new Color(1f, 0.6f, 0.2f),
-                Faction.Teal => new Color(0.2f, 0.8f, 0.8f),
-                Faction.White => new Color(0.9f, 0.9f, 0.9f),
-                _ => Color.gray
-            };
+                InGameMenuPanel.Toggle();
+            }
         }
 
-        private string GetFactionName(Faction faction)
-        {
-            if (faction == GameSettings.LocalPlayerFaction) return "PLAYER";
-
-            return faction switch
-            {
-                Faction.Blue => "AI (Blue)",
-                Faction.Red => "AI (Red)",
-                Faction.Green => "AI (Green)",
-                Faction.Yellow => "AI (Yellow)",
-                Faction.Purple => "AI (Purple)",
-                Faction.Orange => "AI (Orange)",
-                Faction.Teal => "AI (Teal)",
-                Faction.White => "AI (White)",
-                _ => "Unknown"
-            };
-        }
+        /// <summary>
+        /// Returns the X coordinate where the next HUD panel should start (right edge of resources + gap).
+        /// Used by EntityInfoPanel to know its left position.
+        /// </summary>
+        public static float NextPanelX => HudLeftMargin + PanelWidth + PanelGap;
     }
 }

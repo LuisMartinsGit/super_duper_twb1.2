@@ -162,48 +162,26 @@ namespace TheWaningBorder.UI.HUD
 
         /// <summary>
         /// Calculate what income ratio a new farm would get at this position.
-        /// Uses the same logic as GathererHutIncomeSystem but from the perspective
-        /// of a brand-new farm (all existing farms are "older" and claim priority).
+        /// Uses grid-sampling: iterates PassabilityGrid cells within GatherRadius
+        /// and excludes cells that are terrain/building-blocked, inside existing
+        /// same-faction or enemy hut circles, or inside wall enclosure polygons.
+        /// Since this is a new farm, all existing farms have priority.
         /// </summary>
         private float CalculatePlacementRatio(float2 placementPos)
         {
-            float totalArea = math.PI * GatherRadius * GatherRadius;
-            float occupiedArea = 0f;
+            var grid = PassabilityGrid.Instance;
+            if (grid == null)
+                return CalculatePlacementRatioFallback(placementPos);
 
-            // --- Subtract building footprints (non-farm buildings) ---
-            var bldgQuery = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Radius>());
+            float radiusSq = GatherRadius * GatherRadius;
 
-            var bldgEntities = bldgQuery.ToEntityArray(Allocator.Temp);
-            var bldgTransforms = bldgQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var bldgRadii = bldgQuery.ToComponentDataArray<Radius>(Allocator.Temp);
+            // Determine cell scan bounds
+            int2 minCell = grid.WorldToCell(new float3(placementPos.x - GatherRadius, 0f, placementPos.y - GatherRadius));
+            int2 maxCell = grid.WorldToCell(new float3(placementPos.x + GatherRadius, 0f, placementPos.y + GatherRadius));
+            minCell = math.max(minCell, int2.zero);
+            maxCell = math.min(maxCell, new int2(grid.Width - 1, grid.Height - 1));
 
-            for (int b = 0; b < bldgEntities.Length; b++)
-            {
-                // Skip other GathererHuts (handled in farm overlap loop)
-                if (_em.HasComponent<GathererHutTag>(bldgEntities[b])) continue;
-
-                var bPos = new float2(bldgTransforms[b].Position.x, bldgTransforms[b].Position.z);
-                float dist = math.distance(placementPos, bPos);
-                float bldgRadius = bldgRadii[b].Value;
-
-                if (dist < GatherRadius + bldgRadius)
-                {
-                    if (dist + bldgRadius <= GatherRadius)
-                        occupiedArea += math.PI * bldgRadius * bldgRadius;
-                    else
-                        occupiedArea += CircleCircleIntersection(GatherRadius, bldgRadius, dist);
-                }
-            }
-
-            bldgEntities.Dispose();
-            bldgTransforms.Dispose();
-            bldgRadii.Dispose();
-
-            // --- Subtract overlap with ALL same-faction GathererHut circles ---
-            // Since this is a new farm, all existing farms have priority.
+            // Snapshot existing GathererHuts
             var hutQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<GathererHutTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
@@ -212,10 +190,119 @@ namespace TheWaningBorder.UI.HUD
             var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
+            // Snapshot wall enclosure polygons
+            var enclosureQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallEnclosureIncomeTag>());
+            var enclosureEntities = enclosureQuery.ToEntityArray(Allocator.Temp);
+
+            int totalCells = 0;
+            int freeCells = 0;
+
+            for (int cy = minCell.y; cy <= maxCell.y; cy++)
+            {
+                for (int cx = minCell.x; cx <= maxCell.x; cx++)
+                {
+                    var cell = new int2(cx, cy);
+                    float3 cellWorld = grid.CellToWorld(cell);
+                    float2 cellPos = new float2(cellWorld.x, cellWorld.z);
+
+                    // Check if cell is within the gather circle
+                    float dx = cellPos.x - placementPos.x;
+                    float dz = cellPos.y - placementPos.y;
+                    if (dx * dx + dz * dz > radiusSq)
+                        continue;
+
+                    totalCells++;
+
+                    // Exclusion 1: Terrain-blocked or building-blocked
+                    byte cellValue = grid.GetCell(cell);
+                    if (cellValue != PassabilityGrid.Passable)
+                        continue;
+
+                    // Exclusion 2: Inside any same-faction GathererHut circle
+                    // (all existing are "older" since this is a new placement)
+                    bool excluded = false;
+                    for (int i = 0; i < hutTransforms.Length; i++)
+                    {
+                        if (hutFactions[i].Value != GameSettings.LocalPlayerFaction) continue;
+
+                        var hPos = new float2(hutTransforms[i].Position.x, hutTransforms[i].Position.z);
+                        float hdx = cellPos.x - hPos.x;
+                        float hdz = cellPos.y - hPos.y;
+                        if (hdx * hdx + hdz * hdz <= radiusSq)
+                        {
+                            excluded = true;
+                            break;
+                        }
+                    }
+                    if (excluded) continue;
+
+                    // Exclusion 3: Inside any enemy GathererHut circle
+                    for (int i = 0; i < hutTransforms.Length; i++)
+                    {
+                        if (hutFactions[i].Value == GameSettings.LocalPlayerFaction) continue;
+
+                        var hPos = new float2(hutTransforms[i].Position.x, hutTransforms[i].Position.z);
+                        float hdx = cellPos.x - hPos.x;
+                        float hdz = cellPos.y - hPos.y;
+                        if (hdx * hdx + hdz * hdz <= radiusSq)
+                        {
+                            excluded = true;
+                            break;
+                        }
+                    }
+                    if (excluded) continue;
+
+                    // Exclusion 4: Inside any wall enclosure polygon
+                    for (int e = 0; e < enclosureEntities.Length; e++)
+                    {
+                        if (!_em.HasBuffer<WallEnclosureVertex>(enclosureEntities[e]))
+                            continue;
+
+                        var vertices = _em.GetBuffer<WallEnclosureVertex>(enclosureEntities[e]);
+                        if (vertices.Length < 3) continue;
+
+                        if (GathererHutIncomeSystem.PointInPolygon(cellPos, vertices))
+                        {
+                            excluded = true;
+                            break;
+                        }
+                    }
+                    if (excluded) continue;
+
+                    freeCells++;
+                }
+            }
+
+            hutTransforms.Dispose();
+            hutFactions.Dispose();
+            enclosureEntities.Dispose();
+
+            if (totalCells == 0) return 0f;
+            return (float)freeCells / totalCells;
+        }
+
+        /// <summary>
+        /// Fallback geometric calculation when PassabilityGrid is not available.
+        /// </summary>
+        private float CalculatePlacementRatioFallback(float2 placementPos)
+        {
+            float totalArea = math.PI * GatherRadius * GatherRadius;
+            float occupiedArea = 0f;
+
+            var hutQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<GathererHutTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>());
+
+            var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            // Subtract overlap with ALL existing GathererHut circles (same-faction
+            // and enemy). Since this is a new farm, all existing farms have priority
+            // for same-faction, and enemy huts always exclude.
             for (int i = 0; i < hutTransforms.Length; i++)
             {
-                if (hutFactions[i].Value != GameSettings.LocalPlayerFaction) continue;
-
                 var hPos = new float2(hutTransforms[i].Position.x, hutTransforms[i].Position.z);
                 float dist = math.distance(placementPos, hPos);
 

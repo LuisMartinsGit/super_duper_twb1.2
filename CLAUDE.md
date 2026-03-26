@@ -1,7 +1,7 @@
 # The Waning Border 1.2 - Claude Code Instructions
 
 ## Project Overview
-Unity 2023 LTS RTS game using DOTS/ECS (Entities 1.3.14) with hybrid MonoBehaviour UI.
+Unity 6 (6000.0.37f1) RTS game using DOTS/ECS (Entities 1.3.14) with hybrid MonoBehaviour UI.
 C# source code lives in `Assets/Scripts/` organized by domain modules.
 
 ## Architecture
@@ -81,3 +81,47 @@ Scopes: `ai`, `combat`, `economy`, `ui`, `input`, `movement`, `building`, `minin
 - Do not change the global namespace of ECS components without updating all systems
 - Do not modify `CommandRouter.cs` routing logic without reviewing all command types
 - Do not add Unity packages without consulting the developer
+
+## Agent Pipeline
+
+This project uses a 4-agent development pipeline. Agent definitions are in `.github/agents/`.
+
+### Quick Reference
+| Command | What it does |
+|---------|-------------|
+| "process task: \<description\>" | Runs the full pipeline (intake → spec → code → review) |
+| "create issue for: \<description\>" | Task Intake agent only |
+| "write spec for issue #N" | Spec Writer agent only |
+| "implement issue #N" | Coder agent only |
+| "review PR #N" | Reviewer agent only |
+
+### Pipeline: process task
+1. **Task Intake** (`.github/agents/task-intake.md`) - Creates a labeled GitHub issue
+2. **Spec Writer** (`.github/agents/spec-writer.md`) - Posts implementation spec as issue comment
+3. **Coder** (`.github/agents/coder.md`) - Branches, implements, commits, creates PR
+4. **Reviewer** (`.github/agents/reviewer.md`) - Reviews PR, approves or requests fixes
+5. Coder ↔ Reviewer cycle (max 3 rounds) until approved
+
+### Setup
+The pipeline requires a GitHub PAT in `.env`:
+```
+GH_TOKEN=ghp_your_token_here
+```
+
+### GitHub API Pattern
+Since `gh` CLI is not installed, use `curl` for all GitHub operations:
+```bash
+# Read token
+GH_TOKEN=$(grep GH_TOKEN .env | cut -d= -f2)
+
+# API calls
+curl -s -H "Authorization: token $GH_TOKEN" \
+  "https://api.github.com/repos/LuisMartinsGit/super_duper_twb1.2/..."
+```
+
+### Pipeline Checkpoints
+The pipeline pauses for user confirmation after:
+- Issue creation
+- Spec posting
+- PR creation
+- Review completion

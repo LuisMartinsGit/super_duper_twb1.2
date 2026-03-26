@@ -1,5 +1,5 @@
 // File: Assets/Scripts/UI/Menus/SkirmishLobbyUI.cs
-// Single-player skirmish lobby with player slots, color picker, and map configuration
+// Single-player skirmish lobby with tabbed layout, observer option, and sandbox mode
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,9 +9,19 @@ using TheWaningBorder.Core.Config;
 namespace TheWaningBorder.UI.Menus
 {
     /// <summary>
+    /// Lobby tab identifiers.
+    /// </summary>
+    public enum LobbyTab
+    {
+        PlayerSetup,
+        MapSetup,
+        GameSetup
+    }
+
+    /// <summary>
     /// Single-player skirmish lobby.
-    /// Allows configuration of player slots (1 human, rest AI/empty),
-    /// per-slot color selection from a 12-color pool, and map options.
+    /// Split into three tabs: Player Setup, Map Setup, Game Setup.
+    /// Supports Observer role and Sandbox game mode.
     /// </summary>
     public class SkirmishLobbyUI : MonoBehaviour
     {
@@ -20,8 +30,11 @@ namespace TheWaningBorder.UI.Menus
         private const string GameSceneName = "Game";
 
         // Window layout
-        private Rect _windowRect = new Rect(40, 40, 560, 620);
+        private Rect _windowRect = new Rect(40, 40, 580, 720);
         private Vector2 _slotsScrollPos;
+
+        // Active tab
+        private LobbyTab _activeTab = LobbyTab.PlayerSetup;
 
         // Map settings
         private SpawnLayout _layout = GameSettings.SpawnLayout;
@@ -29,6 +42,17 @@ namespace TheWaningBorder.UI.Menus
         private int _spawnSeed = GameSettings.SpawnSeed;
         private bool _fogOfWar = GameSettings.FogOfWarEnabled;
         private int _mapHalfSize = GameSettings.MapHalfSize;
+
+        // Game settings
+        private bool _maxResources = GameSettings.MaxStartingResources;
+        private bool _crystalCurse = GameSettings.CrystalCurseEnabled;
+        private bool _sandbox = false;
+        private bool _isObserver = false;
+
+        // Sandbox stores pre-sandbox settings for restoration
+        private int _preSandboxPlayerCount = 2;
+        private bool _preSandboxFog = false;
+        private bool _preSandboxMaxRes = false;
 
         // Error display
         private string _error;
@@ -38,7 +62,13 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _slotStyle;
         private GUIStyle _factionLabelStyle;
         private GUIStyle _colorBtnStyle;
+        private GUIStyle _tabActiveStyle;
+        private GUIStyle _tabInactiveStyle;
+        private GUIStyle _sectionBoxStyle;
         private Texture2D _colorSwatchTex;
+        private Texture2D _tabActiveTex;
+        private Texture2D _tabInactiveTex;
+        private Texture2D _sectionBoxTex;
         private bool _stylesInit = false;
 
         void OnEnable()
@@ -50,6 +80,12 @@ namespace TheWaningBorder.UI.Menus
             _spawnSeed = UnityEngine.Random.Range(1, 99999);
             _fogOfWar = GameSettings.FogOfWarEnabled;
             _mapHalfSize = Mathf.Clamp(GameSettings.MapHalfSize, 64, 512);
+
+            // Reset modes
+            _sandbox = false;
+            _isObserver = false;
+            _activeTab = LobbyTab.PlayerSetup;
+            GameSettings.Mode = GameMode.FreeForAll;
 
             FactionColors.ResetToDefaults();
             LobbyConfig.SetupSinglePlayer(LobbyConfig.ActiveSlotCount);
@@ -100,13 +136,119 @@ namespace TheWaningBorder.UI.Menus
             _colorSwatchTex.SetPixel(0, 0, Color.white);
             _colorSwatchTex.Apply();
 
+            // Tab styles
+            _tabActiveTex = MakeSolidTexture(new Color(0.83f, 0.66f, 0.26f, 0.35f));
+            _tabInactiveTex = MakeSolidTexture(new Color(0.15f, 0.15f, 0.25f, 0.5f));
+            _sectionBoxTex = MakeSolidTexture(new Color(0.08f, 0.10f, 0.22f, 0.3f));
+
+            _tabActiveStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontStyle = FontStyle.Bold,
+                fontSize = 13,
+                normal = { background = _tabActiveTex, textColor = new Color(0.83f, 0.66f, 0.26f) },
+                hover = { background = _tabActiveTex, textColor = new Color(0.93f, 0.76f, 0.36f) },
+                active = { background = _tabActiveTex, textColor = new Color(0.93f, 0.76f, 0.36f) },
+                padding = new RectOffset(12, 12, 6, 6)
+            };
+
+            _tabInactiveStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 13,
+                normal = { background = _tabInactiveTex, textColor = new Color(0.7f, 0.7f, 0.7f) },
+                hover = { background = _tabActiveTex, textColor = new Color(0.9f, 0.9f, 0.9f) },
+                active = { background = _tabActiveTex, textColor = new Color(0.9f, 0.9f, 0.9f) },
+                padding = new RectOffset(12, 12, 6, 6)
+            };
+
+            _sectionBoxStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = { background = _sectionBoxTex },
+                padding = new RectOffset(10, 10, 8, 8)
+            };
+
             _stylesInit = true;
         }
 
+        private Texture2D MakeSolidTexture(Color color)
+        {
+            var tex = new Texture2D(1, 1);
+            tex.SetPixel(0, 0, color);
+            tex.Apply();
+            return tex;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MAIN WINDOW
+        // ═══════════════════════════════════════════════════════════════
+
         private void DrawWindow(int windowId)
         {
-            // Player count
+            // Tab bar
+            DrawTabBar();
+
+            GUILayout.Space(6);
+
+            // Tab content
+            switch (_activeTab)
+            {
+                case LobbyTab.PlayerSetup:
+                    DrawPlayerSetupTab();
+                    break;
+                case LobbyTab.MapSetup:
+                    DrawMapSetupTab();
+                    break;
+                case LobbyTab.GameSetup:
+                    DrawGameSetupTab();
+                    break;
+            }
+
+            GUILayout.FlexibleSpace();
+
+            // Action buttons (always visible)
+            DrawActionButtons();
+
+            GUILayout.Space(10);
+
+            GUI.DragWindow(new Rect(0, 0, 10000, 25));
+        }
+
+        private void DrawTabBar()
+        {
+            GUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Player Setup",
+                _activeTab == LobbyTab.PlayerSetup ? _tabActiveStyle : _tabInactiveStyle,
+                GUILayout.Height(30)))
+            {
+                _activeTab = LobbyTab.PlayerSetup;
+            }
+
+            if (GUILayout.Button("Map Setup",
+                _activeTab == LobbyTab.MapSetup ? _tabActiveStyle : _tabInactiveStyle,
+                GUILayout.Height(30)))
+            {
+                _activeTab = LobbyTab.MapSetup;
+            }
+
+            if (GUILayout.Button("Game Setup",
+                _activeTab == LobbyTab.GameSetup ? _tabActiveStyle : _tabInactiveStyle,
+                GUILayout.Height(30)))
+            {
+                _activeTab = LobbyTab.GameSetup;
+            }
+
+            GUILayout.EndHorizontal();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PLAYER SETUP TAB
+        // ═══════════════════════════════════════════════════════════════
+
+        private void DrawPlayerSetupTab()
+        {
+            // Number of players (disabled in sandbox)
             GUILayout.Label("<b>Number of Players</b>", _headerStyle);
+            GUI.enabled = !_sandbox;
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(" - ", GUILayout.Width(40)))
                 SetPlayerCount(LobbyConfig.ActiveSlotCount - 1);
@@ -115,13 +257,19 @@ namespace TheWaningBorder.UI.Menus
                 SetPlayerCount(LobbyConfig.ActiveSlotCount + 1);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            GUI.enabled = true;
 
             GUILayout.Space(10);
 
             // Player slots
             GUILayout.Label("<b>Player Slots</b>", _headerStyle);
 
-            _slotsScrollPos = GUILayout.BeginScrollView(_slotsScrollPos, GUILayout.Height(220));
+            if (_sandbox)
+            {
+                GUILayout.Label("  Sandbox mode: 1 human player, no opponents.", _headerStyle);
+            }
+
+            _slotsScrollPos = GUILayout.BeginScrollView(_slotsScrollPos, GUILayout.Height(320));
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
@@ -129,9 +277,14 @@ namespace TheWaningBorder.UI.Menus
             }
 
             GUILayout.EndScrollView();
+        }
 
-            GUILayout.Space(10);
+        // ═══════════════════════════════════════════════════════════════
+        // MAP SETUP TAB
+        // ═══════════════════════════════════════════════════════════════
 
+        private void DrawMapSetupTab()
+        {
             // Spawn layout
             GUILayout.Label("<b>Spawn Layout</b>", _headerStyle);
             GUILayout.BeginHorizontal();
@@ -169,12 +322,6 @@ namespace TheWaningBorder.UI.Menus
 
             GUILayout.Space(10);
 
-            // Fog of war
-            GUILayout.Label("<b>Fog of War</b>", _headerStyle);
-            _fogOfWar = GUILayout.Toggle(_fogOfWar, _fogOfWar ? " Enabled" : " Disabled");
-
-            GUILayout.Space(10);
-
             // Map size
             GUILayout.Label("<b>Map Size</b> (total side = 2 x HalfSize)", _headerStyle);
             GUILayout.BeginHorizontal();
@@ -184,10 +331,124 @@ namespace TheWaningBorder.UI.Menus
             if (GUILayout.Button(" + ", GUILayout.Width(40)))
                 _mapHalfSize = Mathf.Min(512, _mapHalfSize + 16);
             GUILayout.EndHorizontal();
+        }
 
-            GUILayout.FlexibleSpace();
+        // ═══════════════════════════════════════════════════════════════
+        // GAME SETUP TAB
+        // ═══════════════════════════════════════════════════════════════
 
-            // Action buttons
+        private void DrawGameSetupTab()
+        {
+            // Sandbox mode toggle
+            GUILayout.Label("<b>Game Mode</b>", _headerStyle);
+            bool newSandbox = GUILayout.Toggle(_sandbox, _sandbox
+                ? "  Sandbox Mode (single player, no victory conditions)"
+                : "  Standard Skirmish");
+
+            if (newSandbox != _sandbox)
+            {
+                ApplySandboxToggle(newSandbox);
+            }
+
+            // Battalion test toggle
+            bool isBatTest = GameSettings.Mode == GameMode.BattalionTest;
+            bool newBatTest = GUILayout.Toggle(isBatTest, "  Battalion Test (spawns 2 test battalions)");
+            if (newBatTest != isBatTest)
+            {
+                if (newBatTest)
+                {
+                    _sandbox = false;
+                    GameSettings.Mode = GameMode.BattalionTest;
+                }
+                else
+                {
+                    GameSettings.Mode = GameMode.FreeForAll;
+                }
+            }
+
+            GUILayout.Space(10);
+
+            // Fog of war
+            GUILayout.Label("<b>Fog of War</b>", _headerStyle);
+            GUI.enabled = !_sandbox; // Sandbox forces fog off
+            _fogOfWar = GUILayout.Toggle(_fogOfWar, _fogOfWar ? " Enabled" : " Disabled");
+            if (_sandbox) _fogOfWar = false;
+            GUI.enabled = true;
+
+            GUILayout.Space(10);
+
+            // Crystal Curse
+            GUILayout.Label("<b>Crystal Curse</b>", _headerStyle);
+            _crystalCurse = GUILayout.Toggle(_crystalCurse, _crystalCurse
+                ? " Enabled (NPC curse faction spawns)"
+                : " Disabled (no crystal threat)");
+
+            GUILayout.Space(10);
+
+            // Starting resources
+            GUILayout.Label("<b>Starting Resources</b>", _headerStyle);
+            GUI.enabled = !_sandbox; // Sandbox forces max resources
+            _maxResources = GUILayout.Toggle(_maxResources, _maxResources
+                ? " Max Resources (100k each)"
+                : " Normal (400 Supplies, 150 Iron)");
+            if (_sandbox) _maxResources = true;
+            GUI.enabled = true;
+
+            GUILayout.Space(10);
+
+            // Victory conditions info
+            GUILayout.Label("<b>Victory Conditions</b>", _headerStyle);
+            if (_sandbox)
+            {
+                GUILayout.Label("  No victory conditions in Sandbox mode.");
+                GUILayout.Label("  Build, explore, and experiment freely.");
+            }
+            else
+            {
+                GUILayout.Label("  Elimination: Destroy all enemy buildings to win.");
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SANDBOX TOGGLE
+        // ═══════════════════════════════════════════════════════════════
+
+        private void ApplySandboxToggle(bool enable)
+        {
+            if (enable)
+            {
+                // Save current settings before sandbox override
+                _preSandboxPlayerCount = LobbyConfig.ActiveSlotCount;
+                _preSandboxFog = _fogOfWar;
+                _preSandboxMaxRes = _maxResources;
+
+                _sandbox = true;
+                _isObserver = false; // Observer and Sandbox are mutually exclusive
+                GameSettings.Mode = GameMode.Sandbox;
+
+                // Force sandbox constraints
+                _fogOfWar = false;
+                _maxResources = true;
+                SetPlayerCount(1);
+            }
+            else
+            {
+                _sandbox = false;
+                GameSettings.Mode = GameMode.FreeForAll;
+
+                // Restore previous settings
+                _fogOfWar = _preSandboxFog;
+                _maxResources = _preSandboxMaxRes;
+                SetPlayerCount(Mathf.Max(2, _preSandboxPlayerCount));
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ACTION BUTTONS (always visible)
+        // ═══════════════════════════════════════════════════════════════
+
+        private void DrawActionButtons()
+        {
             GUILayout.BeginHorizontal();
 
             if (GUILayout.Button("Back", GUILayout.Height(36), GUILayout.Width(100)))
@@ -203,11 +464,11 @@ namespace TheWaningBorder.UI.Menus
             }
 
             GUILayout.EndHorizontal();
-
-            GUILayout.Space(10);
-
-            GUI.DragWindow(new Rect(0, 0, 10000, 25));
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PLAYER SLOT RENDERING
+        // ═══════════════════════════════════════════════════════════════
 
         private void DrawPlayerSlot(int index)
         {
@@ -215,34 +476,88 @@ namespace TheWaningBorder.UI.Menus
 
             GUILayout.BeginHorizontal(_slotStyle);
 
-            // Color swatch (filled rectangle)
+            if (index == 0)
+            {
+                // Human player slot - can be Player or Observer
+                DrawHumanSlot(slot);
+            }
+            else
+            {
+                // AI/Empty slot
+                DrawAISlot(index, slot);
+            }
+
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawHumanSlot(PlayerSlot slot)
+        {
+            if (_isObserver)
+            {
+                // Observer mode: no color, just label
+                GUILayout.Label("  ", GUILayout.Width(18));
+                GUILayout.Label("Observer", _factionLabelStyle, GUILayout.Width(80));
+            }
+            else
+            {
+                // Normal player: color swatch + color picker
+                Color oldColor = GUI.color;
+                Color slotColor = slot.GetFactionColor();
+                GUI.color = slotColor;
+                GUILayout.Label("\u25a0", GUILayout.Width(18));
+                GUI.color = oldColor;
+
+                string colorName = slot.GetColorName();
+                if (GUILayout.Button(colorName, _colorBtnStyle, GUILayout.Width(70)))
+                {
+                    CycleSlotColor(0);
+                }
+            }
+
+            // Player/Observer toggle (disabled in sandbox)
+            if (!_sandbox)
+            {
+                string[] modeOptions = { "Player", "Observer" };
+                int currentMode = _isObserver ? 1 : 0;
+                int newMode = GUILayout.SelectionGrid(currentMode, modeOptions, 2, GUILayout.Width(140));
+
+                if (newMode != currentMode)
+                {
+                    _isObserver = (newMode == 1);
+                    slot.Type = _isObserver ? SlotType.Observer : SlotType.Human;
+                }
+            }
+            else
+            {
+                GUILayout.Label("Player (You)", GUILayout.Width(140));
+            }
+
+            GUILayout.Label("", GUILayout.Width(65)); // spacing to match AI slot
+        }
+
+        private void DrawAISlot(int index, PlayerSlot slot)
+        {
+            // Color swatch
             Color oldColor = GUI.color;
             Color slotColor = slot.GetFactionColor();
             GUI.color = slotColor;
-            GUILayout.Label("■", GUILayout.Width(18));
+            GUILayout.Label("\u25a0", GUILayout.Width(18));
             GUI.color = oldColor;
 
-            // Color picker button - click to cycle through available colors
+            // Color picker button
             string colorName = slot.GetColorName();
             if (GUILayout.Button(colorName, _colorBtnStyle, GUILayout.Width(70)))
             {
                 CycleSlotColor(index);
             }
 
-            // Player label
-            if (index == 0)
-            {
-                GUILayout.Label("Player (You)", GUILayout.Width(100));
-            }
-            else
-            {
-                // Slot type selector: Empty or AI
-                string[] options = { "Empty", "AI" };
-                int currentOption = slot.Type == SlotType.AI ? 1 : 0;
+            // Slot type selector: Empty or AI
+            string[] options = { "Empty", "AI" };
+            int currentOption = slot.Type == SlotType.AI ? 1 : 0;
 
-                int newOption = GUILayout.SelectionGrid(currentOption, options, 2, GUILayout.Width(100));
-                slot.Type = newOption == 1 ? SlotType.AI : SlotType.Empty;
-            }
+            int newOption = GUILayout.SelectionGrid(currentOption, options, 2, GUILayout.Width(100));
+            slot.Type = newOption == 1 ? SlotType.AI : SlotType.Empty;
 
             // AI difficulty (only for AI slots)
             if (slot.Type == SlotType.AI)
@@ -259,10 +574,11 @@ namespace TheWaningBorder.UI.Menus
             {
                 GUILayout.Label("", GUILayout.Width(65));
             }
-
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // COLOR CYCLING
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Cycle the color of a slot to the next available (unused) color in the pool.
@@ -281,14 +597,14 @@ namespace TheWaningBorder.UI.Menus
                 if (!IsColorInUse(next, slotIndex))
                 {
                     slot.ColorIndex = next;
-                    Debug.Log($"[SkirmishLobby] → Changed to color {next} ({slot.GetColorName()})");
+                    Debug.Log($"[SkirmishLobby] -> Changed to color {next} ({slot.GetColorName()})");
                     return;
                 }
             }
 
             // All colors in use (shouldn't happen with 12 colors and 8 slots) - just cycle
             slot.ColorIndex = (current + 1) % FactionColors.ColorCount;
-            Debug.Log($"[SkirmishLobby] → Fallback to color {slot.ColorIndex} ({slot.GetColorName()})");
+            Debug.Log($"[SkirmishLobby] -> Fallback to color {slot.ColorIndex} ({slot.GetColorName()})");
         }
 
         /// <summary>
@@ -305,9 +621,14 @@ namespace TheWaningBorder.UI.Menus
             return false;
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // PLAYER COUNT
+        // ═══════════════════════════════════════════════════════════════
+
         private void SetPlayerCount(int count)
         {
-            count = Mathf.Clamp(count, 2, 8);
+            int minPlayers = _sandbox ? 1 : 2;
+            count = Mathf.Clamp(count, minPlayers, 8);
 
             // Preserve existing color assignments
             int[] savedColors = new int[8];
@@ -319,6 +640,10 @@ namespace TheWaningBorder.UI.Menus
             // Restore color assignments
             for (int i = 0; i < 8; i++)
                 LobbyConfig.Slots[i].ColorIndex = savedColors[i];
+
+            // Restore observer state on slot 0
+            if (_isObserver)
+                LobbyConfig.Slots[0].Type = SlotType.Observer;
 
             // Ensure no color conflicts among active slots
             ResolveColorConflicts();
@@ -340,6 +665,10 @@ namespace TheWaningBorder.UI.Menus
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // START GAME
+        // ═══════════════════════════════════════════════════════════════
+
         private void StartGame()
         {
             // Apply settings
@@ -348,6 +677,14 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.SpawnSeed = _spawnSeed;
             GameSettings.FogOfWarEnabled = _fogOfWar;
             GameSettings.MapHalfSize = _mapHalfSize;
+            GameSettings.MaxStartingResources = _maxResources;
+            GameSettings.CrystalCurseEnabled = _crystalCurse;
+            GameSettings.IsObserver = _isObserver;
+
+            if (_sandbox)
+                GameSettings.Mode = GameMode.Sandbox;
+            else
+                GameSettings.Mode = GameMode.FreeForAll;
 
             // Apply color selections to FactionColors runtime system
             LobbyConfig.ApplyColorSelections();
@@ -355,21 +692,39 @@ namespace TheWaningBorder.UI.Menus
             // Count active players
             int humanCount = 0;
             int aiCount = 0;
+            int observerCount = 0;
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
                 if (slot.Type == SlotType.Human) humanCount++;
                 else if (slot.Type == SlotType.AI) aiCount++;
+                else if (slot.Type == SlotType.Observer) observerCount++;
             }
 
-            if (humanCount == 0)
+            // Validation
+            if (!_sandbox && humanCount == 0 && observerCount == 0)
+            {
+                _error = "Need at least 1 human player or observer!";
+                return;
+            }
+
+            if (_isObserver && aiCount == 0)
+            {
+                _error = "Observer mode needs at least 1 AI player!";
+                return;
+            }
+
+            if (_sandbox && humanCount == 0)
             {
                 _error = "Need at least 1 human player!";
                 return;
             }
 
-            GameSettings.TotalPlayers = humanCount + aiCount;
+            // TotalPlayers includes observer slot when observer is active, so spawn
+            // positions and faction indices stay consistent. The observer slot is
+            // simply skipped during actual entity spawning.
+            GameSettings.TotalPlayers = humanCount + aiCount + observerCount;
             GameSettings.IsMultiplayer = false;
             GameSettings.NetworkRole = NetworkRole.None;
             GameSettings.LocalPlayerFaction = Faction.Blue;
@@ -377,7 +732,7 @@ namespace TheWaningBorder.UI.Menus
             _error = null;
 
             Debug.Log($"[SkirmishLobby] Starting game with {GameSettings.TotalPlayers} players " +
-                      $"(colors: {GetColorSummary()})");
+                      $"(Observer={_isObserver}, Sandbox={_sandbox}, colors: {GetColorSummary()})");
             LoadingScreen.Show(GameSceneName);
         }
 

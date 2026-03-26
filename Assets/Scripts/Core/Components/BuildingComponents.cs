@@ -40,6 +40,27 @@ public struct DepotTag : IComponentData { }
 /// <summary>Religious/support building.</summary>
 public struct TempleTag : IComponentData { }
 
+/// <summary>
+/// Tracks the current level of a Temple building (1-4).
+/// Level 1 = on build, Level 2-4 = upgrades that advance era.
+/// </summary>
+public struct TempleLevel : IComponentData
+{
+    public int Level; // 1-4
+}
+
+/// <summary>
+/// Active upgrade state for a Temple. Added when upgrade starts, removed on completion.
+/// TempleUpgradeSystem ticks Remaining each frame; on completion it sets TempleLevel,
+/// updates FactionEra, grants RP, and removes this component.
+/// </summary>
+public struct TempleUpgradeState : IComponentData
+{
+    public int TargetLevel;   // Level being upgraded to
+    public float Duration;    // Total upgrade time in seconds
+    public float Remaining;   // Time left
+}
+
 /// <summary>Defensive wall segment (generic tag for all wall entities).</summary>
 public struct WallTag : IComponentData { }
 
@@ -75,6 +96,16 @@ public struct WallEnclosureIncomeTag : IComponentData
     public byte FactionIndex;
 }
 
+/// <summary>
+/// Buffer element storing the XZ vertices of a wall enclosure polygon.
+/// Added to enclosure income entities by WallEnclosureIncomeSystem so that
+/// GathererHutIncomeSystem can do point-in-polygon tests without re-walking the hub graph.
+/// </summary>
+public struct WallEnclosureVertex : IBufferElementData
+{
+    public float2 Position;
+}
+
 /// <summary>Resource vault building.</summary>
 public struct VaultTag : IComponentData { }
 
@@ -92,6 +123,12 @@ public struct OutpostTag : IComponentData { }
 /// <summary>Runai trade building.</summary>
 public struct TradeHubTag : IComponentData { }
 
+/// <summary>Runai mobile HQ. Unique per player. +40 pop, dual training queue.</summary>
+public struct BazaarTag : IComponentData { }
+
+/// <summary>Runai siege unit training building.</summary>
+public struct SiegeWorkshopTag : IComponentData { }
+
 // ==================== Era 2 - Alanthor Culture Buildings ====================
 
 /// <summary>Alanthor metal processing building.</summary>
@@ -99,6 +136,18 @@ public struct SmelterTag : IComponentData { }
 
 /// <summary>Alanthor advanced construction building.</summary>
 public struct CrucibleTag : IComponentData { }
+
+/// <summary>Alanthor ranged defensive tower. Garrison 4.</summary>
+public struct WatchTowerTag : IComponentData { }
+
+/// <summary>Alanthor military training building. +8 pop. Trains Sentinel+Crossbowman.</summary>
+public struct GarrisonTag : IComponentData { }
+
+/// <summary>Alanthor cavalry training building. Trains Cataphract.</summary>
+public struct RoyalStableTag : IComponentData { }
+
+/// <summary>Alanthor siege unit training building. Trains Ballista.</summary>
+public struct SiegeYardTag : IComponentData { }
 
 // ==================== Era 2 - Feraldis Culture Buildings ====================
 
@@ -111,6 +160,18 @@ public struct LoggingStationTag : IComponentData { }
 /// <summary>Feraldis weapon forge building.</summary>
 public struct WarbrandFoundryTag : IComponentData { }
 
+/// <summary>Feraldis batch training longhouse. Has BatchTrainingTag.</summary>
+public struct LonghouseTag : IComponentData { }
+
+/// <summary>Marker for buildings that batch-train units (e.g., Feraldis Longhouse).</summary>
+public struct BatchTrainingTag : IComponentData { }
+
+/// <summary>Feraldis ranged defensive totem tower.</summary>
+public struct TotemTowerTag : IComponentData { }
+
+/// <summary>Feraldis siege unit training building. Trains Siege Ram.</summary>
+public struct FerSiegeYardTag : IComponentData { }
+
 // ==================== Sect Buildings ====================
 
 /// <summary>Small religious building for sects.</summary>
@@ -119,11 +180,54 @@ public struct ChapelSmallTag : IComponentData { }
 /// <summary>Large religious building for sects.</summary>
 public struct ChapelLargeTag : IComponentData { }
 
+/// <summary>
+/// Chapel building tag — generic across all 12 sects.
+/// SectId identifies which sect this chapel belongs to (e.g., "Sect_Renewal").
+/// Chapels train sect-unique units and research sect technologies.
+/// </summary>
+public struct ChapelTag : IComponentData
+{
+    public FixedString64Bytes SectId;
+}
+
 /// <summary>Unique sect-specific building.</summary>
 public struct SectUniqueBuildingTag : IComponentData { }
 
 /// <summary>Unique sect-specific unit type.</summary>
 public struct SectUniqueUnitTag : IComponentData { }
+
+// ==================== Temple Chapel Slot System ====================
+
+/// <summary>
+/// Buffer element on Temple entities tracking each of its 7 chapel build slots.
+/// Slot 0 is at the top (north), arranged clockwise in a circle.
+/// </summary>
+public struct TempleChapelSlot : IBufferElementData
+{
+    /// <summary>Chapel entity (Entity.Null if empty or still building).</summary>
+    public Entity Chapel;
+    /// <summary>Sect ID (empty string if slot is unused).</summary>
+    public FixedString64Bytes SectId;
+    /// <summary>0 = empty, 1 = building, 2 = complete.</summary>
+    public byte State;
+    /// <summary>Elapsed build time (increments from 0 to BuildTime).</summary>
+    public float BuildProgress;
+    /// <summary>Total build time in seconds.</summary>
+    public float BuildTime;
+}
+
+/// <summary>
+/// Added to chapel entities built via temple slots.
+/// Links the chapel back to its parent temple and identifies which slot it occupies.
+/// Used by cascade destruction: when temple dies, all chapels with TempleOwner die too.
+/// </summary>
+public struct TempleOwner : IComponentData
+{
+    /// <summary>The temple entity this chapel belongs to.</summary>
+    public Entity Temple;
+    /// <summary>Slot index (0-6) in the parent temple's TempleChapelSlot buffer.</summary>
+    public int SlotIndex;
+}
 
 // ==================== Construction System ====================
 
@@ -170,21 +274,23 @@ public struct RepairOrder : IComponentData
 /// </summary>
 public struct DeferredDefense : IComponentData
 {
-    public float Melee;
-    public float Ranged;
-    public float Siege;
-    public float Magic;
+    public int Melee;
+    public int Ranged;
+    public int Siege;
+    public int Magic;
 }
 
 /// <summary>
-/// Defensive stats for completed buildings.
+/// Defensive stats for buildings and units.
+/// Each field reduces incoming damage of that type via diminishing-returns formula:
+///   reduction = defense / (defense + 100)
 /// </summary>
 public struct Defense : IComponentData
 {
-    public float Melee;
-    public float Ranged;
-    public float Siege;
-    public float Magic;
+    public int Melee;
+    public int Ranged;
+    public int Siege;
+    public int Magic;
 }
 
 // ==================== Training System ====================
@@ -204,19 +310,6 @@ public struct TrainingState : IComponentData
 public struct TrainQueueItem : IBufferElementData
 {
     public FixedString64Bytes UnitId;
-}
-
-// Legacy production system (consider deprecating in favor of TrainingState)
-public struct ProductionQueue : IBufferElementData
-{
-    public UnitClass Class;
-}
-
-public struct ProductionState : IComponentData
-{
-    public float Timer;        // Time left to finish current item (<=0 means idle)
-    public float BaseTime;     // Base production time per unit
-    public UnitClass CurrentClass;
 }
 
 // ==================== Building Combat ====================
@@ -257,6 +350,21 @@ public struct VaultStorage : IComponentData
 /// Pushed by UnitSeparationSystem like buildings, but not included in building queries.
 /// </summary>
 public struct ObstacleTag : IComponentData { }
+
+// ==================== Age-Up Timer ====================
+
+/// <summary>
+/// Active age-up timer on a Hall entity.
+/// While present, the Hall is transitioning to Era 2.
+/// Training is blocked and a progress bar is shown in the UI.
+/// Removed by AgeUpSystem when Remaining reaches 0.
+/// </summary>
+public struct AgeUpState : IComponentData
+{
+    public byte Culture;      // Selected culture (Cultures enum value)
+    public float Duration;    // Total time for age-up
+    public float Remaining;   // Time left
+}
 
 // ==================== Self-Destruct ====================
 
