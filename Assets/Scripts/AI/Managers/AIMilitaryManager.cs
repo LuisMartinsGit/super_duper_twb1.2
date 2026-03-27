@@ -76,6 +76,7 @@ namespace TheWaningBorder.AI
             ref AIMilitaryState militaryState, DynamicBuffer<RecruitmentRequest> recruitReqs,
             DynamicBuffer<ResourceRequest> resourceReqs, EntityCommandBuffer ecb)
         {
+            var em = state.EntityManager;
             CountMilitaryUnits(ref state, faction, ref militaryState);
             CountQueuedMilitary(ref state, faction, ref militaryState);
 
@@ -88,22 +89,34 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "MILITARY",
                 $"Pop:{popCur}/{popMx} — Soldiers:{militaryState.TotalSoldiers}(+{militaryState.QueuedSoldiers}q) Archers:{militaryState.TotalArchers}(+{militaryState.QueuedArchers}q) Siege:{militaryState.TotalSiegeUnits}(+{militaryState.QueuedSiegeUnits}q)");
 
-            // Count barracks (all, including under construction)
+            // Count military training buildings (barracks + culture-specific)
             int barracksCount = 0;
             int completeBarracks = 0;
-            foreach (var (barracksTag, factionTag, entity) in
-                SystemAPI.Query<RefRO<BarracksTag>, RefRO<FactionTag>>()
+            foreach (var (trainingState, factionTag, entity) in
+                SystemAPI.Query<RefRO<TrainingState>, RefRO<FactionTag>>()
+                .WithAll<BuildingTag>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value == faction)
+                if (factionTag.ValueRO.Value != faction) continue;
+
+                bool isMilitary = em.HasComponent<BarracksTag>(entity) ||
+                    em.HasComponent<GarrisonTag>(entity) ||
+                    em.HasComponent<LonghouseTag>(entity) ||
+                    em.HasComponent<SiegeWorkshopTag>(entity) ||
+                    em.HasComponent<SiegeYardTag>(entity) ||
+                    em.HasComponent<FerSiegeYardTag>(entity) ||
+                    em.HasComponent<RoyalStableTag>(entity) ||
+                    em.HasComponent<BazaarTag>(entity);
+
+                if (isMilitary)
                 {
                     barracksCount++;
-                    if (!state.EntityManager.HasComponent<UnderConstruction>(entity))
+                    if (!em.HasComponent<UnderConstruction>(entity))
                         completeBarracks++;
                 }
             }
             militaryState.ActiveBarracks = barracksCount;
-            AILogger.Log(faction, "MILITARY", $"Barracks: {completeBarracks} complete, {barracksCount - completeBarracks} building");
+            AILogger.Log(faction, "MILITARY", $"Military buildings: {completeBarracks} complete, {barracksCount - completeBarracks} building");
 
             // Build order step 4: only request barracks after having miners
             bool hasMiners = false;
@@ -317,17 +330,43 @@ namespace TheWaningBorder.AI
 
             // (Pop state logged on ManageMilitary interval, not every frame)
 
+            // Read faction culture for unit selection
+            byte culture = Cultures.None;
+            foreach (var (fTag, progress) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionProgress>>()
+                .WithAll<HallTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    culture = progress.ValueRO.Culture;
+                    break;
+                }
+            }
+
             // Collect training buildings — allow busy buildings (AI queues like a player)
             // Queue length is checked when adding items, not here
+            // Include barracks AND culture-specific military buildings (Garrison, Longhouse, SiegeWorkshop, etc.)
             var availableBarracks = new NativeList<Entity>(Allocator.Temp);
             var availableHalls = new NativeList<Entity>(Allocator.Temp);
 
-            foreach (var (barracksTag, trainingState, factionTag, entity) in
-                SystemAPI.Query<RefRO<BarracksTag>, RefRO<TrainingState>, RefRO<FactionTag>>()
+            foreach (var (trainingState, factionTag, entity) in
+                SystemAPI.Query<RefRO<TrainingState>, RefRO<FactionTag>>()
+                .WithAll<BuildingTag>()
                 .WithNone<UnderConstruction>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value == faction)
+                if (factionTag.ValueRO.Value != faction) continue;
+
+                // Include any building with a training queue that is a military producer
+                bool isMilitary = em.HasComponent<BarracksTag>(entity) ||
+                    em.HasComponent<GarrisonTag>(entity) ||
+                    em.HasComponent<LonghouseTag>(entity) ||
+                    em.HasComponent<SiegeWorkshopTag>(entity) ||
+                    em.HasComponent<SiegeYardTag>(entity) ||
+                    em.HasComponent<FerSiegeYardTag>(entity) ||
+                    em.HasComponent<RoyalStableTag>(entity) ||
+                    em.HasComponent<BazaarTag>(entity);
+
+                if (isMilitary)
                     availableBarracks.Add(entity);
             }
 
@@ -377,7 +416,7 @@ namespace TheWaningBorder.AI
                     if (queue.Length >= 5)
                         continue;
 
-                    string unitId = GetUnitIdForClass(req.UnitType);
+                    string unitId = GetCultureUnitIdForClass(req.UnitType, culture);
                     bool anyQueued = false;
                     int queuedCount = 0;
 
@@ -439,6 +478,36 @@ namespace TheWaningBorder.AI
                 UnitClass.Miner => "Miner",
                 UnitClass.Scout => "Scout",
                 _ => "Swordsman"
+            };
+        }
+
+        /// <summary>
+        /// Get culture-specific unit ID for a unit class. Falls back to Era 1 units.
+        /// </summary>
+        private string GetCultureUnitIdForClass(UnitClass unitClass, byte culture)
+        {
+            if (culture == Cultures.None)
+                return GetUnitIdForClass(unitClass);
+
+            return (unitClass, culture) switch
+            {
+                // Runai culture units
+                (UnitClass.Melee, Cultures.Runai)  => "Runai_Spearman",
+                (UnitClass.Ranged, Cultures.Runai) => "Runai_Skirmisher",
+                (UnitClass.Siege, Cultures.Runai)  => "Runai_Catapult",
+
+                // Alanthor culture units
+                (UnitClass.Melee, Cultures.Alanthor)  => "Alanthor_Sentinel",
+                (UnitClass.Ranged, Cultures.Alanthor) => "Alanthor_Crossbowman",
+                (UnitClass.Siege, Cultures.Alanthor)  => "Alanthor_Ballista",
+
+                // Feraldis culture units
+                (UnitClass.Melee, Cultures.Feraldis)  => "Feraldis_WarboarRider",
+                (UnitClass.Ranged, Cultures.Feraldis) => "Feraldis_Hunter",
+                (UnitClass.Siege, Cultures.Feraldis)  => "Feraldis_SiegeRam",
+
+                // Non-combat units don't change with culture
+                _ => GetUnitIdForClass(unitClass)
             };
         }
 
