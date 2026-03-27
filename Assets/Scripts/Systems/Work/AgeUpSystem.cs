@@ -108,7 +108,11 @@ namespace TheWaningBorder.Systems.Work
                 // 5. Register culture with FactionColors (idempotent — may already be set by UI popup)
                 FactionColors.SetFactionCulture(faction, culture);
 
-                // 6. Remove AgeUpState — age-up is complete
+                // 6. Rebuild building visuals with culture tone
+                if (PresentationSpawnSystem.Instance != null)
+                    PresentationSpawnSystem.Instance.RefreshFactionVisuals(faction);
+
+                // 7. Remove AgeUpState — age-up is complete
                 em.RemoveComponent<AgeUpState>(hallEntity);
 
                 UnityEngine.Debug.Log($"[AgeUpSystem] {faction} completed age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");

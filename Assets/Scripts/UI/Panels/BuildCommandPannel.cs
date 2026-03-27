@@ -15,6 +15,7 @@ using TheWaningBorder.Input;
 using TheWaningBorder.Data;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Presentation;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -215,30 +216,61 @@ namespace TheWaningBorder.UI.Panels
         {
             CancelPlacement();
 
-            var prefab = _currentBuild switch
-            {
-                BuildType.GatherersHut => _prefabGatherersHut,
-                BuildType.Hut => _prefabHut,
-                BuildType.Barracks => _prefabBarracks,
-                BuildType.Shrine => _prefabShrine,
-                BuildType.Vault => _prefabVault,
-                BuildType.Keep => _prefabKeep,
-                BuildType.Wall => null, // Procedural — uses placeholder cube
-                BuildType.Smelter => null, // Procedural — uses placeholder cube
-                _ => _prefabHut
-            };
+            // Determine the player's current culture for preview tone
+            byte playerCulture = Cultures.None;
+            playerCulture = FactionColors.GetFactionCulture(GameSettings.LocalPlayerFaction);
 
-            if (prefab != null)
+            // Get presentation ID for the current build type
+            int previewPid = GetPreviewPresentationId(_currentBuild);
+
+            // Try procedural generation first
+            GameObject procPreview = null;
+            if (previewPid > 0)
             {
-                _placingInstance = Instantiate(prefab);
+                // Handle shared PresentationId 355 by checking BuildType directly
+                if (previewPid == 355)
+                {
+                    bool isAlanthor = (_currentBuild == BuildType.AlanthorGarrison);
+                    procPreview = ProceduralBuildingGenerator.Create355(
+                        Vector3.zero, Entity.Null, isAlanthor);
+                }
+                else
+                {
+                    procPreview = ProceduralBuildingGenerator.TryCreate(
+                        previewPid, Vector3.zero, Entity.Null, playerCulture);
+                }
+            }
+
+            if (procPreview != null)
+            {
+                _placingInstance = procPreview;
             }
             else
             {
-                // Placeholder cube for buildings without a prefab
-                _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                _placingInstance.transform.localScale = Vector3.one * 2f;
-                var r = _placingInstance.GetComponent<Renderer>();
-                if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
+                // Try loading prefab
+                var prefab = _currentBuild switch
+                {
+                    BuildType.GatherersHut => _prefabGatherersHut,
+                    BuildType.Hut => _prefabHut,
+                    BuildType.Barracks => _prefabBarracks,
+                    BuildType.Shrine => _prefabShrine,
+                    BuildType.Vault => _prefabVault,
+                    BuildType.Keep => _prefabKeep,
+                    _ => null
+                };
+
+                if (prefab != null)
+                {
+                    _placingInstance = Instantiate(prefab);
+                }
+                else
+                {
+                    // Final fallback: placeholder cube
+                    _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    _placingInstance.transform.localScale = Vector3.one * 2f;
+                    var r = _placingInstance.GetComponent<Renderer>();
+                    if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
+                }
             }
 
             _placingInstance.name = "PlacementPreview";
@@ -423,6 +455,35 @@ namespace TheWaningBorder.UI.Panels
             BuildType.FeraldisTotemTower => "Feraldis_Tower",
             BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
             _ => "Hut"
+        };
+
+        /// <summary>
+        /// Get the PresentationId for preview rendering of a BuildType.
+        /// </summary>
+        private static int GetPreviewPresentationId(BuildType t) => t switch
+        {
+            BuildType.Hut => 102,
+            BuildType.GatherersHut => 101,
+            BuildType.Barracks => 510,
+            BuildType.Shrine => 520,
+            BuildType.Vault => 530,
+            BuildType.Keep => 540,
+            BuildType.Wall => 0,     // Procedural wall handled separately
+            BuildType.Smelter => 0,  // Procedural smelter handled separately
+            BuildType.RunaiOutpost => 350,
+            BuildType.RunaiTradeHub => 351,
+            BuildType.RunaiBazaar => 352,
+            BuildType.RunaiSiegeWorkshop => 353,
+            BuildType.AlanthorWatchTower => 354,
+            BuildType.AlanthorGarrison => 355,
+            BuildType.AlanthorRoyalStable => 356,
+            BuildType.AlanthorSiegeYard => 357,
+            BuildType.FeraldisHuntingLodge => 358,
+            BuildType.FeraldisLoggingStation => 359,
+            BuildType.FeraldisLonghouse => 360,
+            BuildType.FeraldisTotemTower => 361,
+            BuildType.FeraldisSiegeYard => 362,
+            _ => 102
         };
 
         /// <summary>
