@@ -334,6 +334,12 @@ public class PresentationSpawnSystem : MonoBehaviour
             if (procGo != null) return FinishProceduralBuilding(procGo, entity, transform);
         }
 
+        // === PROCEDURAL UNITS: unique generated visuals for all unit types ===
+        {
+            var unitGo = ProceduralUnitGenerator.TryCreate(presentationId, pos, entity);
+            if (unitGo != null) return FinishProceduralUnit(unitGo, entity, presentationId, transform);
+        }
+
         GameObject prefab = null;
 
         // Try to load specific prefab
@@ -501,6 +507,45 @@ public class PresentationSpawnSystem : MonoBehaviour
         // Faction banner (procedural buildings already have culture tone baked in,
         // but still need the faction banner for player identity)
         ApplyFactionBannerOnly(go, entity);
+
+        return go;
+    }
+
+    /// <summary>
+    /// Finish setting up a procedurally generated unit: collider, EntityReference,
+    /// transform sync, and faction coloring.
+    /// </summary>
+    private GameObject FinishProceduralUnit(GameObject go, Entity entity, int presentationId, LocalTransform transform)
+    {
+        go.name = $"Entity_{entity.Index}_{presentationId}";
+        go.transform.rotation = transform.Rotation;
+        go.transform.localScale = Vector3.one * transform.Scale;
+
+        // Add collider for raycasting/selection (small box for units)
+        if (go.GetComponentInChildren<Collider>() == null)
+        {
+            var col = go.AddComponent<BoxCollider>();
+            float radius = 0.3f;
+            if (_em.HasComponent<Radius>(entity))
+                radius = _em.GetComponentData<Radius>(entity).Value;
+            col.size = new Vector3(radius * 2f, 1f, radius * 2f);
+            col.center = Vector3.up * 0.5f;
+        }
+
+        // EntityReference for raycasting/selection
+        var entityRef = go.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = go.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        // Attach VeilstingerGunTracker for Veilstinger units
+        if (presentationId == 321)
+        {
+            var gunTracker = go.AddComponent<VeilstingerGunTracker>();
+            gunTracker.Entity = entity;
+        }
+
+        // Apply faction coloring (overwrites white/neutral parts with faction color)
+        ApplyFactionColor(go, entity);
 
         return go;
     }

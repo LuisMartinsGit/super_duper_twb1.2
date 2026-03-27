@@ -610,6 +610,175 @@ namespace TheWaningBorder.AI
                 // Only queue one culture building per tick to avoid overwhelming builders
                 return;
             }
+
+            // Alanthor: build walls around base after initial culture buildings are placed
+            if (culture == Cultures.Alanthor)
+            {
+                BuildAlanthorWalls(ref state, faction, buildReqs);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ALANTHOR WALL PLACEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>Number of wall hubs to place in a defensive perimeter.</summary>
+        private const int WallPerimeterHubs = 6;
+        /// <summary>Distance from Hall for the wall perimeter.</summary>
+        private const float WallPerimeterRadius = 18f;
+
+        /// <summary>
+        /// Alanthor AI: build a defensive wall perimeter around the base.
+        /// Places hubs in a hexagonal ring around the Hall, then connects them with segments.
+        /// Only queues one hub at a time; segments are created automatically when adjacent hubs exist.
+        /// </summary>
+        private void BuildAlanthorWalls(ref SystemState state, Faction faction,
+            DynamicBuffer<BuildRequest> buildReqs)
+        {
+            var em = state.EntityManager;
+
+            // Don't queue walls if there's already a pending wall request
+            for (int i = 0; i < buildReqs.Length; i++)
+            {
+                if (buildReqs[i].BuildingType.Equals("Alanthor_Wall") && buildReqs[i].Assigned == 0)
+                    return;
+            }
+
+            // Find Hall position (base center)
+            float3 hallPos = float3.zero;
+            bool foundHall = false;
+            foreach (var (fTag, lt) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<HallTag>()
+                .WithNone<UnderConstruction>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    hallPos = lt.ValueRO.Position;
+                    foundHall = true;
+                    break;
+                }
+            }
+            if (!foundHall) return;
+
+            // Count existing wall hubs
+            int existingHubs = 0;
+            var hubPositions = new Unity.Collections.NativeList<float3>(Allocator.Temp);
+            foreach (var (fTag, lt) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<WallHubTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    existingHubs++;
+                    hubPositions.Add(lt.ValueRO.Position);
+                }
+            }
+
+            if (existingHubs >= WallPerimeterHubs)
+            {
+                // All hubs placed — check if segments need connecting
+                ConnectUnlinkedWallHubs(ref state, faction);
+                hubPositions.Dispose();
+                return;
+            }
+
+            // Check affordability (hub cost)
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var wallCost))
+            {
+                hubPositions.Dispose();
+                return;
+            }
+            if (!FactionEconomy.CanAfford(em, faction, wallCost))
+            {
+                hubPositions.Dispose();
+                return;
+            }
+
+            // Calculate next hub position on the perimeter ring
+            int hubIndex = existingHubs;
+            float angle = hubIndex * (2f * math.PI / WallPerimeterHubs);
+            float3 hubPos = hallPos + new float3(
+                math.cos(angle) * WallPerimeterRadius,
+                0f,
+                math.sin(angle) * WallPerimeterRadius);
+            hubPos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(hubPos.x, hubPos.z);
+
+            buildReqs.Add(new BuildRequest
+            {
+                BuildingType = "Alanthor_Wall",
+                DesiredPosition = hubPos,
+                Priority = 4,
+                Assigned = 0,
+                AssignedBuilder = Entity.Null
+            });
+
+            AILogger.Log(faction, "ECONOMY",
+                $"Alanthor: Queued wall hub {hubIndex + 1}/{WallPerimeterHubs} at ({hubPos.x:F0},{hubPos.z:F0})");
+
+            hubPositions.Dispose();
+        }
+
+        /// <summary>
+        /// Find adjacent wall hubs that aren't connected by segments and create segments between them.
+        /// This closes the wall perimeter so it generates income.
+        /// </summary>
+        private void ConnectUnlinkedWallHubs(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Gather all wall hubs for this faction
+            var hubs = new Unity.Collections.NativeList<Entity>(Allocator.Temp);
+            var hubPos = new Unity.Collections.NativeList<float3>(Allocator.Temp);
+
+            foreach (var (fTag, lt, entity) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<WallHubTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    hubs.Add(entity);
+                    hubPos.Add(lt.ValueRO.Position);
+                }
+            }
+
+            // For each hub, check if it's connected to the next hub in the ring
+            // (connection order: 0→1→2→...→N-1→0)
+            for (int i = 0; i < hubs.Length; i++)
+            {
+                int next = (i + 1) % hubs.Length;
+                Entity hubA = hubs[i];
+                Entity hubB = hubs[next];
+
+                // Check if already connected
+                if (!em.HasBuffer<WallHubLink>(hubA)) continue;
+                var links = em.GetBuffer<WallHubLink>(hubA);
+                bool connected = false;
+                for (int j = 0; j < links.Length; j++)
+                {
+                    if (links[j].ConnectedHub == hubB)
+                    {
+                        connected = true;
+                        break;
+                    }
+                }
+
+                if (!connected)
+                {
+                    // Check affordability for segment
+                    if (!BuildCosts.TryGet("Alanthor_Wall", out var segCost)) continue;
+                    if (!FactionEconomy.Spend(em, faction, segCost)) continue;
+
+                    AlanthorWall.CreateSegment(em, hubA, hubB, faction);
+                    AILogger.Log(faction, "ECONOMY",
+                        $"Alanthor: Created wall segment connecting hub {i} → {next}");
+
+                    // Only one segment per tick
+                    break;
+                }
+            }
+
+            hubs.Dispose();
+            hubPos.Dispose();
         }
 
         /// <summary>
