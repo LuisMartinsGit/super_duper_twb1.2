@@ -11,7 +11,7 @@ namespace TheWaningBorder.Presentation
 {
     /// <summary>
     /// Static factory for procedural unit GameObjects built from primitives.
-    /// Infantry are 0.3-0.6 units tall, cavalry/siege are 0.8-1.0.
+    /// Human infantry scaled to 1.8 units tall, mounted ~2.5, siege ~2.8.
     /// White/neutral base = faction color applied later. Culture accents are baked in.
     /// </summary>
     public static class ProceduralUnitGenerator
@@ -40,13 +40,21 @@ namespace TheWaningBorder.Presentation
         //  PUBLIC API
         // ===============================================================
 
+        // Scale factors to bring procedural models to correct world height.
+        // Models are authored at ~0.4-0.6 units for infantry, ~0.85-1.0 for mounted/siege.
+        // These factors scale them to: human infantry=1.8, mounted=2.5, siege=2.8.
+        private const float InfantryScale = 3.5f;   // ~0.5 * 3.5 = 1.75 ≈ 1.8
+        private const float MountedScale  = 2.9f;   // ~0.85 * 2.9 = 2.47 ≈ 2.5
+        private const float SiegeScale    = 3.1f;   // ~0.9 * 3.1 = 2.79 ≈ 2.8
+
         /// <summary>
         /// Try to create a procedural unit for the given PresentationId.
         /// Returns null if the ID is not a known unit type handled here.
+        /// Human infantry are scaled to ~1.8 units tall, mounted ~2.5, siege ~2.8.
         /// </summary>
         public static GameObject TryCreate(int presentationId, Vector3 pos, Entity entity)
         {
-            return presentationId switch
+            GameObject go = presentationId switch
             {
                 // Era 1 Base Units
                 200 => CreateBuilder(pos, entity),
@@ -89,6 +97,42 @@ namespace TheWaningBorder.Presentation
                 381 => CreateNullblade(pos, entity, presentationId),
 
                 _ => null
+            };
+
+            if (go == null) return null;
+
+            // Store the procedural scale on the root so PresentationSpawnSystem
+            // can multiply it with the ECS LocalTransform.Scale each frame.
+            float scale = GetUnitScale(presentationId);
+            var tag = go.AddComponent<ProceduralScaleTag>();
+            tag.BaseScale = scale;
+            go.transform.localScale = Vector3.one * scale;
+
+            return go;
+        }
+
+        /// <summary>
+        /// Get the scale factor for a unit presentation ID.
+        /// Infantry (human on foot) → 1.8 units tall.
+        /// Mounted (rider + mount) → 2.5 units tall.
+        /// Siege engines → 2.8 units tall.
+        /// </summary>
+        private static float GetUnitScale(int pid)
+        {
+            return pid switch
+            {
+                // Mounted units
+                332 => MountedScale,  // Raider (camel/horse mount)
+                336 => MountedScale,  // Cataphract (armored horse)
+                339 => MountedScale,  // WarboarRider (boar mount)
+
+                // Siege engines
+                333 => SiegeScale,    // Catapult
+                337 => SiegeScale,    // Ballista
+                340 => SiegeScale,    // SiegeRam
+
+                // All other units are human infantry
+                _ => InfantryScale
             };
         }
 
@@ -1510,5 +1554,14 @@ namespace TheWaningBorder.Presentation
             mat.color = color;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         }
+    }
+
+    /// <summary>
+    /// Attached to procedurally generated unit GameObjects to store their base scale.
+    /// PresentationSpawnSystem.SyncTransforms multiplies this by ECS LocalTransform.Scale.
+    /// </summary>
+    public class ProceduralScaleTag : MonoBehaviour
+    {
+        public float BaseScale = 1f;
     }
 }
