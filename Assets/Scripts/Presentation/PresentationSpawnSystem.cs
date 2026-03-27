@@ -10,6 +10,7 @@ using TheWaningBorder.Presentation;
 using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Bootstrap;
+using TheWaningBorder.Entities;
 
 public class PresentationSpawnSystem : MonoBehaviour
 {
@@ -71,6 +72,41 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 320, "Prefabs/Curse/Units/Crystallings" },            // Crystalling unit prefab
         { 321, "Prefabs/Curse/Units/Veilstingers" },            // Veilstinger unit prefab
         { 322, "Prefabs/Curse/Units/Godsplinters" },            // Godsplinter unit prefab
+
+        // Runai culture buildings (procedurally generated)
+        { 350, "Procedural/RunaiOutpost" },                       // Runai_Outpost
+        { 351, "Procedural/RunaiTradeHub" },                      // Runai_TradeHub
+        { 352, "Procedural/RunaiBazaar" },                        // ThessarasBazaar
+        { 353, "Procedural/RunaiSiegeWorkshop" },                 // Runai_SiegeWorkshop
+        { 355, "Procedural/RunaiTradingPost_or_AlanthorGarrison" }, // Shared ID
+
+        // Alanthor culture buildings (procedurally generated)
+        { 354, "Procedural/AlanthorTower" },                      // Alanthor_Tower
+        { 356, "Procedural/AlanthorStable" },                     // Alanthor_Stable
+        { 357, "Procedural/AlanthorSiegeYard" },                  // Alanthor_SiegeYard
+
+        // Feraldis culture buildings (procedurally generated)
+        { 358, "Procedural/FeraldisHuntingLodge" },               // Feraldis_HuntingLodge
+        { 359, "Procedural/FeraldisLoggingStation" },             // Feraldis_LoggingStation
+        { 360, "Procedural/FeraldisLonghouse" },                  // Feraldis_Longhouse
+        { 361, "Procedural/FeraldisTotemTower" },                 // Feraldis_Tower
+        { 362, "Procedural/FeraldisSiegeYard" },                  // Feraldis_SiegeYard
+
+        // Sect chapel buildings (procedurally generated)
+        // IDs 390-399 are chapels; 400-401 clash with Forest/Rock so those chapels
+        // are handled by fallthrough in SpawnVisual (presentationId check)
+        { 390, "Procedural/Chapel_Renewal" },
+        { 391, "Procedural/Chapel_Antiquity" },
+        { 392, "Procedural/Chapel_LivingStone" },
+        { 393, "Procedural/Chapel_VeiledMemory" },
+        { 394, "Procedural/Chapel_StillFlame" },
+        { 395, "Procedural/Chapel_QuietVault" },
+        { 396, "Procedural/Chapel_MirrorRite" },
+        { 397, "Procedural/Chapel_ShardJudgment" },
+        { 398, "Procedural/Chapel_EmberAsh" },
+        { 399, "Procedural/Chapel_HollowBrand" },
+        // { 400, "Procedural/Chapel_FlamewroughtChains" },  // conflicts with Forest
+        // { 401, "Procedural/Chapel_UnmakersGrasp" },       // conflicts with Rock
     };
 
     /// <summary>Presentation ID for cursed ground tiles.</summary>
@@ -275,6 +311,29 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
+        // === PROCEDURAL BUILDINGS: culture-aware generated visuals ===
+        // Determine faction culture for building tone
+        byte buildingCulture = Cultures.None;
+        if (_em.HasComponent<FactionTag>(entity))
+        {
+            var faction = _em.GetComponentData<FactionTag>(entity).Value;
+            buildingCulture = FactionColors.GetFactionCulture(faction);
+        }
+
+        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Garrison
+        if (presentationId == 355)
+        {
+            bool isAlanthor = _em.HasComponent<GarrisonTag>(entity);
+            var go355 = ProceduralBuildingGenerator.Create355(pos, entity, isAlanthor);
+            if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
+        }
+
+        // Try procedural generation for all known building types
+        {
+            var procGo = ProceduralBuildingGenerator.TryCreate(presentationId, pos, entity, buildingCulture);
+            if (procGo != null) return FinishProceduralBuilding(procGo, entity, transform);
+        }
+
         GameObject prefab = null;
 
         // Try to load specific prefab
@@ -394,6 +453,50 @@ public class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
+    /// Finish setting up a procedurally generated building: collider, EntityReference,
+    /// transform sync, and faction coloring. Mirrors the setup done for prefab-based buildings.
+    /// </summary>
+    private GameObject FinishProceduralBuilding(GameObject go, Entity entity, LocalTransform transform)
+    {
+        go.name = $"Entity_{entity.Index}_{(_em.HasComponent<PresentationId>(entity) ? _em.GetComponentData<PresentationId>(entity).Id : 0)}";
+        go.transform.rotation = transform.Rotation;
+        go.transform.localScale = Vector3.one * transform.Scale;
+
+        // Add aggregate collider for raycasting/selection
+        if (go.GetComponentInChildren<Collider>() == null)
+        {
+            var col = go.AddComponent<BoxCollider>();
+            float radius = 0.5f;
+            if (_em.HasComponent<Radius>(entity))
+                radius = _em.GetComponentData<Radius>(entity).Value;
+            col.size = Vector3.one * radius * 2f;
+            col.center = Vector3.up * radius;
+        }
+
+        // EntityReference for raycasting/selection
+        var entityRef = go.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = go.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        // Faction banner (procedural buildings already have culture tone baked in,
+        // but still need the faction banner for player identity)
+        ApplyFactionBannerOnly(go, entity);
+
+        return go;
+    }
+
+    /// <summary>
+    /// Apply only the faction banner to a procedural building (walls already have culture tone).
+    /// </summary>
+    private void ApplyFactionBannerOnly(GameObject go, Entity entity)
+    {
+        if (!_em.HasComponent<FactionTag>(entity)) return;
+        var faction = _em.GetComponentData<FactionTag>(entity).Value;
+        var color = FactionColors.Get(faction);
+        AddFactionBanner(go, color);
+    }
+
+    /// <summary>
     /// Adds a small colored banner on top of a building for faction ownership visibility.
     /// </summary>
     private void AddFactionBanner(GameObject building, Color color)
@@ -459,6 +562,79 @@ public class PresentationSpawnSystem : MonoBehaviour
         }
 
         entities.Dispose();
+    }
+
+    /// <summary>
+    /// Rebuild all building visuals for a faction with culture-aware procedural generation.
+    /// Called after age-up completion to retrofit existing Era 1 buildings with culture tone.
+    /// </summary>
+    public void RefreshFactionVisuals(Faction faction)
+    {
+        if (EntityViewManager.Instance == null) return;
+
+        byte culture = FactionColors.GetFactionCulture(faction);
+
+        var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+        var presentations = _presentationQuery.ToComponentDataArray<PresentationId>(Unity.Collections.Allocator.Temp);
+        var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+
+        for (int i = 0; i < entities.Length; i++)
+        {
+            var entity = entities[i];
+            if (!_em.HasComponent<FactionTag>(entity)) continue;
+            if (_em.GetComponentData<FactionTag>(entity).Value != faction) continue;
+            if (!_em.HasComponent<BuildingTag>(entity)) continue;
+
+            int pid = presentations[i].Id;
+
+            // Only rebuild buildings that ProceduralBuildingGenerator handles
+            var testGo = ProceduralBuildingGenerator.TryCreate(pid, Vector3.zero, entity, culture);
+            if (testGo == null)
+            {
+                // Not a procedural building — just refresh colors
+                if (EntityViewManager.Instance.TryGetView(entity, out var existGo) && existGo != null)
+                    ApplyFactionColor(existGo, entity);
+                continue;
+            }
+            // Destroy test object
+            Destroy(testGo);
+
+            // Destroy old visual
+            if (EntityViewManager.Instance.TryGetView(entity, out var oldGo) && oldGo != null)
+            {
+                EntityViewManager.Instance.UnregisterView(entity);
+                _spawnedEntities.Remove(entity);
+                Destroy(oldGo);
+            }
+
+            // Respawn with culture tone
+            var pos = (Vector3)transforms[i].Position;
+            pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
+
+            GameObject newGo;
+            if (pid == 355)
+            {
+                bool isAlanthor = _em.HasComponent<GarrisonTag>(entity);
+                newGo = ProceduralBuildingGenerator.Create355(pos, entity, isAlanthor);
+            }
+            else
+            {
+                newGo = ProceduralBuildingGenerator.TryCreate(pid, pos, entity, culture);
+            }
+
+            if (newGo != null)
+            {
+                FinishProceduralBuilding(newGo, entity, transforms[i]);
+                EntityViewManager.Instance.RegisterView(entity, newGo);
+                _spawnedEntities.Add(entity);
+            }
+        }
+
+        entities.Dispose();
+        presentations.Dispose();
+        transforms.Dispose();
+
+        Debug.Log($"[PresentationSpawnSystem] Rebuilt visuals for {faction} with culture {CultureConfig.GetName(culture)}");
     }
 
     private void SyncTransforms()
