@@ -10,6 +10,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Data;
 
 namespace TheWaningBorder.AI
 {
