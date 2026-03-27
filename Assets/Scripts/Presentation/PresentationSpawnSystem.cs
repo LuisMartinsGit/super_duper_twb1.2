@@ -519,7 +519,11 @@ public class PresentationSpawnSystem : MonoBehaviour
     {
         go.name = $"Entity_{entity.Index}_{presentationId}";
         go.transform.rotation = transform.Rotation;
-        go.transform.localScale = Vector3.one * transform.Scale;
+
+        // Apply ECS scale multiplied by procedural base scale
+        var scaleTag = go.GetComponent<ProceduralScaleTag>();
+        float baseScale = (scaleTag != null) ? scaleTag.BaseScale : 1f;
+        go.transform.localScale = Vector3.one * transform.Scale * baseScale;
 
         // Add collider for raycasting/selection (small box for units)
         if (go.GetComponentInChildren<Collider>() == null)
@@ -717,7 +721,10 @@ public class PresentationSpawnSystem : MonoBehaviour
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
                 go.transform.position = pos;
                 go.transform.rotation = transforms[i].Rotation;
-                go.transform.localScale = Vector3.one * transforms[i].Scale;
+                // Respect procedural unit base scale (ProceduralScaleTag)
+                var scaleTag = go.GetComponent<ProceduralScaleTag>();
+                float baseScale = (scaleTag != null) ? scaleTag.BaseScale : 1f;
+                go.transform.localScale = Vector3.one * transforms[i].Scale * baseScale;
             }
         }
 
