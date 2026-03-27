@@ -257,12 +257,98 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.Label($"{info.ResourceRemaining} / {info.ResourceMax}", _labelStyle);
             }
 
+            // Trade lane caravan countdown (Runai Trading Posts)
+            DrawTradeLaneCountdown();
+
             GUILayout.Space(10);
 
             // Description
             GUILayout.Label(info.Description, _descStyle);
 
             GUILayout.EndArea();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TRADE LANE CARAVAN COUNTDOWN (Runai Trading Posts)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>Initial delay for 2nd trader spawn (matches TradingPostSystem constant).</summary>
+        private const float SecondTraderDelay = 240f;
+        /// <summary>Respawn delay when a trader dies (matches CaravanDeathSystem).</summary>
+        private const float TraderRespawnDelay = 60f;
+
+        /// <summary>
+        /// If the selected entity is a TradingPost with an active TradeLane waiting
+        /// for a caravan spawn, draw a countdown progress bar.
+        /// </summary>
+        private void DrawTradeLaneCountdown()
+        {
+            var entity = UnifiedUIManager.GetFirstSelectedEntity();
+            if (entity == Entity.Null) return;
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+
+            // Only show for trading posts that have a lane
+            if (!em.HasComponent<TradingPostTag>(entity)) return;
+            if (!em.HasComponent<TradeLane>(entity)) return;
+
+            var lane = em.GetComponentData<TradeLane>(entity);
+            if (lane.LaneValid == 0) return;
+
+            // Show countdown only when waiting for a trader (< max traders)
+            const int MaxTradersPerLane = 2;
+            if (lane.ActiveTraders >= MaxTradersPerLane) return;
+            if (lane.SecondTraderTimer <= 0f) return;
+
+            // Determine total duration for progress calculation
+            float total = (lane.ActiveTraders == 0) ? TraderRespawnDelay : SecondTraderDelay;
+            float remaining = Mathf.Max(0f, lane.SecondTraderTimer);
+            float elapsed = total - remaining;
+            float pct = Mathf.Clamp01(elapsed / total);
+            int seconds = Mathf.CeilToInt(remaining);
+
+            GUILayout.Space(6);
+
+            // Separator line
+            var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.25f, 0.75f, 0.80f, 0.4f); // Runai cyan tint
+            GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.Space(4);
+
+            // Label
+            string label = lane.ActiveTraders == 0
+                ? $"Respawning Caravan  {seconds}s"
+                : $"Next Caravan  {seconds}s";
+            GUILayout.Label(label, _labelStyle);
+            GUILayout.Space(2);
+
+            // Progress bar background
+            var barRect = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.15f, 0.15f, 0.2f, 1f);
+            GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+
+            // Progress bar fill (Runai cyan)
+            var fillRect = new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height);
+            GUI.color = new Color(0.25f, 0.75f, 0.80f, 1f);
+            GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+
+            // Percentage text centered on bar
+            GUI.color = Color.white;
+            GUI.Label(barRect, $"{Mathf.RoundToInt(pct * 100f)}%",
+                new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 11,
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = Color.white }
+                });
+
+            GUI.color = Color.white;
+
+            // Active traders info
+            GUILayout.Label($"Active Traders: {lane.ActiveTraders}/{MaxTradersPerLane}", _smallStyle);
         }
 
         // ═══════════════════════════════════════════════════════════════════════

@@ -488,15 +488,35 @@ public class PresentationSpawnSystem : MonoBehaviour
         go.transform.rotation = transform.Rotation;
         go.transform.localScale = Vector3.one * transform.Scale;
 
-        // Add aggregate collider for raycasting/selection
+        // Add aggregate collider sized to actual visual bounds (not entity Radius)
+        // Entity Radius is used by ECS separation/pathfinding; the visual collider
+        // must match the rendered geometry so raycasts hit correctly and units don't
+        // clip through oversized invisible colliders.
         if (go.GetComponentInChildren<Collider>() == null)
         {
             var col = go.AddComponent<BoxCollider>();
-            float radius = 0.5f;
-            if (_em.HasComponent<Radius>(entity))
-                radius = _em.GetComponentData<Radius>(entity).Value;
-            col.size = Vector3.one * radius * 2f;
-            col.center = Vector3.up * radius;
+
+            // Compute enclosing bounds from all child renderers
+            var renderers = go.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                var bounds = renderers[0].bounds;
+                for (int r = 1; r < renderers.Length; r++)
+                    bounds.Encapsulate(renderers[r].bounds);
+
+                // Convert world bounds to local space
+                col.center = go.transform.InverseTransformPoint(bounds.center);
+                col.size = bounds.size; // already in world scale, local scale is 1
+            }
+            else
+            {
+                // Fallback if no renderers
+                float radius = 0.5f;
+                if (_em.HasComponent<Radius>(entity))
+                    radius = _em.GetComponentData<Radius>(entity).Value;
+                col.size = Vector3.one * radius * 2f;
+                col.center = Vector3.up * radius;
+            }
         }
 
         // EntityReference for raycasting/selection

@@ -547,14 +547,32 @@ namespace TheWaningBorder.Systems.Crystal
         }
 
         /// <summary>
+        /// Maximum distance a new sub-node can spawn from any existing crystal node.
+        /// Keeps the crystal network clustered and prevents nodes appearing in player bases.
+        /// </summary>
+        private const float MaxDistFromExistingNode = 10f;
+
+        /// <summary>
         /// Find a random position within the cursed area around a node.
-        /// Picks a point within the current spread radius.
+        /// New positions must be within MaxDistFromExistingNode of at least one existing crystal node.
         /// </summary>
         private float3 FindCursedPosition(float3 nodePos, float spreadRadius,
             ref Random random)
         {
             var grid = PassabilityGrid.Instance;
             int half = GameSettings.MapHalfSize;
+            var em = EntityManager;
+
+            // Gather all existing crystal node positions for proximity check
+            var nodeQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalSubNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            var mainQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalMainNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+
+            using var subTransforms = nodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var mainTransforms = mainQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             for (int attempt = 0; attempt < 20; attempt++)
             {
@@ -574,7 +592,34 @@ namespace TheWaningBorder.Systems.Crystal
                 if (grid != null && !grid.IsPassable(candidate))
                     continue;
 
-                if (dist <= spreadRadius)
+                if (dist > spreadRadius)
+                    continue;
+
+                // Must be within MaxDistFromExistingNode of at least one crystal node
+                bool nearExisting = false;
+                for (int i = 0; i < mainTransforms.Length; i++)
+                {
+                    if (math.distancesq(candidate, mainTransforms[i].Position) <=
+                        MaxDistFromExistingNode * MaxDistFromExistingNode)
+                    {
+                        nearExisting = true;
+                        break;
+                    }
+                }
+                if (!nearExisting)
+                {
+                    for (int i = 0; i < subTransforms.Length; i++)
+                    {
+                        if (math.distancesq(candidate, subTransforms[i].Position) <=
+                            MaxDistFromExistingNode * MaxDistFromExistingNode)
+                        {
+                            nearExisting = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (nearExisting)
                     return candidate;
             }
 
