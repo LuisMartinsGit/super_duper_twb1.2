@@ -4,6 +4,7 @@
 
 using UnityEngine;
 using Unity.Entities;
+using TheWaningBorder.Input;
 
 namespace TheWaningBorder.Presentation
 {
