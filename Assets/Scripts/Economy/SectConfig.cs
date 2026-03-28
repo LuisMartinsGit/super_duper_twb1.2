@@ -75,6 +75,13 @@ namespace TheWaningBorder.Economy
             EmberAsh, HollowBrand, FlamewroughtChains, UnmakersGrasp
         };
 
+        /// <summary>Alanthor culture sects.</summary>
+        public static readonly string[] AlanthorSects = { Renewal, Antiquity, LivingStone, VeiledMemory };
+        /// <summary>Runai culture sects.</summary>
+        public static readonly string[] RunaiSects = { StillFlame, QuietVault, MirrorRite, ShardJudgment };
+        /// <summary>Feraldis culture sects.</summary>
+        public static readonly string[] FeraldisSects = { EmberAsh, HollowBrand, FlamewroughtChains, UnmakersGrasp };
+
         // ═══════════════════════════════════════════════════════════════════
         // DISPLAY NAMES
         // ═══════════════════════════════════════════════════════════════════

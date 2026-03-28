@@ -37,7 +37,16 @@ public struct WorkshopTag : IComponentData { }
 /// <summary>Resource storage building.</summary>
 public struct DepotTag : IComponentData { }
 
-/// <summary>Religious/support building.</summary>
+/// <summary>Shrine of Ahridan — choice building that trains litharchs and grants +1 RP.</summary>
+public struct ShrineTag : IComponentData { }
+
+/// <summary>Temple of Ridan — available to ALL cultures at Era 2, houses sect system with 8 expansion slots.</summary>
+public struct TempleOfRidanTag : IComponentData { }
+
+/// <summary>Tracks whether the shrine has already granted its one-time +1 RP bonus.</summary>
+public struct ShrineRPGranted : IComponentData { public byte Granted; }
+
+/// <summary>Legacy alias — kept for backward compatibility in queries.</summary>
 public struct TempleTag : IComponentData { }
 
 /// <summary>
@@ -199,8 +208,8 @@ public struct SectUniqueUnitTag : IComponentData { }
 // ==================== Temple Chapel Slot System ====================
 
 /// <summary>
-/// Buffer element on Temple entities tracking each of its 7 chapel build slots.
-/// Slot 0 is at the top (north), arranged clockwise in a circle.
+/// Buffer element on Temple entities tracking each of its 8 chapel build slots.
+/// Slots arranged in a circle around the temple (BFME2-style expansion plots).
 /// </summary>
 public struct TempleChapelSlot : IBufferElementData
 {
@@ -227,6 +236,18 @@ public struct TempleOwner : IComponentData
     public Entity Temple;
     /// <summary>Slot index (0-6) in the parent temple's TempleChapelSlot buffer.</summary>
     public int SlotIndex;
+}
+
+// ==================== Death Animation ====================
+
+/// <summary>
+/// Added to units when health reaches 0 to delay destruction for death animation.
+/// DeathSystem adds this instead of immediately destroying the entity.
+/// After Timer expires, entity is destroyed.
+/// </summary>
+public struct DeathAnimationState : IComponentData
+{
+    public float Timer; // Seconds remaining before entity destruction
 }
 
 // ==================== Construction System ====================

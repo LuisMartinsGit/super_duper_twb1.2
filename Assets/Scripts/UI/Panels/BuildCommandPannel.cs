@@ -44,7 +44,7 @@ namespace TheWaningBorder.UI.Panels
         // Build type
         public enum BuildType
         {
-            Hut, GatherersHut, Barracks, Shrine, Vault, Keep, Wall, Smelter,
+            Hut, GatherersHut, Barracks, Shrine, Vault, Keep, Wall, Smelter, Temple,
             // Runai culture buildings
             RunaiOutpost, RunaiTradeHub, RunaiBazaar, RunaiSiegeWorkshop,
             // Alanthor culture buildings
@@ -71,6 +71,7 @@ namespace TheWaningBorder.UI.Panels
         private GameObject _prefabHut;
         private GameObject _prefabBarracks;
         private GameObject _prefabShrine;
+        private GameObject _prefabTemple;
         private GameObject _prefabVault;
         private GameObject _prefabKeep;
 
@@ -89,6 +90,7 @@ namespace TheWaningBorder.UI.Panels
             _prefabHut = Resources.Load<GameObject>("Prefabs/Buildings/Hut");
             _prefabBarracks = Resources.Load<GameObject>("Prefabs/Buildings/Barracks");
             _prefabShrine = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan");
+            _prefabTemple = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan"); // Reuses same prefab for now
             _prefabVault = Resources.Load<GameObject>("Prefabs/Runai/Buildings/VaultOfAlmierra");
             _prefabKeep = Resources.Load<GameObject>("Prefabs/Feraldis/Buildings/FiendstoneKeep");
         }
@@ -184,7 +186,8 @@ namespace TheWaningBorder.UI.Panels
                 "Hut" => BuildType.Hut,
                 "GatherersHut" => BuildType.GatherersHut,
                 "Barracks" => BuildType.Barracks,
-                "TempleOfRidan" => BuildType.Shrine,
+                "ShrineOfAhridan" => BuildType.Shrine,
+                "TempleOfRidan" => BuildType.Temple,
                 "VaultOfAlmierra" => BuildType.Vault,
                 "FiendstoneKeep" => BuildType.Keep,
                 "Alanthor_Wall" => BuildType.Wall,
@@ -433,7 +436,8 @@ namespace TheWaningBorder.UI.Panels
             BuildType.Hut => "Hut",
             BuildType.GatherersHut => "GatherersHut",
             BuildType.Barracks => "Barracks",
-            BuildType.Shrine => "TempleOfRidan",
+            BuildType.Shrine => "ShrineOfAhridan",
+            BuildType.Temple => "TempleOfRidan",
             BuildType.Vault => "VaultOfAlmierra",
             BuildType.Keep => "FiendstoneKeep",
             BuildType.Wall => "Alanthor_Wall",

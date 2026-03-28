@@ -371,7 +371,7 @@ namespace TheWaningBorder.AI
             {
                 AIPersonality.Aggressive => "FiendstoneKeep",
                 AIPersonality.Rush => "FiendstoneKeep",
-                AIPersonality.Defensive => "TempleOfRidan",
+                AIPersonality.Defensive => "ShrineOfAhridan",
                 AIPersonality.Economic => "VaultOfAlmierra",
                 _ => "VaultOfAlmierra" // Balanced
             };

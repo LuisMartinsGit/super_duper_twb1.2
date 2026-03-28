@@ -182,8 +182,22 @@ namespace TheWaningBorder.UI
                 }
             }
 
+            // Shrine RP info
+            if (em.HasComponent<ShrineTag>(entity))
+            {
+                info.Description += (info.Description.Length > 0 ? "\n" : "")
+                    + "Shrine of Ahridan — trains Litharchs, +1 RP";
+                if (em.HasComponent<FactionTag>(entity))
+                {
+                    var faction = em.GetComponentData<FactionTag>(entity).Value;
+                    int rp = GetFactionReligionPoints(em, faction);
+                    if (rp > 0)
+                        info.Description += $"\nReligion Points: {rp}";
+                }
+            }
+
             // Temple level and era info
-            if (em.HasComponent<TempleTag>(entity) && em.HasComponent<TempleLevel>(entity))
+            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity))
             {
                 var templeLevel = em.GetComponentData<TempleLevel>(entity);
                 int era = TempleLevelConfig.GetEraForLevel(templeLevel.Level);
@@ -262,7 +276,8 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<DepotTag>(entity)) return "Depot";
             if (em.HasComponent<WorkshopTag>(entity)) return "Workshop";
-            if (em.HasComponent<TempleTag>(entity)) return "Shrine of Ridan";
+            if (em.HasComponent<ShrineTag>(entity)) return "Shrine of Ahridan";
+            if (em.HasComponent<TempleOfRidanTag>(entity)) return "Temple of Ridan";
             if (em.HasComponent<VaultTag>(entity)) return "Vault of Almiérra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
             if (em.HasComponent<SmelterTag>(entity)) return "Smelter";
@@ -449,13 +464,24 @@ namespace TheWaningBorder.UI
                 return info;
             }
 
-            // Check if this is a temple (training + level-up)
-            if (em.HasComponent<TempleTag>(entity) && em.HasComponent<TempleLevel>(entity)
+            // Check if this is a shrine (simple training — litharchs only)
+            if (em.HasComponent<ShrineTag>(entity) && em.HasComponent<TrainingState>(entity))
+            {
+                info.Type = ActionType.UnitTraining;
+                info.Actions = GetTrainingActions(entity, em);
+                info.TrainingState = GetTrainingInfo(entity, em);
+                return info;
+            }
+
+            // Check if this is the Temple of Ridan (training + level-up + sect slots)
+            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity)
                 && em.HasComponent<TrainingState>(entity))
             {
                 info.Type = ActionType.TempleUpgrade;
-                info.Actions = GetTrainingActions(entity, em);
+                info.Actions = GetTempleTrainingActions(entity, em);
                 info.TrainingState = GetTrainingInfo(entity, em);
+                if (em.HasComponent<ResearchState>(entity))
+                    info.ResearchState = GetResearchInfo(entity, em);
                 return info;
             }
 
@@ -537,7 +563,8 @@ namespace TheWaningBorder.UI
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
         private static readonly HashSet<string> BuildableBuildings = new()
         {
-            "Hut", "GatherersHut", "Barracks", "TempleOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
+            "Hut", "GatherersHut", "Barracks", "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep",
+            "TempleOfRidan",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
@@ -1022,6 +1049,85 @@ namespace TheWaningBorder.UI
         }
 
         /// <summary>
+        /// Get training actions for the Temple of Ridan.
+        /// Returns training buttons for ALL adopted sect units (from completed chapel slots).
+        /// Also includes Litharch as base temple unit.
+        /// </summary>
+        private static List<ActionButton> GetTempleTrainingActions(Entity entity, EntityManager em)
+        {
+            var actions = new List<ActionButton>();
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
+            // Base temple unit: Litharch
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Litharch", out var lithUnit))
+            {
+                var cost = lithUnit.cost != null ? new Cost
+                {
+                    Supplies = lithUnit.cost.Supplies,
+                    Iron = lithUnit.cost.Iron,
+                    Crystal = lithUnit.cost.Crystal
+                } : default;
+
+                actions.Add(new ActionButton
+                {
+                    Id = "Litharch",
+                    Label = lithUnit.name,
+                    Tooltip = BuildTooltip(lithUnit.name, lithUnit.unitClass, cost, available, trainingTime: lithUnit.trainingTime),
+                    Cost = cost,
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                    Icon = null
+                });
+            }
+
+            // Add training for all adopted sect units (from completed chapel slots)
+            if (em.HasBuffer<TempleChapelSlot>(entity))
+            {
+                var slots = em.GetBuffer<TempleChapelSlot>(entity);
+                var addedUnits = new System.Collections.Generic.HashSet<string>();
+
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i].State != 2) continue; // Only completed chapels
+                    string sectId = slots[i].SectId.ToString();
+                    if (string.IsNullOrEmpty(sectId)) continue;
+
+                    string unitId = SectConfig.GetSectUnitId(sectId);
+                    if (string.IsNullOrEmpty(unitId) || addedUnits.Contains(unitId)) continue;
+                    addedUnits.Add(unitId);
+
+                    if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var unit))
+                    {
+                        var cost = unit.cost != null ? new Cost
+                        {
+                            Supplies = unit.cost.Supplies,
+                            Iron = unit.cost.Iron,
+                            Crystal = unit.cost.Crystal
+                        } : default;
+
+                        actions.Add(new ActionButton
+                        {
+                            Id = unit.id,
+                            Label = unit.name,
+                            Tooltip = BuildTooltip(unit.name, unit.unitClass, cost, available, trainingTime: unit.trainingTime),
+                            Cost = cost,
+                            Enabled = true,
+                            CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                            Icon = null
+                        });
+                    }
+                }
+            }
+
+            return actions;
+        }
+
+        /// <summary>
         /// Get research actions for a chapel entity.
         /// Each chapel researches one unique sect technology defined in SectConfig.
         /// </summary>
@@ -1102,7 +1208,8 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
-            if (em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
+            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
+            if (em.HasComponent<TempleOfRidanTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
