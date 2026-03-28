@@ -15,7 +15,7 @@ namespace TheWaningBorder.Systems.Movement
     /// Prevents unit overlap/stacking by applying push forces to overlapping units.
     ///
     /// Features:
-    /// - NativeMultiHashMap for O(neighbor_count) cell lookups instead of O(all_units)
+    /// - NativeParallelMultiHashMap for O(neighbor_count) cell lookups instead of O(all_units)
     /// - Cached EntityQueries to avoid per-frame allocation
     /// - Throttled to 10 updates/sec for performance
     /// - Reduces push force for moving units to avoid jitter
@@ -107,9 +107,9 @@ namespace TheWaningBorder.Systems.Movement
             var allRadii = _unitQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
             // =============================================================================
-            // PHASE 3: Build spatial hash grid using NativeMultiHashMap
+            // PHASE 3: Build spatial hash grid using NativeParallelMultiHashMap
             // =============================================================================
-            var cellMap = new NativeMultiHashMap<int2, int>(unitCount * 2, Allocator.Temp);
+            var cellMap = new NativeParallelMultiHashMap<int2, int>(unitCount * 2, Allocator.Temp);
 
             for (int i = 0; i < allUnits.Length; i++)
             {
