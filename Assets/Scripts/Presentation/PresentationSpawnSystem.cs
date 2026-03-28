@@ -26,7 +26,8 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 510, "Prefabs/Buildings/Barracks" },           // Barracks.PresentationID = 510
 
         // Buildings - Era 1 Advanced
-        { 520, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 520
+        { 520, "Prefabs/Buildings/TempleOfRidan" },      // ShrineOfAhridan.PresentationID = 520 (reuses temple prefab)
+        { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521 (new temple)
         { 530, "Prefabs/Buildings/VaultOfAlmierra" },    // VaultOfAlmierra.PresentationID = 530
         { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540
 
@@ -327,6 +328,18 @@ public class PresentationSpawnSystem : MonoBehaviour
         {
             var gunTracker = goInst.AddComponent<VeilstingerGunTracker>();
             gunTracker.Entity = entity;
+        }
+
+        // Attach UnitAnimationSync for units that have an Animator
+        // (units have MoveSpeed, buildings don't)
+        if (_em.HasComponent<MoveSpeed>(entity))
+        {
+            var animator = goInst.GetComponentInChildren<Animator>();
+            if (animator != null)
+            {
+                var animSync = goInst.AddComponent<UnitAnimationSync>();
+                animSync.LinkedEntity = entity;
+            }
         }
 
         // Apply faction coloring

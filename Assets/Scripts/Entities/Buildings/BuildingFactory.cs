@@ -37,7 +37,8 @@ namespace TheWaningBorder.Entities
                 "Barracks" => Barracks.Create(em, position, faction),
                 "Hut" => Hut.Create(em, position, faction),
                 "GatherersHut" => GatherersHut.Create(em, position, faction),
-                "TempleOfRidan" => CreateTempleOfRidan(em, position, faction),
+                "ShrineOfAhridan" => CreateShrineOfAhridan(em, position, faction),
+                "TempleOfRidan" => CreateTempleOfRidanNew(em, position, faction),
                 "VaultOfAlmierra" => CreateVaultOfAlmierra(em, position, faction),
                 "FiendstoneKeep" => CreateFiendstoneKeep(em, position, faction),
                 "Alanthor_Wall" => AlanthorWall.CreateHub(em, position, faction),
@@ -96,7 +97,8 @@ namespace TheWaningBorder.Entities
                 "Barracks" => Barracks.Create(ecb, position, faction),
                 "Hut" => Hut.Create(ecb, position, faction),
                 "GatherersHut" => GatherersHut.Create(ecb, position, faction),
-                "TempleOfRidan" => CreateTempleOfRidanECB(ecb, position, faction),
+                "ShrineOfAhridan" => CreateShrineOfAhridanECB(ecb, position, faction),
+                "TempleOfRidan" => CreateTempleOfRidanNewECB(ecb, position, faction),
                 "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
                 "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
@@ -154,7 +156,8 @@ namespace TheWaningBorder.Entities
                 "Hut" => 102,
                 "GatherersHut" => 101,
                 "Barracks" => 510,
-                "TempleOfRidan" => 520,
+                "ShrineOfAhridan" => 520,
+                "TempleOfRidan" => 521,
                 "VaultOfAlmierra" => 530,
                 "FiendstoneKeep" => 540,
                 "Alanthor_Wall" => AlanthorWall.HubPresentationID,
@@ -218,6 +221,7 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => true,
                 "Barracks" => true,
+                "ShrineOfAhridan" => true,
                 "TempleOfRidan" => true,
                 "Runai_TradeHub" => true,
                 "ThessarasBazaar" => true,
@@ -243,7 +247,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static readonly HashSet<string> ChoiceBuildingIds = new()
         {
-            "TempleOfRidan", "VaultOfAlmierra", "FiendstoneKeep"
+            "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep"
         };
 
         /// <summary>
@@ -294,7 +298,7 @@ namespace TheWaningBorder.Entities
 
         private static string GetBuildingIdFromEntity(EntityManager em, Entity entity)
         {
-            if (em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
+            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             return null;
@@ -392,15 +396,16 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Create Shrine of Ridan — healer training building.
+        /// Create Shrine of Ahridan — choice building that trains litharchs fast and grants +1 RP.
+        /// One of three mutually exclusive choice buildings (Shrine/Vault/Keep).
         /// </summary>
-        private static Entity CreateTempleOfRidan(EntityManager em, float3 position, Faction faction)
+        private static Entity CreateShrineOfAhridan(EntityManager em, float3 position, Faction faction)
         {
             float hp = 800f;
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ShrineOfAhridan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -427,15 +432,69 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = radius });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
-            em.AddComponent<TempleTag>(entity);
+            em.AddComponent<ShrineTag>(entity);
             em.AddComponent<ChoiceBuildingTag>(entity);
+            em.AddComponentData(entity, new ShrineRPGranted { Granted = 0 });
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create Temple of Ridan — available to ALL cultures at Era 2.
+        /// Has 8 BFME2-style expansion slots for sect chapels.
+        /// Houses all sect unit training and tech research.
+        /// </summary>
+        private static Entity CreateTempleOfRidanNew(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1500f;
+            float los = 18f;
+            float radius = 2.5f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = em.CreateEntity(
+                typeof(PresentationId),
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(Health),
+                typeof(LineOfSight),
+                typeof(Radius),
+                typeof(TrainingState)
+            );
+
+            em.SetComponentData(entity, new PresentationId { Id = 521 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            em.SetComponentData(entity, new Radius { Value = radius });
+            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            em.AddComponent<TempleOfRidanTag>(entity);
+            em.AddComponent<TempleTag>(entity); // Keep legacy tag for TempleUpgradeSystem compatibility
             em.AddComponentData(entity, new TempleLevel { Level = 1 });
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
-            // Initialize 7 empty chapel slots
+            // Research state for sect techs
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+
+            // Initialize 8 empty chapel slots (BFME2-style expansion plots)
             var slotBuffer = em.AddBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 slotBuffer.Add(new TempleChapelSlot
                 {
@@ -1008,13 +1067,13 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Create Temple of Ridan using EntityCommandBuffer for deferred creation.
         /// </summary>
-        private static Entity CreateTempleOfRidanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        private static Entity CreateShrineOfAhridanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 800f;
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ShrineOfAhridan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1032,15 +1091,53 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
-            ecb.AddComponent<TempleTag>(entity);
+            ecb.AddComponent<ShrineTag>(entity);
             ecb.AddComponent<ChoiceBuildingTag>(entity);
+            ecb.AddComponent(entity, new ShrineRPGranted { Granted = 0 });
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
+            return entity;
+        }
+
+        private static Entity CreateTempleOfRidanNewECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1500f;
+            float los = 18f;
+            float radius = 2.5f;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.radius > 0) radius = def.radius;
+            }
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = 521 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+
+            ecb.AddComponent<TempleOfRidanTag>(entity);
+            ecb.AddComponent<TempleTag>(entity);
             ecb.AddComponent(entity, new TempleLevel { Level = 1 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
-            // Initialize 7 empty chapel slots
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
+
+            // Initialize 8 empty chapel slots
             var slotBuffer = ecb.AddBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 slotBuffer.Add(new TempleChapelSlot
                 {
@@ -1052,7 +1149,6 @@ namespace TheWaningBorder.Entities
                 });
             }
 
-            // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
