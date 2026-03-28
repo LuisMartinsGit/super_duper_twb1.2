@@ -68,7 +68,6 @@ namespace TheWaningBorder.Systems.Crystal
             _mainNodeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadWrite<CrystalAIState>(),
                 ComponentType.ReadOnly<CrystalNode>(),
-                ComponentType.ReadOnly<CrystalSpreadState>(),
                 ComponentType.ReadOnly<CrystalNodeLevel>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<CrystalMainNodeTag>()
@@ -128,66 +127,82 @@ namespace TheWaningBorder.Systems.Crystal
             using var entities = _mainNodeQuery.ToEntityArray(Allocator.Temp);
             using var aiStates = _mainNodeQuery.ToComponentDataArray<CrystalAIState>(Allocator.Temp);
             using var crystalNodes = _mainNodeQuery.ToComponentDataArray<CrystalNode>(Allocator.Temp);
-            using var spreadStates = _mainNodeQuery.ToComponentDataArray<CrystalSpreadState>(Allocator.Temp);
             using var nodeLevels = _mainNodeQuery.ToComponentDataArray<CrystalNodeLevel>(Allocator.Temp);
             using var transforms = _mainNodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            // Time-based leveling (spread system is disabled)
+            float elapsedMin = (float)(World.Time.ElapsedTime / 60.0);
 
             for (int n = 0; n < entities.Length; n++)
             {
                 var ai = aiStates[n];
                 var nodePos = transforms[n].Position;
-                float spreadRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
-                int nodeLevel = nodeLevels[n].Value;
+                float territoryRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
 
-                // Refresh bank balance (may have changed from previous node's spending)
+                // Refresh bank balance
                 if (FactionEconomy.TryGetResources(em, Faction.White, out resources))
                     crystalBank = resources.Crystal;
 
-                // Drive AI phase from per-node level (level 1→phase 0, level 2→phase 1, level 3→phase 2)
-                ai.Phase = (byte)math.max(0, nodeLevel - 1);
+                // Drive AI phase from elapsed game time
+                if (elapsedMin >= 15f) ai.Phase = 2;
+                else if (elapsedMin >= 5f) ai.Phase = 1;
+                else ai.Phase = 0;
 
-                // === BUILD PHASE (sub-buildings) ===
-                // Rate limited only by crystal bank — fixed short interval
+                // Update node level to match phase for display
+                em.SetComponentData(entities[n], new CrystalNodeLevel { Value = ai.Phase + 1 });
+
+                // === TRAINING TICK (one unit at a time per node) ===
+                if (em.HasComponent<CrystalTrainingState>(entities[n]))
+                {
+                    var ts = em.GetComponentData<CrystalTrainingState>(entities[n]);
+                    if (ts.TrainingUnitType != 0)
+                    {
+                        ts.TimeRemaining -= DecisionInterval;
+                        if (ts.TimeRemaining <= 0f)
+                        {
+                            float3 spawnPos = FindValidSpawnPos(nodePos, ref random);
+                            if (spawnPos.x != float.MinValue)
+                            {
+                                switch (ts.TrainingUnitType)
+                                {
+                                    case 1: Crystalling.Create(em, spawnPos, Faction.White); break;
+                                    case 2: Veilstinger.Create(em, spawnPos, Faction.White); break;
+                                    case 3: Godsplinter.Create(em, spawnPos, Faction.White); break;
+                                }
+                            }
+                            ts.TrainingUnitType = 0;
+                            ts.TimeRemaining = 0f;
+                            ts.TotalTime = 0f;
+                        }
+                        em.SetComponentData(entities[n], ts);
+                    }
+                    else
+                    {
+                        TryQueueUnit(em, entities[n], ref ai, ref random, ref crystalBank);
+                    }
+                }
+
+                // === BUILD PHASE (sub-buildings within territory) ===
                 ai.BuildTimer -= DecisionInterval;
                 if (ai.BuildTimer <= 0)
                 {
-                    TryBuildSubNode(em, ref ai, nodePos, spreadRadius,
+                    TryBuildSubNode(em, ref ai, nodePos, territoryRadius,
                         ref random, ref crystalBank);
-                    ai.BuildTimer = 15f + random.NextFloat(0, 5f); // 15-20s between builds
-                }
-
-                // === SPAWN PHASE (units) ===
-                // Rate limited only by crystal bank — fixed short interval
-                ai.UnitSpawnTimer -= DecisionInterval;
-                if (ai.UnitSpawnTimer <= 0)
-                {
-                    TrySpawnUnits(em, ref ai, nodePos, ref random, ref crystalBank);
-                    ai.UnitSpawnTimer = 15f + random.NextFloat(0, 10f); // 15-25s between spawns
+                    ai.BuildTimer = 15f + random.NextFloat(0, 5f);
                 }
 
                 // === TERRITORIAL AGGRESSION ===
-                AttackIntruders(em, nodePos, spreadRadius);
+                AttackIntruders(em, nodePos, territoryRadius);
 
-                // === HARASSMENT PHASE ===
-                ai.HarassTimer -= DecisionInterval;
-                if (ai.HarassTimer <= 0)
-                {
-                    TrySendHarassWave(em, nodePos, ref random);
-                    ai.HarassTimer = 20f + random.NextFloat(0, 20f); // 20-40s between waves
-                }
-
-                // === EXPANSION PHASE (new curse nodes) ===
-                // Ever-expanding cooldown: fast early, slows over time, max 16 nodes
+                // === EXPANSION PHASE (new curse nodes within territory) ===
                 ai.ExpansionTimer -= DecisionInterval;
                 if (ai.ExpansionTimer <= 0 && crystalBank >= ExpansionCost)
                 {
-                    // Count existing curse nodes — hard cap at 16
                     int curseNodeCount = entities.Length;
                     if (curseNodeCount < MaxCurseNodes)
                     {
-                        TryExpand(em, nodePos, spreadRadius, ref random, ref crystalBank);
+                        TryExpand(em, nodePos, territoryRadius, ref random, ref crystalBank);
 
-                        // Cooldown grows with elapsed time
                         float elapsedMinutes = (float)(World.Time.ElapsedTime / 60.0);
                         float expansionInterval = math.min(MaxExpansionInterval,
                             BaseExpansionInterval + ExpansionSlowdownRate * math.log2(1f + elapsedMinutes));
@@ -198,6 +213,9 @@ namespace TheWaningBorder.Systems.Crystal
                 // Write back modified AI state
                 em.SetComponentData(entities[n], ai);
             }
+
+            // === CENTRALIZED ATTACK WAVE SYSTEM ===
+            UpdateAttackWaves(em, entities, transforms, ref random);
         }
 
         private void TryBuildSubNode(EntityManager em,
@@ -278,43 +296,36 @@ namespace TheWaningBorder.Systems.Crystal
             }
         }
 
-        private void TrySpawnUnits(EntityManager em, ref CrystalAIState ai,
-            float3 nodePos, ref Random random, ref int crystalBank)
+        /// <summary>
+        /// Queue a single unit for training at a crystal main node.
+        /// Cost paid upfront; unit spawns when timer expires. One at a time per node.
+        /// </summary>
+        private void TryQueueUnit(EntityManager em, Entity nodeEntity,
+            ref CrystalAIState ai, ref Random random, ref int crystalBank)
         {
-            int unitsToSpawn = 1 + ai.Phase; // 1 in early, 2 in mid, 3 in late
+            float roll = random.NextFloat(0, 1);
+            byte unitType = 0;
+            int cost = 0;
+            float trainTime = 0f;
 
-            for (int i = 0; i < unitsToSpawn; i++)
+            if (ai.Phase >= 2 && roll < 0.2f && crystalBank >= GodsplinterCost)
+            { unitType = 3; cost = GodsplinterCost; trainTime = GodsplinterTrainTime; }
+            else if (ai.Phase >= 1 && roll < 0.35f && crystalBank >= VeilstingerCost)
+            { unitType = 2; cost = VeilstingerCost; trainTime = VeilstingerTrainTime; }
+            else if (crystalBank >= CrystallingCost)
+            { unitType = 1; cost = CrystallingCost; trainTime = CrystallingTrainTime; }
+
+            if (unitType == 0) return;
+
+            if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: cost)))
             {
-                // Find valid spawn position near node
-                float3 spawnPos = FindValidSpawnPos(nodePos, ref random);
-                if (spawnPos.x == float.MinValue) continue;
-
-                float roll = random.NextFloat(0, 1);
-
-                if (ai.Phase >= 2 && roll < 0.2f && crystalBank >= GodsplinterCost)
+                crystalBank -= cost;
+                em.SetComponentData(nodeEntity, new CrystalTrainingState
                 {
-                    if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: GodsplinterCost)))
-                    {
-                        Godsplinter.Create(em, spawnPos, Faction.White);
-                        crystalBank -= GodsplinterCost;
-                    }
-                }
-                else if (ai.Phase >= 1 && roll < 0.35f && crystalBank >= VeilstingerCost)
-                {
-                    if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: VeilstingerCost)))
-                    {
-                        Veilstinger.Create(em, spawnPos, Faction.White);
-                        crystalBank -= VeilstingerCost;
-                    }
-                }
-                else if (crystalBank >= CrystallingCost)
-                {
-                    if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: CrystallingCost)))
-                    {
-                        Crystalling.Create(em, spawnPos, Faction.White);
-                        crystalBank -= CrystallingCost;
-                    }
-                }
+                    TrainingUnitType = unitType,
+                    TimeRemaining = trainTime,
+                    TotalTime = trainTime
+                });
             }
         }
 
@@ -419,75 +430,135 @@ namespace TheWaningBorder.Systems.Crystal
             }
         }
 
-        private void TrySendHarassWave(EntityManager em, float3 nodePos, ref Random random)
+        // ═══════════════════════════════════════════════════════════════════════
+        // CENTRALIZED ATTACK WAVE SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void UpdateAttackWaves(EntityManager em,
+            NativeArray<Entity> mainNodes, NativeArray<LocalTransform> nodeTransforms,
+            ref Random random)
         {
-            // Find nearest non-crystal Hall
+            var waveQuery = em.CreateEntityQuery(ComponentType.ReadWrite<CrystalWaveState>());
+            if (waveQuery.IsEmpty) return;
+
+            using var waveEntities = waveQuery.ToEntityArray(Allocator.Temp);
+            var wave = em.GetComponentData<CrystalWaveState>(waveEntities[0]);
+
+            int nodeCount = mainNodes.Length;
+            float elapsedMinutes = (float)(World.Time.ElapsedTime / 60.0);
+
+            // Phase: 0=1 target, 1=2 targets, 2=all targets
+            byte wavePhase;
+            if (nodeCount <= 2 && elapsedMinutes < 10f) wavePhase = 0;
+            else if (nodeCount <= 5 && elapsedMinutes < 20f) wavePhase = 1;
+            else wavePhase = 2;
+
+            wave.WaveInterval = math.max(45f, 180f - nodeCount * 5f - elapsedMinutes * 1.5f);
+
+            wave.WaveTimer -= DecisionInterval;
+            if (wave.WaveTimer <= 0)
+            {
+                SendWave(em, nodeTransforms, ref random, wavePhase, nodeCount);
+                wave.WaveTimer = wave.WaveInterval;
+                wave.WaveNumber++;
+            }
+
+            em.SetComponentData(waveEntities[0], wave);
+        }
+
+        private void SendWave(EntityManager em,
+            NativeArray<LocalTransform> nodeTransforms,
+            ref Random random, byte phase, int nodeCount)
+        {
             using var halls = _hallQuery.ToEntityArray(Allocator.Temp);
             using var hallFactions = _hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallTransforms = _hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            Entity targetHall = Entity.Null;
-            float bestDist = float.MaxValue;
-            float3 targetPos = float3.zero;
+            // Collect valid targets sorted by distance to nearest crystal node
+            var targets = new NativeList<float3>(Allocator.Temp);
+            var targetDists = new NativeList<float>(Allocator.Temp);
 
             for (int i = 0; i < halls.Length; i++)
             {
-                if (hallFactions[i].Value == Faction.White) continue; // Don't attack self
-                float dist = math.distance(nodePos, hallTransforms[i].Position);
-                if (dist < bestDist)
+                if (hallFactions[i].Value == Faction.White) continue;
+                float minDist = float.MaxValue;
+                for (int n = 0; n < nodeTransforms.Length; n++)
                 {
-                    bestDist = dist;
-                    targetHall = halls[i];
-                    targetPos = hallTransforms[i].Position;
+                    float d = math.distance(hallTransforms[i].Position, nodeTransforms[n].Position);
+                    if (d < minDist) minDist = d;
+                }
+                targets.Add(hallTransforms[i].Position);
+                targetDists.Add(minDist);
+            }
+
+            if (targets.Length == 0) { targets.Dispose(); targetDists.Dispose(); return; }
+
+            // Sort by distance (nearest first)
+            for (int i = 0; i < targets.Length - 1; i++)
+            {
+                int minIdx = i;
+                for (int j = i + 1; j < targets.Length; j++)
+                    if (targetDists[j] < targetDists[minIdx]) minIdx = j;
+                if (minIdx != i)
+                {
+                    (targets[i], targets[minIdx]) = (targets[minIdx], targets[i]);
+                    (targetDists[i], targetDists[minIdx]) = (targetDists[minIdx], targetDists[i]);
                 }
             }
 
-            if (targetHall == Entity.Null) return;
+            int maxTargets = phase == 0 ? 1 : phase == 1 ? 2 : targets.Length;
+            int targetCount = math.min(maxTargets, targets.Length);
 
-            // Gather idle crystal units near this node (within 30 units)
+            // Gather ALL idle crystal units
             using var units = _crystalUnitQuery.ToEntityArray(Allocator.Temp);
             using var unitTransforms = _crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            // Count nearby units first
-            int nearUnits = 0;
+            var idleUnits = new NativeList<int>(Allocator.Temp);
             for (int i = 0; i < units.Length; i++)
             {
-                float dist = math.distance(nodePos, unitTransforms[i].Position);
-                if (dist <= 30f) nearUnits++;
-            }
-
-            if (nearUnits == 0) return;
-
-            // Send 50-80% of nearby units — aggressive waves
-            int waveSize = (int)(nearUnits * random.NextFloat(0.5f, 0.8f));
-            if (waveSize < 3) waveSize = math.min(3, nearUnits); // Minimum wave of 3
-
-            int sentUnits = 0;
-            for (int i = 0; i < units.Length && sentUnits < waveSize; i++)
-            {
-                float dist = math.distance(nodePos, unitTransforms[i].Position);
-                if (dist > 30f) continue;
-
-                // Set move destination toward target hall
+                bool isIdle = true;
                 if (em.HasComponent<DesiredDestination>(units[i]))
                 {
-                    em.SetComponentData(units[i], new DesiredDestination
-                    {
-                        Position = targetPos,
-                        Has = 1
-                    });
+                    var dest = em.GetComponentData<DesiredDestination>(units[i]);
+                    if (dest.Has == 1) isIdle = false;
                 }
-                else
+                if (isIdle && em.HasComponent<Target>(units[i]))
                 {
-                    em.AddComponentData(units[i], new DesiredDestination
-                    {
-                        Position = targetPos,
-                        Has = 1
-                    });
+                    var target = em.GetComponentData<Target>(units[i]);
+                    if (target.Value != Entity.Null && em.Exists(target.Value)) isIdle = false;
                 }
-
-                sentUnits++;
+                if (isIdle) idleUnits.Add(i);
             }
+
+            if (idleUnits.Length < 2)
+            { idleUnits.Dispose(); targets.Dispose(); targetDists.Dispose(); return; }
+
+            float waveFraction = math.min(0.8f, 0.3f + nodeCount * 0.05f);
+            int waveSize = math.max(2, (int)(idleUnits.Length * waveFraction));
+            waveSize = math.min(waveSize, idleUnits.Length);
+
+            int unitsPerTarget = waveSize / targetCount;
+            int remainder = waveSize % targetCount;
+            int unitIdx = 0;
+
+            for (int t = 0; t < targetCount && unitIdx < waveSize; t++)
+            {
+                int quota = unitsPerTarget + (t < remainder ? 1 : 0);
+                float3 targetPos = targets[t];
+
+                for (int q = 0; q < quota && unitIdx < waveSize; q++, unitIdx++)
+                {
+                    int idx = idleUnits[unitIdx];
+                    if (em.HasComponent<DesiredDestination>(units[idx]))
+                        em.SetComponentData(units[idx], new DesiredDestination { Position = targetPos, Has = 1 });
+                    else
+                        em.AddComponentData(units[idx], new DesiredDestination { Position = targetPos, Has = 1 });
+                }
+            }
+
+            idleUnits.Dispose();
+            targets.Dispose();
+            targetDists.Dispose();
         }
 
         private void TryExpand(EntityManager em, float3 currentNodePos,
