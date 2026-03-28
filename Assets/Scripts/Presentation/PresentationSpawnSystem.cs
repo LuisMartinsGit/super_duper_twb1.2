@@ -752,11 +752,6 @@ public class PresentationSpawnSystem : MonoBehaviour
     {
         if (EntityViewManager.Instance == null) return;
 
-        // Throttle to ~15fps — visual position updates at this rate are smooth enough
-        _syncTimer += Time.deltaTime;
-        if (_syncTimer < 0.066f) return;
-        _syncTimer = 0f;
-
         var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
         var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
