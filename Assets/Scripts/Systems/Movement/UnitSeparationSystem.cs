@@ -11,16 +11,15 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Systems.Movement
 {
     /// <summary>
-    /// ULTRA-OPTIMIZED unit separation with spatial hashing.
+    /// Unit separation with spatial hashing.
     /// Prevents unit overlap/stacking by applying push forces to overlapping units.
-    /// 
+    ///
     /// Features:
-    /// - Uses NativeHashMap + NativeList instead of NativeMultiHashMap
-    /// - Spatial grid for O(n) neighbor lookups instead of O(n²)
+    /// - NativeMultiHashMap for O(neighbor_count) cell lookups instead of O(all_units)
+    /// - Cached EntityQueries to avoid per-frame allocation
     /// - Throttled to 10 updates/sec for performance
-    /// - Can handle 500+ units with minimal performance impact
     /// - Reduces push force for moving units to avoid jitter
-    /// 
+    ///
     /// Runs after MovementSystem to adjust positions after movement.
     /// </summary>
     [BurstCompile]
@@ -37,11 +36,34 @@ namespace TheWaningBorder.Systems.Movement
 
         private double _lastUpdateTime;
 
+        // Cached queries — built once in OnCreate, reused every frame
+        private EntityQuery _unitQuery;
+        private EntityQuery _unitQueryIncBattalion;
+        private EntityQuery _buildingQuery;
+        private EntityQuery _obstacleQuery;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
             _lastUpdateTime = 0;
+
+            _unitQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, UnitTag>()
+                .WithNone<BattalionLeader>()
+                .Build();
+
+            _unitQueryIncBattalion = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, UnitTag>()
+                .Build();
+
+            _buildingQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, BuildingTag>()
+                .Build();
+
+            _obstacleQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, ObstacleTag>()
+                .Build();
         }
 
         // Not Burst-compiled: uses managed TerrainUtility.GetHeight for slope checks
@@ -77,45 +99,25 @@ namespace TheWaningBorder.Systems.Movement
             // =============================================================================
             // PHASE 2: Query all units with required components
             // =============================================================================
-            var unitQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, Radius, UnitTag>()
-                .WithNone<BattalionLeader>()
-                .Build();
-
-            var unitCount = unitQuery.CalculateEntityCount();
+            var unitCount = _unitQuery.CalculateEntityCount();
             if (unitCount < 2) return; // Need at least 2 units for separation
 
-            var allUnits = unitQuery.ToEntityArray(Allocator.Temp);
-            var allPositions = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var allRadii = unitQuery.ToComponentDataArray<Radius>(Allocator.Temp);
+            var allUnits = _unitQuery.ToEntityArray(Allocator.Temp);
+            var allPositions = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var allRadii = _unitQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
             // =============================================================================
-            // PHASE 3: Build spatial hash grid
+            // PHASE 3: Build spatial hash grid using NativeMultiHashMap
             // =============================================================================
-            var spatialGrid = new NativeHashMap<int2, int>(unitCount * 2, Allocator.Temp);
-            var cellIndices = new NativeList<UnitCellData>(unitCount, Allocator.Temp);
-            var cellCounts = new NativeHashMap<int2, int>(unitCount / 2, Allocator.Temp);
+            var cellMap = new NativeMultiHashMap<int2, int>(unitCount * 2, Allocator.Temp);
 
-            // First pass: assign each unit to a cell and track cell counts
             for (int i = 0; i < allUnits.Length; i++)
             {
                 if (!em.Exists(allUnits[i])) continue;
 
                 var pos = allPositions[i].Position;
                 GetCellKey(in pos, out int2 cellKey);
-
-                // Add to cell list
-                cellIndices.Add(new UnitCellData { UnitIndex = i, CellKey = cellKey });
-
-                // Track cell counts
-                if (cellCounts.TryGetValue(cellKey, out int count))
-                {
-                    cellCounts[cellKey] = count + 1;
-                }
-                else
-                {
-                    cellCounts.Add(cellKey, 1);
-                }
+                cellMap.Add(cellKey, i);
             }
 
             // =============================================================================
@@ -139,13 +141,12 @@ namespace TheWaningBorder.Systems.Movement
                     {
                         int2 neighborCell = myCell + new int2(dx, dz);
 
-                        // Check all units in this cell
-                        for (int idx = 0; idx < cellIndices.Length; idx++)
-                        {
-                            var cellData = cellIndices[idx];
-                            if (!cellData.CellKey.Equals(neighborCell)) continue;
+                        // O(neighbor_count) lookup via hash map iterator
+                        if (!cellMap.TryGetFirstValue(neighborCell, out int j, out var it))
+                            continue;
 
-                            int j = cellData.UnitIndex;
+                        do
+                        {
                             if (i == j) continue; // Skip self
                             if (!em.Exists(allUnits[j])) continue;
 
@@ -169,7 +170,7 @@ namespace TheWaningBorder.Systems.Movement
                                 pushDirection += pushDir * overlap;
                                 pushCount++;
                             }
-                        }
+                        } while (cellMap.TryGetNextValue(out j, ref it));
                     }
                 }
 
@@ -204,25 +205,17 @@ namespace TheWaningBorder.Systems.Movement
             // PHASE 5: Push units out of buildings (buildings are immovable obstacles)
             // Builders assigned to a construction site are exempt from push by that building.
             // =============================================================================
-            var buildingQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, Radius, BuildingTag>()
-                .Build();
-
-            var buildingCount = buildingQuery.CalculateEntityCount();
+            var buildingCount = _buildingQuery.CalculateEntityCount();
             if (buildingCount > 0)
             {
-                var buildingEntities = buildingQuery.ToEntityArray(Allocator.Temp);
-                var buildingPositions = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                var buildingRadii = buildingQuery.ToComponentDataArray<Radius>(Allocator.Temp);
+                var buildingEntities = _buildingQuery.ToEntityArray(Allocator.Temp);
+                var buildingPositions = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                var buildingRadii = _buildingQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
                 // Re-query units to get updated positions (after unit-unit separation)
-                var unitQuery2 = SystemAPI.QueryBuilder()
-                    .WithAll<LocalTransform, Radius, UnitTag>()
-                    .WithNone<BattalionLeader>()
-                    .Build();
-                var units2 = unitQuery2.ToEntityArray(Allocator.Temp);
-                var unitPos2 = unitQuery2.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                var unitRad2 = unitQuery2.ToComponentDataArray<Radius>(Allocator.Temp);
+                var units2 = _unitQuery.ToEntityArray(Allocator.Temp);
+                var unitPos2 = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                var unitRad2 = _unitQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
                 for (int i = 0; i < units2.Length; i++)
                 {
@@ -287,27 +280,20 @@ namespace TheWaningBorder.Systems.Movement
             // PHASE 5b: Push units out of obstacles (forests, rocks)
             // Same logic as building push, but queries ObstacleTag instead.
             // =============================================================================
-            var obstacleQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, Radius, ObstacleTag>()
-                .Build();
-
-            var obstacleCount = obstacleQuery.CalculateEntityCount();
+            var obstacleCount = _obstacleQuery.CalculateEntityCount();
             if (obstacleCount > 0)
             {
-                var obstacleEntities = obstacleQuery.ToEntityArray(Allocator.Temp);
-                var obstaclePositions = obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
+                var obstacleEntities = _obstacleQuery.ToEntityArray(Allocator.Temp);
+                var obstaclePositions = _obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                var obstacleRadii = _obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
                 // Re-query units to get positions after building push.
                 // Battalion members are now included — individual tree obstacles
                 // (radius 0.75) are small enough to push without forcefield scattering.
                 // The old exclusion was needed when forests were single 12-radius obstacles.
-                var unitQuery3 = SystemAPI.QueryBuilder()
-                    .WithAll<LocalTransform, Radius, UnitTag>()
-                    .Build();
-                var units3 = unitQuery3.ToEntityArray(Allocator.Temp);
-                var unitPos3 = unitQuery3.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                var unitRad3 = unitQuery3.ToComponentDataArray<Radius>(Allocator.Temp);
+                var units3 = _unitQueryIncBattalion.ToEntityArray(Allocator.Temp);
+                var unitPos3 = _unitQueryIncBattalion.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                var unitRad3 = _unitQueryIncBattalion.ToComponentDataArray<Radius>(Allocator.Temp);
 
                 for (int i = 0; i < units3.Length; i++)
                 {
@@ -360,9 +346,7 @@ namespace TheWaningBorder.Systems.Movement
             // =============================================================================
             // PHASE 6: Cleanup
             // =============================================================================
-            spatialGrid.Dispose();
-            cellIndices.Dispose();
-            cellCounts.Dispose();
+            cellMap.Dispose();
             allUnits.Dispose();
             allPositions.Dispose();
             allRadii.Dispose();
@@ -399,15 +383,6 @@ namespace TheWaningBorder.Systems.Movement
             float dZ = (hU - hD) / (SlopeCheckStep * 2f);
             float slope = math.sqrt(dX * dX + dZ * dZ);
             return slope > MaxWalkableSlope;
-        }
-
-        /// <summary>
-        /// Helper struct to track which units are in which cells.
-        /// </summary>
-        private struct UnitCellData
-        {
-            public int UnitIndex;
-            public int2 CellKey;
         }
     }
 }
