@@ -254,3 +254,62 @@ public struct CrystalDebuff : IComponentData
     public float AttPenalty;
     public float SpeedPenalty;
 }
+
+// ==================== Crystal Cadaver Lifetime ====================
+
+/// <summary>
+/// Attached to crystal cadavers to make them decay after a fixed time.
+/// When TimeRemaining reaches 0, the cadaver is destroyed.
+/// </summary>
+public struct CrystalCadaverLifetime : IComponentData
+{
+    public float TimeRemaining;
+}
+
+// ==================== Crystal Extinction State ====================
+
+/// <summary>
+/// Singleton tracking whether the crystal faction has been wiped out.
+/// When all main nodes are destroyed, a 3-minute respawn timer starts.
+/// </summary>
+public struct CrystalExtinctionState : IComponentData
+{
+    public byte IsExtinct;
+    public float RespawnTimer;
+    public byte HasEverExisted;
+}
+
+// ==================== Crystal Wave State ====================
+
+/// <summary>
+/// Singleton controlling the centralized escalating attack wave system.
+/// </summary>
+public struct CrystalWaveState : IComponentData
+{
+    public float WaveTimer;
+    public float WaveInterval;
+    public int WaveNumber;
+}
+
+// ==================== Crystal Training State ====================
+
+/// <summary>
+/// Per-node training state. Crystal nodes train one unit at a time.
+/// </summary>
+public struct CrystalTrainingState : IComponentData
+{
+    public byte TrainingUnitType;
+    public float TimeRemaining;
+    public float TotalTime;
+}
+
+// ==================== Crystal Build State ====================
+
+/// <summary>
+/// Tracks auto-construction progress for crystal sub-nodes.
+/// </summary>
+public struct CrystalAutoBuild : IComponentData
+{
+    public float TimeRemaining;
+    public float TotalTime;
+}

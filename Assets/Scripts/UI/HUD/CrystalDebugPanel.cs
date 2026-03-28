@@ -55,7 +55,7 @@ namespace TheWaningBorder.UI.HUD
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F8))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F8))
                 _visible = !_visible;
 
             if (!_visible) return;
