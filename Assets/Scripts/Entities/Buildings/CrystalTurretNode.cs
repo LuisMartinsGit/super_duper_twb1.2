@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Multiplayer;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -13,17 +14,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalTurretNode
     {
-        private const int DefaultHP = 500;
-        private const float DefaultRadius = 1.5f;
-        private const int DefaultBuildCost = 100;
-        private const int PresentationID = 316;
-
-        // Turret combat defaults
-        private const float TurretRange = 25f;
-        private const int TurretDamage = 15;
-        private const float TurretCooldown = 1.5f;
-        private const int TurretMaxTargets = 2;
-
         /// <summary>
         /// Create CrystalTurretNode using EntityManager.
         /// </summary>
@@ -42,11 +32,11 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = TurretNodePresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new Health { Value = TurretNodeHP, Max = TurretNodeHP });
+            em.SetComponentData(entity, new Radius { Value = TurretNodeRadius });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Turret });
             em.SetComponentData(entity, new BuildingRangedAttack
@@ -57,7 +47,7 @@ namespace TheWaningBorder.Entities
                 Timer = 0f,
                 MaxTargets = TurretMaxTargets
             });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = TurretNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             em.AddComponentData(entity, new NetworkedEntity
@@ -80,11 +70,11 @@ namespace TheWaningBorder.Entities
         {
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = TurretNodePresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new Health { Value = TurretNodeHP, Max = TurretNodeHP });
+            ecb.AddComponent(entity, new Radius { Value = TurretNodeRadius });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Turret });
@@ -96,7 +86,7 @@ namespace TheWaningBorder.Entities
                 Timer = 0f,
                 MaxTargets = TurretMaxTargets
             });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = TurretNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             ecb.AddComponent(entity, new NetworkedEntity

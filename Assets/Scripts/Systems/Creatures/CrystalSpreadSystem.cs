@@ -119,7 +119,6 @@ namespace TheWaningBorder.Systems.Creatures
 
                 ref var node = ref crystalNode.ValueRW;
                 if (node.Enabled == 0) continue;
-                if (node.IsMain != 0) continue; // Safety check
 
                 // Tick timer
                 node.TickTimer += dt;

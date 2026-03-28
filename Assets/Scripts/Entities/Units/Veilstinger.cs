@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -13,28 +14,18 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Veilstinger
     {
-        private const float DefaultHP = 65f;
-        private const float DefaultSpeed = 4.0f;
-        private const float DefaultDamage = 18f;
-        private const float DefaultLoS = 28f;
-        private const float DefaultMinRange = 8f;
-        private const float DefaultMaxRange = 24f;
-        private const float DefaultAimTime = 0.2f;
-        private const float DefaultRadius = 0.5f;
-        private const int PresentationID = 321;
-
         /// <summary>
         /// Create Veilstinger using EntityManager.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float minRange = DefaultMinRange;
-            float maxRange = DefaultMaxRange;
-            float radius = DefaultRadius;
+            float hp = VeilstingerHP;
+            float speed = VeilstingerSpeed;
+            float damage = VeilstingerDamage;
+            float los = VeilstingerLoS;
+            float minRange = VeilstingerMinRange;
+            float maxRange = VeilstingerMaxRange;
+            float radius = VeilstingerRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Veilstinger", out var def))
             {
@@ -63,7 +54,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = VeilstingerPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new UnitTag { Class = UnitClass.Ranged });
@@ -73,7 +64,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 150 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = VeilstingerBuildCost });
 
             // Veilstinger-specific dual-target state
             em.SetComponentData(entity, new VeilstingerState
@@ -81,7 +72,7 @@ namespace TheWaningBorder.Entities
                 Target1 = Entity.Null,
                 Target2 = Entity.Null,
                 AimTimer = 0,
-                AimTimeRequired = DefaultAimTime,
+                AimTimeRequired = VeilstingerAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
@@ -91,6 +82,7 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            em.AddComponentData(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
 
             return entity;
         }
@@ -100,13 +92,13 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float minRange = DefaultMinRange;
-            float maxRange = DefaultMaxRange;
-            float radius = DefaultRadius;
+            float hp = VeilstingerHP;
+            float speed = VeilstingerSpeed;
+            float damage = VeilstingerDamage;
+            float los = VeilstingerLoS;
+            float minRange = VeilstingerMinRange;
+            float maxRange = VeilstingerMaxRange;
+            float radius = VeilstingerRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Veilstinger", out var def))
             {
@@ -120,7 +112,7 @@ namespace TheWaningBorder.Entities
 
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = VeilstingerPresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Ranged });
@@ -132,7 +124,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 150 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = VeilstingerBuildCost });
 
             // Veilstinger-specific dual-target state
             ecb.AddComponent(entity, new VeilstingerState
@@ -140,7 +132,7 @@ namespace TheWaningBorder.Entities
                 Target1 = Entity.Null,
                 Target2 = Entity.Null,
                 AimTimer = 0,
-                AimTimeRequired = DefaultAimTime,
+                AimTimeRequired = VeilstingerAimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
@@ -150,6 +142,7 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            ecb.AddComponent(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
 
             return entity;
         }

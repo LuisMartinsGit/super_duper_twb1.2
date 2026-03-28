@@ -125,6 +125,9 @@ public class PresentationSpawnSystem : MonoBehaviour
     private EntityManager _em;
     private EntityQuery _presentationQuery;
 
+    // Throttle SyncTransforms to ~15fps to reduce per-frame cost
+    private float _syncTimer;
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -748,6 +751,11 @@ public class PresentationSpawnSystem : MonoBehaviour
     private void SyncTransforms()
     {
         if (EntityViewManager.Instance == null) return;
+
+        // Throttle to ~15fps — visual position updates at this rate are smooth enough
+        _syncTimer += Time.deltaTime;
+        if (_syncTimer < 0.066f) return;
+        _syncTimer = 0f;
 
         var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
         var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);

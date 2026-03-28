@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -12,25 +13,17 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Crystalling
     {
-        private const float DefaultHP = 60f;
-        private const float DefaultSpeed = 5.5f;
-        private const float DefaultDamage = 8f;
-        private const float DefaultLoS = 10f;
-        private const float DefaultAttackCooldown = 0.8f;
-        private const float DefaultRadius = 0.4f;
-        private const int PresentationID = 320;
-
         /// <summary>
         /// Create Crystalling using EntityManager.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float cooldown = DefaultAttackCooldown;
-            float radius = DefaultRadius;
+            float hp = CrystallingHP;
+            float speed = CrystallingSpeed;
+            float damage = CrystallingDamage;
+            float los = CrystallingLoS;
+            float cooldown = CrystallingAttackCooldown;
+            float radius = CrystallingRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crystalling", out var def))
             {
@@ -58,7 +51,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = CrystallingPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new UnitTag { Class = UnitClass.Melee });
@@ -69,11 +62,12 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 50 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = CrystallingBuildCost });
 
             // Combat type tags
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Siege });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
 
             return entity;
         }
@@ -83,12 +77,12 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float cooldown = DefaultAttackCooldown;
-            float radius = DefaultRadius;
+            float hp = CrystallingHP;
+            float speed = CrystallingSpeed;
+            float damage = CrystallingDamage;
+            float los = CrystallingLoS;
+            float cooldown = CrystallingAttackCooldown;
+            float radius = CrystallingRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crystalling", out var def))
             {
@@ -101,7 +95,7 @@ namespace TheWaningBorder.Entities
 
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = CrystallingPresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
@@ -114,11 +108,12 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 50 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = CrystallingBuildCost });
 
             // Combat type tags
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
 
             return entity;
         }

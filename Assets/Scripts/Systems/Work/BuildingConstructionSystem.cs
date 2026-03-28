@@ -29,9 +29,25 @@ namespace TheWaningBorder.Systems.Work
         private const float BuildRange = 4.0f;
         private const float BuildRatePerBuilder = 1.0f; // Progress per second per builder
 
+        // Cached EntityQueries — initialized in OnCreate()
+        private EntityQuery _unfinishedBuildingQuery;
+        private EntityQuery _templeQuery;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BuildOrder>();
+
+            _unfinishedBuildingQuery = state.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<UnderConstruction>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _templeQuery = state.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleTag>(),
+                ComponentType.ReadOnly<FactionTag>()
+            );
         }
 
         public void OnUpdate(ref SystemState state)
@@ -247,13 +263,8 @@ namespace TheWaningBorder.Systems.Work
         private void GrantShrineRPBonus(EntityManager em, Faction faction)
         {
             // Check if faction has a temple
-            var templeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TempleTag>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
-
-            using var temples = templeQuery.ToEntityArray(Allocator.Temp);
-            using var templeFactions = templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var temples = _templeQuery.ToEntityArray(Allocator.Temp);
+            using var templeFactions = _templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             bool hasTemple = false;
             for (int i = 0; i < temples.Length; i++)
@@ -300,7 +311,7 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Find the nearest friendly unfinished building within the builder's line of sight.
         /// </summary>
-        private static Entity FindNearbyUnfinishedBuilding(EntityManager em, Entity builder, float3 builderPos)
+        private Entity FindNearbyUnfinishedBuilding(EntityManager em, Entity builder, float3 builderPos)
         {
             float los = em.HasComponent<LineOfSight>(builder)
                 ? em.GetComponentData<LineOfSight>(builder).Radius
@@ -310,16 +321,9 @@ namespace TheWaningBorder.Systems.Work
                 ? em.GetComponentData<FactionTag>(builder).Value
                 : Faction.Blue;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<UnderConstruction>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var buildings = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var buildings = _unfinishedBuildingQuery.ToEntityArray(Allocator.Temp);
+            using var factions = _unfinishedBuildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var transforms = _unfinishedBuildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity nearest = Entity.Null;
             float nearestDist = float.MaxValue;
@@ -355,9 +359,18 @@ namespace TheWaningBorder.Systems.Work
     {
         private const float BuildRange = 4f;
 
+        // Cached EntityQuery — initialized in OnCreate()
+        private EntityQuery _underConstructionQuery;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+
+            _underConstructionQuery = state.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<UnderConstruction>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
         }
 
         public void OnUpdate(ref SystemState state)
@@ -456,16 +469,10 @@ namespace TheWaningBorder.Systems.Work
         /// Find the nearest building with UnderConstruction within searchRadius of position.
         /// Used when a BuildCommand has no target entity (multiplayer: building created via lockstep).
         /// </summary>
-        private static Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius)
+        private Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<UnderConstruction>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var entities = _underConstructionQuery.ToEntityArray(Allocator.Temp);
+            using var transforms = _underConstructionQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity nearest = Entity.Null;
             float bestDist = searchRadius;

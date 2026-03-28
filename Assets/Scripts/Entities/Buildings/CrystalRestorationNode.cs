@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Multiplayer;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -12,15 +13,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalRestorationNode
     {
-        private const int DefaultHP = 400;
-        private const float DefaultRadius = 1.5f;
-        private const int DefaultBuildCost = 120;
-        private const int PresentationID = 315;
-
-        // Aura defaults
-        private const float AuraRadius = 15f;
-        private const float AuraHealPerSecond = 5f;
-
         /// <summary>
         /// Create CrystalRestorationNode using EntityManager.
         /// </summary>
@@ -39,20 +31,20 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = RestorationNodePresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new Health { Value = RestorationNodeHP, Max = RestorationNodeHP });
+            em.SetComponentData(entity, new Radius { Value = RestorationNodeRadius });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Restoration });
             em.SetComponentData(entity, new RestorationAura
             {
-                Radius = AuraRadius,
-                HealPerSecond = AuraHealPerSecond,
+                Radius = RestorationAuraRadius,
+                HealPerSecond = RestorationAuraHealPerSecond,
                 HealTimer = 0f
             });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = RestorationNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             em.AddComponentData(entity, new NetworkedEntity
@@ -74,21 +66,21 @@ namespace TheWaningBorder.Entities
         {
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = RestorationNodePresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new Health { Value = RestorationNodeHP, Max = RestorationNodeHP });
+            ecb.AddComponent(entity, new Radius { Value = RestorationNodeRadius });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Restoration });
             ecb.AddComponent(entity, new RestorationAura
             {
-                Radius = AuraRadius,
-                HealPerSecond = AuraHealPerSecond,
+                Radius = RestorationAuraRadius,
+                HealPerSecond = RestorationAuraHealPerSecond,
                 HealTimer = 0f
             });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = RestorationNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             ecb.AddComponent(entity, new NetworkedEntity

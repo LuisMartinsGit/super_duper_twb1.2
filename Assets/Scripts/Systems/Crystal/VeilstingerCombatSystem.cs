@@ -35,9 +35,17 @@ namespace TheWaningBorder.Systems.Crystal
         private const float GunHeightOffset = 1.2f;  // Height above ground
         private const float GunForwardOffset = 0.3f; // Slightly in front of center
 
+        // Cached query — created once in OnCreate, reused every frame
+        private EntityQuery _targetQuery;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+
+            _targetQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LocalTransform, FactionTag, Health>()
+                .WithAny<UnitTag, BuildingTag>()
+                .Build(ref state);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -48,15 +56,10 @@ namespace TheWaningBorder.Systems.Crystal
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
 
-            // Snapshot all potential targets for secondary target search
-            var targetQuery = SystemAPI.QueryBuilder()
-                .WithAll<LocalTransform, FactionTag, Health>()
-                .Build();
-
-            var tgtEntities = targetQuery.ToEntityArray(Allocator.Temp);
-            var tgtTransforms = targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            var tgtEntities = _targetQuery.ToEntityArray(Allocator.Temp);
+            var tgtTransforms = _targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var tgtFactions = _targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var tgtHealth = _targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
             foreach (var (transform, target, veilState, damage, faction, health, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<VeilstingerState>, RefRO<Damage>, RefRO<FactionTag>, RefRO<Health>>()

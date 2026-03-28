@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -13,26 +14,16 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Godsplinter
     {
-        private const float DefaultHP = 1200f;
-        private const float DefaultSpeed = 1.8f;
-        private const float DefaultDamage = 40f;
-        private const float DefaultLoS = 20f;
-        private const float DefaultRadius = 1.5f;
-        private const float DefaultSiegeRange = 4f;
-        private const float DefaultLaserRange = 22f;
-        private const int DefaultLaserMaxTargets = 4;
-        private const int PresentationID = 322;
-
         /// <summary>
         /// Create Godsplinter using EntityManager.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float radius = DefaultRadius;
+            float hp = GodsplinterHP;
+            float speed = GodsplinterSpeed;
+            float damage = GodsplinterDamage;
+            float los = GodsplinterLoS;
+            float radius = GodsplinterRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Godsplinter", out var def))
             {
@@ -59,7 +50,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = GodsplinterPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new UnitTag { Class = UnitClass.Siege });
@@ -69,16 +60,16 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Target { Value = Entity.Null });
             em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = 500 });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = GodsplinterBuildCost });
 
             // Godsplinter-specific siege/laser state
             em.SetComponentData(entity, new GodsplinterState
             {
                 LaserCooldownTimer = 0,
                 SiegeCooldownTimer = 0,
-                SiegeRange = DefaultSiegeRange,
-                LaserRange = DefaultLaserRange,
-                LaserMaxTargets = DefaultLaserMaxTargets,
+                SiegeRange = GodsplinterSiegeRange,
+                LaserRange = GodsplinterLaserRange,
+                LaserMaxTargets = GodsplinterLaserMaxTargets,
                 IsSieging = 0
             });
 
@@ -95,11 +86,11 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float radius = DefaultRadius;
+            float hp = GodsplinterHP;
+            float speed = GodsplinterSpeed;
+            float damage = GodsplinterDamage;
+            float los = GodsplinterLoS;
+            float radius = GodsplinterRadius;
 
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Godsplinter", out var def))
             {
@@ -111,7 +102,7 @@ namespace TheWaningBorder.Entities
 
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = GodsplinterPresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Siege });
@@ -123,16 +114,16 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Target { Value = Entity.Null });
             ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = 500 });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = GodsplinterBuildCost });
 
             // Godsplinter-specific siege/laser state
             ecb.AddComponent(entity, new GodsplinterState
             {
                 LaserCooldownTimer = 0,
                 SiegeCooldownTimer = 0,
-                SiegeRange = DefaultSiegeRange,
-                LaserRange = DefaultLaserRange,
-                LaserMaxTargets = DefaultLaserMaxTargets,
+                SiegeRange = GodsplinterSiegeRange,
+                LaserRange = GodsplinterLaserRange,
+                LaserMaxTargets = GodsplinterLaserMaxTargets,
                 IsSieging = 0
             });
 
