@@ -39,16 +39,23 @@ public struct CrystalSubNodeTag : IComponentData
 /// </summary>
 public struct CrystalNode : IComponentData
 {
-    public float SpreadPerTick;     // Cells per tick (logical units)
-    public float SpreadRadius;      // World radius
-    public float TickInterval;      // Seconds between ticks
-    public float TickTimer;         // Accumulated time
-    public float CurrentRingRadius; // Current outer edge of the spread wavefront
+    public float SpreadRadius;      // World radius (territory radius)
     public byte Enabled;
 }
 
 /// <summary>
-/// Per-node level derived from CurrentRingRadius.
+/// Runtime state for crystal spread progression.
+/// Tracks the expanding ring wavefront per-node (used by CrystalSpreadSystem).
+/// Separated from CrystalNode to keep config fields distinct from runtime state.
+/// </summary>
+public struct CrystalSpreadState : IComponentData
+{
+    public float TickTimer;         // Accumulated time since last spread tick
+    public float CurrentRingRadius; // Current outer edge of the spread wavefront
+}
+
+/// <summary>
+/// Per-node level derived from CrystalSpreadState.CurrentRingRadius.
 /// Level 1 (radius 0-5):  Fast spread, only Crystallings — easy to farm.
 /// Level 2 (radius 5-10): Moderate spread, Veilstingers unlocked.
 /// Level 3 (radius 10+):  Slow spread, Godsplinters unlocked — dangerous.

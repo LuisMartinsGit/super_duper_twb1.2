@@ -84,12 +84,29 @@ namespace TheWaningBorder.AI
             if (!foundBase) return;
 
             // Collect crystal faction entities within hunt range of base
+            // First: crystal units (primary targets)
             var creatures = new NativeList<Entity>(Allocator.Temp);
             var creaturePositions = new NativeList<float3>(Allocator.Temp);
 
             foreach (var (factionTag, transform, entity) in
                 SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
                 .WithAll<CrystalTag, UnitTag>()
+                .WithEntityAccess())
+            {
+                if (factionTag.ValueRO.Value != Faction.White) continue;
+
+                float dist = math.distance(basePos, transform.ValueRO.Position);
+                if (dist <= HUNT_RANGE)
+                {
+                    creatures.Add(entity);
+                    creaturePositions.Add(transform.ValueRO.Position);
+                }
+            }
+
+            // Second: crystal buildings as fallback targets (anything crystal with Health)
+            foreach (var (factionTag, transform, health, entity) in
+                SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<Health>>()
+                .WithAll<CrystalTag, BuildingTag>()
                 .WithEntityAccess())
             {
                 if (factionTag.ValueRO.Value != Faction.White) continue;

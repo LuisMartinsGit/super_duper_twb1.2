@@ -68,6 +68,7 @@ namespace TheWaningBorder.Systems.Crystal
             _mainNodeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadWrite<CrystalAIState>(),
                 ComponentType.ReadOnly<CrystalNode>(),
+                ComponentType.ReadOnly<CrystalSpreadState>(),
                 ComponentType.ReadOnly<CrystalNodeLevel>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<CrystalMainNodeTag>()
@@ -127,6 +128,7 @@ namespace TheWaningBorder.Systems.Crystal
             using var entities = _mainNodeQuery.ToEntityArray(Allocator.Temp);
             using var aiStates = _mainNodeQuery.ToComponentDataArray<CrystalAIState>(Allocator.Temp);
             using var crystalNodes = _mainNodeQuery.ToComponentDataArray<CrystalNode>(Allocator.Temp);
+            using var spreadStates = _mainNodeQuery.ToComponentDataArray<CrystalSpreadState>(Allocator.Temp);
             using var nodeLevels = _mainNodeQuery.ToComponentDataArray<CrystalNodeLevel>(Allocator.Temp);
             using var transforms = _mainNodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
@@ -134,7 +136,7 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 var ai = aiStates[n];
                 var nodePos = transforms[n].Position;
-                float spreadRadius = crystalNodes[n].CurrentRingRadius;
+                float spreadRadius = spreadStates[n].CurrentRingRadius;
                 int nodeLevel = nodeLevels[n].Value;
 
                 // Refresh bank balance (may have changed from previous node's spending)
