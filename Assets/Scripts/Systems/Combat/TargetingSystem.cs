@@ -214,12 +214,13 @@ namespace TheWaningBorder.Systems.Combat
         {
             var em = state.EntityManager;
 
-            // Find targets for idle units (builders and miners never auto-target)
+            // Single unified loop for all target-seeking units:
+            // idle units, attack-move units, and patrol units.
+            // Builders, miners, and battalion leaders are excluded.
             foreach (var (transform, faction, lineOfSight, target, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
-                .WithNone<UserMoveOrder>()
                 .WithNone<CanBuild>()           // Builders are passive workers
                 .WithNone<MinerTag>()           // Miners are handled by MiningSystem
                 .WithNone<BattalionLeader>()    // Invisible leaders should not auto-acquire
@@ -227,8 +228,18 @@ namespace TheWaningBorder.Systems.Combat
             {
                 // Skip units that already have an active target
                 if (target.ValueRO.Value != Entity.Null) continue;
-                // Skip if currently moving to a destination (non-battalion units only)
-                if (em.HasComponent<DesiredDestination>(entity))
+
+                // Cache HasComponent results to avoid repeated lookups
+                bool hasAttackMove = em.HasComponent<AttackMoveTag>(entity);
+                bool hasPatrol = em.HasComponent<PatrolTag>(entity);
+                bool hasUserMoveOrder = em.HasComponent<UserMoveOrder>(entity);
+                bool isActiveScanner = hasAttackMove || hasPatrol;
+
+                // Idle units (no AttackMove/Patrol) with UserMoveOrder skip targeting
+                if (!isActiveScanner && hasUserMoveOrder) continue;
+
+                // Idle units skip if currently moving to a destination
+                if (!isActiveScanner && em.HasComponent<DesiredDestination>(entity))
                 {
                     var dd = em.GetComponentData<DesiredDestination>(entity);
                     if (dd.Has != 0)
@@ -258,98 +269,102 @@ namespace TheWaningBorder.Systems.Combat
                 if (stance == BattalionStance.Aggressive) los *= 1.5f;
                 else if (stance == BattalionStance.Defensive) los *= 0.1f;
 
-                if (isBattalionMember)
+                // ── Idle-only logic: battalion defensive stance and guard constraints ──
+                if (!isActiveScanner)
                 {
-                    // ── DEFENSIVE: No auto-acquire. Return fire only if attacker in attack range. ──
-                    if (stance == BattalionStance.Defensive)
+                    if (isBattalionMember)
                     {
-                        if (em.HasComponent<LastAttackerEntity>(entity))
+                        // ── DEFENSIVE: No auto-acquire. Return fire only if attacker in attack range. ──
+                        if (stance == BattalionStance.Defensive)
                         {
-                            var lastAttacker = em.GetComponentData<LastAttackerEntity>(entity).Value;
-                            if (lastAttacker != Entity.Null && em.Exists(lastAttacker)
-                                && em.HasComponent<Health>(lastAttacker))
+                            if (em.HasComponent<LastAttackerEntity>(entity))
                             {
-                                var attackerHP = em.GetComponentData<Health>(lastAttacker);
-                                if (attackerHP.Value > 0)
+                                var lastAttacker = em.GetComponentData<LastAttackerEntity>(entity).Value;
+                                if (lastAttacker != Entity.Null && em.Exists(lastAttacker)
+                                    && em.HasComponent<Health>(lastAttacker))
                                 {
-                                    // Determine this unit's attack range
-                                    float attackRange = DefaultMeleeRange;
-                                    if (em.HasComponent<ArcherState>(entity))
+                                    var attackerHP = em.GetComponentData<Health>(lastAttacker);
+                                    if (attackerHP.Value > 0)
                                     {
-                                        var archer = em.GetComponentData<ArcherState>(entity);
-                                        attackRange = archer.MaxRange > 0 ? archer.MaxRange : 25f;
+                                        // Determine this unit's attack range
+                                        float attackRange = DefaultMeleeRange;
+                                        if (em.HasComponent<ArcherState>(entity))
+                                        {
+                                            var archer = em.GetComponentData<ArcherState>(entity);
+                                            attackRange = archer.MaxRange > 0 ? archer.MaxRange : 25f;
+                                        }
+
+                                        var attackerPos = em.GetComponentData<LocalTransform>(lastAttacker).Position;
+                                        var distToAttacker = DistXZ(myPos, attackerPos);
+
+                                        if (distToAttacker <= attackRange)
+                                        {
+                                            // Set target but do NOT set DesiredDestination — stay in formation
+                                            ecb.SetComponent(entity, new Target { Value = lastAttacker });
+                                        }
                                     }
+                                }
+                            }
+                            // Defensive: skip normal enemy scan entirely
+                            continue;
+                        }
+                    }
 
-                                    var attackerPos = em.GetComponentData<LocalTransform>(lastAttacker).Position;
-                                    var distToAttacker = DistXZ(myPos, attackerPos);
-
-                                    if (distToAttacker <= attackRange)
+                    // ── Guard distance constraint (Default stance for battalion, normal for non-battalion) ──
+                    if (!isBattalionMember)
+                    {
+                        // Non-battalion: use standard guard point logic
+                        if (em.HasComponent<GuardPoint>(entity))
+                        {
+                            var guardPoint = em.GetComponentData<GuardPoint>(entity);
+                            if (guardPoint.Has != 0)
+                            {
+                                var distFromGuard = DistXZ(myPos, guardPoint.Position);
+                                if (distFromGuard > MaxGuardDistance)
+                                {
+                                    if (!em.HasComponent<DesiredDestination>(entity))
                                     {
-                                        // Set target but do NOT set DesiredDestination — stay in formation
-                                        ecb.SetComponent(entity, new Target { Value = lastAttacker });
+                                        ecb.AddComponent(entity, new DesiredDestination
+                                        {
+                                            Position = guardPoint.Position,
+                                            Has = 1
+                                        });
                                     }
+                                    else
+                                    {
+                                        ecb.SetComponent(entity, new DesiredDestination
+                                        {
+                                            Position = guardPoint.Position,
+                                            Has = 1
+                                        });
+                                    }
+                                    continue;
                                 }
                             }
                         }
-                        // Defensive: skip normal enemy scan entirely
-                        continue;
                     }
+                    else if (stance == BattalionStance.Default)
+                    {
+                        // Default stance battalion member: check distance from leader's guard point
+                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                        if (em.Exists(memberData.Leader) && em.HasComponent<GuardPoint>(memberData.Leader))
+                        {
+                            var leaderGuard = em.GetComponentData<GuardPoint>(memberData.Leader);
+                            if (leaderGuard.Has != 0)
+                            {
+                                var distFromLeaderGuard = DistXZ(myPos, leaderGuard.Position);
+                                if (distFromLeaderGuard > BattalionDefaultLeash)
+                                {
+                                    // Too far from leader's guard point — do not acquire target
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    // Aggressive: no guard distance check — fall through to enemy scan
                 }
 
-                // ── Guard distance constraint (Default stance for battalion, normal for non-battalion) ──
-                if (!isBattalionMember)
-                {
-                    // Non-battalion: use standard guard point logic
-                    if (em.HasComponent<GuardPoint>(entity))
-                    {
-                        var guardPoint = em.GetComponentData<GuardPoint>(entity);
-                        if (guardPoint.Has != 0)
-                        {
-                            var distFromGuard = DistXZ(myPos, guardPoint.Position);
-                            if (distFromGuard > MaxGuardDistance)
-                            {
-                                if (!em.HasComponent<DesiredDestination>(entity))
-                                {
-                                    ecb.AddComponent(entity, new DesiredDestination
-                                    {
-                                        Position = guardPoint.Position,
-                                        Has = 1
-                                    });
-                                }
-                                else
-                                {
-                                    ecb.SetComponent(entity, new DesiredDestination
-                                    {
-                                        Position = guardPoint.Position,
-                                        Has = 1
-                                    });
-                                }
-                                continue;
-                            }
-                        }
-                    }
-                }
-                else if (stance == BattalionStance.Default)
-                {
-                    // Default stance battalion member: check distance from leader's guard point
-                    var memberData = em.GetComponentData<BattalionMemberData>(entity);
-                    if (em.Exists(memberData.Leader) && em.HasComponent<GuardPoint>(memberData.Leader))
-                    {
-                        var leaderGuard = em.GetComponentData<GuardPoint>(memberData.Leader);
-                        if (leaderGuard.Has != 0)
-                        {
-                            var distFromLeaderGuard = DistXZ(myPos, leaderGuard.Position);
-                            if (distFromLeaderGuard > BattalionDefaultLeash)
-                            {
-                                // Too far from leader's guard point — do not acquire target
-                                continue;
-                            }
-                        }
-                    }
-                }
-                // Aggressive: no guard distance check — fall through to enemy scan
-
-                // Find nearest enemy within line of sight
+                // ── Single enemy scan shared by idle, attack-move, and patrol units ──
                 Entity bestTarget = Entity.Null;
                 float bestDist = float.MaxValue;
 
@@ -368,131 +383,19 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
-                // Acquire target if found and still valid (Target component always present)
                 if (bestTarget != Entity.Null && em.Exists(bestTarget))
                 {
                     ecb.SetComponent(entity, new Target { Value = bestTarget });
-                }
-            }
 
-            // Attack-move units: scan for enemies even while moving
-            // These units have AttackMoveTag and may have an active DesiredDestination
-            foreach (var (transform, faction, lineOfSight, amTarget, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
-                .WithAll<UnitTag, AttackMoveTag>()
-                .WithNone<AttackCommand>()
-                .WithNone<CanBuild>()
-                .WithNone<MinerTag>()
-                .WithNone<BattalionLeader>()
-                .WithEntityAccess())
-            {
-                // Skip units that already have an active target
-                if (amTarget.ValueRO.Value != Entity.Null) continue;
-                var myPos = transform.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                var los = lineOfSight.ValueRO.Radius;
-
-                // Stance-aware LOS multiplier
-                if (em.HasComponent<BattalionMemberData>(entity))
-                {
-                    var md = em.GetComponentData<BattalionMemberData>(entity);
-                    if (em.Exists(md.Leader) && em.HasComponent<BattalionStanceData>(md.Leader))
+                    // Attack-move and patrol units also issue an AttackCommand so combat systems chase
+                    // Do NOT clear DesiredDestination - unit resumes movement after combat
+                    if (isActiveScanner)
                     {
-                        var st = em.GetComponentData<BattalionStanceData>(md.Leader).Value;
-                        if (st == BattalionStance.Aggressive) los *= 1.5f;
-                        else if (st == BattalionStance.Defensive) los *= 0.1f;
+                        if (!em.HasComponent<AttackCommand>(entity))
+                            ecb.AddComponent(entity, new AttackCommand { Target = bestTarget });
+                        else
+                            ecb.SetComponent(entity, new AttackCommand { Target = bestTarget });
                     }
-                }
-
-                // Find nearest enemy within line of sight
-                Entity bestAMTarget = Entity.Null;
-                float bestAMDist = float.MaxValue;
-
-                for (int i = 0; i < allEnemies.Length; i++)
-                {
-                    if (allEnemyFactions[i].Value == myFaction) continue;
-                    if (allEnemyHealth[i].Value <= 0) continue;
-
-                    var enemyPos = allEnemyTransforms[i].Position;
-                    var dist = DistXZ(myPos, enemyPos);
-
-                    if (dist <= los && dist < bestAMDist)
-                    {
-                        bestAMTarget = allEnemies[i];
-                        bestAMDist = dist;
-                    }
-                }
-
-                // Acquire target and issue attack command so combat systems chase
-                // Do NOT clear DesiredDestination - unit resumes movement after combat
-                if (bestAMTarget != Entity.Null && em.Exists(bestAMTarget))
-                {
-                    ecb.SetComponent(entity, new Target { Value = bestAMTarget });
-
-                    if (!em.HasComponent<AttackCommand>(entity))
-                        ecb.AddComponent(entity, new AttackCommand { Target = bestAMTarget });
-                    else
-                        ecb.SetComponent(entity, new AttackCommand { Target = bestAMTarget });
-                }
-            }
-
-            // Patrol units: scan for enemies even while moving (same as attack-move)
-            // These units have PatrolTag and may have an active DesiredDestination
-            foreach (var (transform, faction, lineOfSight, pTarget, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
-                .WithAll<UnitTag, PatrolTag>()
-                .WithNone<AttackCommand>()
-                .WithNone<CanBuild>()
-                .WithNone<MinerTag>()
-                .WithNone<BattalionLeader>()
-                .WithEntityAccess())
-            {
-                // Skip units that already have an active target
-                if (pTarget.ValueRO.Value != Entity.Null) continue;
-                var myPos = transform.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                var los = lineOfSight.ValueRO.Radius;
-
-                // Stance-aware LOS multiplier
-                if (em.HasComponent<BattalionMemberData>(entity))
-                {
-                    var md = em.GetComponentData<BattalionMemberData>(entity);
-                    if (em.Exists(md.Leader) && em.HasComponent<BattalionStanceData>(md.Leader))
-                    {
-                        var st = em.GetComponentData<BattalionStanceData>(md.Leader).Value;
-                        if (st == BattalionStance.Aggressive) los *= 1.5f;
-                        else if (st == BattalionStance.Defensive) los *= 0.1f;
-                    }
-                }
-
-                // Find nearest enemy within line of sight
-                Entity bestPatrolTarget = Entity.Null;
-                float bestPatrolDist = float.MaxValue;
-
-                for (int i = 0; i < allEnemies.Length; i++)
-                {
-                    if (allEnemyFactions[i].Value == myFaction) continue;
-                    if (allEnemyHealth[i].Value <= 0) continue;
-
-                    var enemyPos = allEnemyTransforms[i].Position;
-                    var dist = DistXZ(myPos, enemyPos);
-
-                    if (dist <= los && dist < bestPatrolDist)
-                    {
-                        bestPatrolTarget = allEnemies[i];
-                        bestPatrolDist = dist;
-                    }
-                }
-
-                // Acquire target and issue attack command so combat systems chase
-                if (bestPatrolTarget != Entity.Null && em.Exists(bestPatrolTarget))
-                {
-                    ecb.SetComponent(entity, new Target { Value = bestPatrolTarget });
-
-                    if (!em.HasComponent<AttackCommand>(entity))
-                        ecb.AddComponent(entity, new AttackCommand { Target = bestPatrolTarget });
-                    else
-                        ecb.SetComponent(entity, new AttackCommand { Target = bestPatrolTarget });
                 }
             }
         }
