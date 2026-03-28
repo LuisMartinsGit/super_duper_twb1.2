@@ -33,17 +33,37 @@ namespace TheWaningBorder.Systems.Combat
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
+        /// <summary>Death animation duration in seconds before entity destruction.</summary>
+        private const float DeathAnimationDuration = 2.0f;
+
         public void OnUpdate(ref SystemState state)
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
+            float dt = SystemAPI.Time.DeltaTime;
 
-            // Phase 1: Collect all dead entities
+            // Phase 0: Tick death animation timers and collect expired entities
+            var expiredEntities = new NativeList<Entity>(Allocator.Temp);
+            foreach (var (deathAnim, entity) in SystemAPI
+                         .Query<RefRW<DeathAnimationState>>()
+                         .WithEntityAccess())
+            {
+                deathAnim.ValueRW.Timer -= dt;
+                if (deathAnim.ValueRO.Timer <= 0f)
+                {
+                    expiredEntities.Add(entity);
+                }
+            }
+            for (int i = 0; i < expiredEntities.Length; i++)
+                ecb.DestroyEntity(expiredEntities[i]);
+            expiredEntities.Dispose();
+
+            // Phase 1: Collect all dead entities (health <= 0, no death animation yet)
             var deadEntities = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (health, entity) in SystemAPI
                          .Query<RefRO<Health>>()
-                         .WithNone<BattalionLeader>()
+                         .WithNone<BattalionLeader, DeathAnimationState>()
                          .WithEntityAccess())
             {
                 if (health.ValueRO.Value <= 0)
@@ -108,11 +128,21 @@ namespace TheWaningBorder.Systems.Combat
 
                 deadSet.Dispose();
 
-                // Phase 4: Destroy dead entities (deferred — plays back last since
-                // DeathSystem updates after all combat systems)
+                // Phase 4: Add death animation delay for units, destroy buildings immediately
                 for (int i = 0; i < deadEntities.Length; i++)
                 {
-                    ecb.DestroyEntity(deadEntities[i]);
+                    var dead = deadEntities[i];
+
+                    // Units get a death animation delay; buildings are destroyed immediately
+                    bool isBuilding = state.EntityManager.HasComponent<BuildingTag>(dead);
+                    if (!isBuilding)
+                    {
+                        ecb.AddComponent(dead, new DeathAnimationState { Timer = DeathAnimationDuration });
+                    }
+                    else
+                    {
+                        ecb.DestroyEntity(dead);
+                    }
                 }
             }
 
