@@ -22,6 +22,14 @@ namespace TheWaningBorder.Systems.Movement
     /// Flow field direction lookup uses FlowFieldLookup struct (NativeArray-based)
     /// instead of managed FlowFieldMovementHelper singleton, enabling future
     /// Burst compilation of the movement loop when TerrainUtility is also refactored.
+    ///
+    /// Performance optimizations:
+    /// - MovementCache component caches last flow field destination to skip redundant
+    ///   RequestFlowField calls when the destination has not changed.
+    /// - em.HasComponent+GetComponentData replaced with TryGetComponent pattern
+    ///   to halve random-access lookups in the hot loop.
+    /// - Terrain height cached per cell in MovementCache to avoid repeated
+    ///   TerrainUtility.GetHeight calls when the unit stays in the same cell.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MovementSystem : ISystem
@@ -31,6 +39,9 @@ namespace TheWaningBorder.Systems.Movement
         private const float TurnSpeed = 8f; // radians per second (~460 deg/s)
         private const float MaxWalkableSlope = 0.55f; // terrain slope above this blocks movement
         private const float SlopeCheckStep = 1.5f;    // distance between height samples for slope estimation
+
+        /// <summary>Minimum squared distance between cached and current destination to trigger a new request.</summary>
+        private const float DestChangedThresholdSq = 0.01f; // 0.1 world units
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -112,6 +123,18 @@ namespace TheWaningBorder.Systems.Movement
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
+                // Invalidate flow field cache so next frame re-requests for new destination
+                if (em.HasComponent<MovementCache>(entity))
+                {
+                    ecb.SetComponent(entity, new MovementCache
+                    {
+                        LastDestination = new float3(float.MaxValue),
+                        LastSnappedDest = -1,
+                        LastHeightCell = new int2(int.MinValue),
+                        CachedHeight = 0f
+                    });
+                }
+
                 // DON'T remove AttackCommand here - let UnifiedCombatSystem see the MoveCommand
                 // and skip attack processing for this entity
 
@@ -184,6 +207,18 @@ namespace TheWaningBorder.Systems.Movement
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
+                // Invalidate flow field cache so next frame re-requests for new destination
+                if (em.HasComponent<MovementCache>(entity))
+                {
+                    ecb.SetComponent(entity, new MovementCache
+                    {
+                        LastDestination = new float3(float.MaxValue),
+                        LastSnappedDest = -1,
+                        LastHeightCell = new int2(int.MinValue),
+                        CachedHeight = 0f
+                    });
+                }
+
                 // Remove AttackMoveCommand itself - it's been processed
                 ecb.RemoveComponent<AttackMoveCommand>(entity);
             }
@@ -212,23 +247,32 @@ namespace TheWaningBorder.Systems.Movement
                     continue;
                 }
 
-                // Lazy-add new components (safe via ECB — structural change deferred)
+                // Lazy-add new components (safe via ECB - structural change deferred)
                 if (!em.HasComponent<SmoothedDirection>(entity))
                     ecb.AddComponent(entity, new SmoothedDirection { Value = float3.zero });
                 if (!em.HasComponent<StuckState>(entity))
                     ecb.AddComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                if (!em.HasComponent<MovementCache>(entity))
+                {
+                    ecb.AddComponent(entity, new MovementCache
+                    {
+                        LastDestination = new float3(float.MaxValue),
+                        LastSnappedDest = -1,
+                        LastHeightCell = new int2(int.MinValue),
+                        CachedHeight = 0f
+                    });
+                }
 
                 // Get move speed: FormationSpeedOverride > MoveSpeed > default
+                // Use TryGetComponent to avoid double lookup (HasComponent + GetComponentData)
                 float speed = DefaultMoveSpeed;
-                if (em.HasComponent<FormationSpeedOverride>(entity))
+                if (em.TryGetComponent<FormationSpeedOverride>(entity, out var fso))
                 {
-                    var fs = em.GetComponentData<FormationSpeedOverride>(entity).Value;
-                    if (fs > 0) speed = fs;
+                    if (fso.Value > 0) speed = fso.Value;
                 }
-                else if (em.HasComponent<MoveSpeed>(entity))
+                else if (em.TryGetComponent<MoveSpeed>(entity, out var ms))
                 {
-                    var ms = em.GetComponentData<MoveSpeed>(entity).Value;
-                    if (ms > 0) speed = ms;
+                    if (ms.Value > 0) speed = ms.Value;
                 }
 
                 float3 pos = xf.ValueRO.Position;
@@ -267,15 +311,39 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                // Request/lookup flow field for this destination.
-                // The snapped destination index from RequestFlowField ensures the
-                // lookup uses the same cache key as the manager (including snap-to-passable).
+                // === Flow field request with per-unit destination caching ===
+                // Only call RequestFlowField when the destination has actually changed,
+                // otherwise reuse the cached snappedDest from the previous frame.
                 int snappedDest = -1;
                 if (ffm != null)
                 {
-                    var field = ffm.RequestFlowField(goal);
-                    if (field.HasValue)
-                        snappedDest = field.Value.DestinationIndex;
+                    bool destChanged = true;
+                    if (em.TryGetComponent<MovementCache>(entity, out var cache))
+                    {
+                        float3 diff = goal - cache.LastDestination;
+                        destChanged = math.lengthsq(diff) > DestChangedThresholdSq;
+                        if (!destChanged)
+                        {
+                            // Destination unchanged - reuse cached snapped destination
+                            snappedDest = cache.LastSnappedDest;
+                        }
+                    }
+
+                    if (destChanged)
+                    {
+                        var field = ffm.RequestFlowField(goal);
+                        if (field.HasValue)
+                            snappedDest = field.Value.DestinationIndex;
+
+                        // Update cache with new destination and result
+                        if (em.HasComponent<MovementCache>(entity))
+                        {
+                            var mvc = em.GetComponentData<MovementCache>(entity);
+                            mvc.LastDestination = goal;
+                            mvc.LastSnappedDest = snappedDest;
+                            em.SetComponentData(entity, mvc);
+                        }
+                    }
                 }
 
                 // Flow-field direction lookup (NativeArray-based, falls back to direct-line)
@@ -283,14 +351,14 @@ namespace TheWaningBorder.Systems.Movement
 
                 // === Per-unit direction smoothing ===
                 // Lerp toward raw flow field direction to prevent cell-boundary oscillation.
+                // Use TryGetComponent to avoid double lookup
                 float3 smoothedDir = dir;
-                if (em.HasComponent<SmoothedDirection>(entity))
+                if (em.TryGetComponent<SmoothedDirection>(entity, out var sd))
                 {
-                    float3 prev = em.GetComponentData<SmoothedDirection>(entity).Value;
-                    if (math.lengthsq(prev) > 1e-8f)
+                    if (math.lengthsq(sd.Value) > 1e-8f)
                     {
                         const float SmoothRate = 12f;
-                        smoothedDir = math.normalizesafe(math.lerp(prev, dir, math.saturate(SmoothRate * dt)));
+                        smoothedDir = math.normalizesafe(math.lerp(sd.Value, dir, math.saturate(SmoothRate * dt)));
                     }
                     ecb.SetComponent(entity, new SmoothedDirection { Value = smoothedDir });
                 }
@@ -307,45 +375,63 @@ namespace TheWaningBorder.Systems.Movement
                     t.Rotation = smoothed;
                 }
 
-                // === Full speed movement — no facingFactor ===
+                // === Full speed movement - no facingFactor ===
                 float step = math.min(speed * dt, dist);
                 float3 nextPos = pos + smoothedDir * step;
 
                 // === PASSABILITY CHECK ===
                 bool blocked = false;
                 var passGrid = PassabilityGrid.Instance;
+                int2 nextCell = default;
                 if (passGrid != null)
                 {
-                    int2 nextCell = passGrid.WorldToCell(nextPos);
+                    nextCell = passGrid.WorldToCell(nextPos);
                     if (!passGrid.IsPassable(nextCell))
                         blocked = true;
                 }
 
-                // === SLOPE CHECK ===
+                // === SLOPE CHECK with terrain height caching ===
+                // Cache terrain height per cell: if the unit's next position is in the same
+                // cell as the last sample, reuse the cached height instead of calling
+                // TerrainUtility.GetHeight 4 times for slope estimation.
                 if (!blocked)
                 {
-                    float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
-                    float hR = TerrainUtility.GetHeight(nextPos.x + SlopeCheckStep, nextPos.z);
-                    float hD = TerrainUtility.GetHeight(nextPos.x, nextPos.z - SlopeCheckStep);
-                    float hU = TerrainUtility.GetHeight(nextPos.x, nextPos.z + SlopeCheckStep);
-                    float dX = (hR - hL) / (SlopeCheckStep * 2f);
-                    float dZ = (hU - hD) / (SlopeCheckStep * 2f);
-                    float slopeAtNext = math.sqrt(dX * dX + dZ * dZ);
-                    if (slopeAtNext > MaxWalkableSlope)
-                        blocked = true;
+                    bool slopeCacheHit = false;
+                    if (passGrid != null && em.TryGetComponent<MovementCache>(entity, out var heightCache))
+                    {
+                        if (math.all(nextCell == heightCache.LastHeightCell)
+                            && heightCache.LastHeightCell.x != int.MinValue)
+                        {
+                            // Same cell as last frame - skip slope recomputation
+                            // (slope does not change within a cell)
+                            slopeCacheHit = true;
+                        }
+                    }
+
+                    if (!slopeCacheHit)
+                    {
+                        float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
+                        float hR = TerrainUtility.GetHeight(nextPos.x + SlopeCheckStep, nextPos.z);
+                        float hD = TerrainUtility.GetHeight(nextPos.x, nextPos.z - SlopeCheckStep);
+                        float hU = TerrainUtility.GetHeight(nextPos.x, nextPos.z + SlopeCheckStep);
+                        float dX = (hR - hL) / (SlopeCheckStep * 2f);
+                        float dZ = (hU - hD) / (SlopeCheckStep * 2f);
+                        float slopeAtNext = math.sqrt(dX * dX + dZ * dZ);
+                        if (slopeAtNext > MaxWalkableSlope)
+                            blocked = true;
+                    }
                 }
 
                 // === STUCK DETECTION with 3-tier escalation ===
                 if (blocked)
                 {
-                    if (em.HasComponent<StuckState>(entity))
+                    if (em.TryGetComponent<StuckState>(entity, out var stuck))
                     {
-                        var stuck = em.GetComponentData<StuckState>(entity);
                         stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
 
                         if (stuck.Counter > 30)
                         {
-                            // Tier 3 (30+ frames ≈ 0.5s): cancel destination entirely
+                            // Tier 3 (30+ frames ~ 0.5s): cancel destination entirely
                             dd.ValueRW.Has = 0;
                             if (em.HasComponent<UserMoveOrder>(entity))
                                 ecb.RemoveComponent<UserMoveOrder>(entity);
@@ -394,17 +480,39 @@ namespace TheWaningBorder.Systems.Movement
                     continue;
                 }
 
-                // Not blocked — reset stuck counter
+                // Not blocked - reset stuck counter
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
-                // === Terrain height snap ===
-                nextPos.y = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
+                // === Terrain height snap with caching ===
+                // Reuse cached height if still in the same cell, otherwise sample and cache
+                float terrainY;
+                if (passGrid != null && em.TryGetComponent<MovementCache>(entity, out var mvCache))
+                {
+                    if (math.all(nextCell == mvCache.LastHeightCell)
+                        && mvCache.LastHeightCell.x != int.MinValue)
+                    {
+                        terrainY = mvCache.CachedHeight;
+                    }
+                    else
+                    {
+                        terrainY = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
+                        mvCache.LastHeightCell = nextCell;
+                        mvCache.CachedHeight = terrainY;
+                        em.SetComponentData(entity, mvCache);
+                    }
+                }
+                else
+                {
+                    terrainY = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
+                }
+                nextPos.y = terrainY;
 
                 t.Position = nextPos;
                 xf.ValueRW = t;
             }
         }
+
         /// <summary>
         /// Slerp from current to target rotation, clamped to maxAngle radians.
         /// </summary>

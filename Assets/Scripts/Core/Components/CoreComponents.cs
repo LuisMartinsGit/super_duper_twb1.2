@@ -152,6 +152,23 @@ public struct StuckState : IComponentData
 }
 
 /// <summary>
+/// Caches the last snapped flow field destination index to avoid calling
+/// FlowFieldManager.RequestFlowField every frame when the destination hasn't changed.
+/// Also caches the terrain height for the current cell to reduce TerrainUtility.GetHeight calls.
+/// </summary>
+public struct MovementCache : IComponentData
+{
+    /// <summary>Last destination position that was sent to FlowFieldManager.</summary>
+    public float3 LastDestination;
+    /// <summary>Snapped destination cell index returned by the last successful RequestFlowField.</summary>
+    public int LastSnappedDest;
+    /// <summary>Grid cell the unit was in for the last terrain height sample.</summary>
+    public int2 LastHeightCell;
+    /// <summary>Cached terrain height for LastHeightCell.</summary>
+    public float CachedHeight;
+}
+
+/// <summary>
 /// Rally point for newly trained units.
 /// </summary>
 public struct RallyPoint : IComponentData
