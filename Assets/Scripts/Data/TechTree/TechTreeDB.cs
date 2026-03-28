@@ -324,7 +324,7 @@ public sealed class TechTreeDB : MonoBehaviour
     void EnsureBuildingDefault(string id, string name, string role, float hp, float los, float radius, int minEra, string[] trains)
     {
         if (_buildingsById.ContainsKey(id)) return;
-        var cost = BuildingCosts.GetCost(id);
+        var cost = TheWaningBorder.Data.BuildingCosts.GetCost(id);
         _buildingsById[id] = new BuildingDef
         {
             id = id, name = name, role = role, hp = hp,
