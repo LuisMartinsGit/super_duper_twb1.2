@@ -50,12 +50,8 @@ namespace TheWaningBorder.UI.Panels
         /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
         private int _selectedChapelSlot = -1;
 
-        /// <summary>Cost to build a chapel at a temple slot.</summary>
-        private static readonly TheWaningBorder.Core.Cost ChapelBuildCost =
-            TheWaningBorder.Core.Cost.Of(supplies: 200, iron: 100, crystal: 50);
-
-        /// <summary>Build time in seconds for a temple chapel.</summary>
-        private const float ChapelBuildTime = 30f;
+        /// <summary>Build time in seconds for a temple chapel (after RP spent).</summary>
+        private const float ChapelBuildTime = 20f;
 
         void Awake()
         {
@@ -421,16 +417,7 @@ namespace TheWaningBorder.UI.Panels
             // ── Chapel Slot Diagram ──
             DrawTempleChapelSlots(entity);
 
-            // ── Sect Adoption Section ──
-            {
-                var em2 = UnifiedUIManager.GetEntityManager();
-                Faction sectFaction = GameSettings.LocalPlayerFaction;
-                if (!em2.Equals(default(EntityManager)) && em2.Exists(entity) &&
-                    em2.HasComponent<FactionTag>(entity))
-                    sectFaction = em2.GetComponentData<FactionTag>(entity).Value;
-
-                SectAdoptionPanel.Draw(sectFaction);
-            }
+            // Sect adoption now happens through the expansion slot UI above — no separate panel needed
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
@@ -565,16 +552,16 @@ namespace TheWaningBorder.UI.Panels
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Draw chapel slots as a compact vertical list.
-        /// Empty slots can be clicked to open a sect picker.
-        /// Building slots show progress. Complete slots show sect name.
+        /// Draw chapel expansion slots as a compact vertical list (BFME2-style).
+        /// Empty slots open a sect choice menu that costs RP.
+        /// Complete slots show sect name but are NOT selectable.
         /// </summary>
         private void DrawTempleChapelSlots(Entity entity)
         {
             var em = UnifiedUIManager.GetEntityManager();
             if (em.Equals(default(EntityManager))) return;
             if (!em.Exists(entity)) return;
-            if (!em.HasComponent<TempleTag>(entity)) return;
+            if (!em.HasComponent<TempleOfRidanTag>(entity)) return;
             if (!em.HasBuffer<TempleChapelSlot>(entity)) return;
 
             Faction faction = GameSettings.LocalPlayerFaction;
@@ -593,11 +580,14 @@ namespace TheWaningBorder.UI.Panels
             GUI.color = Color.white;
 
             GUILayout.Space(6);
-            GUILayout.Label("Chapel Slots", _headerStyle);
+
+            // Show RP count in header
+            int rp = EntityInfoExtractor.GetFactionReligionPoints(em, faction);
+            GUILayout.Label($"Expansion Slots  (RP: {rp})", _headerStyle);
             GUILayout.Space(4);
 
-            // ── Compact vertical list ──
-            for (int i = 0; i < slots.Length && i < 7; i++)
+            // ── 8 expansion slots ──
+            for (int i = 0; i < slots.Length && i < 8; i++)
             {
                 var slot = slots[i];
                 GUILayout.BeginHorizontal();
@@ -607,9 +597,9 @@ namespace TheWaningBorder.UI.Panels
 
                 if (slot.State == 0)
                 {
-                    // Empty slot — clickable button to open sect picker
+                    // Empty slot — clickable to open sect choice
                     GUI.color = new Color(0.4f, 0.4f, 0.4f);
-                    if (GUILayout.Button("Build Chapel", GUILayout.Height(20)))
+                    if (GUILayout.Button("Choose Sect", GUILayout.Height(20)))
                     {
                         _selectedChapelSlot = (_selectedChapelSlot == i) ? -1 : i;
                     }
@@ -626,137 +616,158 @@ namespace TheWaningBorder.UI.Panels
                 }
                 else if (slot.State == 2)
                 {
-                    // Complete — green button with sect name
+                    // Complete — green label (NOT selectable, chapel is part of temple)
                     string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
                     GUI.color = new Color(0.2f, 0.7f, 0.3f);
-                    if (GUILayout.Button(sectName, GUILayout.Height(20)))
-                    {
-                        if (slot.Chapel != Entity.Null && em.Exists(slot.Chapel))
-                        {
-                            SelectionSystem.ClearSelection();
-                            SelectionSystem.AddToSelection(slot.Chapel);
-                        }
-                    }
+                    GUILayout.Label(sectName, _labelStyle);
                     GUI.color = Color.white;
                 }
 
                 GUILayout.EndHorizontal();
             }
 
-            // ── Sect Picker (when an empty slot is selected) ──
+            // ── Sect Choice Menu (when an empty slot is selected) ──
             if (_selectedChapelSlot >= 0 && _selectedChapelSlot < slots.Length)
             {
                 var selectedSlot = slots[_selectedChapelSlot];
                 if (selectedSlot.State == 0)
                 {
-                    DrawChapelSectPicker(entity, faction, em, slots);
+                    DrawSectChoiceMenu(entity, faction, em, slots);
                 }
                 else
                 {
-                    _selectedChapelSlot = -1; // Slot is no longer empty
+                    _selectedChapelSlot = -1;
                 }
             }
         }
 
         /// <summary>
-        /// Draw the sect picker dropdown for building a chapel at the selected slot.
-        /// Shows only adopted sects that don't already have a chapel built.
+        /// Draw the sect choice menu for a temple expansion slot.
+        /// Clicking a sect spends RP (not resources) and starts building the chapel.
+        /// Simultaneously adopts the sect via FactionSectState.
         /// </summary>
-        private void DrawChapelSectPicker(Entity temple, Faction faction, EntityManager em,
+        private void DrawSectChoiceMenu(Entity temple, Faction faction, EntityManager em,
             DynamicBuffer<TempleChapelSlot> slots)
         {
             GUILayout.Space(6);
-            GUILayout.Label($"Build Chapel at Slot #{_selectedChapelSlot + 1}", _labelStyle);
+            GUILayout.Label($"Choose Sect for Slot #{_selectedChapelSlot + 1}", _labelStyle);
 
-            // Get adopted sects
-            var sectState = FactionSectState.Instance;
-            if (sectState == null)
+            // Determine faction culture for RP cost calculation
+            byte factionCulture = Cultures.None;
+            var hallQuery = em.CreateEntityQuery(typeof(HallTag), typeof(FactionTag), typeof(FactionProgress));
+            var hallEntities = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < hallEntities.Length; i++)
             {
-                GUILayout.Label("No sect data available", _requireStyle);
-                return;
+                if (em.GetComponentData<FactionTag>(hallEntities[i]).Value == faction)
+                {
+                    factionCulture = em.GetComponentData<FactionProgress>(hallEntities[i]).Culture;
+                    break;
+                }
             }
+            hallEntities.Dispose();
 
-            var adoptedSects = sectState.GetAdoptedSects(faction);
-            if (adoptedSects == null || adoptedSects.Count == 0)
-            {
-                GUILayout.Label("Adopt sects first (see below)", _requireStyle);
-                return;
-            }
+            int currentRP = EntityInfoExtractor.GetFactionReligionPoints(em, faction);
 
-            // Find which sects already have a chapel in a slot
+            // Find which sects are already in a slot
             var usedSects = new System.Collections.Generic.HashSet<string>();
             for (int i = 0; i < slots.Length; i++)
             {
-                var slot = slots[i];
-                if (slot.State != 0 && slot.SectId.ToString().Length > 0)
-                {
-                    usedSects.Add(slot.SectId.ToString());
-                }
+                if (slots[i].State != 0 && slots[i].SectId.ToString().Length > 0)
+                    usedSects.Add(slots[i].SectId.ToString());
             }
-
-            // Show cost
-            string costText = UIHelpers.FormatCost(ChapelBuildCost);
-            bool canAfford = FactionEconomy.CanAfford(em, faction, ChapelBuildCost);
-            var costColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
-            var costStyle = new GUIStyle(_smallStyle) { normal = { textColor = costColor } };
-            GUILayout.Label($"Cost: {costText} | Build Time: {ChapelBuildTime}s", costStyle);
 
             GUILayout.Space(4);
 
+            // Show all 12 sects grouped by culture
+            string[] cultureNames = { "Alanthor", "Runai", "Feraldis" };
+            string[][] cultureSects = {
+                SectConfig.AlanthorSects,
+                SectConfig.RunaiSects,
+                SectConfig.FeraldisSects
+            };
+            Color[] cultureColors = {
+                new Color(0.55f, 0.65f, 0.50f),
+                new Color(0.25f, 0.75f, 0.80f),
+                new Color(0.70f, 0.18f, 0.15f)
+            };
+            byte[] cultureIds = { Cultures.Alanthor, Cultures.Runai, Cultures.Feraldis };
+
             bool anyAvailable = false;
-            foreach (var sectId in adoptedSects)
+
+            for (int c = 0; c < 3; c++)
             {
-                if (usedSects.Contains(sectId)) continue; // Already has a chapel
-                anyAvailable = true;
+                if (cultureSects[c] == null) continue;
 
-                string displayName = SectConfig.GetDisplayName(sectId);
-                string passive = SectConfig.GetPassiveDescription(sectId);
+                GUI.color = cultureColors[c];
+                GUILayout.Label(cultureNames[c], _labelStyle);
+                GUI.color = Color.white;
 
-                GUILayout.BeginHorizontal();
-                GUILayout.Label($"{displayName}", _labelStyle, GUILayout.Width(160));
-
-                bool wasEnabled = GUI.enabled;
-                if (!canAfford) GUI.enabled = false;
-
-                if (GUILayout.Button("Build", GUILayout.Width(60), GUILayout.Height(24)))
+                foreach (var sectId in cultureSects[c])
                 {
-                    // Spend resources
-                    if (FactionEconomy.Spend(em, faction, ChapelBuildCost))
+                    if (usedSects.Contains(sectId)) continue; // Already built
+
+                    anyAvailable = true;
+                    string displayName = SectConfig.GetDisplayName(sectId);
+                    string passive = SectConfig.GetPassiveDescription(sectId);
+
+                    // RP cost: 1 if same culture, 3 if cross-culture
+                    int rpCost = (cultureIds[c] == factionCulture) ? 1 : 3;
+                    bool canAffordRP = currentRP >= rpCost;
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"  {displayName}", _labelStyle, GUILayout.Width(140));
+
+                    // RP cost label
+                    var rpColor = canAffordRP ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
+                    var rpStyle = new GUIStyle(_smallStyle) { normal = { textColor = rpColor } };
+                    GUILayout.Label($"{rpCost} RP", rpStyle, GUILayout.Width(40));
+
+                    bool wasEnabled = GUI.enabled;
+                    if (!canAffordRP) GUI.enabled = false;
+
+                    if (GUILayout.Button("Build", GUILayout.Width(50), GUILayout.Height(20)))
                     {
-                        // Set slot to building state
-                        var slot = slots[_selectedChapelSlot];
-                        slot.State = 1;
-                        slot.SectId = new Unity.Collections.FixedString64Bytes(sectId);
-                        slot.BuildProgress = 0f;
-                        slot.BuildTime = ChapelBuildTime;
-                        slots[_selectedChapelSlot] = slot;
+                        // Spend RP
+                        var sectState = FactionSectState.Instance;
+                        if (sectState != null)
+                        {
+                            // Adopt the sect (deducts RP)
+                            if (sectState.TryAdopt(faction, sectId))
+                            {
+                                // Set slot to building state
+                                var slot = slots[_selectedChapelSlot];
+                                slot.State = 1;
+                                slot.SectId = new Unity.Collections.FixedString64Bytes(sectId);
+                                slot.BuildProgress = 0f;
+                                slot.BuildTime = ChapelBuildTime;
+                                slots[_selectedChapelSlot] = slot;
 
-                        _selectedChapelSlot = -1; // Close picker
-                        Debug.Log($"[TempleUI] Started building chapel '{sectId}' at slot");
-                        PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
+                                _selectedChapelSlot = -1;
+                                Debug.Log($"[TempleUI] Adopted sect '{sectId}' and started chapel build");
+                                PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
+                            }
+                            else
+                            {
+                                PlayerNotificationSystem.NotifyError("Cannot adopt sect (insufficient RP or already adopted)");
+                            }
+                        }
                     }
-                    else
+
+                    GUI.enabled = wasEnabled;
+                    GUILayout.EndHorizontal();
+
+                    if (!string.IsNullOrEmpty(passive))
                     {
-                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        GUILayout.Label($"    {passive}", _smallStyle);
                     }
-                }
-
-                GUI.enabled = wasEnabled;
-                GUILayout.EndHorizontal();
-
-                // Passive effect description
-                if (!string.IsNullOrEmpty(passive))
-                {
-                    GUILayout.Label($"  {passive}", _smallStyle);
                 }
             }
 
             if (!anyAvailable)
             {
-                GUILayout.Label("All adopted sects already have chapels", _requireStyle);
+                GUILayout.Label("All sects already assigned to slots", _requireStyle);
             }
 
-            // Cancel button
             GUILayout.Space(4);
             if (GUILayout.Button("Cancel", GUILayout.Height(20)))
             {
