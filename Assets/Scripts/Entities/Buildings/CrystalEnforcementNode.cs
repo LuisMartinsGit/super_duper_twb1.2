@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Multiplayer;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -12,17 +13,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalEnforcementNode
     {
-        private const int DefaultHP = 600;
-        private const float DefaultRadius = 1.5f;
-        private const int DefaultBuildCost = 200;
-        private const int PresentationID = 313;
-
-        // Aura defaults
-        private const float AuraRadius = 20f;
-        private const float AuraDefBonus = 0.15f;
-        private const float AuraAttBonus = 0.15f;
-        private const float AuraSpeedBonus = 0.1f;
-
         /// <summary>
         /// Create CrystalEnforcementNode using EntityManager.
         /// </summary>
@@ -41,21 +31,21 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalResourceValue)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = EnforcementNodePresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new Health { Value = EnforcementNodeHP, Max = EnforcementNodeHP });
+            em.SetComponentData(entity, new Radius { Value = EnforcementNodeRadius });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Enforcement });
             em.SetComponentData(entity, new EnforcementAura
             {
-                Radius = AuraRadius,
-                DefBonus = AuraDefBonus,
-                AttBonus = AuraAttBonus,
-                SpeedBonus = AuraSpeedBonus
+                Radius = EnforcementAuraRadius,
+                DefBonus = EnforcementAuraDefBonus,
+                AttBonus = EnforcementAuraAttBonus,
+                SpeedBonus = EnforcementAuraSpeedBonus
             });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = EnforcementNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             em.AddComponentData(entity, new NetworkedEntity
@@ -77,22 +67,22 @@ namespace TheWaningBorder.Entities
         {
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = EnforcementNodePresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new Health { Value = EnforcementNodeHP, Max = EnforcementNodeHP });
+            ecb.AddComponent(entity, new Radius { Value = EnforcementNodeRadius });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Enforcement });
             ecb.AddComponent(entity, new EnforcementAura
             {
-                Radius = AuraRadius,
-                DefBonus = AuraDefBonus,
-                AttBonus = AuraAttBonus,
-                SpeedBonus = AuraSpeedBonus
+                Radius = EnforcementAuraRadius,
+                DefBonus = EnforcementAuraDefBonus,
+                AttBonus = EnforcementAuraAttBonus,
+                SpeedBonus = EnforcementAuraSpeedBonus
             });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = DefaultBuildCost });
+            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = EnforcementNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
             ecb.AddComponent(entity, new NetworkedEntity

@@ -11,6 +11,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
 using Cost = TheWaningBorder.Core.Cost;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Crystal
 {
@@ -43,16 +44,16 @@ namespace TheWaningBorder.Systems.Crystal
         private EntityQuery _hallQuery;           // HallTag + FactionTag + LocalTransform
         private EntityQuery _mainNodeTransformQuery; // CrystalMainNodeTag + LocalTransform (expansion)
 
-        // Building costs (crystal) — tuned so curse expands slowly early
-        private const int ResourceNodeCost = 120;
-        private const int TurretNodeCost = 200;
-        private const int RestorationNodeCost = 250;
-        private const int EnforcementNodeCost = 400;
-        private const int SuppressionNodeCost = 400;
-        private const int CrystallingCost = 50;
-        private const int VeilstingerCost = 150;
-        private const int GodsplinterCost = 500;
-        private const int ExpansionCost = 3000;
+        // AI costs — centralised in CrystalConstants
+        private const int ResourceNodeCost = AIResourceNodeCost;
+        private const int TurretNodeCost = AITurretNodeCost;
+        private const int RestorationNodeCost = AIRestorationNodeCost;
+        private const int EnforcementNodeCost = AIEnforcementNodeCost;
+        private const int SuppressionNodeCost = AISuppressionNodeCost;
+        private const int CrystallingCost = AICrystallingCost;
+        private const int VeilstingerCost = AIVeilstingerCost;
+        private const int GodsplinterCost = AIGodsplinterCost;
+        private const int ExpansionCost = AIExpansionCost;
 
         // Expansion pacing — new curse nodes start fast, slow logarithmically
         private const int MaxCurseNodes = 16;
