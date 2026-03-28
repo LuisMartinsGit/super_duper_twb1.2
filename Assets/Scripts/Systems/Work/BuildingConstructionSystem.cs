@@ -204,6 +204,14 @@ namespace TheWaningBorder.Systems.Work
                 em.SetComponentData(building, hp);
             }
 
+            // Restore full scale (safety net for any construction scale changes)
+            if (em.HasComponent<LocalTransform>(building))
+            {
+                var lt = em.GetComponentData<LocalTransform>(building);
+                lt.Scale = 1f;
+                em.SetComponentData(building, lt);
+            }
+
             // Safety net: ensure GathererHuts have SuppliesIncome after completion
             if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<SuppliesIncome>(building))
             {

@@ -755,12 +755,27 @@ public class PresentationSpawnSystem : MonoBehaviour
         var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
         var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
+        var em = World.DefaultGameObjectInjectionWorld?.EntityManager;
+
         for (int i = 0; i < entities.Length; i++)
         {
             if (EntityViewManager.Instance.TryGetView(entities[i], out var go) && go != null)
             {
                 var pos = (Vector3)transforms[i].Position;
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+
+                // Construction rising animation: buildings start below ground and rise
+                if (em.HasValue && em.Value.HasComponent<UnderConstruction>(entities[i]))
+                {
+                    var uc = em.Value.GetComponentData<UnderConstruction>(entities[i]);
+                    float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
+                    // Sink depth based on building radius (taller buildings sink more)
+                    float sinkDepth = em.Value.HasComponent<Radius>(entities[i])
+                        ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
+                        : 3f;
+                    pos.y -= sinkDepth * (1f - ratio);
+                }
+
                 go.transform.position = pos;
                 go.transform.rotation = transforms[i].Rotation;
                 // Respect procedural unit base scale (ProceduralScaleTag)
