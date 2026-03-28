@@ -69,12 +69,11 @@ namespace TheWaningBorder.UI.Menus
             _multiplayerLobby.OnBackPressed += () => SetState(MenuState.MainMenu);
             _optionsMenu.OnBackPressed += () => SetState(MenuState.MainMenu);
 
-            GenerateBackground();
+            _bgTexture = Resources.Load<Texture2D>("UI/southood");
         }
 
         void Update()
         {
-            // Pan background
             _panOffset += PanSpeed * Time.deltaTime;
 
             if (_pendingScenario.HasValue)
@@ -107,78 +106,39 @@ namespace TheWaningBorder.UI.Menus
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // BACKGROUND
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void GenerateBackground()
-        {
-            // Generate a procedural dark fantasy landscape texture
-            int w = 512, h = 512;
-            _bgTexture = new Texture2D(w, h, TextureFormat.RGB24, false);
-            _bgTexture.wrapMode = TextureWrapMode.Repeat;
-
-            for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    float nx = x / (float)w;
-                    float ny = y / (float)h;
-
-                    // Layered noise for a dark mountainous landscape feel
-                    float n1 = Mathf.PerlinNoise(nx * 3f, ny * 3f);
-                    float n2 = Mathf.PerlinNoise(nx * 7f + 100f, ny * 7f + 100f) * 0.5f;
-                    float n3 = Mathf.PerlinNoise(nx * 15f + 200f, ny * 15f + 200f) * 0.25f;
-                    float val = (n1 + n2 + n3) / 1.75f;
-
-                    // Gradient: darker at top, slightly lighter at bottom horizon
-                    float gradient = Mathf.Lerp(0.6f, 1.0f, ny);
-                    val *= gradient;
-
-                    // Dark navy/purple palette
-                    float r = val * 0.08f + 0.02f;
-                    float g = val * 0.06f + 0.03f;
-                    float b = val * 0.15f + 0.06f;
-
-                    // Add subtle golden highlights on peaks
-                    if (val > 0.55f)
-                    {
-                        float highlight = (val - 0.55f) * 2f;
-                        r += highlight * 0.12f;
-                        g += highlight * 0.08f;
-                        b += highlight * 0.02f;
-                    }
-
-                    _bgTexture.SetPixel(x, y, new Color(r, g, b));
-                }
-            }
-            _bgTexture.Apply();
-        }
-
         private void DrawBackground()
         {
             if (_bgTexture == null) return;
 
-            // Tile the texture across the screen with slow horizontal pan
-            float texAspect = 1f; // square texture
             float screenW = Screen.width;
             float screenH = Screen.height;
+            float texAspect = (float)_bgTexture.width / _bgTexture.height;
 
-            // Scale texture to cover screen height, tile horizontally
+            // Scale image to fill screen height, wider than screen for pan room
             float drawH = screenH;
             float drawW = drawH * texAspect;
-            float offset = _panOffset % drawW;
 
-            // Draw enough tiles to cover screen + pan offset
-            for (float x = -offset; x < screenW + drawW; x += drawW)
+            // Ensure the image is wide enough to pan; if not, scale up
+            float panRange = drawW - screenW;
+            if (panRange < 100f)
             {
-                GUI.DrawTexture(new Rect(x, 0, drawW, drawH), _bgTexture, ScaleMode.StretchToFill);
+                drawW = screenW + 200f;
+                drawH = drawW / texAspect;
             }
+            panRange = drawW - screenW;
 
-            // Dark overlay vignette
-            var overlayTex = Texture2D.whiteTexture;
-            GUI.color = new Color(0f, 0f, 0.05f, 0.3f);
-            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), overlayTex);
+            // Slow ping-pong pan (oscillates left-right)
+            float t = Mathf.PingPong(_panOffset / panRange, 1f);
+            float offsetX = -t * panRange;
+
+            // Center vertically if image is taller than screen
+            float offsetY = (screenH - drawH) * 0.5f;
+
+            GUI.DrawTexture(new Rect(offsetX, offsetY, drawW, drawH), _bgTexture, ScaleMode.StretchToFill);
+
+            // Subtle dark overlay for text readability
+            GUI.color = new Color(0f, 0f, 0.02f, 0.35f);
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
             GUI.color = Color.white;
         }
 
