@@ -136,7 +136,7 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 var ai = aiStates[n];
                 var nodePos = transforms[n].Position;
-                float spreadRadius = spreadStates[n].CurrentRingRadius;
+                float spreadRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
                 int nodeLevel = nodeLevels[n].Value;
 
                 // Refresh bank balance (may have changed from previous node's spending)
@@ -149,7 +149,7 @@ namespace TheWaningBorder.Systems.Crystal
                 // === BUILD PHASE (sub-buildings) ===
                 // Rate limited only by crystal bank — fixed short interval
                 ai.BuildTimer -= DecisionInterval;
-                if (ai.BuildTimer <= 0 && spreadRadius > 5f)
+                if (ai.BuildTimer <= 0)
                 {
                     TryBuildSubNode(em, ref ai, nodePos, spreadRadius,
                         ref random, ref crystalBank);
@@ -185,7 +185,7 @@ namespace TheWaningBorder.Systems.Crystal
                     int curseNodeCount = entities.Length;
                     if (curseNodeCount < MaxCurseNodes)
                     {
-                        TryExpand(em, nodePos, ref random, ref crystalBank);
+                        TryExpand(em, nodePos, spreadRadius, ref random, ref crystalBank);
 
                         // Cooldown grows with elapsed time
                         float elapsedMinutes = (float)(World.Time.ElapsedTime / 60.0);
@@ -491,46 +491,33 @@ namespace TheWaningBorder.Systems.Crystal
         }
 
         private void TryExpand(EntityManager em, float3 currentNodePos,
-            ref Random random, ref int crystalBank)
+            float territoryRadius, ref Random random, ref int crystalBank)
         {
-            // Get all existing main node positions to avoid placing too close
-            using var nodeTransforms = _mainNodeTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            float spawnRange = 80f; // Try within 80 units of current node
-            bool found = false;
-            float3 expandPos = float3.zero;
-
+            // New main nodes must spawn within the area of influence of an existing node.
+            // Candidates are placed near the edge of the parent's territory (within 5 units).
             var grid = PassabilityGrid.Instance;
             int half = GameSettings.MapHalfSize;
+
+            bool found = false;
+            float3 expandPos = float3.zero;
 
             for (int attempt = 0; attempt < 20; attempt++)
             {
                 float angle = random.NextFloat(0, math.PI * 2);
-                float dist = random.NextFloat(40, spawnRange);
+                // Spawn near edge of parent territory (within last 5 units of radius)
+                float dist = random.NextFloat(
+                    math.max(1f, territoryRadius - 5f),
+                    territoryRadius);
                 float3 candidate = currentNodePos + new float3(
                     math.cos(angle) * dist, 0, math.sin(angle) * dist);
 
-                // Must be within map bounds
                 if (math.abs(candidate.x) > half || math.abs(candidate.z) > half)
                     continue;
 
                 candidate.y = TerrainUtility.GetHeight(candidate.x, candidate.z);
 
-                // Must be on passable terrain
                 if (grid != null && !grid.IsPassable(candidate))
                     continue;
-
-                // Check distance from all existing main nodes (min 50 apart)
-                bool tooClose = false;
-                for (int n = 0; n < nodeTransforms.Length; n++)
-                {
-                    if (math.distance(candidate, nodeTransforms[n].Position) < 50f)
-                    {
-                        tooClose = true;
-                        break;
-                    }
-                }
-                if (tooClose) continue;
 
                 expandPos = candidate;
                 found = true;
@@ -539,7 +526,6 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (!found) return;
 
-            // Spend and create
             if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ExpansionCost)))
             {
                 CrystalMainNode.Create(em, expandPos);
