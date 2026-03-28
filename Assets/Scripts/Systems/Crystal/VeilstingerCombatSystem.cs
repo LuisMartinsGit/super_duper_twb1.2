@@ -32,8 +32,8 @@ namespace TheWaningBorder.Systems.Crystal
         // Gun offset constants relative to the unit's center
         // These approximate the leftgun/rightgun child positions on the Veilstinger prefab
         private const float GunSideOffset = 0.5f;   // Left/right distance from center
-        private const float GunHeightOffset = 1.2f;  // Height above ground
         private const float GunForwardOffset = 0.3f; // Slightly in front of center
+        private const float DefaultSpawnYOffset = 1.5f; // Fallback if no Radius component
 
         // Cached query — created once in OnCreate, reused every frame
         private EntityQuery _targetQuery;
@@ -168,6 +168,11 @@ namespace TheWaningBorder.Systems.Crystal
                         if (em.HasComponent<DamageTypeData>(entity))
                             dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
+                        // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
+                        float gunHeight = em.HasComponent<Radius>(entity)
+                            ? em.GetComponentData<Radius>(entity).Value + 0.5f
+                            : DefaultSpawnYOffset;
+
                         // Compute gun world positions based on facing direction
                         var facingDir = math.normalizesafe(
                             new float3(targetPos.x - myPos.x, 0, targetPos.z - myPos.z),
@@ -177,12 +182,12 @@ namespace TheWaningBorder.Systems.Crystal
                         float3 leftGunPos = myPos
                             + facingDir * GunForwardOffset
                             - rightDir * GunSideOffset
-                            + new float3(0, GunHeightOffset, 0);
+                            + new float3(0, gunHeight, 0);
 
                         float3 rightGunPos = myPos
                             + facingDir * GunForwardOffset
                             + rightDir * GunSideOffset
-                            + new float3(0, GunHeightOffset, 0);
+                            + new float3(0, gunHeight, 0);
 
                         // Fire primary laser from left gun at Target1
                         CreateLaserFromGun(ref ecb, leftGunPos, targetPos,

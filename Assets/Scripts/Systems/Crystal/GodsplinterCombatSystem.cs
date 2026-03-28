@@ -140,19 +140,24 @@ namespace TheWaningBorder.Systems.Crystal
                     int siegeFinal = CombatModifiers.CalculateFinalDamage(
                         siegeDmg, dmgType, armorType, defenseValue, 1.0f, crystalMod);
 
-                    // Apply direct damage to target
+                    // Apply direct damage to target — use immediate write so multiple attackers
+                    // in the same frame correctly stack damage (not last-write-wins via ECB)
                     var health = em.GetComponentData<Health>(tgt.Value);
                     health.Value -= siegeFinal;
                     if (health.Value < 0) health.Value = 0;
-                    ecb.SetComponent(tgt.Value, health);
+                    em.SetComponentData(tgt.Value, health);
 
                     // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
                     if (em.HasComponent<FactionTag>(entity))
                     {
-                        ecb.AddComponent(tgt.Value, new LastDamagedByFaction
+                        var lastDamaged = new LastDamagedByFaction
                         {
                             Value = em.GetComponentData<FactionTag>(entity).Value
-                        });
+                        };
+                        if (em.HasComponent<LastDamagedByFaction>(tgt.Value))
+                            em.SetComponentData(tgt.Value, lastDamaged);
+                        else
+                            ecb.AddComponent(tgt.Value, lastDamaged);
                     }
 
                     // Reset siege cooldown
@@ -222,11 +227,16 @@ namespace TheWaningBorder.Systems.Crystal
                         }
                     }
 
+                    // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
+                    float spawnYOffset = em.HasComponent<Radius>(entity)
+                        ? em.GetComponentData<Radius>(entity).Value + 0.5f
+                        : 1.5f;
+
                     // Fire laser at each target
                     for (int t = 0; t < targets.Length; t++)
                     {
                         CreateLaser(ref ecb, myPos, targets[t].Position,
-                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity, dmgType);
+                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity, dmgType, spawnYOffset);
                     }
 
                     if (targets.Length > 0)
@@ -280,7 +290,7 @@ namespace TheWaningBorder.Systems.Crystal
         /// </summary>
         private static void CreateLaser(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
-            DamageType dmgType = DamageType.Siege)
+            DamageType dmgType = DamageType.Siege, float spawnYOffset = 1.5f)
         {
             var direction = math.normalize(targetPos - start);
             var velocity = direction * LaserSpeed;
@@ -290,7 +300,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             ecb.AddComponent(laser, new LocalTransform
             {
-                Position = start + new float3(0, 2.5f, 0), // Spawn above Godsplinter (tall unit)
+                Position = start + new float3(0, spawnYOffset, 0),
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });

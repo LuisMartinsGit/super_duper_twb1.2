@@ -99,6 +99,14 @@ namespace TheWaningBorder.Systems.Training
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
                         int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId);
 
+                        // Battalions spawn multiple members — scale pop cost accordingly
+                        var spawnClass = UnitFactory.GetUnitClass(unitId);
+                        if (spawnClass == UnitClass.Melee || spawnClass == UnitClass.Ranged)
+                        {
+                            int battalionSize = 5 * 3; // BattalionFactory.DefaultColumns * DefaultRows
+                            requiredPop = requiredPop * battalionSize;
+                        }
+
                         // Include units already spawned this frame in the capacity check
                         int facKey = (int)faction;
                         spawnedPopThisFrame.TryGetValue(facKey, out int extraSpawned);

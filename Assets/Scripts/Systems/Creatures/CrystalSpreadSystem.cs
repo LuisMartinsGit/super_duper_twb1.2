@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Creatures
 {
@@ -69,33 +70,34 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // === Main Node Spread ===
-            foreach (var (crystalNode, nodeLevel, transform, entity) in SystemAPI
-                .Query<RefRW<CrystalNode>, RefRW<CrystalNodeLevel>, RefRO<LocalTransform>>()
+            foreach (var (crystalNode, spreadState, nodeLevel, transform, entity) in SystemAPI
+                .Query<RefRO<CrystalNode>, RefRW<CrystalSpreadState>, RefRW<CrystalNodeLevel>, RefRO<LocalTransform>>()
                 .WithAll<CrystalMainNodeTag>()
                 .WithEntityAccess())
             {
-                ref var node = ref crystalNode.ValueRW;
-                if (node.Enabled == 0) continue;
+                if (crystalNode.ValueRO.Enabled == 0) continue;
+
+                ref var spread = ref spreadState.ValueRW;
 
                 // Update node level from current spread radius
-                nodeLevel.ValueRW.Value = CrystalNodeLevel.FromRadius(node.CurrentRingRadius);
+                nodeLevel.ValueRW.Value = CrystalNodeLevel.FromRadius(spread.CurrentRingRadius);
 
-                // Tick timer
-                node.TickTimer += dt;
-                if (node.TickTimer < node.TickInterval) continue;
-                node.TickTimer = 0f;
+                // Tick timer (interval from CrystalConstants)
+                spread.TickTimer += dt;
+                if (spread.TickTimer < MainNodeTickInterval) continue;
+                spread.TickTimer = 0f;
 
                 // Ring already at max radius -- nothing to spread
-                if (node.CurrentRingRadius >= node.SpreadRadius) continue;
+                if (spread.CurrentRingRadius >= crystalNode.ValueRO.SpreadRadius) continue;
 
                 // Level-based ring step: fast early, slow late
                 int level = nodeLevel.ValueRW.Value;
                 float ringStep = level == 1 ? 3.0f : level == 2 ? 2.0f : 1.0f;
 
                 // Advance the ring frontier
-                float prevRadius = node.CurrentRingRadius;
-                float newRadius = math.min(prevRadius + ringStep, node.SpreadRadius);
-                node.CurrentRingRadius = newRadius;
+                float prevRadius = spread.CurrentRingRadius;
+                float newRadius = math.min(prevRadius + ringStep, crystalNode.ValueRO.SpreadRadius);
+                spread.CurrentRingRadius = newRadius;
 
                 // Per-node budget check
                 int perNodeBudget = MaxTilesPerNode - (existingGroundTotal / math.max(1, nodeCount));
@@ -108,8 +110,8 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // === Resource Sub-Node Spread ===
-            foreach (var (crystalNode, transform, subTag, entity) in SystemAPI
-                .Query<RefRW<CrystalNode>, RefRO<LocalTransform>, RefRO<CrystalSubNodeTag>>()
+            foreach (var (crystalNode, spreadState, transform, subTag, entity) in SystemAPI
+                .Query<RefRO<CrystalNode>, RefRW<CrystalSpreadState>, RefRO<LocalTransform>, RefRO<CrystalSubNodeTag>>()
                 .WithAll<CrystalSubNodeTag>()
                 .WithNone<CrystalMainNodeTag>()
                 .WithEntityAccess())
@@ -117,22 +119,23 @@ namespace TheWaningBorder.Systems.Creatures
                 // Only Resource sub-nodes spread cursed ground
                 if (subTag.ValueRO.Type != CrystalSubNodeType.Resource) continue;
 
-                ref var node = ref crystalNode.ValueRW;
-                if (node.Enabled == 0) continue;
+                if (crystalNode.ValueRO.Enabled == 0) continue;
 
-                // Tick timer
-                node.TickTimer += dt;
-                if (node.TickTimer < node.TickInterval) continue;
-                node.TickTimer = 0f;
+                ref var spread = ref spreadState.ValueRW;
+
+                // Tick timer (interval from CrystalConstants)
+                spread.TickTimer += dt;
+                if (spread.TickTimer < ResourceNodeTickInterval) continue;
+                spread.TickTimer = 0f;
 
                 // Ring already at max radius -- nothing to spread
-                if (node.CurrentRingRadius >= node.SpreadRadius) continue;
+                if (spread.CurrentRingRadius >= crystalNode.ValueRO.SpreadRadius) continue;
 
                 float ringStep = BaseRingStep;
 
-                float prevRadius = node.CurrentRingRadius;
-                float newRadius = math.min(prevRadius + ringStep, node.SpreadRadius);
-                node.CurrentRingRadius = newRadius;
+                float prevRadius = spread.CurrentRingRadius;
+                float newRadius = math.min(prevRadius + ringStep, crystalNode.ValueRO.SpreadRadius);
+                spread.CurrentRingRadius = newRadius;
 
                 int perNodeBudget = MaxTilesPerNode - (existingGroundTotal / math.max(1, nodeCount));
                 if (perNodeBudget <= 0) continue;

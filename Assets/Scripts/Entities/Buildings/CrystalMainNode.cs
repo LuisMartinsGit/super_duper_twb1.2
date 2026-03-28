@@ -29,6 +29,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalTag),
                 typeof(CrystalMainNodeTag),
                 typeof(CrystalNode),
+                typeof(CrystalSpreadState),
                 typeof(CrystalNodeLevel),
                 typeof(CrystalAIState),
                 typeof(CrystalResourceValue),
@@ -44,13 +45,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalNode
             {
-                SpreadPerTick = MainNodeSpreadPerTick,
                 SpreadRadius = MainNodeSpreadRadius,
-                TickInterval = MainNodeTickInterval,
-                TickTimer = 0f,
-                CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            em.SetComponentData(entity, new CrystalSpreadState { TickTimer = 0f, CurrentRingRadius = 0f });
             em.SetComponentData(entity, new CrystalNodeLevel { Value = 1 });
             em.SetComponentData(entity, new CrystalAIState
             {
@@ -106,13 +104,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent<CrystalMainNodeTag>(entity);
             ecb.AddComponent(entity, new CrystalNode
             {
-                SpreadPerTick = MainNodeSpreadPerTick,
                 SpreadRadius = MainNodeSpreadRadius,
-                TickInterval = MainNodeTickInterval,
-                TickTimer = 0f,
-                CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            ecb.AddComponent(entity, new CrystalSpreadState { TickTimer = 0f, CurrentRingRadius = 0f });
             ecb.AddComponent(entity, new CrystalNodeLevel { Value = 1 });
             ecb.AddComponent(entity, new CrystalAIState
             {

@@ -40,10 +40,12 @@ namespace TheWaningBorder.Systems.Visibility
             mgr.BeginFrame();
 
             // Query all entities with LineOfSight and position
+            // Exclude CrystalTag: crystal entities are enemy to all players and should NOT reveal fog
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<LineOfSight>(),
                 ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<CrystalTag>());
 
             var entities = query.ToEntityArray(Allocator.Temp);
             var lineOfSights = query.ToComponentDataArray<LineOfSight>(Allocator.Temp);

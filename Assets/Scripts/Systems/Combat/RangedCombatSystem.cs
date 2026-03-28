@@ -177,12 +177,17 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<DamageTypeData>(entity))
                             dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
+                        // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
+                        float spawnYOffset = em.HasComponent<Radius>(entity)
+                            ? em.GetComponentData<Radius>(entity).Value + 0.5f
+                            : 1.5f;
+
                         // Create arrow projectile
                         bool isAOE = em.HasComponent<AOEShooterData>(entity);
                         float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
                         CreateArrow(ref ecb, myPos, targetPos, dist, entity,
                             faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType,
-                            isAOE, aoeRadius);
+                            isAOE, aoeRadius, spawnYOffset);
 
                         // Reset state — use unit's configured cooldown
                         float cooldownValue = 1.5f;
@@ -274,7 +279,8 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         private void CreateArrow(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
-            DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f)
+            DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f,
+            float spawnYOffset = 1.5f)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -297,7 +303,7 @@ namespace TheWaningBorder.Systems.Combat
 
             ecb.AddComponent(arrow, new LocalTransform
             {
-                Position = start + new float3(0, 1.5f, 0), // Spawn at archer height
+                Position = start + new float3(0, spawnYOffset, 0),
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });
