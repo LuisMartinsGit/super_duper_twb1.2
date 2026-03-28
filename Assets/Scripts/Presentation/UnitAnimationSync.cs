@@ -144,7 +144,7 @@ namespace TheWaningBorder.Presentation
                 if (_em.HasComponent<MinerState>(LinkedEntity))
                 {
                     var miner = _em.GetComponentData<MinerState>(LinkedEntity);
-                    isWorking = miner.State == (byte)MinerWorkState.Gathering;
+                    isWorking = miner.State == MinerWorkState.Gathering;
                 }
 
                 // Builder: check active BuildOrder

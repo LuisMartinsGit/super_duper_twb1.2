@@ -7,6 +7,7 @@ using UnityEngine;
 using Unity.Entities;
 using System.Collections.Generic;
 using TheWaningBorder.Economy;
+using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
 
 namespace TheWaningBorder.UI.HUD
