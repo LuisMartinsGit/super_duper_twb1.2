@@ -281,7 +281,7 @@ public struct FlowFieldLookup
         // walk into forests when the flow field direction was close to direct.
         if (PassabilityCells.IsCreated)
         {
-            float lookAhead = math.min(distToGoal, CellSize * 20f);
+            float lookAhead = math.min(distToGoal, CellSize * 8f);
             bool pathClear = true;
 
             for (float d = CellSize; d <= lookAhead; d += CellSize)

@@ -30,10 +30,99 @@ namespace TheWaningBorder.Systems.Movement
         // Reassign slots when formation rotates more than this (radians ≈ 30°)
         private const float ReassignAngleThreshold = 0.52f;
 
+        // Initial capacity for cached NativeArrays (grows if a battalion exceeds this)
+        private const int InitialMaxMembers = 128;
+        private const int InitialMaxSlots   = 128;
+
+        // Persistent cached arrays — reused across frames to avoid per-frame allocation
+        private NativeArray<Entity> _members;
+        private NativeArray<float3> _memberPos;
+        private NativeArray<bool>   _memberAlive;
+        private NativeArray<float3> _targetPositions;
+        private NativeArray<float>  _memberDistances;
+        private NativeArray<bool>   _followsLeader;
+        private NativeArray<float3> _slotWorldPositions;
+        private NativeArray<int>    _slotAssignment;
+        private NativeArray<bool>   _memberUsed;
+
+        private int _memberCapacity;
+        private int _slotCapacity;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BattalionLeader>();
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+
+            _memberCapacity = InitialMaxMembers;
+            _slotCapacity   = InitialMaxSlots;
+
+            _members          = new NativeArray<Entity>(InitialMaxMembers, Allocator.Persistent);
+            _memberPos        = new NativeArray<float3>(InitialMaxMembers, Allocator.Persistent);
+            _memberAlive      = new NativeArray<bool>(InitialMaxMembers, Allocator.Persistent);
+            _targetPositions  = new NativeArray<float3>(InitialMaxMembers, Allocator.Persistent);
+            _memberDistances  = new NativeArray<float>(InitialMaxMembers, Allocator.Persistent);
+            _followsLeader    = new NativeArray<bool>(InitialMaxMembers, Allocator.Persistent);
+            _slotWorldPositions = new NativeArray<float3>(InitialMaxSlots, Allocator.Persistent);
+            _slotAssignment     = new NativeArray<int>(InitialMaxSlots, Allocator.Persistent);
+            _memberUsed         = new NativeArray<bool>(InitialMaxMembers, Allocator.Persistent);
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+            if (_members.IsCreated)          _members.Dispose();
+            if (_memberPos.IsCreated)        _memberPos.Dispose();
+            if (_memberAlive.IsCreated)      _memberAlive.Dispose();
+            if (_targetPositions.IsCreated)  _targetPositions.Dispose();
+            if (_memberDistances.IsCreated)  _memberDistances.Dispose();
+            if (_followsLeader.IsCreated)    _followsLeader.Dispose();
+            if (_slotWorldPositions.IsCreated) _slotWorldPositions.Dispose();
+            if (_slotAssignment.IsCreated)     _slotAssignment.Dispose();
+            if (_memberUsed.IsCreated)         _memberUsed.Dispose();
+        }
+
+        /// <summary>
+        /// Ensure member-sized arrays have at least the given capacity.
+        /// Disposes old arrays and allocates new ones only when growth is needed.
+        /// </summary>
+        private void EnsureMemberCapacity(int needed)
+        {
+            if (needed <= _memberCapacity) return;
+            int newCap = math.max(needed, _memberCapacity * 2);
+
+            if (_members.IsCreated)         _members.Dispose();
+            if (_memberPos.IsCreated)       _memberPos.Dispose();
+            if (_memberAlive.IsCreated)     _memberAlive.Dispose();
+            if (_targetPositions.IsCreated) _targetPositions.Dispose();
+            if (_memberDistances.IsCreated) _memberDistances.Dispose();
+            if (_followsLeader.IsCreated)   _followsLeader.Dispose();
+            if (_memberUsed.IsCreated)      _memberUsed.Dispose();
+
+            _members         = new NativeArray<Entity>(newCap, Allocator.Persistent);
+            _memberPos       = new NativeArray<float3>(newCap, Allocator.Persistent);
+            _memberAlive     = new NativeArray<bool>(newCap, Allocator.Persistent);
+            _targetPositions = new NativeArray<float3>(newCap, Allocator.Persistent);
+            _memberDistances = new NativeArray<float>(newCap, Allocator.Persistent);
+            _followsLeader   = new NativeArray<bool>(newCap, Allocator.Persistent);
+            _memberUsed      = new NativeArray<bool>(newCap, Allocator.Persistent);
+
+            _memberCapacity = newCap;
+        }
+
+        /// <summary>
+        /// Ensure slot-sized arrays have at least the given capacity.
+        /// </summary>
+        private void EnsureSlotCapacity(int needed)
+        {
+            if (needed <= _slotCapacity) return;
+            int newCap = math.max(needed, _slotCapacity * 2);
+
+            if (_slotWorldPositions.IsCreated) _slotWorldPositions.Dispose();
+            if (_slotAssignment.IsCreated)     _slotAssignment.Dispose();
+
+            _slotWorldPositions = new NativeArray<float3>(newCap, Allocator.Persistent);
+            _slotAssignment     = new NativeArray<int>(newCap, Allocator.Persistent);
+
+            _slotCapacity = newCap;
         }
 
         public void OnUpdate(ref SystemState state)
@@ -127,61 +216,58 @@ namespace TheWaningBorder.Systems.Movement
                 }
 
                 // ── 2. Collect living members and their current positions ──
-                var members     = new NativeArray<Entity>(memberCount, Allocator.Temp);
-                var memberPos   = new NativeArray<float3>(memberCount, Allocator.Temp);
-                var memberAlive = new NativeArray<bool>(memberCount, Allocator.Temp);
+                EnsureMemberCapacity(memberCount);
+                EnsureSlotCapacity(slotCount);
                 int aliveCount = 0;
 
                 for (int i = 0; i < memberCount; i++)
                 {
                     var m = buffer[i].Value;
-                    members[i] = m;
+                    _members[i] = m;
                     if (em.Exists(m) && em.HasComponent<LocalTransform>(m) && em.HasComponent<BattalionMemberData>(m))
                     {
-                        memberPos[i] = em.GetComponentData<LocalTransform>(m).Position;
-                        memberAlive[i] = true;
+                        _memberPos[i] = em.GetComponentData<LocalTransform>(m).Position;
+                        _memberAlive[i] = true;
                         aliveCount++;
                     }
                     else
                     {
-                        memberPos[i] = float3.zero;
-                        memberAlive[i] = false;
+                        _memberPos[i] = float3.zero;
+                        _memberAlive[i] = false;
                     }
                 }
 
                 // ── 3. Greedy nearest-slot assignment (only when needed) ──
                 if (runReassignment && aliveCount > 0)
                 {
-                    // Compute slot world positions for assignment
-                    var slotWorldPositions = new NativeArray<float3>(slotCount, Allocator.Temp);
+                    // Compute slot world positions for assignment (reuse cached array)
                     for (int row = 0; row < rows; row++)
                     {
                         for (int col = 0; col < cols; col++)
                         {
                             int idx = row * cols + col;
                             float3 localOffset = BattalionFormation.ComputeSlotOffset(col, row, cols, rows, spacing);
-                            slotWorldPositions[idx] = leaderPos + math.mul(formationRot, localOffset);
+                            _slotWorldPositions[idx] = leaderPos + math.mul(formationRot, localOffset);
                         }
                     }
 
-                    var slotAssignment = new NativeArray<int>(slotCount, Allocator.Temp);
-                    var memberUsed = new NativeArray<bool>(memberCount, Allocator.Temp);
-
                     for (int s = 0; s < slotCount; s++)
-                        slotAssignment[s] = -1;
+                        _slotAssignment[s] = -1;
+                    for (int m = 0; m < memberCount; m++)
+                        _memberUsed[m] = false;
 
                     // Greedy front-to-back: for each slot, find closest alive unassigned member
                     for (int s = 0; s < slotCount; s++)
                     {
-                        float3 slotPos = slotWorldPositions[s];
+                        float3 slotPos = _slotWorldPositions[s];
                         float bestDist = float.MaxValue;
                         int bestMember = -1;
 
                         for (int m = 0; m < memberCount; m++)
                         {
-                            if (!memberAlive[m] || memberUsed[m]) continue;
+                            if (!_memberAlive[m] || _memberUsed[m]) continue;
 
-                            float3 diff = slotPos - memberPos[m];
+                            float3 diff = slotPos - _memberPos[m];
                             diff.y = 0f;
                             float d = math.lengthsq(diff);
                             if (d < bestDist)
@@ -193,53 +279,46 @@ namespace TheWaningBorder.Systems.Movement
 
                         if (bestMember >= 0)
                         {
-                            slotAssignment[s] = bestMember;
-                            memberUsed[bestMember] = true;
+                            _slotAssignment[s] = bestMember;
+                            _memberUsed[bestMember] = true;
                         }
                     }
 
                     // Write new assignments onto member components
                     for (int s = 0; s < slotCount; s++)
                     {
-                        int mi = slotAssignment[s];
+                        int mi = _slotAssignment[s];
                         if (mi < 0) continue;
 
                         int newCol = s % cols;
                         int newRow = s / cols;
 
-                        var md = em.GetComponentData<BattalionMemberData>(members[mi]);
+                        var md = em.GetComponentData<BattalionMemberData>(_members[mi]);
                         if (md.Column != newCol || md.Row != newRow)
                         {
                             md.Column = newCol;
                             md.Row = newRow;
-                            em.SetComponentData(members[mi], md);
+                            em.SetComponentData(_members[mi], md);
                         }
                     }
 
                     // Record the rotation used for this assignment
                     leader.ValueRW.LastAssignmentRot = formationRot;
-
-                    slotWorldPositions.Dispose();
-                    slotAssignment.Dispose();
-                    memberUsed.Dispose();
                 }
 
                 // ── 4. Compute per-member target positions using sticky Column/Row ──
-                var targetPositions = new NativeArray<float3>(memberCount, Allocator.Temp);
-                var memberDistances = new NativeArray<float>(memberCount, Allocator.Temp);
-                var followsLeader  = new NativeArray<bool>(memberCount, Allocator.Temp);
                 float maxDist = 0f;
 
                 for (int i = 0; i < memberCount; i++)
                 {
-                    if (!memberAlive[i])
+                    if (!_memberAlive[i])
                     {
-                        memberDistances[i] = -1f;
+                        _memberDistances[i] = -1f;
                         continue;
                     }
 
                     // Use existing Column/Row from BattalionMemberData (sticky assignment)
-                    var md = em.GetComponentData<BattalionMemberData>(members[i]);
+                    var md = em.GetComponentData<BattalionMemberData>(_members[i]);
                     float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
                     float3 target = leaderPos + math.mul(formationRot, localOffset);
 
@@ -251,7 +330,7 @@ namespace TheWaningBorder.Systems.Movement
                     // may need to traverse through blocked cells to reach it.
                     if (!slotBlocked && passGrid != null)
                     {
-                        float3 toSlot = target - memberPos[i];
+                        float3 toSlot = target - _memberPos[i];
                         toSlot.y = 0;
                         float slotDist = math.length(toSlot);
                         if (slotDist > spacing)
@@ -261,7 +340,7 @@ namespace TheWaningBorder.Systems.Movement
                             float checkDist = slotDist;
                             for (float d = cellSize; d <= checkDist; d += cellSize)
                             {
-                                float3 checkPos = memberPos[i] + slotDir * d;
+                                float3 checkPos = _memberPos[i] + slotDir * d;
                                 if (!passGrid.IsPassable(checkPos))
                                 {
                                     slotBlocked = true;
@@ -272,7 +351,7 @@ namespace TheWaningBorder.Systems.Movement
                     }
 
                     // Check if member is too far from leader (separated by obstacle)
-                    float3 toLeader = memberPos[i] - leaderPos;
+                    float3 toLeader = _memberPos[i] - leaderPos;
                     toLeader.y = 0;
                     float formationRadius = math.max(cols, rows) * spacing;
                     bool tooFar = math.lengthsq(toLeader) > formationRadius * formationRadius * 4f;
@@ -281,19 +360,19 @@ namespace TheWaningBorder.Systems.Movement
                     {
                         // Can't reach slot — follow the leader via flow field
                         target = leaderPos;
-                        followsLeader[i] = true;
+                        _followsLeader[i] = true;
                     }
                     else
                     {
-                        followsLeader[i] = false;
+                        _followsLeader[i] = false;
                     }
 
-                    targetPositions[i] = target;
+                    _targetPositions[i] = target;
 
-                    float3 diff = target - memberPos[i];
+                    float3 diff = target - _memberPos[i];
                     diff.y = 0f;
                     float dist = math.length(diff);
-                    memberDistances[i] = dist;
+                    _memberDistances[i] = dist;
                     if (dist > maxDist) maxDist = dist;
                 }
 
@@ -308,12 +387,12 @@ namespace TheWaningBorder.Systems.Movement
                 // ── 5. Move each member toward its target ──
                 for (int i = 0; i < memberCount; i++)
                 {
-                    if (memberDistances[i] < 0f) continue;
+                    if (_memberDistances[i] < 0f) continue;
 
-                    var member = members[i];
+                    var member = _members[i];
                     var memberXf = em.GetComponentData<LocalTransform>(member);
-                    float3 target = targetPositions[i];
-                    float dist = memberDistances[i];
+                    float3 target = _targetPositions[i];
+                    float dist = _memberDistances[i];
 
                     // Strip stale DesiredDestination
                     if (em.HasComponent<DesiredDestination>(member))
@@ -337,7 +416,7 @@ namespace TheWaningBorder.Systems.Movement
                         float3 dir = math.normalizesafe(target - memberXf.Position);
 
                         float speed;
-                        if (followsLeader[i])
+                        if (_followsLeader[i])
                         {
                             // Following leader around obstacle — use flow field
                             dir = FlowFieldMovementHelper.GetDirection(
@@ -379,14 +458,6 @@ namespace TheWaningBorder.Systems.Movement
                     em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
                         newPos, formationRot, memberXf.Scale));
                 }
-
-                // Cleanup
-                members.Dispose();
-                memberPos.Dispose();
-                memberAlive.Dispose();
-                targetPositions.Dispose();
-                memberDistances.Dispose();
-                followsLeader.Dispose();
             }
         }
     }
