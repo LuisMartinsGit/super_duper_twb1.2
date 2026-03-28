@@ -266,12 +266,14 @@ namespace TheWaningBorder.Systems.Movement
                 // Get move speed: FormationSpeedOverride > MoveSpeed > default
                 // Use TryGetComponent to avoid double lookup (HasComponent + GetComponentData)
                 float speed = DefaultMoveSpeed;
-                if (em.TryGetComponent<FormationSpeedOverride>(entity, out var fso))
+                if (em.HasComponent<FormationSpeedOverride>(entity))
                 {
+                    var fso = em.GetComponentData<FormationSpeedOverride>(entity);
                     if (fso.Value > 0) speed = fso.Value;
                 }
-                else if (em.TryGetComponent<MoveSpeed>(entity, out var ms))
+                else if (em.HasComponent<MoveSpeed>(entity))
                 {
+                    var ms = em.GetComponentData<MoveSpeed>(entity);
                     if (ms.Value > 0) speed = ms.Value;
                 }
 
@@ -318,8 +320,9 @@ namespace TheWaningBorder.Systems.Movement
                 if (ffm != null)
                 {
                     bool destChanged = true;
-                    if (em.TryGetComponent<MovementCache>(entity, out var cache))
+                    if (em.HasComponent<MovementCache>(entity))
                     {
+                        var cache = em.GetComponentData<MovementCache>(entity);
                         float3 diff = goal - cache.LastDestination;
                         destChanged = math.lengthsq(diff) > DestChangedThresholdSq;
                         if (!destChanged)
@@ -351,10 +354,10 @@ namespace TheWaningBorder.Systems.Movement
 
                 // === Per-unit direction smoothing ===
                 // Lerp toward raw flow field direction to prevent cell-boundary oscillation.
-                // Use TryGetComponent to avoid double lookup
                 float3 smoothedDir = dir;
-                if (em.TryGetComponent<SmoothedDirection>(entity, out var sd))
+                if (em.HasComponent<SmoothedDirection>(entity))
                 {
+                    var sd = em.GetComponentData<SmoothedDirection>(entity);
                     if (math.lengthsq(sd.Value) > 1e-8f)
                     {
                         const float SmoothRate = 12f;
@@ -397,8 +400,9 @@ namespace TheWaningBorder.Systems.Movement
                 if (!blocked)
                 {
                     bool slopeCacheHit = false;
-                    if (passGrid != null && em.TryGetComponent<MovementCache>(entity, out var heightCache))
+                    if (passGrid != null && em.HasComponent<MovementCache>(entity))
                     {
+                        var heightCache = em.GetComponentData<MovementCache>(entity);
                         if (math.all(nextCell == heightCache.LastHeightCell)
                             && heightCache.LastHeightCell.x != int.MinValue)
                         {
@@ -425,8 +429,9 @@ namespace TheWaningBorder.Systems.Movement
                 // === STUCK DETECTION with 3-tier escalation ===
                 if (blocked)
                 {
-                    if (em.TryGetComponent<StuckState>(entity, out var stuck))
+                    if (em.HasComponent<StuckState>(entity))
                     {
+                        var stuck = em.GetComponentData<StuckState>(entity);
                         stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
 
                         if (stuck.Counter > 30)
@@ -487,8 +492,9 @@ namespace TheWaningBorder.Systems.Movement
                 // === Terrain height snap with caching ===
                 // Reuse cached height if still in the same cell, otherwise sample and cache
                 float terrainY;
-                if (passGrid != null && em.TryGetComponent<MovementCache>(entity, out var mvCache))
+                if (passGrid != null && em.HasComponent<MovementCache>(entity))
                 {
+                    var mvCache = em.GetComponentData<MovementCache>(entity);
                     if (math.all(nextCell == mvCache.LastHeightCell)
                         && mvCache.LastHeightCell.x != int.MinValue)
                     {
