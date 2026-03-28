@@ -706,6 +706,7 @@ namespace TheWaningBorder.AI
                 .WithEntityAccess())
             {
                 if (cadaverState.ValueRO.Depleted == 1) continue;
+                if (cadaverState.ValueRO.RemainingCrystal <= 0) continue;
                 cadaverList.Add(entity);
                 cadaverPositions.Add(transform.ValueRO.Position);
             }
