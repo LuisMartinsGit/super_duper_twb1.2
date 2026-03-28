@@ -2,6 +2,7 @@
 // Core economy utilities for faction resource management
 // Part of: Economy/
 
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Collections;
 using Cost = TheWaningBorder.Core.Cost;
@@ -9,19 +10,34 @@ using Cost = TheWaningBorder.Core.Cost;
 namespace TheWaningBorder.Economy
 {
 
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // FACTION ECONOMY UTILITIES
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Static utility class for faction economy operations.
     /// Provides methods to find faction banks, check affordability, and spend resources.
     /// </summary>
     public static class FactionEconomy
     {
+        // Cached faction → bank entity mapping. Populated lazily, cleared on world destroy.
+        private static readonly Dictionary<Faction, Entity> _bankCache = new Dictionary<Faction, Entity>();
+        private static EntityQuery _bankQuery;
+        private static bool _bankQueryInitialized;
+
+        /// <summary>
+        /// Clear the bank cache. Call when the ECS world is destroyed or reset.
+        /// </summary>
+        public static void ClearCache()
+        {
+            _bankCache.Clear();
+            _bankQueryInitialized = false;
+        }
+
         /// <summary>
         /// Try to find the resource bank entity for a faction.
+        /// Uses a cached dictionary to avoid creating queries every call.
         /// </summary>
         /// <param name="em">EntityManager to query</param>
         /// <param name="fac">Faction to find bank for</param>
@@ -29,23 +45,40 @@ namespace TheWaningBorder.Economy
         /// <returns>True if bank was found</returns>
         public static bool TryGetBank(EntityManager em, Faction fac, out Entity bank)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<FactionResources>()
-            );
+            // Check cache first — validate the entity still exists and has required components
+            if (_bankCache.TryGetValue(fac, out bank))
+            {
+                if (em.Exists(bank) && em.HasComponent<FactionResources>(bank))
+                    return true;
+                // Cached entity invalid — remove and re-query
+                _bankCache.Remove(fac);
+            }
 
-            using var ents = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            // Initialize query once
+            if (!_bankQueryInitialized)
+            {
+                _bankQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadWrite<FactionResources>()
+                );
+                _bankQueryInitialized = true;
+            }
+
+            using var ents = _bankQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _bankQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             for (int i = 0; i < ents.Length; i++)
             {
+                // Populate cache for all factions while we iterate
+                _bankCache[tags[i].Value] = ents[i];
+
                 if (tags[i].Value == fac)
                 {
                     bank = ents[i];
                     return true;
                 }
             }
-            
+
             bank = Entity.Null;
             return false;
         }

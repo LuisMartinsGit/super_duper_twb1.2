@@ -35,6 +35,14 @@ namespace TheWaningBorder.Systems.Crystal
         private int _decisionTick;  // Deterministic tick counter for multiplayer sync
         private const float DecisionInterval = 5.0f; // AI thinks every 5 seconds
 
+        // Cached EntityQueries — initialized in OnCreate()
+        private EntityQuery _mainNodeQuery;
+        private EntityQuery _subNodeQuery;
+        private EntityQuery _unitQuery;           // UnitTag + FactionTag + LocalTransform (intruder detection)
+        private EntityQuery _crystalUnitQuery;    // CrystalUnitTag + LocalTransform
+        private EntityQuery _hallQuery;           // HallTag + FactionTag + LocalTransform
+        private EntityQuery _mainNodeTransformQuery; // CrystalMainNodeTag + LocalTransform (expansion)
+
         // Building costs (crystal) — tuned so curse expands slowly early
         private const int ResourceNodeCost = 120;
         private const int TurretNodeCost = 200;
@@ -55,6 +63,40 @@ namespace TheWaningBorder.Systems.Crystal
         protected override void OnCreate()
         {
             RequireForUpdate<CrystalMainNodeTag>();
+
+            _mainNodeQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadWrite<CrystalAIState>(),
+                ComponentType.ReadOnly<CrystalNode>(),
+                ComponentType.ReadOnly<CrystalNodeLevel>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<CrystalMainNodeTag>()
+            );
+
+            _subNodeQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalSubNodeTag>()
+            );
+
+            _unitQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _crystalUnitQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalUnitTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _hallQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _mainNodeTransformQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalMainNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
         }
 
         protected override void OnUpdate()
@@ -81,18 +123,11 @@ namespace TheWaningBorder.Systems.Crystal
                 (uint)(_decisionTick * 7919 + GameSettings.SpawnSeed + 1));
 
             // Collect query data into temp arrays to iterate safely
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadWrite<CrystalAIState>(),
-                ComponentType.ReadOnly<CrystalNode>(),
-                ComponentType.ReadOnly<CrystalNodeLevel>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<CrystalMainNodeTag>()
-            );
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var aiStates = query.ToComponentDataArray<CrystalAIState>(Allocator.Temp);
-            using var crystalNodes = query.ToComponentDataArray<CrystalNode>(Allocator.Temp);
-            using var nodeLevels = query.ToComponentDataArray<CrystalNodeLevel>(Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var entities = _mainNodeQuery.ToEntityArray(Allocator.Temp);
+            using var aiStates = _mainNodeQuery.ToComponentDataArray<CrystalAIState>(Allocator.Temp);
+            using var crystalNodes = _mainNodeQuery.ToComponentDataArray<CrystalNode>(Allocator.Temp);
+            using var nodeLevels = _mainNodeQuery.ToComponentDataArray<CrystalNodeLevel>(Allocator.Temp);
+            using var transforms = _mainNodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             for (int n = 0; n < entities.Length; n++)
             {
@@ -162,16 +197,6 @@ namespace TheWaningBorder.Systems.Crystal
             }
         }
 
-        private void UpdatePhase(ref CrystalAIState ai, float spreadRadius, int crystalBank)
-        {
-            if (spreadRadius < 10f || crystalBank < 100)
-                ai.Phase = 0; // Early
-            else if (spreadRadius < 20f || crystalBank < 500)
-                ai.Phase = 1; // Mid
-            else
-                ai.Phase = 2; // Late
-        }
-
         private void TryBuildSubNode(EntityManager em,
             ref CrystalAIState ai, float3 nodePos, float spreadRadius,
             ref Random random, ref int crystalBank)
@@ -184,8 +209,7 @@ namespace TheWaningBorder.Systems.Crystal
             int resourceCount = 0, turretCount = 0, restorationCount = 0;
             int enforcementCount = 0, suppressionCount = 0;
 
-            var subNodeQuery = em.CreateEntityQuery(ComponentType.ReadOnly<CrystalSubNodeTag>());
-            using var subNodes = subNodeQuery.ToComponentDataArray<CrystalSubNodeTag>(Allocator.Temp);
+            using var subNodes = _subNodeQuery.ToComponentDataArray<CrystalSubNodeTag>(Allocator.Temp);
             for (int i = 0; i < subNodes.Length; i++)
             {
                 switch (subNodes[i].Type)
@@ -325,15 +349,9 @@ namespace TheWaningBorder.Systems.Crystal
         private void AttackIntruders(EntityManager em, float3 nodePos, float spreadRadius)
         {
             // Detect non-Crystal units within spread radius
-            var intruderQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var intruders = intruderQuery.ToEntityArray(Allocator.Temp);
-            using var intruderFactions = intruderQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var intruderTransforms = intruderQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var intruders = _unitQuery.ToEntityArray(Allocator.Temp);
+            using var intruderFactions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var intruderTransforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             // Find closest intruder within territory
             float3 closestIntruderPos = float3.zero;
@@ -355,13 +373,8 @@ namespace TheWaningBorder.Systems.Crystal
             if (!foundIntruder) return;
 
             // Send idle crystal units near this node to intercept
-            var crystalUnitQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalUnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var crystalUnits = crystalUnitQuery.ToEntityArray(Allocator.Temp);
-            using var crystalTransforms = crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var crystalUnits = _crystalUnitQuery.ToEntityArray(Allocator.Temp);
+            using var crystalTransforms = _crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             for (int i = 0; i < crystalUnits.Length; i++)
             {
@@ -406,15 +419,9 @@ namespace TheWaningBorder.Systems.Crystal
         private void TrySendHarassWave(EntityManager em, float3 nodePos, ref Random random)
         {
             // Find nearest non-crystal Hall
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var halls = hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var halls = _hallQuery.ToEntityArray(Allocator.Temp);
+            using var hallFactions = _hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hallTransforms = _hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity targetHall = Entity.Null;
             float bestDist = float.MaxValue;
@@ -435,13 +442,8 @@ namespace TheWaningBorder.Systems.Crystal
             if (targetHall == Entity.Null) return;
 
             // Gather idle crystal units near this node (within 30 units)
-            var unitQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalUnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var units = unitQuery.ToEntityArray(Allocator.Temp);
-            using var unitTransforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var units = _crystalUnitQuery.ToEntityArray(Allocator.Temp);
+            using var unitTransforms = _crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             // Count nearby units first
             int nearUnits = 0;
@@ -489,11 +491,7 @@ namespace TheWaningBorder.Systems.Crystal
             ref Random random, ref int crystalBank)
         {
             // Get all existing main node positions to avoid placing too close
-            var nodeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-            using var nodeTransforms = nodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var nodeTransforms = _mainNodeTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             float spawnRange = 80f; // Try within 80 units of current node
             bool found = false;
