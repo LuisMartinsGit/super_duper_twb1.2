@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Multiplayer;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -13,22 +14,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class CrystalMainNode
     {
-        private const int DefaultHP = 4000;
-        private const float DefaultRadius = 2.5f;
-        private const float DefaultSpreadRadius = 15f;
-        private const float DefaultSpreadPerTick = 1f;
-        private const float DefaultTickInterval = 45f;
-        private const float DefaultIncomePerTick = 0f;
-        private const float DefaultHarassTimer = 60f;
-        private const int DefaultBuildCost = 2000;
-        private const int PresentationID = 310;
-
-        // Main node self-defense turret — fires at attackers
-        private const float AttackRange = 18f;
-        private const int AttackDamage = 25;
-        private const float AttackCooldown = 1.2f;
-        private const int AttackMaxTargets = 3;
-
         /// <summary>
         /// Create CrystalMainNode using EntityManager.
         /// </summary>
@@ -51,19 +36,17 @@ namespace TheWaningBorder.Entities
                 typeof(Defense)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = MainNodePresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
+            em.SetComponentData(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
+            em.SetComponentData(entity, new Radius { Value = MainNodeRadius });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalNode
             {
-                IsMain = 1,
-                SpreadPerTick = DefaultSpreadPerTick,
-                SpreadRadius = DefaultSpreadRadius,
-                IncomePerTick = DefaultIncomePerTick,
-                TickInterval = DefaultTickInterval,
+                SpreadPerTick = MainNodeSpreadPerTick,
+                SpreadRadius = MainNodeSpreadRadius,
+                TickInterval = MainNodeTickInterval,
                 TickTimer = 0f,
                 CurrentRingRadius = 0f,
                 Enabled = 1
@@ -71,24 +54,24 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new CrystalNodeLevel { Value = 1 });
             em.SetComponentData(entity, new CrystalAIState
             {
-                HarassTimer = DefaultHarassTimer,
+                HarassTimer = MainNodeHarassTimer,
                 BuildTimer = 0f,
                 UnitSpawnTimer = 0f,
                 Phase = 0
             });
             em.SetComponentData(entity, new CrystalResourceValue
             {
-                BuildCost = DefaultBuildCost
+                BuildCost = MainNodeBuildCost
             });
 
             // Self-defense turret
             em.SetComponentData(entity, new BuildingRangedAttack
             {
-                Range = AttackRange,
-                Damage = AttackDamage,
-                Cooldown = AttackCooldown,
+                Range = MainNodeAttackRange,
+                Damage = MainNodeAttackDamage,
+                Cooldown = MainNodeAttackCooldown,
                 Timer = 0f,
-                MaxTargets = AttackMaxTargets
+                MaxTargets = MainNodeAttackMaxTargets
             });
             em.SetComponentData(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
 
@@ -113,21 +96,19 @@ namespace TheWaningBorder.Entities
         {
             var entity = ecb.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = MainNodePresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new Health { Value = DefaultHP, Max = DefaultHP });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
+            ecb.AddComponent(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
+            ecb.AddComponent(entity, new Radius { Value = MainNodeRadius });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent<CrystalMainNodeTag>(entity);
             ecb.AddComponent(entity, new CrystalNode
             {
-                IsMain = 1,
-                SpreadPerTick = DefaultSpreadPerTick,
-                SpreadRadius = DefaultSpreadRadius,
-                IncomePerTick = DefaultIncomePerTick,
-                TickInterval = DefaultTickInterval,
+                SpreadPerTick = MainNodeSpreadPerTick,
+                SpreadRadius = MainNodeSpreadRadius,
+                TickInterval = MainNodeTickInterval,
                 TickTimer = 0f,
                 CurrentRingRadius = 0f,
                 Enabled = 1
@@ -135,24 +116,24 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new CrystalNodeLevel { Value = 1 });
             ecb.AddComponent(entity, new CrystalAIState
             {
-                HarassTimer = DefaultHarassTimer,
+                HarassTimer = MainNodeHarassTimer,
                 BuildTimer = 0f,
                 UnitSpawnTimer = 0f,
                 Phase = 0
             });
             ecb.AddComponent(entity, new CrystalResourceValue
             {
-                BuildCost = DefaultBuildCost
+                BuildCost = MainNodeBuildCost
             });
 
             // Self-defense turret
             ecb.AddComponent(entity, new BuildingRangedAttack
             {
-                Range = AttackRange,
-                Damage = AttackDamage,
-                Cooldown = AttackCooldown,
+                Range = MainNodeAttackRange,
+                Damage = MainNodeAttackDamage,
+                Cooldown = MainNodeAttackCooldown,
                 Timer = 0f,
-                MaxTargets = AttackMaxTargets
+                MaxTargets = MainNodeAttackMaxTargets
             });
             ecb.AddComponent(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
 

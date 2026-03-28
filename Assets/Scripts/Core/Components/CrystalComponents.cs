@@ -39,10 +39,8 @@ public struct CrystalSubNodeTag : IComponentData
 /// </summary>
 public struct CrystalNode : IComponentData
 {
-    public byte IsMain;             // 1 = main hive/bud, 0 = sub-node
     public float SpreadPerTick;     // Cells per tick (logical units)
     public float SpreadRadius;      // World radius
-    public float IncomePerTick;     // Resource trickle for crystals
     public float TickInterval;      // Seconds between ticks
     public float TickTimer;         // Accumulated time
     public float CurrentRingRadius; // Current outer edge of the spread wavefront
