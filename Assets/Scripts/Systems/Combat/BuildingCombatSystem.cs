@@ -19,6 +19,7 @@ namespace TheWaningBorder.Systems.Combat
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BuildingRangedAttack>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -26,7 +27,8 @@ namespace TheWaningBorder.Systems.Combat
             float dt = SystemAPI.Time.DeltaTime;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             // Snapshot all potential targets (anything with Health + FactionTag + Transform)
             var targetQuery = SystemAPI.QueryBuilder()
@@ -116,6 +118,11 @@ namespace TheWaningBorder.Systems.Combat
                         attackerCrystalMod *= 1f + buff.AttBonus;
                     }
 
+                    // Spawn height: use entity's Radius + 0.5f (taller buildings shoot higher)
+                    float spawnYOffset = em.HasComponent<Radius>(entity)
+                        ? em.GetComponentData<Radius>(entity).Value + 0.5f
+                        : 1.5f;
+
                     for (int t = 0; t < targets.Length; t++)
                     {
                         // Apply crystal debuff on target
@@ -129,7 +136,7 @@ namespace TheWaningBorder.Systems.Combat
                         int modifiedDamage = math.max(1, (int)(attack.ValueRO.Damage * crystalMod));
                         CreateProjectile(ref ecb, myPos, targets[t].Position,
                             targets[t].Distance, entity, myFaction,
-                            modifiedDamage, time, targets[t].Entity, isCrystal, dmgType);
+                            modifiedDamage, time, targets[t].Entity, isCrystal, dmgType, spawnYOffset);
                     }
                     attack.ValueRW.Timer = attack.ValueRO.Cooldown;
                 }
@@ -141,15 +148,12 @@ namespace TheWaningBorder.Systems.Combat
             tgtTransforms.Dispose();
             tgtFactions.Dispose();
             tgtHealth.Dispose();
-
-            ecb.Playback(em);
-            ecb.Dispose();
         }
 
         private static void CreateProjectile(ref EntityCommandBuffer ecb,
             float3 start, float3 targetPos, float distance,
             Entity shooter, Faction faction, int damage, float time, Entity target,
-            bool isLaser = false, DamageType dmgType = DamageType.Ranged)
+            bool isLaser = false, DamageType dmgType = DamageType.Ranged, float spawnYOffset = 1.5f)
         {
             float speed = isLaser ? LaserSpeed : ArrowSpeed;
             var direction = math.normalize(targetPos - start);
@@ -174,7 +178,7 @@ namespace TheWaningBorder.Systems.Combat
 
             ecb.AddComponent(projectile, new LocalTransform
             {
-                Position = start + new float3(0, 3f, 0), // Spawn above building
+                Position = start + new float3(0, spawnYOffset, 0),
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });
