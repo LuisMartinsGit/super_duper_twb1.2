@@ -28,6 +28,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalTag),
                 typeof(CrystalSubNodeTag),
                 typeof(CrystalNode),
+                typeof(CrystalSpreadState),
                 typeof(CrystalResourceValue),
                 typeof(OwnerNode)
             );
@@ -41,13 +42,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Resource });
             em.SetComponentData(entity, new CrystalNode
             {
-                SpreadPerTick = ResourceNodeSpreadPerTick,
                 SpreadRadius = ResourceNodeSpreadRadius,
-                TickInterval = ResourceNodeTickInterval,
-                TickTimer = 0f,
-                CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            em.SetComponentData(entity, new CrystalSpreadState { TickTimer = 0f, CurrentRingRadius = 0f });
             em.SetComponentData(entity, new CrystalResourceValue { BuildCost = ResourceNodeBuildCost });
             em.SetComponentData(entity, new OwnerNode { Value = Entity.Null });
 
@@ -81,13 +79,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new CrystalSubNodeTag { Type = CrystalSubNodeType.Resource });
             ecb.AddComponent(entity, new CrystalNode
             {
-                SpreadPerTick = ResourceNodeSpreadPerTick,
                 SpreadRadius = ResourceNodeSpreadRadius,
-                TickInterval = ResourceNodeTickInterval,
-                TickTimer = 0f,
-                CurrentRingRadius = 0f,
                 Enabled = 1
             });
+            ecb.AddComponent(entity, new CrystalSpreadState { TickTimer = 0f, CurrentRingRadius = 0f });
             ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = ResourceNodeBuildCost });
             ecb.AddComponent(entity, new OwnerNode { Value = Entity.Null });
 

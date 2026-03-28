@@ -136,10 +136,11 @@ namespace TheWaningBorder.UI
                     string threat = level switch { 1 => "Low Threat", 2 => "Moderate Threat", _ => "High Threat" };
                     info.Description = $"Level {level} — {threat}";
                 }
-                if (em.HasComponent<CrystalNode>(entity))
+                if (em.HasComponent<CrystalNode>(entity) && em.HasComponent<CrystalSpreadState>(entity))
                 {
                     var cn = em.GetComponentData<CrystalNode>(entity);
-                    int pct = cn.SpreadRadius > 0 ? (int)(cn.CurrentRingRadius / cn.SpreadRadius * 100f) : 0;
+                    var ss = em.GetComponentData<CrystalSpreadState>(entity);
+                    int pct = cn.SpreadRadius > 0 ? (int)(ss.CurrentRingRadius / cn.SpreadRadius * 100f) : 0;
                     info.Description += $"\nSpread: {pct}%";
                 }
             }
