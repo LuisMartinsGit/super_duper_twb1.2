@@ -267,7 +267,7 @@ namespace TheWaningBorder.AI
 
             // Set initial scale to 0.3f so buildings don't appear full-size before first construction tick
             ecb.SetComponent(building, LocalTransform.FromPositionRotationScale(
-                req.DesiredPosition, quaternion.identity, 0.3f));
+                position, quaternion.identity, 0.3f));
 
             // Set HP to 1 during construction (restored to max on completion)
             int maxHP = GetDefaultMaxHP(buildingId);

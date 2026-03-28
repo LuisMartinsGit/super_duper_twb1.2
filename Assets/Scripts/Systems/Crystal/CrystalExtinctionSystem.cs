@@ -110,7 +110,7 @@ namespace TheWaningBorder.Systems.Crystal
                 seed = (uint)(LockstepServiceLocator.Instance.CurrentTick * 4217 + GameSettings.SpawnSeed + 99);
             else
                 seed = (uint)(World.Time.ElapsedTime * 1000 + GameSettings.SpawnSeed + 99);
-            var random = new Random(math.max(1, seed));
+            var random = new Unity.Mathematics.Random(math.max(1, seed));
 
             // Get player positions
             using var hallFactions = _hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);

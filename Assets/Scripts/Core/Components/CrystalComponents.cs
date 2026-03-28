@@ -254,3 +254,9 @@ public struct CrystalDebuff : IComponentData
     public float AttPenalty;
     public float SpeedPenalty;
 }
+
+public struct CrystalCadaverLifetime : IComponentData { public float TimeRemaining; }
+public struct CrystalExtinctionState : IComponentData { public byte IsExtinct; public float RespawnTimer; public byte HasEverExisted; }
+public struct CrystalWaveState : IComponentData { public float WaveTimer; public float WaveInterval; public int WaveNumber; }
+public struct CrystalTrainingState : IComponentData { public byte TrainingUnitType; public float TimeRemaining; public float TotalTime; }
+public struct CrystalAutoBuild : IComponentData { public float TimeRemaining; public float TotalTime; }
