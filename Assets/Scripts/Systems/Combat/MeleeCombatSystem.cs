@@ -105,36 +105,45 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         int baseDamage = damage.ValueRO.Value;
 
-                        // Get attacker's damage type (default Melee if component missing)
+                        // --- Batch-read attacker components once ---
                         DamageType dmgType = DamageType.Melee;
-                        if (em.HasComponent<DamageTypeData>(entity))
+                        bool attackerHasDmgType = em.HasComponent<DamageTypeData>(entity);
+                        if (attackerHasDmgType)
                             dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
-                        // Get target's armor type (default InfantryLight if missing)
-                        ArmorType armorType = ArmorType.InfantryLight;
-                        if (em.HasComponent<ArmorTypeData>(tgt.Value))
-                            armorType = em.GetComponentData<ArmorTypeData>(tgt.Value).Value;
+                        bool attackerHasBuff = em.HasComponent<CrystalBuff>(entity);
+                        CrystalBuff attackerBuff = attackerHasBuff
+                            ? em.GetComponentData<CrystalBuff>(entity)
+                            : default;
 
-                        // Get target's defense for this damage type
-                        int defenseValue = 0;
-                        if (em.HasComponent<Defense>(tgt.Value))
-                            defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType);
+                        // --- Batch-read target components once ---
+                        bool targetHasArmor = em.HasComponent<ArmorTypeData>(tgt.Value);
+                        ArmorType armorType = targetHasArmor
+                            ? em.GetComponentData<ArmorTypeData>(tgt.Value).Value
+                            : ArmorType.InfantryLight;
+
+                        bool targetHasDefense = em.HasComponent<Defense>(tgt.Value);
+                        int defenseValue = targetHasDefense
+                            ? CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType)
+                            : 0;
+
+                        bool targetHasDebuff = em.HasComponent<CrystalDebuff>(tgt.Value);
+                        CrystalDebuff targetDebuff = targetHasDebuff
+                            ? em.GetComponentData<CrystalDebuff>(tgt.Value)
+                            : default;
+
+                        bool targetHasLastDamaged = em.HasComponent<LastDamagedByFaction>(tgt.Value);
+                        bool targetHasLastAttacker = em.HasComponent<LastAttackerEntity>(tgt.Value);
 
                         // Calculate height-based damage modifier
                         float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
 
-                        // Crystal modifier
+                        // Crystal modifier (uses pre-fetched data)
                         float crystalMod = 1.0f;
-                        if (em.HasComponent<CrystalBuff>(entity))
-                        {
-                            var buff = em.GetComponentData<CrystalBuff>(entity);
-                            crystalMod *= 1f + buff.AttBonus;
-                        }
-                        if (em.HasComponent<CrystalDebuff>(tgt.Value))
-                        {
-                            var debuff = em.GetComponentData<CrystalDebuff>(tgt.Value);
-                            crystalMod *= 1f + debuff.AttPenalty;
-                        }
+                        if (attackerHasBuff)
+                            crystalMod *= 1f + attackerBuff.AttBonus;
+                        if (targetHasDebuff)
+                            crystalMod *= 1f + targetDebuff.AttPenalty;
 
                         int finalDamage = CombatModifiers.CalculateFinalDamage(
                             baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod);
@@ -153,14 +162,14 @@ namespace TheWaningBorder.Systems.Combat
                             {
                                 Value = em.GetComponentData<FactionTag>(entity).Value
                             };
-                            if (em.HasComponent<LastDamagedByFaction>(tgt.Value))
+                            if (targetHasLastDamaged)
                                 em.SetComponentData(tgt.Value, lastDamaged);
                             else
                                 ecb.AddComponent(tgt.Value, lastDamaged);
                         }
 
                         // Track attacker entity for defensive stance return-fire
-                        if (em.HasComponent<LastAttackerEntity>(tgt.Value))
+                        if (targetHasLastAttacker)
                             em.SetComponentData(tgt.Value, new LastAttackerEntity { Value = entity });
                         else
                             ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
