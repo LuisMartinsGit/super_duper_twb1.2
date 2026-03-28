@@ -108,11 +108,28 @@ namespace TheWaningBorder.Systems.Combat
                     if (em.HasComponent<DamageTypeData>(entity))
                         dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
+                    // Crystal buff/debuff modifiers (same pattern as MeleeCombatSystem)
+                    float attackerCrystalMod = 1.0f;
+                    if (em.HasComponent<CrystalBuff>(entity))
+                    {
+                        var buff = em.GetComponentData<CrystalBuff>(entity);
+                        attackerCrystalMod *= 1f + buff.AttBonus;
+                    }
+
                     for (int t = 0; t < targets.Length; t++)
                     {
+                        // Apply crystal debuff on target
+                        float crystalMod = attackerCrystalMod;
+                        if (em.HasComponent<CrystalDebuff>(targets[t].Entity))
+                        {
+                            var debuff = em.GetComponentData<CrystalDebuff>(targets[t].Entity);
+                            crystalMod *= 1f + debuff.AttPenalty;
+                        }
+
+                        int modifiedDamage = math.max(1, (int)(attack.ValueRO.Damage * crystalMod));
                         CreateProjectile(ref ecb, myPos, targets[t].Position,
                             targets[t].Distance, entity, myFaction,
-                            attack.ValueRO.Damage, time, targets[t].Entity, isCrystal, dmgType);
+                            modifiedDamage, time, targets[t].Entity, isCrystal, dmgType);
                     }
                     attack.ValueRW.Timer = attack.ValueRO.Cooldown;
                 }
