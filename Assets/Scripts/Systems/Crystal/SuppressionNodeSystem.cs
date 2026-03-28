@@ -20,9 +20,19 @@ namespace TheWaningBorder.Systems.Crystal
         private const float TickInterval = 1f;
         private float _timer;
 
+        // Cached query — created once in OnCreate, reused every frame
+        private EntityQuery _auraQuery;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<SuppressionAura>();
+
+            _auraQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<SuppressionAura>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<CrystalSubNodeTag>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
         }
 
         public void OnUpdate(ref SystemState state)
@@ -35,14 +45,8 @@ namespace TheWaningBorder.Systems.Crystal
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var em = state.EntityManager;
 
-            // Snapshot all suppression aura sources
-            var auraQuery = SystemAPI.QueryBuilder()
-                .WithAll<SuppressionAura, LocalTransform, CrystalSubNodeTag>()
-                .WithNone<UnderConstruction>()
-                .Build();
-
-            var auraTransforms = auraQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var auraData = auraQuery.ToComponentDataArray<SuppressionAura>(Allocator.Temp);
+            var auraTransforms = _auraQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var auraData = _auraQuery.ToComponentDataArray<SuppressionAura>(Allocator.Temp);
 
             // Process all non-crystal units (enemy units with UnitTag)
             foreach (var (unitTransform, faction, entity) in SystemAPI
