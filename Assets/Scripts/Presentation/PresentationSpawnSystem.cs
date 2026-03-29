@@ -352,6 +352,7 @@ public class PresentationSpawnSystem : MonoBehaviour
             if (unitGo != null) return FinishProceduralUnit(unitGo, entity, presentationId, transform);
         }
 
+
         GameObject prefab = null;
 
         // Try to load specific prefab
