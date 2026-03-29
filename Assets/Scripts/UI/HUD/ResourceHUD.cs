@@ -222,7 +222,9 @@ namespace TheWaningBorder.UI.HUD
                 alignment = TextAnchor.MiddleCenter,
                 normal = { background = _texMenuBtn, textColor = new Color(0.83f, 0.66f, 0.26f) },
                 hover = { background = _texMenuBtnHover, textColor = new Color(0.93f, 0.76f, 0.36f) },
-                active = { background = _texMenuBtnHover, textColor = Color.white }
+                active = { background = _texMenuBtnHover, textColor = Color.white },
+                border = new RectOffset(2, 2, 2, 2),
+                padding = new RectOffset(6, 6, 4, 4)
             };
 
             _stylesBuilt = true;

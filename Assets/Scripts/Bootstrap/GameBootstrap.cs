@@ -197,6 +197,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<FormationPreview>();        // Formation preview arrows at destination
             managersGO.AddComponent<PlacementGridOverlay>();     // Grid overlay during building placement
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
+            managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC)
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
