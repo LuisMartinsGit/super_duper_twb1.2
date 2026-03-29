@@ -776,6 +776,25 @@ namespace TheWaningBorder.UI.Panels
         }
 
         /// <summary>
+        /// Draw a simple line between two points using GUI.DrawTexture.
+        /// </summary>
+        private static void DrawLine(Vector2 from, Vector2 to, Color color)
+        {
+            var savedColor = GUI.color;
+            GUI.color = color;
+
+            float angle = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
+            float length = Vector2.Distance(from, to);
+
+            var pivot = new Vector2(from.x, from.y + 0.5f);
+            GUIUtility.RotateAroundPivot(angle, pivot);
+            GUI.DrawTexture(new Rect(from.x, from.y, length, 1f), Texture2D.whiteTexture);
+            GUIUtility.RotateAroundPivot(-angle, pivot);
+
+            GUI.color = savedColor;
+        }
+
+        /// <summary>
         /// Draw the "Advance to Era 2" button on the Hall if still in Era 1,
         /// or an age-up progress bar if the timer is active.
         /// </summary>
