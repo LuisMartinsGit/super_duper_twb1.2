@@ -240,7 +240,7 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.EndHorizontal();
             }
 
-            // Miner info (no carry bar — just rate and status)
+            // Miner info (no carry bar -- just rate and status)
             if (info.HasMinerInfo)
             {
                 GUILayout.Space(5);
@@ -361,6 +361,7 @@ namespace TheWaningBorder.UI.Panels
             if (allEntities.Count == 0) return;
 
             PanelVisible = true;
+
 
             // Group entities by type name
             var groups = new Dictionary<string, UnitGroupInfo>();
