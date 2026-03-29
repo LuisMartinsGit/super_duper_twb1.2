@@ -267,16 +267,12 @@ namespace TheWaningBorder.Systems.Movement
                 // Use TryGetComponent to avoid double lookup (HasComponent + GetComponentData)
                 float speed = DefaultMoveSpeed;
                 if (em.HasComponent<FormationSpeedOverride>(entity))
-
                 {
-
                     var fso = em.GetComponentData<FormationSpeedOverride>(entity);
                     if (fso.Value > 0) speed = fso.Value;
                 }
                 else if (em.HasComponent<MoveSpeed>(entity))
-
                 {
-
                     var ms = em.GetComponentData<MoveSpeed>(entity);
                     if (ms.Value > 0) speed = ms.Value;
                 }
@@ -325,9 +321,7 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     bool destChanged = true;
                     if (em.HasComponent<MovementCache>(entity))
-
                     {
-
                         var cache = em.GetComponentData<MovementCache>(entity);
                         float3 diff = goal - cache.LastDestination;
                         destChanged = math.lengthsq(diff) > DestChangedThresholdSq;
@@ -363,9 +357,7 @@ namespace TheWaningBorder.Systems.Movement
                 // Use TryGetComponent to avoid double lookup
                 float3 smoothedDir = dir;
                 if (em.HasComponent<SmoothedDirection>(entity))
-
                 {
-
                     var sd = em.GetComponentData<SmoothedDirection>(entity);
                     if (math.lengthsq(sd.Value) > 1e-8f)
                     {

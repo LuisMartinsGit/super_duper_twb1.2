@@ -265,6 +265,10 @@ namespace TheWaningBorder.AI
             float buildTime = GetBuildTime(buildingId);
             ecb.AddComponent(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
+            // Set initial scale to 0.3f so buildings don't appear full-size before first construction tick
+            ecb.SetComponent(building, LocalTransform.FromPositionRotationScale(
+                position, quaternion.identity, 0.3f));
+
             // Set HP to 1 during construction (restored to max on completion)
             int maxHP = GetDefaultMaxHP(buildingId);
             ecb.SetComponent(building, new Health { Value = 1, Max = maxHP });
