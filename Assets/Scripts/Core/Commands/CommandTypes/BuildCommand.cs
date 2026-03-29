@@ -133,6 +133,128 @@ namespace TheWaningBorder.Core.Commands.Types
         }
 
         /// <summary>
+        /// Get the grid-aligned size for a building by its ID.
+        /// Delegates to BuildingSizeConfig.
+        /// </summary>
+        public static int2 GetBuildingSize(string buildingId)
+        {
+            return BuildingSizeConfig.GetSize(buildingId);
+        }
+
+        /// <summary>
+        /// Check if a position is valid for building placement using AABB collision.
+        /// Checks building overlap, obstacle overlap, terrain passability, and grid footprint.
+        /// </summary>
+        public static bool IsValidBuildPosition(EntityManager em, float3 position, int2 buildingSize)
+        {
+            // Compute AABB half-extents for the new building
+            float halfW = buildingSize.x / 2f;
+            float halfH = buildingSize.y / 2f;
+            float2 newMin = new float2(position.x - halfW, position.z - halfH);
+            float2 newMax = new float2(position.x + halfW, position.z + halfH);
+
+            // 1. Building overlap check (AABB-vs-AABB on XZ plane)
+            var buildingQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+            using var buildingTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var buildingEntities = buildingQuery.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < buildingTransforms.Length; i++)
+            {
+                var bPos = buildingTransforms[i].Position;
+                float2 otherMin, otherMax;
+
+                if (em.HasComponent<BuildingSize>(buildingEntities[i]))
+                {
+                    var bSize = em.GetComponentData<BuildingSize>(buildingEntities[i]);
+                    float bHalfW = bSize.Width / 2f;
+                    float bHalfH = bSize.Height / 2f;
+                    otherMin = new float2(bPos.x - bHalfW, bPos.z - bHalfH);
+                    otherMax = new float2(bPos.x + bHalfW, bPos.z + bHalfH);
+                }
+                else
+                {
+                    // Fallback for buildings without BuildingSize (legacy)
+                    float r = em.HasComponent<Radius>(buildingEntities[i])
+                        ? em.GetComponentData<Radius>(buildingEntities[i]).Value
+                        : 1.5f;
+                    otherMin = new float2(bPos.x - r, bPos.z - r);
+                    otherMax = new float2(bPos.x + r, bPos.z + r);
+                }
+
+                // AABB overlap test
+                if (newMin.x < otherMax.x && newMax.x > otherMin.x &&
+                    newMin.y < otherMax.y && newMax.y > otherMin.y)
+                    return false;
+            }
+
+            // 2. Obstacle overlap check (AABB-vs-circle for natural obstacles)
+            var obstacleQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<ObstacleTag>(),
+                ComponentType.ReadOnly<Radius>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+            using var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
+            using var obstacleTransforms = obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            for (int i = 0; i < obstacleRadii.Length; i++)
+            {
+                var oPos = obstacleTransforms[i].Position;
+                float oR = obstacleRadii[i].Value;
+                // Clamp circle center to AABB, check distance
+                float closestX = math.clamp(oPos.x, newMin.x, newMax.x);
+                float closestZ = math.clamp(oPos.z, newMin.y, newMax.y);
+                float dx = oPos.x - closestX;
+                float dz = oPos.z - closestZ;
+                if (dx * dx + dz * dz < oR * oR)
+                    return false;
+            }
+
+            // 3. Terrain checks for all four corners + center
+            float3[] checkPoints = new float3[]
+            {
+                position,
+                new float3(newMin.x, 0, newMin.y),
+                new float3(newMax.x, 0, newMin.y),
+                new float3(newMin.x, 0, newMax.y),
+                new float3(newMax.x, 0, newMax.y)
+            };
+
+            const float maxSlope = 0.55f;
+            const float slopeStep = 1.5f;
+
+            foreach (var pt in checkPoints)
+            {
+                float h = TerrainUtility.GetHeight(pt.x, pt.z);
+                if (WaterPlane.Instance != null &&
+                    WaterPlane.Instance.IsUnderwater(new UnityEngine.Vector3(pt.x, h, pt.z)))
+                    return false;
+
+                float hL = TerrainUtility.GetHeight(pt.x - slopeStep, pt.z);
+                float hR = TerrainUtility.GetHeight(pt.x + slopeStep, pt.z);
+                float hD = TerrainUtility.GetHeight(pt.x, pt.z - slopeStep);
+                float hU = TerrainUtility.GetHeight(pt.x, pt.z + slopeStep);
+                float dX = (hR - hL) / (slopeStep * 2f);
+                float dZ = (hU - hD) / (slopeStep * 2f);
+                float slope = math.sqrt(dX * dX + dZ * dZ);
+                if (slope > maxSlope)
+                    return false;
+            }
+
+            // 4. Passability grid check -- all cells under footprint must be passable
+            var grid = PassabilityGrid.Instance;
+            if (grid != null)
+            {
+                if (!grid.IsFootprintPassable(position, buildingSize))
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Get the collision radius for a building by its ID.
         /// Tries TechTreeDB first, falls back to hardcoded defaults.
         /// </summary>

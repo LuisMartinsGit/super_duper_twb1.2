@@ -195,6 +195,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
             managersGO.AddComponent<FormationPreview>();        // Formation preview arrows at destination
+            managersGO.AddComponent<PlacementGridOverlay>();     // Grid overlay during building placement
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             managersGO.AddComponent<EndGameButton>();              // End Game button
             managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
@@ -204,6 +205,8 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
             managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
             managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC key)
+            managersGO.AddComponent<AStarPathStore>();               // A* per-unit path storage
+            managersGO.AddComponent<PathfindingToggleHUD>();         // FF/A* toggle button (F5)
             Object.DontDestroyOnLoad(managersGO);
             Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
@@ -238,6 +241,9 @@ namespace TheWaningBorder.Bootstrap
             {
                 var ffmGO = new GameObject("FlowFieldManager");
                 ffmGO.AddComponent<FlowFieldManager>();
+                #if UNITY_EDITOR
+                ffmGO.AddComponent<FlowFieldGizmos>();
+                #endif
                 Debug.Log("[GameBootstrap] Created FlowFieldManager");
             }
 
@@ -273,10 +279,10 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeAI()
         {
-            // Sandbox mode: no AI opponents
-            if (GameSettings.IsSandbox)
+            // Sandbox / PathfindingTest: no AI opponents
+            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest)
             {
-                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox mode)");
+                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox/PathfindingTest mode)");
                 return;
             }
 

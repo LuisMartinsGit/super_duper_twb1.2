@@ -5,6 +5,7 @@
 using TheWaningBorder.Core.Config;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TheWaningBorder.UI.Menus;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -304,6 +305,18 @@ namespace TheWaningBorder.UI.Menus
                 GameSettings.IsMultiplayer = true;
                 LobbyConfig.SetupMultiplayer(GameSettings.TotalPlayers);
             }
+        }
+
+        private void LaunchPathfindingTest()
+        {
+            GameSettings.Mode = GameMode.PathfindingTest;
+            GameSettings.TotalPlayers = 2;
+            GameSettings.MapHalfSize = 60;
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.FogOfWarEnabled = false;
+            LobbyConfig.SetupSinglePlayer(2);
+            SceneManager.LoadScene("Game");
         }
 
         private void ExitGame()

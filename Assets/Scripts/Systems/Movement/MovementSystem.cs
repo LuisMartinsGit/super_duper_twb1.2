@@ -227,10 +227,11 @@ namespace TheWaningBorder.Systems.Movement
             // PHASE 2: Move units toward their destinations
             // =============================================================================
 
-            // Read FlowFieldLookup from manager (NativeArray-based, no managed singleton
-            // access in the movement loop). Falls back to direct-line if unavailable.
-            var ffm = FlowFieldManager.Instance;
+            // Pathfinding mode: flow fields (shared BFS) or A* (per-unit paths)
+            bool useFlowFields = GameSettings.UseFlowFields;
+            var ffm = useFlowFields ? FlowFieldManager.Instance : null;
             var ffLookup = (ffm != null) ? ffm.CurrentLookup : default;
+            var astarStore = useFlowFields ? null : AStarPathStore.Instance;
 
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
@@ -313,44 +314,74 @@ namespace TheWaningBorder.Systems.Movement
                 float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
-                // === Flow field request with per-unit destination caching ===
-                // Only call RequestFlowField when the destination has actually changed,
-                // otherwise reuse the cached snappedDest from the previous frame.
-                int snappedDest = -1;
-                if (ffm != null)
+                // === PATHFINDING DIRECTION ===
+                if (!useFlowFields && astarStore != null && em.HasComponent<AStarPathIndex>(entity))
                 {
-                    bool destChanged = true;
-                    if (em.HasComponent<MovementCache>(entity))
+                    // A* waypoint following
+                    var pathIdx = em.GetComponentData<AStarPathIndex>(entity);
+                    if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 wp))
                     {
-                        var cache = em.GetComponentData<MovementCache>(entity);
-                        float3 diff = goal - cache.LastDestination;
-                        destChanged = math.lengthsq(diff) > DestChangedThresholdSq;
-                        if (!destChanged)
+                        float3 toWp = wp - pos;
+                        toWp.y = 0f;
+                        float wpDist = math.length(toWp);
+
+                        if (wpDist < StopDistance * 2f)
                         {
-                            // Destination unchanged - reuse cached snapped destination
-                            snappedDest = cache.LastSnappedDest;
+                            // Advance to next waypoint
+                            pathIdx.CurrentWaypoint++;
+                            ecb.SetComponent(entity, pathIdx);
+
+                            // Check if more waypoints remain
+                            if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 nextWp))
+                            {
+                                toWp = nextWp - pos;
+                                toWp.y = 0f;
+                                wpDist = math.length(toWp);
+                            }
+                            // else: path exhausted, fall through — the DesiredDestination
+                            // arrival check at line ~243 handles final stop
                         }
+
+                        if (wpDist > 1e-4f)
+                            dir = toWp / wpDist;
                     }
-
-                    if (destChanged)
+                    // else: no path available, keep direct-line dir
+                }
+                else
+                {
+                    // Flow field direction lookup with per-unit destination caching
+                    int snappedDest = -1;
+                    if (ffm != null)
                     {
-                        var field = ffm.RequestFlowField(goal);
-                        if (field.HasValue)
-                            snappedDest = field.Value.DestinationIndex;
-
-                        // Update cache with new destination and result
+                        bool destChanged = true;
                         if (em.HasComponent<MovementCache>(entity))
                         {
-                            var mvc = em.GetComponentData<MovementCache>(entity);
-                            mvc.LastDestination = goal;
-                            mvc.LastSnappedDest = snappedDest;
-                            em.SetComponentData(entity, mvc);
+                            var cache = em.GetComponentData<MovementCache>(entity);
+                            float3 diff2 = goal - cache.LastDestination;
+                            destChanged = math.lengthsq(diff2) > DestChangedThresholdSq;
+                            if (!destChanged)
+                            {
+                                snappedDest = cache.LastSnappedDest;
+                            }
+                        }
+
+                        if (destChanged)
+                        {
+                            var field = ffm.RequestFlowField(goal);
+                            if (field.HasValue)
+                                snappedDest = field.Value.DestinationIndex;
+
+                            if (em.HasComponent<MovementCache>(entity))
+                            {
+                                var mvc = em.GetComponentData<MovementCache>(entity);
+                                mvc.LastDestination = goal;
+                                mvc.LastSnappedDest = snappedDest;
+                                em.SetComponentData(entity, mvc);
+                            }
                         }
                     }
+                    dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
                 }
-
-                // Flow-field direction lookup (NativeArray-based, falls back to direct-line)
-                dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
 
                 // === Per-unit direction smoothing ===
                 // Lerp toward raw flow field direction to prevent cell-boundary oscillation.

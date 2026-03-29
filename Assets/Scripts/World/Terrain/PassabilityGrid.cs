@@ -48,7 +48,7 @@ namespace TheWaningBorder.World.Terrain
         private NativeArray<byte> _cells;
         private int _width;
         private int _height;
-        private float _cellSize = 2f;
+        private float _cellSize;
         private float3 _origin; // world position of cell (0,0) corner
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -87,6 +87,9 @@ namespace TheWaningBorder.World.Terrain
                 Debug.LogError("[PassabilityGrid] ProceduralTerrain.Instance is null. Cannot generate grid.");
                 return;
             }
+
+            // Read configurable cell size (default 4 world units)
+            _cellSize = GameSettings.PathfindingCellSize;
 
             // Derive grid bounds from ProceduralTerrain world extents
             float worldWidth = pt.worldMax.x - pt.worldMin.x;
@@ -183,6 +186,56 @@ namespace TheWaningBorder.World.Terrain
             return new float3(wx, wy, wz);
         }
 
+        /// <summary>
+        /// Snap a world position to the nearest grid cell center.
+        /// Buildings should use this so their centers align with grid cells
+        /// and are correctly marked as obstacles in the passability grid.
+        /// </summary>
+        public float3 SnapToGrid(float3 worldPos)
+        {
+            int2 cell = WorldToCell(worldPos);
+            cell = math.clamp(cell, int2.zero, new int2(_width - 1, _height - 1));
+            return CellToWorld(cell);
+        }
+
+        /// <summary>
+        /// Snap a world position for a rectangular building.
+        /// For odd-width dimensions, center snaps to cell center.
+        /// For even-width dimensions, center snaps to cell edge (between two cells).
+        /// This ensures the building footprint always covers exactly Width*Height cells.
+        /// </summary>
+        public float3 SnapToGridRect(float3 worldPos, int2 buildingSize)
+        {
+            float snappedX = SnapAxisImpl(worldPos.x, _origin.x, buildingSize.x);
+            float snappedZ = SnapAxisImpl(worldPos.z, _origin.z, buildingSize.y);
+
+            // Clamp so footprint stays in grid bounds
+            float halfW = buildingSize.x * _cellSize / 2f;
+            float halfH = buildingSize.y * _cellSize / 2f;
+            snappedX = Mathf.Clamp(snappedX, _origin.x + halfW, _origin.x + _width * _cellSize - halfW);
+            snappedZ = Mathf.Clamp(snappedZ, _origin.z + halfH, _origin.z + _height * _cellSize - halfH);
+
+            float snappedY = TerrainUtility.GetHeight(snappedX, snappedZ);
+            return new float3(snappedX, snappedY, snappedZ);
+        }
+
+        private float SnapAxisImpl(float worldCoord, float axisOrigin, int gridDimension)
+        {
+            float relative = (worldCoord - axisOrigin) / _cellSize;
+            if (gridDimension % 2 == 1)
+            {
+                // Odd dimension: center on a cell center
+                int cell = (int)math.floor(relative);
+                return axisOrigin + (cell + 0.5f) * _cellSize;
+            }
+            else
+            {
+                // Even dimension: center on a cell edge
+                int cell = Mathf.RoundToInt(relative);
+                return axisOrigin + cell * _cellSize;
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // PASSABILITY QUERIES
         // ═══════════════════════════════════════════════════════════════════════
@@ -254,6 +307,66 @@ namespace TheWaningBorder.World.Terrain
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // RECTANGULAR BUILDING BLOCKING
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Mark all cells covered by a rectangular building footprint as building-blocked.
+        /// center is the building's snapped world position; size is in grid cells.
+        /// </summary>
+        public void BlockBuildingRect(float3 center, int2 size)
+        {
+            if (!_cells.IsCreated) return;
+            IterateCellsInRect(center, size, (int index, byte current) =>
+            {
+                if (current == Passable)
+                    _cells[index] = BuildingBlocked;
+            });
+        }
+
+        /// <summary>
+        /// Unblock all cells covered by a rectangular building footprint.
+        /// Only clears cells that are building-blocked.
+        /// </summary>
+        public void UnblockBuildingRect(float3 center, int2 size)
+        {
+            if (!_cells.IsCreated) return;
+            IterateCellsInRect(center, size, (int index, byte current) =>
+            {
+                if (current == BuildingBlocked)
+                    _cells[index] = Passable;
+            });
+        }
+
+        /// <summary>
+        /// Check if all cells under a building footprint are passable.
+        /// Used during placement validation.
+        /// </summary>
+        public bool IsFootprintPassable(float3 center, int2 size)
+        {
+            if (!_cells.IsCreated) return true;
+
+            float halfW = size.x * _cellSize / 2f;
+            float halfH = size.y * _cellSize / 2f;
+
+            int2 minCell = WorldToCell(new float3(center.x - halfW + 0.01f, 0f, center.z - halfH + 0.01f));
+            int2 maxCell = WorldToCell(new float3(center.x + halfW - 0.01f, 0f, center.z + halfH - 0.01f));
+
+            minCell = math.max(minCell, int2.zero);
+            maxCell = math.min(maxCell, new int2(_width - 1, _height - 1));
+
+            for (int y = minCell.y; y <= maxCell.y; y++)
+            {
+                for (int x = minCell.x; x <= maxCell.x; x++)
+                {
+                    if (_cells[y * _width + x] != Passable)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // OBSTACLE BLOCKING (trees, rocks)
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -290,6 +403,30 @@ namespace TheWaningBorder.World.Terrain
         // ═══════════════════════════════════════════════════════════════════════
         // ITERATION HELPERS
         // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Iterate all cells in a rectangle defined by center position and cell count.
+        /// </summary>
+        private void IterateCellsInRect(float3 center, int2 size, System.Action<int, byte> action)
+        {
+            float halfW = size.x * _cellSize / 2f;
+            float halfH = size.y * _cellSize / 2f;
+
+            int2 minCell = WorldToCell(new float3(center.x - halfW + 0.01f, 0f, center.z - halfH + 0.01f));
+            int2 maxCell = WorldToCell(new float3(center.x + halfW - 0.01f, 0f, center.z + halfH - 0.01f));
+
+            minCell = math.max(minCell, int2.zero);
+            maxCell = math.min(maxCell, new int2(_width - 1, _height - 1));
+
+            for (int y = minCell.y; y <= maxCell.y; y++)
+            {
+                for (int x = minCell.x; x <= maxCell.x; x++)
+                {
+                    int index = y * _width + x;
+                    action(index, _cells[index]);
+                }
+            }
+        }
 
         /// <summary>
         /// Iterate all cells within a circular radius around a world position.

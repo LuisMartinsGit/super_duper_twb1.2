@@ -263,17 +263,43 @@ public struct FlowFieldLookup
         cx = math.clamp(cx, 0, GridWidth - 1);
         cz = math.clamp(cz, 0, GridHeight - 1);
 
-        int idx = slot * CellsPerField + cz * GridWidth + cx;
-        if (idx < 0 || idx >= DirectionData.Length)
+        // ── 5×5 Gaussian kernel convolution ──
+        // Samples a 5×5 neighborhood of direction vectors weighted by
+        // a Gaussian (σ=1). Skips impassable/unreachable cells (zero direction)
+        // so walls don't dilute the flow. Produces a direction that varies
+        // continuously as the unit moves across cell boundaries.
+        float2 weightedSum = float2.zero;
+        float totalWeight = 0f;
+
+        for (int dy = -2; dy <= 2; dy++)
+        {
+            int nz = cz + dy;
+            if (nz < 0 || nz >= GridHeight) continue;
+
+            for (int dx = -2; dx <= 2; dx++)
+            {
+                int nx = cx + dx;
+                if (nx < 0 || nx >= GridWidth) continue;
+
+                int idx = slot * CellsPerField + nz * GridWidth + nx;
+                if (idx < 0 || idx >= DirectionData.Length) continue;
+
+                float2 cellDir = DirectionData[idx];
+                // Skip unreachable/impassable/destination cells (zero direction)
+                if (math.lengthsq(cellDir) < 1e-6f) continue;
+
+                float w = GaussianWeight5x5(dx, dy);
+                weightedSum += cellDir * w;
+                totalWeight += w;
+            }
+        }
+
+        // Fallback to direct-line if no valid neighbors in the kernel
+        if (totalWeight < 1e-6f || math.lengthsq(weightedSum) < 1e-6f)
             return directDir;
 
-        float2 flowDir2 = DirectionData[idx];
-
-        // If cell direction is zero (unreachable/destination), use direct
-        if (math.lengthsq(flowDir2) < 1e-6f)
-            return directDir;
-
-        float3 flowDir = math.normalizesafe(new float3(flowDir2.x, 0f, flowDir2.y));
+        float2 smoothDir2 = math.normalize(weightedSum);
+        float3 flowDir = new float3(smoothDir2.x, 0f, smoothDir2.y);
 
         // Check if the direct path is clear by sampling cells ahead.
         // Only use direct direction if there are no obstacles in the way.
@@ -305,6 +331,26 @@ public struct FlowFieldLookup
         }
 
         return flowDir;
+    }
+
+    /// <summary>
+    /// Pre-computed 5×5 Gaussian kernel weight (σ = 1.0).
+    /// w = exp(-(dx² + dy²) / 2). All unique d² values for a 5×5 window are 0..8.
+    /// </summary>
+    private static float GaussianWeight5x5(int dx, int dy)
+    {
+        int d2 = dx * dx + dy * dy;
+        // exp(-d²/2) pre-computed for d² = 0..8
+        return d2 switch
+        {
+            0 => 1.0000f,   // center
+            1 => 0.6065f,   // cardinal ±1
+            2 => 0.3679f,   // diagonal ±1
+            4 => 0.1353f,   // cardinal ±2
+            5 => 0.0821f,   // knight-move (±1,±2)
+            8 => 0.0183f,   // diagonal ±2
+            _ => 0f,
+        };
     }
 
     /// <summary>

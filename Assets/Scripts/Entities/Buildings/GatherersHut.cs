@@ -49,6 +49,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(SuppliesIncome)
             );
 
@@ -58,7 +59,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("GatherersHut");
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.SetComponentData(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
 
             // Combat type tags
@@ -94,7 +97,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new GathererHutTag());
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("GatherersHut");
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
 
             // Combat type tags
@@ -131,7 +136,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new GathererHutTag());
             ecb.AddComponent(entity, new Health { Value = 1, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("GatherersHut");
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = buildTime });
             ecb.AddComponent(entity, new Buildable { BuildTimeSeconds = buildTime });
 

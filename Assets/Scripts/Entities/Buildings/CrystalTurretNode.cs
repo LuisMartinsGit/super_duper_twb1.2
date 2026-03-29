@@ -25,6 +25,7 @@ namespace TheWaningBorder.Entities
                 typeof(FactionTag),
                 typeof(Health),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(BuildingTag),
                 typeof(CrystalTag),
                 typeof(CrystalSubNodeTag),

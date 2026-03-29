@@ -12,7 +12,8 @@ public enum GameMode
     SoloVsCurse,
     Sandbox,
     BattalionTest,
-    Scenario
+    Scenario,
+    PathfindingTest
 }
 
 public enum ScenarioType
@@ -108,6 +109,14 @@ public static class GameSettings
 
     /// <summary>Whether the Crystal Curse faction spawns on this map.</summary>
     public static bool CrystalCurseEnabled = true;
+
+    // ==================== Pathfinding Settings ====================
+
+    /// <summary>Cell size for the passability grid (world units per cell). 1 = 1m resolution.</summary>
+    public static float PathfindingCellSize = 1f;
+
+    /// <summary>True = flow fields (shared BFS), false = A* (per-unit paths).</summary>
+    public static bool UseFlowFields = true;
 
     // ==================== Multiplayer Settings ====================
 

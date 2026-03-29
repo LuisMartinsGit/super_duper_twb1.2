@@ -51,6 +51,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(WallTag),
                 typeof(WallHubTag)
             );
@@ -62,7 +63,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -102,6 +105,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(WallTag),
                 typeof(WallSegmentTag),
                 typeof(WallConnection)
@@ -114,7 +118,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)DefaultSegmentHP, Max = (int)DefaultSegmentHP });
             em.SetComponentData(entity, new LineOfSight { Radius = DefaultSegmentLoS });
-            em.SetComponentData(entity, new Radius { Value = DefaultSegmentRadius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.SetComponentData(entity, new WallConnection { HubA = hubA, HubB = hubB });
 
             // Combat type tags
