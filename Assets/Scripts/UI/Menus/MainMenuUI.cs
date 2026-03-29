@@ -57,6 +57,9 @@ namespace TheWaningBorder.UI.Menus
         {
             MenuBootstrap.EnsureMenuCamera();
 
+            // Apply persisted settings on launch
+            OptionsMenuUI.LoadAndApplySettings();
+
             _skirmishLobby = gameObject.AddComponent<SkirmishLobbyUI>();
             _skirmishLobby.enabled = false;
 
