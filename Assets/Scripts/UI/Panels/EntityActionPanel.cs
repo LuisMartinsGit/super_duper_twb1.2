@@ -63,6 +63,9 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = false;
             _hoveredTooltip = null;
 
+            // Observer cannot issue commands
+            if (GameSettings.IsObserver) return;
+
             // Only show actions for own entities, not enemy
             if (!UnifiedUIManager.IsSelectionOwnedByPlayer()) return;
 

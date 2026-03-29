@@ -147,6 +147,8 @@ public static class GameSettings
         NetworkRole = NetworkRole.None;
         LocalPlayerFaction = Faction.Blue;
         FactionToPlayerMapping.Clear();
+        IsObserver = false;
+        Mode = GameMode.FreeForAll;
     }
 
     /// <summary>
