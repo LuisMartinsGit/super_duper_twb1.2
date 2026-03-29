@@ -43,6 +43,8 @@ namespace TheWaningBorder.Systems.Crystal
         private EntityQuery _crystalUnitQuery;    // CrystalUnitTag + LocalTransform
         private EntityQuery _hallQuery;           // HallTag + FactionTag + LocalTransform
         private EntityQuery _mainNodeTransformQuery; // CrystalMainNodeTag + LocalTransform (expansion)
+        private EntityQuery _waveQuery;           // CrystalWaveState (attack waves)
+        private EntityQuery _subNodeTransformQuery;  // CrystalSubNodeTag + LocalTransform (cursed position)
 
         // AI costs — centralised in CrystalConstants
         private const int ResourceNodeCost = AIResourceNodeCost;
@@ -96,6 +98,15 @@ namespace TheWaningBorder.Systems.Crystal
 
             _mainNodeTransformQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CrystalMainNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            _waveQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadWrite<CrystalWaveState>()
+            );
+
+            _subNodeTransformQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalSubNodeTag>(),
                 ComponentType.ReadOnly<LocalTransform>()
             );
         }
@@ -438,10 +449,9 @@ namespace TheWaningBorder.Systems.Crystal
             NativeArray<Entity> mainNodes, NativeArray<LocalTransform> nodeTransforms,
             ref Random random)
         {
-            var waveQuery = em.CreateEntityQuery(ComponentType.ReadWrite<CrystalWaveState>());
-            if (waveQuery.IsEmpty) return;
+            if (_waveQuery.IsEmpty) return;
 
-            using var waveEntities = waveQuery.ToEntityArray(Allocator.Temp);
+            using var waveEntities = _waveQuery.ToEntityArray(Allocator.Temp);
             var wave = em.GetComponentData<CrystalWaveState>(waveEntities[0]);
 
             int nodeCount = mainNodes.Length;
@@ -619,18 +629,10 @@ namespace TheWaningBorder.Systems.Crystal
         {
             var grid = PassabilityGrid.Instance;
             int half = GameSettings.MapHalfSize;
-            var em = EntityManager;
 
             // Gather all existing crystal node positions for proximity check
-            var nodeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalSubNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var mainQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-
-            using var subTransforms = nodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var mainTransforms = mainQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var subTransforms = _subNodeTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var mainTransforms = _mainNodeTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             for (int attempt = 0; attempt < 20; attempt++)
             {
