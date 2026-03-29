@@ -30,7 +30,7 @@ namespace TheWaningBorder.Data
             // Era 1 - Religious/Magic Buildings
             { "Shrine",            Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (alias)
             { "ShrineOfAhridan",   Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (choice building)
-            { "TempleOfRidan",     Cost.Of(supplies: 400, iron: 100, crystal: 80) },    // Temple of Ridan (Era 2, all cultures)
+            { "TempleOfRidan",     Cost.Of(supplies: 300, crystal: 100) },              // Temple of Ridan (choice building)
             { "Vault",          Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra (alias)
             { "VaultOfAlmierra",Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra
 
