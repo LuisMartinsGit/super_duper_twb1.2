@@ -111,5 +111,10 @@ namespace TheWaningBorder.Core.Config
         public const int AIVeilstingerCost = 150;
         public const int AIGodsplinterCost = 500;
         public const int AIExpansionCost = 3000;
+
+        // ==================== AI Train Times (seconds) ====================
+        public const float CrystallingTrainTime = 8f;
+        public const float VeilstingerTrainTime = 15f;
+        public const float GodsplinterTrainTime = 30f;
     }
 }

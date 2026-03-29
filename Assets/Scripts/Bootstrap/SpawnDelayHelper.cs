@@ -30,7 +30,7 @@ namespace TheWaningBorder.Bootstrap
                     if (GameSettings.Mode == GameMode.PathfindingTest)
                     {
                         Debug.Log("[SpawnDelayHelper] Terrain ready, spawning pathfinding test...");
-                        PathfindingTestSetup.SpawnTestScenario();
+                        PathfindingTestSetup.Bootstrap();
                         GameCamera.FocusOn(Vector3.zero, instant: true);
                         LoadingScreen.NotifyReady();
                         Destroy(gameObject);
