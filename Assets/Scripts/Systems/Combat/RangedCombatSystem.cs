@@ -213,16 +213,6 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Battalion members NEVER chase — formation controls their movement
-                    if (em.HasComponent<BattalionMemberData>(entity))
-                    {
-                        tgt.Value = Entity.Null;
-                        archer.AimTimer = 0;
-                        if (em.HasComponent<AttackCommand>(entity))
-                            ecb.RemoveComponent<AttackCommand>(entity);
-                        continue;
-                    }
-
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
 
