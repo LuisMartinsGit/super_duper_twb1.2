@@ -1088,55 +1088,51 @@ public class PresentationSpawnSystem : MonoBehaviour
         var root = new GameObject($"CrystalLoot_{entity.Index}");
         root.transform.position = center;
 
-        var lootColor = new Color(0.50f, 0.18f, 0.65f);    // Purple crystal
-        var glowColor = new Color(0.65f, 0.30f, 0.80f);    // Lighter glow
+        var purpleBase = new Color(0.40f, 0.08f, 0.55f, 0.70f);
+        var greenTip   = new Color(0.06f, 0.28f, 0.10f, 0.55f);
+        var emPurple   = new Color(0.35f, 0.05f, 0.50f);
 
-        // Create a small cluster of 3-5 crystal shards
+        // Small cluster of 3-5 bulbous crystal nubs (spheres)
         int shardCount = Random.Range(3, 6);
         for (int i = 0; i < shardCount; i++)
         {
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var shard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shard.name = $"Shard_{i}";
             shard.transform.SetParent(root.transform);
 
-            // Randomize position in a small area
             float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
             float dist = Random.Range(0.05f, 0.3f);
             float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
 
-            // Tall thin crystal shard shape
-            float height = Random.Range(0.3f, 0.7f);
-            float width = Random.Range(0.08f, 0.15f);
-            shard.transform.localPosition = new Vector3(x, height * 0.5f, z);
+            // Bulbous eroded shape — short and wide spheres
+            float height = Random.Range(0.25f, 0.55f);
+            float width = Random.Range(0.12f, 0.22f);
+            shard.transform.localPosition = new Vector3(x, height * 0.4f, z);
             shard.transform.localScale = new Vector3(width, height, width);
 
-            // Tilt each shard slightly outward from center
             float tiltAngle = Random.Range(5f, 25f);
             shard.transform.localRotation = Quaternion.Euler(
                 Random.Range(-tiltAngle, tiltAngle),
                 angle + Random.Range(-30f, 30f),
                 Random.Range(-tiltAngle, tiltAngle));
 
-            // Remove collider from individual shards
-            var col = shard.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            DestroyCollider(shard);
 
-            // Crystal material with emission
-            var renderer = shard.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                var mat = new Material(
-                    Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mat.color = Color.Lerp(lootColor, glowColor, Random.Range(0f, 0.5f));
-                if (mat.HasProperty("_EmissionColor"))
-                {
-                    mat.EnableKeyword("_EMISSION");
-                    mat.SetColor("_EmissionColor", glowColor * Random.Range(1.5f, 3f));
-                }
-                renderer.material = mat;
-            }
+            float tipT = Random.Range(0.1f, 0.5f);
+            ApplyCrystalMaterial(shard, purpleBase, greenTip, emPurple, tipBlend: tipT);
         }
+
+        // Tiny point light for the loot pile
+        var lightObj = new GameObject("LootGlow");
+        lightObj.transform.SetParent(root.transform, false);
+        lightObj.transform.localPosition = Vector3.up * 0.25f;
+        var pl = lightObj.AddComponent<Light>();
+        pl.type = LightType.Point;
+        pl.color = Color.white;
+        pl.intensity = 0.6f;
+        pl.range = 1.2f;
+        pl.shadows = LightShadows.None;
 
         // Add a box collider to the root for selection/raycasting
         var boxCol = root.AddComponent<BoxCollider>();
@@ -1232,67 +1228,120 @@ public class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Create a crystal node/building visual: a central crystal spire with smaller shards around it.
+    /// Create a crystal node/building visual: large bulbous, eroded crystals with purple base
+    /// fading to dark green tips.  Translucent, reflective material with dim purple emission
+    /// and a white point light at the core.
     /// </summary>
     private void CreateCrystalNodeVisual(GameObject root, int presentationId, Color coreColor, Color glowColor, Entity entity)
     {
         float scale = presentationId == 310 ? 1.5f : 1f; // Main node is 50% larger
 
-        // Central crystal spire (tall elongated cube rotated 45 degrees)
-        var spire = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        spire.name = "CrystalSpire";
-        spire.transform.SetParent(root.transform, false);
-        spire.transform.localPosition = Vector3.up * (1.5f * scale);
-        spire.transform.localScale = new Vector3(0.6f * scale, 3f * scale, 0.6f * scale);
-        spire.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-        ApplyCrystalMaterial(spire, coreColor, glowColor);
-        var spireCol = spire.GetComponent<Collider>();
-        if (spireCol != null) Destroy(spireCol);
+        // --- Colour palette ---
+        var purpleBase  = new Color(0.40f, 0.08f, 0.55f, 0.70f); // translucent deep purple
+        var greenTip    = new Color(0.06f, 0.28f, 0.10f, 0.55f); // translucent dark green
+        var emissionPurple = new Color(0.35f, 0.05f, 0.50f);     // dim purple glow
 
-        // Smaller crystal shards around the base
         var rng = new System.Random(entity.Index + presentationId);
-        int shardCount = presentationId == 310 ? 5 : 3;
 
-        for (int i = 0; i < shardCount; i++)
+        // --- Central dominant crystal (tall bulbous sphere, stretched vertically) ---
+        var mainCrystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        mainCrystal.name = "MainCrystal";
+        mainCrystal.transform.SetParent(root.transform, false);
+        float mainHeight = 2.8f * scale;
+        mainCrystal.transform.localPosition = Vector3.up * (mainHeight * 0.45f);
+        mainCrystal.transform.localScale = new Vector3(1.1f * scale, mainHeight, 0.95f * scale);
+        mainCrystal.transform.localRotation = Quaternion.Euler(
+            (float)rng.NextDouble() * 6f - 3f, (float)rng.NextDouble() * 360f,
+            (float)rng.NextDouble() * 6f - 3f);
+        ApplyCrystalMaterial(mainCrystal, purpleBase, greenTip, emissionPurple, tipBlend: 0.65f);
+        DestroyCollider(mainCrystal);
+
+        // --- Secondary bulbous crystals (leaning outward) ---
+        int secondaryCount = presentationId == 310 ? 4 : 2;
+        for (int i = 0; i < secondaryCount; i++)
         {
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = 0.6f * scale + (float)rng.NextDouble() * 0.4f * scale;
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-            float shardHeight = 0.5f + (float)rng.NextDouble() * 1.2f;
+            float angle = (i / (float)secondaryCount) * 360f + (float)rng.NextDouble() * 40f;
+            float dist  = (0.55f + (float)rng.NextDouble() * 0.35f) * scale;
+            float h     = 1.4f + (float)rng.NextDouble() * 1.0f;
 
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shard.name = $"Shard_{i}";
-            shard.transform.SetParent(root.transform, false);
-            shard.transform.localPosition = new Vector3(offsetX, shardHeight * 0.5f * scale, offsetZ);
-            shard.transform.localScale = new Vector3(0.25f * scale, shardHeight * scale, 0.25f * scale);
-            shard.transform.localRotation = Quaternion.Euler(
-                (float)rng.NextDouble() * 15f - 7.5f,
-                (float)rng.NextDouble() * 360f,
-                (float)rng.NextDouble() * 15f - 7.5f
-            );
+            var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            crystal.name = $"Crystal_{i}";
+            crystal.transform.SetParent(root.transform, false);
+            float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
+            float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
+            crystal.transform.localPosition = new Vector3(px, h * 0.4f * scale, pz);
+            crystal.transform.localScale = new Vector3(
+                (0.55f + (float)rng.NextDouble() * 0.25f) * scale,
+                h * scale,
+                (0.50f + (float)rng.NextDouble() * 0.20f) * scale);
+            // Lean outward from center for organic feel
+            float lean = 10f + (float)rng.NextDouble() * 20f;
+            crystal.transform.localRotation = Quaternion.Euler(
+                Mathf.Cos(angle * Mathf.Deg2Rad) * lean,
+                angle + (float)rng.NextDouble() * 30f,
+                Mathf.Sin(angle * Mathf.Deg2Rad) * lean);
 
-            // Slight color variation per shard
-            float variation = 0.85f + (float)rng.NextDouble() * 0.3f;
-            Color shardColor = coreColor * variation;
-            shardColor.a = 1f;
-            ApplyCrystalMaterial(shard, shardColor, glowColor * 0.6f);
-
-            var shardCol = shard.GetComponent<Collider>();
-            if (shardCol != null) Destroy(shardCol);
+            float tipT = 0.4f + (float)rng.NextDouble() * 0.4f;
+            ApplyCrystalMaterial(crystal, purpleBase, greenTip, emissionPurple, tipBlend: tipT);
+            DestroyCollider(crystal);
         }
 
-        // Base disc (flat cylinder)
+        // --- Small eroded nub clusters at the base ---
+        int nubCount = presentationId == 310 ? 6 : 3;
+        for (int i = 0; i < nubCount; i++)
+        {
+            float angle = (float)rng.NextDouble() * 360f;
+            float dist  = (0.3f + (float)rng.NextDouble() * 0.8f) * scale;
+            float nubH  = 0.25f + (float)rng.NextDouble() * 0.45f;
+
+            var nub = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            nub.name = $"Nub_{i}";
+            nub.transform.SetParent(root.transform, false);
+            float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
+            float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
+            nub.transform.localPosition = new Vector3(px, nubH * 0.35f * scale, pz);
+            nub.transform.localScale = new Vector3(
+                (0.25f + (float)rng.NextDouble() * 0.20f) * scale,
+                nubH * scale,
+                (0.25f + (float)rng.NextDouble() * 0.20f) * scale);
+            nub.transform.localRotation = Quaternion.Euler(
+                (float)rng.NextDouble() * 30f - 15f,
+                (float)rng.NextDouble() * 360f,
+                (float)rng.NextDouble() * 30f - 15f);
+
+            // Nubs are more purple (base region), less green blend
+            ApplyCrystalMaterial(nub, purpleBase, greenTip, emissionPurple, tipBlend: 0.15f);
+            DestroyCollider(nub);
+        }
+
+        // --- Ground stain / base disc ---
         var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         basePlate.name = "BasePlate";
         basePlate.transform.SetParent(root.transform, false);
-        basePlate.transform.localPosition = Vector3.up * 0.05f;
-        basePlate.transform.localScale = new Vector3(1.5f * scale, 0.05f, 1.5f * scale);
-        var darkBase = coreColor * 0.4f;
-        darkBase.a = 1f;
-        ApplyCrystalMaterial(basePlate, darkBase, glowColor * 0.2f);
-        var baseCol = basePlate.GetComponent<Collider>();
-        if (baseCol != null) Destroy(baseCol);
+        basePlate.transform.localPosition = Vector3.up * 0.04f;
+        basePlate.transform.localScale = new Vector3(1.8f * scale, 0.04f, 1.8f * scale);
+        var darkBase = purpleBase * 0.3f;
+        darkBase.a = 0.85f;
+        ApplyCrystalMaterial(basePlate, darkBase, darkBase, emissionPurple * 0.15f, tipBlend: 0f);
+        DestroyCollider(basePlate);
+
+        // --- White point light inside the crystal cluster ---
+        var lightObj = new GameObject("CrystalCoreLight");
+        lightObj.transform.SetParent(root.transform, false);
+        lightObj.transform.localPosition = Vector3.up * (1.0f * scale);
+        var pointLight = lightObj.AddComponent<Light>();
+        pointLight.type = LightType.Point;
+        pointLight.color = Color.white;
+        pointLight.intensity = presentationId == 310 ? 1.8f : 1.2f;
+        pointLight.range = 3.5f * scale;
+        pointLight.shadows = LightShadows.None;
+    }
+
+    /// <summary>Helper to strip colliders off procedural primitives.</summary>
+    private void DestroyCollider(GameObject go)
+    {
+        var col = go.GetComponent<Collider>();
+        if (col != null) Destroy(col);
     }
 
     /// <summary>
@@ -1314,9 +1363,13 @@ public class PresentationSpawnSystem : MonoBehaviour
         body.transform.SetParent(root.transform, false);
         body.transform.localPosition = Vector3.up * (0.8f * scale);
         body.transform.localScale = new Vector3(0.5f * scale, 0.8f * scale, 0.4f * scale);
-        ApplyCrystalMaterial(body, coreColor, glowColor);
-        var bodyCol = body.GetComponent<Collider>();
-        if (bodyCol != null) Destroy(bodyCol);
+        var emPurple = new Color(0.35f, 0.05f, 0.50f);
+        var greenTip = new Color(0.06f, 0.28f, 0.10f, 0.55f);
+        // Units use a slightly more opaque base
+        Color unitBase = coreColor;
+        unitBase.a = 0.75f;
+        ApplyCrystalMaterial(body, unitBase, greenTip, emPurple, tipBlend: 0.3f);
+        DestroyCollider(body);
 
         // Head crystal (small cube tilted)
         var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1326,10 +1379,9 @@ public class PresentationSpawnSystem : MonoBehaviour
         head.transform.localScale = Vector3.one * (0.25f * scale);
         head.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
         Color brightCore = coreColor * 1.3f;
-        brightCore.a = 1f;
-        ApplyCrystalMaterial(head, brightCore, glowColor * 1.2f);
-        var headCol = head.GetComponent<Collider>();
-        if (headCol != null) Destroy(headCol);
+        brightCore.a = 0.80f;
+        ApplyCrystalMaterial(head, brightCore, greenTip, emPurple, tipBlend: 0.55f);
+        DestroyCollider(head);
 
         // Godsplinter gets extra siege appendages
         if (presentationId == 322)
@@ -1340,9 +1392,10 @@ public class PresentationSpawnSystem : MonoBehaviour
             cannon.transform.localPosition = new Vector3(0f, 1.2f * scale, 0.5f * scale);
             cannon.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             cannon.transform.localScale = new Vector3(0.15f * scale, 0.6f * scale, 0.15f * scale);
-            ApplyCrystalMaterial(cannon, coreColor * 0.8f, glowColor * 0.8f);
-            var cannonCol = cannon.GetComponent<Collider>();
-            if (cannonCol != null) Destroy(cannonCol);
+            Color cannonBase = coreColor * 0.8f;
+            cannonBase.a = 0.70f;
+            ApplyCrystalMaterial(cannon, cannonBase, greenTip, emPurple, tipBlend: 0.4f);
+            DestroyCollider(cannon);
         }
 
         // Veilstinger gets wing-like crystal shards
@@ -1356,35 +1409,76 @@ public class PresentationSpawnSystem : MonoBehaviour
                 wing.transform.localPosition = new Vector3(0.4f * scale * side, 1f * scale, -0.1f * scale);
                 wing.transform.localScale = new Vector3(0.4f * scale, 0.15f * scale, 0.3f * scale);
                 wing.transform.localRotation = Quaternion.Euler(0f, 0f, -20f * side);
-                ApplyCrystalMaterial(wing, coreColor * 0.9f, glowColor * 0.7f);
-                var wingCol = wing.GetComponent<Collider>();
-                if (wingCol != null) Destroy(wingCol);
+                Color wingBase = coreColor * 0.9f;
+                wingBase.a = 0.65f;
+                ApplyCrystalMaterial(wing, wingBase, greenTip, emPurple, tipBlend: 0.5f);
+                DestroyCollider(wing);
             }
         }
     }
 
     /// <summary>
-    /// Apply a crystalline material with emission glow to a primitive.
+    /// Apply a translucent, reflective crystalline material with purple-to-green gradient
+    /// and dim purple emission.
+    /// <paramref name="tipBlend"/> controls how much green-tip color is mixed in (0 = pure base, 1 = pure tip).
     /// </summary>
-    private static void ApplyCrystalMaterial(GameObject go, Color baseColor, Color emissionColor)
+    private static void ApplyCrystalMaterial(GameObject go, Color baseColor, Color tipColor,
+        Color emissionColor, float tipBlend)
     {
         var renderer = go.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        var mat = new Material(
-            Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-        mat.color = baseColor;
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        var mat = new Material(shader);
 
+        // Blend base purple → dark green tip
+        Color blended = Color.Lerp(baseColor, tipColor, tipBlend);
+
+        // --- URP Transparent surface type ---
+        // _Surface: 0 = Opaque, 1 = Transparent
+        if (mat.HasProperty("_Surface"))
+            mat.SetFloat("_Surface", 1f);
+        // _Blend: 0 = Alpha
+        if (mat.HasProperty("_Blend"))
+            mat.SetFloat("_Blend", 0f);
+        // Render queue for transparent
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+
+        // Source / destination blend for alpha transparency
+        if (mat.HasProperty("_SrcBlend"))
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        if (mat.HasProperty("_DstBlend"))
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (mat.HasProperty("_ZWrite"))
+            mat.SetFloat("_ZWrite", 0f);
+
+        // Base color with alpha for translucency
+        mat.color = blended;
         if (mat.HasProperty("_BaseColor"))
-            mat.SetColor("_BaseColor", baseColor);
+            mat.SetColor("_BaseColor", blended);
+
+        // Highly reflective and refractant surface
         if (mat.HasProperty("_Metallic"))
-            mat.SetFloat("_Metallic", 0.6f);
+            mat.SetFloat("_Metallic", 0.85f);
         if (mat.HasProperty("_Smoothness"))
-            mat.SetFloat("_Smoothness", 0.7f);
+            mat.SetFloat("_Smoothness", 0.95f);
+
+        // IOR-like refraction boost (URP Lit doesn't have true IOR, but high smoothness +
+        // specular highlights on transparent surface gives a convincing glass/crystal look)
+        if (mat.HasProperty("_SpecularHighlights"))
+            mat.SetFloat("_SpecularHighlights", 1f);
+        if (mat.HasProperty("_EnvironmentReflections"))
+            mat.SetFloat("_EnvironmentReflections", 1f);
+
+        // Dim purple emission
         if (mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", emissionColor * 0.4f);
+            mat.SetColor("_EmissionColor", emissionColor * 0.35f);
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
 
         renderer.material = mat;
