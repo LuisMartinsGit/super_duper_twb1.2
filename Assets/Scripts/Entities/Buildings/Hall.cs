@@ -20,7 +20,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultSuppliesInterval = 15f;
         private const float DefaultRadius = 2.0f;
         private const int DefaultPopulation = 20;
-        private const int PresentationID = 100;
+        public const int PresentationID = 100;
 
         /// <summary>
         /// Create Hall using EntityManager.

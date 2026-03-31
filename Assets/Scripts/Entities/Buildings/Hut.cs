@@ -17,7 +17,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultLoS = 14f;
         private const float DefaultRadius = 1.6f;
         private const int DefaultPopulation = 10;
-        private const int PresentationID = 102;
+        public const int PresentationID = 102;
 
         /// <summary>
         /// Create Hut using EntityManager.
