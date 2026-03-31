@@ -1,0 +1,94 @@
+// AlanthorPaint.compute
+// Rasterizes a filled polygon into a RFloat RenderTexture using a
+// GPU point-in-polygon test (ray-casting algorithm).
+//
+// Each thread tests one texel: if the texel's world-space XZ position is
+// inside the polygon, it writes 1.0; otherwise it writes 0.0.
+//
+// Why compute instead of a fragment shader?
+//   The point-in-polygon test requires iterating over all polygon edges,
+//   which is a variable-length loop — tricky in a fragment shader but natural
+//   in a compute shader that has access to a structured buffer of vertices.
+//
+// DISPATCH: ceil(texSize/8) × ceil(texSize/8) × 1 thread groups.
+//           Each group is 8×8 threads, so one thread per texel.
+//
+// BUFFERS:
+//   _Polygon      — StructuredBuffer<float2>: polygon vertices in WORLD XZ space
+//   _VertexCount  — int: number of vertices in _Polygon
+//   _Output       — RWTexture2D<float>: the scratch RT to write into
+//
+// UNIFORMS:
+//   _TerrainOrigin — float2: world XZ position of terrain bottom-left corner
+//   _TerrainSize   — float2: world XZ extents of terrain
+//   _TexSize       — int: width (= height) of _Output in texels
+
+#pragma kernel CSMain
+
+// Input
+StructuredBuffer<float2> _Polygon;  // world-space XZ vertices
+int                      _VertexCount;
+float4                   _TerrainOrigin; // .xy = XZ world origin
+float4                   _TerrainSize;   // .xy = XZ world extent
+
+// Output (matches the scratch RFloat RT)
+RWTexture2D<float> _Output;
+int                _TexSize;
+
+// ---------------------------------------------------------------------------
+// Point-in-polygon: ray casting from p in the +X direction.
+// Returns true if the point is inside the polygon.
+// Reference: https://en.wikipedia.org/wiki/Point_in_polygon#Ray_casting_algorithm
+// ---------------------------------------------------------------------------
+bool PointInPolygon(float2 p)
+{
+    bool inside = false;
+    int j = _VertexCount - 1; // start with the last edge (wraps to first vertex)
+
+    for (int i = 0; i < _VertexCount; i++)
+    {
+        float2 vi = _Polygon[i];
+        float2 vj = _Polygon[j];
+
+        // Does the horizontal ray from p cross edge vj→vi?
+        bool crossesY = (vi.y > p.y) != (vj.y > p.y);
+        if (crossesY)
+        {
+            // x-coordinate of the intersection point on this edge
+            float xIntersect = (vj.x - vi.x) * (p.y - vi.y) / (vj.y - vi.y) + vi.x;
+            if (p.x < xIntersect)
+                inside = !inside; // toggle each crossing
+        }
+
+        j = i; // advance j to follow i
+    }
+
+    return inside;
+}
+
+// ---------------------------------------------------------------------------
+// Main kernel — one thread per texel
+// ---------------------------------------------------------------------------
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // Guard against out-of-bounds threads (happens when texSize % 8 != 0)
+    if ((int)id.x >= _TexSize || (int)id.y >= _TexSize) return;
+
+    // Convert texel (id.x, id.y) to a UV position in [0,1]^2
+    // +0.5 centres the sample point in the texel
+    float2 uv = (float2(id.x, id.y) + 0.5) / float(_TexSize);
+
+    // Convert UV to world XZ position
+    float2 worldXZ = _TerrainOrigin.xy + uv * _TerrainSize.xy;
+
+    // Run the point-in-polygon test
+    float result = PointInPolygon(worldXZ) ? 1.0 : 0.0;
+
+    // Additive write: polygon fill adds on top of whatever is already there.
+    // Because we clear the scratch RT before dispatching, this is equivalent to
+    // a simple assignment — but "additive" lets us dispatch multiple polygons
+    // in sequence without clearing between them.
+    _Output[id.xy] += result;
+    _Output[id.xy] = saturate(_Output[id.xy]); // clamp to [0,1]
+}

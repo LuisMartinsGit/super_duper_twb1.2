@@ -5,6 +5,8 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.Systems.Combat
@@ -138,6 +140,28 @@ namespace TheWaningBorder.Systems.Combat
                     if (!isBuilding)
                     {
                         ecb.AddComponent(dead, new DeathAnimationState { Timer = DeathAnimationDuration });
+
+                        // --- Terrain Influence: Feraldis blood accumulation ---
+                        // Crystal units (CrystalTag + CrystalUnitTag) do not bleed — they
+                        // shatter. Only organic non-crystal units spill blood onto BloodMap.
+                        bool isCrystalUnit = state.EntityManager.HasComponent<CrystalTag>(dead);
+                        if (!isCrystalUnit && state.EntityManager.HasComponent<LocalTransform>(dead))
+                        {
+                            float3 pos = state.EntityManager.GetComponentData<LocalTransform>(dead).Position;
+
+                            // Derive splat "amount" from the unit's max HP.
+                            // A weak unit (~50 HP) → ~0.25 (small splat).
+                            // A strong unit (200+ HP) → 1.0 (large, irregular splat).
+                            // Adjust the divisor to match your game's HP ranges.
+                            int maxHp = state.EntityManager.HasComponent<Health>(dead)
+                                ? state.EntityManager.GetComponentData<Health>(dead).Max
+                                : 50;
+                            float amount = math.saturate(maxHp / 200f);
+
+                            InfluenceBridge.OnUnitDied(
+                                new UnityEngine.Vector3(pos.x, pos.y, pos.z),
+                                amount);
+                        }
                     }
                     else
                     {
