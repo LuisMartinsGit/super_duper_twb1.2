@@ -22,7 +22,7 @@ public class PresentationSpawnSystem : MonoBehaviour
         // Buildings - Era 1 Core
         { 100, "Procedural/Hall" },                        // Hall.PresentationID = 100 (procedural Age 1)
         { 101, "Prefabs/Buildings/GatherersHut" },       // GatherersHut.PresentationID = 101
-        { 102, "Prefabs/Buildings/Hut" },                // Hut.PresentationID = 102
+        { 102, "Procedural/Hut" },                          // Hut.PresentationID = 102 (procedural Age 1)
         { 510, "Prefabs/Buildings/Barracks" },           // Barracks.PresentationID = 510
 
         // Buildings - Era 1 Advanced
@@ -251,6 +251,14 @@ public class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.Hall.PresentationID)
         {
             var go = CreateProceduralHall(pos, entity);
+            ApplyFactionColor(go, entity);
+            return go;
+        }
+
+        // === HUT: procedural Age 1 housing (log posts + canvas walls) ===
+        if (presentationId == TheWaningBorder.Entities.Hut.PresentationID)
+        {
+            var go = CreateProceduralHut(pos, entity);
             ApplyFactionColor(go, entity);
             return go;
         }
@@ -1217,6 +1225,377 @@ public class PresentationSpawnSystem : MonoBehaviour
         var boxCol = root.AddComponent<BoxCollider>();
         boxCol.center = new Vector3(0f, 2f, 0f);
         boxCol.size = new Vector3(5.5f, 4.5f, 5.5f);
+
+        // ── EntityReference for ECS ↔ GameObject link ──
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HUT PROCEDURAL GENERATION (Age 1 — Log Posts + Canvas Dwelling)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create the Age 1 Hut: a humble settler dwelling.
+    /// Four logs driven into the ground support a wooden plank roof. Canvas walls
+    /// stretch between the posts, with one lateral wall replaced by wooden planks
+    /// featuring a door with a gray handle. Faction-colored stripes on canvas walls.
+    /// </summary>
+    private GameObject CreateProceduralHut(Vector3 center, Entity entity)
+    {
+        var root = new GameObject($"Hut_{entity.Index}");
+        root.transform.position = center;
+
+        // Shared shader reference
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+        // Helper: create a primitive, parent it, set transform, apply material, destroy collider
+        System.Action<GameObject, Transform, Vector3, Vector3, Color, float, float> Setup =
+            (obj, parent, localPos, localScale, color, metallic, smoothness) =>
+        {
+            obj.transform.SetParent(parent, false);
+            obj.transform.localPosition = localPos;
+            obj.transform.localScale = localScale;
+            var r = obj.GetComponent<Renderer>();
+            if (r != null)
+            {
+                r.material = new Material(shader);
+                r.material.color = color;
+                if (r.material.HasProperty("_Metallic"))
+                    r.material.SetFloat("_Metallic", metallic);
+                if (r.material.HasProperty("_Smoothness"))
+                    r.material.SetFloat("_Smoothness", smoothness);
+            }
+            var c = obj.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+        };
+
+        // ── Color palette ──
+        var darkStone   = new Color(0.40f, 0.38f, 0.36f);   // Foundation stone
+        var logBark     = new Color(0.38f, 0.26f, 0.16f);   // Dark bark on log posts
+        var logBarkLt   = new Color(0.42f, 0.30f, 0.18f);   // Lighter bark variant
+        var logCore     = new Color(0.52f, 0.40f, 0.28f);   // Exposed wood grain on log tops
+        var plankWood   = new Color(0.55f, 0.40f, 0.24f);   // Roof planks / wall planks
+        var plankDark   = new Color(0.45f, 0.32f, 0.18f);   // Darker plank accent
+        var plankPale   = new Color(0.60f, 0.48f, 0.32f);   // Lighter plank variation
+        var canvas      = new Color(0.90f, 0.85f, 0.75f);   // Off-white canvas
+        var canvasDirty = new Color(0.82f, 0.77f, 0.68f);   // Slightly dirtier canvas
+        var doorWood    = new Color(0.48f, 0.34f, 0.20f);   // Door panel
+        var handleGrey  = new Color(0.50f, 0.50f, 0.50f);   // Gray iron door handle
+        var ropeColor   = new Color(0.58f, 0.50f, 0.38f);   // Rope/lashing tie-downs
+
+        // ── Foundation: flat stone slab (same style as Hall but smaller) ──
+        var foundation = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foundation.name = "Foundation";
+        Setup(foundation, root.transform,
+            new Vector3(0f, 0.08f, 0f), new Vector3(3.6f, 0.16f, 3.6f),
+            darkStone, 0.1f, 0.2f);
+
+        // Foundation edge detail — a thin darker border around the base
+        var foundationRim = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foundationRim.name = "FoundationRim";
+        Setup(foundationRim, root.transform,
+            new Vector3(0f, 0.02f, 0f), new Vector3(3.8f, 0.04f, 3.8f),
+            new Color(0.35f, 0.33f, 0.31f), 0.1f, 0.15f);
+
+        // ── Four log posts driven into the ground ──
+        // Cylinders with slight scale variation for organic feel
+
+        // NE post — tallest, slight lean
+        var postNE = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        postNE.name = "LogPost_NE";
+        Setup(postNE, root.transform,
+            new Vector3(1.25f, 1.25f, 1.25f), new Vector3(0.28f, 1.25f, 0.28f),
+            logBark, 0.05f, 0.12f);
+        postNE.transform.localRotation = Quaternion.Euler(0f, 0f, -1.5f);
+
+        // NW post
+        var postNW = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        postNW.name = "LogPost_NW";
+        Setup(postNW, root.transform,
+            new Vector3(-1.25f, 1.22f, 1.25f), new Vector3(0.30f, 1.22f, 0.30f),
+            logBarkLt, 0.05f, 0.1f);
+        postNW.transform.localRotation = Quaternion.Euler(0f, 0f, 1f);
+
+        // SE post — slightly thicker
+        var postSE = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        postSE.name = "LogPost_SE";
+        Setup(postSE, root.transform,
+            new Vector3(1.25f, 1.20f, -1.25f), new Vector3(0.32f, 1.20f, 0.32f),
+            logBark, 0.05f, 0.14f);
+        postSE.transform.localRotation = Quaternion.Euler(1f, 0f, 0f);
+
+        // SW post — slight forward lean
+        var postSW = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        postSW.name = "LogPost_SW";
+        Setup(postSW, root.transform,
+            new Vector3(-1.25f, 1.18f, -1.25f), new Vector3(0.26f, 1.18f, 0.26f),
+            logBarkLt, 0.05f, 0.11f);
+        postSW.transform.localRotation = Quaternion.Euler(1.5f, 0f, 1f);
+
+        // ── Log top caps (exposed wood grain — lighter circles on top) ──
+        var capNE = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        capNE.name = "LogCap_NE";
+        Setup(capNE, root.transform,
+            new Vector3(1.25f, 2.50f, 1.25f), new Vector3(0.22f, 0.02f, 0.22f),
+            logCore, 0.0f, 0.3f);
+
+        var capNW = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        capNW.name = "LogCap_NW";
+        Setup(capNW, root.transform,
+            new Vector3(-1.25f, 2.44f, 1.25f), new Vector3(0.24f, 0.02f, 0.24f),
+            logCore, 0.0f, 0.28f);
+
+        var capSE = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        capSE.name = "LogCap_SE";
+        Setup(capSE, root.transform,
+            new Vector3(1.25f, 2.40f, -1.25f), new Vector3(0.26f, 0.02f, 0.26f),
+            logCore, 0.0f, 0.32f);
+
+        var capSW = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        capSW.name = "LogCap_SW";
+        Setup(capSW, root.transform,
+            new Vector3(-1.25f, 2.36f, -1.25f), new Vector3(0.20f, 0.02f, 0.20f),
+            logCore, 0.0f, 0.25f);
+
+        // ── Wooden roof (plank boards) ──
+        // Named "WoodRoofMain" — avoids "Roof" alone triggering faction tinting
+        var roofMain = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roofMain.name = "WoodRoofMain";
+        Setup(roofMain, root.transform,
+            new Vector3(0f, 2.55f, 0f), new Vector3(3.2f, 0.10f, 3.2f),
+            plankWood, 0.0f, 0.1f);
+
+        // Roof plank details — individual boards visible on top
+        var plank1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        plank1.name = "RoofPlank_1";
+        Setup(plank1, root.transform,
+            new Vector3(-0.8f, 2.62f, 0f), new Vector3(0.45f, 0.04f, 3.3f),
+            plankDark, 0.0f, 0.08f);
+
+        var plank2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        plank2.name = "RoofPlank_2";
+        Setup(plank2, root.transform,
+            new Vector3(0.3f, 2.62f, 0f), new Vector3(0.5f, 0.04f, 3.3f),
+            plankPale, 0.0f, 0.12f);
+
+        var plank3 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        plank3.name = "RoofPlank_3";
+        Setup(plank3, root.transform,
+            new Vector3(1.2f, 2.62f, 0f), new Vector3(0.4f, 0.04f, 3.3f),
+            plankDark, 0.0f, 0.09f);
+
+        // Roof overhang edges — thin strips extending past the walls
+        var overhangN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        overhangN.name = "RoofOverhang_N";
+        Setup(overhangN, root.transform,
+            new Vector3(0f, 2.52f, 1.65f), new Vector3(3.4f, 0.06f, 0.3f),
+            plankDark, 0.0f, 0.1f);
+
+        var overhangS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        overhangS.name = "RoofOverhang_S";
+        Setup(overhangS, root.transform,
+            new Vector3(0f, 2.52f, -1.65f), new Vector3(3.4f, 0.06f, 0.3f),
+            plankDark, 0.0f, 0.1f);
+
+        // ── Cross beams under the roof (structural logs spanning between posts) ──
+        // North beam (connects NE-NW posts)
+        var beamN = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamN.name = "CrossBeam_N";
+        Setup(beamN, root.transform,
+            new Vector3(0f, 2.42f, 1.25f), new Vector3(0.12f, 1.25f, 0.12f),
+            logBark, 0.05f, 0.1f);
+        beamN.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // South beam (connects SE-SW posts)
+        var beamS = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamS.name = "CrossBeam_S";
+        Setup(beamS, root.transform,
+            new Vector3(0f, 2.38f, -1.25f), new Vector3(0.12f, 1.25f, 0.12f),
+            logBarkLt, 0.05f, 0.1f);
+        beamS.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // ── Canvas walls (3 sides — east side is wood with door) ──
+
+        // North wall — canvas
+        var canvasN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasN.name = "CanvasWall_N";
+        Setup(canvasN, root.transform,
+            new Vector3(0f, 1.30f, 1.27f), new Vector3(2.2f, 2.3f, 0.05f),
+            canvas, 0.0f, 0.05f);
+
+        // South wall — canvas
+        var canvasS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasS.name = "CanvasWall_S";
+        Setup(canvasS, root.transform,
+            new Vector3(0f, 1.30f, -1.27f), new Vector3(2.2f, 2.3f, 0.05f),
+            canvasDirty, 0.0f, 0.05f);
+
+        // West wall — canvas (slightly shorter, gap at bottom for ventilation)
+        var canvasW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasW.name = "CanvasWall_W";
+        Setup(canvasW, root.transform,
+            new Vector3(-1.27f, 1.35f, 0f), new Vector3(0.05f, 2.2f, 2.2f),
+            canvas, 0.0f, 0.05f);
+
+        // ── Faction stripes on canvas walls ──
+        // Offset slightly outward to prevent z-fighting
+
+        var stripeN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeN.name = "Stripe_N";
+        Setup(stripeN, root.transform,
+            new Vector3(0f, 1.30f, 1.30f), new Vector3(1.9f, 0.25f, 0.03f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeS.name = "Stripe_S";
+        Setup(stripeS, root.transform,
+            new Vector3(0f, 1.30f, -1.30f), new Vector3(1.9f, 0.25f, 0.03f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeW.name = "Stripe_W";
+        Setup(stripeW, root.transform,
+            new Vector3(-1.30f, 1.35f, 0f), new Vector3(0.03f, 0.25f, 1.9f),
+            Color.white, 0.0f, 0.1f);
+
+        // ── East wall: wooden planks with door ──
+
+        // Main wood wall — upper section above door
+        var woodWallUpper = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        woodWallUpper.name = "WoodWall_Upper";
+        Setup(woodWallUpper, root.transform,
+            new Vector3(1.27f, 2.10f, 0f), new Vector3(0.08f, 0.7f, 2.2f),
+            plankWood, 0.0f, 0.12f);
+
+        // Left panel (beside door)
+        var woodWallLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        woodWallLeft.name = "WoodWall_Left";
+        Setup(woodWallLeft, root.transform,
+            new Vector3(1.27f, 1.05f, 0.75f), new Vector3(0.08f, 1.8f, 0.7f),
+            plankDark, 0.0f, 0.1f);
+
+        // Right panel (beside door)
+        var woodWallRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        woodWallRight.name = "WoodWall_Right";
+        Setup(woodWallRight, root.transform,
+            new Vector3(1.27f, 1.05f, -0.75f), new Vector3(0.08f, 1.8f, 0.7f),
+            plankDark, 0.0f, 0.1f);
+
+        // Vertical plank details on the wood wall (visible board lines)
+        var plankDetail1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        plankDetail1.name = "WallPlank_1";
+        Setup(plankDetail1, root.transform,
+            new Vector3(1.31f, 1.05f, 0.90f), new Vector3(0.02f, 1.75f, 0.28f),
+            plankPale, 0.0f, 0.14f);
+
+        var plankDetail2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        plankDetail2.name = "WallPlank_2";
+        Setup(plankDetail2, root.transform,
+            new Vector3(1.31f, 1.05f, -0.90f), new Vector3(0.02f, 1.75f, 0.28f),
+            plankPale, 0.0f, 0.14f);
+
+        // ── Door ──
+        // Door frame
+        var doorFrame = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        doorFrame.name = "DoorFrame";
+        Setup(doorFrame, root.transform,
+            new Vector3(1.29f, 1.00f, 0f), new Vector3(0.06f, 1.75f, 0.82f),
+            new Color(0.32f, 0.22f, 0.14f), 0.0f, 0.08f);
+
+        // Door panel (slightly recessed from frame)
+        var doorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        doorPanel.name = "DoorPanel";
+        Setup(doorPanel, root.transform,
+            new Vector3(1.33f, 0.95f, 0f), new Vector3(0.04f, 1.60f, 0.68f),
+            doorWood, 0.0f, 0.15f);
+
+        // Door cross brace (diagonal plank detail on door face)
+        var doorBrace = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        doorBrace.name = "DoorBrace";
+        Setup(doorBrace, root.transform,
+            new Vector3(1.36f, 0.95f, 0f), new Vector3(0.02f, 0.08f, 0.60f),
+            plankDark, 0.0f, 0.1f);
+        doorBrace.transform.localRotation = Quaternion.Euler(35f, 0f, 0f);
+
+        // Door handle — small gray metal cylinder
+        var doorHandle = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        doorHandle.name = "DoorHandle";
+        Setup(doorHandle, root.transform,
+            new Vector3(1.38f, 0.95f, -0.18f), new Vector3(0.05f, 0.06f, 0.05f),
+            handleGrey, 0.6f, 0.4f);
+        doorHandle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // Handle mounting plate — small square behind the handle
+        var handlePlate = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        handlePlate.name = "HandlePlate";
+        Setup(handlePlate, root.transform,
+            new Vector3(1.36f, 0.95f, -0.18f), new Vector3(0.015f, 0.10f, 0.10f),
+            handleGrey, 0.5f, 0.35f);
+
+        // Door threshold — darker strip at the base
+        var threshold = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        threshold.name = "DoorThreshold";
+        Setup(threshold, root.transform,
+            new Vector3(1.30f, 0.17f, 0f), new Vector3(0.10f, 0.04f, 0.75f),
+            new Color(0.30f, 0.22f, 0.14f), 0.05f, 0.1f);
+
+        // ── Canvas tie-down ropes (small strips where canvas meets posts) ──
+        // Rope at NE post
+        var ropeNE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ropeNE.name = "Rope_NE";
+        Setup(ropeNE, root.transform,
+            new Vector3(1.10f, 1.80f, 1.15f), new Vector3(0.04f, 0.12f, 0.04f),
+            ropeColor, 0.0f, 0.08f);
+        ropeNE.transform.localRotation = Quaternion.Euler(0f, 45f, 15f);
+
+        // Rope at NW post
+        var ropeNW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ropeNW.name = "Rope_NW";
+        Setup(ropeNW, root.transform,
+            new Vector3(-1.10f, 1.75f, 1.15f), new Vector3(0.04f, 0.12f, 0.04f),
+            ropeColor, 0.0f, 0.08f);
+        ropeNW.transform.localRotation = Quaternion.Euler(0f, -45f, -12f);
+
+        // Rope at SW post
+        var ropeSW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ropeSW.name = "Rope_SW";
+        Setup(ropeSW, root.transform,
+            new Vector3(-1.10f, 1.70f, -1.15f), new Vector3(0.04f, 0.12f, 0.04f),
+            ropeColor, 0.0f, 0.08f);
+        ropeSW.transform.localRotation = Quaternion.Euler(0f, 45f, -10f);
+
+        // ── Ground details ──
+        // Stepping stone in front of door
+        var stepStone = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stepStone.name = "SteppingStone";
+        Setup(stepStone, root.transform,
+            new Vector3(1.65f, 0.05f, 0f), new Vector3(0.4f, 0.06f, 0.5f),
+            new Color(0.48f, 0.46f, 0.43f), 0.1f, 0.18f);
+        stepStone.transform.localRotation = Quaternion.Euler(0f, 8f, 0f);
+
+        // Small stone near NW corner
+        var pebble1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pebble1.name = "Pebble_1";
+        Setup(pebble1, root.transform,
+            new Vector3(-1.6f, 0.04f, 1.5f), new Vector3(0.2f, 0.08f, 0.18f),
+            new Color(0.50f, 0.48f, 0.45f), 0.08f, 0.15f);
+        pebble1.transform.localRotation = Quaternion.Euler(3f, 28f, -2f);
+
+        // Small stone near south side
+        var pebble2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pebble2.name = "Pebble_2";
+        Setup(pebble2, root.transform,
+            new Vector3(0.5f, 0.03f, -1.7f), new Vector3(0.15f, 0.06f, 0.12f),
+            darkStone, 0.08f, 0.12f);
+        pebble2.transform.localRotation = Quaternion.Euler(-1f, 55f, 2f);
+
+        // ── Single collider for selection ──
+        var boxCol = root.AddComponent<BoxCollider>();
+        boxCol.center = new Vector3(0f, 1.4f, 0f);
+        boxCol.size = new Vector3(3.8f, 3.0f, 3.8f);
 
         // ── EntityReference for ECS ↔ GameObject link ──
         var entityRef = root.AddComponent<EntityReference>();
