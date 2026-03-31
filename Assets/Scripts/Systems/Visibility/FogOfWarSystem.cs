@@ -114,13 +114,28 @@ namespace TheWaningBorder.Systems.Visibility
         protected override void OnUpdate()
         {
             var mgr = FogOfWarManager.Instance;
-            if (mgr == null) return;
-
-            var humanFaction = mgr.HumanFaction;
             var entityViewManager = Object.FindFirstObjectByType<EntityViewManager>();
             if (entityViewManager == null) return;
 
             var em = EntityWorld.DefaultGameObjectInjectionWorld.EntityManager;
+
+            // When fog of war is disabled, make all entities visible
+            if (mgr == null)
+            {
+                var allQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<PresentationId>(),
+                    ComponentType.ReadOnly<LocalTransform>());
+                var allEntities = allQuery.ToEntityArray(Allocator.Temp);
+                for (int i = 0; i < allEntities.Length; i++)
+                {
+                    if (entityViewManager.TryGetView(allEntities[i], out var go) && go != null)
+                        go.SetActive(true);
+                }
+                allEntities.Dispose();
+                return;
+            }
+
+            var humanFaction = mgr.HumanFaction;
             
             // Query entities with presentation
             var query = em.CreateEntityQuery(
