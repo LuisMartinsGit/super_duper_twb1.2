@@ -189,29 +189,159 @@ namespace TheWaningBorder.Presentation
             return root;
         }
 
-        /// <summary>GatherersHut: Cylinder base + cone roof. ~2x2x2 units.</summary>
+        /// <summary>
+        /// GatherersHut: A circular hut raised off the ground by wooden stakes,
+        /// with a stepped truncated-cone (flat-top conical) roof, a three-step staircase
+        /// leading up to a wooden door, and a small fence enclosing the plot.
+        /// Footprint: ~3x3 units. Height: ~2.2 units.
+        /// </summary>
         private static GameObject CreateGatherersHut(Vector3 pos, Entity entity, byte culture)
         {
-            var wall = CultureConfig.GetWallColor(culture);
-            var roof = CultureConfig.GetRoofColor(culture);
-            var trim = CultureConfig.GetTrimColor(culture);
+            // Culture colours for walls, roof, and trim details
+            var wall  = CultureConfig.GetWallColor(culture);
+            var roof  = CultureConfig.GetRoofColor(culture);
+            var trim  = CultureConfig.GetTrimColor(culture);
+
+            // Warm brown used for all wooden parts (stakes, door panel)
+            var wood  = new Color(0.45f, 0.30f, 0.15f);
+            // Slightly lighter brown for the fence so it reads separately
+            var fenceCol = new Color(0.55f, 0.40f, 0.22f);
 
             var root = new GameObject($"GatherersHut_{entity.Index}");
             root.transform.position = pos;
 
-            // Round base (cylinder)
-            Prim(PrimitiveType.Cylinder, "Body", root.transform,
-                new Vector3(0f, 0.6f, 0f), new Vector3(1.6f, 0.6f, 1.6f), wall);
+            // ── 1. SUPPORT STAKES ──────────────────────────────────────────────
+            // Six thin wooden cylinders arranged in a ring lift the hut body off
+            // the ground.  Each runs from Y=0 (ground) to Y=0.56 (under the floor).
+            // We centre each cylinder at half its height (0.28) so it sits on the ground.
+            const int   stakeCount  = 6;
+            const float stakeRadius = 0.58f;
+            for (int i = 0; i < stakeCount; i++)
+            {
+                float a  = (i / (float)stakeCount) * Mathf.PI * 2f;
+                float sx = Mathf.Sin(a) * stakeRadius;
+                float sz = Mathf.Cos(a) * stakeRadius;
+                Prim(PrimitiveType.Cylinder, $"Stake{i}", root.transform,
+                    new Vector3(sx, 0.28f, sz),
+                    new Vector3(0.09f, 0.28f, 0.09f),
+                    wood);
+            }
 
-            // Conical roof (cone approximated by narrow cylinder + sphere tip)
-            Prim(PrimitiveType.Cylinder, "RoofCone", root.transform,
-                new Vector3(0f, 1.5f, 0f), new Vector3(1.8f, 0.4f, 1.8f), roof);
-            Prim(PrimitiveType.Sphere, "RoofTip", root.transform,
-                new Vector3(0f, 2.0f, 0f), new Vector3(0.3f, 0.3f, 0.3f), roof);
+            // ── 2. RAISED FLOOR PLATFORM ───────────────────────────────────────
+            // A flat disc (very short cylinder) sits on top of the stakes and
+            // forms the elevated floor of the hut.  Top of floor = Y 0.66.
+            Prim(PrimitiveType.Cylinder, "Floor", root.transform,
+                new Vector3(0f, 0.60f, 0f),
+                new Vector3(1.60f, 0.06f, 1.60f),
+                trim);
 
-            // Resource basket (detail)
-            Prim(PrimitiveType.Cylinder, "Basket", root.transform,
-                new Vector3(0.9f, 0.3f, 0f), new Vector3(0.35f, 0.3f, 0.35f), trim);
+            // ── 3. CIRCULAR WALLS ──────────────────────────────────────────────
+            // A cylinder sits on the floor platform and forms the outer walls.
+            // Wall bottom = 0.66 (floor top), wall top ≈ 1.50.
+            // The front face of this cylinder (the wall surface) is at Z ≈ 0.74.
+            Prim(PrimitiveType.Cylinder, "Walls", root.transform,
+                new Vector3(0f, 1.08f, 0f),
+                new Vector3(1.48f, 0.42f, 1.48f),
+                wall);
+
+            // ── 4. CONICAL FLAT-TOP ROOF (stepped tiers) ───────────────────────
+            // Unity has no cone primitive, so we stack cylinders of decreasing
+            // diameter to fake a tapered cone shape, then cap it with a small
+            // flat disc — giving the "truncated cone / flat-top conical" look.
+            // Tier 0 is the widest eave, tier 3 and the cap form the flat top.
+            Prim(PrimitiveType.Cylinder, "RoofTier0", root.transform,
+                new Vector3(0f, 1.56f, 0f), new Vector3(1.72f, 0.07f, 1.72f), roof);
+            Prim(PrimitiveType.Cylinder, "RoofTier1", root.transform,
+                new Vector3(0f, 1.72f, 0f), new Vector3(1.40f, 0.09f, 1.40f), roof);
+            Prim(PrimitiveType.Cylinder, "RoofTier2", root.transform,
+                new Vector3(0f, 1.88f, 0f), new Vector3(1.08f, 0.09f, 1.08f), roof);
+            Prim(PrimitiveType.Cylinder, "RoofTier3", root.transform,
+                new Vector3(0f, 2.04f, 0f), new Vector3(0.76f, 0.09f, 0.76f), roof);
+            // Flat cap — the defining feature of a truncated-cone (flat-top) roof
+            Prim(PrimitiveType.Cylinder, "RoofCap", root.transform,
+                new Vector3(0f, 2.18f, 0f), new Vector3(0.52f, 0.05f, 0.52f), roof);
+
+            // ── 5. STAIRCASE ───────────────────────────────────────────────────
+            // Three cube steps lead up from the ground to the raised floor.
+            // +Z is the front of the building (where the door is).
+            // Rise per step = 0.22 units; tread depth = 0.20 units.
+            // Step 3's back face lands exactly at Z=0.74 — the front wall surface.
+            //
+            // Step 1 — bottom, sits on the ground
+            Prim(PrimitiveType.Cube, "Step1", root.transform,
+                new Vector3(0f, 0.11f, 1.24f), new Vector3(0.70f, 0.22f, 0.20f), trim);
+            // Step 2 — middle
+            Prim(PrimitiveType.Cube, "Step2", root.transform,
+                new Vector3(0f, 0.33f, 1.04f), new Vector3(0.65f, 0.22f, 0.20f), trim);
+            // Step 3 — top landing, level with the floor
+            Prim(PrimitiveType.Cube, "Step3", root.transform,
+                new Vector3(0f, 0.55f, 0.84f), new Vector3(0.60f, 0.22f, 0.20f), trim);
+
+            // ── 6. WOODEN DOOR ─────────────────────────────────────────────────
+            // A trim-coloured frame surrounds a wood-coloured door panel.
+            // Door centre height: floor top (0.66) + half door height (0.275) = 0.94.
+            // Both sit at the front wall surface (Z ≈ 0.73–0.74).
+            Prim(PrimitiveType.Cube, "DoorFrame", root.transform,
+                new Vector3(0f, 0.94f, 0.73f), new Vector3(0.56f, 0.65f, 0.07f), trim);
+            Prim(PrimitiveType.Cube, "Door", root.transform,
+                new Vector3(0f, 0.94f, 0.74f), new Vector3(0.42f, 0.53f, 0.06f), wood);
+
+            // ── 7. FENCE ENCLOSURE ─────────────────────────────────────────────
+            // Eight evenly-spaced posts around a circle of radius 1.45.
+            // Post #0 (directly in front, at +Z) is skipped to leave an entrance gap.
+            // Horizontal rails connect each adjacent pair of placed posts.
+            const int   postCount = 8;
+            const float fenceR    = 1.45f;
+            const float postH     = 0.38f;   // full height of a fence post
+
+            // Posts: skip i=0 (the front entrance gap)
+            for (int i = 1; i < postCount; i++)
+            {
+                float a  = (i / (float)postCount) * Mathf.PI * 2f;
+                float px = Mathf.Sin(a) * fenceR;
+                float pz = Mathf.Cos(a) * fenceR;
+                // Cylinder centre is at half its height so it stands on the ground
+                Prim(PrimitiveType.Cylinder, $"FencePost{i}", root.transform,
+                    new Vector3(px, postH * 0.5f, pz),
+                    new Vector3(0.07f, postH * 0.5f, 0.07f),
+                    fenceCol);
+            }
+
+            // Rails: connect post i to post i+1, skipping the two segments
+            // that would bridge across the entrance gap (segments 0 and 7).
+            // The chord length between adjacent posts on the circle is
+            //   2 * R * sin(π / postCount).
+            float railLen = 2f * fenceR * Mathf.Sin(Mathf.PI / postCount);
+
+            for (int i = 1; i < postCount - 1; i++)
+            {
+                int   next     = i + 1;
+                float a1       = (i    / (float)postCount) * Mathf.PI * 2f;
+                float a2       = (next / (float)postCount) * Mathf.PI * 2f;
+
+                // World-space midpoint of the chord (relative to root)
+                float mx = (Mathf.Sin(a1) + Mathf.Sin(a2)) * 0.5f * fenceR;
+                float mz = (Mathf.Cos(a1) + Mathf.Cos(a2)) * 0.5f * fenceR;
+
+                // At the midpoint angle the tangent direction is (cos θ, 0, -sin θ).
+                // A Y-rotation of -θ (in degrees) maps local-X onto that tangent.
+                float   midAngle = (a1 + a2) * 0.5f;
+                Quaternion rot   = Quaternion.Euler(0f, -midAngle * Mathf.Rad2Deg, 0f);
+
+                // Top rail (near post top)
+                var topRail = Prim(PrimitiveType.Cube, $"RailTop{i}", root.transform,
+                    new Vector3(mx, postH * 0.88f, mz),
+                    new Vector3(railLen, 0.05f, 0.05f),
+                    fenceCol);
+                topRail.transform.localRotation = rot;
+
+                // Bottom rail (lower on the post)
+                var botRail = Prim(PrimitiveType.Cube, $"RailBot{i}", root.transform,
+                    new Vector3(mx, postH * 0.40f, mz),
+                    new Vector3(railLen, 0.05f, 0.05f),
+                    fenceCol);
+                botRail.transform.localRotation = rot;
+            }
 
             return root;
         }
