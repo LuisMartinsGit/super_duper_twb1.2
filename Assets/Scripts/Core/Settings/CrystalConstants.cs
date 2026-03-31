@@ -116,5 +116,13 @@ namespace TheWaningBorder.Core.Config
         public const float CrystallingTrainTime = 8f;
         public const float VeilstingerTrainTime = 15f;
         public const float GodsplinterTrainTime = 30f;
+
+        // ==================== AI Sub-Node Limits (per main node) ====================
+        public const int MaxResourceNodesPerMain = 3;
+        public const int MaxTurretNodesPerMain = 2;
+        public const int MaxRestorationNodesPerMain = 1;
+        public const int MaxEnforcementNodesPerMain = 1;
+        public const int MaxSuppressionNodesPerMain = 1;
+        public const int MaxSubNodesPerMain = 6;
     }
 }

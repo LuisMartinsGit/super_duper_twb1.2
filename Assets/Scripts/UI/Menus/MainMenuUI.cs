@@ -42,8 +42,9 @@ namespace TheWaningBorder.UI.Menus
 
         // Background panning
         private Texture2D _bgTexture;
-        private float _panOffset;
-        private const float PanSpeed = 8f; // pixels per second
+        private float _panTime;
+        private const float PanSpeed = 0.03f; // Perlin noise time scale (slow drift)
+        private const float PanOverscale = 1.10f; // 10% larger than screen for pan room
 
         // Layout constants
         private const float ButtonWidth = 280f;
@@ -78,7 +79,7 @@ namespace TheWaningBorder.UI.Menus
 
         void Update()
         {
-            _panOffset += PanSpeed * Time.deltaTime;
+            _panTime += PanSpeed * Time.deltaTime;
 
             if (_pendingScenario.HasValue)
             {
@@ -116,27 +117,35 @@ namespace TheWaningBorder.UI.Menus
 
             float screenW = Screen.width;
             float screenH = Screen.height;
+            float screenAspect = screenW / screenH;
             float texAspect = (float)_bgTexture.width / _bgTexture.height;
 
-            // Scale image to fill screen height, wider than screen for pan room
-            float drawH = screenH;
-            float drawW = drawH * texAspect;
-
-            // Ensure the image is wide enough to pan; if not, scale up
-            float panRange = drawW - screenW;
-            if (panRange < 100f)
+            // Fit-to-screen: cover the screen, then add 10% overscale for pan room
+            float drawW, drawH;
+            if (texAspect > screenAspect)
             {
-                drawW = screenW + 200f;
+                // Image is wider than screen — fit height, width overflows
+                drawH = screenH * PanOverscale;
+                drawW = drawH * texAspect;
+            }
+            else
+            {
+                // Image is taller than screen — fit width, height overflows
+                drawW = screenW * PanOverscale;
                 drawH = drawW / texAspect;
             }
-            panRange = drawW - screenW;
 
-            // Slow ping-pong pan (oscillates left-right)
-            float t = Mathf.PingPong(_panOffset / panRange, 1f);
-            float offsetX = -t * panRange;
+            // Pan room = how much the image extends beyond the screen on each axis
+            float panRangeX = drawW - screenW;
+            float panRangeY = drawH - screenH;
 
-            // Center vertically if image is taller than screen
-            float offsetY = (screenH - drawH) * 0.5f;
+            // Smooth random-direction pan using Perlin noise (never jerks at edges)
+            // Use different noise seeds for X and Y so they move independently
+            float nx = Mathf.PerlinNoise(_panTime, 0.5f);        // 0..1
+            float ny = Mathf.PerlinNoise(0.5f, _panTime + 100f); // 0..1
+
+            float offsetX = -nx * panRangeX;
+            float offsetY = -ny * panRangeY;
 
             GUI.DrawTexture(new Rect(offsetX, offsetY, drawW, drawH), _bgTexture, ScaleMode.StretchToFill);
 

@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 using TheWaningBorder.Economy;
+using TheWaningBorder.UI;
 using EntityWorld = Unity.Entities.World;
 
 
@@ -185,6 +186,9 @@ namespace TheWaningBorder.UI.HUD
             if (_cache.Count == 0) return;
 
             DrawResourcePanel();
+
+            // Show tooltip for resource icons on hover
+            ResourceIcons.DrawTooltip();
         }
 
         private void BuildStyles()
@@ -319,12 +323,22 @@ namespace TheWaningBorder.UI.HUD
             var rowRect = new Rect(rowX, yPos, rowWidth, RowHeight);
             GUI.Box(rowRect, "", _rowBg);
 
-            // Label (left-aligned, colored)
-            var styledLabel = new GUIStyle(_labelStyle)
+            // Icon or text label (left-aligned)
+            var icon = ResourceIcons.Get(label);
+            if (icon != null)
             {
-                normal = { textColor = labelColor }
-            };
-            GUI.Label(new Rect(rowX + 6f, yPos, rowWidth * 0.5f, RowHeight), label, styledLabel);
+                float iconSize = RowHeight - 4f;
+                float iconY = yPos + 2f;
+                GUI.DrawTexture(new Rect(rowX + 4f, iconY, iconSize, iconSize), icon, ScaleMode.ScaleToFit);
+            }
+            else
+            {
+                var styledLabel = new GUIStyle(_labelStyle)
+                {
+                    normal = { textColor = labelColor }
+                };
+                GUI.Label(new Rect(rowX + 6f, yPos, rowWidth * 0.5f, RowHeight), label, styledLabel);
+            }
 
             // Value (right-aligned, white)
             GUI.Label(new Rect(rowX + rowWidth * 0.4f, yPos, rowWidth * 0.55f, RowHeight), value, _valueStyle);

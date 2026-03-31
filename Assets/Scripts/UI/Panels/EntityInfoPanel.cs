@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using TWB_Input = TheWaningBorder.Input;
+using TheWaningBorder.UI;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
 
@@ -66,6 +67,8 @@ namespace TheWaningBorder.UI.Panels
                 var info = EntityInfoExtractor.GetDisplayInfo(entity, em);
                 DrawSinglePanel(info);
             }
+
+            ResourceIcons.DrawTooltip();
         }
 
         private void InitStyles()
@@ -226,17 +229,17 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.Label("Resource Generation:", _smallStyle);
                 GUILayout.BeginHorizontal();
                 if (info.SuppliesPerMinute.HasValue && info.SuppliesPerMinute.Value > 0)
-                    GUILayout.Label($"Supplies: {info.SuppliesPerMinute.Value:F0}/min", _labelStyle, GUILayout.Width(130));
+                    ResourceIcons.DrawLayoutIconValue("Supplies", $"{info.SuppliesPerMinute.Value:F0}/min", 12f, _labelStyle, 130f);
                 if (info.IronPerMinute.HasValue && info.IronPerMinute.Value > 0)
-                    GUILayout.Label($"Iron: {info.IronPerMinute}/min", _labelStyle, GUILayout.Width(120));
+                    ResourceIcons.DrawLayoutIconValue("Iron", $"{info.IronPerMinute}/min", 12f, _labelStyle, 120f);
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 if (info.CrystalPerMinute.HasValue && info.CrystalPerMinute.Value > 0)
-                    GUILayout.Label($"Crystal: {info.CrystalPerMinute}/min", _labelStyle, GUILayout.Width(130));
+                    ResourceIcons.DrawLayoutIconValue("Crystal", $"{info.CrystalPerMinute}/min", 12f, _labelStyle, 130f);
                 if (info.VeilsteelPerMinute.HasValue && info.VeilsteelPerMinute.Value > 0)
-                    GUILayout.Label($"Veilsteel: {info.VeilsteelPerMinute}/min", _labelStyle, GUILayout.Width(130));
+                    ResourceIcons.DrawLayoutIconValue("Veilsteel", $"{info.VeilsteelPerMinute}/min", 12f, _labelStyle, 130f);
                 if (info.GlowPerMinute.HasValue && info.GlowPerMinute.Value > 0)
-                    GUILayout.Label($"Glow: {info.GlowPerMinute}/min", _labelStyle, GUILayout.Width(120));
+                    ResourceIcons.DrawLayoutIconValue("Glow", $"{info.GlowPerMinute}/min", 12f, _labelStyle, 120f);
                 GUILayout.EndHorizontal();
             }
 
@@ -252,7 +255,11 @@ namespace TheWaningBorder.UI.Panels
             if (info.HasResourceInfo)
             {
                 GUILayout.Space(5);
-                GUILayout.Label($"{info.ResourceTypeName} Remaining:", _smallStyle);
+                GUILayout.BeginHorizontal();
+                ResourceIcons.DrawLayoutIcon(info.ResourceTypeName, 11f);
+                GUILayout.Label(" Remaining:", _smallStyle);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
                 DrawResourceBar(info.ResourceRemaining, info.ResourceMax);
                 GUILayout.Label($"{info.ResourceRemaining} / {info.ResourceMax}", _labelStyle);
             }

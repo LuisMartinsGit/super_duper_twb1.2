@@ -76,7 +76,8 @@ namespace TheWaningBorder.Systems.Crystal
             );
 
             _subNodeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<CrystalSubNodeTag>()
+                ComponentType.ReadOnly<CrystalSubNodeTag>(),
+                ComponentType.ReadOnly<OwnerNode>()
             );
 
             _unitQuery = EntityManager.CreateEntityQuery(
@@ -197,7 +198,7 @@ namespace TheWaningBorder.Systems.Crystal
                 ai.BuildTimer -= DecisionInterval;
                 if (ai.BuildTimer <= 0)
                 {
-                    TryBuildSubNode(em, ref ai, nodePos, territoryRadius,
+                    TryBuildSubNode(em, entities[n], ref ai, nodePos, territoryRadius,
                         ref random, ref crystalBank);
                     ai.BuildTimer = 15f + random.NextFloat(0, 5f);
                 }
@@ -229,21 +230,20 @@ namespace TheWaningBorder.Systems.Crystal
             UpdateAttackWaves(em, entities, transforms, ref random);
         }
 
-        private void TryBuildSubNode(EntityManager em,
+        private void TryBuildSubNode(EntityManager em, Entity mainNode,
             ref CrystalAIState ai, float3 nodePos, float spreadRadius,
             ref Random random, ref int crystalBank)
         {
-            // Find a position within cursed area
-            float3 buildPos = FindCursedPosition(nodePos, spreadRadius, ref random);
-            if (buildPos.x == float.MinValue) return; // No valid position found
-
-            // Count existing sub-nodes of each type
+            // Count existing sub-nodes belonging to THIS main node
             int resourceCount = 0, turretCount = 0, restorationCount = 0;
-            int enforcementCount = 0, suppressionCount = 0;
+            int enforcementCount = 0, suppressionCount = 0, totalCount = 0;
 
             using var subNodes = _subNodeQuery.ToComponentDataArray<CrystalSubNodeTag>(Allocator.Temp);
+            using var owners = _subNodeQuery.ToComponentDataArray<OwnerNode>(Allocator.Temp);
             for (int i = 0; i < subNodes.Length; i++)
             {
+                if (owners[i].Value != mainNode) continue;
+                totalCount++;
                 switch (subNodes[i].Type)
                 {
                     case CrystalSubNodeType.Resource: resourceCount++; break;
@@ -254,56 +254,66 @@ namespace TheWaningBorder.Systems.Crystal
                 }
             }
 
-            // Build decision tree
+            // Hard cap: no more sub-nodes for this main node
+            if (totalCount >= MaxSubNodesPerMain) return;
+
+            // Find a position within cursed area
+            float3 buildPos = FindCursedPosition(nodePos, spreadRadius, ref random);
+            if (buildPos.x == float.MinValue) return;
+
+            // Build decision tree (per-node limits)
             // Priority: Resource > Turret > Restoration > Enforcement > Suppression
-            if (resourceCount < 3 && crystalBank >= ResourceNodeCost)
+            Entity created = Entity.Null;
+
+            if (resourceCount < MaxResourceNodesPerMain && crystalBank >= ResourceNodeCost)
             {
                 if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ResourceNodeCost)))
                 {
-                    CrystalResourceNode.Create(em, buildPos);
+                    created = CrystalResourceNode.Create(em, buildPos);
                     crystalBank -= ResourceNodeCost;
                 }
             }
-            else if (turretCount < resourceCount + 1 && crystalBank >= TurretNodeCost)
+            else if (turretCount < MaxTurretNodesPerMain && crystalBank >= TurretNodeCost)
             {
                 if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: TurretNodeCost)))
                 {
-                    CrystalTurretNode.Create(em, buildPos);
+                    created = CrystalTurretNode.Create(em, buildPos);
                     crystalBank -= TurretNodeCost;
                 }
             }
-            else if (restorationCount < 1 && crystalBank >= RestorationNodeCost && ai.Phase >= 1)
+            else if (restorationCount < MaxRestorationNodesPerMain && crystalBank >= RestorationNodeCost && ai.Phase >= 1)
             {
                 if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: RestorationNodeCost)))
                 {
-                    CrystalRestorationNode.Create(em, buildPos);
+                    created = CrystalRestorationNode.Create(em, buildPos);
                     crystalBank -= RestorationNodeCost;
                 }
             }
-            else if (enforcementCount < 1 && crystalBank >= EnforcementNodeCost && ai.Phase >= 1)
+            else if (enforcementCount < MaxEnforcementNodesPerMain && crystalBank >= EnforcementNodeCost && ai.Phase >= 1)
             {
                 if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: EnforcementNodeCost)))
                 {
-                    CrystalEnforcementNode.Create(em, buildPos);
+                    created = CrystalEnforcementNode.Create(em, buildPos);
                     crystalBank -= EnforcementNodeCost;
                 }
             }
-            else if (suppressionCount < 1 && crystalBank >= SuppressionNodeCost && ai.Phase >= 2)
+            else if (suppressionCount < MaxSuppressionNodesPerMain && crystalBank >= SuppressionNodeCost && ai.Phase >= 2)
             {
                 if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: SuppressionNodeCost)))
                 {
-                    CrystalSuppressionNode.Create(em, buildPos);
+                    created = CrystalSuppressionNode.Create(em, buildPos);
                     crystalBank -= SuppressionNodeCost;
                 }
             }
-            else if (crystalBank >= ResourceNodeCost)
+            // No fallback — once all slots are filled, stop building
+
+            // Tag the new sub-node with its parent main node
+            if (created != Entity.Null)
             {
-                // Default: build more resource nodes
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ResourceNodeCost)))
-                {
-                    CrystalResourceNode.Create(em, buildPos);
-                    crystalBank -= ResourceNodeCost;
-                }
+                if (em.HasComponent<OwnerNode>(created))
+                    em.SetComponentData(created, new OwnerNode { Value = mainNode });
+                else
+                    em.AddComponentData(created, new OwnerNode { Value = mainNode });
             }
         }
 
@@ -463,7 +473,7 @@ namespace TheWaningBorder.Systems.Crystal
             else if (nodeCount <= 5 && elapsedMinutes < 20f) wavePhase = 1;
             else wavePhase = 2;
 
-            wave.WaveInterval = math.max(45f, 180f - nodeCount * 5f - elapsedMinutes * 1.5f);
+            wave.WaveInterval = math.max(25f, 120f - nodeCount * 8f - elapsedMinutes * 2f);
 
             wave.WaveTimer -= DecisionInterval;
             if (wave.WaveTimer <= 0)
@@ -499,6 +509,33 @@ namespace TheWaningBorder.Systems.Crystal
                 }
                 targets.Add(hallTransforms[i].Position);
                 targetDists.Add(minDist);
+            }
+
+            // If no halls found, target any non-Crystal building
+            if (targets.Length == 0)
+            {
+                var buildingQuery = EntityManager.CreateEntityQuery(
+                    ComponentType.ReadOnly<BuildingTag>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<LocalTransform>()
+                );
+                using var buildings = buildingQuery.ToEntityArray(Allocator.Temp);
+                using var buildingFactions = buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var buildingTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+                for (int i = 0; i < buildings.Length; i++)
+                {
+                    if (buildingFactions[i].Value == Faction.White) continue;
+                    float minDist = float.MaxValue;
+                    for (int n2 = 0; n2 < nodeTransforms.Length; n2++)
+                    {
+                        float d = math.distance(buildingTransforms[i].Position, nodeTransforms[n2].Position);
+                        if (d < minDist) minDist = d;
+                    }
+                    targets.Add(buildingTransforms[i].Position);
+                    targetDists.Add(minDist);
+                    if (targets.Length >= 3) break; // Cap to nearest 3
+                }
             }
 
             if (targets.Length == 0) { targets.Dispose(); targetDists.Dispose(); return; }
@@ -540,11 +577,11 @@ namespace TheWaningBorder.Systems.Crystal
                 if (isIdle) idleUnits.Add(i);
             }
 
-            if (idleUnits.Length < 2)
+            if (idleUnits.Length < 3)
             { idleUnits.Dispose(); targets.Dispose(); targetDists.Dispose(); return; }
 
-            float waveFraction = math.min(0.8f, 0.3f + nodeCount * 0.05f);
-            int waveSize = math.max(2, (int)(idleUnits.Length * waveFraction));
+            float waveFraction = math.min(0.9f, 0.5f + nodeCount * 0.05f);
+            int waveSize = math.max(5, (int)(idleUnits.Length * waveFraction));
             waveSize = math.min(waveSize, idleUnits.Length);
 
             int unitsPerTarget = waveSize / targetCount;

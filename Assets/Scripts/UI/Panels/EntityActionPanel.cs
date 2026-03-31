@@ -46,6 +46,8 @@ namespace TheWaningBorder.UI.Panels
 
         /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
         private string _hoveredTooltip;
+        private Cost _hoveredCost;
+        private Cost _hoveredAvailable;
 
         /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
         private int _selectedChapelSlot = -1;
@@ -62,6 +64,8 @@ namespace TheWaningBorder.UI.Panels
         {
             PanelVisible = false;
             _hoveredTooltip = null;
+            _hoveredCost = default;
+            _hoveredAvailable = default;
 
             // Observer cannot issue commands
             if (GameSettings.IsObserver) return;
@@ -123,6 +127,9 @@ namespace TheWaningBorder.UI.Panels
 
             // Draw floating tooltip above the panel (outside any BeginArea)
             DrawFloatingTooltip();
+
+            // Resource icon tooltips
+            ResourceIcons.DrawTooltip();
         }
 
         private void InitStyles()
@@ -539,12 +546,14 @@ namespace TheWaningBorder.UI.Panels
             // Cost display
             if (!upgradeCost.IsZero)
             {
-                string costText = UIHelpers.FormatCost(upgradeCost);
                 var costStyle = new GUIStyle(_requireStyle)
                 {
                     normal = { textColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) }
                 };
-                GUILayout.Label($"Cost: {costText}", costStyle);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Cost: ", costStyle, GUILayout.Width(40));
+                ResourceIcons.DrawCostLayout(upgradeCost, 12f, costStyle);
+                GUILayout.EndHorizontal();
             }
 
             GUILayout.Label($"Grants: +{rpGrant} Religion Points", _smallStyle);
@@ -860,7 +869,10 @@ namespace TheWaningBorder.UI.Panels
             }
             else if (!canAfford)
             {
-                GUILayout.Label($"Requires: {UIHelpers.FormatCost(CultureConfig.AgeUpCost)}", _requireStyle);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Requires: ", _requireStyle, GUILayout.Width(65));
+                ResourceIcons.DrawCostLayout(CultureConfig.AgeUpCost, 12f, _requireStyle);
+                GUILayout.EndHorizontal();
             }
         }
 
@@ -1138,7 +1150,10 @@ namespace TheWaningBorder.UI.Panels
                 {
                     var mousePos = Event.current.mousePosition;
                     if (btnRect.Contains(mousePos))
+                    {
                         _hoveredTooltip = button.Tooltip;
+                        _hoveredCost = button.Cost;
+                    }
                 }
 
                 // Draw icon on top of button, filling the full area
@@ -1173,11 +1188,30 @@ namespace TheWaningBorder.UI.Panels
             if (string.IsNullOrEmpty(_hoveredTooltip)) return;
             if (!_stylesInit) return;
 
-            // Measure tooltip size
-            var content = new GUIContent(_hoveredTooltip);
+            // Split tooltip into lines — replace "Cost: ..." line with icon rendering
+            string[] lines = _hoveredTooltip.Split('\n');
+
+            // Strip cost line from the text for measurement (we'll draw it separately with icons)
+            int costLineIndex = -1;
+            var textWithoutCost = new System.Text.StringBuilder(128);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("Cost:"))
+                {
+                    costLineIndex = i;
+                    textWithoutCost.Append("Cost: \n"); // placeholder line for spacing
+                }
+                else
+                {
+                    textWithoutCost.Append(lines[i]);
+                    if (i < lines.Length - 1) textWithoutCost.Append('\n');
+                }
+            }
+
             float maxWidth = 280f;
             float width = maxWidth;
-            float height = _tooltipStyle.CalcHeight(content, width);
+            var textContent = new GUIContent(textWithoutCost.ToString());
+            float height = _tooltipStyle.CalcHeight(textContent, width);
 
             // Position above the panel
             float x = PanelRect.x;
@@ -1189,9 +1223,75 @@ namespace TheWaningBorder.UI.Panels
 
             var tooltipRect = new Rect(x, y, width, height);
 
-            // Draw with high depth so it renders on top
             GUI.depth = -100;
-            GUI.Label(tooltipRect, content, _tooltipStyle);
+
+            // Draw background box
+            GUI.Box(tooltipRect, "", _tooltipStyle);
+
+            // Draw each line
+            float lineHeight = _tooltipStyle.lineHeight + 2f;
+            float lineY = tooltipRect.y + _tooltipStyle.padding.top;
+            float lineX = tooltipRect.x + _tooltipStyle.padding.left;
+            float innerWidth = width - _tooltipStyle.padding.left - _tooltipStyle.padding.right;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i == costLineIndex && !_hoveredCost.IsZero)
+                {
+                    // Draw "Cost: " label then icons
+                    var costLabelStyle = new GUIStyle(_tooltipStyle)
+                    {
+                        padding = new RectOffset(0, 0, 0, 0),
+                        alignment = TextAnchor.MiddleLeft
+                    };
+                    GUI.Label(new Rect(lineX, lineY, 40f, lineHeight), "Cost:", costLabelStyle);
+                    float iconX = lineX + 40f;
+                    float iconSize = lineHeight - 2f;
+
+                    // Get current resources to color-code affordability
+                    FactionResources available = default;
+                    var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                    if (world != null && world.IsCreated)
+                    {
+                        FactionEconomy.TryGetResources(world.EntityManager,
+                            GameSettings.LocalPlayerFaction, out available);
+                    }
+
+                    void DrawCostEntry(string resName, int needed, int have)
+                    {
+                        if (needed <= 0) return;
+                        ResourceIcons.DrawIcon(iconX, lineY + 1f, resName, iconSize);
+                        iconX += iconSize + 1f;
+                        var valStyle = new GUIStyle(costLabelStyle)
+                        {
+                            normal = { textColor = have >= needed
+                                ? new Color(0.72f, 0.90f, 0.72f)
+                                : new Color(1f, 0.33f, 0.33f) }
+                        };
+                        string val = needed.ToString();
+                        float valW = valStyle.CalcSize(new GUIContent(val)).x;
+                        GUI.Label(new Rect(iconX, lineY, valW + 4f, lineHeight), val, valStyle);
+                        iconX += valW + 8f;
+                    }
+
+                    DrawCostEntry("Supplies", _hoveredCost.Supplies, available.Supplies);
+                    DrawCostEntry("Iron", _hoveredCost.Iron, available.Iron);
+                    DrawCostEntry("Crystal", _hoveredCost.Crystal, available.Crystal);
+                    DrawCostEntry("Veilsteel", _hoveredCost.Veilsteel, available.Veilsteel);
+                    DrawCostEntry("Glow", _hoveredCost.Glow, available.Glow);
+                }
+                else
+                {
+                    var lineStyle = new GUIStyle(_tooltipStyle)
+                    {
+                        padding = new RectOffset(0, 0, 0, 0),
+                        alignment = TextAnchor.MiddleLeft
+                    };
+                    GUI.Label(new Rect(lineX, lineY, innerWidth, lineHeight), lines[i], lineStyle);
+                }
+                lineY += lineHeight;
+            }
+
             GUI.depth = 0;
         }
 
@@ -1448,7 +1548,12 @@ namespace TheWaningBorder.UI.Panels
             if (vault.ResourceType > 0 && vault.ResourceType < VaultResourceNames.Length)
             {
                 string resName = VaultResourceNames[vault.ResourceType];
-                GUILayout.Label($"Stored: {(int)vault.StoredAmount} {resName}", _labelStyle);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Stored: ", _labelStyle, GUILayout.Width(50));
+                GUILayout.Label($"{(int)vault.StoredAmount}", _labelStyle, GUILayout.Width(50));
+                ResourceIcons.DrawLayoutIcon(resName, 13f);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
             }
             else
             {
@@ -1495,7 +1600,8 @@ namespace TheWaningBorder.UI.Panels
                 _vaultSelectedResource--;
                 if (_vaultSelectedResource < 1) _vaultSelectedResource = 5;
             }
-            GUILayout.Label(VaultResourceNames[_vaultSelectedResource], _labelStyle, GUILayout.Width(90));
+            ResourceIcons.DrawLayoutIconValue(VaultResourceNames[_vaultSelectedResource],
+                VaultResourceNames[_vaultSelectedResource], 13f, _labelStyle, 90f);
             if (GUILayout.Button($"►", _buttonStyle, GUILayout.Width(28), GUILayout.Height(26)))
             {
                 _vaultSelectedResource++;
