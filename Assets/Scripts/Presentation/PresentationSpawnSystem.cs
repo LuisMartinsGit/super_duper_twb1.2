@@ -21,7 +21,7 @@ public class PresentationSpawnSystem : MonoBehaviour
     private static readonly Dictionary<int, string> PrefabPaths = new()
     {
         // Buildings - Era 1 Core
-        { 100, "Prefabs/Buildings/Hall" },               // Hall.PresentationID = 100
+        { 100, "Procedural/Hall" },                        // Hall.PresentationID = 100 (procedural Age 1)
         { 101, "Prefabs/Buildings/GatherersHut" },       // GatherersHut.PresentationID = 101
         { 102, "Prefabs/Buildings/Hut" },                // Hut.PresentationID = 102
         { 510, "Prefabs/Buildings/Barracks" },           // Barracks.PresentationID = 510
@@ -284,6 +284,14 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
+        // === HALL: procedural Age 1 base (ancient ruins + settler construction) ===
+        if (presentationId == TheWaningBorder.Entities.Hall.PresentationID)
+        {
+            var go = CreateProceduralHall(pos, entity);
+            ApplyFactionColor(go, entity);
+            return go;
+        }
+
         // === CRYSTAL CURSE: paint terrain splatmap instead of spawning visible plane ===
         if (presentationId == CursedGroundPresentationId)
         {
@@ -442,6 +450,8 @@ public class PresentationSpawnSystem : MonoBehaviour
                 // Tint roof objects with faction color (preserves texture detail)
                 bool isRoof = renderer.gameObject.name.IndexOf("roof",
                     System.StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isStripe = renderer.gameObject.name.IndexOf("stripe",
+                    System.StringComparison.OrdinalIgnoreCase) >= 0;
 
                 foreach (var mat in renderer.materials)
                 {
@@ -453,6 +463,15 @@ public class PresentationSpawnSystem : MonoBehaviour
                         if (mat.HasProperty("_MainTex"))
                             mat.SetTexture("_MainTex", Texture2D.whiteTexture);
 
+                        if (mat.HasProperty("_BaseColor"))
+                            mat.SetColor("_BaseColor", color);
+                        else if (mat.HasProperty("_Color"))
+                            mat.color = color;
+                    }
+
+                    // Faction-colored stripes on canvas walls (procedural buildings)
+                    if (isStripe)
+                    {
                         if (mat.HasProperty("_BaseColor"))
                             mat.SetColor("_BaseColor", color);
                         else if (mat.HasProperty("_Color"))
@@ -1304,6 +1323,200 @@ public class PresentationSpawnSystem : MonoBehaviour
         boxCol.center = Vector3.up * 2f;
 
         // Add EntityReference
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HALL PROCEDURAL GENERATION (Age 1 — Ancient Ruins + Settler Construction)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create the Age 1 Hall: settlers using ruins of an ancient civilization as their base.
+    /// Four weathered stone pillars (remnants of a lost age) support a wooden board roof,
+    /// with canvas walls stretched between pillars bearing a faction-colored stripe.
+    /// </summary>
+    private GameObject CreateProceduralHall(Vector3 center, Entity entity)
+    {
+        var root = new GameObject($"Hall_{entity.Index}");
+        root.transform.position = center;
+
+        // Shared shader reference
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+        // Helper: create a primitive, parent it, set transform, apply material, destroy collider
+        System.Action<GameObject, Transform, Vector3, Vector3, Color, float, float> Setup =
+            (obj, parent, localPos, localScale, color, metallic, smoothness) =>
+        {
+            obj.transform.SetParent(parent, false);
+            obj.transform.localPosition = localPos;
+            obj.transform.localScale = localScale;
+            var r = obj.GetComponent<Renderer>();
+            if (r != null)
+            {
+                r.material = new Material(shader);
+                r.material.color = color;
+                if (r.material.HasProperty("_Metallic"))
+                    r.material.SetFloat("_Metallic", metallic);
+                if (r.material.HasProperty("_Smoothness"))
+                    r.material.SetFloat("_Smoothness", smoothness);
+            }
+            var c = obj.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+        };
+
+        // ── Color palette ──
+        var darkStone  = new Color(0.40f, 0.38f, 0.36f);
+        var grayStone  = new Color(0.55f, 0.53f, 0.50f);
+        var lightStone = new Color(0.62f, 0.60f, 0.57f);
+        var wornStone  = new Color(0.45f, 0.43f, 0.40f);
+        var warmWood   = new Color(0.55f, 0.38f, 0.22f);
+        var darkWood   = new Color(0.35f, 0.24f, 0.14f);
+        var canvas     = new Color(0.90f, 0.85f, 0.75f);
+
+        // ── Foundation: flat stone slab ──
+        var foundation = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foundation.name = "Foundation";
+        Setup(foundation, root.transform,
+            new Vector3(0f, 0.1f, 0f), new Vector3(5.2f, 0.2f, 5.2f),
+            darkStone, 0.1f, 0.2f);
+
+        // ── Four stone pillars (ancient ruins — each unique) ──
+        var pillarNE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pillarNE.name = "Pillar_NE";
+        Setup(pillarNE, root.transform,
+            new Vector3(1.8f, 1.7f, 1.8f), new Vector3(0.7f, 3.4f, 0.7f),
+            grayStone, 0.15f, 0.2f);
+
+        var pillarNW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pillarNW.name = "Pillar_NW";
+        Setup(pillarNW, root.transform,
+            new Vector3(-1.8f, 1.55f, 1.8f), new Vector3(0.75f, 3.1f, 0.65f),
+            lightStone, 0.1f, 0.25f);
+
+        var pillarSE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pillarSE.name = "Pillar_SE";
+        Setup(pillarSE, root.transform,
+            new Vector3(1.8f, 1.6f, -1.8f), new Vector3(0.65f, 3.2f, 0.7f),
+            grayStone, 0.12f, 0.2f);
+
+        var pillarSW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pillarSW.name = "Pillar_SW";
+        Setup(pillarSW, root.transform,
+            new Vector3(-1.8f, 1.5f, -1.8f), new Vector3(0.8f, 3.0f, 0.75f),
+            wornStone, 0.1f, 0.15f);
+
+        // ── Broken pillar caps (tilted stone fragments on top — ruin detail) ──
+        var capNE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        capNE.name = "PillarCap_NE";
+        Setup(capNE, root.transform,
+            new Vector3(1.8f, 3.55f, 1.8f), new Vector3(0.5f, 0.3f, 0.5f),
+            grayStone, 0.12f, 0.18f);
+        capNE.transform.localRotation = Quaternion.Euler(5f, 12f, -8f);
+
+        var capSW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        capSW.name = "PillarCap_SW";
+        Setup(capSW, root.transform,
+            new Vector3(-1.8f, 3.15f, -1.8f), new Vector3(0.55f, 0.25f, 0.45f),
+            darkStone, 0.1f, 0.15f);
+        capSW.transform.localRotation = Quaternion.Euler(-7f, -15f, 4f);
+
+        // ── Wooden roof (simple board canopy) ──
+        // Named "WoodCanopy" intentionally — "Roof" would trigger faction color tinting
+        var roofSlab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roofSlab.name = "WoodCanopy";
+        Setup(roofSlab, root.transform,
+            new Vector3(0f, 3.3f, 0f), new Vector3(5.0f, 0.15f, 5.0f),
+            warmWood, 0.0f, 0.1f);
+
+        var ridge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ridge.name = "RoofRidge";
+        Setup(ridge, root.transform,
+            new Vector3(0f, 3.5f, 0f), new Vector3(0.3f, 0.2f, 5.2f),
+            darkWood, 0.0f, 0.15f);
+
+        // ── Canvas walls (stretched between pillars) ──
+        var canvasN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasN.name = "CanvasWall_N";
+        Setup(canvasN, root.transform,
+            new Vector3(0f, 1.7f, 1.85f), new Vector3(3.0f, 2.8f, 0.06f),
+            canvas, 0.0f, 0.05f);
+
+        var canvasS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasS.name = "CanvasWall_S";
+        Setup(canvasS, root.transform,
+            new Vector3(0f, 1.7f, -1.85f), new Vector3(3.0f, 2.8f, 0.06f),
+            canvas, 0.0f, 0.05f);
+
+        var canvasE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasE.name = "CanvasWall_E";
+        Setup(canvasE, root.transform,
+            new Vector3(1.85f, 1.7f, 0f), new Vector3(0.06f, 2.8f, 3.0f),
+            canvas, 0.0f, 0.05f);
+
+        // West wall: shorter, raised — entrance gap at bottom
+        var canvasW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasW.name = "CanvasWall_W";
+        Setup(canvasW, root.transform,
+            new Vector3(-1.85f, 2.1f, 0f), new Vector3(0.06f, 2.0f, 3.0f),
+            canvas, 0.0f, 0.05f);
+
+        // ── Faction stripes on canvas (colored by ApplyFactionColor) ──
+        // Offset slightly outward from canvas to prevent z-fighting
+        var stripeN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeN.name = "Stripe_N";
+        Setup(stripeN, root.transform,
+            new Vector3(0f, 1.7f, 1.89f), new Vector3(2.6f, 0.3f, 0.04f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeS.name = "Stripe_S";
+        Setup(stripeS, root.transform,
+            new Vector3(0f, 1.7f, -1.89f), new Vector3(2.6f, 0.3f, 0.04f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeE.name = "Stripe_E";
+        Setup(stripeE, root.transform,
+            new Vector3(1.89f, 1.7f, 0f), new Vector3(0.04f, 0.3f, 2.6f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeW.name = "Stripe_W";
+        Setup(stripeW, root.transform,
+            new Vector3(-1.89f, 2.1f, 0f), new Vector3(0.04f, 0.3f, 2.6f),
+            Color.white, 0.0f, 0.1f);
+
+        // ── Rubble / debris (scattered stone fragments around the base) ──
+        var rubble1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rubble1.name = "Rubble_1";
+        Setup(rubble1, root.transform,
+            new Vector3(2.4f, 0.15f, 2.2f), new Vector3(0.4f, 0.3f, 0.35f),
+            grayStone, 0.1f, 0.15f);
+        rubble1.transform.localRotation = Quaternion.Euler(12f, 35f, -5f);
+
+        var rubble2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rubble2.name = "Rubble_2";
+        Setup(rubble2, root.transform,
+            new Vector3(-2.5f, 0.12f, -1.5f), new Vector3(0.5f, 0.2f, 0.3f),
+            lightStone, 0.08f, 0.18f);
+        rubble2.transform.localRotation = Quaternion.Euler(-8f, -20f, 10f);
+
+        var rubble3 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rubble3.name = "Rubble_3";
+        Setup(rubble3, root.transform,
+            new Vector3(0.8f, 0.08f, -2.6f), new Vector3(0.6f, 0.15f, 0.45f),
+            darkStone, 0.1f, 0.12f);
+        rubble3.transform.localRotation = Quaternion.Euler(3f, 55f, 0f);
+
+        // ── Single collider for selection ──
+        var boxCol = root.AddComponent<BoxCollider>();
+        boxCol.center = new Vector3(0f, 2f, 0f);
+        boxCol.size = new Vector3(5.5f, 4.5f, 5.5f);
+
+        // ── EntityReference for ECS ↔ GameObject link ──
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
