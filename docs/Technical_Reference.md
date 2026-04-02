@@ -41,6 +41,7 @@
 33. [Game Bootstrap](#33-game-bootstrap)
 34. [Building Footprints](#34-building-footprints)
 35. [Rally Point System](#35-rally-point-system)
+36. [Complete Sect System (4 Pillars x 12 Sects)](#36-complete-sect-system-4-pillars-x-12-sects)
 
 ---
 
@@ -1839,3 +1840,258 @@ Runs BEFORE DeathSystem. On trader death:
 | RouteLengthDivisor | 30 |
 
 **Chain**: Posts numbered sequentially per faction. Lanes: Post N -> Post N+1. First trader spawns immediately. Trader cargo: `25 * (distance / 30)`. 5 patrol units spread evenly along lane on creation.
+
+---
+
+## 36. Complete Sect System (4 Pillars x 12 Sects)
+
+Each sect provides 4 gameplay elements: a passive faction bonus, a unique building, a unique unit with an active skill, and a powerful strategic spell (BFME2-style).
+
+### 36.1 Passive Multiplier System
+
+Passives are computed by `FactionSectState` (MonoBehaviour singleton) and consumed by game systems. Multipliers scale with temple level (1.0x / 1.5x / 2.0x / 2.5x).
+
+#### Multiplier Fields (SectMultipliers struct)
+
+| Field | Default | Type | Consumed By |
+|-------|---------|------|-------------|
+| ResearchSpeed | 1.0 | Multiplicative | ResearchSystem (`remaining /= mult`) |
+| BuildSpeed | 1.0 | Multiplicative | BuildingConstructionSystem (`buildRate *= mult`) |
+| AllIncome | 1.0 | Multiplicative | ResourceTickSystem (`income *= mult`) |
+| WallIncome | 1.0 | Multiplicative | WallEnclosureIncomeSystem (`income *= mult`) |
+| TradeIncome | 1.0 | Multiplicative | TradingPostSystem + TraderMovementSystem (`cargo *= mult`) |
+| VaultInterest | 1.0 | Multiplicative | VaultInterestSystem (`rate *= mult`) |
+| MeleeDamage | 1.0 | Multiplicative | MeleeCombatSystem (`damage *= mult`) |
+| RangedDamage | 1.0 | Multiplicative | RangedCombatSystem (`damage *= mult`) |
+| DamageVsCrystal | 1.0 | Multiplicative | Melee+Ranged (`if CrystalTag: damage *= mult`) |
+| AttackSpeed | 1.0 | Multiplicative | Melee+Ranged (`cooldown /= mult`) |
+| BuildingHP | 1.0 | Multiplicative | BuildingConstructionSystem (on completion: `max *= mult`) |
+| FogVisionBonus | 0.0 | Additive | FogOfWarSystem (`radius *= (1 + bonus)`) |
+| RangedAccuracy | 0.0 | Additive | RangedCombatSystem (`aimDuration *= (1 - bonus)`) |
+| PanicChance | 0.0 | Additive (%) | MeleeCombatSystem (random: SpellDebuff speed=0.5, 2s) |
+| ControlChance | 0.0 | Additive (%) | MeleeCombatSystem (random: SpellDebuff speed=1.0, 1s) |
+| MagicDamage | 1.0 | Multiplicative | (tech-derived) |
+| SpellCooldownReduction | 0.0 | Additive | SpellState (`duration *= (1 - reduction)`) |
+| RegenPerSecond | 0.0 | Additive | (tech-derived: out-of-combat regen) |
+
+#### Passive Bonuses Per Sect
+
+| Sect | Culture | Passive | Value |
+|------|---------|---------|-------|
+| Renewal | Alanthor | +20% income if all walls full HP | HasRenewal=true, RenewalIncomeBonus=0.20 |
+| Antiquity | Alanthor | +20% research speed | ResearchSpeed += 0.20 |
+| Living Stone | Alanthor | +20% wall income, +10% build speed | WallIncome += 0.20, BuildSpeed += 0.10 |
+| Veiled Memory | Alanthor | +15% fog vision range | FogVisionBonus += 0.15 |
+| Still Flame | Runai | +15% trade income | TradeIncome += 0.15 |
+| Quiet Vault | Runai | +30% vault interest | VaultInterest += 0.30 |
+| Mirror Rite | Runai | +10% ranged accuracy | RangedAccuracy += 0.10 |
+| Shard Judgment | Runai | +10% all income | AllIncome += 0.10 |
+| Ember Ash | Feraldis | +12% melee damage | MeleeDamage += 0.12 |
+| Hollow Brand | Feraldis | 5% panic on melee hit | PanicChance = 0.05 |
+| Flamewrought Chains | Feraldis | 3% root on melee hit | ControlChance = 0.03 |
+| Unmaker's Grasp | Feraldis | +20% damage vs Crystal | DamageVsCrystal += 0.20 |
+
+#### Synergy Pairs (adopting both sects in a pair grants bonus)
+
+| Pair Name | Sects | Bonus |
+|-----------|-------|-------|
+| The Fortress | Renewal + Living Stone | +10% building HP |
+| The Archive | Antiquity + Veiled Memory | +15% research speed |
+| The Merchant | Still Flame + Quiet Vault | +10% all income |
+| The Inquisitor | Mirror Rite + Shard Judgment | +15% ranged damage |
+| The Warband | Ember Ash + Hollow Brand | +10% attack speed |
+| The Purifier | Flamewrought Chains + Unmaker's Grasp | +30% damage vs Crystal |
+
+---
+
+### 36.2 Sect Buildings (12 Unique Structures)
+
+Each sect unlocks a unique building (beyond the chapel) with an aura or special effect. All are 2x2 grid size. Auras handled by `SectBuildingAuraSystem` (1-second tick interval).
+
+| Sect | Building | HP | Cost | PID | Aura Effect |
+|------|----------|----|------|-----|-------------|
+| Renewal | Sanctuary | 800 | 200S+60I+40C | 410 | Heals friendly units in 15u at +3 HP/tick |
+| Antiquity | Archive Tower | 900 | 250S+80I+50C | 411 | Passive only (research speed via multiplier) |
+| Living Stone | Stoneheart Bastion | 1200 | 300S+100I+40C | 412 | SpellBuff(ArmorBonus=3) to friendly buildings in 12u |
+| Veiled Memory | Veil Spire | 600 | 180S+40I+60C | 413 | Permanent FogOfWar stamp in 30u (LoS=30) |
+| Still Flame | Flame Beacon | 700 | 200S+50I+40C | 414 | Passive only (trade income via multiplier) |
+| Quiet Vault | Strongbox | 1000 | 350S+80I+60C | 415 | 5% interest vault (VaultTag + VaultStorage) |
+| Mirror Rite | Glass Sanctum | 700 | 200S+40I+80C | 416 | SpellBuff(DamageReflect=0.15) to friendly buildings in 10u |
+| Shard Judgment | Tribunal | 900 | 250S+70I+50C | 417 | SpellDebuff marker on enemy buildings in 20u |
+| Ember Ash | War Pyre | 800 | 200S+60I+30C | 418 | Passive only (attack speed via multiplier) |
+| Hollow Brand | Dread Totem | 700 | 180S+50I+30C | 419 | SpellDebuff(SpeedReduction=0.10) to enemy units in 15u |
+| Flamewrought Chains | Binding Pillar | 800 | 200S+60I+50C | 420 | 5 damage/tick to CrystalTag entities in 12u |
+| Unmaker's Grasp | Purge Altar | 900 | 250S+80I+60C | 421 | Passive only (vs Crystal via multiplier) |
+
+---
+
+### 36.3 Unit Active Skills (12 Abilities)
+
+Each sect unit has a manually-activated skill. Managed by `UnitAbilitySystem` (3-phase ISystem). Activation via `CommandRouter.IssueAbility()` -> `AbilityActivated` component -> consumed by system.
+
+#### Ability Components
+
+| Component | Fields | Purpose |
+|-----------|--------|---------|
+| `UnitAbility` | Id (AbilityId), CooldownDuration, CooldownRemaining, Range | Attached to every sect unit at spawn |
+| `AbilityActivated` | Target (Entity) | Transient one-frame command tag |
+| `Condemned` | DamageMultiplier, TimeRemaining | Judicator's mark |
+| `Fortified` | ArmorBonus, TimeRemaining | StoneWarden immobilization + armor |
+| `IgniteBuff` | AttacksRemaining, BonusDamage | Ashblade fire damage |
+| `VoidStrikeBuff` | BonusDamage, BonusVsCrystal | Nullblade bonus damage |
+| `HealOverTime` | TotalHealing, Duration, Elapsed | ScarGuard self-heal |
+
+#### 12 Abilities
+
+| Sect | Unit | Skill | CD | Range | Effect |
+|------|------|-------|----|-------|--------|
+| Renewal | ScarGuard | RapidMend | 15s | Self | HealOverTime: 50 HP over 3s |
+| Antiquity | Golem Autark | Arcane Pulse | 20s | Self (5u AOE) | 15 magic damage to all enemies in radius |
+| Living Stone | StoneWarden | Fortify | 25s | Self | +5 armor (all types) for 8s, cannot move |
+| Veiled Memory | Archivist Adept | Dispel | 12s | 14u | Remove ALL buffs/debuffs from target |
+| Still Flame | FlameWarden | Sanction | 10s | 6u | Root target 2s (SpellDebuff speed=1.0) |
+| Quiet Vault | VaultKeeper | Safeguard | 18s | Self (6u AOE) | +3 armor to friendly units for 5s |
+| Mirror Rite | Glassmark Arcanist | Mirror Shield | 22s | Self | 30% damage reflect for 6s |
+| Shard Judgment | Judicator | Condemn | 20s | 10u | Target takes +25% damage for 6s |
+| Ember Ash | Ashblade | Ignite | 12s | Self | Next 3 attacks deal +8 fire damage |
+| Hollow Brand | Brandbreaker | War Cry | 18s | Self (8u AOE) | -30% speed to enemies for 4s |
+| Flamewrought Chains | Chaincaster | Chain Bind | 14s | 12u | Root target 3s (SpellDebuff speed=1.0) |
+| Unmaker's Grasp | Nullblade | Void Strike | 20s | Self | Next attack +40 damage (+80 vs Crystal) |
+
+#### Combat Integration
+
+These buffs are consumed by combat and movement systems:
+
+| Integration Point | System | Effect |
+|-------------------|--------|--------|
+| Condemned | MeleeCombatSystem, RangedCombatSystem | `finalDamage *= condemned.DamageMultiplier` |
+| IgniteBuff | MeleeCombatSystem, RangedCombatSystem | `finalDamage += bonusDamage`, decrement attacks, remove at 0 |
+| VoidStrikeBuff | MeleeCombatSystem, RangedCombatSystem | `finalDamage += bonus` (or BonusVsCrystal if CrystalTag), consumed |
+| DamageReflect | MeleeCombatSystem, RangedCombatSystem | `reflected = finalDamage * reflect`, applied to attacker |
+| Fortified | MeleeCombatSystem, RangedCombatSystem | `defenseValue += armorBonus` |
+| Fortified | MovementSystem | `speed = 0` (complete stop) |
+| SpellDebuff | MovementSystem | `speed *= (1 - SpeedReduction)` |
+| SpellBuff.SpeedMultiplier | MovementSystem | `speed *= SpeedMultiplier` |
+
+#### UnitAbilitySystem Phases
+
+1. **Phase 1**: Tick CooldownRemaining -= dt on all UnitAbility components
+2. **Phase 2**: Process AbilityActivated entities. Switch on AbilityId, apply effect, start cooldown, remove tag via ECB
+3. **Phase 3**: Tick duration timers (HealOverTime, Fortified, Condemned). Remove on expiry. HealOverTime heals proportionally each frame.
+
+---
+
+### 36.4 Strategic Spells (12 BFME2-Style Powers)
+
+Dramatic, game-changing faction abilities. Each castable multiple times (cooldown-based). Managed by `SpellCastSystem` (MonoBehaviour) + `SpellState` (cooldown tracking). New effect systems: `SummonDespawnSystem`, `BurningGroundSystem`, `MindControlSystem`.
+
+#### Spell Effect Components
+
+| Component | Fields | Purpose |
+|-----------|--------|---------|
+| `SummonedUnit` | DespawnTimer | Temporary summoned troops (auto-destroy on timer) |
+| `BurningGround` | DPS, TimeRemaining, Radius | Fire area denial tiles |
+| `MindControlled` | OriginalFaction, TimeRemaining | Dominated unit (faction reverts on expiry) |
+| `StealthTag` | TimeRemaining | Invisible to targeting beyond 3u |
+
+#### 12 Strategic Spells
+
+| Sect | Spell | CD | Style | Effect |
+|------|-------|----|-------|--------|
+| **Renewal** | Restoration Wave | 90s | Mass Heal | ALL friendly units heal 100 HP, buildings heal 200 HP (global, instant) |
+| **Antiquity** | Arcane Bombardment | 120s | Artillery | 8 magic projectiles over 8s in 20u radius. Each bolt: 50 magic damage, 3u AOE |
+| **Living Stone** | Earthquake | 150s | Destruction | 300 siege damage to enemy buildings in 25u (600 to walls). 2s stun on ground units |
+| **Veiled Memory** | Veil of Shadows | 100s | Stealth | ALL friendly units globally gain StealthTag for 15s. Invisible to targeting beyond 3u |
+| **Still Flame** | Summon Caravan Guard | 80s | Summon | 5 temporary FlameWarden units at target. Despawn after 60s |
+| **Quiet Vault** | Golden Tribute | 70s | Economy | Instantly gain +500 Supplies, +200 Iron, +100 Crystal. 30s production boost marker |
+| **Mirror Rite** | Arcane Storm | 130s | Lightning | 16 lightning bolts over 8s (every 0.5s) in 20u radius. 30 magic + 10 splash per bolt |
+| **Shard Judgment** | Dominate | 110s | Mind Control | Control nearest enemy unit for 30s. Faction swapped. Reverts on expiry or death |
+| **Ember Ash** | Firestorm | 100s | Area Denial | 15u radius burning ground for 10s. 10 DPS to enemies inside. Grid of BurningGround tiles |
+| **Hollow Brand** | Summon War Host | 120s | Summon | 3 Brandbreakers + 2 Ashblades at target. Temporary (60s despawn) |
+| **Flamewrought Chains** | Chain Lightning | 90s | Chain Damage | 80 damage to primary target, chains to 5 enemies within 10u for 40 damage each |
+| **Unmaker's Grasp** | Annihilation | 180s | Ultimate | Crystal sub-node: instant kill. Crystal main node / anything else: 500 true damage |
+
+#### Spell Implementation Details
+
+**Coroutine-based spells** (Arcane Bombardment, Arcane Storm): Use MonoBehaviour coroutines to spread effects over duration. Each tick spawns projectile entities or applies damage.
+
+**Summoning spells**: Create units via `UnitFactory.Create()` at target position with `SummonedUnit` component. `SummonDespawnSystem` ticks despawn timers and destroys expired units.
+
+**Firestorm**: Creates a grid of `BurningGround` entities (5u spacing) covering the radius. `BurningGroundSystem` deals DPS every 1 second to non-friendly units within each tile's radius. Tiles destroyed when TimeRemaining expires.
+
+**Dominate**: Swaps target's `FactionTag.Value` to caster's faction. `MindControlSystem` ticks timer, reverts faction on expiry. Dead units have MindControlled removed immediately.
+
+**Veil of Shadows**: Adds `StealthTag` to all friendly units globally. `TargetingSystem` skips entities with StealthTag unless attacker is within 3u (proximity reveal).
+
+**Chain Lightning**: Iterative nearest-enemy search. Tracks hit entities via `NativeHashSet` to prevent double-hitting. 5 chains maximum from primary target.
+
+#### Spell Casting Flow
+
+```
+Player clicks spell in UI
+    -> SpellCastSystem.BeginTargeting(faction, spell)
+        -> Player clicks target position
+            -> SpellState.IsOnCooldown() check
+                -> Switch on spell.Id: apply specific effect
+                    -> SpellState.StartCooldown(faction, spellId, cooldown * (1 - SpellCooldownReduction))
+```
+
+#### Spell Cooldown Reduction
+
+```
+effectiveCooldown = baseCooldown * (1 - SpellCooldownReduction)
+```
+
+Where `SpellCooldownReduction` comes from sect passives (e.g., Veiled Memory -10%, Mirror Rite tech -10%).
+
+---
+
+### 36.5 Sect System Diagram
+
+```
+    SECT ADOPTION (1 RP affinity, 3 RP foreign)
+    ============================================
+
+    Each Sect Unlocks:
+    +------------------+------------------+------------------+------------------+
+    |    PASSIVE       |    BUILDING      |  UNIT + SKILL    |  STRATEGIC SPELL |
+    |  (auto-applied)  | (buildable)      | (trainable)      | (castable)       |
+    +------------------+------------------+------------------+------------------+
+    | Multiplier added | Unique structure | Sect unit with   | BFME2-style      |
+    | to FactionSect-  | with aura or     | activated ability | game-changing    |
+    | State. Consumed  | special effect.  | (Q key / click). | power (cooldown- |
+    | by 10+ game      | Built from       | Trained from     | based, targets   |
+    | systems.         | chapel or        | chapel.          | area/global).    |
+    |                  | unique slot.     |                  |                  |
+    +------------------+------------------+------------------+------------------+
+
+    Temple Scaling: Level 1 (1.0x) -> Level 2 (1.5x) -> Level 3 (2.0x) -> Level 4 (2.5x)
+
+
+    ALANTHOR SECTS                 RUNAI SECTS                   FERALDIS SECTS
+    ==============                 ===========                   ==============
+
+    Renewal                        Still Flame                   Ember Ash
+      Passive: +20% conditional     Passive: +15% trade           Passive: +12% melee
+      Building: Sanctuary (heal)    Building: Flame Beacon        Building: War Pyre
+      Unit: ScarGuard / RapidMend   Unit: FlameWarden / Sanction  Unit: Ashblade / Ignite
+      Spell: Restoration Wave       Spell: Summon Caravan Guard   Spell: Firestorm
+
+    Antiquity                      Quiet Vault                   Hollow Brand
+      Passive: +20% research        Passive: +30% interest        Passive: 5% panic
+      Building: Archive Tower       Building: Strongbox (5%)      Building: Dread Totem
+      Unit: GolemAutark / Pulse     Unit: VaultKeeper / Safeguard Unit: Brandbreaker / WarCry
+      Spell: Arcane Bombardment     Spell: Golden Tribute         Spell: Summon War Host
+
+    Living Stone                   Mirror Rite                   Flamewrought Chains
+      Passive: +20% wall +10% bld   Passive: +10% accuracy        Passive: 3% control
+      Building: Stoneheart Bastion  Building: Glass Sanctum       Building: Binding Pillar
+      Unit: StoneWarden / Fortify   Unit: Arcanist / MirrorShield Unit: Chaincaster / ChainBind
+      Spell: Earthquake             Spell: Arcane Storm           Spell: Chain Lightning
+
+    Veiled Memory                  Shard Judgment                Unmaker's Grasp
+      Passive: +15% fog vision      Passive: +10% all income      Passive: +20% vs Crystal
+      Building: Veil Spire (fog)    Building: Tribunal (slow)     Building: Purge Altar
+      Unit: Adept / Dispel          Unit: Judicator / Condemn     Unit: Nullblade / VoidStrike
+      Spell: Veil of Shadows        Spell: Dominate               Spell: Annihilation
+```
