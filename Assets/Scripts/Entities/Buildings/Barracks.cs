@@ -15,7 +15,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultHP = 600f;
         private const float DefaultLoS = 14f;
         private const float DefaultRadius = 0.8f;
-        private const int PresentationID = 510;
+        public const int PresentationID = 510;
 
         /// <summary>
         /// Create Barracks using EntityManager.

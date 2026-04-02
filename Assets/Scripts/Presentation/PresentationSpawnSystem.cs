@@ -24,12 +24,14 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 100, "Procedural/Hall" },                        // Hall.PresentationID = 100 (procedural Age 1)
         { 101, "Prefabs/Buildings/GatherersHut" },       // GatherersHut.PresentationID = 101
         { 102, "Procedural/Hut" },                          // Hut.PresentationID = 102 (procedural Age 1)
-        { 510, "Prefabs/Buildings/Barracks" },           // Barracks.PresentationID = 510
+        { 510, "Procedural/Barracks" },                    // Barracks.PresentationID = 510 (procedural Age 1)
 
         // Buildings - Era 1 Advanced
         { 520, "Prefabs/Buildings/TempleOfRidan" },      // ShrineOfAhridan.PresentationID = 520 (reuses temple prefab)
         { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521 (new temple)
         { 530, "Prefabs/Buildings/VaultOfAlmierra" },    // VaultOfAlmierra.PresentationID = 530
+        { 520, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 520
+        { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 (procedural)
         { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540
 
         // Units
@@ -297,6 +299,21 @@ public class PresentationSpawnSystem : MonoBehaviour
         {
             var go = CreateProceduralHut(pos, entity);
             ApplyFactionColor(go, entity);
+            return go;
+        }
+
+        // === BARRACKS: procedural Age 1 military training (log frame + canvas + weapon racks) ===
+        if (presentationId == TheWaningBorder.Entities.Barracks.PresentationID)
+        {
+            var go = CreateProceduralBarracks(pos, entity);
+            ApplyFactionColor(go, entity);
+            return go;
+        }
+
+        // === VAULT OF ALMIERRA: procedural fortified treasury ===
+        if (presentationId == 530)
+        {
+            var go = CreateProceduralVault(pos, entity);
             return go;
         }
 
@@ -2047,6 +2064,816 @@ public class PresentationSpawnSystem : MonoBehaviour
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // BARRACKS PROCEDURAL GENERATION (Age 1 — Military Training Grounds)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create the Age 1 Barracks: a rugged military training structure.
+    /// Gray stone foundation, heavy log frame, canvas and wood walls with faction
+    /// stripes, wooden roof, weapon racks, training dummy, and a wooden gate entrance.
+    /// Larger than the Hut, more fortified. Feels like a working military camp.
+    /// </summary>
+    private GameObject CreateProceduralBarracks(Vector3 center, Entity entity)
+    {
+        var root = new GameObject($"Barracks_{entity.Index}");
+        root.transform.position = center;
+
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+        System.Action<GameObject, Transform, Vector3, Vector3, Color, float, float> Setup =
+            (obj, parent, localPos, localScale, color, metallic, smoothness) =>
+        {
+            obj.transform.SetParent(parent, false);
+            obj.transform.localPosition = localPos;
+            obj.transform.localScale = localScale;
+            var r = obj.GetComponent<Renderer>();
+            if (r != null)
+            {
+                r.material = new Material(shader);
+                r.material.color = color;
+                if (r.material.HasProperty("_Metallic"))
+                    r.material.SetFloat("_Metallic", metallic);
+                if (r.material.HasProperty("_Smoothness"))
+                    r.material.SetFloat("_Smoothness", smoothness);
+            }
+            var c = obj.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+        };
+
+        // ── Color palette ──
+        var darkStone   = new Color(0.40f, 0.38f, 0.36f);
+        var grayStone   = new Color(0.52f, 0.50f, 0.47f);
+        var logBark     = new Color(0.35f, 0.24f, 0.14f);
+        var logBarkLt   = new Color(0.40f, 0.28f, 0.16f);
+        var logCore     = new Color(0.55f, 0.42f, 0.28f);
+        var plankWood   = new Color(0.52f, 0.38f, 0.22f);
+        var plankDark   = new Color(0.42f, 0.30f, 0.16f);
+        var plankPale   = new Color(0.58f, 0.45f, 0.30f);
+        var canvas      = new Color(0.88f, 0.83f, 0.73f);
+        var canvasSag   = new Color(0.82f, 0.77f, 0.67f);
+        var ironGrey    = new Color(0.42f, 0.42f, 0.42f);
+        var ironDark    = new Color(0.30f, 0.30f, 0.32f);
+        var ropeColor   = new Color(0.55f, 0.48f, 0.36f);
+        var strawColor  = new Color(0.72f, 0.65f, 0.45f);
+
+        // ════════════════════════════════════════════
+        // FOUNDATION — larger stone slab, military scale
+        // ════════════════════════════════════════════
+
+        var foundation = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foundation.name = "Foundation";
+        Setup(foundation, root.transform,
+            new Vector3(0f, 0.08f, 0f), new Vector3(4.8f, 0.16f, 4.2f),
+            darkStone, 0.12f, 0.2f);
+
+        var foundationRim = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foundationRim.name = "FoundationRim";
+        Setup(foundationRim, root.transform,
+            new Vector3(0f, 0.03f, 0f), new Vector3(5.0f, 0.06f, 4.4f),
+            new Color(0.36f, 0.34f, 0.32f), 0.1f, 0.15f);
+
+        // Corner reinforcement stones
+        float[] csx = { 2.2f, -2.2f, 2.2f, -2.2f };
+        float[] csz = { 1.85f, 1.85f, -1.85f, -1.85f };
+        for (int i = 0; i < 4; i++)
+        {
+            var cs = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cs.name = $"CornerStone_{i}";
+            Setup(cs, root.transform,
+                new Vector3(csx[i], 0.10f, csz[i]),
+                new Vector3(0.35f + i * 0.02f, 0.14f, 0.30f + i * 0.01f),
+                grayStone, 0.1f, 0.18f);
+            cs.transform.localRotation = Quaternion.Euler(0f, 15f * i, 0f);
+        }
+
+        // ════════════════════════════════════════════
+        // 6 LOG POSTS — heavier than Hut, rectangular layout
+        // ════════════════════════════════════════════
+        // 6 posts: 4 corners + 2 mid-posts on the long sides for structural support
+        // Layout: 4.0 x 3.2 post grid (±2.0 on X, ±1.6 on Z)
+
+        float postHeight = 1.45f;
+        float[] postX = { 2.0f, -2.0f, 2.0f, -2.0f, 0f, 0f };
+        float[] postZ = { 1.6f, 1.6f, -1.6f, -1.6f, 1.6f, -1.6f };
+        float[] postThick = { 0.36f, 0.38f, 0.34f, 0.36f, 0.32f, 0.30f };
+        float[] postH = { 1.45f, 1.42f, 1.43f, 1.40f, 1.44f, 1.41f };
+        Color[] postColors = { logBark, logBarkLt, logBark, logBarkLt, logBark, logBarkLt };
+
+        for (int i = 0; i < 6; i++)
+        {
+            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = $"LogPost_{i}";
+            Setup(post, root.transform,
+                new Vector3(postX[i], postH[i], postZ[i]),
+                new Vector3(postThick[i], postH[i], postThick[i]),
+                postColors[i], 0.05f, 0.11f);
+            post.transform.localRotation = Quaternion.Euler(
+                (i % 2 == 0 ? -1f : 1f), 0f, (i % 3 == 0 ? -1f : 0.5f));
+
+            // Log cap on top
+            var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cap.name = $"LogCap_{i}";
+            Setup(cap, root.transform,
+                new Vector3(postX[i], postH[i] * 2f + 0.01f, postZ[i]),
+                new Vector3(postThick[i] * 0.8f, 0.02f, postThick[i] * 0.8f),
+                logCore, 0.0f, 0.3f);
+        }
+
+        // ════════════════════════════════════════════
+        // CROSS BEAMS — heavy log framing
+        // ════════════════════════════════════════════
+
+        // North beam (full length, connects all 3 north posts)
+        var beamN = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamN.name = "CrossBeam_N";
+        Setup(beamN, root.transform,
+            new Vector3(0f, 2.72f, 1.6f), new Vector3(0.16f, 2.0f, 0.16f),
+            logBark, 0.05f, 0.1f);
+        beamN.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // South beam
+        var beamS = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamS.name = "CrossBeam_S";
+        Setup(beamS, root.transform,
+            new Vector3(0f, 2.68f, -1.6f), new Vector3(0.16f, 2.0f, 0.16f),
+            logBarkLt, 0.05f, 0.1f);
+        beamS.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // East beam
+        var beamE = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamE.name = "CrossBeam_E";
+        Setup(beamE, root.transform,
+            new Vector3(2.0f, 2.70f, 0f), new Vector3(0.14f, 1.6f, 0.14f),
+            logBark, 0.05f, 0.1f);
+        beamE.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        // West beam
+        var beamW = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beamW.name = "CrossBeam_W";
+        Setup(beamW, root.transform,
+            new Vector3(-2.0f, 2.66f, 0f), new Vector3(0.14f, 1.6f, 0.14f),
+            logBarkLt, 0.05f, 0.1f);
+        beamW.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        // Center ridge beam (runs full length E-W for roof support)
+        var ridgeBeam = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        ridgeBeam.name = "RidgeBeam";
+        Setup(ridgeBeam, root.transform,
+            new Vector3(0f, 2.85f, 0f), new Vector3(0.14f, 2.0f, 0.14f),
+            logBark, 0.05f, 0.1f);
+        ridgeBeam.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
+        // ════════════════════════════════════════════
+        // WOODEN ROOF — plank boards, larger span
+        // ════════════════════════════════════════════
+
+        var roofMain = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roofMain.name = "WoodCanopy";
+        Setup(roofMain, root.transform,
+            new Vector3(0f, 2.85f, 0f), new Vector3(4.4f, 0.10f, 3.6f),
+            plankWood, 0.0f, 0.1f);
+
+        // 6 individual plank boards running N-S
+        float[] rpX = { -1.6f, -0.9f, -0.2f, 0.5f, 1.15f, 1.75f };
+        float[] rpW = { 0.44f, 0.48f, 0.42f, 0.46f, 0.40f, 0.44f };
+        for (int i = 0; i < 6; i++)
+        {
+            var rp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rp.name = $"RoofPlank_{i}";
+            Setup(rp, root.transform,
+                new Vector3(rpX[i], 2.91f, 0f),
+                new Vector3(rpW[i], 0.03f, 3.7f),
+                (i % 2 == 0) ? plankDark : plankPale, 0.0f, 0.09f);
+        }
+
+        // Roof edge trims on all 4 sides
+        var reN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        reN.name = "RoofEdge_N";
+        Setup(reN, root.transform,
+            new Vector3(0f, 2.83f, 1.85f), new Vector3(4.6f, 0.07f, 0.14f),
+            plankDark, 0.0f, 0.08f);
+
+        var reS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        reS.name = "RoofEdge_S";
+        Setup(reS, root.transform,
+            new Vector3(0f, 2.83f, -1.85f), new Vector3(4.6f, 0.07f, 0.14f),
+            plankDark, 0.0f, 0.08f);
+
+        var reE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        reE.name = "RoofEdge_E";
+        Setup(reE, root.transform,
+            new Vector3(2.25f, 2.83f, 0f), new Vector3(0.14f, 0.07f, 3.5f),
+            plankDark, 0.0f, 0.08f);
+
+        var reW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        reW.name = "RoofEdge_W";
+        Setup(reW, root.transform,
+            new Vector3(-2.25f, 2.83f, 0f), new Vector3(0.14f, 0.07f, 3.5f),
+            plankDark, 0.0f, 0.08f);
+
+        // ════════════════════════════════════════════
+        // WALLS — mix of canvas (N, S) and wood (E, W)
+        // ════════════════════════════════════════════
+
+        // North canvas wall — full span
+        var canvasN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasN.name = "CanvasWall_N";
+        Setup(canvasN, root.transform,
+            new Vector3(0f, 1.45f, 1.62f), new Vector3(3.6f, 2.6f, 0.05f),
+            canvas, 0.0f, 0.05f);
+
+        // South canvas wall (has entrance gap in center)
+        // Left section
+        var canvasSL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasSL.name = "CanvasWall_SL";
+        Setup(canvasSL, root.transform,
+            new Vector3(-1.2f, 1.45f, -1.62f), new Vector3(1.2f, 2.6f, 0.05f),
+            canvasSag, 0.0f, 0.05f);
+
+        // Right section
+        var canvasSR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasSR.name = "CanvasWall_SR";
+        Setup(canvasSR, root.transform,
+            new Vector3(1.2f, 1.45f, -1.62f), new Vector3(1.2f, 2.6f, 0.05f),
+            canvas, 0.0f, 0.05f);
+
+        // Canvas above entrance (header)
+        var canvasSTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        canvasSTop.name = "CanvasWall_STop";
+        Setup(canvasSTop, root.transform,
+            new Vector3(0f, 2.45f, -1.62f), new Vector3(1.0f, 0.6f, 0.05f),
+            canvas, 0.0f, 0.05f);
+
+        // Canvas sag details
+        var sagN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        sagN.name = "CanvasSag_N";
+        Setup(sagN, root.transform,
+            new Vector3(0.5f, 1.20f, 1.65f), new Vector3(1.4f, 0.6f, 0.03f),
+            canvasSag, 0.0f, 0.04f);
+
+        // East wood wall — full plank wall
+        var woodWallE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        woodWallE.name = "WoodWall_E";
+        Setup(woodWallE, root.transform,
+            new Vector3(2.02f, 1.45f, 0f), new Vector3(0.08f, 2.6f, 2.9f),
+            plankWood, 0.0f, 0.1f);
+
+        // East wall plank details — 5 vertical boards
+        for (int i = 0; i < 5; i++)
+        {
+            var vp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vp.name = $"EastPlank_{i}";
+            Setup(vp, root.transform,
+                new Vector3(2.06f, 1.45f, -1.1f + i * 0.55f),
+                new Vector3(0.02f, 2.55f, 0.30f + (i % 2) * 0.06f),
+                (i % 2 == 0) ? plankDark : plankPale, 0.0f, 0.12f);
+        }
+
+        // West wood wall — full plank wall
+        var woodWallW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        woodWallW.name = "WoodWall_W";
+        Setup(woodWallW, root.transform,
+            new Vector3(-2.02f, 1.45f, 0f), new Vector3(0.08f, 2.6f, 2.9f),
+            plankWood, 0.0f, 0.1f);
+
+        // West wall plank details
+        for (int i = 0; i < 5; i++)
+        {
+            var vp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vp.name = $"WestPlank_{i}";
+            Setup(vp, root.transform,
+                new Vector3(-2.06f, 1.45f, -1.1f + i * 0.55f),
+                new Vector3(0.02f, 2.55f, 0.28f + (i % 2) * 0.05f),
+                (i % 2 == 0) ? plankPale : plankDark, 0.0f, 0.12f);
+        }
+
+        // Horizontal braces on wood walls
+        var hBraceE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hBraceE.name = "HBrace_E";
+        Setup(hBraceE, root.transform,
+            new Vector3(2.06f, 1.70f, 0f), new Vector3(0.04f, 0.10f, 2.9f),
+            plankDark, 0.0f, 0.08f);
+
+        var hBraceW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hBraceW.name = "HBrace_W";
+        Setup(hBraceW, root.transform,
+            new Vector3(-2.06f, 1.65f, 0f), new Vector3(0.04f, 0.10f, 2.9f),
+            plankDark, 0.0f, 0.08f);
+
+        // ════════════════════════════════════════════
+        // FACTION STRIPES — on canvas walls
+        // ════════════════════════════════════════════
+
+        var stripeN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeN.name = "Stripe_N";
+        Setup(stripeN, root.transform,
+            new Vector3(0f, 1.65f, 1.66f), new Vector3(3.2f, 0.28f, 0.03f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeSL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeSL.name = "Stripe_SL";
+        Setup(stripeSL, root.transform,
+            new Vector3(-1.2f, 1.65f, -1.66f), new Vector3(1.0f, 0.28f, 0.03f),
+            Color.white, 0.0f, 0.1f);
+
+        var stripeSR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stripeSR.name = "Stripe_SR";
+        Setup(stripeSR, root.transform,
+            new Vector3(1.2f, 1.65f, -1.66f), new Vector3(1.0f, 0.28f, 0.03f),
+            Color.white, 0.0f, 0.1f);
+
+        // ════════════════════════════════════════════
+        // ENTRANCE — south side opening with gate posts
+        // ════════════════════════════════════════════
+
+        // Gate posts — thick logs flanking the entrance
+        var gateL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        gateL.name = "GatePost_L";
+        Setup(gateL, root.transform,
+            new Vector3(-0.55f, 1.40f, -1.62f), new Vector3(0.24f, 1.40f, 0.24f),
+            logBark, 0.05f, 0.1f);
+
+        var gateR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        gateR.name = "GatePost_R";
+        Setup(gateR, root.transform,
+            new Vector3(0.55f, 1.38f, -1.62f), new Vector3(0.22f, 1.38f, 0.22f),
+            logBarkLt, 0.05f, 0.1f);
+
+        // Gate lintel — beam across the top of the entrance
+        var gateLintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        gateLintel.name = "GateLintel";
+        Setup(gateLintel, root.transform,
+            new Vector3(0f, 2.15f, -1.62f), new Vector3(1.3f, 0.14f, 0.14f),
+            plankDark, 0.0f, 0.1f);
+
+        // ════════════════════════════════════════════
+        // WEAPON RACKS — inside, against east wall
+        // ════════════════════════════════════════════
+
+        // Rack frame — horizontal bar on two small posts
+        var rackPostL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        rackPostL.name = "WeaponRack_PostL";
+        Setup(rackPostL, root.transform,
+            new Vector3(1.70f, 0.65f, 0.6f), new Vector3(0.08f, 0.65f, 0.08f),
+            logBark, 0.05f, 0.1f);
+
+        var rackPostR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        rackPostR.name = "WeaponRack_PostR";
+        Setup(rackPostR, root.transform,
+            new Vector3(1.70f, 0.65f, -0.6f), new Vector3(0.08f, 0.65f, 0.08f),
+            logBark, 0.05f, 0.1f);
+
+        // Horizontal rack bar
+        var rackBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rackBar.name = "WeaponRack_Bar";
+        Setup(rackBar, root.transform,
+            new Vector3(1.70f, 1.28f, 0f), new Vector3(0.06f, 0.06f, 1.3f),
+            plankDark, 0.0f, 0.1f);
+
+        // Swords leaning on the rack — 3 thin tall cubes angled outward
+        for (int i = 0; i < 3; i++)
+        {
+            var sword = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            sword.name = $"Sword_{i}";
+            Setup(sword, root.transform,
+                new Vector3(1.68f, 0.70f, -0.35f + i * 0.35f),
+                new Vector3(0.03f, 1.0f, 0.06f),
+                ironGrey, 0.7f, 0.5f);
+            sword.transform.localRotation = Quaternion.Euler(0f, 0f, 5f - i * 3f);
+
+            // Sword handle (small dark cube at base)
+            var hilt = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            hilt.name = $"SwordHilt_{i}";
+            Setup(hilt, root.transform,
+                new Vector3(1.68f, 0.22f, -0.35f + i * 0.35f),
+                new Vector3(0.05f, 0.12f, 0.03f),
+                logBark, 0.1f, 0.15f);
+        }
+
+        // ════════════════════════════════════════════
+        // SHIELD RACK — against west wall
+        // ════════════════════════════════════════════
+
+        // 2 round shields leaning against the wall (flat cylinders)
+        var shield1 = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        shield1.name = "Shield_1";
+        Setup(shield1, root.transform,
+            new Vector3(-1.75f, 0.55f, 0.4f), new Vector3(0.6f, 0.03f, 0.6f),
+            plankWood, 0.05f, 0.15f);
+        shield1.transform.localRotation = Quaternion.Euler(0f, 0f, 75f);
+
+        var shield2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        shield2.name = "Shield_2";
+        Setup(shield2, root.transform,
+            new Vector3(-1.72f, 0.52f, -0.3f), new Vector3(0.55f, 0.03f, 0.55f),
+            plankDark, 0.05f, 0.15f);
+        shield2.transform.localRotation = Quaternion.Euler(0f, 15f, 78f);
+
+        // Shield boss (center metal circle)
+        var boss1 = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        boss1.name = "ShieldBoss_1";
+        Setup(boss1, root.transform,
+            new Vector3(-1.73f, 0.55f, 0.4f), new Vector3(0.15f, 0.04f, 0.15f),
+            ironGrey, 0.6f, 0.4f);
+        boss1.transform.localRotation = Quaternion.Euler(0f, 0f, 75f);
+
+        // ════════════════════════════════════════════
+        // TRAINING DUMMY — outside near entrance
+        // ════════════════════════════════════════════
+
+        // Vertical post
+        var dummyPost = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        dummyPost.name = "Dummy_Post";
+        Setup(dummyPost, root.transform,
+            new Vector3(0.6f, 0.75f, -2.2f), new Vector3(0.12f, 0.75f, 0.12f),
+            logBark, 0.05f, 0.1f);
+
+        // Cross arm
+        var dummyArm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        dummyArm.name = "Dummy_Arm";
+        Setup(dummyArm, root.transform,
+            new Vector3(0.6f, 1.20f, -2.2f), new Vector3(0.7f, 0.08f, 0.08f),
+            logBarkLt, 0.05f, 0.1f);
+
+        // Straw body (sphere for torso target)
+        var dummyBody = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        dummyBody.name = "Dummy_Body";
+        Setup(dummyBody, root.transform,
+            new Vector3(0.6f, 1.05f, -2.2f), new Vector3(0.35f, 0.45f, 0.25f),
+            strawColor, 0.0f, 0.08f);
+
+        // Straw head (smaller sphere)
+        var dummyHead = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        dummyHead.name = "Dummy_Head";
+        Setup(dummyHead, root.transform,
+            new Vector3(0.6f, 1.45f, -2.2f), new Vector3(0.22f, 0.22f, 0.22f),
+            strawColor, 0.0f, 0.08f);
+
+        // ════════════════════════════════════════════
+        // ROPE LASHINGS — at key structural joints
+        // ════════════════════════════════════════════
+
+        float[] ropePostX = { 2.0f, -2.0f, 2.0f, -2.0f };
+        float[] ropePostZ = { 1.6f, 1.6f, -1.6f, -1.6f };
+        for (int i = 0; i < 4; i++)
+        {
+            var ropeU = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ropeU.name = $"Rope_Upper_{i}";
+            Setup(ropeU, root.transform,
+                new Vector3(ropePostX[i], 2.45f, ropePostZ[i]),
+                new Vector3(0.42f, 0.015f, 0.42f),
+                ropeColor, 0.0f, 0.08f);
+
+            var ropeL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ropeL.name = $"Rope_Lower_{i}";
+            Setup(ropeL, root.transform,
+                new Vector3(ropePostX[i], 0.85f, ropePostZ[i]),
+                new Vector3(0.42f, 0.015f, 0.42f),
+                ropeColor, 0.0f, 0.08f);
+        }
+
+        // ════════════════════════════════════════════
+        // GROUND DETAILS
+        // ════════════════════════════════════════════
+
+        // Worn path stones leading to entrance
+        var path1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        path1.name = "PathStone_1";
+        Setup(path1, root.transform,
+            new Vector3(0f, 0.03f, -2.0f), new Vector3(0.45f, 0.04f, 0.35f),
+            grayStone, 0.1f, 0.18f);
+
+        var path2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        path2.name = "PathStone_2";
+        Setup(path2, root.transform,
+            new Vector3(0.15f, 0.03f, -2.5f), new Vector3(0.40f, 0.04f, 0.30f),
+            darkStone, 0.08f, 0.16f);
+        path2.transform.localRotation = Quaternion.Euler(0f, -10f, 0f);
+
+        // Scattered pebbles
+        var peb1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        peb1.name = "Pebble_1";
+        Setup(peb1, root.transform,
+            new Vector3(2.3f, 0.03f, -1.0f), new Vector3(0.16f, 0.06f, 0.14f),
+            grayStone, 0.08f, 0.14f);
+        peb1.transform.localRotation = Quaternion.Euler(0f, 40f, 0f);
+
+        var peb2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        peb2.name = "Pebble_2";
+        Setup(peb2, root.transform,
+            new Vector3(-2.4f, 0.03f, 0.8f), new Vector3(0.18f, 0.05f, 0.12f),
+            darkStone, 0.06f, 0.12f);
+        peb2.transform.localRotation = Quaternion.Euler(0f, -25f, 0f);
+
+        // ── Single collider for selection ──
+        var boxCol = root.AddComponent<BoxCollider>();
+        boxCol.center = new Vector3(0f, 1.6f, 0f);
+        boxCol.size = new Vector3(5.2f, 3.5f, 4.8f);
+
+        // ── EntityReference for ECS ↔ GameObject link ──
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VAULT OF ALMIERRA PROCEDURAL GENERATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Create a fortified treasury vault: squat thick-walled square stone structure
+    /// with iron vault door, ventilation slits, crenellations, corner buttresses,
+    /// chest emblem, and faction-colored accents (flags, door trim).
+    /// </summary>
+    private GameObject CreateProceduralVault(Vector3 center, Entity entity)
+    {
+        var root = new GameObject($"VaultOfAlmierra_{entity.Index}");
+        root.transform.position = center;
+
+        // Get faction color for accents
+        Color factionColor = Color.gray;
+        if (_em.HasComponent<FactionTag>(entity))
+        {
+            var faction = _em.GetComponentData<FactionTag>(entity).Value;
+            factionColor = FactionColors.Get(faction);
+        }
+
+        // Base colors
+        var limestone = new Color(0.62f, 0.60f, 0.55f);     // Warm grey limestone
+        var ironDark = new Color(0.18f, 0.17f, 0.16f);      // Dark iron
+        var ironMedium = new Color(0.30f, 0.28f, 0.26f);    // Medium iron/metal
+        var goldTrim = new Color(0.72f, 0.58f, 0.20f);      // Subtle golden trim
+
+        Material MakeMat(Color col, float metallic = 0f, float smoothness = 0.3f)
+        {
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            m.color = col;
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", col);
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
+            return m;
+        }
+
+        void DestroyCol(GameObject go)
+        {
+            var c = go.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+        }
+
+        // ── MAIN BODY: squat thick-walled square vault ──
+        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        body.name = "VaultBody";
+        body.transform.SetParent(root.transform, false);
+        body.transform.localPosition = Vector3.up * 1.2f;
+        body.transform.localScale = new Vector3(3.6f, 2.4f, 3.6f);
+        body.GetComponent<Renderer>().material = MakeMat(limestone, 0.1f, 0.2f);
+        DestroyCol(body);
+
+        // ── IRON CLAMP BANDS (horizontal lines on walls) ──
+        for (int band = 0; band < 2; band++)
+        {
+            float bandY = 0.8f + band * 1.2f;
+            for (int side = 0; side < 4; side++)
+            {
+                var clamp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                clamp.name = $"IronBand_{band}_{side}";
+                clamp.transform.SetParent(root.transform, false);
+
+                float offset = 1.82f;
+                switch (side)
+                {
+                    case 0: clamp.transform.localPosition = new Vector3(0f, bandY, offset); clamp.transform.localScale = new Vector3(3.7f, 0.08f, 0.06f); break;
+                    case 1: clamp.transform.localPosition = new Vector3(0f, bandY, -offset); clamp.transform.localScale = new Vector3(3.7f, 0.08f, 0.06f); break;
+                    case 2: clamp.transform.localPosition = new Vector3(offset, bandY, 0f); clamp.transform.localScale = new Vector3(0.06f, 0.08f, 3.7f); break;
+                    case 3: clamp.transform.localPosition = new Vector3(-offset, bandY, 0f); clamp.transform.localScale = new Vector3(0.06f, 0.08f, 3.7f); break;
+                }
+                clamp.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.6f, 0.4f);
+                DestroyCol(clamp);
+            }
+        }
+
+        // ── CORNER BUTTRESSES (4 thick vertical pillars at corners) ──
+        float bOffset = 1.7f;
+        Vector3[] corners = {
+            new( bOffset, 1.0f,  bOffset),
+            new(-bOffset, 1.0f,  bOffset),
+            new( bOffset, 1.0f, -bOffset),
+            new(-bOffset, 1.0f, -bOffset)
+        };
+        foreach (var corner in corners)
+        {
+            var buttress = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            buttress.name = "Buttress";
+            buttress.transform.SetParent(root.transform, false);
+            buttress.transform.localPosition = corner;
+            buttress.transform.localScale = new Vector3(0.6f, 2.0f, 0.6f);
+            buttress.GetComponent<Renderer>().material = MakeMat(limestone * 0.9f, 0.15f, 0.2f);
+            DestroyCol(buttress);
+        }
+
+        // ── FLAT ROOF ──
+        var roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roof.name = "Roof";
+        roof.transform.SetParent(root.transform, false);
+        roof.transform.localPosition = Vector3.up * 2.45f;
+        roof.transform.localScale = new Vector3(3.8f, 0.15f, 3.8f);
+        roof.GetComponent<Renderer>().material = MakeMat(limestone * 0.85f, 0.1f, 0.15f);
+        DestroyCol(roof);
+
+        // ── CRENELLATIONS (low merlons around roof edge) ──
+        float crenOffset = 1.75f;
+        for (int side = 0; side < 4; side++)
+        {
+            for (int m = -2; m <= 2; m++)
+            {
+                if (m == 0 && side == 0) continue; // gap above door
+
+                var merlon = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                merlon.name = "Merlon";
+                merlon.transform.SetParent(root.transform, false);
+
+                float along = m * 0.75f;
+                switch (side)
+                {
+                    case 0: merlon.transform.localPosition = new Vector3(along, 2.72f, crenOffset); break;
+                    case 1: merlon.transform.localPosition = new Vector3(along, 2.72f, -crenOffset); break;
+                    case 2: merlon.transform.localPosition = new Vector3(crenOffset, 2.72f, along); break;
+                    case 3: merlon.transform.localPosition = new Vector3(-crenOffset, 2.72f, along); break;
+                }
+                merlon.transform.localScale = new Vector3(0.4f, 0.4f, 0.3f);
+                merlon.GetComponent<Renderer>().material = MakeMat(limestone * 0.88f, 0.1f, 0.2f);
+                DestroyCol(merlon);
+            }
+        }
+
+        // ── VENTILATION SLITS (narrow openings near roofline, each side) ──
+        for (int side = 0; side < 4; side++)
+        {
+            if (side == 0) continue; // front has door, no slits
+            for (int s = -1; s <= 1; s += 2)
+            {
+                var slit = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                slit.name = "VentSlit";
+                slit.transform.SetParent(root.transform, false);
+
+                float slitOffset = 1.83f;
+                float along = s * 0.9f;
+                switch (side)
+                {
+                    case 1: slit.transform.localPosition = new Vector3(along, 2.0f, -slitOffset); slit.transform.localScale = new Vector3(0.06f, 0.25f, 0.08f); break;
+                    case 2: slit.transform.localPosition = new Vector3(slitOffset, 2.0f, along); slit.transform.localScale = new Vector3(0.08f, 0.25f, 0.06f); break;
+                    case 3: slit.transform.localPosition = new Vector3(-slitOffset, 2.0f, along); slit.transform.localScale = new Vector3(0.08f, 0.25f, 0.06f); break;
+                }
+                slit.GetComponent<Renderer>().material = MakeMat(ironDark, 0.3f, 0.1f);
+                DestroyCol(slit);
+            }
+        }
+
+        // ── VAULT DOOR (front face) ──
+        // Door recess (dark inset)
+        var doorRecess = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        doorRecess.name = "DoorRecess";
+        doorRecess.transform.SetParent(root.transform, false);
+        doorRecess.transform.localPosition = new Vector3(0f, 0.9f, 1.82f);
+        doorRecess.transform.localScale = new Vector3(1.0f, 1.6f, 0.08f);
+        doorRecess.GetComponent<Renderer>().material = MakeMat(ironDark * 0.6f, 0.2f, 0.1f);
+        DestroyCol(doorRecess);
+
+        // Iron door panel
+        var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        door.name = "VaultDoor";
+        door.transform.SetParent(root.transform, false);
+        door.transform.localPosition = new Vector3(0f, 0.9f, 1.85f);
+        door.transform.localScale = new Vector3(0.9f, 1.5f, 0.06f);
+        door.GetComponent<Renderer>().material = MakeMat(ironDark, 0.7f, 0.5f);
+        DestroyCol(door);
+
+        // Door lock cylinders (multiple locks)
+        for (int l = 0; l < 3; l++)
+        {
+            var lockCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            lockCyl.name = $"Lock_{l}";
+            lockCyl.transform.SetParent(root.transform, false);
+            lockCyl.transform.localPosition = new Vector3(0.3f, 0.5f + l * 0.4f, 1.9f);
+            lockCyl.transform.localScale = new Vector3(0.1f, 0.03f, 0.1f);
+            lockCyl.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            lockCyl.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.8f, 0.6f);
+            DestroyCol(lockCyl);
+        }
+
+        // Wheel mechanism (larger cylinder on door)
+        var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        wheel.name = "WheelMechanism";
+        wheel.transform.SetParent(root.transform, false);
+        wheel.transform.localPosition = new Vector3(-0.15f, 0.9f, 1.92f);
+        wheel.transform.localScale = new Vector3(0.35f, 0.04f, 0.35f);
+        wheel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        wheel.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.8f, 0.5f);
+        DestroyCol(wheel);
+
+        // Wheel spokes (cross bars inside the wheel)
+        for (int sp = 0; sp < 4; sp++)
+        {
+            var spoke = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            spoke.name = $"Spoke_{sp}";
+            spoke.transform.SetParent(root.transform, false);
+            spoke.transform.localPosition = new Vector3(-0.15f, 0.9f, 1.93f);
+            spoke.transform.localRotation = Quaternion.Euler(0f, 0f, sp * 45f);
+            spoke.transform.localScale = new Vector3(0.3f, 0.04f, 0.03f);
+            spoke.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.8f, 0.5f);
+            DestroyCol(spoke);
+        }
+
+        // ── GOLDEN DOOR FRAME TRIM (faction-colored) ──
+        // Top trim
+        var trimTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        trimTop.name = "DoorTrimTop";
+        trimTop.transform.SetParent(root.transform, false);
+        trimTop.transform.localPosition = new Vector3(0f, 1.72f, 1.86f);
+        trimTop.transform.localScale = new Vector3(1.1f, 0.08f, 0.08f);
+        trimTop.GetComponent<Renderer>().material = MakeMat(factionColor, 0.4f, 0.6f);
+        DestroyCol(trimTop);
+
+        // Side trims
+        for (int s = -1; s <= 1; s += 2)
+        {
+            var trimSide = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            trimSide.name = "DoorTrimSide";
+            trimSide.transform.SetParent(root.transform, false);
+            trimSide.transform.localPosition = new Vector3(s * 0.52f, 0.9f, 1.86f);
+            trimSide.transform.localScale = new Vector3(0.08f, 1.7f, 0.08f);
+            trimSide.GetComponent<Renderer>().material = MakeMat(factionColor, 0.4f, 0.6f);
+            DestroyCol(trimSide);
+        }
+
+        // ── CHEST EMBLEM (relief on front wall, above door) ──
+        // Chest body
+        var emblemBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        emblemBody.name = "ChestEmblem";
+        emblemBody.transform.SetParent(root.transform, false);
+        emblemBody.transform.localPosition = new Vector3(0f, 2.05f, 1.84f);
+        emblemBody.transform.localScale = new Vector3(0.6f, 0.35f, 0.1f);
+        emblemBody.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.6f, 0.5f);
+        DestroyCol(emblemBody);
+
+        // Chest lid (slightly raised)
+        var emblemLid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        emblemLid.name = "ChestEmblemLid";
+        emblemLid.transform.SetParent(root.transform, false);
+        emblemLid.transform.localPosition = new Vector3(0f, 2.25f, 1.85f);
+        emblemLid.transform.localScale = new Vector3(0.65f, 0.12f, 0.12f);
+        emblemLid.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
+        emblemLid.GetComponent<Renderer>().material = MakeMat(ironMedium, 0.6f, 0.5f);
+        DestroyCol(emblemLid);
+
+        // Chest emblem iron bands
+        for (int b = -1; b <= 1; b += 2)
+        {
+            var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            band.name = "ChestBand";
+            band.transform.SetParent(root.transform, false);
+            band.transform.localPosition = new Vector3(b * 0.18f, 2.05f, 1.87f);
+            band.transform.localScale = new Vector3(0.04f, 0.4f, 0.06f);
+            band.GetComponent<Renderer>().material = MakeMat(goldTrim, 0.5f, 0.7f);
+            DestroyCol(band);
+        }
+
+        // ── CORNER FLAGS (faction-colored, short poles at each corner) ──
+        foreach (var corner in corners)
+        {
+            // Flag pole
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "FlagPole";
+            pole.transform.SetParent(root.transform, false);
+            pole.transform.localPosition = new Vector3(corner.x, 2.85f, corner.z);
+            pole.transform.localScale = new Vector3(0.05f, 0.5f, 0.05f);
+            pole.GetComponent<Renderer>().material = MakeMat(new Color(0.3f, 0.25f, 0.2f));
+            DestroyCol(pole);
+
+            // Flag (faction color)
+            var flag = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            flag.name = "FactionFlag";
+            flag.transform.SetParent(root.transform, false);
+            flag.transform.localPosition = new Vector3(corner.x + 0.15f, 3.2f, corner.z);
+            flag.transform.localScale = new Vector3(0.25f, 0.15f, 0.03f);
+            flag.GetComponent<Renderer>().material = MakeMat(factionColor, 0f, 0.3f);
+            DestroyCol(flag);
+        }
+
+        // Single collider for entire building
+        var boxCol = root.AddComponent<BoxCollider>();
+        boxCol.size = new Vector3(4f, 3.5f, 4f);
+        boxCol.center = Vector3.up * 1.5f;
+
+        // Add EntityReference
+        var entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        return root;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // CRYSTAL CURSE PROCEDURAL GENERATION
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -2122,55 +2949,51 @@ public class PresentationSpawnSystem : MonoBehaviour
         var root = new GameObject($"CrystalLoot_{entity.Index}");
         root.transform.position = center;
 
-        var lootColor = new Color(0.50f, 0.18f, 0.65f);    // Purple crystal
-        var glowColor = new Color(0.65f, 0.30f, 0.80f);    // Lighter glow
+        var purpleBase = new Color(0.40f, 0.08f, 0.55f, 0.70f);
+        var greenTip   = new Color(0.06f, 0.28f, 0.10f, 0.55f);
+        var emPurple   = new Color(0.35f, 0.05f, 0.50f);
 
-        // Create a small cluster of 3-5 crystal shards
+        // Small cluster of 3-5 bulbous crystal nubs (spheres)
         int shardCount = Random.Range(3, 6);
         for (int i = 0; i < shardCount; i++)
         {
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var shard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shard.name = $"Shard_{i}";
             shard.transform.SetParent(root.transform);
 
-            // Randomize position in a small area
             float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
             float dist = Random.Range(0.05f, 0.3f);
             float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
 
-            // Tall thin crystal shard shape
-            float height = Random.Range(0.3f, 0.7f);
-            float width = Random.Range(0.08f, 0.15f);
-            shard.transform.localPosition = new Vector3(x, height * 0.5f, z);
+            // Bulbous eroded shape — short and wide spheres
+            float height = Random.Range(0.25f, 0.55f);
+            float width = Random.Range(0.12f, 0.22f);
+            shard.transform.localPosition = new Vector3(x, height * 0.4f, z);
             shard.transform.localScale = new Vector3(width, height, width);
 
-            // Tilt each shard slightly outward from center
             float tiltAngle = Random.Range(5f, 25f);
             shard.transform.localRotation = Quaternion.Euler(
                 Random.Range(-tiltAngle, tiltAngle),
                 angle + Random.Range(-30f, 30f),
                 Random.Range(-tiltAngle, tiltAngle));
 
-            // Remove collider from individual shards
-            var col = shard.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            DestroyCollider(shard);
 
-            // Crystal material with emission
-            var renderer = shard.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                var mat = new Material(
-                    Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mat.color = Color.Lerp(lootColor, glowColor, Random.Range(0f, 0.5f));
-                if (mat.HasProperty("_EmissionColor"))
-                {
-                    mat.EnableKeyword("_EMISSION");
-                    mat.SetColor("_EmissionColor", glowColor * Random.Range(1.5f, 3f));
-                }
-                renderer.material = mat;
-            }
+            float tipT = Random.Range(0.1f, 0.5f);
+            ApplyCrystalMaterial(shard, purpleBase, greenTip, emPurple, tipBlend: tipT);
         }
+
+        // Tiny point light for the loot pile
+        var lightObj = new GameObject("LootGlow");
+        lightObj.transform.SetParent(root.transform, false);
+        lightObj.transform.localPosition = Vector3.up * 0.25f;
+        var pl = lightObj.AddComponent<Light>();
+        pl.type = LightType.Point;
+        pl.color = Color.white;
+        pl.intensity = 0.6f;
+        pl.range = 1.2f;
+        pl.shadows = LightShadows.None;
 
         // Add a box collider to the root for selection/raycasting
         var boxCol = root.AddComponent<BoxCollider>();
@@ -2266,67 +3089,120 @@ public class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Create a crystal node/building visual: a central crystal spire with smaller shards around it.
+    /// Create a crystal node/building visual: large bulbous, eroded crystals with purple base
+    /// fading to dark green tips.  Translucent, reflective material with dim purple emission
+    /// and a white point light at the core.
     /// </summary>
     private void CreateCrystalNodeVisual(GameObject root, int presentationId, Color coreColor, Color glowColor, Entity entity)
     {
         float scale = presentationId == 310 ? 1.5f : 1f; // Main node is 50% larger
 
-        // Central crystal spire (tall elongated cube rotated 45 degrees)
-        var spire = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        spire.name = "CrystalSpire";
-        spire.transform.SetParent(root.transform, false);
-        spire.transform.localPosition = Vector3.up * (1.5f * scale);
-        spire.transform.localScale = new Vector3(0.6f * scale, 3f * scale, 0.6f * scale);
-        spire.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-        ApplyCrystalMaterial(spire, coreColor, glowColor);
-        var spireCol = spire.GetComponent<Collider>();
-        if (spireCol != null) Destroy(spireCol);
+        // --- Colour palette ---
+        var purpleBase  = new Color(0.40f, 0.08f, 0.55f, 0.70f); // translucent deep purple
+        var greenTip    = new Color(0.06f, 0.28f, 0.10f, 0.55f); // translucent dark green
+        var emissionPurple = new Color(0.35f, 0.05f, 0.50f);     // dim purple glow
 
-        // Smaller crystal shards around the base
         var rng = new System.Random(entity.Index + presentationId);
-        int shardCount = presentationId == 310 ? 5 : 3;
 
-        for (int i = 0; i < shardCount; i++)
+        // --- Central dominant crystal (tall bulbous sphere, stretched vertically) ---
+        var mainCrystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        mainCrystal.name = "MainCrystal";
+        mainCrystal.transform.SetParent(root.transform, false);
+        float mainHeight = 2.8f * scale;
+        mainCrystal.transform.localPosition = Vector3.up * (mainHeight * 0.45f);
+        mainCrystal.transform.localScale = new Vector3(1.1f * scale, mainHeight, 0.95f * scale);
+        mainCrystal.transform.localRotation = Quaternion.Euler(
+            (float)rng.NextDouble() * 6f - 3f, (float)rng.NextDouble() * 360f,
+            (float)rng.NextDouble() * 6f - 3f);
+        ApplyCrystalMaterial(mainCrystal, purpleBase, greenTip, emissionPurple, tipBlend: 0.65f);
+        DestroyCollider(mainCrystal);
+
+        // --- Secondary bulbous crystals (leaning outward) ---
+        int secondaryCount = presentationId == 310 ? 4 : 2;
+        for (int i = 0; i < secondaryCount; i++)
         {
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = 0.6f * scale + (float)rng.NextDouble() * 0.4f * scale;
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-            float shardHeight = 0.5f + (float)rng.NextDouble() * 1.2f;
+            float angle = (i / (float)secondaryCount) * 360f + (float)rng.NextDouble() * 40f;
+            float dist  = (0.55f + (float)rng.NextDouble() * 0.35f) * scale;
+            float h     = 1.4f + (float)rng.NextDouble() * 1.0f;
 
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shard.name = $"Shard_{i}";
-            shard.transform.SetParent(root.transform, false);
-            shard.transform.localPosition = new Vector3(offsetX, shardHeight * 0.5f * scale, offsetZ);
-            shard.transform.localScale = new Vector3(0.25f * scale, shardHeight * scale, 0.25f * scale);
-            shard.transform.localRotation = Quaternion.Euler(
-                (float)rng.NextDouble() * 15f - 7.5f,
-                (float)rng.NextDouble() * 360f,
-                (float)rng.NextDouble() * 15f - 7.5f
-            );
+            var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            crystal.name = $"Crystal_{i}";
+            crystal.transform.SetParent(root.transform, false);
+            float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
+            float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
+            crystal.transform.localPosition = new Vector3(px, h * 0.4f * scale, pz);
+            crystal.transform.localScale = new Vector3(
+                (0.55f + (float)rng.NextDouble() * 0.25f) * scale,
+                h * scale,
+                (0.50f + (float)rng.NextDouble() * 0.20f) * scale);
+            // Lean outward from center for organic feel
+            float lean = 10f + (float)rng.NextDouble() * 20f;
+            crystal.transform.localRotation = Quaternion.Euler(
+                Mathf.Cos(angle * Mathf.Deg2Rad) * lean,
+                angle + (float)rng.NextDouble() * 30f,
+                Mathf.Sin(angle * Mathf.Deg2Rad) * lean);
 
-            // Slight color variation per shard
-            float variation = 0.85f + (float)rng.NextDouble() * 0.3f;
-            Color shardColor = coreColor * variation;
-            shardColor.a = 1f;
-            ApplyCrystalMaterial(shard, shardColor, glowColor * 0.6f);
-
-            var shardCol = shard.GetComponent<Collider>();
-            if (shardCol != null) Destroy(shardCol);
+            float tipT = 0.4f + (float)rng.NextDouble() * 0.4f;
+            ApplyCrystalMaterial(crystal, purpleBase, greenTip, emissionPurple, tipBlend: tipT);
+            DestroyCollider(crystal);
         }
 
-        // Base disc (flat cylinder)
+        // --- Small eroded nub clusters at the base ---
+        int nubCount = presentationId == 310 ? 6 : 3;
+        for (int i = 0; i < nubCount; i++)
+        {
+            float angle = (float)rng.NextDouble() * 360f;
+            float dist  = (0.3f + (float)rng.NextDouble() * 0.8f) * scale;
+            float nubH  = 0.25f + (float)rng.NextDouble() * 0.45f;
+
+            var nub = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            nub.name = $"Nub_{i}";
+            nub.transform.SetParent(root.transform, false);
+            float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
+            float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
+            nub.transform.localPosition = new Vector3(px, nubH * 0.35f * scale, pz);
+            nub.transform.localScale = new Vector3(
+                (0.25f + (float)rng.NextDouble() * 0.20f) * scale,
+                nubH * scale,
+                (0.25f + (float)rng.NextDouble() * 0.20f) * scale);
+            nub.transform.localRotation = Quaternion.Euler(
+                (float)rng.NextDouble() * 30f - 15f,
+                (float)rng.NextDouble() * 360f,
+                (float)rng.NextDouble() * 30f - 15f);
+
+            // Nubs are more purple (base region), less green blend
+            ApplyCrystalMaterial(nub, purpleBase, greenTip, emissionPurple, tipBlend: 0.15f);
+            DestroyCollider(nub);
+        }
+
+        // --- Ground stain / base disc ---
         var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         basePlate.name = "BasePlate";
         basePlate.transform.SetParent(root.transform, false);
-        basePlate.transform.localPosition = Vector3.up * 0.05f;
-        basePlate.transform.localScale = new Vector3(1.5f * scale, 0.05f, 1.5f * scale);
-        var darkBase = coreColor * 0.4f;
-        darkBase.a = 1f;
-        ApplyCrystalMaterial(basePlate, darkBase, glowColor * 0.2f);
-        var baseCol = basePlate.GetComponent<Collider>();
-        if (baseCol != null) Destroy(baseCol);
+        basePlate.transform.localPosition = Vector3.up * 0.04f;
+        basePlate.transform.localScale = new Vector3(1.8f * scale, 0.04f, 1.8f * scale);
+        var darkBase = purpleBase * 0.3f;
+        darkBase.a = 0.85f;
+        ApplyCrystalMaterial(basePlate, darkBase, darkBase, emissionPurple * 0.15f, tipBlend: 0f);
+        DestroyCollider(basePlate);
+
+        // --- White point light inside the crystal cluster ---
+        var lightObj = new GameObject("CrystalCoreLight");
+        lightObj.transform.SetParent(root.transform, false);
+        lightObj.transform.localPosition = Vector3.up * (1.0f * scale);
+        var pointLight = lightObj.AddComponent<Light>();
+        pointLight.type = LightType.Point;
+        pointLight.color = Color.white;
+        pointLight.intensity = presentationId == 310 ? 1.8f : 1.2f;
+        pointLight.range = 3.5f * scale;
+        pointLight.shadows = LightShadows.None;
+    }
+
+    /// <summary>Helper to strip colliders off procedural primitives.</summary>
+    private void DestroyCollider(GameObject go)
+    {
+        var col = go.GetComponent<Collider>();
+        if (col != null) Destroy(col);
     }
 
     /// <summary>
@@ -2348,9 +3224,13 @@ public class PresentationSpawnSystem : MonoBehaviour
         body.transform.SetParent(root.transform, false);
         body.transform.localPosition = Vector3.up * (0.8f * scale);
         body.transform.localScale = new Vector3(0.5f * scale, 0.8f * scale, 0.4f * scale);
-        ApplyCrystalMaterial(body, coreColor, glowColor);
-        var bodyCol = body.GetComponent<Collider>();
-        if (bodyCol != null) Destroy(bodyCol);
+        var emPurple = new Color(0.35f, 0.05f, 0.50f);
+        var greenTip = new Color(0.06f, 0.28f, 0.10f, 0.55f);
+        // Units use a slightly more opaque base
+        Color unitBase = coreColor;
+        unitBase.a = 0.75f;
+        ApplyCrystalMaterial(body, unitBase, greenTip, emPurple, tipBlend: 0.3f);
+        DestroyCollider(body);
 
         // Head crystal (small cube tilted)
         var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -2360,10 +3240,9 @@ public class PresentationSpawnSystem : MonoBehaviour
         head.transform.localScale = Vector3.one * (0.25f * scale);
         head.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
         Color brightCore = coreColor * 1.3f;
-        brightCore.a = 1f;
-        ApplyCrystalMaterial(head, brightCore, glowColor * 1.2f);
-        var headCol = head.GetComponent<Collider>();
-        if (headCol != null) Destroy(headCol);
+        brightCore.a = 0.80f;
+        ApplyCrystalMaterial(head, brightCore, greenTip, emPurple, tipBlend: 0.55f);
+        DestroyCollider(head);
 
         // Godsplinter gets extra siege appendages
         if (presentationId == 322)
@@ -2374,9 +3253,10 @@ public class PresentationSpawnSystem : MonoBehaviour
             cannon.transform.localPosition = new Vector3(0f, 1.2f * scale, 0.5f * scale);
             cannon.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             cannon.transform.localScale = new Vector3(0.15f * scale, 0.6f * scale, 0.15f * scale);
-            ApplyCrystalMaterial(cannon, coreColor * 0.8f, glowColor * 0.8f);
-            var cannonCol = cannon.GetComponent<Collider>();
-            if (cannonCol != null) Destroy(cannonCol);
+            Color cannonBase = coreColor * 0.8f;
+            cannonBase.a = 0.70f;
+            ApplyCrystalMaterial(cannon, cannonBase, greenTip, emPurple, tipBlend: 0.4f);
+            DestroyCollider(cannon);
         }
 
         // Veilstinger gets wing-like crystal shards
@@ -2390,35 +3270,76 @@ public class PresentationSpawnSystem : MonoBehaviour
                 wing.transform.localPosition = new Vector3(0.4f * scale * side, 1f * scale, -0.1f * scale);
                 wing.transform.localScale = new Vector3(0.4f * scale, 0.15f * scale, 0.3f * scale);
                 wing.transform.localRotation = Quaternion.Euler(0f, 0f, -20f * side);
-                ApplyCrystalMaterial(wing, coreColor * 0.9f, glowColor * 0.7f);
-                var wingCol = wing.GetComponent<Collider>();
-                if (wingCol != null) Destroy(wingCol);
+                Color wingBase = coreColor * 0.9f;
+                wingBase.a = 0.65f;
+                ApplyCrystalMaterial(wing, wingBase, greenTip, emPurple, tipBlend: 0.5f);
+                DestroyCollider(wing);
             }
         }
     }
 
     /// <summary>
-    /// Apply a crystalline material with emission glow to a primitive.
+    /// Apply a translucent, reflective crystalline material with purple-to-green gradient
+    /// and dim purple emission.
+    /// <paramref name="tipBlend"/> controls how much green-tip color is mixed in (0 = pure base, 1 = pure tip).
     /// </summary>
-    private static void ApplyCrystalMaterial(GameObject go, Color baseColor, Color emissionColor)
+    private static void ApplyCrystalMaterial(GameObject go, Color baseColor, Color tipColor,
+        Color emissionColor, float tipBlend)
     {
         var renderer = go.GetComponent<Renderer>();
         if (renderer == null) return;
 
-        var mat = new Material(
-            Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-        mat.color = baseColor;
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        var mat = new Material(shader);
 
+        // Blend base purple → dark green tip
+        Color blended = Color.Lerp(baseColor, tipColor, tipBlend);
+
+        // --- URP Transparent surface type ---
+        // _Surface: 0 = Opaque, 1 = Transparent
+        if (mat.HasProperty("_Surface"))
+            mat.SetFloat("_Surface", 1f);
+        // _Blend: 0 = Alpha
+        if (mat.HasProperty("_Blend"))
+            mat.SetFloat("_Blend", 0f);
+        // Render queue for transparent
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+
+        // Source / destination blend for alpha transparency
+        if (mat.HasProperty("_SrcBlend"))
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        if (mat.HasProperty("_DstBlend"))
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (mat.HasProperty("_ZWrite"))
+            mat.SetFloat("_ZWrite", 0f);
+
+        // Base color with alpha for translucency
+        mat.color = blended;
         if (mat.HasProperty("_BaseColor"))
-            mat.SetColor("_BaseColor", baseColor);
+            mat.SetColor("_BaseColor", blended);
+
+        // Highly reflective and refractant surface
         if (mat.HasProperty("_Metallic"))
-            mat.SetFloat("_Metallic", 0.6f);
+            mat.SetFloat("_Metallic", 0.85f);
         if (mat.HasProperty("_Smoothness"))
-            mat.SetFloat("_Smoothness", 0.7f);
+            mat.SetFloat("_Smoothness", 0.95f);
+
+        // IOR-like refraction boost (URP Lit doesn't have true IOR, but high smoothness +
+        // specular highlights on transparent surface gives a convincing glass/crystal look)
+        if (mat.HasProperty("_SpecularHighlights"))
+            mat.SetFloat("_SpecularHighlights", 1f);
+        if (mat.HasProperty("_EnvironmentReflections"))
+            mat.SetFloat("_EnvironmentReflections", 1f);
+
+        // Dim purple emission
         if (mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", emissionColor * 0.4f);
+            mat.SetColor("_EmissionColor", emissionColor * 0.35f);
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
 
         renderer.material = mat;
