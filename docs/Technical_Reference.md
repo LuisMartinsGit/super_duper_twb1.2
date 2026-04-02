@@ -25,6 +25,22 @@
 17. [UI Systems](#17-ui-systems)
 18. [Presentation & Visuals](#18-presentation--visuals)
 19. [Tech Tree Diagrams](#19-tech-tree-diagrams)
+20. [Healing System](#20-healing-system)
+21. [Spell & Ability System](#21-spell--ability-system)
+22. [Pillage Economy](#22-pillage-economy)
+23. [Research System](#23-research-system)
+24. [Building Repair System](#24-building-repair-system)
+25. [Command Queue & Patrol](#25-command-queue--patrol)
+26. [Self-Destruct System](#26-self-destruct-system)
+27. [Temple Upgrade & Chapels](#27-temple-upgrade--chapels)
+28. [Population Sync](#28-population-sync)
+29. [Victory Conditions](#29-victory-conditions)
+30. [Influence & Territory Painting](#30-influence--territory-painting)
+31. [AI Behaviors](#31-ai-behaviors)
+32. [Terrain Generation](#32-terrain-generation)
+33. [Game Bootstrap](#33-game-bootstrap)
+34. [Building Footprints](#34-building-footprints)
+35. [Rally Point System](#35-rally-point-system)
 
 ---
 
@@ -251,17 +267,17 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Spearman | 130 | 5.6 | 12 | 1.0 | 10 | 110S+30I+25C | 1 | 1.0s | Infantry Heavy | +50% vs Cavalry, Melee Def +2, Ranged Def +1 |
 | Skirmisher | 95 | 6.0 | 15 | 5-11 | 15 | 95S+50I+25C | 1 | 1.3s | Ranged | Hit-and-run, Ranged Def +1 |
 | Raider | 120 | 7.2 | 10 | 3-14 | 15 | 220S+100I+50C | 1 | 1.4s | Cavalry | Mounted archer, fires while moving |
-| Catapult | 160 | 3.0 | 24 | 10-18 | 22 | - | 2 | 4.5s | Structure | AOE splash (radius 3.0), Siege Def +2 |
+| Catapult | 160 | 3.0 | 24 | 10-18 | 22 | (Siege Workshop) | 2 | 4.5s | Structure | AOE splash (radius 3.0), Siege Def +2 |
 | Sand Ballista | 200 | 3.4 | 36 | 8-20 | 22 | 260S+120I+80C | 2 | 3.5s | Structure | Long-range siege, Siege Def +2 |
 
 ### Alanthor Culture Units
 
 | Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
 |------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Sentinel | 160 | 3.2 | 14 | 1.0 | 10 | - | 2 | 1.4s | Infantry Heavy | Melee +8, Ranged +4, Siege +2, Magic +1 |
-| Crossbowman | 100 | 3.5 | 16 | 6-22 | 25 | - | 2 | 2.0s | Infantry Heavy | Melee +2, Ranged +2 |
-| Cataphract | 180 | 6.5 | 18 | 1.0 | 10 | - | 2 | 1.1s | Cavalry | Melee +3, Ranged +2 |
-| Ballista | 220 | 2.8 | 50 | 10-24 | 26 | - | 2 | 4.0s | Structure | Longest range, highest single-target damage, Siege +3 |
+| Sentinel | 160 | 3.2 | 14 | 1.0 | 10 | (Garrison) | 2 | 1.4s | Infantry Heavy | Melee +8, Ranged +4, Siege +2, Magic +1 |
+| Crossbowman | 100 | 3.5 | 16 | 6-22 | 25 | (Garrison) | 2 | 2.0s | Infantry Heavy | Melee +2, Ranged +2 |
+| Cataphract | 180 | 6.5 | 18 | 1.0 | 10 | (Royal Stable) | 2 | 1.1s | Cavalry | Melee +3, Ranged +2 |
+| Ballista | 220 | 2.8 | 50 | 10-24 | 26 | (Siege Yard) | 2 | 4.0s | Structure | Longest range, highest single-target damage, Siege +3 |
 
 ### Feraldis Culture Units
 
@@ -274,11 +290,11 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ### Crystal Curse Units (Faction White, no population cost)
 
-| Unit | Damage Type | Armor | Def (M/R/S/Mag) | Special |
-|------|-------------|-------|------------------|---------|
-| Crystalling | Siege | Infantry Light | +2/+1/0/+1 | Fast melee swarm |
-| Veilstinger | Magic | Ranged | +3/+2/+1/+2 | Dual-laser (hits 2 targets simultaneously) |
-| Godsplinter | Siege | Infantry Heavy | +10/+8/+5/+5 | Massive hybrid: melee + multi-target laser barrage |
+| Unit | HP | Speed | Damage | Range | LoS | Crystal Cost | Armor | Def (M/R/S/Mag) | Special |
+|------|----|-------|--------|-------|-----|-------------|-------|------------------|---------|
+| Crystalling | 60 | 5.5 | 8 | 1.0 | 10 | 50C | Infantry Light | +2/+1/0/+1 | Fast melee swarm. 0.8s cooldown |
+| Veilstinger | 65 | 4.0 | 18 | 8-24 | 28 | 150C | Ranged | +3/+2/+1/+2 | Dual-laser (2 targets). 1.5s cooldown. Retreats at min range |
+| Godsplinter | 1200 | 1.8 | 40 | 4 (siege) / 22 (laser) | 20 | 500C | Infantry Heavy | +10/+8/+5/+5 | Siege mode (melee, 3s cd) + Laser barrage (4 targets, 2s cd) |
 
 ### Sect Units (12 total, one per sect)
 
@@ -1304,3 +1320,522 @@ G
     Wall Enclosure> Supplies (area-scaled, Alanthor only)
     Vault --------> 3% interest/min on deposits
 ```
+
+---
+
+## 20. Healing System
+
+### LitharchHealingSystem
+
+| Parameter | Value |
+|-----------|-------|
+| SearchInterval | 1.0s (auto-search periodicity) |
+| HealTickInterval | 1.0s (heal application rate) |
+| SearchRadius | HealRange x 3 (wider than heal range) |
+| Heal formula | `healAmount = (int)(healRate * 1.0)` (min 1 HP) |
+
+### State Machine
+
+```
+Idle --> HealCommand received --> Active Healing --> Target full HP --> Idle
+Idle --> Auto-search found injured --> Active Healing --> Target full HP --> Idle
+Active --> UserMoveOrder issued --> Idle (interrupt healing)
+```
+
+### Phases (per frame)
+
+1. **Process HealCommand**: Validate target (exists, alive, same faction, not UnhealableTag). Set HealTarget, IsHealing=1. Remove command.
+2. **Auto-search**: Skip if valid target exists. Every 1s, find nearest injured friendly within SearchRadius. Exclude self, different faction, UnhealableTag, dead, full HP.
+3. **Move & Heal**: If distance > HealRange, move to target (DesiredDestination). If within range, accumulate HealTimer, apply healing each tick.
+
+---
+
+## 21. Spell & Ability System
+
+### Architecture
+
+- **SpellDefinition.cs**: Data definitions for all 12 sect spells
+- **SpellCastSystem.cs**: MonoBehaviour singleton handling targeting and execution
+- **SpellState.cs**: MonoBehaviour singleton tracking per-faction cooldowns
+- **SpellBuffSystem.cs**: ECS ISystem ticking buff/debuff/invulnerable timers
+
+### Spell Definitions
+
+| Spell | Sect | Cooldown | Range | Radius | Duration | Effect | Value |
+|-------|------|----------|-------|--------|----------|--------|-------|
+| Repair Levies | Renewal | 40s | 30 | 15 | instant | Heal | 200 HP to buildings |
+| Crystal Survey | Antiquity | 50s | Global | 0 | 30s | Vision | Reveal crystal nodes |
+| Bulwark Rise | Living Stone | 60s | 30 | 15 | 20s | Buff | +3 Armor to buildings |
+| Shroud | Veiled Memory | 55s | 30 | 12 | 15s | Vision | Blocks enemy vision, -20% speed |
+| Embargo | Still Flame | 60s | 30 | 20 | 20s | Disable | Disable enemy trade |
+| Lockdown Vault | Quiet Vault | 70s | 20 | 10 | 15s | Invulnerable | Buildings unraidable |
+| Reflective Ward | Mirror Rite | 60s | 25 | 12 | 10s | Buff | 25% spell reflect |
+| Edict of Seizure | Shard Judgment | 65s | 30 | 15 | 10s | Debuff | Drain 50 Supplies over 10s |
+| Battle Fervor | Ember Ash | 55s | 25 | 10 | 10s | Buff | 1.25x damage + 1.25x speed |
+| Profane Rally | Hollow Brand | 60s | 25 | 10 | 5s | Debuff | 30% slow |
+| Bind the Core | Flamewrought Chains | 90s | 30 | 0 | 15s | Disable | Pacify Crystal sub-node |
+| Unravel | Unmaker's Grasp | 80s | 25 | 0 | instant | Damage | 300 true damage |
+
+### Casting Flow
+
+1. Player clicks spell in SpellPanel/ActiveAbilityBar
+2. `SpellCastSystem.BeginTargeting(faction, spell)` enters targeting mode
+3. Player clicks target position
+4. System checks `SpellState.IsOnCooldown()` - reject if on cooldown
+5. Effect applied by type (Heal/Buff/Debuff/Damage/Invulnerable/Vision/Disable)
+6. `SpellState.StartCooldown(faction, spellId, duration)` starts cooldown
+
+### Cooldown Reduction
+
+```
+effectiveCooldown = baseCooldown * (1 - SpellCooldownReduction)
+```
+Where SpellCooldownReduction comes from sect multipliers (e.g., Veiled Memory -10%, Mirror Rite -5%).
+
+### Buff/Debuff Components
+
+**SpellBuff**: ArmorBonus, DamageMultiplier, SpeedMultiplier, DamageReflect, TimeRemaining. Removed when timer expires.
+
+**SpellDebuff**: SpeedReduction, SuppliesDrainPerSecond, TimeRemaining. Removed when timer expires.
+
+**Invulnerable**: TimeRemaining. Building takes no damage while active. Removed when timer expires.
+
+---
+
+## 22. Pillage Economy
+
+### PillageSystem
+
+Runs BEFORE DeathSystem. Only triggers for **Feraldis culture** killers.
+
+| Kill Type | Condition | Reward |
+|-----------|-----------|--------|
+| Non-military unit | Damage <= 5 | +15 Supplies, +1 Iron |
+| Military unit | Damage > 5 | +5 Supplies |
+| Building destroyed | BuildingTag | +50 Supplies, +5 Iron |
+
+Requires `LastDamagedByFaction` component for kill credit. Killer faction must have Feraldis culture (checked via `FactionColors.GetFactionCulture()`). No self-reward (killer != victim faction).
+
+---
+
+## 23. Research System
+
+### ResearchSystem
+
+FIFO queue processing with timer, mirrors TrainingSystem pattern.
+
+1. **Idle** (Busy=0): Check queue, verify tech not already researched, look up in TechTreeDB. Set Busy=1, Remaining=researchTime (default 30s fallback).
+2. **Active** (Busy=1): Remaining -= dt each frame.
+3. **Complete** (Remaining<=0): Call `FactionResearchState.CompleteResearch(faction, techId)`. Pop from queue. Fires OnTechCompleted event.
+
+### TechEffectSystem
+
+MonoBehaviour singleton, event-driven. Subscribes to `FactionResearchState.OnTechCompleted`.
+
+| Effect | Target | Formula |
+|--------|--------|---------|
+| gatherSpeedMult | Miners (MinerTag) | MinerState.GatherSpeedMultiplier *= value |
+| carryCapacityBonus | Miners (MinerTag) | MinerState.CarryCapacityBonus += value |
+| meleeAttackSpeedMult | Melee units | AttackCooldown.Cooldown /= value (shorter = faster) |
+| meleeDefenseAdd | Units with Defense | Defense.Melee += value |
+
+Effects apply to existing units on tech completion. Newly spawned units get effects via TrainingSystem at spawn time.
+
+---
+
+## 24. Building Repair System
+
+| Parameter | Value |
+|-----------|-------|
+| RepairRange | 4.0 units (XZ distance) |
+| RepairRatePerBuilder | 15 HP/second |
+| RepairCostMultiplier | 1.2x (20% surcharge) |
+
+### Repair Cost Formula
+
+```
+damageRatio = 1.0 - (currentHP / maxHP)
+repairCost = originalBuildCost * damageRatio * 1.2
+```
+
+### Workflow
+
+1. Player right-clicks damaged building with builder -> RepairOrder assigned
+2. Builder moves to building (within 4.0 units)
+3. On arrival: cost paid once (CostPaid flag), resources deducted
+4. During repair: HP increases at 15 HP/s per builder (additive with multiple builders)
+5. On full HP: RepairOrder removed
+
+Edge cases: under-construction buildings rejected, destroyed during repair -> order removed, can't afford -> order removed without repair.
+
+---
+
+## 25. Command Queue & Patrol
+
+### Command Queue System
+
+Shift+click enables multi-waypoint queuing. Sequential FIFO drain of QueuedCommand buffers.
+
+- Runs BEFORE MovementSystem
+- Requires `CommandQueueActive` component on entity
+- Only advances when current command complete (no DesiredDestination, no Target)
+- Pops first QueuedCommand, executes via type-specific helper (Move, AttackMove, Patrol)
+- When queue empty, removes CommandQueueActive
+
+### Patrol System
+
+Waypoint cycling between start and destination. Burst-compiled.
+
+- Runs AFTER MovementSystem, BEFORE TargetingSystem
+- Requires PatrolTag, PatrolAgent, PatrolWaypoint buffer
+- Only advances when unit arrives (DesiredDestination.Has=0)
+- Skips if in combat (Target != null)
+- Cycling: `nextIndex = (currentIndex + 1) % waypoints.Length` (ping-pong)
+- Updates GuardPoint for post-combat return
+- PatrolTag units treated like AttackMoveTag by TargetingSystem (auto-acquire enemies in LoS)
+
+---
+
+## 26. Self-Destruct System
+
+Used when Alanthor transitions to Era 2. GathererHuts receive a self-destruct timer.
+
+| Parameter | Value |
+|-----------|-------|
+| RefundMultiplier | 0.80 (80% of original build cost) |
+| Timer | 2 minutes (set at age-up) |
+
+### Workflow
+
+1. Alanthor age-up triggers -> all GathererHuts get SelfDestructTimer
+2. Each frame: TimeRemaining -= dt
+3. On expiry: look up original cost, calculate 80% refund (ceil), credit faction, destroy building
+
+---
+
+## 27. Temple Upgrade & Chapels
+
+### Temple Level Configuration
+
+| Level | Era | Upgrade Cost | RP Granted | Duration |
+|-------|-----|--------------|-----------|----------|
+| 1 | 2 | (built directly) | 2 RP | N/A |
+| 2 | 3 | 500S + 200I + 150C | 3 RP | 60s |
+| 3 | 4 | 800S + 350I + 250C | 3 RP | 90s |
+| 4 | 5 | 1200S + 500I + 400C | 4 RP | 120s |
+
+MaxLevel = 4. ShrineBonus = +1 RP per chapel completion.
+
+### Temple Upgrade System
+
+1. Player initiates upgrade -> TempleUpgradeState component added
+2. Each frame: Remaining -= dt
+3. On completion: set TempleLevel, set FactionEra, grant RP, recalculate sect passives, remove state
+
+### Temple Chapel Build System
+
+7-slot buffer per temple. Each slot has state machine:
+- State 0: Idle
+- State 1: Building (BuildProgress += dt)
+- State 2: Complete (BuildProgress >= BuildTime)
+
+On completion: spawn chapel entity, grant +1 RP bonus, recalculate sect passives.
+
+---
+
+## 28. Population Sync
+
+### PopulationSyncSystem
+
+Runs every frame BEFORE TrainingSystem.
+
+**Max Population** = Sum of `PopulationProvider.Amount` from all completed buildings (no UnderConstruction). Capped at AbsoluteMax.
+
+**Current Population** = Sum of `PopulationCost.Amount` from all living units.
+
+Updates `FactionPopulation { Max, Current }` on faction bank entity.
+
+---
+
+## 29. Victory Conditions
+
+### VictoryConditionSystem
+
+MonoBehaviour singleton. Check interval: 2 seconds. Grace period: 10 seconds after game start.
+
+**Elimination condition**: Faction owns 0 completed buildings.
+
+**Game end**: Only 1 faction remains alive.
+
+### Flow
+
+1. Every 2s: count completed buildings per faction
+2. Faction with 0 buildings -> eliminated. Record via GameStatsTracker
+3. If local player eliminated -> immediate defeat trigger
+4. When aliveFactions.Count <= 1 -> game over, show PostGameStatsUI
+
+**Surrender**: Public method triggered by End Game button. Eliminates local player immediately.
+
+**Disabled in**: Sandbox mode, BattalionTest mode.
+
+---
+
+## 30. Influence & Territory Painting
+
+GPU-driven per-faction territory visualization on terrain.
+
+### Architecture
+
+- **InfluenceManager**: Owns 512x512 ARGB32 RenderTexture (InfluenceMap) + RFloat BloodMap
+- **Channel mapping**: R=Alanthor, G=Runai, B=Feraldis, A=Crystal
+- **InfluenceBridge**: Polls ECS state every 2s, pushes to faction painters
+
+### Alanthor Influence (R Channel)
+
+- Filled polygons from wall enclosure vertices (compute shader point-in-polygon)
+- Circles around Watch Towers (radius: 15 world units)
+- Pipeline: clear scratch -> compute polygons -> paint tower circles -> composite to R
+
+### Runai Influence (G Channel)
+
+- Capsule shapes between trading post pairs (active trade lanes)
+- Lane width: 4 world units (half-width)
+- Pipeline: clear scratch -> paint capsules -> composite to G
+
+### Feraldis Influence (B Channel)
+
+Two-stage system:
+
+1. **Blood accumulation**: `SpillBlood(pos, amount)` called on unit death. Splat radius: lerp(3, 12, amount). Blood persists indefinitely.
+2. **Totem claiming**: Totem Towers claim blood-soaked territory within claimRadius (20 world units). Blood threshold: 0.1. Pipeline: read BloodMap -> test distance+threshold -> composite to B.
+
+---
+
+## 31. AI Behaviors
+
+### Crystal Hunt Behavior
+
+| Parameter | Value |
+|-----------|-------|
+| Check interval | 8s |
+| Hunt range | 80 units from base |
+| Max hunters per target | 3 |
+
+Finds crystal entities (units + buildings) within range. Round-robin assigns idle military units. Defers AttackCommand via AICommandAdapter.
+
+### Defense Behavior
+
+| Parameter | Value |
+|-----------|-------|
+| Check interval | 1s |
+| Threat detection radius | 50 units |
+| Emergency radius | 25 units |
+| Rally distance | 10 units |
+
+**Emergency** (< 25u): ALL combat units rally to intercept (30% toward threat).
+**Standard** (25-50u): Idle units only rally (25% toward threat).
+Updates AISharedKnowledge with enemy position, time, strength.
+
+### Scouting Behavior
+
+| Parameter | Value |
+|-----------|-------|
+| Update interval | 2s |
+| Desired scouts | 2 |
+| Zone grid | 5x5 (25 zones, 60u each) |
+| Zone revisit time | 120s |
+| Sighting expiry | 30s |
+
+Zone-based exploration. Scouts routed to least-explored zones. Enemy sightings consolidated within 20u merge distance. Strength estimated: HP.Max + (Damage * 5) per unit, +50 per building.
+
+### AI Command Adapter
+
+Routing layer converting AI decisions to CommandRouter calls. Enforces multiplayer check (host-only in multiplayer). Provides formation movement: grid layout with configurable spacing (default 2.5u).
+
+---
+
+## 32. Terrain Generation
+
+### ProceduralTerrain
+
+| Parameter | Value |
+|-----------|-------|
+| Heightmap resolution | 1025x1025 |
+| Control texture | 1024x1024 |
+| Max height | 100 world units |
+| Water height | 20 world units |
+| Default seed | 12345 |
+
+### Noise Layers
+
+| Layer | Scale | Amplitude | Notes |
+|-------|-------|-----------|-------|
+| Continental | 0.008 | - | FBM 5 octaves, persistence 0.5. Ocean threshold 0.35 |
+| Domain warp | 0.005 | 60u strength | Organic coastlines |
+| Hills | 0.025 | 15u | Medium frequency detail |
+| Mountains | 0.012 | 35u | Only above 0.55 base threshold |
+
+### Spawn Zones
+
+- Flatten radius: 40 world units per player
+- Target height: 30 world units
+- Blend radius: 20 units (smooth transition)
+- Distance from center: 50% of map half-size
+- Edge falloff: 30% of map half as ocean border
+
+### Terrain Layers
+
+Sand, Grass, Dirt, Rock, Snow, Curse. 512x512 textures, tiling 15.
+
+---
+
+## 33. Game Bootstrap
+
+### Initialization Order (GameBootstrap.cs)
+
+1. **EnsureECSWorld()** - Create/verify DefaultGameObjectInjectionWorld
+2. **Mode check** - BattalionTest/Scenario early exit paths
+3. **Multiplayer lockstep** - LockstepBootstrap.InitializeLockstepNow() (if multiplayer)
+4. **InitializeDataSystems()** - TechTreeDB singleton from Resources/TechTree.json
+5. **CreateManagersObject()** - Runtime managers GO with ~30 components (EntityViewManager, PresentationSpawnSystem, SelectionSystem, RTSInputManager, all UI panels, VictoryConditionSystem, FactionResearchState, TechEffectSystem, AStarPathStore, etc.)
+6. **InitializeWorld()** - ProceduralTerrain, PassabilityGrid, FlowFieldManager, FogOfWarManager
+7. **InitializeFactions()** - EconomyBootstrap.EnsureFactionBanks(), spawn players via coroutine
+8. **InitializeAI()** - AIBootstrap.InitializeAIPlayers() (skipped in Sandbox/PathfindingTest)
+9. **PostInitializationSync()** - Final synchronization
+
+### Game Modes
+
+- **Normal**: Full initialization (steps 1-9)
+- **BattalionTest**: InitializeDataSystems() + PathfindingTestSetup.Bootstrap()
+- **Scenario**: InitializeDataSystems() + ScenarioSetup.Bootstrap()
+
+---
+
+## 34. Building Footprints
+
+All sizes in grid cells (1m each).
+
+| Building | Size (WxH) | Building | Size (WxH) |
+|----------|-----------|----------|-----------|
+| Hall | 4x4 | FiendstoneKeep | 5x5 |
+| Hut | 3x3 | ThessarasBazaar | 5x5 |
+| GatherersHut | 2x2 | Runai Outpost | 3x3 |
+| Barracks | 3x4 | Runai TradeHub | 3x4 |
+| ShrineOfRidan | 3x3 | Runai SiegeWorkshop | 3x3 |
+| TempleOfRidan | 4x4 | Alanthor Wall | 1x1 |
+| VaultOfAlmierra | 4x4 | Alanthor Tower | 2x2 |
+| Alanthor Smelter | 3x3 | Alanthor Garrison | 3x4 |
+| Alanthor Stable | 4x3 | Alanthor SiegeYard | 3x3 |
+| Feraldis HuntingLodge | 3x3 | Feraldis LoggingStation | 3x3 |
+| Feraldis Longhouse | 4x3 | Feraldis Tower | 2x2 |
+| Feraldis SiegeYard | 3x3 | Chapel (all) | 2x2 |
+| Crystal MainNode | 5x5 | Crystal SubNodes | 2x2 |
+| Default | 3x3 | | |
+
+### Build Times
+
+| Building | Time | Building | Time |
+|----------|------|----------|------|
+| Hut | 15s | Towers (all) | 25s |
+| GatherersHut | 20s | Barracks/Smelter/Garrison | 30s |
+| Longhouse/TradeHub | 30s | Siege Yards/Stable | 35s |
+| Temples/Keep/Bazaar | 40s | Default | 30s |
+
+---
+
+## 35. Rally Point System
+
+### RallyPoint Component
+
+```
+RallyPoint { Position: float3, Has: byte (0=none, 1=set) }
+```
+
+- Set via right-click on ground with building selected (through CommandRouter.SetRallyPoint)
+- Synced via lockstep in multiplayer
+- Trained units directed to rally point on spawn
+
+### Visual Display (RallyPointDisplay)
+
+| Parameter | Value |
+|-----------|-------|
+| Marker color | (0.2, 0.6, 1.0, 0.8) light blue |
+| Line color | (0.2, 0.6, 1.0, 0.4) lighter blue |
+| Marker size | 0.6 scale |
+| Line width | 0.08 |
+| Line segments | 10 (terrain-following) |
+
+Only displays when building selected AND RallyPoint.Has == 1. Marker rotates. Line samples terrain height per segment.
+
+---
+
+## Appendix A: Crystal Subsystem Details
+
+### Crystal Death Drop System
+
+- Intercepts curse entity deaths BEFORE DeathSystem
+- Cadaver loot amount = entity's BuildCost in crystal
+- Main node cadavers: radius 2.0. Regular cadavers: radius 0.8
+- **Hard cap: 32 cadaver nodes alive simultaneously**. Excess deaths don't spawn cadavers.
+
+### Crystal Extinction & Respawn
+
+| Parameter | Value |
+|-----------|-------|
+| RespawnDelay | 180s (3 minutes) |
+| MinDistFromPlayers | 60 units |
+| Spawn attempts | 30 per frame |
+| SpawnRadius | MapHalfSize * 0.7 |
+
+When all CrystalMainNodes destroyed: sets IsExtinct=1, starts timer. On timer expiry: find valid position (passable, 60u+ from all player halls, within map bounds). Spawns new main node + 100 crystal to White faction. Deterministic random seed for multiplayer.
+
+### Cursed Ground Recession
+
+| Parameter | Value |
+|-----------|-------|
+| RecessionDuration | 60 seconds |
+
+**Phase 1**: On node death, orphaned tiles (OwnerNode destroyed) tagged as CursedGroundReceding with staggered timer (0-60s, deterministic hash per entity index).
+
+**Phase 2**: Each frame decrements TimeRemaining. On expiry: unpaint cursed ground visual, destroy tile entity. Creates gradual dissolve effect over 60-second window.
+
+### Godsplinter Dual-Mode Combat
+
+| Mode | Range | Cooldown | Targets | Behavior |
+|------|-------|----------|---------|----------|
+| Siege | <= SiegeRange (4u) | 3.0s | 1 | Direct melee damage with crystal buff/debuff |
+| Laser | <= LaserRange (22u) | 2.0s | up to 4 | Spawns laser projectiles at nearest enemies |
+| Chase | > LaserRange | - | - | Move toward target (unless HoldPosition) |
+
+Laser spawn height: entity.Radius + 0.5 (default 1.5).
+
+### Veilstinger Dual-Target Combat
+
+| Parameter | Value |
+|-----------|-------|
+| LaserSpeed | 60 u/s |
+| FireCooldown | 1.5s |
+| GunSideOffset | 0.5 units |
+| GunForwardOffset | 0.3 units |
+
+**Dual gun system**: Left gun fires at primary target, right gun fires at nearest secondary target (or primary if no secondary). Gun positions computed from facing direction + offsets. Retreats when below MinRange. Aims before firing (AimTimeRequired).
+
+### Caravan Death System
+
+Runs BEFORE DeathSystem. On trader death:
+1. Killer receives 50% of trader's current cargo as Supplies
+2. Lane's ActiveTraders decremented
+3. Replacement trader timer reset to 60s (1 minute)
+
+### Trading Post Chain System
+
+| Parameter | Value |
+|-----------|-------|
+| LaneDiscoveryInterval | 2s |
+| SecondTraderDelay | 240s (4 minutes) |
+| MaxTradersPerLane | 2 |
+| PatrolUnitsPerLane | 5 |
+| BaseIncome | 25 Supplies |
+| RouteLengthDivisor | 30 |
+
+**Chain**: Posts numbered sequentially per faction. Lanes: Post N -> Post N+1. First trader spawns immediately. Trader cargo: `25 * (distance / 30)`. 5 patrol units spread evenly along lane on creation.
