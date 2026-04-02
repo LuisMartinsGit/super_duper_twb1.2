@@ -154,6 +154,7 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseBuilding(json, "Hut");
             ParseBuilding(json, "GatherersHut");
             ParseBuilding(json, "Barracks");
+            ParseBuilding(json, "ShrineOfAhridan");
             ParseBuilding(json, "TempleOfRidan");
             ParseBuilding(json, "VaultOfAlmierra");
             
@@ -229,6 +230,24 @@ public sealed class TechTreeDB : MonoBehaviour
             Debug.Log("[TechTreeDB] Parsing Sects...");
             ParseAllSects(json);
 
+            // Ensure Shrine and Temple entries exist with defaults if not in JSON
+            EnsureBuildingDefault("ShrineOfAhridan", "Shrine of Ahridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" });
+            if (!_buildingsById.ContainsKey("TempleOfRidan"))
+            {
+                EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" });
+            }
+            else
+            {
+                // Update existing entry to set minEra=2 and trains Litharch
+                var existing = _buildingsById["TempleOfRidan"];
+                existing.minEra = 2;
+                existing.name = "Temple of Ridan";
+                existing.role = "Sect expansion, training, research";
+                if (existing.trains == null || existing.trains.Length == 0)
+                    existing.trains = new[] { "Litharch" };
+                _buildingsById["TempleOfRidan"] = existing;
+            }
+
             // Log summary
             Debug.Log($"[TechTreeDB] ✓ Loaded {_buildingsById.Count} buildings, {_unitsById.Count} units, " +
                      $"{_technologiesById.Count} technologies, {_sectsById.Count} sects");
@@ -302,6 +321,19 @@ public sealed class TechTreeDB : MonoBehaviour
     // PARSE BUILDING
     // ═══════════════════════════════════════════════════════════════════════
     
+    void EnsureBuildingDefault(string id, string name, string role, float hp, float los, float radius, int minEra, string[] trains)
+    {
+        if (_buildingsById.ContainsKey(id)) return;
+        var cost = TheWaningBorder.Data.BuildingCosts.GetCost(id);
+        _buildingsById[id] = new BuildingDef
+        {
+            id = id, name = name, role = role, hp = hp,
+            lineOfSight = los, radius = radius, minEra = minEra,
+            trains = trains, cost = cost,
+            armorType = "structure_human"
+        };
+    }
+
     void ParseBuilding(string json, string buildingId)
     {
         string searchPattern = $"\"id\": \"{buildingId}\"";

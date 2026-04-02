@@ -28,8 +28,9 @@ namespace TheWaningBorder.Data
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
             
             // Era 1 - Religious/Magic Buildings
-            { "Shrine",         Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ridan (alias)
-            { "TempleOfRidan",  Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ridan
+            { "Shrine",            Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (alias)
+            { "ShrineOfAhridan",   Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (choice building)
+            { "TempleOfRidan",     Cost.Of(supplies: 400, iron: 100, crystal: 80) },    // Temple of Ridan (Era 2, all cultures)
             { "Vault",          Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra (alias)
             { "VaultOfAlmierra",Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra
 

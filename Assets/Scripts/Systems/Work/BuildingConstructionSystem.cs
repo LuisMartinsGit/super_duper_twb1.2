@@ -246,8 +246,8 @@ namespace TheWaningBorder.Systems.Work
                 GrantShrineRPBonus(em, faction);
             }
 
-            // Temple RP bonus: grant +1 RP when a Temple of Ridan completes construction
-            if (em.HasComponent<TempleTag>(building) && em.HasComponent<FactionTag>(building))
+            // Shrine RP bonus: grant +1 RP when a Shrine of Ahridan completes construction
+            if (em.HasComponent<ShrineTag>(building) && em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
                 GrantTempleConstructionRP(em, faction);

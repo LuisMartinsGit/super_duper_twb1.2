@@ -82,37 +82,25 @@ namespace TheWaningBorder.Systems.Building
                 }
             }
 
-            // Spawn chapel entities after iteration (structural changes are safe now)
+            // Process completed slots — chapels are NOT standalone entities anymore,
+            // they are part of the temple. Just log and grant RP.
             for (int i = 0; i < deferredSpawns.Length; i++)
             {
                 var spawn = deferredSpawns[i];
 
-                // Safety: temple entity may have been destroyed between iteration and deferred spawn
                 if (!em.Exists(spawn.Temple)) continue;
                 if (!em.HasBuffer<TempleChapelSlot>(spawn.Temple)) continue;
 
-                var slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
-                if (spawn.SlotIndex >= slots.Length) continue;
-
-                string sectId = spawn.SectId.ToString();
                 var faction = em.GetComponentData<FactionTag>(spawn.Temple).Value;
 
-                // Create chapel entity at the slot position
-                Entity chapel = BuildingFactory.CreateChapelAtSlot(
-                    em, sectId, spawn.Temple, spawn.SlotIndex, faction);
-
-                // Update the slot buffer to reference the created chapel entity
-                // Re-fetch buffer in case CreateChapelAtSlot caused a structural change
-                slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
-                var slot = slots[spawn.SlotIndex];
-                slot.Chapel = chapel;
-                slots[spawn.SlotIndex] = slot;
-
-                // Grant +1 RP bonus for shrine construction
+                // Grant +1 RP bonus for chapel construction
                 GrantShrineRPBonus(em, faction);
 
+                // Recalculate sect passives since a new chapel is complete
+                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
+
                 UnityEngine.Debug.Log(
-                    $"[TempleChapelBuild] Chapel '{sectId}' completed at slot {spawn.SlotIndex} for {faction}");
+                    $"[TempleChapelBuild] Chapel '{spawn.SectId}' completed at slot {spawn.SlotIndex} for {faction}");
             }
 
             deferredSpawns.Dispose();
