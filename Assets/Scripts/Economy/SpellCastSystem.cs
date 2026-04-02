@@ -2,6 +2,7 @@
 // Handles spell casting, targeting, and effect application
 // Location: Assets/Scripts/Economy/SpellCastSystem.cs
 
+using System.Collections;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
@@ -164,13 +165,9 @@ namespace TheWaningBorder.Economy
                 case "Invulnerable":
                     return ApplyInvulnerable(em, faction, targetPosition, spell);
                 case "Vision":
-                    // Vision spells are flag-based, handled elsewhere
-                    Debug.Log($"[SpellCastSystem] Vision spell '{spell.Name}' activated for {spell.Duration}s");
-                    return true;
+                    return ApplyVision(em, faction, targetPosition, spell);
                 case "Disable":
-                    // Disable spells are flag-based, handled elsewhere
-                    Debug.Log($"[SpellCastSystem] Disable spell '{spell.Name}' activated for {spell.Duration}s");
-                    return true;
+                    return ApplyDisable(em, faction, targetPosition, spell);
                 default:
                     Debug.LogWarning($"[SpellCastSystem] Unknown effect type: {spell.EffectType}");
                     return false;
@@ -388,6 +385,308 @@ namespace TheWaningBorder.Economy
 
             Debug.Log($"[SpellCastSystem] Made {count} buildings invulnerable for {spell.Duration}s");
             return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VISION SPELLS
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Apply vision spell effects.
+        /// CrystalSurvey: reveals all Crystal entities on the minimap for the duration.
+        /// Shroud: applies speed debuff to enemies in the target area.
+        /// </summary>
+        private bool ApplyVision(EntityManager em, Faction faction, float3 center, SpellDefinition spell)
+        {
+            if (spell.Id == "Spell_CrystalSurvey")
+                return ApplyCrystalSurvey(em, faction, spell);
+
+            if (spell.Id == "Spell_Shroud")
+                return ApplyShroud(em, faction, center, spell);
+
+            Debug.LogWarning($"[SpellCastSystem] Unknown Vision spell: {spell.Id}");
+            return false;
+        }
+
+        /// <summary>
+        /// Reveal all Crystal entities on the minimap for the casting faction.
+        /// Stamps fog of war at each crystal position every second for Duration seconds.
+        /// </summary>
+        private bool ApplyCrystalSurvey(EntityManager em, Faction faction, SpellDefinition spell)
+        {
+            StartCoroutine(CrystalSurveyCoroutine(faction, spell.Duration));
+            Debug.Log($"[SpellCastSystem] Crystal Survey: revealing crystal nodes for {faction} for {spell.Duration}s");
+            return true;
+        }
+
+        private IEnumerator CrystalSurveyCoroutine(Faction faction, float duration)
+        {
+            var fogMgr = FogOfWarManager.Instance;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                if (fogMgr != null)
+                {
+                    var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                    if (world != null && world.IsCreated)
+                    {
+                        var em = world.EntityManager;
+                        var query = em.CreateEntityQuery(
+                            ComponentType.ReadOnly<CrystalTag>(),
+                            ComponentType.ReadOnly<LocalTransform>()
+                        );
+
+                        using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                        for (int i = 0; i < transforms.Length; i++)
+                        {
+                            fogMgr.Stamp(faction, transforms[i].Position, 10f);
+                        }
+                    }
+                }
+
+                yield return new WaitForSeconds(1f);
+                elapsed += 1f;
+            }
+        }
+
+        /// <summary>
+        /// Apply Shroud: speed debuff to enemy units in the target area.
+        /// The fog system doesn't support area denial, so the primary gameplay
+        /// effect is a 20% speed reduction to enemies caught in the shroud.
+        /// </summary>
+        private static bool ApplyShroud(EntityManager em, Faction faction, float3 center, SpellDefinition spell)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            float radiusSq = spell.AreaRadius * spell.AreaRadius;
+            int affected = 0;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                // Target enemies only
+                if (factions[i].Value == faction) continue;
+
+                float distSq = math.distancesq(transforms[i].Position, center);
+                if (distSq > radiusSq) continue;
+
+                var debuff = new SpellDebuff
+                {
+                    SpeedReduction = 0.20f, // -20% speed
+                    SuppliesDrainPerSecond = 0f,
+                    TimeRemaining = spell.Duration
+                };
+
+                if (em.HasComponent<SpellDebuff>(entities[i]))
+                    em.SetComponentData(entities[i], debuff);
+                else
+                    em.AddComponentData(entities[i], debuff);
+
+                affected++;
+            }
+
+            Debug.Log($"[SpellCastSystem] Shroud: slowed {affected} enemy entities for {spell.Duration}s");
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DISABLE SPELLS
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Apply disable spell effects.
+        /// Embargo: disables enemy trading posts and stops caravans in area.
+        /// BindTheCore: pacifies a Crystal sub-node.
+        /// </summary>
+        private static bool ApplyDisable(EntityManager em, Faction faction, float3 center, SpellDefinition spell)
+        {
+            if (spell.Id == "Spell_Embargo")
+                return ApplyEmbargo(em, faction, center, spell);
+
+            if (spell.Id == "Spell_BindTheCore")
+                return ApplyBindTheCore(em, faction, center, spell);
+
+            Debug.LogWarning($"[SpellCastSystem] Unknown Disable spell: {spell.Id}");
+            return false;
+        }
+
+        /// <summary>
+        /// Disable enemy trading posts and stop caravans in the target area.
+        /// Trading posts receive a SpellDebuff so TradingPostSystem skips trader spawning.
+        /// Caravans receive a SpellDebuff with 100% speed reduction (stopped).
+        /// </summary>
+        private static bool ApplyEmbargo(EntityManager em, Faction faction, float3 center, SpellDefinition spell)
+        {
+            float radiusSq = spell.AreaRadius * spell.AreaRadius;
+            int affected = 0;
+
+            // --- Debuff enemy trading posts in area ---
+            var postQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TradingPostTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var postEntities = postQuery.ToEntityArray(Allocator.Temp);
+            using var postFactions = postQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var postTransforms = postQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            for (int i = 0; i < postEntities.Length; i++)
+            {
+                if (postFactions[i].Value == faction) continue; // enemy only
+
+                float distSq = math.distancesq(postTransforms[i].Position, center);
+                if (distSq > radiusSq) continue;
+
+                var debuff = new SpellDebuff
+                {
+                    SpeedReduction = 0f,
+                    SuppliesDrainPerSecond = 0f,
+                    TimeRemaining = spell.Duration
+                };
+
+                if (em.HasComponent<SpellDebuff>(postEntities[i]))
+                    em.SetComponentData(postEntities[i], debuff);
+                else
+                    em.AddComponentData(postEntities[i], debuff);
+
+                affected++;
+            }
+
+            // --- Stop enemy caravans in area (100% speed reduction) ---
+            var caravanQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CaravanTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var caravanEntities = caravanQuery.ToEntityArray(Allocator.Temp);
+            using var caravanFactions = caravanQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var caravanTransforms = caravanQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            for (int i = 0; i < caravanEntities.Length; i++)
+            {
+                if (caravanFactions[i].Value == faction) continue;
+
+                float distSq = math.distancesq(caravanTransforms[i].Position, center);
+                if (distSq > radiusSq) continue;
+
+                var debuff = new SpellDebuff
+                {
+                    SpeedReduction = 1.0f, // 100% slow = stopped
+                    SuppliesDrainPerSecond = 0f,
+                    TimeRemaining = spell.Duration
+                };
+
+                if (em.HasComponent<SpellDebuff>(caravanEntities[i]))
+                    em.SetComponentData(caravanEntities[i], debuff);
+                else
+                    em.AddComponentData(caravanEntities[i], debuff);
+
+                affected++;
+            }
+
+            Debug.Log($"[SpellCastSystem] Embargo: disabled {affected} trade entities for {spell.Duration}s");
+            return true;
+        }
+
+        /// <summary>
+        /// Pacify a Crystal sub-node near the target position.
+        /// Finds the nearest CrystalSubNodeTag entity within 5 units and applies SpellDebuff.
+        /// Falls back to CrystalTag + BuildingTag if no sub-node is found.
+        /// </summary>
+        private static bool ApplyBindTheCore(EntityManager em, Faction faction, float3 center, SpellDefinition spell)
+        {
+            // --- Try CrystalSubNodeTag first ---
+            var subNodeQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalSubNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var subNodeEntities = subNodeQuery.ToEntityArray(Allocator.Temp);
+            using var subNodeTransforms = subNodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            float closestDist = float.MaxValue;
+            int closestIdx = -1;
+
+            for (int i = 0; i < subNodeEntities.Length; i++)
+            {
+                float dist = math.distance(subNodeTransforms[i].Position, center);
+                if (dist < closestDist && dist < 5f)
+                {
+                    closestDist = dist;
+                    closestIdx = i;
+                }
+            }
+
+            if (closestIdx >= 0)
+            {
+                var debuff = new SpellDebuff
+                {
+                    SpeedReduction = 0f,
+                    SuppliesDrainPerSecond = 0f,
+                    TimeRemaining = spell.Duration
+                };
+
+                if (em.HasComponent<SpellDebuff>(subNodeEntities[closestIdx]))
+                    em.SetComponentData(subNodeEntities[closestIdx], debuff);
+                else
+                    em.AddComponentData(subNodeEntities[closestIdx], debuff);
+
+                Debug.Log($"[SpellCastSystem] Bind the Core: pacified crystal sub-node for {spell.Duration}s");
+                return true;
+            }
+
+            // --- Fallback: CrystalTag + BuildingTag ---
+            var crystalQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalTag>(),
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<LocalTransform>()
+            );
+
+            using var crystalEntities = crystalQuery.ToEntityArray(Allocator.Temp);
+            using var crystalTransforms = crystalQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            closestDist = float.MaxValue;
+            closestIdx = -1;
+
+            for (int i = 0; i < crystalEntities.Length; i++)
+            {
+                float dist = math.distance(crystalTransforms[i].Position, center);
+                if (dist < closestDist && dist < 5f)
+                {
+                    closestDist = dist;
+                    closestIdx = i;
+                }
+            }
+
+            if (closestIdx >= 0)
+            {
+                var debuff = new SpellDebuff
+                {
+                    SpeedReduction = 0f,
+                    SuppliesDrainPerSecond = 0f,
+                    TimeRemaining = spell.Duration
+                };
+
+                if (em.HasComponent<SpellDebuff>(crystalEntities[closestIdx]))
+                    em.SetComponentData(crystalEntities[closestIdx], debuff);
+                else
+                    em.AddComponentData(crystalEntities[closestIdx], debuff);
+
+                Debug.Log($"[SpellCastSystem] Bind the Core: pacified crystal building for {spell.Duration}s");
+                return true;
+            }
+
+            Debug.Log("[SpellCastSystem] Bind the Core: no valid crystal target found within range");
+            return false;
         }
     }
 }

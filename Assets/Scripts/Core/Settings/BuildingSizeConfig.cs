@@ -40,12 +40,16 @@ public static class BuildingSizeConfig
             "Alanthor_Garrison" => new int2(3, 4),
             "Alanthor_Stable"   => new int2(4, 3),
             "Alanthor_SiegeYard"=> new int2(3, 3),
+            "KingsCourt"        => new int2(4, 4),
+            "Alanthor_Crucible" => new int2(3, 3),
 
             // Runai culture
             "Runai_Outpost"     => new int2(3, 3),
             "Runai_TradeHub"    => new int2(3, 4),
             "ThessarasBazaar"   => new int2(5, 5),
             "Runai_SiegeWorkshop" => new int2(3, 3),
+            "Runai_Vault"       => new int2(4, 4),
+            "Runai_VeilsteelFoundry" => new int2(3, 3),
 
             // Feraldis culture
             "Feraldis_HuntingLodge"   => new int2(3, 3),
@@ -53,6 +57,7 @@ public static class BuildingSizeConfig
             "Feraldis_Longhouse"      => new int2(4, 3),
             "Feraldis_Tower"          => new int2(2, 2),
             "Feraldis_SiegeYard"      => new int2(3, 3),
+            "Feraldis_Foundry"        => new int2(3, 3),
 
             // Chapels (all sects)
             _ when buildingId != null && buildingId.StartsWith("Chapel_") => new int2(2, 2),

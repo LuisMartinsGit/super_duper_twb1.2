@@ -44,12 +44,14 @@ namespace TheWaningBorder.Data
             { "Runai_TradingPost",       Cost.Of(supplies: 200, iron: 30) },
             { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
             { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, crystal: 60) },
+            { "Runai_Vault",             Cost.Of(supplies: 1500, iron: 250, crystal: 200) },
+            { "Runai_VeilsteelFoundry",  Cost.Of(supplies: 450, iron: 120, crystal: 100) },
 
             // Feraldis Culture Buildings
             { "Feraldis_BeastPen",       Cost.Of(supplies: 150, iron: 30) },
             { "Feraldis_HuntingLodge",   Cost.Of(supplies: 160, iron: 20) },
             { "Feraldis_LoggingStation", Cost.Of(supplies: 160, iron: 20) },
-            { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80) },
+            { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80, crystal: 30) },
             { "Feraldis_Tower",     Cost.Of(supplies: 120, iron: 60) },
             { "Feraldis_Longhouse",      Cost.Of(supplies: 260, iron: 100) },
             { "Feraldis_SiegeYard",      Cost.Of(supplies: 260, iron: 120, crystal: 40) },

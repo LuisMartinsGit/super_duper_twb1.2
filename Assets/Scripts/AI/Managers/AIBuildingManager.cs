@@ -41,6 +41,7 @@ namespace TheWaningBorder.AI
                 {
                     state_val.LastBuildCheck = time;
                     ManageBuilders(ref state, brain.ValueRO.Owner, ref state_val, ecb);
+                    QueueCultureBuildings(ref state, brain.ValueRO.Owner, buildReqs);
                 }
 
                 ProcessBuildRequests(ref state, brain.ValueRO.Owner, buildReqs, ecb);
@@ -362,29 +363,162 @@ namespace TheWaningBorder.AI
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // TODO: Era 2+ culture building logic (Issue #91)
-        //
-        // The AI currently only builds Era 1 buildings (Hall, Hut, GatherersHut,
-        // Barracks) plus the three choice buildings. After aging up, each culture
-        // unlocks additional building types that the AI does not yet request:
-        //
-        //   Runai:    Runai_Outpost, Runai_TradeHub, ThessarasBazaar,
-        //             Runai_SiegeWorkshop
-        //   Alanthor: Alanthor_Tower, Alanthor_Garrison, Alanthor_Stable,
-        //             Alanthor_SiegeYard, Alanthor_Smelter, Alanthor_Crucible,
-        //             KingsCourt
-        //   Feraldis: Feraldis_HuntingLodge, Feraldis_LoggingStation,
-        //             Feraldis_Longhouse, Feraldis_Tower, Feraldis_SiegeYard,
-        //             Feraldis_BeastPen, Feraldis_Foundry
-        //
-        // Implementation plan:
-        //   1. After age-up, read the faction's culture from FactionProgress
-        //   2. Add culture-specific build order priorities to AITuning
-        //   3. Queue culture buildings via BuildRequest (BuildingFactory.Create
-        //      already supports all of these types)
-        //   4. Handle prerequisite chains (e.g., Garrison before Stable)
-        //   5. Adjust military unit training to use culture-specific barracks
+        //  ERA 2+ CULTURE BUILDING LOGIC
         // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Culture-specific build orders. Each entry is queued in priority order;
+        /// buildings that already exist or are pending in the queue are skipped.
+        /// Duplicate entries allow the AI to build multiple copies (e.g., towers).
+        /// </summary>
+        private static readonly string[] RunaiBuildOrder = {
+            "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar",
+            "Runai_SiegeWorkshop"
+        };
+        private static readonly string[] AlanthorBuildOrder = {
+            "KingsCourt", "Alanthor_Garrison", "Alanthor_Tower",
+            "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Tower"
+        };
+        private static readonly string[] FeraldisBuildOrder = {
+            "Feraldis_Longhouse", "Feraldis_HuntingLodge", "Feraldis_Tower",
+            "Feraldis_Foundry", "Feraldis_SiegeYard", "Feraldis_Tower"
+        };
+
+        /// <summary>
+        /// After age-up to Era 2+, queue culture-specific buildings one at a time.
+        /// Skips buildings that already exist, are under construction, or are
+        /// pending in the build queue. Only queues the next needed building per
+        /// tick to avoid overwhelming builders.
+        /// </summary>
+        private void QueueCultureBuildings(ref SystemState state, Faction faction,
+            DynamicBuffer<BuildRequest> buildReqs)
+        {
+            var em = state.EntityManager;
+
+            // 1. Check era — must be era 2+
+            int era = 1;
+            if (FactionEconomy.TryGetBank(em, faction, out var bankEntity) &&
+                em.HasComponent<FactionEra>(bankEntity))
+            {
+                era = em.GetComponentData<FactionEra>(bankEntity).Value;
+            }
+            if (era < 2) return;
+
+            // 2. Read faction culture from FactionProgress on the Hall entity
+            byte culture = Cultures.None;
+            foreach (var (fTag, progress) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionProgress>>()
+                .WithAll<HallTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    culture = progress.ValueRO.Culture;
+                    break;
+                }
+            }
+            if (culture == Cultures.None) return;
+
+            // 3. Select culture-specific build order
+            string[] buildOrder = culture switch
+            {
+                Cultures.Runai => RunaiBuildOrder,
+                Cultures.Alanthor => AlanthorBuildOrder,
+                Cultures.Feraldis => FeraldisBuildOrder,
+                _ => null
+            };
+            if (buildOrder == null) return;
+
+            // 4. Find the Hall position for build placement
+            float3 hallPos = float3.zero;
+            bool foundHall = false;
+            foreach (var (fTag, lt) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<HallTag>()
+                .WithNone<UnderConstruction>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    hallPos = lt.ValueRO.Position;
+                    foundHall = true;
+                    break;
+                }
+            }
+            if (!foundHall) return;
+
+            // 5. Walk the build order and queue the first needed building
+            foreach (string buildingId in buildOrder)
+            {
+                // Skip if already pending in build queue
+                bool alreadyPending = false;
+                for (int i = 0; i < buildReqs.Length; i++)
+                {
+                    if (buildReqs[i].BuildingType.Equals(buildingId) && buildReqs[i].Assigned == 0)
+                    {
+                        alreadyPending = true;
+                        break;
+                    }
+                }
+                if (alreadyPending) continue;
+
+                // Count existing instances (built + under construction)
+                int existingCount = CountFactionBuildings(ref state, faction, buildingId);
+
+                // Allow duplicates for buildings that appear multiple times in the order
+                int targetCount = 0;
+                foreach (string b in buildOrder)
+                {
+                    if (b == buildingId) targetCount++;
+                }
+                if (existingCount >= targetCount) continue;
+
+                // Check affordability via CanAffordBuilding (uses TechTreeDB + BuildCosts fallback)
+                FixedString64Bytes buildingTypeFixed = new FixedString64Bytes(buildingId);
+                if (!CanAffordBuilding(ref state, faction, buildingTypeFixed))
+                    continue;
+
+                // Calculate build position: random offset 15-25 units from Hall
+                var random = new Unity.Mathematics.Random(
+                    (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + existingCount * 17));
+                float angle = random.NextFloat(0, math.PI * 2);
+                float distance = random.NextFloat(15f, 25f);
+                float3 buildPos = hallPos + new float3(
+                    math.cos(angle) * distance,
+                    0,
+                    math.sin(angle) * distance);
+
+                buildReqs.Add(new BuildRequest
+                {
+                    BuildingType = buildingTypeFixed,
+                    DesiredPosition = buildPos,
+                    Priority = 5,
+                    Assigned = 0,
+                    AssignedBuilder = Entity.Null
+                });
+
+                AILogger.Log(faction, "BUILDING",
+                    $"Era 2: Queued culture building {buildingId} ({existingCount}/{targetCount} existing)");
+
+                // Only queue one culture building per tick to avoid overwhelming builders
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Count how many instances of a building type a faction owns (built + under construction).
+        /// Uses PresentationId to match building type via BuildingFactory.
+        /// </summary>
+        private int CountFactionBuildings(ref SystemState state, Faction faction, string buildingId)
+        {
+            int count = 0;
+            int pid = BuildingFactory.GetPresentationId(buildingId);
+
+            foreach (var (fTag, presId) in SystemAPI.Query<RefRO<FactionTag>, RefRO<PresentationId>>()
+                .WithAll<BuildingTag>())
+            {
+                if (fTag.ValueRO.Value == faction && presId.ValueRO.Id == pid)
+                    count++;
+            }
+
+            return count;
+        }
 
         private void AssignIdleBuildersToTasks(ref SystemState state, Faction faction, EntityCommandBuffer ecb)
         {

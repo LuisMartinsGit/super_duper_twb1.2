@@ -49,17 +49,22 @@ namespace TheWaningBorder.Entities
                 "Runai_TradingPost" => CreateRunaiTradingPost(em, position, faction),
                 "ThessarasBazaar" => CreateRunaiBazaar(em, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshop(em, position, faction),
+                "Runai_Vault" => CreateRunaiVault(em, position, faction),
+                "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundry(em, position, faction),
                 // Alanthor culture buildings
                 "Alanthor_Tower" => CreateAlanthorWatchTower(em, position, faction),
                 "Alanthor_Garrison" => CreateAlanthorGarrison(em, position, faction),
                 "Alanthor_Stable" => CreateAlanthorRoyalStable(em, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
+                "KingsCourt" => CreateKingsCourt(em, position, faction),
+                "Alanthor_Crucible" => CreateAlanthorCrucible(em, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodge(em, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStation(em, position, faction),
                 "Feraldis_Longhouse" => CreateFeraldisLonghouse(em, position, faction),
                 "Feraldis_Tower" => CreateFeraldisTotemTower(em, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
+                "Feraldis_Foundry" => CreateFeraldisFoundry(em, position, faction),
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => CreateChapel(em, SectConfig.Renewal, position, faction),
                 "Chapel_Sect_Antiquity" => CreateChapel(em, SectConfig.Antiquity, position, faction),
@@ -108,17 +113,22 @@ namespace TheWaningBorder.Entities
                 "Runai_TradingPost" => CreateRunaiTradingPostECB(ecb, position, faction),
                 "ThessarasBazaar" => CreateRunaiBazaarECB(ecb, position, faction),
                 "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshopECB(ecb, position, faction),
+                "Runai_Vault" => CreateRunaiVaultECB(ecb, position, faction),
+                "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundryECB(ecb, position, faction),
                 // Alanthor culture buildings
                 "Alanthor_Tower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
                 "Alanthor_Garrison" => CreateAlanthorGarrisonECB(ecb, position, faction),
                 "Alanthor_Stable" => CreateAlanthorRoyalStableECB(ecb, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
+                "KingsCourt" => CreateKingsCourtECB(ecb, position, faction),
+                "Alanthor_Crucible" => CreateAlanthorCrucibleECB(ecb, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodgeECB(ecb, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStationECB(ecb, position, faction),
                 "Feraldis_Longhouse" => CreateFeraldisLonghouseECB(ecb, position, faction),
                 "Feraldis_Tower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
+                "Feraldis_Foundry" => CreateFeraldisFoundryECB(ecb, position, faction),
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => CreateChapelECB(ecb, SectConfig.Renewal, position, faction),
                 "Chapel_Sect_Antiquity" => CreateChapelECB(ecb, SectConfig.Antiquity, position, faction),
@@ -178,6 +188,11 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Longhouse" => 360,
                 "Feraldis_Tower" => 361,
                 "Feraldis_SiegeYard" => 362,
+                "KingsCourt" => 363,
+                "Alanthor_Crucible" => 364,
+                "Runai_Vault" => 365,
+                "Runai_VeilsteelFoundry" => 366,
+                "Feraldis_Foundry" => 367,
                 // Sect chapel buildings
                 "Chapel_Sect_Renewal" => 390,
                 "Chapel_Sect_Antiquity" => 391,
@@ -206,6 +221,7 @@ namespace TheWaningBorder.Entities
                 "Hut" => 10,
                 "ThessarasBazaar" => 40,
                 "Alanthor_Garrison" => 8,
+                "KingsCourt" => 10,
                 "Feraldis_HuntingLodge" => 10,
                 "Feraldis_LoggingStation" => 10,
                 _ => 0
@@ -1067,6 +1083,280 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
 
+            return entity;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // NEW CULTURE BUILDINGS (EntityManager)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// KingsCourt — Alanthor HQ. +10 pop. Research capable.
+        /// </summary>
+        private static Entity CreateKingsCourt(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 2100f, los = 26f, radius = 2.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("KingsCourt", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(PopulationProvider));
+            em.SetComponentData(entity, new PresentationId { Id = 363 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("KingsCourt");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
+            return entity;
+        }
+
+        /// <summary>
+        /// Alanthor Crucible — advanced forge building.
+        /// </summary>
+        private static Entity CreateAlanthorCrucible(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 18f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Crucible", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 364 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Crucible");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.AddComponent<CrucibleTag>(entity);
+            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Vault — resource storage with compound interest.
+        /// </summary>
+        private static Entity CreateRunaiVault(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 20f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Vault", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 365 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_Vault");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.AddComponent<VaultTag>(entity);
+            em.AddComponentData(entity, new VaultStorage
+            {
+                StoredAmount = 0f,
+                InterestRate = 0.03f,
+                ResourceType = 0,
+                LockTimer = 0f,
+                LockDuration = 180f
+            });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        /// <summary>
+        /// Runai Veilsteel Foundry — forge building (reuses Smelter tag).
+        /// </summary>
+        private static Entity CreateRunaiVeilsteelFoundry(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1500f, los = 20f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 366 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_VeilsteelFoundry");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.AddComponent<SmelterTag>(entity);
+            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        /// <summary>
+        /// Feraldis Foundry — weapon forge building.
+        /// </summary>
+        private static Entity CreateFeraldisFoundry(EntityManager em, float3 position, Faction faction)
+        {
+            float hp = 1300f, los = 18f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Foundry", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+            em.SetComponentData(entity, new PresentationId { Id = 367 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Foundry");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.AddComponent<WarbrandFoundryTag>(entity);
+            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // NEW CULTURE BUILDINGS (ECB)
+        // ═══════════════════════════════════════════════════════════════════
+
+        private static Entity CreateKingsCourtECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 2100f, los = 26f, radius = 2.0f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("KingsCourt", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 363 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("KingsCourt");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
+            return entity;
+        }
+
+        private static Entity CreateAlanthorCrucibleECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1200f, los = 18f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Crucible", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 364 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Crucible");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent<CrucibleTag>(entity);
+            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        private static Entity CreateRunaiVaultECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1100f, los = 20f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Vault", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 365 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_Vault");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent<VaultTag>(entity);
+            ecb.AddComponent(entity, new VaultStorage
+            {
+                StoredAmount = 0f,
+                InterestRate = 0.03f,
+                ResourceType = 0,
+                LockTimer = 0f,
+                LockDuration = 180f
+            });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        private static Entity CreateRunaiVeilsteelFoundryECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1500f, los = 20f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 366 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_VeilsteelFoundry");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent<SmelterTag>(entity);
+            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            return entity;
+        }
+
+        private static Entity CreateFeraldisFoundryECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        {
+            float hp = 1300f, los = 18f, radius = 1.5f;
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Foundry", out var def))
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+
+            var entity = ecb.CreateEntity();
+            ecb.AddComponent(entity, new PresentationId { Id = 367 });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Foundry");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent<WarbrandFoundryTag>(entity);
+            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return entity;
         }
 
