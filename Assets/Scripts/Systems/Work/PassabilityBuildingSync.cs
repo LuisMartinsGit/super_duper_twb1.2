@@ -37,6 +37,8 @@ namespace TheWaningBorder.Systems.Work
         {
             public float3 Position;
             public float Radius;
+            public int2 Size;       // (0,0) means legacy circular mode
+            public byte HasSize;    // 1 = has BuildingSize, 0 = legacy circular
         }
 
         public void OnCreate(ref SystemState state)
@@ -71,13 +73,22 @@ namespace TheWaningBorder.Systems.Work
             foreach (var (transform, radius, entity) in SystemAPI
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()
                          .WithAll<BuildingTag>()
+                         .WithNone<UnderConstruction>()
                          .WithEntityAccess())
             {
-                currentBuildings.Add(entity, new BuildingRecord
+                bool hasSize = em.HasComponent<BuildingSize>(entity);
+                var record = new BuildingRecord
                 {
                     Position = transform.ValueRO.Position,
-                    Radius = radius.ValueRO.Value
-                });
+                    Radius = radius.ValueRO.Value,
+                    HasSize = (byte)(hasSize ? 1 : 0)
+                };
+                if (hasSize)
+                {
+                    var bs = em.GetComponentData<BuildingSize>(entity);
+                    record.Size = new int2(bs.Width, bs.Height);
+                }
+                currentBuildings.Add(entity, record);
             }
 
             // Detect destroyed buildings: known but no longer present
@@ -87,7 +98,10 @@ namespace TheWaningBorder.Systems.Work
             {
                 if (!currentBuildings.ContainsKey(kvp.Key))
                 {
-                    grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
+                    if (kvp.Value.HasSize == 1)
+                        grid.UnblockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    else
+                        grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     toRemove.Add(kvp.Key);
                 }
             }
@@ -103,7 +117,10 @@ namespace TheWaningBorder.Systems.Work
             {
                 if (!_knownBuildings.ContainsKey(kvp.Key))
                 {
-                    grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
+                    if (kvp.Value.HasSize == 1)
+                        grid.BlockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    else
+                        grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     _knownBuildings.Add(kvp.Key, kvp.Value);
                     newBuildingsAdded = true;
                 }

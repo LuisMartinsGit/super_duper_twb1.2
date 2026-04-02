@@ -337,8 +337,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
-            
+            var gridSize = BuildingSizeConfig.GetSize(buildingId);
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+
             // Add specific tag
             em.AddComponentData(entity, tag);
 
@@ -378,7 +380,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 1 }); // Is a base building
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("FiendstoneKeep");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new PopulationProvider { Amount = 20 });
 
             em.AddComponent<FiendstoneKeepTag>(entity);
@@ -429,7 +433,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             em.AddComponent<ShrineTag>(entity);
@@ -544,7 +550,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("VaultOfAlmierra");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
             em.AddComponent<VaultTag>(entity);
             em.AddComponent<ChoiceBuildingTag>(entity);
@@ -582,7 +590,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_Outpost");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<OutpostTag>(entity);
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
@@ -605,7 +615,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_TradeHub");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<TradeHubTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
@@ -657,7 +669,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 1 }); // Acts as a base
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("ThessarasBazaar");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.SetComponentData(entity, new PopulationProvider { Amount = 40 });
             em.AddComponent<BazaarTag>(entity);
@@ -684,7 +698,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_SiegeWorkshop");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<SiegeWorkshopTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
@@ -712,7 +728,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Tower");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<WatchTowerTag>(entity);
             em.AddComponentData(entity, new BuildingRangedAttack
             {
@@ -741,7 +759,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Garrison");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.SetComponentData(entity, new PopulationProvider { Amount = 8 });
             em.AddComponent<GarrisonTag>(entity);
@@ -768,7 +788,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Stable");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<RoyalStableTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
@@ -794,7 +816,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_SiegeYard");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<SiegeYardTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
@@ -822,7 +846,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_HuntingLodge");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
             em.AddComponent<HuntingLodgeTag>(entity);
             em.AddComponentData(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
@@ -847,7 +873,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_LoggingStation");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
             em.AddComponent<LoggingStationTag>(entity);
             em.AddComponentData(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
@@ -872,7 +900,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Longhouse");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<LonghouseTag>(entity);
             em.AddComponent<BatchTrainingTag>(entity);
@@ -899,7 +929,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Tower");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<TotemTowerTag>(entity);
             em.AddComponentData(entity, new BuildingRangedAttack
             {
@@ -927,7 +959,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_SiegeYard");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.AddComponent<FerSiegeYardTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
@@ -982,7 +1016,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Chapel_Small");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             em.AddComponentData(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
@@ -1016,7 +1052,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Chapel_Small");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             ecb.AddComponent(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
@@ -1059,7 +1097,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = 500, Max = 500 });
             em.SetComponentData(entity, new LineOfSight { Radius = 10f });
-            em.SetComponentData(entity, new Radius { Value = 1.5f });
+            var gridSize = BuildingSizeConfig.GetSize(buildingId);
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
             return entity;
         }
@@ -1088,7 +1128,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             ecb.AddComponent<ShrineTag>(entity);
@@ -1178,7 +1220,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("VaultOfAlmierra");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
             ecb.AddComponent<VaultTag>(entity);
             ecb.AddComponent<ChoiceBuildingTag>(entity);
@@ -1221,7 +1265,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 1 }); // Is a base building
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("FiendstoneKeep");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 20 });
 
             ecb.AddComponent<FiendstoneKeepTag>(entity);
@@ -1253,7 +1299,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_Outpost");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<OutpostTag>(entity);
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
@@ -1272,7 +1320,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_TradeHub");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<TradeHubTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
@@ -1314,7 +1364,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 1 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("ThessarasBazaar");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 40 });
             ecb.AddComponent<BazaarTag>(entity);
@@ -1337,7 +1389,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Runai_SiegeWorkshop");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<SiegeWorkshopTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
@@ -1361,7 +1415,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Tower");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<WatchTowerTag>(entity);
             ecb.AddComponent(entity, new BuildingRangedAttack
             {
@@ -1385,7 +1441,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Garrison");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 8 });
             ecb.AddComponent<GarrisonTag>(entity);
@@ -1408,7 +1466,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Stable");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<RoyalStableTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
@@ -1430,7 +1490,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_SiegeYard");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<SiegeYardTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
@@ -1454,7 +1516,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_HuntingLodge");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
             ecb.AddComponent<HuntingLodgeTag>(entity);
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
@@ -1475,7 +1539,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_LoggingStation");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
             ecb.AddComponent<LoggingStationTag>(entity);
             ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15, Interval = 30f, Elapsed = 0f });
@@ -1496,7 +1562,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Longhouse");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<LonghouseTag>(entity);
             ecb.AddComponent<BatchTrainingTag>(entity);
@@ -1519,7 +1587,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_Tower");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<TotemTowerTag>(entity);
             ecb.AddComponent(entity, new BuildingRangedAttack
             {
@@ -1543,7 +1613,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Feraldis_SiegeYard");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<FerSiegeYardTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
@@ -1564,7 +1636,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = 500, Max = 500 });
             ecb.AddComponent(entity, new LineOfSight { Radius = 10f });
-            ecb.AddComponent(entity, new Radius { Value = 1.5f });
+            var gridSize = BuildingSizeConfig.GetSize(buildingId);
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
             return entity;
         }

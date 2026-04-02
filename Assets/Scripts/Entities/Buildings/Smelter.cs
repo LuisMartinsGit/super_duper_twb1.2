@@ -51,6 +51,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(ForgeStorage)
             );
 
@@ -60,7 +61,9 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Smelter");
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.SetComponentData(entity, new ForgeStorage
             {
                 Iron = 0,
@@ -101,7 +104,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new SmelterTag());
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Smelter");
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new ForgeStorage
             {
                 Iron = 0,
@@ -143,7 +148,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new SmelterTag());
             ecb.AddComponent(entity, new Health { Value = 1, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Smelter");
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = buildTime });
             ecb.AddComponent(entity, new Buildable { BuildTimeSeconds = buildTime });
             ecb.AddComponent(entity, new ForgeStorage

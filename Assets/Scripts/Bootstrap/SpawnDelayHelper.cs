@@ -26,6 +26,17 @@ namespace TheWaningBorder.Bootstrap
             {
                 if (TerrainUtility.IsReady())
                 {
+                    // Pathfinding test mode: spawn test scenario instead of normal factions
+                    if (GameSettings.Mode == GameMode.PathfindingTest)
+                    {
+                        Debug.Log("[SpawnDelayHelper] Terrain ready, spawning pathfinding test...");
+                        PathfindingTestSetup.Bootstrap();
+                        GameCamera.FocusOn(Vector3.zero, instant: true);
+                        LoadingScreen.NotifyReady();
+                        Destroy(gameObject);
+                        yield break;
+                    }
+
                     Debug.Log("[SpawnDelayHelper] Terrain ready, spawning players...");
                     PlayerSpawnSystem.SpawnAllFactions();
                     ObstacleBootstrap.SpawnObstacles();

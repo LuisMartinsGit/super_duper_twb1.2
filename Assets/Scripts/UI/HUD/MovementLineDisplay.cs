@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -20,6 +21,8 @@ namespace TheWaningBorder.UI.HUD
         [SerializeField] private Color markerColor = new Color(0.3f, 1f, 0.3f, 0.6f);
         [SerializeField] private float lineWidth = 0.06f;
         [SerializeField] private float markerSize = 0.3f;
+        [SerializeField] private int lineSegments = 10;
+        [SerializeField] private float lineYOffset = 0.3f;
 
         private EntityWorld _world;
         private EntityManager _em;
@@ -103,23 +106,28 @@ namespace TheWaningBorder.UI.HUD
                     }
                 }
 
-                float unitY = TerrainUtility.GetHeight(pos.x, pos.z) + 0.15f;
-                float destY = TerrainUtility.GetHeight(dest.Position.x, dest.Position.z) + 0.15f;
+                Vector3 unitWorld = new Vector3(pos.x, 0f, pos.z);
+                Vector3 destWorld = new Vector3(dest.Position.x, 0f, dest.Position.z);
 
-                Vector3 unitWorld = new Vector3(pos.x, unitY, pos.z);
-                Vector3 destWorld = new Vector3(dest.Position.x, destY, dest.Position.z);
-
-                // Draw line
+                // Draw terrain-hugging multi-segment line
                 var lr = GetOrCreateLine();
                 lr.gameObject.SetActive(true);
-                lr.SetPosition(0, unitWorld);
-                lr.SetPosition(1, destWorld);
+                lr.positionCount = lineSegments + 1;
+                for (int s = 0; s <= lineSegments; s++)
+                {
+                    float t = (float)s / lineSegments;
+                    float x = Mathf.Lerp(unitWorld.x, destWorld.x, t);
+                    float z = Mathf.Lerp(unitWorld.z, destWorld.z, t);
+                    float y = TerrainUtility.GetHeight(x, z) + lineYOffset;
+                    lr.SetPosition(s, new Vector3(x, y, z));
+                }
                 _activeLines.Add(lr);
 
-                // Draw destination marker
+                // Draw destination marker (decal projected on terrain)
+                float destY = TerrainUtility.GetHeight(dest.Position.x, dest.Position.z);
                 var marker = GetOrCreateMarker();
                 marker.SetActive(true);
-                marker.transform.position = destWorld + Vector3.up * 0.1f;
+                marker.transform.position = new Vector3(dest.Position.x, destY + 5f, dest.Position.z);
                 _activeMarkers.Add(marker);
             }
         }
@@ -162,23 +170,43 @@ namespace TheWaningBorder.UI.HUD
                 return m;
             }
 
-            var marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            marker.name = "MoveMarker";
-            marker.transform.SetParent(transform);
-            marker.transform.localScale = Vector3.one * markerSize;
+            // Use DecalProjector for terrain-projected marker
+            var baseMat = DecalHelper.GetDotMarkerMaterial();
+            if (baseMat != null)
+            {
+                var marker = new GameObject("MoveMarkerDecal");
+                marker.transform.SetParent(transform);
+                marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
-            var renderer = marker.GetComponent<Renderer>();
-            var mat = new Material(_lineMat);
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", markerColor);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", markerColor);
-            renderer.material = mat;
+                var decal = marker.AddComponent<DecalProjector>();
+                var mat = new Material(baseMat);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", markerColor);
+                else if (mat.HasProperty("Base_Color")) mat.SetColor("Base_Color", markerColor);
+                decal.material = mat;
+                decal.size = new Vector3(markerSize * 2f, 10f, markerSize * 2f);
+                decal.drawDistance = 500f;
+
+                return marker;
+            }
+
+            // Fallback: sphere primitive
+            var fallback = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            fallback.name = "MoveMarker";
+            fallback.transform.SetParent(transform);
+            fallback.transform.localScale = Vector3.one * markerSize;
+
+            var renderer = fallback.GetComponent<Renderer>();
+            var fallbackMat = new Material(_lineMat);
+            if (fallbackMat.HasProperty("_BaseColor")) fallbackMat.SetColor("_BaseColor", markerColor);
+            if (fallbackMat.HasProperty("_Color")) fallbackMat.SetColor("_Color", markerColor);
+            renderer.material = fallbackMat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            var col = marker.GetComponent<Collider>();
+            var col = fallback.GetComponent<Collider>();
             if (col != null) Destroy(col);
 
-            return marker;
+            return fallback;
         }
 
         void OnDestroy()

@@ -76,6 +76,15 @@ namespace TheWaningBorder.Input
             if (_em.Equals(default(EntityManager)))
                 _em = _world.EntityManager;
 
+            // Allow ESC to close menu even when other input is blocked
+            // (but not during building placement -- let BuilderCommandPanel handle ESC there)
+            if (InGameMenuPanel.IsOpen && !BuilderCommandPanel.IsPlacingBuilding
+                && UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+            {
+                InGameMenuPanel.Close();
+                return;
+            }
+
             // Block input during UI interactions or building placement
             if (ShouldBlockInput())
                 return;
@@ -100,6 +109,10 @@ namespace TheWaningBorder.Input
         
         private bool ShouldBlockInput()
         {
+            // Block all input when in-game menu is open
+            if (InGameMenuPanel.IsOpen)
+                return true;
+
             // One-frame suppression (after GUI button clicks)
             if (BuilderCommandPanel.SuppressClicksThisFrame)
             {

@@ -15,7 +15,7 @@ namespace TheWaningBorder.Systems.Movement
     /// Prevents unit overlap/stacking by applying push forces to overlapping units.
     ///
     /// Features:
-    /// - NativeMultiHashMap for O(neighbor_count) cell lookups instead of O(all_units)
+    /// - NativeParallelMultiHashMap for O(neighbor_count) cell lookups instead of O(all_units)
     /// - Cached EntityQueries to avoid per-frame allocation
     /// - Throttled to 10 updates/sec for performance
     /// - Reduces push force for moving units to avoid jitter
@@ -107,9 +107,9 @@ namespace TheWaningBorder.Systems.Movement
             var allRadii = _unitQuery.ToComponentDataArray<Radius>(Allocator.Temp);
 
             // =============================================================================
-            // PHASE 3: Build spatial hash grid using NativeMultiHashMap
+            // PHASE 3: Build spatial hash grid using NativeParallelMultiHashMap
             // =============================================================================
-            var cellMap = new NativeMultiHashMap<int2, int>(unitCount * 2, Allocator.Temp);
+            var cellMap = new NativeParallelMultiHashMap<int2, int>(unitCount * 2, Allocator.Temp);
 
             for (int i = 0; i < allUnits.Length; i++)
             {
@@ -239,21 +239,52 @@ namespace TheWaningBorder.Systems.Movement
                             continue;
 
                         var bPos = buildingPositions[b].Position;
-                        var bRadius = buildingRadii[b].Value;
 
-                        float3 diff = correctedPos - bPos;
-                        diff.y = 0;
-
-                        float distSq = math.lengthsq(diff);
-                        float minDist = myRadius + bRadius + MinSeparation;
-
-                        if (distSq < minDist * minDist)
+                        if (em.HasComponent<BuildingSize>(buildingEntities[b]))
                         {
-                            float dist = math.sqrt(math.max(distSq, 0.0001f));
-                            float3 pushDir = dist > 0.001f ? diff / dist : new float3(1, 0, 0);
-                            // Snap directly to the edge - no overshoot
-                            correctedPos = bPos + pushDir * minDist;
-                            correctedPos.y = myPos.y;
+                            // AABB-based push for buildings with explicit grid size
+                            var bSize = em.GetComponentData<BuildingSize>(buildingEntities[b]);
+                            float halfW = bSize.Width / 2f + myRadius + MinSeparation;
+                            float halfH = bSize.Height / 2f + myRadius + MinSeparation;
+
+                            float dx = correctedPos.x - bPos.x;
+                            float dz = correctedPos.z - bPos.z;
+
+                            // Handle exact-center case: default push in +X direction
+                            if (math.abs(dx) < 0.0001f && math.abs(dz) < 0.0001f)
+                                dx = 0.0001f;
+
+                            if (math.abs(dx) < halfW && math.abs(dz) < halfH)
+                            {
+                                // Push to nearest edge
+                                float pushX = halfW - math.abs(dx);
+                                float pushZ = halfH - math.abs(dz);
+                                if (pushX < pushZ)
+                                    correctedPos.x = bPos.x + math.sign(dx) * halfW;
+                                else
+                                    correctedPos.z = bPos.z + math.sign(dz) * halfH;
+                                correctedPos.y = myPos.y;
+                            }
+                        }
+                        else
+                        {
+                            // Circular push for buildings without BuildingSize
+                            var bRadius = buildingRadii[b].Value;
+
+                            float3 diff = correctedPos - bPos;
+                            diff.y = 0;
+
+                            float distSq = math.lengthsq(diff);
+                            float minDist = myRadius + bRadius + MinSeparation;
+
+                            if (distSq < minDist * minDist)
+                            {
+                                float dist = math.sqrt(math.max(distSq, 0.0001f));
+                                float3 pushDir = dist > 0.001f ? diff / dist : new float3(1, 0, 0);
+                                // Snap directly to the edge - no overshoot
+                                correctedPos = bPos + pushDir * minDist;
+                                correctedPos.y = myPos.y;
+                            }
                         }
                     }
 

@@ -52,6 +52,66 @@ public static class CultureConfig
     /// </summary>
     public static float AgeUpDuration = 60f;
 
+    // ==================== Building Material Palettes ====================
+    // Distinct from Primary/Secondary (used for UI/identity).
+    // These are the actual material colors applied to procedural building geometry.
+
+    // Era 1 (no culture) — neutral stone aesthetic
+    private static readonly Color NoneWall  = new Color(0.60f, 0.58f, 0.55f, 1f); // stone grey
+    private static readonly Color NoneRoof  = new Color(0.45f, 0.32f, 0.18f, 1f); // wood brown
+    private static readonly Color NoneTrim  = new Color(0.30f, 0.22f, 0.12f, 1f); // dark wood
+
+    // Runai — sandstone + cyan fabric
+    private static readonly Color RunaiWall  = new Color(0.76f, 0.65f, 0.45f, 1f); // sandstone
+    private static readonly Color RunaiRoof  = new Color(0.25f, 0.75f, 0.80f, 1f); // cyan fabric
+    private static readonly Color RunaiTrim  = new Color(0.80f, 0.65f, 0.30f, 1f); // gold trim
+
+    // Alanthor — grey stone + sage moss
+    private static readonly Color AlanthorWall  = new Color(0.45f, 0.45f, 0.42f, 1f); // warm grey stone
+    private static readonly Color AlanthorRoof  = new Color(0.55f, 0.65f, 0.50f, 1f); // sage moss
+    private static readonly Color AlanthorTrim  = new Color(0.35f, 0.35f, 0.38f, 1f); // iron
+
+    // Feraldis — dark stone + crimson
+    private static readonly Color FeraldisWall  = new Color(0.28f, 0.26f, 0.24f, 1f); // dark stone
+    private static readonly Color FeraldisRoof  = new Color(0.70f, 0.18f, 0.15f, 1f); // crimson
+    private static readonly Color FeraldisTrim  = new Color(0.15f, 0.13f, 0.12f, 1f); // charcoal
+
+    /// <summary>Base wall/structure color for a culture's buildings.</summary>
+    public static Color GetWallColor(byte culture)
+    {
+        return culture switch
+        {
+            Cultures.Runai    => RunaiWall,
+            Cultures.Alanthor => AlanthorWall,
+            Cultures.Feraldis => FeraldisWall,
+            _ => NoneWall
+        };
+    }
+
+    /// <summary>Roof/accent color for a culture's buildings.</summary>
+    public static Color GetRoofColor(byte culture)
+    {
+        return culture switch
+        {
+            Cultures.Runai    => RunaiRoof,
+            Cultures.Alanthor => AlanthorRoof,
+            Cultures.Feraldis => FeraldisRoof,
+            _ => NoneRoof
+        };
+    }
+
+    /// <summary>Trim/detail color for a culture's buildings.</summary>
+    public static Color GetTrimColor(byte culture)
+    {
+        return culture switch
+        {
+            Cultures.Runai    => RunaiTrim,
+            Cultures.Alanthor => AlanthorTrim,
+            Cultures.Feraldis => FeraldisTrim,
+            _ => NoneTrim
+        };
+    }
+
     // ==================== Lookup Methods ====================
 
     /// <summary>

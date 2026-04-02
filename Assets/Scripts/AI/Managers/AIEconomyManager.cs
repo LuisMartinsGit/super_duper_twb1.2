@@ -10,6 +10,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Data;
 
 namespace TheWaningBorder.AI
 {
@@ -95,6 +96,9 @@ namespace TheWaningBorder.AI
 
                 // 9. Age up (requires completed choice building + resources)
                 CheckAgeUp(ref state, brain.ValueRO, ecb);
+
+                // 9b. Queue culture-specific buildings after age-up
+                QueueCultureBuildings(ref state, brain.ValueRO, ecb);
 
                 // 10. Vault management — deposit surplus resources for interest (Alanthor)
                 if (time >= economy.LastVaultCheck + AITuning.VaultCheckInterval)
@@ -480,6 +484,319 @@ namespace TheWaningBorder.AI
 
             AILogger.Log(faction, "ECONOMY", $"=== STARTED AGE-UP to Era 2 — culture: {CultureConfig.GetName(culture)} ({duration}s) ===");
             UnityEngine.Debug.Log($"[AIEconomyManager] {faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ERA 2 CULTURE BUILDING EXPANSION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Culture-specific build orders. Each entry is queued in order; the AI
+        /// skips buildings it already owns or has pending in the build queue.
+        /// </summary>
+        private static readonly string[] RunaiBuildOrder = {
+            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost",
+            "Runai_SiegeWorkshop", "Runai_TradingPost", "ThessarasBazaar"
+        };
+        private static readonly string[] AlanthorBuildOrder = {
+            "Alanthor_Smelter", "Alanthor_Tower", "Alanthor_Garrison",
+            "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Tower"
+        };
+        private static readonly string[] FeraldisBuildOrder = {
+            "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
+            "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_SiegeYard"
+        };
+
+        /// <summary>
+        /// After age-up, queue culture-specific buildings one at a time.
+        /// Only queues the next building if the previous one is built or building.
+        /// </summary>
+        private void QueueCultureBuildings(ref SystemState state, AIBrain brain, EntityCommandBuffer ecb)
+        {
+            var em = state.EntityManager;
+            Faction faction = brain.Owner;
+
+            // Read faction culture from the Hall's FactionProgress
+            byte culture = Cultures.None;
+            foreach (var (fTag, progress) in SystemAPI.Query<RefRO<FactionTag>, RefRO<FactionProgress>>()
+                .WithAll<HallTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    culture = progress.ValueRO.Culture;
+                    break;
+                }
+            }
+
+            if (culture == Cultures.None) return; // Not aged up yet
+
+            // Check era — must be era 2+
+            int era = 1;
+            if (FactionEconomy.TryGetBank(em, faction, out var bankEntity) &&
+                em.HasComponent<FactionEra>(bankEntity))
+            {
+                era = em.GetComponentData<FactionEra>(bankEntity).Value;
+            }
+            if (era < 2) return;
+
+            string[] buildOrder = culture switch
+            {
+                Cultures.Runai => RunaiBuildOrder,
+                Cultures.Alanthor => AlanthorBuildOrder,
+                Cultures.Feraldis => FeraldisBuildOrder,
+                _ => null
+            };
+            if (buildOrder == null) return;
+
+            // Find brain entity for build queue access
+            DynamicBuffer<BuildRequest> buildReqs = default;
+            bool foundBrain = false;
+            foreach (var (brainComp, reqs) in SystemAPI.Query<RefRO<AIBrain>, DynamicBuffer<BuildRequest>>())
+            {
+                if (brainComp.ValueRO.Owner == faction)
+                {
+                    buildReqs = reqs;
+                    foundBrain = true;
+                    break;
+                }
+            }
+            if (!foundBrain) return;
+
+            // Count existing buildings and pending requests per building type
+            foreach (string buildingId in buildOrder)
+            {
+                // Check if already pending in build queue
+                bool alreadyPending = false;
+                for (int i = 0; i < buildReqs.Length; i++)
+                {
+                    if (buildReqs[i].BuildingType.Equals(buildingId) && buildReqs[i].Assigned == 0)
+                    {
+                        alreadyPending = true;
+                        break;
+                    }
+                }
+                if (alreadyPending) continue;
+
+                // Count existing instances of this building (built or under construction)
+                int existingCount = CountFactionBuildings(ref state, faction, buildingId);
+
+                // Allow duplicates for buildings in the build order that appear multiple times
+                int targetCount = 0;
+                foreach (string b in buildOrder)
+                {
+                    if (b == buildingId) targetCount++;
+                }
+
+                if (existingCount >= targetCount) continue;
+
+                // Check affordability
+                if (!BuildCosts.TryGet(buildingId, out var cost)) continue;
+                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+
+                // Queue the build
+                float3 buildLocation = FindBuildLocation(ref state, faction, buildingId);
+                buildReqs.Add(new BuildRequest
+                {
+                    BuildingType = buildingId,
+                    DesiredPosition = buildLocation,
+                    Priority = 5,
+                    Assigned = 0,
+                    AssignedBuilder = Entity.Null
+                });
+
+                AILogger.Log(faction, "ECONOMY",
+                    $"Era 2: Queued {buildingId} ({existingCount}/{targetCount} existing)");
+
+                // Only queue one culture building per tick to avoid overwhelming builders
+                return;
+            }
+
+            // Alanthor: build walls around base after initial culture buildings are placed
+            if (culture == Cultures.Alanthor)
+            {
+                BuildAlanthorWalls(ref state, faction, buildReqs);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ALANTHOR WALL PLACEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>Number of wall hubs to place in a defensive perimeter.</summary>
+        private const int WallPerimeterHubs = 6;
+        /// <summary>Distance from Hall for the wall perimeter.</summary>
+        private const float WallPerimeterRadius = 18f;
+
+        /// <summary>
+        /// Alanthor AI: build a defensive wall perimeter around the base.
+        /// Places hubs in a hexagonal ring around the Hall, then connects them with segments.
+        /// Only queues one hub at a time; segments are created automatically when adjacent hubs exist.
+        /// </summary>
+        private void BuildAlanthorWalls(ref SystemState state, Faction faction,
+            DynamicBuffer<BuildRequest> buildReqs)
+        {
+            var em = state.EntityManager;
+
+            // Don't queue walls if there's already a pending wall request
+            for (int i = 0; i < buildReqs.Length; i++)
+            {
+                if (buildReqs[i].BuildingType.Equals("Alanthor_Wall") && buildReqs[i].Assigned == 0)
+                    return;
+            }
+
+            // Find Hall position (base center)
+            float3 hallPos = float3.zero;
+            bool foundHall = false;
+            foreach (var (fTag, lt) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<HallTag>()
+                .WithNone<UnderConstruction>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    hallPos = lt.ValueRO.Position;
+                    foundHall = true;
+                    break;
+                }
+            }
+            if (!foundHall) return;
+
+            // Count existing wall hubs
+            int existingHubs = 0;
+            var hubPositions = new Unity.Collections.NativeList<float3>(Allocator.Temp);
+            foreach (var (fTag, lt) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<WallHubTag>())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    existingHubs++;
+                    hubPositions.Add(lt.ValueRO.Position);
+                }
+            }
+
+            if (existingHubs >= WallPerimeterHubs)
+            {
+                // All hubs placed — check if segments need connecting
+                ConnectUnlinkedWallHubs(ref state, faction);
+                hubPositions.Dispose();
+                return;
+            }
+
+            // Check affordability (hub cost)
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var wallCost))
+            {
+                hubPositions.Dispose();
+                return;
+            }
+            if (!FactionEconomy.CanAfford(em, faction, wallCost))
+            {
+                hubPositions.Dispose();
+                return;
+            }
+
+            // Calculate next hub position on the perimeter ring
+            int hubIndex = existingHubs;
+            float angle = hubIndex * (2f * math.PI / WallPerimeterHubs);
+            float3 hubPos = hallPos + new float3(
+                math.cos(angle) * WallPerimeterRadius,
+                0f,
+                math.sin(angle) * WallPerimeterRadius);
+            hubPos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(hubPos.x, hubPos.z);
+
+            buildReqs.Add(new BuildRequest
+            {
+                BuildingType = "Alanthor_Wall",
+                DesiredPosition = hubPos,
+                Priority = 4,
+                Assigned = 0,
+                AssignedBuilder = Entity.Null
+            });
+
+            AILogger.Log(faction, "ECONOMY",
+                $"Alanthor: Queued wall hub {hubIndex + 1}/{WallPerimeterHubs} at ({hubPos.x:F0},{hubPos.z:F0})");
+
+            hubPositions.Dispose();
+        }
+
+        /// <summary>
+        /// Find adjacent wall hubs that aren't connected by segments and create segments between them.
+        /// This closes the wall perimeter so it generates income.
+        /// </summary>
+        private void ConnectUnlinkedWallHubs(ref SystemState state, Faction faction)
+        {
+            var em = state.EntityManager;
+
+            // Gather all wall hubs for this faction
+            var hubs = new Unity.Collections.NativeList<Entity>(Allocator.Temp);
+            var hubPos = new Unity.Collections.NativeList<float3>(Allocator.Temp);
+
+            foreach (var (fTag, lt, entity) in SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .WithAll<WallHubTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                if (fTag.ValueRO.Value == faction)
+                {
+                    hubs.Add(entity);
+                    hubPos.Add(lt.ValueRO.Position);
+                }
+            }
+
+            // For each hub, check if it's connected to the next hub in the ring
+            // (connection order: 0→1→2→...→N-1→0)
+            for (int i = 0; i < hubs.Length; i++)
+            {
+                int next = (i + 1) % hubs.Length;
+                Entity hubA = hubs[i];
+                Entity hubB = hubs[next];
+
+                // Check if already connected
+                if (!em.HasBuffer<WallHubLink>(hubA)) continue;
+                var links = em.GetBuffer<WallHubLink>(hubA);
+                bool connected = false;
+                for (int j = 0; j < links.Length; j++)
+                {
+                    if (links[j].ConnectedHub == hubB)
+                    {
+                        connected = true;
+                        break;
+                    }
+                }
+
+                if (!connected)
+                {
+                    // Check affordability for segment
+                    if (!BuildCosts.TryGet("Alanthor_Wall", out var segCost)) continue;
+                    if (!FactionEconomy.Spend(em, faction, segCost)) continue;
+
+                    AlanthorWall.CreateSegment(em, hubA, hubB, faction);
+                    AILogger.Log(faction, "ECONOMY",
+                        $"Alanthor: Created wall segment connecting hub {i} → {next}");
+
+                    // Only one segment per tick
+                    break;
+                }
+            }
+
+            hubs.Dispose();
+            hubPos.Dispose();
+        }
+
+        /// <summary>
+        /// Count how many instances of a building type a faction owns (built + under construction).
+        /// </summary>
+        private int CountFactionBuildings(ref SystemState state, Faction faction, string buildingId)
+        {
+            int count = 0;
+            int pid = BuildingFactory.GetPresentationId(buildingId);
+
+            foreach (var (fTag, presId) in SystemAPI.Query<RefRO<FactionTag>, RefRO<PresentationId>>()
+                .WithAll<BuildingTag>())
+            {
+                if (fTag.ValueRO.Value == faction && presId.ValueRO.Id == pid)
+                    count++;
+            }
+
+            return count;
         }
 
         /// <summary>

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheWaningBorder.Bootstrap;
+using TheWaningBorder.UI;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -218,7 +219,11 @@ namespace TheWaningBorder.UI.HUD
                     btnStyle.normal.textColor = GetGraphColor(i);
                 }
 
-                if (GUILayout.Button(_graphNames[i], btnStyle, GUILayout.Width(85), GUILayout.Height(26)))
+                var icon = ResourceIcons.Get(_graphNames[i]);
+                var content = icon != null
+                    ? new GUIContent(icon, _graphNames[i])
+                    : new GUIContent(_graphNames[i]);
+                if (GUILayout.Button(content, btnStyle, GUILayout.Width(icon != null ? 36 : 85), GUILayout.Height(26)))
                 {
                     _selectedGraphIndex = i;
                 }
@@ -240,7 +245,11 @@ namespace TheWaningBorder.UI.HUD
                 GUILayout.Space(20);
 
                 // Draw a combined overview of ALL factions for the selected metric
-                GUILayout.Label($"All Players — {_graphNames[_selectedGraphIndex]}", _subHeaderStyle);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("All Players — ", _subHeaderStyle);
+                ResourceIcons.DrawLayoutIcon(_graphNames[_selectedGraphIndex], 14f);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
                 GUILayout.Space(5);
                 DrawCombinedGraph(_selectedGraphIndex);
             }
@@ -274,6 +283,8 @@ namespace TheWaningBorder.UI.HUD
             GUILayout.EndHorizontal();
 
             GUILayout.EndArea();
+
+            ResourceIcons.DrawTooltip();
         }
 
         // ═══════════════════════════════════════════════════════════════

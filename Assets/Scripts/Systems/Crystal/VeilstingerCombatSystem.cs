@@ -38,9 +38,6 @@ namespace TheWaningBorder.Systems.Crystal
         // Cached query — created once in OnCreate, reused every frame
         private EntityQuery _targetQuery;
 
-        // Cached query — created once in OnCreate, reused every frame
-        private EntityQuery _targetQuery;
-
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();

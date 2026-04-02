@@ -64,11 +64,9 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _colorBtnStyle;
         private GUIStyle _tabActiveStyle;
         private GUIStyle _tabInactiveStyle;
-        private GUIStyle _sectionBoxStyle;
         private Texture2D _colorSwatchTex;
         private Texture2D _tabActiveTex;
         private Texture2D _tabInactiveTex;
-        private Texture2D _sectionBoxTex;
         private bool _stylesInit = false;
 
         void OnEnable()
@@ -139,8 +137,6 @@ namespace TheWaningBorder.UI.Menus
             // Tab styles
             _tabActiveTex = MakeSolidTexture(new Color(0.83f, 0.66f, 0.26f, 0.35f));
             _tabInactiveTex = MakeSolidTexture(new Color(0.15f, 0.15f, 0.25f, 0.5f));
-            _sectionBoxTex = MakeSolidTexture(new Color(0.08f, 0.10f, 0.22f, 0.3f));
-
             _tabActiveStyle = new GUIStyle(GUI.skin.button)
             {
                 fontStyle = FontStyle.Bold,
@@ -160,13 +156,14 @@ namespace TheWaningBorder.UI.Menus
                 padding = new RectOffset(12, 12, 6, 6)
             };
 
-            _sectionBoxStyle = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = _sectionBoxTex },
-                padding = new RectOffset(10, 10, 8, 8)
-            };
-
             _stylesInit = true;
+        }
+
+        void OnDestroy()
+        {
+            if (_colorSwatchTex != null) Destroy(_colorSwatchTex);
+            if (_tabActiveTex != null) Destroy(_tabActiveTex);
+            if (_tabInactiveTex != null) Destroy(_tabInactiveTex);
         }
 
         private Texture2D MakeSolidTexture(Color color)
