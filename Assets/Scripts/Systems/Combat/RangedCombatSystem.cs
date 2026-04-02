@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -154,8 +155,17 @@ namespace TheWaningBorder.Systems.Combat
                     // Accumulate aim time
                     archer.AimTimer += dt;
 
+                    // Effective aim duration reduced by sect ranged accuracy bonus
+                    float effectiveAimRequired = archer.AimTimeRequired;
+                    if (FactionSectState.Instance != null)
+                    {
+                        var aimMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
+                        if (aimMults.RangedAccuracy > 0f)
+                            effectiveAimRequired *= (1f - math.min(aimMults.RangedAccuracy, 0.9f));
+                    }
+
                     // Fire when aim is ready and cooldown is complete
-                    if (archer.AimTimer >= archer.AimTimeRequired && archer.CooldownTimer <= 0)
+                    if (archer.AimTimer >= effectiveAimRequired && archer.CooldownTimer <= 0)
                     {
                         archer.IsFiring = 1;
 
@@ -170,6 +180,70 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
                         }
                         // Note: CrystalDebuff on target is applied at projectile impact, not here
+                        finalDamage = math.max(1, finalDamage);
+
+                        // Apply sect ranged damage and damage-vs-crystal multipliers
+                        if (FactionSectState.Instance != null)
+                        {
+                            var rMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
+                            finalDamage = (int)(finalDamage * rMults.RangedDamage);
+                            if (em.HasComponent<CrystalTag>(tgt.Value))
+                                finalDamage = (int)(finalDamage * rMults.DamageVsCrystal);
+                            finalDamage = math.max(1, finalDamage);
+                        }
+
+                        // Fortified armor bonus on target (flat defense increase)
+                        if (em.HasComponent<Fortified>(tgt.Value))
+                        {
+                            var fort = em.GetComponentData<Fortified>(tgt.Value);
+                            int fortReduction = (int)fort.ArmorBonus;
+                            finalDamage = math.max(1, finalDamage - fortReduction);
+                        }
+
+                        // Condemned mark: target takes bonus damage
+                        if (em.HasComponent<Condemned>(tgt.Value))
+                        {
+                            var condemned = em.GetComponentData<Condemned>(tgt.Value);
+                            finalDamage = (int)(finalDamage * condemned.DamageMultiplier);
+                        }
+
+                        // IgniteBuff: attacker's next attacks deal bonus fire damage
+                        if (em.HasComponent<IgniteBuff>(entity))
+                        {
+                            var ignite = em.GetComponentData<IgniteBuff>(entity);
+                            if (ignite.AttacksRemaining > 0)
+                            {
+                                finalDamage += (int)ignite.BonusDamage;
+                                ignite.AttacksRemaining--;
+                                if (ignite.AttacksRemaining <= 0)
+                                    ecb.RemoveComponent<IgniteBuff>(entity);
+                                else
+                                    em.SetComponentData(entity, ignite);
+                            }
+                        }
+
+                        // VoidStrikeBuff: attacker's next attack deals bonus damage
+                        if (em.HasComponent<VoidStrikeBuff>(entity))
+                        {
+                            var voidStrike = em.GetComponentData<VoidStrikeBuff>(entity);
+                            float bonus = em.HasComponent<CrystalTag>(tgt.Value) ? voidStrike.BonusVsCrystal : voidStrike.BonusDamage;
+                            finalDamage += (int)bonus;
+                            ecb.RemoveComponent<VoidStrikeBuff>(entity);
+                        }
+
+                        // DamageReflect: target reflects damage back to attacker
+                        if (em.HasComponent<SpellBuff>(tgt.Value))
+                        {
+                            var tgtBuff = em.GetComponentData<SpellBuff>(tgt.Value);
+                            if (tgtBuff.DamageReflect > 0f)
+                            {
+                                int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
+                                var attackerHealth = em.GetComponentData<Health>(entity);
+                                attackerHealth.Value -= reflected;
+                                em.SetComponentData(entity, attackerHealth);
+                            }
+                        }
+
                         finalDamage = math.max(1, finalDamage);
 
                         // Get shooter's damage type (default Ranged for archers)
@@ -193,6 +267,15 @@ namespace TheWaningBorder.Systems.Combat
                         float cooldownValue = 1.5f;
                         if (em.HasComponent<AttackCooldown>(entity))
                             cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
+
+                        // Apply sect attack speed multiplier to cooldown
+                        if (FactionSectState.Instance != null)
+                        {
+                            var asMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
+                            if (asMults.AttackSpeed > 1f)
+                                cooldownValue /= asMults.AttackSpeed;
+                        }
+
                         archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;
                         archer.IsFiring = 0;

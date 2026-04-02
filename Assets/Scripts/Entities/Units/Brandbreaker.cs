@@ -62,6 +62,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             em.AddComponent<SiegeTag>(entity);
             em.AddComponent<SectUniqueUnitTag>(entity);
+            em.AddComponentData(entity, new UnitAbility { Id = AbilityId.WarCry, CooldownDuration = 18f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }
@@ -103,6 +104,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             ecb.AddComponent<SiegeTag>(entity);
             ecb.AddComponent<SectUniqueUnitTag>(entity);
+            ecb.AddComponent(entity, new UnitAbility { Id = AbilityId.WarCry, CooldownDuration = 18f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }

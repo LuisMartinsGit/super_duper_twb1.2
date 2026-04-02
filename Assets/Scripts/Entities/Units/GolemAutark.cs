@@ -80,6 +80,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
             em.AddComponentData(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
             em.AddComponent<SectUniqueUnitTag>(entity);
+            em.AddComponentData(entity, new UnitAbility { Id = AbilityId.ArcanePulse, CooldownDuration = 20f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }
@@ -136,6 +137,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
             ecb.AddComponent(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
             ecb.AddComponent<SectUniqueUnitTag>(entity);
+            ecb.AddComponent(entity, new UnitAbility { Id = AbilityId.ArcanePulse, CooldownDuration = 20f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }

@@ -79,6 +79,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
             em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 1 });
             em.AddComponent<SectUniqueUnitTag>(entity);
+            em.AddComponentData(entity, new UnitAbility { Id = AbilityId.ChainBind, CooldownDuration = 14f, CooldownRemaining = 0f, Range = 12f });
 
             return entity;
         }
@@ -135,6 +136,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
             ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 1 });
             ecb.AddComponent<SectUniqueUnitTag>(entity);
+            ecb.AddComponent(entity, new UnitAbility { Id = AbilityId.ChainBind, CooldownDuration = 14f, CooldownRemaining = 0f, Range = 12f });
 
             return entity;
         }

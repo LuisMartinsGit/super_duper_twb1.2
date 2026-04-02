@@ -97,13 +97,18 @@ namespace TheWaningBorder.Systems.Economy
                 int currentNum = ts.DestPostNumber;
                 bool forward = ts.IsForward == 1;
 
+                // Sect trade income multiplier
+                float tradeMult = 1f;
+                if (FactionSectState.Instance != null)
+                    tradeMult = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value).TradeIncome;
+
                 if (TryFindNextPost(em, faction.ValueRO.Value, currentNum, forward, out var next, out var nNum, out var nPos))
                 {
                     // Continue in same direction
                     float dist = math.distance(transform.ValueRO.Position, nPos);
                     ts.CurrentDestPost = next;
                     ts.DestPostNumber = nNum;
-                    ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor);
+                    ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor) * tradeMult;
                     ts.MaxCargo = ts.CurrentCargo;
                     dest.Position = nPos;
                     dest.Has = 1;
@@ -118,7 +123,7 @@ namespace TheWaningBorder.Systems.Economy
                         float dist = math.distance(transform.ValueRO.Position, nPos);
                         ts.CurrentDestPost = next;
                         ts.DestPostNumber = nNum;
-                        ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor);
+                        ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor) * tradeMult;
                         ts.MaxCargo = ts.CurrentCargo;
                         dest.Position = nPos;
                         dest.Has = 1;

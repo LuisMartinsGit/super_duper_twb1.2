@@ -69,6 +69,15 @@ namespace TheWaningBorder.Systems.Research
 
                     // Start research
                     float researchTime = techDef.researchTime > 0 ? techDef.researchTime : 30f;
+
+                    // Apply sect research speed multiplier (ResearchSpeed > 1.0 = faster)
+                    if (FactionSectState.Instance != null)
+                    {
+                        var mults = FactionSectState.Instance.GetMultipliers(faction);
+                        if (mults.ResearchSpeed > 0f)
+                            researchTime /= mults.ResearchSpeed;
+                    }
+
                     rs.ValueRW.Busy = 1;
                     rs.ValueRW.Remaining = researchTime;
 

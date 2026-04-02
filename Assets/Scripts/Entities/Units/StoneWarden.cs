@@ -69,6 +69,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
             em.AddComponentData(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 0 });
             em.AddComponent<SectUniqueUnitTag>(entity);
+            em.AddComponentData(entity, new UnitAbility { Id = AbilityId.Fortify, CooldownDuration = 25f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }
@@ -109,6 +110,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
             ecb.AddComponent(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 0 });
             ecb.AddComponent<SectUniqueUnitTag>(entity);
+            ecb.AddComponent(entity, new UnitAbility { Id = AbilityId.Fortify, CooldownDuration = 25f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }

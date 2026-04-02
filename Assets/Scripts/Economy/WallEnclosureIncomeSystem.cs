@@ -201,6 +201,13 @@ namespace TheWaningBorder.Economy
                             // Create an income entity for this enclosure
                             float perTick = area * IncomePerSquareUnit;
 
+                            // Apply sect wall income multiplier
+                            if (FactionSectState.Instance != null)
+                            {
+                                var mults = FactionSectState.Instance.GetMultipliers(faction);
+                                perTick *= mults.WallIncome;
+                            }
+
                             var incomeEntity = em.CreateEntity(
                                 typeof(WallEnclosureIncomeTag),
                                 typeof(FactionTag),

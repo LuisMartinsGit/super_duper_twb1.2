@@ -4,6 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Economy
 {
@@ -239,6 +240,10 @@ namespace TheWaningBorder.Systems.Economy
 
             float dist = math.distance(spawnPos, destPos);
             float maxCargo = BaseIncome * (dist / RouteLengthDivisor);
+
+            // Apply sect trade income multiplier
+            if (FactionSectState.Instance != null)
+                maxCargo *= FactionSectState.Instance.GetMultipliers(faction).TradeIncome;
 
             Entity trader = Caravan.Create(em, spawnPos + new float3(2f, 0f, 0f), faction);
 

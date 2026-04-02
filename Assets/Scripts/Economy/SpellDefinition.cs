@@ -94,195 +94,201 @@ namespace TheWaningBorder.Economy
             if (_initialized) return;
             _initialized = true;
 
+            // ── Alanthor Sects ──
+
             Register(new SpellDefinition
             {
-                Id = "Spell_RepairLevies",
+                Id = "Spell_RestorationWave",
                 SectId = SectConfig.Renewal,
-                Name = "Repair Levies",
-                Cooldown = 40f,
-                Range = 30f,
-                AreaRadius = 15f,
-                Duration = 0f,
+                Name = "Restoration Wave",
+                Cooldown = 90f,
+                Range = 0f, // Global
+                AreaRadius = 0f,
+                Duration = 0f, // Instant
                 EffectType = "Heal",
-                EffectValue = 200f,
-                SecondaryValue = 0f,
-                Description = "Repair buildings in area by 200 HP",
+                EffectValue = 100f, // 100 HP to units, 200 HP to buildings (handled in code)
+                SecondaryValue = 200f,
+                Description = "Heal all friendly units by 100 HP and buildings by 200 HP globally",
                 TargetsFriendly = true
             });
 
             Register(new SpellDefinition
             {
-                Id = "Spell_CrystalSurvey",
+                Id = "Spell_ArcaneBombardment",
                 SectId = SectConfig.Antiquity,
-                Name = "Crystal Survey",
-                Cooldown = 50f,
+                Name = "Arcane Bombardment",
+                Cooldown = 120f,
+                Range = 50f,
+                AreaRadius = 20f,
+                Duration = 8f,
+                EffectType = "Damage",
+                EffectValue = 50f, // 50 damage per bolt
+                SecondaryValue = 8f, // 8 bolts
+                Description = "Rain 8 arcane bolts over 8s, each dealing 50 magic damage in a 3u area",
+                TargetsFriendly = false
+            });
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_Earthquake",
+                SectId = SectConfig.LivingStone,
+                Name = "Earthquake",
+                Cooldown = 150f,
+                Range = 50f,
+                AreaRadius = 25f,
+                Duration = 0f, // Instant
+                EffectType = "Damage",
+                EffectValue = 300f, // 300 siege damage to buildings (600 to walls)
+                SecondaryValue = 2f, // 2 second stun
+                Description = "Deal 300 siege damage to enemy buildings (600 to walls), stun ground units for 2s",
+                TargetsFriendly = false
+            });
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_VeilOfShadows",
+                SectId = SectConfig.VeiledMemory,
+                Name = "Veil of Shadows",
+                Cooldown = 100f,
+                Range = 0f, // Global
+                AreaRadius = 0f,
+                Duration = 15f,
+                EffectType = "Buff",
+                EffectValue = 0f,
+                SecondaryValue = 0f,
+                Description = "All friendly units become invisible for 15s",
+                TargetsFriendly = true
+            });
+
+            // ── Runai Sects ──
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_SummonCaravanGuard",
+                SectId = SectConfig.StillFlame,
+                Name = "Summon Caravan Guard",
+                Cooldown = 80f,
+                Range = 50f,
+                AreaRadius = 0f,
+                Duration = 60f,
+                EffectType = "Summon",
+                EffectValue = 5f, // 5 units
+                SecondaryValue = 60f, // 60s lifetime
+                Description = "Summon 5 Flame Wardens at target that last 60s",
+                TargetsFriendly = true
+            });
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_GoldenTribute",
+                SectId = SectConfig.QuietVault,
+                Name = "Golden Tribute",
+                Cooldown = 70f,
                 Range = 0f, // Global
                 AreaRadius = 0f,
                 Duration = 30f,
-                EffectType = "Vision",
-                EffectValue = 0f,
-                SecondaryValue = 0f,
-                Description = "Reveal Crystal nodes on minimap for 30s",
-                TargetsFriendly = true
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_BulwarkRise",
-                SectId = SectConfig.LivingStone,
-                Name = "Bulwark Rise",
-                Cooldown = 60f,
-                Range = 30f,
-                AreaRadius = 15f,
-                Duration = 20f,
                 EffectType = "Buff",
-                EffectValue = 3f, // +3 armor
-                SecondaryValue = 0f,
-                Description = "+3 armor to buildings in area for 20s",
+                EffectValue = 500f, // 500 supplies
+                SecondaryValue = 200f, // 200 iron
+                Description = "Instantly gain 500 Supplies + 200 Iron + 100 Crystal; production boost for 30s",
                 TargetsFriendly = true
             });
 
             Register(new SpellDefinition
             {
-                Id = "Spell_Shroud",
-                SectId = SectConfig.VeiledMemory,
-                Name = "Shroud",
-                Cooldown = 55f,
-                Range = 30f,
-                AreaRadius = 12f,
-                Duration = 15f,
-                EffectType = "Vision",
-                EffectValue = 0f,
-                SecondaryValue = 0f,
-                Description = "Block enemy vision in area for 15s",
-                TargetsFriendly = true
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_Embargo",
-                SectId = SectConfig.StillFlame,
-                Name = "Embargo",
-                Cooldown = 60f,
-                Range = 30f,
-                AreaRadius = 20f,
-                Duration = 20f,
-                EffectType = "Disable",
-                EffectValue = 0f,
-                SecondaryValue = 0f,
-                Description = "Disable enemy trade in area for 20s",
-                TargetsFriendly = false
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_LockdownVault",
-                SectId = SectConfig.QuietVault,
-                Name = "Lockdown Vault",
-                Cooldown = 70f,
-                Range = 20f,
-                AreaRadius = 10f,
-                Duration = 15f,
-                EffectType = "Invulnerable",
-                EffectValue = 0f,
-                SecondaryValue = 0f,
-                Description = "Buildings invulnerable for 15s",
-                TargetsFriendly = true
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_ReflectiveWard",
+                Id = "Spell_ArcaneStorm",
                 SectId = SectConfig.MirrorRite,
-                Name = "Reflective Ward",
-                Cooldown = 60f,
-                Range = 25f,
-                AreaRadius = 12f,
-                Duration = 10f,
-                EffectType = "Buff",
-                EffectValue = 0f,
-                SecondaryValue = 0.25f, // 25% reflect
-                Description = "Reflect 25% damage for 10s",
-                TargetsFriendly = true
+                Name = "Arcane Storm",
+                Cooldown = 130f,
+                Range = 50f,
+                AreaRadius = 20f,
+                Duration = 8f,
+                EffectType = "Damage",
+                EffectValue = 30f, // 30 damage per bolt
+                SecondaryValue = 16f, // 16 bolts
+                Description = "Lightning storm: 16 bolts over 8s, each dealing 30 magic + 10 splash damage",
+                TargetsFriendly = false
             });
 
             Register(new SpellDefinition
             {
-                Id = "Spell_EdictOfSeizure",
+                Id = "Spell_Dominate",
                 SectId = SectConfig.ShardJudgment,
-                Name = "Edict of Seizure",
-                Cooldown = 65f,
-                Range = 30f,
-                AreaRadius = 15f,
-                Duration = 10f,
-                EffectType = "Debuff",
-                EffectValue = 50f, // 50 Supplies drained over duration
-                SecondaryValue = 0f,
-                Description = "Drain 50 Supplies from enemy over 10s",
-                TargetsFriendly = false
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_BattleFervor",
-                SectId = SectConfig.EmberAsh,
-                Name = "Battle Fervor",
-                Cooldown = 55f,
-                Range = 25f,
-                AreaRadius = 10f,
-                Duration = 10f,
-                EffectType = "Buff",
-                EffectValue = 1.25f, // +25% damage
-                SecondaryValue = 1.25f, // +25% speed
-                Description = "+25% attack/speed for units in area for 10s",
-                TargetsFriendly = true
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_ProfaneRally",
-                SectId = SectConfig.HollowBrand,
-                Name = "Profane Rally",
-                Cooldown = 60f,
-                Range = 25f,
-                AreaRadius = 10f,
-                Duration = 5f,
-                EffectType = "Debuff",
-                EffectValue = 0.30f, // 30% slow
-                SecondaryValue = 0f,
-                Description = "Slow enemies 30% for 5s",
-                TargetsFriendly = false
-            });
-
-            Register(new SpellDefinition
-            {
-                Id = "Spell_BindTheCore",
-                SectId = SectConfig.FlamewroughtChains,
-                Name = "Bind the Core",
-                Cooldown = 90f,
-                Range = 30f,
+                Name = "Dominate",
+                Cooldown = 110f,
+                Range = 40f,
                 AreaRadius = 0f,
-                Duration = 15f,
+                Duration = 30f,
                 EffectType = "Disable",
                 EffectValue = 0f,
-                SecondaryValue = 0f,
-                Description = "Pacify Crystal sub-node for 15s",
+                SecondaryValue = 30f, // 30s duration
+                Description = "Mind-control nearest enemy unit for 30s",
+                TargetsFriendly = false
+            });
+
+            // ── Feraldis Sects ──
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_Firestorm",
+                SectId = SectConfig.EmberAsh,
+                Name = "Firestorm",
+                Cooldown = 100f,
+                Range = 50f,
+                AreaRadius = 15f,
+                Duration = 10f,
+                EffectType = "Damage",
+                EffectValue = 10f, // 10 DPS
+                SecondaryValue = 20f, // 20s burn visual persistence
+                Description = "Create burning ground dealing 10 DPS for 10s in a 15u area",
                 TargetsFriendly = false
             });
 
             Register(new SpellDefinition
             {
-                Id = "Spell_Unravel",
-                SectId = SectConfig.UnmakersGrasp,
-                Name = "Unravel",
-                Cooldown = 80f,
-                Range = 25f,
+                Id = "Spell_SummonWarHost",
+                SectId = SectConfig.HollowBrand,
+                Name = "Summon War Host",
+                Cooldown = 120f,
+                Range = 50f,
                 AreaRadius = 0f,
-                Duration = 0f,
+                Duration = 60f,
+                EffectType = "Summon",
+                EffectValue = 5f, // 5 units (3 Brandbreaker + 2 Ashblade)
+                SecondaryValue = 60f, // 60s lifetime
+                Description = "Summon 3 Brandbreakers + 2 Ashblades at target that last 60s",
+                TargetsFriendly = false
+            });
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_ChainLightning",
+                SectId = SectConfig.FlamewroughtChains,
+                Name = "Chain Lightning",
+                Cooldown = 90f,
+                Range = 50f,
+                AreaRadius = 0f,
+                Duration = 0f, // Instant
                 EffectType = "Damage",
-                EffectValue = 300f, // 300 true damage
+                EffectValue = 80f, // 80 primary damage
+                SecondaryValue = 40f, // 40 chain damage
+                Description = "Strike target for 80 damage, chains to 5 nearby enemies for 40 each",
+                TargetsFriendly = false
+            });
+
+            Register(new SpellDefinition
+            {
+                Id = "Spell_Annihilation",
+                SectId = SectConfig.UnmakersGrasp,
+                Name = "Annihilation",
+                Cooldown = 180f,
+                Range = 50f,
+                AreaRadius = 0f,
+                Duration = 0f, // Instant
+                EffectType = "Damage",
+                EffectValue = 500f, // 500 true damage
                 SecondaryValue = 0f,
-                Description = "Deal 300 true damage to Crystal entity",
+                Description = "Deal 500 true damage to target; instantly destroys Crystal sub-nodes",
                 TargetsFriendly = false
             });
         }

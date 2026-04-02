@@ -61,6 +61,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
             em.AddComponent<SectUniqueUnitTag>(entity);
+            em.AddComponentData(entity, new UnitAbility { Id = AbilityId.Ignite, CooldownDuration = 12f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }
@@ -101,6 +102,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
             ecb.AddComponent<SectUniqueUnitTag>(entity);
+            ecb.AddComponent(entity, new UnitAbility { Id = AbilityId.Ignite, CooldownDuration = 12f, CooldownRemaining = 0f, Range = 0f });
 
             return entity;
         }

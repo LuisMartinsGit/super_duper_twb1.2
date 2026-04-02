@@ -278,6 +278,31 @@ namespace TheWaningBorder.Systems.Movement
                     if (ms.Value > 0) speed = ms.Value;
                 }
 
+                // Apply SpellDebuff speed reduction (roots, slows)
+                if (em.HasComponent<SpellDebuff>(entity))
+                {
+                    var debuff = em.GetComponentData<SpellDebuff>(entity);
+                    speed *= (1f - debuff.SpeedReduction);
+                }
+
+                // Apply Fortified immobilization
+                if (em.HasComponent<Fortified>(entity))
+                {
+                    speed = 0f;
+                }
+
+                // Apply SpellBuff speed multiplier (Battle Fervor etc.)
+                if (em.HasComponent<SpellBuff>(entity))
+                {
+                    var buff = em.GetComponentData<SpellBuff>(entity);
+                    if (buff.SpeedMultiplier > 0f && buff.SpeedMultiplier != 1f)
+                        speed *= buff.SpeedMultiplier;
+                }
+
+                // Skip movement entirely if speed is zero or negative
+                if (speed <= 0f)
+                    continue;
+
                 float3 pos = xf.ValueRO.Position;
                 float3 goal = dd.ValueRO.Position;
 

@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -127,6 +128,13 @@ namespace TheWaningBorder.Systems.Combat
                             ? CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType)
                             : 0;
 
+                        // Fortified armor bonus on target
+                        if (em.HasComponent<Fortified>(tgt.Value))
+                        {
+                            var fort = em.GetComponentData<Fortified>(tgt.Value);
+                            defenseValue += (int)fort.ArmorBonus;
+                        }
+
                         bool targetHasDebuff = em.HasComponent<CrystalDebuff>(tgt.Value);
                         CrystalDebuff targetDebuff = targetHasDebuff
                             ? em.GetComponentData<CrystalDebuff>(tgt.Value)
@@ -147,6 +155,66 @@ namespace TheWaningBorder.Systems.Combat
 
                         int finalDamage = CombatModifiers.CalculateFinalDamage(
                             baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod);
+
+                        // Apply sect melee damage and damage-vs-crystal multipliers
+                        FactionSectState.SectMultipliers sectMults = default;
+                        bool hasSectMults = false;
+                        if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(entity))
+                        {
+                            sectMults = FactionSectState.Instance.GetMultipliers(
+                                em.GetComponentData<FactionTag>(entity).Value);
+                            hasSectMults = true;
+                            finalDamage = (int)(finalDamage * sectMults.MeleeDamage);
+                            if (em.HasComponent<CrystalTag>(tgt.Value))
+                                finalDamage = (int)(finalDamage * sectMults.DamageVsCrystal);
+                            finalDamage = math.max(1, finalDamage);
+                        }
+
+                        // Condemned mark: target takes bonus damage
+                        if (em.HasComponent<Condemned>(tgt.Value))
+                        {
+                            var condemned = em.GetComponentData<Condemned>(tgt.Value);
+                            finalDamage = (int)(finalDamage * condemned.DamageMultiplier);
+                        }
+
+                        // IgniteBuff: attacker's next attacks deal bonus fire damage
+                        if (em.HasComponent<IgniteBuff>(entity))
+                        {
+                            var ignite = em.GetComponentData<IgniteBuff>(entity);
+                            if (ignite.AttacksRemaining > 0)
+                            {
+                                finalDamage += (int)ignite.BonusDamage;
+                                ignite.AttacksRemaining--;
+                                if (ignite.AttacksRemaining <= 0)
+                                    ecb.RemoveComponent<IgniteBuff>(entity);
+                                else
+                                    em.SetComponentData(entity, ignite);
+                            }
+                        }
+
+                        // VoidStrikeBuff: attacker's next attack deals bonus damage
+                        if (em.HasComponent<VoidStrikeBuff>(entity))
+                        {
+                            var voidStrike = em.GetComponentData<VoidStrikeBuff>(entity);
+                            float bonus = em.HasComponent<CrystalTag>(tgt.Value) ? voidStrike.BonusVsCrystal : voidStrike.BonusDamage;
+                            finalDamage += (int)bonus;
+                            ecb.RemoveComponent<VoidStrikeBuff>(entity);
+                        }
+
+                        // DamageReflect: target reflects damage back to attacker
+                        if (em.HasComponent<SpellBuff>(tgt.Value))
+                        {
+                            var tgtBuff = em.GetComponentData<SpellBuff>(tgt.Value);
+                            if (tgtBuff.DamageReflect > 0f)
+                            {
+                                int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
+                                var attackerHealth = em.GetComponentData<Health>(entity);
+                                attackerHealth.Value -= reflected;
+                                em.SetComponentData(entity, attackerHealth);
+                            }
+                        }
+
+                        finalDamage = math.max(1, finalDamage);
 
                         // Apply damage — use immediate write so multiple attackers
                         // in the same frame correctly stack damage (not last-write-wins via ECB)
@@ -174,8 +242,37 @@ namespace TheWaningBorder.Systems.Combat
                         else
                             ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
 
-                        // Reset cooldown
-                        cd.Timer = cd.Cooldown;
+                        // Sect panic chance: apply SpellDebuff (speed reduction) on hit
+                        if (hasSectMults && sectMults.PanicChance > 0f)
+                        {
+                            int hash = entity.Index ^ (tgt.Value.Index * 397);
+                            if ((math.abs(hash) % 100) < (int)(sectMults.PanicChance * 100f))
+                            {
+                                if (!em.HasComponent<SpellDebuff>(tgt.Value))
+                                    ecb.AddComponent(tgt.Value, new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f });
+                                else
+                                    ecb.SetComponent(tgt.Value, new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f });
+                            }
+                        }
+
+                        // Sect control chance: apply full root SpellDebuff on hit
+                        if (hasSectMults && sectMults.ControlChance > 0f)
+                        {
+                            int hash = entity.Index ^ (tgt.Value.Index * 631);
+                            if ((math.abs(hash) % 100) < (int)(sectMults.ControlChance * 100f))
+                            {
+                                if (!em.HasComponent<SpellDebuff>(tgt.Value))
+                                    ecb.AddComponent(tgt.Value, new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f });
+                                else
+                                    ecb.SetComponent(tgt.Value, new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f });
+                            }
+                        }
+
+                        // Reset cooldown (with sect attack speed bonus)
+                        float cooldownVal = cd.Cooldown;
+                        if (hasSectMults && sectMults.AttackSpeed > 1f)
+                            cooldownVal /= sectMults.AttackSpeed;
+                        cd.Timer = cooldownVal;
                     }
                 }
                 else

@@ -380,6 +380,48 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // ABILITY COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue an ability command to a unit.
+        /// </summary>
+        public static void IssueAbility(EntityManager em, Entity unit, Entity target,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (!em.Exists(unit)) return;
+            if (!em.HasComponent<UnitAbility>(unit)) return;
+
+            var ability = em.GetComponentData<UnitAbility>(unit);
+            if (ability.CooldownRemaining > 0f) return;
+
+            // For targeted abilities, validate target
+            if (ability.Range > 0f && target != Entity.Null)
+            {
+                if (!em.Exists(target)) return;
+            }
+
+            if (LogCommands)
+                Debug.Log($"[CommandRouter] Ability: {unit.Index} -> {(target != Entity.Null ? target.Index.ToString() : "self")} (Source: {source})");
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueAbilityForLockstep(em, unit, target);
+                return;
+            }
+
+            IssueAbilityDirect(em, unit, target);
+        }
+
+        private static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
+        {
+            if (!em.HasComponent<AbilityActivated>(unit))
+                em.AddComponentData(unit, new AbilityActivated { Target = target });
+            else
+                em.SetComponentData(unit, new AbilityActivated { Target = target });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // TRAIN COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -779,6 +821,27 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        private static void QueueAbilityForLockstep(EntityManager em, Entity unit, Entity target)
+        {
+            int unitId = GetNetworkId(em, unit);
+            int targetId = target != Entity.Null ? GetNetworkId(em, target) : 0;
+
+            if (unitId <= 0)
+            {
+                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
+                IssueAbilityDirect(em, unit, target);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.Ability,
+                EntityNetworkId = unitId,
+                TargetEntityId = targetId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
         private static void SetRallyPointDirect(EntityManager em, Entity building, float3 position)
         {
             if (!em.HasComponent<RallyPoint>(building))
@@ -846,6 +909,8 @@ namespace TheWaningBorder.Core.Commands
                 em.GetBuffer<PatrolWaypoint>(unit).Clear();
             if (em.HasComponent<HoldPositionTag>(unit))
                 em.RemoveComponent<HoldPositionTag>(unit);
+            if (em.HasComponent<AbilityActivated>(unit))
+                em.RemoveComponent<AbilityActivated>(unit);
             if (em.HasComponent<CommandQueueActive>(unit))
                 em.RemoveComponent<CommandQueueActive>(unit);
             if (em.HasBuffer<QueuedCommand>(unit))

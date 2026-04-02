@@ -62,6 +62,21 @@ public static class BuildingSizeConfig
             // Chapels (all sects)
             _ when buildingId != null && buildingId.StartsWith("Chapel_") => new int2(2, 2),
 
+            // Sect unique buildings (all 2x2)
+            "Sect_Sanctuary"          => new int2(2, 2),
+            "Sect_ArchiveTower"       => new int2(2, 2),
+            "Sect_StoneheartBastion"  => new int2(2, 2),
+            "Sect_VeilSpire"          => new int2(2, 2),
+            "Sect_FlameBeacon"        => new int2(2, 2),
+            "Sect_Strongbox"          => new int2(2, 2),
+            "Sect_GlassSanctum"       => new int2(2, 2),
+            "Sect_Tribunal"           => new int2(2, 2),
+            "Sect_WarPyre"            => new int2(2, 2),
+            "Sect_DreadTotem"         => new int2(2, 2),
+            "Sect_BindingPillar"      => new int2(2, 2),
+            "Sect_PurgeAltar"         => new int2(2, 2),
+            _ when buildingId != null && buildingId.StartsWith("Sect_") => new int2(2, 2),
+
             // Crystal nodes (natural, not player-built)
             "CrystalMainNode"         => new int2(5, 5),
             "CrystalEnforcementNode"  => new int2(2, 2),

@@ -131,7 +131,17 @@ namespace TheWaningBorder.Systems.Work
 
                     // Add build progress
                     var uc = em.GetComponentData<UnderConstruction>(site);
-                    uc.Progress += BuildRatePerBuilder * dt;
+                    float buildRate = BuildRatePerBuilder;
+
+                    // Apply sect build speed multiplier
+                    if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(site))
+                    {
+                        var siteFaction = em.GetComponentData<FactionTag>(site).Value;
+                        var mults = FactionSectState.Instance.GetMultipliers(siteFaction);
+                        buildRate *= mults.BuildSpeed;
+                    }
+
+                    uc.Progress += buildRate * dt;
 
                     if (uc.Progress >= uc.Total)
                     {
@@ -196,10 +206,21 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<Buildable>(building))
                 em.RemoveComponent<Buildable>(building);
 
-            // Set health to max
+            // Set health to max (with sect BuildingHP bonus)
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
+
+                if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(building))
+                {
+                    var bFaction = em.GetComponentData<FactionTag>(building).Value;
+                    var mults = FactionSectState.Instance.GetMultipliers(bFaction);
+                    if (mults.BuildingHP > 1f)
+                    {
+                        hp.Max = (int)(hp.Max * mults.BuildingHP);
+                    }
+                }
+
                 hp.Value = hp.Max;
                 em.SetComponentData(building, hp);
             }

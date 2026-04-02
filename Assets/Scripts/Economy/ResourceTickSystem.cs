@@ -17,13 +17,12 @@ namespace TheWaningBorder.Economy
     ///
     /// Only completed buildings contribute (those without UnderConstruction component).
     /// </summary>
-    [BurstCompile]
+    // NOTE: No [BurstCompile] — uses managed FactionSectState singleton for sect multipliers
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ResourceTickSystem : ISystem
     {
         private int _lastWholeSecondGlobally;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             _lastWholeSecondGlobally = (int)math.floor(state.WorldUnmanaged.Time.ElapsedTime);
@@ -33,7 +32,6 @@ namespace TheWaningBorder.Economy
                 .Build());
         }
 
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
@@ -68,7 +66,7 @@ namespace TheWaningBorder.Economy
                 }
             }
 
-            // Apply supplies to faction banks
+            // Apply supplies to faction banks (with sect AllIncome multiplier)
             if (!suppliesPerFaction.IsEmpty)
             {
                 foreach (var (tag, bank) in
@@ -77,6 +75,13 @@ namespace TheWaningBorder.Economy
                     var facKey = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(facKey, out var supplies))
                     {
+                        // Apply sect income multiplier
+                        if (FactionSectState.Instance != null)
+                        {
+                            var mults = FactionSectState.Instance.GetMultipliers(tag.ValueRO.Value);
+                            supplies = (int)(supplies * mults.AllIncome);
+                        }
+
                         bank.ValueRW.Supplies += supplies;
                         if (bank.ValueRO.Supplies > FactionResources.ResourceCap)
                             bank.ValueRW.Supplies = FactionResources.ResourceCap;
@@ -112,11 +117,16 @@ namespace TheWaningBorder.Economy
                     var facKey = (byte)tag.ValueRO.Value;
                     if (perFactionIncome.TryGetValue(facKey, out var income))
                     {
+                        // Apply sect income multiplier to other resources
+                        float incomeMult = 1f;
+                        if (FactionSectState.Instance != null)
+                            incomeMult = FactionSectState.Instance.GetMultipliers(tag.ValueRO.Value).AllIncome;
+
                         var resources = bank.ValueRO;
-                        resources.Iron += income.Iron * missed;
-                        resources.Crystal += income.Crystal * missed;
-                        resources.Veilsteel += income.Veilsteel * missed;
-                        resources.Glow += income.Glow * missed;
+                        resources.Iron += (int)(income.Iron * missed * incomeMult);
+                        resources.Crystal += (int)(income.Crystal * missed * incomeMult);
+                        resources.Veilsteel += (int)(income.Veilsteel * missed * incomeMult);
+                        resources.Glow += (int)(income.Glow * missed * incomeMult);
                         resources.Clamp();
                         bank.ValueRW = resources;
                     }

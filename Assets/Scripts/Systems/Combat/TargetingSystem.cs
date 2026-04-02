@@ -376,6 +376,10 @@ namespace TheWaningBorder.Systems.Combat
                     var enemyPos = allEnemyTransforms[i].Position;
                     var dist = DistXZ(myPos, enemyPos);
 
+                    // Skip stealthed enemies unless within proximity reveal range (3u)
+                    if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                        continue;
+
                     if (dist <= los && dist < bestDist)
                     {
                         bestTarget = allEnemies[i];
@@ -511,6 +515,10 @@ namespace TheWaningBorder.Systems.Combat
 
                         var enemyPos = allEnemyTransforms[i].Position;
                         var dist = DistXZ(myPos, enemyPos);
+
+                        // Skip stealthed enemies unless within proximity reveal range (3u)
+                        if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                            continue;
 
                         if (dist <= los && dist < nearestDist)
                         {
