@@ -254,12 +254,12 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 | Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
 |------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Builder | 60 | 4.0 | 2 | 1.0 | 14 | 50S | 1 | - | Infantry Light | CanBuild |
-| Miner | 70 | 6.0 | 2 | 1.0 | 14 | 50S | 1 | - | Infantry Light | Gathers Iron/Crystal |
-| Scout | 60 | 6.0 | 2 | 1.0 | 40 | 55S | 1 | - | Infantry Light | Extended LoS |
-| Swordsman | 120 | 5.5 | 10 | 1.0 | 16 | 140S | 1 | 1.5s | Infantry Heavy | Melee Def +1 |
-| Archer | 90 | 5.2 | 17 | 10-25 | 30 | 75S | 1 | 2.0s | Ranged | Retreats at min range, Ranged Def +1 |
-| Litharch | 120 | 5.5 | 0 (6 heal/s) | 10.0 | 20 | 100S+25I+10C | 1 | 1.5s | Ranged | Healer, Magic Def +2 |
+| Builder | 60 | 4.0 | 2 | Melee | 12 | 50S | 1 | - | Infantry Light | CanBuild |
+| Miner | 50 | 3.5 | 2 | Melee | 10 | 50S | 1 | - | Infantry Light | Gathers Iron/Crystal |
+| Scout | 40 | 6.0 | 3 | Melee | 20 | 55S | 1 | - | Infantry Light | Extended LoS |
+| Swordsman | 120 | 3.5 | 12 | Melee | 10 | 140S | 1 | 1.2s | Infantry Heavy | Melee Def +1 |
+| Archer | 60 | 4.0 | 8 | 10-25 | 25 | 75S | 1 | 1.5s | Ranged | Retreats at min range, Ranged Def +1 |
+| Litharch | 60 | 3.5 | 5 (8 heal/s) | Melee | 10 | 100S+25I+10C | 1 | 1.5s | Ranged | Healer, Magic Def +2 |
 
 ### Runai Culture Units
 
@@ -275,10 +275,10 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 | Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
 |------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Sentinel | 160 | 3.2 | 14 | 1.0 | 10 | (Garrison) | 2 | 1.4s | Infantry Heavy | Melee +8, Ranged +4, Siege +2, Magic +1 |
-| Crossbowman | 100 | 3.5 | 16 | 6-22 | 25 | (Garrison) | 2 | 2.0s | Infantry Heavy | Melee +2, Ranged +2 |
-| Cataphract | 180 | 6.5 | 18 | 1.0 | 10 | (Royal Stable) | 2 | 1.1s | Cavalry | Melee +3, Ranged +2 |
-| Ballista | 220 | 2.8 | 50 | 10-24 | 26 | (Siege Yard) | 2 | 4.0s | Structure | Longest range, highest single-target damage, Siege +3 |
+| Sentinel | 160 | 3.2 | 14 | Melee | 10 | (Garrison) | 2 | 1.4s | Infantry Heavy | Melee +8, Ranged +4, Siege +2, Magic +1 |
+| Crossbowman | 100 | 3.5 | 20 | 4-18 | 20 | (Garrison) | 2 | 1.2s | Infantry Heavy | Shorter range than Archer, faster fire. Melee +2, Ranged +2 |
+| Cataphract | 180 | 6.5 | 18 | Melee | 10 | (Royal Stable) | 2 | 1.1s | Cavalry | Melee +3, Ranged +2 |
+| Ballista | 220 | 2.8 | 50 | 10-24 | 26 | (Siege Yard) | 2 | 3.0s | Structure | Longest range, highest single-target damage. Bolt projectile (2.5x arrow). Siege +3 |
 
 ### Feraldis Culture Units
 
@@ -303,12 +303,12 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 |------|------|----|-------|-----|-------|----------|-------|-----------|
 | Renewal | ScarGuard | 170 | 3.2 | 16 | Melee | 1.2s | Infantry Heavy | RapidMend self-heal ability |
 | Antiquity | Golem Autark | 320 | 2.0 | 22 | 0-10 | 2.0s | Infantry Heavy | Magic damage, highest HP sect unit |
-| Living Stone | StoneWarden | 200 | 2.8 | 10 | Melee | 1.4s | Infantry Heavy | HP tank (Melee +4, Ranged +3) |
+| Living Stone | StoneWarden | 200 | 2.8 | 10 | Melee | 1.4s | Infantry Heavy | HP tank (Melee +3, Ranged +2, Siege +1) |
 | Veiled Memory | Archivist Adept | 110 | 3.5 | 14 | 0-14 | 1.6s | Ranged | Dispel ability, Magic +2 |
 | Still Flame | FlameWarden | 150 | 3.8 | 15 | Melee | 1.1s | Infantry Heavy | Sanction (root 2s) |
 | Quiet Vault | VaultKeeper | 140 | 3.5 | 12 | Melee | 1.3s | Infantry Heavy | Safeguard (damage reduction aura) |
 | Mirror Rite | Glassmark Arcanist | 100 | 3.5 | 18 | 0-15 | 1.5s | Ranged | Highest magic damage, Magic +1 |
-| Shard Judgment | Judicator | 160 | 3.4 | 16 | Melee | 1.2s | Infantry Heavy | Melee +3, Ranged +1 |
+| Shard Judgment | Judicator | 160 | 3.4 | 16 | Melee | 1.2s | Infantry Heavy | Condemn mark. Melee +2, Ranged +1 |
 | Ember Ash | Ashblade | 155 | 5.0 | 14 | Melee | 1.0s | Infantry Light | Very fast raider |
 | Hollow Brand | Brandbreaker | 150 | 4.0 | 12 (Siege) | Melee | 1.5s | Infantry Heavy | Anti-structure (SiegeTag) |
 | Flamewrought Chains | Chaincaster | 105 | 3.5 | 10 | 0-14 | 1.8s | Ranged | ChainBind (short root), Magic +1 |
@@ -440,7 +440,7 @@ finalDamage = max(1, baseDamage * armorMod * defenseMod * heightMod * crystalMod
 | MeleeRange | 1.5 (+ target radius for buildings) |
 | Default cooldown | 1.5s |
 
-Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown. Out of range: chase via DesiredDestination.
+Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown. Out of range: chase via DesiredDestination. Battalion members keep their target when out of range (BattalionSyncSystem repositions them via encirclement).
 
 ### Ranged Combat System (Archers)
 
@@ -455,7 +455,7 @@ Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown
 
 ### Projectile System
 
-**Arrows**: Quadratic Bezier curve, FlightDuration 0.8s, ArcHeight 3 units, HitRadius 0.8. Guaranteed hit if target alive.
+**Arrows**: Quadratic Bezier curve, FlightDuration 0.8s, ArcHeight 3 units, HitRadius 0.8. Guaranteed hit if target alive. Siege projectiles (Ballista/Catapult) render at 2.5x scale for visual distinction.
 
 **Lasers**: Straight line at constant velocity. Terrain collision check. Used by Crystal buildings and Veilstingers.
 
@@ -564,7 +564,7 @@ Spatial hashing via NativeParallelMultiHashMap. Reduces neighbor scan from O(n^2
 
 **Sticky slot assignment**: Members keep Column/Row between frames. Reassign only on rotation > 30 deg, NeedsReassignment flag, or initial setup. Greedy nearest-slot matching.
 
-**BattalionSyncSystem**: Computes slot world positions from leader pos + rotation. Handles obstacle avoidance (blocked members path toward leader).
+**BattalionSyncSystem**: Computes slot world positions from leader pos + rotation. Handles obstacle avoidance (blocked members path toward leader). **Melee Encirclement**: When a melee battalion's leader has a living target within 8 units, members switch from grid formation to a ring around the target at melee range (1.5 + target radius + 0.3 buffer), allowing all members to engage simultaneously.
 
 **BattalionLeashSystem**: Teleports members exceeding LeashDistance to slot.
 
@@ -959,6 +959,18 @@ Each entity has NetworkId (unique int, assigned at spawn) + SpawnTick. Thread-sa
 | World bounds | (-125, -125) to (125, 125) |
 | Unit blip radius | 2px |
 | Building blip radius | 3px |
+
+### Movement Line Display (Waypoint Indicators)
+
+Color-coded line + marker from selected units to their destination:
+
+| Command Type | Line Color | Marker Color |
+|-------------|------------|-------------|
+| Attack (AttackCommand or Target on battalion leader) | Red | Red |
+| Support (GatherCommand, BuildOrder, HealCommand) | Green | Green |
+| Movement (default) | Gold | Gold |
+
+Battalion leaders use average member position as line origin. Battalion members are excluded (they follow formation, not individual destinations).
 
 ---
 
