@@ -363,43 +363,99 @@ namespace TheWaningBorder.Systems.Movement
                     }
                 }
 
-                // ── 3b. Detect combat — check if leader OR any member has a target ──
-                // Members in combat are released from formation to chase their targets.
-                // Members without targets stay in formation. This creates natural battle
-                // lines: front-rank members engage while back-rank members path around.
+                // ── 3b. Compute own battalion center of mass ──
+                float3 ownCenter = leaderPos;
+                if (aliveCount > 0)
+                {
+                    float3 sum = float3.zero;
+                    for (int i = 0; i < memberCount; i++)
+                        if (_memberAlive[i]) sum += _memberPos[i];
+                    ownCenter = sum / aliveCount;
+                }
+
+                // ── 3c. Check encirclement distance using battalion centers ──
+                // Engagement is battalion-level: when the geometric centers of two
+                // battalions are within EncircleDistance, per-member targets are assigned.
+                const float EncircleDistance = 7f;
+                bool inEncircleRange = false;
                 bool battalionInCombat = false;
 
-                // Check leader target
                 if (em.HasComponent<Target>(entity))
                 {
                     var lt = em.GetComponentData<Target>(entity);
                     if (lt.Value != Entity.Null && em.Exists(lt.Value)
                         && em.HasComponent<Health>(lt.Value)
                         && em.GetComponentData<Health>(lt.Value).Value > 0)
-                        battalionInCombat = true;
-                }
-
-                // Check member targets (AI battalions may auto-acquire without leader knowing)
-                if (!battalionInCombat)
-                {
-                    for (int i = 0; i < memberCount; i++)
                     {
-                        if (!_memberAlive[i]) continue;
-                        if (!em.HasComponent<Target>(_members[i])) continue;
-                        var mt = em.GetComponentData<Target>(_members[i]);
-                        if (mt.Value != Entity.Null && em.Exists(mt.Value)
-                            && em.HasComponent<Health>(mt.Value)
-                            && em.GetComponentData<Health>(mt.Value).Value > 0)
+                        battalionInCombat = true;
+
+                        // Compute enemy battalion center of mass
+                        float3 enemyCenter = em.GetComponentData<LocalTransform>(lt.Value).Position;
+                        if (em.HasComponent<BattalionAttackTarget>(entity))
                         {
-                            battalionInCombat = true;
-                            // Propagate to leader so it stops marching and holds position
-                            if (em.HasComponent<Target>(entity))
+                            var bat = em.GetComponentData<BattalionAttackTarget>(entity);
+                            if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                                && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
                             {
-                                var leaderTgt = em.GetComponentData<Target>(entity);
-                                if (leaderTgt.Value == Entity.Null)
-                                    em.SetComponentData(entity, new Target { Value = mt.Value });
+                                var eBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                                float3 eSum = float3.zero;
+                                int eCnt = 0;
+                                for (int ei = 0; ei < eBuf.Length; ei++)
+                                {
+                                    var e2 = eBuf[ei].Value;
+                                    if (e2 != Entity.Null && em.Exists(e2) && em.HasComponent<LocalTransform>(e2)
+                                        && em.HasComponent<Health>(e2) && em.GetComponentData<Health>(e2).Value > 0)
+                                    {
+                                        eSum += em.GetComponentData<LocalTransform>(e2).Position;
+                                        eCnt++;
+                                    }
+                                }
+                                if (eCnt > 0) enemyCenter = eSum / eCnt;
                             }
-                            break;
+                        }
+
+                        float centerDist = math.length(new float2(ownCenter.x - enemyCenter.x, ownCenter.z - enemyCenter.z));
+                        inEncircleRange = centerDist < EncircleDistance;
+
+                        // If in encircle range, assign per-member targets from enemy battalion
+                        if (inEncircleRange && em.HasComponent<BattalionAttackTarget>(entity))
+                        {
+                            var bat = em.GetComponentData<BattalionAttackTarget>(entity);
+                            if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                                && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
+                            {
+                                var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                                for (int i = 0; i < memberCount; i++)
+                                {
+                                    if (!_memberAlive[i]) continue;
+                                    // Skip members with living targets
+                                    if (em.HasComponent<Target>(_members[i]))
+                                    {
+                                        var curTgt = em.GetComponentData<Target>(_members[i]);
+                                        if (curTgt.Value != Entity.Null && em.Exists(curTgt.Value)
+                                            && em.HasComponent<Health>(curTgt.Value)
+                                            && em.GetComponentData<Health>(curTgt.Value).Value > 0)
+                                            continue;
+                                    }
+                                    // Find nearest living enemy from enemy battalion
+                                    Entity best = Entity.Null;
+                                    float bestD = float.MaxValue;
+                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                    {
+                                        var enemy = enemyBuf[ei].Value;
+                                        if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                        if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                        if (!em.HasComponent<LocalTransform>(enemy)) continue;
+                                        float3 ePos = em.GetComponentData<LocalTransform>(enemy).Position;
+                                        float3 diff = ePos - _memberPos[i];
+                                        diff.y = 0;
+                                        float d = math.lengthsq(diff);
+                                        if (d < bestD) { bestD = d; best = enemy; }
+                                    }
+                                    if (best != Entity.Null)
+                                        em.SetComponentData(_members[i], new Target { Value = best });
+                                }
+                            }
                         }
                     }
                 }
@@ -415,21 +471,20 @@ namespace TheWaningBorder.Systems.Movement
                         continue;
                     }
 
-                    // Members with a combat target are released from formation —
-                    // they will be moved by MeleeCombatSystem/RangedCombatSystem chase logic
-                    if (battalionInCombat && em.HasComponent<Target>(_members[i]))
+                    // Members with a combat target in encircle range are released from formation
+                    if (inEncircleRange && em.HasComponent<Target>(_members[i]))
                     {
                         var mt = em.GetComponentData<Target>(_members[i]);
                         if (mt.Value != Entity.Null && em.Exists(mt.Value)
                             && em.HasComponent<Health>(mt.Value)
                             && em.GetComponentData<Health>(mt.Value).Value > 0)
                         {
-                            _memberDistances[i] = -1f; // Skip formation positioning for this member
+                            _memberDistances[i] = -1f; // Released for combat movement in step 5a
                             continue;
                         }
                     }
 
-                    // Normal mode: use existing Column/Row from BattalionMemberData (sticky assignment)
+                    // Formation mode: use existing Column/Row from BattalionMemberData
                     float3 target;
                     {
                         var md = em.GetComponentData<BattalionMemberData>(_members[i]);

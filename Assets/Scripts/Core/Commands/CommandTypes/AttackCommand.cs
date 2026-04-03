@@ -80,11 +80,13 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
 
                 // Set target on the leader itself so BattalionSyncSystem can detect
-                // combat mode (encirclement) and MovementLineDisplay shows red line
+                // combat mode and MovementLineDisplay shows red line.
+                // Do NOT set targets on members — they march in formation until
+                // BattalionSyncSystem detects encirclement range and assigns per-member targets.
                 SetupAttack(em, unit, target);
 
                 // Remove UserMoveOrder that MoveCommandHelper added — leader needs to
-                // remain eligible for auto-acquire and targeting systems during march
+                // remain eligible for targeting systems during march
                 if (em.HasComponent<UserMoveOrder>(unit))
                     em.RemoveComponent<UserMoveOrder>(unit);
 
@@ -103,16 +105,6 @@ namespace TheWaningBorder.Core.Commands.Types
                         em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                 }
 
-                // Set target on all members so combat systems pick it up
-                // (uses the copied array — safe after structural changes)
-                for (int i = 0; i < memberCount; i++)
-                {
-                    var member = memberEntities[i];
-                    if (member == Entity.Null || !em.Exists(member)) continue;
-
-                    ClearConflictingCommands(em, member);
-                    SetupAttack(em, member, target);
-                }
                 memberEntities.Dispose();
                 return;
             }

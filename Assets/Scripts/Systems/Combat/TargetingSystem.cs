@@ -422,6 +422,47 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (bestTarget != Entity.Null && em.Exists(bestTarget))
                 {
+                    // Battalion members: propagate to leader as battalion-level reaction.
+                    // Leader moves in formation; BattalionSyncSystem assigns per-member targets at encircle range.
+                    if (isBattalionMember)
+                    {
+                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                        if (em.Exists(memberData.Leader) && em.HasComponent<Target>(memberData.Leader))
+                        {
+                            var leaderTgt = em.GetComponentData<Target>(memberData.Leader);
+                            if (leaderTgt.Value == Entity.Null)
+                            {
+                                // Leader has no target yet — set it and move toward enemy
+                                em.SetComponentData(memberData.Leader, new Target { Value = bestTarget });
+                                if (!em.HasComponent<AttackCommand>(memberData.Leader))
+                                    ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                else
+                                    ecb.SetComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+
+                                // Track enemy battalion
+                                Entity enemyLeader = Entity.Null;
+                                if (em.HasComponent<BattalionMemberData>(bestTarget))
+                                    enemyLeader = em.GetComponentData<BattalionMemberData>(bestTarget).Leader;
+                                if (enemyLeader != Entity.Null)
+                                {
+                                    if (!em.HasComponent<BattalionAttackTarget>(memberData.Leader))
+                                        ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                    else
+                                        ecb.SetComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                }
+
+                                // Move leader in formation toward enemy
+                                var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
+                                if (!em.HasComponent<DesiredDestination>(memberData.Leader))
+                                    ecb.AddComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                else
+                                    ecb.SetComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                            }
+                        }
+                        // Don't set target on the member — wait for encircle range
+                        continue;
+                    }
+
                     ecb.SetComponent(entity, new Target { Value = bestTarget });
 
                     // Attack-move and patrol units also issue an AttackCommand so combat systems chase
