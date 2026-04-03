@@ -162,27 +162,51 @@ namespace TheWaningBorder.Systems.Combat
                             effectiveAimRequired *= (1f - math.min(aimMults.RangedAccuracy, 0.9f));
                     }
 
-                    // Siege units must face their target before firing
+                    // Siege units must face the center of the enemy battalion they are attacking
                     bool isSiege = em.HasComponent<SiegeTag>(entity);
+                    float3 siegeAimPos = targetPos; // fallback to individual target
                     if (isSiege)
                     {
-                        float3 toTarget = targetPos - myPos;
+                        // Find enemy battalion center to aim at
+                        if (em.HasComponent<BattalionMemberData>(tgt.Value))
+                        {
+                            var tgtLeader = em.GetComponentData<BattalionMemberData>(tgt.Value).Leader;
+                            if (em.Exists(tgtLeader) && em.HasBuffer<BattalionMember>(tgtLeader))
+                            {
+                                var eBuf = em.GetBuffer<BattalionMember>(tgtLeader);
+                                float3 sum = float3.zero;
+                                int cnt = 0;
+                                for (int bi = 0; bi < eBuf.Length; bi++)
+                                {
+                                    var bm = eBuf[bi].Value;
+                                    if (bm != Entity.Null && em.Exists(bm) && em.HasComponent<LocalTransform>(bm)
+                                        && em.HasComponent<Health>(bm) && em.GetComponentData<Health>(bm).Value > 0)
+                                    {
+                                        sum += em.GetComponentData<LocalTransform>(bm).Position;
+                                        cnt++;
+                                    }
+                                }
+                                if (cnt > 0) siegeAimPos = sum / cnt;
+                            }
+                        }
+
+                        float3 toTarget = siegeAimPos - myPos;
                         toTarget.y = 0;
                         float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
                         forward.y = 0;
                         if (math.lengthsq(toTarget) > 0.01f && math.lengthsq(forward) > 0.01f)
                         {
                             float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
-                            if (dot < 0.9f) // ~25° tolerance
+                            // Always rotate toward battalion center (LookAt)
+                            float3 dir = math.normalizesafe(toTarget);
+                            quaternion targetRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                            var xf = em.GetComponentData<LocalTransform>(entity);
+                            xf.Rotation = math.slerp(xf.Rotation, targetRot, math.min(1f, dt * 3f));
+                            em.SetComponentData(entity, xf);
+
+                            if (dot < 0.9f) // ~25° tolerance before firing
                             {
-                                // Not facing target — rotate toward it
                                 archer.AimTimer = 0;
-                                float3 dir = math.normalizesafe(toTarget);
-                                quaternion targetRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
-                                var xf = em.GetComponentData<LocalTransform>(entity);
-                                // Smooth rotation toward target (lerp 3x per second)
-                                xf.Rotation = math.slerp(xf.Rotation, targetRot, math.min(1f, dt * 3f));
-                                em.SetComponentData(entity, xf);
                                 continue;
                             }
                         }
@@ -280,12 +304,21 @@ namespace TheWaningBorder.Systems.Combat
                             ? em.GetComponentData<Radius>(entity).Value + 0.5f
                             : 1.5f;
 
-                        // Create arrow projectile
+                        // Create projectile(s)
                         bool isAOE = em.HasComponent<AOEShooterData>(entity);
                         float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
-                        CreateArrow(ref ecb, myPos, targetPos, dist, entity,
-                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType,
-                            isAOE, aoeRadius, spawnYOffset);
+
+                        // Siege units (ballistas): fire 3 bolts aimed at enemy battalion center
+                        int shotCount = isSiege ? 3 : 1;
+                        float3 aimPos = isSiege ? siegeAimPos : targetPos;
+                        float aimDist = isSiege ? math.distance(myPos, siegeAimPos) : dist;
+
+                        for (int shot = 0; shot < shotCount; shot++)
+                        {
+                            CreateArrow(ref ecb, myPos, aimPos, aimDist, entity,
+                                faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
+                                isAOE, aoeRadius, spawnYOffset);
+                        }
 
                         // Reset state — use unit's configured cooldown
                         float cooldownValue = 1.5f;
@@ -386,8 +419,8 @@ namespace TheWaningBorder.Systems.Combat
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
 
-            // Apply 25° uncertainty to projectile direction (spread fire)
-            const float UncertaintyDeg = 25f;
+            // Apply 15° uncertainty to projectile direction (spread fire)
+            const float UncertaintyDeg = 15f;
             float halfRad = math.radians(UncertaintyDeg * 0.5f);
             // Deterministic pseudo-random based on shooter + time
             uint seed = (uint)(shooter.Index * 17 + (int)(time * 1000f));
