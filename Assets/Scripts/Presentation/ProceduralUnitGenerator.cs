@@ -176,7 +176,7 @@ namespace TheWaningBorder.Presentation
         private static void DestroyCollider(GameObject go)
         {
             var col = go.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
+            if (col != null) Object.DestroyImmediate(col);
         }
 
         private static GameObject Prim(PrimitiveType type, string name, Transform parent,
