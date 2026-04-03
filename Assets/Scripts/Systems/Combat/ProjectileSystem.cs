@@ -169,12 +169,40 @@ namespace TheWaningBorder.Systems.Combat
 
                         float distToTarget = math.length(targetPos - arrowPos);
 
-                        if (t >= 0.95f || distToTarget < HitRadius)
+                        // Piercing projectiles: check for enemies along trajectory
+                        bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
+                        if (isPiercing)
+                        {
+                            // Scan all enemies near the projectile's current position
+                            var pierceScan = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+                            var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                            var pierceFactions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+
+                            var pierce = em.GetComponentData<PiercingProjectile>(entity);
+                            for (int pi = 0; pi < pierceScan.Length; pi++)
+                            {
+                                if (pierceFactions[pi].Value == proj.Faction) continue; // skip friendlies
+                                float d = math.length(pierceTransforms[pi].Position - arrowPos);
+                                if (d < HitRadius * 2f) // slightly larger hit radius for pierce
+                                {
+                                    ApplyDamage(em, ecb, proj, pierceScan[pi], true, arr.Shooter);
+                                    pierce.RemainingPierces--;
+                                    if (pierce.RemainingPierces <= 0) { shouldDestroy = true; break; }
+                                }
+                            }
+                            if (!shouldDestroy) em.SetComponentData(entity, pierce);
+
+                            pierceScan.Dispose();
+                            pierceTransforms.Dispose();
+                            pierceFactions.Dispose();
+                        }
+
+                        if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
                         {
                             ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
                             shouldDestroy = true;
                         }
-                        else
+                        else if (!shouldDestroy)
                         {
                             // Use terrain-sampled heights for slope-accurate start/end
                             float3 startPos = proj.Start; // Already offset +1.5f at creation

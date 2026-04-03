@@ -161,6 +161,27 @@ namespace TheWaningBorder.Systems.Combat
                             effectiveAimRequired *= (1f - math.min(aimMults.RangedAccuracy, 0.9f));
                     }
 
+                    // Siege units must face their target before firing
+                    bool isSiege = em.HasComponent<SiegeTag>(entity);
+                    if (isSiege)
+                    {
+                        float3 toTarget = targetPos - myPos;
+                        toTarget.y = 0;
+                        float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
+                        forward.y = 0;
+                        if (math.lengthsq(toTarget) > 0.01f && math.lengthsq(forward) > 0.01f)
+                        {
+                            float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
+                            if (dot < 0.9f) // ~25° tolerance
+                            {
+                                // Not facing target — rotate toward it but don't fire
+                                archer.AimTimer = 0;
+                                // BattalionSyncSystem or PresentationSpawnSystem will update rotation
+                                continue;
+                            }
+                        }
+                    }
+
                     // Fire when aim is ready and cooldown is complete
                     if (archer.AimTimer >= effectiveAimRequired && archer.CooldownTimer <= 0)
                     {
@@ -359,6 +380,20 @@ namespace TheWaningBorder.Systems.Combat
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
 
+            // Apply 25° uncertainty to projectile direction (spread fire)
+            const float UncertaintyDeg = 25f;
+            float halfRad = math.radians(UncertaintyDeg * 0.5f);
+            // Deterministic pseudo-random based on shooter + time
+            uint seed = (uint)(shooter.Index * 17 + (int)(time * 1000f));
+            seed = seed * 1103515245 + 12345;
+            float yawOffset = ((seed % 1000) / 1000f - 0.5f) * 2f * halfRad;
+            seed = seed * 1103515245 + 12345;
+            float pitchOffset = ((seed % 1000) / 1000f - 0.5f) * 2f * halfRad * 0.3f; // less vertical spread
+            quaternion yawRot = quaternion.AxisAngle(new float3(0, 1, 0), yawOffset);
+            quaternion pitchRot = quaternion.AxisAngle(math.normalizesafe(math.cross(direction, new float3(0, 1, 0))), pitchOffset);
+            direction = math.mul(yawRot, math.mul(pitchRot, direction));
+            direction = math.normalizesafe(direction);
+
             // Add slight upward arc for visual appeal
             float minPitch = math.radians(5f);
             float currentPitch = math.asin(direction.y);
@@ -385,7 +420,7 @@ namespace TheWaningBorder.Systems.Combat
             ecb.AddComponent(arrow, new ArrowProjectile
             {
                 Velocity = velocity,
-                Gravity = 0f,  // No gravity for homing arrows
+                Gravity = 0f,
                 Shooter = shooter,
                 IsParabolic = false
             });
@@ -397,13 +432,17 @@ namespace TheWaningBorder.Systems.Combat
                 StartTime = time,
                 FlightTime = estimatedFlightTime,
                 Damage = damage,
-                Target = targetEntity,  // Store target entity for homing
+                Target = targetEntity,
                 Faction = faction,
                 DmgType = dmgType
             });
 
             if (isAOE)
                 ecb.AddComponent(arrow, new AOEProjectile { Radius = aoeRadius });
+
+            // Siege projectiles (Ballista bolts) pierce through multiple targets
+            if (dmgType == DamageType.Siege)
+                ecb.AddComponent(arrow, new PiercingProjectile { RemainingPierces = 5 });
         }
 
         private static float DistXZ(float3 a, float3 b)

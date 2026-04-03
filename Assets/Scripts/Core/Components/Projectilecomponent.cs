@@ -55,3 +55,13 @@ public struct AOEShooterData : IComponentData
     /// <summary>Splash damage radius copied to projectiles</summary>
     public float Radius;
 }
+
+/// <summary>
+/// Marks a projectile (e.g. Ballista bolt) as piercing — it continues through
+/// targets on its trajectory instead of stopping at the first hit.
+/// </summary>
+public struct PiercingProjectile : IComponentData
+{
+    /// <summary>How many targets remain before the bolt stops (0 = infinite)</summary>
+    public int RemainingPierces;
+}
