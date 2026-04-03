@@ -54,13 +54,13 @@ namespace TheWaningBorder.UI.HUD
             // Track which entities already have bars drawn (avoid duplicates for hovered+selected)
             var drawn = new HashSet<Entity>();
 
-            // Draw bar for hovered entity
+            // Draw bar for hovered entity (any visible entity, including battalion members)
             var hovered = RTSInput.HoveredEntity;
             if (hovered != Entity.Null && _em.Exists(hovered) && _em.HasComponent<Health>(hovered))
             {
                 if (ShouldShowBar(hovered))
                 {
-                    DrawBarForEntity(cam, hovered);
+                    DrawBarForEntity(cam, hovered, isHovered: true);
                     drawn.Add(hovered);
                 }
             }
@@ -84,7 +84,13 @@ namespace TheWaningBorder.UI.HUD
 
         private bool ShouldShowBar(Entity e)
         {
-            if (!_em.HasComponent<FactionTag>(e)) return false;
+            // Entities without faction (resource deposits, neutral objects) — show if visible
+            if (!_em.HasComponent<FactionTag>(e))
+            {
+                if (!_em.HasComponent<LocalTransform>(e)) return false;
+                var p = _em.GetComponentData<LocalTransform>(e).Position;
+                return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, p);
+            }
 
             var faction = _em.GetComponentData<FactionTag>(e).Value;
             if (faction == GameSettings.LocalPlayerFaction)
@@ -96,15 +102,15 @@ namespace TheWaningBorder.UI.HUD
             return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
         }
 
-        private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false)
+        private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false, bool isHovered = false)
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
 
             // Skip battalion leaders (invisible, dummy HP)
             if (_em.HasComponent<BattalionLeader>(e)) return;
 
-            // Skip unselected battalion members (only show when battalion is selected)
-            if (_em.HasComponent<BattalionMemberData>(e) && !isSelected) return;
+            // Battalion members: show when hovered OR when their battalion is selected
+            if (_em.HasComponent<BattalionMemberData>(e) && !isSelected && !isHovered) return;
 
             var hp = _em.GetComponentData<Health>(e);
 
