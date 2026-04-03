@@ -227,15 +227,19 @@ namespace TheWaningBorder.Input
             var e = RaycastPickEntity();
             float now = Time.time;
 
-            // Battalion resolution: if clicked entity is a member, resolve to leader
+            // Battalion resolution: if clicked entity is a member, check selectability
+            // at the MEMBER position (visible on screen), then resolve to leader
+            Entity clickedMember = Entity.Null;
             if (e != Entity.Null && _em.Exists(e) && _em.HasComponent<BattalionMemberData>(e))
             {
+                clickedMember = e;
                 e = _em.GetComponentData<BattalionMemberData>(e).Leader;
             }
 
             // Check for double-click on a unit of the same type
-            if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e)
-                && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
+            bool dblClickSelectable = (e != Entity.Null && _em.Exists(e))
+                && (clickedMember != Entity.Null ? IsSelectableByPlayer(clickedMember) : IsSelectableByPlayer(e));
+            if (dblClickSelectable && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
             {
                 var clickedClass = _em.GetComponentData<UnitTag>(e).Class;
 
@@ -269,7 +273,11 @@ namespace TheWaningBorder.Input
             // Normal single-click selection
             _selection.Clear();
 
-            if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e))
+            // Use member position for visibility check (member is the entity the user clicked)
+            bool selectable = (e != Entity.Null && _em.Exists(e))
+                && (clickedMember != Entity.Null ? IsSelectableByPlayer(clickedMember) : IsSelectableByPlayer(e));
+
+            if (selectable)
             {
                 // If selecting a battalion leader, add leader + all members
                 if (_em.HasComponent<BattalionLeader>(e) && _em.HasBuffer<BattalionMember>(e))
