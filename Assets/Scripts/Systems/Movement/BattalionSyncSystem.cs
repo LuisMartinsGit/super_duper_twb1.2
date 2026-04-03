@@ -344,12 +344,12 @@ namespace TheWaningBorder.Systems.Movement
                                     if (!reassigned)
                                     {
                                         // All enemies from target battalion dead — clear tracking
-                                        em.RemoveComponent<BattalionAttackTarget>(entity);
+                                        ecb.RemoveComponent<BattalionAttackTarget>(entity);
                                     }
                                 }
                                 else
                                 {
-                                    em.RemoveComponent<BattalionAttackTarget>(entity);
+                                    ecb.RemoveComponent<BattalionAttackTarget>(entity);
                                 }
                             }
 
@@ -357,7 +357,7 @@ namespace TheWaningBorder.Systems.Movement
                             {
                                 em.SetComponentData(entity, new Target { Value = Entity.Null });
                                 if (em.HasComponent<AttackCommand>(entity))
-                                    em.RemoveComponent<AttackCommand>(entity);
+                                    ecb.RemoveComponent<AttackCommand>(entity);
                             }
                         }
                     }
