@@ -83,6 +83,26 @@ namespace TheWaningBorder.Core.Commands.Types
                 // combat mode (encirclement) and MovementLineDisplay shows red line
                 SetupAttack(em, unit, target);
 
+                // Remove UserMoveOrder that MoveCommandHelper added — leader needs to
+                // remain eligible for auto-acquire and targeting systems during march
+                if (em.HasComponent<UserMoveOrder>(unit))
+                    em.RemoveComponent<UserMoveOrder>(unit);
+
+                // Track enemy battalion so members can chain targets from the same group
+                Entity enemyLeader = Entity.Null;
+                if (em.HasComponent<BattalionMemberData>(target))
+                    enemyLeader = em.GetComponentData<BattalionMemberData>(target).Leader;
+                else if (em.HasComponent<BattalionLeader>(target))
+                    enemyLeader = target;
+
+                if (enemyLeader != Entity.Null)
+                {
+                    if (!em.HasComponent<BattalionAttackTarget>(unit))
+                        em.AddComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                    else
+                        em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                }
+
                 // Set target on all members so combat systems pick it up
                 // (uses the copied array — safe after structural changes)
                 for (int i = 0; i < memberCount; i++)

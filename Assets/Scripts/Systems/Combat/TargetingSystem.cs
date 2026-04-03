@@ -199,8 +199,9 @@ namespace TheWaningBorder.Systems.Combat
                 // Set target component (Target always present on combat units)
                 ecb.SetComponent(entity, new Target { Value = target });
 
-                // Clear destination when attacking
-                if (em.HasComponent<DesiredDestination>(entity))
+                // Clear destination when attacking — but NOT for battalion leaders,
+                // who need DesiredDestination to march the formation toward the enemy
+                if (em.HasComponent<DesiredDestination>(entity) && !em.HasComponent<BattalionLeader>(entity))
                 {
                     ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                 }
@@ -364,26 +365,58 @@ namespace TheWaningBorder.Systems.Combat
                     // Aggressive: no guard distance check — fall through to enemy scan
                 }
 
-                // ── Single enemy scan shared by idle, attack-move, and patrol units ──
+                // ── Priority scan: prefer enemies from the same battalion we were ordered to attack ──
                 Entity bestTarget = Entity.Null;
                 float bestDist = float.MaxValue;
 
-                for (int i = 0; i < allEnemies.Length; i++)
+                if (isBattalionMember)
                 {
-                    if (allEnemyFactions[i].Value == myFaction) continue;
-                    if (allEnemyHealth[i].Value <= 0) continue;
-
-                    var enemyPos = allEnemyTransforms[i].Position;
-                    var dist = DistXZ(myPos, enemyPos);
-
-                    // Skip stealthed enemies unless within proximity reveal range (3u)
-                    if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
-                        continue;
-
-                    if (dist <= los && dist < bestDist)
+                    var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                    if (em.Exists(memberData.Leader) && em.HasComponent<BattalionAttackTarget>(memberData.Leader))
                     {
-                        bestTarget = allEnemies[i];
-                        bestDist = dist;
+                        var bat = em.GetComponentData<BattalionAttackTarget>(memberData.Leader);
+                        if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                            && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
+                        {
+                            var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                            for (int ei = 0; ei < enemyBuf.Length; ei++)
+                            {
+                                var enemy = enemyBuf[ei].Value;
+                                if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                if (!em.HasComponent<LocalTransform>(enemy)) continue;
+                                var enemyPos = em.GetComponentData<LocalTransform>(enemy).Position;
+                                var dist = DistXZ(myPos, enemyPos);
+                                if (dist <= los && dist < bestDist)
+                                {
+                                    bestTarget = enemy;
+                                    bestDist = dist;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Fallback: generic enemy scan (all enemies within LOS) ──
+                if (bestTarget == Entity.Null)
+                {
+                    for (int i = 0; i < allEnemies.Length; i++)
+                    {
+                        if (allEnemyFactions[i].Value == myFaction) continue;
+                        if (allEnemyHealth[i].Value <= 0) continue;
+
+                        var enemyPos = allEnemyTransforms[i].Position;
+                        var dist = DistXZ(myPos, enemyPos);
+
+                        // Skip stealthed enemies unless within proximity reveal range (3u)
+                        if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                            continue;
+
+                        if (dist <= los && dist < bestDist)
+                        {
+                            bestTarget = allEnemies[i];
+                            bestDist = dist;
+                        }
                     }
                 }
 

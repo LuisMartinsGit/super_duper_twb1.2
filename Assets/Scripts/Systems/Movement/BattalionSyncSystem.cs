@@ -307,7 +307,7 @@ namespace TheWaningBorder.Systems.Movement
                     leader.ValueRW.LastAssignmentRot = formationRot;
                 }
 
-                // ── 3a. Clear stale leader target (target died or doesn't exist) ──
+                // ── 3a. Clear stale leader target + BattalionAttackTarget ──
                 if (em.HasComponent<Target>(entity))
                 {
                     var lt = em.GetComponentData<Target>(entity);
@@ -318,9 +318,47 @@ namespace TheWaningBorder.Systems.Movement
                             || em.GetComponentData<Health>(lt.Value).Value <= 0;
                         if (targetGone)
                         {
-                            em.SetComponentData(entity, new Target { Value = Entity.Null });
-                            if (em.HasComponent<AttackCommand>(entity))
-                                em.RemoveComponent<AttackCommand>(entity);
+                            // Try to reassign leader target to next living enemy from same battalion
+                            bool reassigned = false;
+                            if (em.HasComponent<BattalionAttackTarget>(entity))
+                            {
+                                var bat = em.GetComponentData<BattalionAttackTarget>(entity);
+                                if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                                    && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
+                                {
+                                    var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                    {
+                                        var em2 = enemyBuf[ei].Value;
+                                        if (em2 != Entity.Null && em.Exists(em2)
+                                            && em.HasComponent<Health>(em2)
+                                            && em.GetComponentData<Health>(em2).Value > 0)
+                                        {
+                                            em.SetComponentData(entity, new Target { Value = em2 });
+                                            if (em.HasComponent<AttackCommand>(entity))
+                                                em.SetComponentData(entity, new AttackCommand { Target = em2 });
+                                            reassigned = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!reassigned)
+                                    {
+                                        // All enemies from target battalion dead — clear tracking
+                                        em.RemoveComponent<BattalionAttackTarget>(entity);
+                                    }
+                                }
+                                else
+                                {
+                                    em.RemoveComponent<BattalionAttackTarget>(entity);
+                                }
+                            }
+
+                            if (!reassigned)
+                            {
+                                em.SetComponentData(entity, new Target { Value = Entity.Null });
+                                if (em.HasComponent<AttackCommand>(entity))
+                                    em.RemoveComponent<AttackCommand>(entity);
+                            }
                         }
                     }
                 }
@@ -483,6 +521,56 @@ namespace TheWaningBorder.Systems.Movement
                     float dist = math.length(diff);
                     _memberDistances[i] = dist;
                     if (dist > maxDist) maxDist = dist;
+                }
+
+                // ── 4b. Per-member targeting during encirclement ──
+                // Assign each member its nearest living enemy from the target battalion
+                if (inCombatEncircle && em.HasComponent<BattalionAttackTarget>(entity))
+                {
+                    var bat = em.GetComponentData<BattalionAttackTarget>(entity);
+                    if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                        && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
+                    {
+                        var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                        for (int i = 0; i < memberCount; i++)
+                        {
+                            if (!_memberAlive[i]) continue;
+                            var member = _members[i];
+
+                            // Skip members that already have a living target
+                            if (em.HasComponent<Target>(member))
+                            {
+                                var curTgt = em.GetComponentData<Target>(member);
+                                if (curTgt.Value != Entity.Null && em.Exists(curTgt.Value)
+                                    && em.HasComponent<Health>(curTgt.Value)
+                                    && em.GetComponentData<Health>(curTgt.Value).Value > 0)
+                                    continue;
+                            }
+
+                            // Find nearest living enemy from the target battalion
+                            Entity bestEnemy = Entity.Null;
+                            float bestDist = float.MaxValue;
+                            for (int ei = 0; ei < enemyBuf.Length; ei++)
+                            {
+                                var enemy = enemyBuf[ei].Value;
+                                if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                if (!em.HasComponent<LocalTransform>(enemy)) continue;
+                                float3 ePos = em.GetComponentData<LocalTransform>(enemy).Position;
+                                float3 diff = ePos - _memberPos[i];
+                                diff.y = 0;
+                                float d = math.lengthsq(diff);
+                                if (d < bestDist)
+                                {
+                                    bestDist = d;
+                                    bestEnemy = enemy;
+                                }
+                            }
+
+                            if (bestEnemy != Entity.Null)
+                                em.SetComponentData(member, new Target { Value = bestEnemy });
+                        }
+                    }
                 }
 
                 // Leader speed fallback
