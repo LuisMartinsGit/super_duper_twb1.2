@@ -297,7 +297,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Veilstinger | 65 | 4.0 | 18 | 8-24 | 28 | 150C | Ranged | +3/+2/+1/+2 | Dual-laser (2 targets). 1.5s cooldown. Retreats at min range |
 | Godsplinter | 1200 | 1.8 | 40 | 4 (siege) / 22 (laser) | 20 | 500C | Infantry Heavy | +10/+8/+5/+5 | Siege mode (melee, 3s cd) + Laser barrage (4 targets, 2s cd) |
 
-### Sect Units (12 total, one per sect)
+### Sect Units (12 total, one per sect, trained individually — never as battalions)
 
 | Sect | Unit | HP | Speed | Dmg | Range | Cooldown | Armor | Key Trait |
 |------|------|----|-------|-----|-------|----------|-------|-----------|
@@ -700,10 +700,15 @@ Crystal-tagged entities are immune. Damage = max(1, DPS * interval).
 5. Cost paid at queue time (not spawn time)
 6. MAX_TRAIN_QUEUE: 5
 
+**Battalion spawning**: Melee and Ranged class units spawn as battalions (15 members = 5x3 grid). **Sect units are special** — they always train as single units regardless of class (identified by `Sect_` prefix).
+
+**Feraldis culture bonus**: When the training faction has Feraldis culture, training time and cost are multiplied by 1.75x, but **2 units/battalions spawn at once** (net ~14% efficiency bonus). Sect units are excluded from the 2x spawn. The multiplier applies to standard training buildings (Barracks, Hall, etc.), not to the Feraldis Longhouse which has its own batch system.
+
 ### Population
 
 - PopulationHelper.GetUnitPopulationCost(unitId)
 - Battalions: cost * 15 (5 columns * 3 rows)
+- Feraldis 2x spawn: pop requirement doubled (2 battalions = cost * 15 * 2)
 - Spawn blocked if insufficient capacity (waits for pop to free)
 - Buildings provide pop: Hall +20, Hut +5, Garrison +8, Longhouse +10, Bazaar +40
 
@@ -711,11 +716,11 @@ Crystal-tagged entities are immune. Damage = max(1, DPS * interval).
 
 | Parameter | Value |
 |-----------|-------|
-| BatchSize | 5 or 10 units |
+| BatchSize | 5 units |
 | TimeMultiplier | 0.9x (10% faster) |
 | CostDiscount | 5% |
 
-All units spawn simultaneously when timer expires. Pop check: total_pop_cost * batch_size.
+All units spawn simultaneously when timer expires. Pop check: total_pop_cost * batch_size. Separate from the Feraldis 2x training bonus (which applies to standard buildings).
 
 ---
 

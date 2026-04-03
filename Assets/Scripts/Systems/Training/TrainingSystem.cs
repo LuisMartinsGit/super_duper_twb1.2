@@ -35,6 +35,7 @@ namespace TheWaningBorder.Systems.Training
         {
             public Entity Building;
             public FixedString64Bytes UnitId;
+            public int SpawnCount; // Feraldis spawns 2 units/battalions at once
         }
 
         public void OnCreate(ref SystemState state)
@@ -83,6 +84,12 @@ namespace TheWaningBorder.Systems.Training
 
                     // Start training
                     float trainingTime = udef.trainingTime > 0 ? udef.trainingTime : 1f;
+
+                    // Feraldis culture: 1.75x training time (compensated by 2x spawn output)
+                    var buildingFaction = state.EntityManager.GetComponentData<FactionTag>(entity).Value;
+                    if (FactionColors.GetFactionCulture(buildingFaction) == Cultures.Feraldis)
+                        trainingTime *= 1.75f;
+
                     ts.ValueRW.Busy = 1;
                     ts.ValueRW.Remaining = trainingTime;
                 }
@@ -99,13 +106,22 @@ namespace TheWaningBorder.Systems.Training
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
                         int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId);
 
+                        // Sect units are SPECIAL — always train as single units, never battalions
+                        bool isSectUnit = unitId.StartsWith("Sect_");
+
                         // Battalions spawn multiple members — scale pop cost accordingly
                         var spawnClass = UnitFactory.GetUnitClass(unitId);
-                        if (spawnClass == UnitClass.Melee || spawnClass == UnitClass.Ranged)
+                        bool spawnAsBattalion = !isSectUnit && (spawnClass == UnitClass.Melee || spawnClass == UnitClass.Ranged);
+                        if (spawnAsBattalion)
                         {
                             int battalionSize = 5 * 3; // BattalionFactory.DefaultColumns * DefaultRows
                             requiredPop = requiredPop * battalionSize;
                         }
+
+                        // Feraldis culture: spawn 2 units/battalions at once (1.75x cost already paid at queue time)
+                        byte factionCulture = FactionColors.GetFactionCulture(faction);
+                        int spawnCount = (factionCulture == Cultures.Feraldis && !isSectUnit) ? 2 : 1;
+                        requiredPop *= spawnCount;
 
                         // Include units already spawned this frame in the capacity check
                         int facKey = (int)faction;
@@ -122,7 +138,8 @@ namespace TheWaningBorder.Systems.Training
                             deferredSpawns.Add(new DeferredSpawn
                             {
                                 Building = entity,
-                                UnitId = new FixedString64Bytes(unitId)
+                                UnitId = new FixedString64Bytes(unitId),
+                                SpawnCount = spawnCount
                             });
 
                             // Track the pop consumed this frame
@@ -142,7 +159,10 @@ namespace TheWaningBorder.Systems.Training
             // ═══════════ Phase 2: Spawn units AFTER iteration (structural changes safe) ═══════════
             for (int i = 0; i < deferredSpawns.Length; i++)
             {
-                SpawnUnit(ref state, ecb, deferredSpawns[i].Building, deferredSpawns[i].UnitId.ToString());
+                for (int s = 0; s < deferredSpawns[i].SpawnCount; s++)
+                {
+                    SpawnUnit(ref state, ecb, deferredSpawns[i].Building, deferredSpawns[i].UnitId.ToString());
+                }
             }
 
             deferredSpawns.Dispose();
@@ -203,8 +223,10 @@ namespace TheWaningBorder.Systems.Training
             }
 
             // Check if unit class should spawn as a battalion (Melee or Ranged)
+            // Sect units are SPECIAL — always single units, never battalions
+            bool isSect = unitId.StartsWith("Sect_");
             var unitClass = UnitFactory.GetUnitClass(unitId);
-            if (unitClass == UnitClass.Melee || unitClass == UnitClass.Ranged)
+            if (!isSect && (unitClass == UnitClass.Melee || unitClass == UnitClass.Ranged))
             {
                 Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
                 TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
