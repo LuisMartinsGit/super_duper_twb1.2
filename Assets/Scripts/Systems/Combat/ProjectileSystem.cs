@@ -169,11 +169,31 @@ namespace TheWaningBorder.Systems.Combat
 
                         float distToTarget = math.length(targetPos - arrowPos);
 
-                        // Piercing projectiles: check for enemies along trajectory
                         bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
-                        if (isPiercing)
+
+                        if (t >= 0.95f || distToTarget < HitRadius)
                         {
-                            // Scan all enemies near the projectile's current position
+                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
+
+                            if (isPiercing)
+                            {
+                                // Piercing bolt: don't destroy, keep flying through
+                                var pierce = em.GetComponentData<PiercingProjectile>(entity);
+                                pierce.RemainingPierces--;
+                                if (pierce.RemainingPierces <= 0)
+                                    shouldDestroy = true;
+                                else
+                                    em.SetComponentData(entity, pierce);
+                            }
+                            else
+                            {
+                                shouldDestroy = true;
+                            }
+                        }
+
+                        // Piercing: also scan for enemies along trajectory while in flight
+                        if (isPiercing && !shouldDestroy && t < 0.95f)
+                        {
                             var pierceScan = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
                             var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
                             var pierceFactions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
@@ -181,9 +201,10 @@ namespace TheWaningBorder.Systems.Combat
                             var pierce = em.GetComponentData<PiercingProjectile>(entity);
                             for (int pi = 0; pi < pierceScan.Length; pi++)
                             {
-                                if (pierceFactions[pi].Value == proj.Faction) continue; // skip friendlies
+                                if (pierceFactions[pi].Value == proj.Faction) continue;
+                                if (pierceScan[pi] == proj.Target) continue; // primary target handled above
                                 float d = math.length(pierceTransforms[pi].Position - arrowPos);
-                                if (d < HitRadius * 2f) // slightly larger hit radius for pierce
+                                if (d < 2.5f) // generous hit radius for bolt piercing
                                 {
                                     ApplyDamage(em, ecb, proj, pierceScan[pi], true, arr.Shooter);
                                     pierce.RemainingPierces--;
@@ -195,12 +216,6 @@ namespace TheWaningBorder.Systems.Combat
                             pierceScan.Dispose();
                             pierceTransforms.Dispose();
                             pierceFactions.Dispose();
-                        }
-
-                        if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
-                        {
-                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
-                            shouldDestroy = true;
                         }
                         else if (!shouldDestroy)
                         {

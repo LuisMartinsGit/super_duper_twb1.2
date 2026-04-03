@@ -174,9 +174,14 @@ namespace TheWaningBorder.Systems.Combat
                             float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
                             if (dot < 0.9f) // ~25° tolerance
                             {
-                                // Not facing target — rotate toward it but don't fire
+                                // Not facing target — rotate toward it
                                 archer.AimTimer = 0;
-                                // BattalionSyncSystem or PresentationSpawnSystem will update rotation
+                                float3 dir = math.normalizesafe(toTarget);
+                                quaternion targetRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                                var xf = em.GetComponentData<LocalTransform>(entity);
+                                // Smooth rotation toward target (lerp 3x per second)
+                                xf.Rotation = math.slerp(xf.Rotation, targetRot, math.min(1f, dt * 3f));
+                                em.SetComponentData(entity, xf);
                                 continue;
                             }
                         }
