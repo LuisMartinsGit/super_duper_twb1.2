@@ -27,10 +27,8 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 510, "Procedural/Barracks" },                    // Barracks.PresentationID = 510 (procedural Age 1)
 
         // Buildings - Era 1 Advanced
-        { 520, "Prefabs/Buildings/TempleOfRidan" },      // ShrineOfAhridan.PresentationID = 520 (reuses temple prefab)
-        { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521 (new temple)
-        { 530, "Prefabs/Buildings/VaultOfAlmierra" },    // VaultOfAlmierra.PresentationID = 530
-        { 520, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 520
+        { 520, "Procedural/ShrineOfAhridan" },           // ShrineOfAhridan.PresentationID = 520
+        { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521
         { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 (procedural)
         { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540
 
