@@ -424,7 +424,8 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     // Battalion members: propagate to leader as battalion-level reaction.
                     // Leader moves in formation; BattalionSyncSystem assigns per-member targets at encircle range.
-                    // Use em directly (not ECB) since leader is excluded from this query via WithNone<BattalionLeader>.
+                    // Use em.SetComponentData for Target (non-structural, instantly visible to prevent
+                    // duplicate adds). Use ECB for structural AddComponent calls.
                     if (isBattalionMember)
                     {
                         var memberData = em.GetComponentData<BattalionMemberData>(entity);
@@ -433,12 +434,16 @@ namespace TheWaningBorder.Systems.Combat
                             var leaderTgt = em.GetComponentData<Target>(memberData.Leader);
                             if (leaderTgt.Value == Entity.Null)
                             {
-                                // Leader has no target yet — set it and move toward enemy
+                                // Set Target immediately (non-structural) — prevents other members
+                                // from entering this block in the same frame
                                 em.SetComponentData(memberData.Leader, new Target { Value = bestTarget });
+
+                                // Structural adds via ECB (safe, deferred) — only one member reaches
+                                // here per leader per frame thanks to the Target gate above
                                 if (!em.HasComponent<AttackCommand>(memberData.Leader))
-                                    em.AddComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
                                 else
-                                    em.SetComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    ecb.SetComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
 
                                 // Track enemy battalion
                                 Entity enemyLeader = Entity.Null;
@@ -447,9 +452,9 @@ namespace TheWaningBorder.Systems.Combat
                                 if (enemyLeader != Entity.Null)
                                 {
                                     if (!em.HasComponent<BattalionAttackTarget>(memberData.Leader))
-                                        em.AddComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                     else
-                                        em.SetComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        ecb.SetComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                 }
 
                                 // Move leader in formation toward enemy
@@ -457,9 +462,9 @@ namespace TheWaningBorder.Systems.Combat
                                 {
                                     var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
                                     if (em.HasComponent<DesiredDestination>(memberData.Leader))
-                                        em.SetComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                        ecb.SetComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
                                     else
-                                        em.AddComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                        ecb.AddComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
                                 }
                             }
                         }
