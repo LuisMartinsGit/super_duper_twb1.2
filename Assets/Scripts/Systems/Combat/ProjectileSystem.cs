@@ -24,6 +24,7 @@ namespace TheWaningBorder.Systems.Combat
         // Flight parameters
         private const float FlightDuration = 0.8f;     // How long arrows take to reach target
         private const float ArrowSpeed = 30f;            // Projectile speed (matches RangedCombatSystem)
+        private const float BoltSpeed = 55f;             // Siege bolt speed (matches RangedCombatSystem)
         private const float ArcHeight = 3f;            // Height of arc above midpoint
         private const float HitRadius = 0.8f;          // Distance to register a hit
 
@@ -204,7 +205,7 @@ namespace TheWaningBorder.Systems.Combat
                             if (!shouldDestroy)
                             {
                                 float boltDt = SystemAPI.Time.DeltaTime;
-                                float3 newPos = arrowPos + math.normalizesafe(arr.Velocity) * ArrowSpeed * boltDt;
+                                float3 newPos = arrowPos + math.normalizesafe(arr.Velocity) * BoltSpeed * boltDt;
                                 newPos.y = math.max(newPos.y, TerrainUtility.GetHeight(newPos.x, newPos.z) + 0.5f);
                                 trans.Position = newPos;
                                 // Destroy if past max flight time

@@ -33,6 +33,7 @@ namespace TheWaningBorder.Systems.Combat
         private const float DefaultMinRange = 10f;
         private const float DefaultMaxRange = 25f;
         private const float ArrowSpeed = 30f;
+        private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
 
         // Height damage modifier settings
         private const float HeightDamageScale = 0.04f;
@@ -409,8 +410,9 @@ namespace TheWaningBorder.Systems.Combat
                 direction = math.normalize(direction);
             }
 
-            var velocity = direction * ArrowSpeed;
-            var estimatedFlightTime = distance / ArrowSpeed;
+            float speed = (dmgType == DamageType.Siege) ? BoltSpeed : ArrowSpeed;
+            var velocity = direction * speed;
+            var estimatedFlightTime = distance / speed;
 
             // Create arrow entity
             var arrow = ecb.CreateEntity();
