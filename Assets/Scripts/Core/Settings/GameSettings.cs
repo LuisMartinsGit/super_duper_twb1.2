@@ -22,7 +22,8 @@ public enum ScenarioType
     LargeRanged,
     LargeMixed,
     HealerTest,
-    FourWayCultures
+    FourWayCultures,
+    FullArmy
 }
 
 public enum SpawnLayout

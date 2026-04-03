@@ -108,6 +108,9 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.FourWayCultures:
                     SpawnFourWayCultures(em);
                     break;
+                case ScenarioType.FullArmy:
+                    SpawnFullArmy(em);
+                    break;
             }
 
             // Focus camera on center
@@ -249,6 +252,46 @@ namespace TheWaningBorder.Bootstrap
                 if (factions[i].Value != faction) continue;
                 AttackMoveCommandHelper.Execute(em, entities[i], destination);
             }
+        }
+
+        /// <summary>
+        /// Full army: 3 Archer battalions, 3 Swordsman battalions, 6 Litharchs, 2 Ballistas per side.
+        /// Layout: Front row = 3 Swordsman battalions, Back row = 3 Archer battalions,
+        /// Litharchs spread behind archers, Ballistas on flanks behind everything.
+        /// </summary>
+        private static void SpawnFullArmy(EntityManager em)
+        {
+            foreach (var faction in new[] { Faction.Blue, Faction.Red })
+            {
+                float sign = (faction == Faction.Blue) ? -1f : 1f;
+                float3 armyCenter = new float3(0, 0, sign * ArmySeparation * 0.5f);
+
+                // Row 1 (front): 3 Swordsman battalions
+                SpawnArmyRow(em, "Swordsman", faction, 3, armyCenter);
+
+                // Row 2 (behind front): 3 Archer battalions
+                SpawnArmyRow(em, "Archer", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing));
+
+                // Row 3 (behind archers): 6 Litharchs spread across the line
+                for (int i = 0; i < 6; i++)
+                {
+                    float x = (i - 2.5f) * 4f;
+                    float3 pos = armyCenter + new float3(x, 0, sign * RowSpacing * 2f);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    UnitFactory.Create(em, "Litharch", pos, faction);
+                }
+
+                // Row 4 (flanks, furthest back): 2 Ballistas on left and right
+                for (int i = 0; i < 2; i++)
+                {
+                    float x = (i == 0) ? -ArmySpacing : ArmySpacing;
+                    float3 pos = armyCenter + new float3(x, 0, sign * RowSpacing * 2.5f);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    UnitFactory.Create(em, "Alanthor_Ballista", pos, faction);
+                }
+            }
+
+            Debug.Log("[ScenarioSetup] Full Army: 3 Archer + 3 Swordsman battalions + 6 Litharchs + 2 Ballistas per side");
         }
 
         // ═══════════════════════════════════════════════════════════════
