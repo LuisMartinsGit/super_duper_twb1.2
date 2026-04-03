@@ -20,6 +20,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.Systems.Movement
 {
