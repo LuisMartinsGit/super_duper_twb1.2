@@ -587,11 +587,21 @@ namespace TheWaningBorder.Systems.Movement
                         toEnemy.y = 0;
                         float distToEnemy = math.length(toEnemy);
 
-                        // Already in melee range — don't move (MeleeCombatSystem handles attack)
-                        float meleeRange = 1.5f;
-                        if (em.HasComponent<Radius>(mt.Value))
-                            meleeRange += em.GetComponentData<Radius>(mt.Value).Value;
-                        if (distToEnemy <= meleeRange) continue;
+                        // Determine stop range: ranged units stop at firing range, melee at melee range
+                        float stopRange;
+                        bool isRanged = em.HasComponent<ArcherTag>(member);
+                        if (isRanged && em.HasComponent<ArcherState>(member))
+                        {
+                            var archerState = em.GetComponentData<ArcherState>(member);
+                            stopRange = archerState.MaxRange > 0 ? archerState.MaxRange - 2f : 23f;
+                        }
+                        else
+                        {
+                            stopRange = 1.5f;
+                            if (em.HasComponent<Radius>(mt.Value))
+                                stopRange += em.GetComponentData<Radius>(mt.Value).Value;
+                        }
+                        if (distToEnemy <= stopRange) continue;
 
                         float memberSpeed = leaderSpeed;
                         if (em.HasComponent<MoveSpeed>(member))
