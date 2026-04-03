@@ -79,6 +79,10 @@ namespace TheWaningBorder.Core.Commands.Types
                     MoveCommandHelper.Execute(em, unit, targetPos);
                 }
 
+                // Set target on the leader itself so BattalionSyncSystem can detect
+                // combat mode (encirclement) and MovementLineDisplay shows red line
+                SetupAttack(em, unit, target);
+
                 // Set target on all members so combat systems pick it up
                 // (uses the copied array — safe after structural changes)
                 for (int i = 0; i < memberCount; i++)

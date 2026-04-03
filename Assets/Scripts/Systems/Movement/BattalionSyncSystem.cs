@@ -306,13 +306,31 @@ namespace TheWaningBorder.Systems.Movement
                     leader.ValueRW.LastAssignmentRot = formationRot;
                 }
 
+                // ── 3a. Clear stale leader target (target died or doesn't exist) ──
+                if (em.HasComponent<Target>(entity))
+                {
+                    var lt = em.GetComponentData<Target>(entity);
+                    if (lt.Value != Entity.Null)
+                    {
+                        bool targetGone = !em.Exists(lt.Value)
+                            || !em.HasComponent<Health>(lt.Value)
+                            || em.GetComponentData<Health>(lt.Value).Value <= 0;
+                        if (targetGone)
+                        {
+                            em.SetComponentData(entity, new Target { Value = Entity.Null });
+                            if (em.HasComponent<AttackCommand>(entity))
+                                em.RemoveComponent<AttackCommand>(entity);
+                        }
+                    }
+                }
+
                 // ── 3b. Detect melee combat — encircle target instead of grid ──
                 // If the leader has a valid alive target within engagement distance,
                 // position members in a ring around it so they can all attack.
                 bool inCombatEncircle = false;
                 float3 encircleCenter = float3.zero;
                 float encircleRadius = 2.0f; // melee range + target radius
-                const float EncircleEngageDistance = 8f; // leader must be this close to trigger
+                const float EncircleEngageDistance = 12f; // leader must be this close to trigger
 
                 if (em.HasComponent<Target>(entity))
                 {
@@ -323,25 +341,59 @@ namespace TheWaningBorder.Systems.Movement
                         var tgtHealth = em.GetComponentData<Health>(leaderTarget.Value);
                         if (tgtHealth.Value > 0 && em.HasComponent<LocalTransform>(leaderTarget.Value))
                         {
-                            float3 tgtPos = em.GetComponentData<LocalTransform>(leaderTarget.Value).Position;
-                            float distToTarget = math.length(new float2(leaderPos.x - tgtPos.x, leaderPos.z - tgtPos.z));
-                            if (distToTarget < EncircleEngageDistance)
+                            // Check this is a melee battalion (no ArcherTag on members)
+                            bool isMelee = true;
+                            for (int mi = 0; mi < memberCount && isMelee; mi++)
                             {
-                                // Check this is a melee battalion (no ArcherTag on members)
-                                bool isMelee = true;
-                                for (int mi = 0; mi < memberCount && isMelee; mi++)
+                                if (_memberAlive[mi] && em.HasComponent<ArcherTag>(_members[mi]))
+                                    isMelee = false;
+                            }
+
+                            if (isMelee)
+                            {
+                                // If target is a battalion member, find enemy battalion center of mass
+                                float3 tgtPos;
+                                float tgtGroupRadius = 0.5f;
+                                if (em.HasComponent<BattalionMemberData>(leaderTarget.Value))
                                 {
-                                    if (_memberAlive[mi] && em.HasComponent<ArcherTag>(_members[mi]))
-                                        isMelee = false;
+                                    var tgtLeader = em.GetComponentData<BattalionMemberData>(leaderTarget.Value).Leader;
+                                    if (em.Exists(tgtLeader) && em.HasBuffer<BattalionMember>(tgtLeader))
+                                    {
+                                        // Compute center of mass of enemy battalion
+                                        var enemyBuf = em.GetBuffer<BattalionMember>(tgtLeader);
+                                        float3 sum = float3.zero;
+                                        int cnt = 0;
+                                        for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                        {
+                                            var em2 = enemyBuf[ei].Value;
+                                            if (em2 != Entity.Null && em.Exists(em2) && em.HasComponent<LocalTransform>(em2))
+                                            {
+                                                sum += em.GetComponentData<LocalTransform>(em2).Position;
+                                                cnt++;
+                                            }
+                                        }
+                                        tgtPos = cnt > 0 ? sum / cnt : em.GetComponentData<LocalTransform>(leaderTarget.Value).Position;
+                                        // Enemy battalion spread — use larger encircle radius
+                                        tgtGroupRadius = 1.5f * cnt * 0.1f; // rough estimate of group spread
+                                    }
+                                    else
+                                    {
+                                        tgtPos = em.GetComponentData<LocalTransform>(leaderTarget.Value).Position;
+                                    }
+                                }
+                                else
+                                {
+                                    tgtPos = em.GetComponentData<LocalTransform>(leaderTarget.Value).Position;
+                                    if (em.HasComponent<Radius>(leaderTarget.Value))
+                                        tgtGroupRadius = em.GetComponentData<Radius>(leaderTarget.Value).Value;
                                 }
 
-                                if (isMelee)
+                                float distToTarget = math.length(new float2(leaderPos.x - tgtPos.x, leaderPos.z - tgtPos.z));
+                                if (distToTarget < EncircleEngageDistance)
                                 {
                                     inCombatEncircle = true;
                                     encircleCenter = tgtPos;
-                                    float tgtRadius = em.HasComponent<Radius>(leaderTarget.Value)
-                                        ? em.GetComponentData<Radius>(leaderTarget.Value).Value : 0.5f;
-                                    encircleRadius = 1.5f + tgtRadius + 0.3f; // MeleeRange + targetRadius + small buffer
+                                    encircleRadius = 1.5f + tgtGroupRadius + 0.5f; // MeleeRange + groupRadius + buffer
                                 }
                             }
                         }
