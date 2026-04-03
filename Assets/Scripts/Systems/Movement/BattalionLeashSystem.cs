@@ -48,6 +48,17 @@ namespace TheWaningBorder.Systems.Movement
                     if (!em.HasComponent<LocalTransform>(member)) continue;
                     if (!em.HasComponent<BattalionMemberData>(member)) continue;
 
+                    // Skip members in combat — they are released from formation
+                    // and moved by BattalionSyncSystem combat logic, not formation slots
+                    if (em.HasComponent<Target>(member))
+                    {
+                        var mt = em.GetComponentData<Target>(member);
+                        if (mt.Value != Entity.Null && em.Exists(mt.Value)
+                            && em.HasComponent<Health>(mt.Value)
+                            && em.GetComponentData<Health>(mt.Value).Value > 0)
+                            continue;
+                    }
+
                     var memberData = em.GetComponentData<BattalionMemberData>(member);
                     var memberXf = em.GetComponentData<LocalTransform>(member);
 

@@ -438,12 +438,12 @@ namespace TheWaningBorder.Systems.Combat
                                 // from entering this block in the same frame
                                 em.SetComponentData(memberData.Leader, new Target { Value = bestTarget });
 
-                                // Structural adds via ECB (safe, deferred) — only one member reaches
-                                // here per leader per frame thanks to the Target gate above
-                                if (!em.HasComponent<AttackCommand>(memberData.Leader))
-                                    ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                // Add/update AttackCommand — use em for existing (non-structural),
+                                // ECB for adding (structural, deferred)
+                                if (em.HasComponent<AttackCommand>(memberData.Leader))
+                                    em.SetComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
                                 else
-                                    ecb.SetComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
 
                                 // Track enemy battalion
                                 Entity enemyLeader = Entity.Null;
@@ -451,10 +451,10 @@ namespace TheWaningBorder.Systems.Combat
                                     enemyLeader = em.GetComponentData<BattalionMemberData>(bestTarget).Leader;
                                 if (enemyLeader != Entity.Null)
                                 {
-                                    if (!em.HasComponent<BattalionAttackTarget>(memberData.Leader))
-                                        ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                    if (em.HasComponent<BattalionAttackTarget>(memberData.Leader))
+                                        em.SetComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                     else
-                                        ecb.SetComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                 }
 
                                 // Move leader in formation toward enemy
@@ -462,7 +462,7 @@ namespace TheWaningBorder.Systems.Combat
                                 {
                                     var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
                                     if (em.HasComponent<DesiredDestination>(memberData.Leader))
-                                        ecb.SetComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                        em.SetComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
                                     else
                                         ecb.AddComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
                                 }
