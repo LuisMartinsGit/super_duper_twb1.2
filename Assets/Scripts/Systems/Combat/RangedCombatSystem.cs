@@ -140,13 +140,10 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     archer.IsRetreating = 0;
 
-                    // Stop moving when in range; remove stale DesiredDestination on battalion members
-                    if (em.HasComponent<DesiredDestination>(entity))
+                    // Stop moving when in range (skip battalion members — no DesiredDestination)
+                    if (!em.HasComponent<BattalionMemberData>(entity) && em.HasComponent<DesiredDestination>(entity))
                     {
-                        if (em.HasComponent<BattalionMemberData>(entity))
-                            ecb.RemoveComponent<DesiredDestination>(entity);
-                        else
-                            ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
+                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
                     // Use the unit's configured AimTimeRequired as-is
@@ -298,6 +295,10 @@ namespace TheWaningBorder.Systems.Combat
 
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
+
+                    // Battalion members: BattalionSyncSystem handles movement, skip DesiredDestination
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                        continue;
 
                     // Move to a position just inside max range, not all the way to target
                     float3 toTarget = targetPos - myPos;
