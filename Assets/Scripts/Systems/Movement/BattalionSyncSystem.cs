@@ -499,17 +499,85 @@ namespace TheWaningBorder.Systems.Movement
                     if (s > 0f) leaderSpeed = s;
                 }
 
-                // ── 5. Move each member toward its target ──
+                // ── 5a. Move combat members toward their enemy targets ──
+                // These members were released from formation (distances set to -1).
+                // BattalionSyncSystem must move them since MovementSystem excludes battalion members.
+                if (battalionInCombat)
+                {
+                    for (int i = 0; i < memberCount; i++)
+                    {
+                        if (!_memberAlive[i]) continue;
+                        if (_memberDistances[i] >= 0f) continue; // In formation, handled below
+
+                        var member = _members[i];
+                        if (!em.HasComponent<Target>(member)) continue;
+                        var mt = em.GetComponentData<Target>(member);
+                        if (mt.Value == Entity.Null || !em.Exists(mt.Value)) continue;
+                        if (!em.HasComponent<LocalTransform>(mt.Value)) continue;
+
+                        float3 enemyPos = em.GetComponentData<LocalTransform>(mt.Value).Position;
+                        var memberXf = em.GetComponentData<LocalTransform>(member);
+                        float3 toEnemy = enemyPos - memberXf.Position;
+                        toEnemy.y = 0;
+                        float distToEnemy = math.length(toEnemy);
+
+                        // Already in melee range — don't move (MeleeCombatSystem handles attack)
+                        float meleeRange = 1.5f;
+                        if (em.HasComponent<Radius>(mt.Value))
+                            meleeRange += em.GetComponentData<Radius>(mt.Value).Value;
+                        if (distToEnemy <= meleeRange) continue;
+
+                        float memberSpeed = leaderSpeed;
+                        if (em.HasComponent<MoveSpeed>(member))
+                        {
+                            float ms = em.GetComponentData<MoveSpeed>(member).Value;
+                            if (ms > 0f) memberSpeed = ms;
+                        }
+
+                        float3 dir = math.normalizesafe(toEnemy);
+
+                        // Use flow field for pathfinding around obstacles and allies
+                        dir = FlowFieldMovementHelper.GetDirection(
+                            memberXf.Position, enemyPos, dir, distToEnemy);
+
+                        float step = math.min(memberSpeed * dt, distToEnemy);
+                        float3 newPos = memberXf.Position + dir * step;
+
+                        if (passGrid != null && !passGrid.IsPassable(newPos))
+                        {
+                            // Try alternate direction
+                            float3 altDir = FlowFieldMovementHelper.GetDirection(
+                                memberXf.Position, enemyPos, -dir, distToEnemy);
+                            float3 altPos = memberXf.Position + altDir * step;
+                            if (passGrid.IsPassable(altPos))
+                                newPos = altPos;
+                            else
+                                newPos = memberXf.Position;
+                        }
+
+                        newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
+
+                        // Face toward enemy
+                        quaternion faceRot = math.lengthsq(toEnemy) > 0.01f
+                            ? quaternion.LookRotationSafe(math.normalizesafe(toEnemy), new float3(0, 1, 0))
+                            : memberXf.Rotation;
+
+                        em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
+                            newPos, faceRot, memberXf.Scale));
+                    }
+                }
+
+                // ── 5b. Move formation members toward their slot positions ──
                 for (int i = 0; i < memberCount; i++)
                 {
-                    if (_memberDistances[i] < 0f) continue; // Dead or released for combat
+                    if (_memberDistances[i] < 0f) continue; // Dead or in combat
 
                     var member = _members[i];
                     var memberXf = em.GetComponentData<LocalTransform>(member);
                     float3 target = _targetPositions[i];
                     float dist = _memberDistances[i];
 
-                    // Strip stale DesiredDestination (only for members in formation, not combat)
+                    // Strip stale DesiredDestination for formation members
                     if (em.HasComponent<DesiredDestination>(member))
                         ecb.RemoveComponent<DesiredDestination>(member);
 

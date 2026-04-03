@@ -287,9 +287,15 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Chase target — battalion members pathfind toward their target
-                    // just like non-battalion units. BattalionSyncSystem releases them
-                    // from formation when they have a combat target.
+                    // Battalion members: BattalionSyncSystem moves them toward their
+                    // target directly (MovementSystem excludes BattalionMemberData).
+                    // Keep target so they attack once BattalionSyncSystem positions them.
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                    {
+                        continue;
+                    }
+
+                    // Non-battalion units: chase via DesiredDestination
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
