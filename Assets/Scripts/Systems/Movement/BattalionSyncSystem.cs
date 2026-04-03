@@ -306,7 +306,49 @@ namespace TheWaningBorder.Systems.Movement
                     leader.ValueRW.LastAssignmentRot = formationRot;
                 }
 
-                // ── 4. Compute per-member target positions using sticky Column/Row ──
+                // ── 3b. Detect melee combat — encircle target instead of grid ──
+                // If the leader has a valid alive target within engagement distance,
+                // position members in a ring around it so they can all attack.
+                bool inCombatEncircle = false;
+                float3 encircleCenter = float3.zero;
+                float encircleRadius = 2.0f; // melee range + target radius
+                const float EncircleEngageDistance = 8f; // leader must be this close to trigger
+
+                if (em.HasComponent<Target>(entity))
+                {
+                    var leaderTarget = em.GetComponentData<Target>(entity);
+                    if (leaderTarget.Value != Entity.Null && em.Exists(leaderTarget.Value)
+                        && em.HasComponent<Health>(leaderTarget.Value))
+                    {
+                        var tgtHealth = em.GetComponentData<Health>(leaderTarget.Value);
+                        if (tgtHealth.Value > 0 && em.HasComponent<LocalTransform>(leaderTarget.Value))
+                        {
+                            float3 tgtPos = em.GetComponentData<LocalTransform>(leaderTarget.Value).Position;
+                            float distToTarget = math.length(new float2(leaderPos.x - tgtPos.x, leaderPos.z - tgtPos.z));
+                            if (distToTarget < EncircleEngageDistance)
+                            {
+                                // Check this is a melee battalion (no ArcherTag on members)
+                                bool isMelee = true;
+                                for (int mi = 0; mi < memberCount && isMelee; mi++)
+                                {
+                                    if (_memberAlive[mi] && em.HasComponent<ArcherTag>(_members[mi]))
+                                        isMelee = false;
+                                }
+
+                                if (isMelee)
+                                {
+                                    inCombatEncircle = true;
+                                    encircleCenter = tgtPos;
+                                    float tgtRadius = em.HasComponent<Radius>(leaderTarget.Value)
+                                        ? em.GetComponentData<Radius>(leaderTarget.Value).Value : 0.5f;
+                                    encircleRadius = 1.5f + tgtRadius + 0.3f; // MeleeRange + targetRadius + small buffer
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── 4. Compute per-member target positions ──
                 float maxDist = 0f;
 
                 for (int i = 0; i < memberCount; i++)
@@ -317,10 +359,24 @@ namespace TheWaningBorder.Systems.Movement
                         continue;
                     }
 
-                    // Use existing Column/Row from BattalionMemberData (sticky assignment)
-                    var md = em.GetComponentData<BattalionMemberData>(_members[i]);
-                    float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
-                    float3 target = leaderPos + math.mul(formationRot, localOffset);
+                    float3 target;
+
+                    if (inCombatEncircle)
+                    {
+                        // Encircle mode: place members evenly around the target in a ring
+                        float angle = (2f * math.PI * i) / aliveCount;
+                        target = encircleCenter + new float3(
+                            math.cos(angle) * encircleRadius,
+                            0f,
+                            math.sin(angle) * encircleRadius);
+                    }
+                    else
+                    {
+                        // Normal mode: use existing Column/Row from BattalionMemberData (sticky assignment)
+                        var md = em.GetComponentData<BattalionMemberData>(_members[i]);
+                        float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
+                        target = leaderPos + math.mul(formationRot, localOffset);
+                    }
 
                     // Check if the slot is reachable (passable terrain)
                     bool slotBlocked = passGrid != null && !passGrid.IsPassable(target);

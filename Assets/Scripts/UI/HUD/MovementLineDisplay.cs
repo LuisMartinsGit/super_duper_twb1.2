@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.UI.HUD
@@ -17,8 +18,13 @@ namespace TheWaningBorder.UI.HUD
     public class MovementLineDisplay : MonoBehaviour
     {
         [Header("Display")]
-        [SerializeField] private Color lineColor = new Color(0.3f, 1f, 0.3f, 0.35f);
-        [SerializeField] private Color markerColor = new Color(0.3f, 1f, 0.3f, 0.6f);
+        // Command-specific colors
+        [SerializeField] private Color attackLineColor = new Color(1f, 0.2f, 0.2f, 0.35f);
+        [SerializeField] private Color attackMarkerColor = new Color(1f, 0.2f, 0.2f, 0.6f);
+        [SerializeField] private Color supportLineColor = new Color(0.3f, 1f, 0.3f, 0.35f);
+        [SerializeField] private Color supportMarkerColor = new Color(0.3f, 1f, 0.3f, 0.6f);
+        [SerializeField] private Color moveLineColor = new Color(1f, 0.82f, 0.2f, 0.35f);
+        [SerializeField] private Color moveMarkerColor = new Color(1f, 0.82f, 0.2f, 0.6f);
         [SerializeField] private float lineWidth = 0.06f;
         [SerializeField] private float markerSize = 0.3f;
         [SerializeField] private int lineSegments = 10;
@@ -106,11 +112,43 @@ namespace TheWaningBorder.UI.HUD
                     }
                 }
 
+                // Determine command type for color
+                Color lColor, mColor;
+                if (_em.HasComponent<AttackCommand>(entity))
+                {
+                    lColor = attackLineColor;
+                    mColor = attackMarkerColor;
+                }
+                else if (_em.HasComponent<GatherCommand>(entity)
+                      || _em.HasComponent<BuildOrder>(entity)
+                      || _em.HasComponent<HealCommand>(entity))
+                {
+                    lColor = supportLineColor;
+                    mColor = supportMarkerColor;
+                }
+                else
+                {
+                    lColor = moveLineColor;
+                    mColor = moveMarkerColor;
+                }
+
+                // For battalion leaders, also check member commands
+                if (_em.HasComponent<BattalionLeader>(entity) && _em.HasComponent<Target>(entity))
+                {
+                    var leaderTgt = _em.GetComponentData<Target>(entity);
+                    if (leaderTgt.Value != Entity.Null && _em.Exists(leaderTgt.Value))
+                    {
+                        lColor = attackLineColor;
+                        mColor = attackMarkerColor;
+                    }
+                }
+
                 Vector3 unitWorld = new Vector3(pos.x, 0f, pos.z);
                 Vector3 destWorld = new Vector3(dest.Position.x, 0f, dest.Position.z);
 
                 // Draw terrain-hugging multi-segment line
                 var lr = GetOrCreateLine();
+                ApplyLineColor(lr, lColor);
                 lr.gameObject.SetActive(true);
                 lr.positionCount = lineSegments + 1;
                 for (int s = 0; s <= lineSegments; s++)
@@ -125,10 +163,22 @@ namespace TheWaningBorder.UI.HUD
 
                 // Draw destination marker (decal projected on terrain)
                 float destY = TerrainUtility.GetHeight(dest.Position.x, dest.Position.z);
-                var marker = GetOrCreateMarker();
+                var marker = GetOrCreateMarker(mColor);
                 marker.SetActive(true);
                 marker.transform.position = new Vector3(dest.Position.x, destY + 5f, dest.Position.z);
                 _activeMarkers.Add(marker);
+            }
+        }
+
+        private void ApplyLineColor(LineRenderer lr, Color color)
+        {
+            lr.startColor = color;
+            lr.endColor = color;
+            var mat = lr.material;
+            if (mat != null)
+            {
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             }
         }
 
@@ -146,11 +196,7 @@ namespace TheWaningBorder.UI.HUD
             var line = go.AddComponent<LineRenderer>();
 
             var mat = new Material(_lineMat);
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", lineColor);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", lineColor);
             line.material = mat;
-            line.startColor = lineColor;
-            line.endColor = lineColor;
             line.startWidth = lineWidth;
             line.endWidth = lineWidth;
             line.useWorldSpace = true;
@@ -161,12 +207,30 @@ namespace TheWaningBorder.UI.HUD
             return line;
         }
 
-        private GameObject GetOrCreateMarker()
+        private void ApplyMarkerColor(GameObject marker, Color color)
+        {
+            var decal = marker.GetComponent<DecalProjector>();
+            if (decal != null && decal.material != null)
+            {
+                if (decal.material.HasProperty("_BaseColor")) decal.material.SetColor("_BaseColor", color);
+                else if (decal.material.HasProperty("Base_Color")) decal.material.SetColor("Base_Color", color);
+                return;
+            }
+            var renderer = marker.GetComponent<Renderer>();
+            if (renderer != null && renderer.material != null)
+            {
+                if (renderer.material.HasProperty("_BaseColor")) renderer.material.SetColor("_BaseColor", color);
+                if (renderer.material.HasProperty("_Color")) renderer.material.SetColor("_Color", color);
+            }
+        }
+
+        private GameObject GetOrCreateMarker(Color color)
         {
             if (_markerPool.Count > 0)
             {
                 var m = _markerPool[_markerPool.Count - 1];
                 _markerPool.RemoveAt(_markerPool.Count - 1);
+                ApplyMarkerColor(m, color);
                 return m;
             }
 
@@ -180,8 +244,8 @@ namespace TheWaningBorder.UI.HUD
 
                 var decal = marker.AddComponent<DecalProjector>();
                 var mat = new Material(baseMat);
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", markerColor);
-                else if (mat.HasProperty("Base_Color")) mat.SetColor("Base_Color", markerColor);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+                else if (mat.HasProperty("Base_Color")) mat.SetColor("Base_Color", color);
                 decal.material = mat;
                 decal.size = new Vector3(markerSize * 2f, 10f, markerSize * 2f);
                 decal.drawDistance = 500f;
@@ -197,8 +261,8 @@ namespace TheWaningBorder.UI.HUD
 
             var renderer = fallback.GetComponent<Renderer>();
             var fallbackMat = new Material(_lineMat);
-            if (fallbackMat.HasProperty("_BaseColor")) fallbackMat.SetColor("_BaseColor", markerColor);
-            if (fallbackMat.HasProperty("_Color")) fallbackMat.SetColor("_Color", markerColor);
+            if (fallbackMat.HasProperty("_BaseColor")) fallbackMat.SetColor("_BaseColor", color);
+            if (fallbackMat.HasProperty("_Color")) fallbackMat.SetColor("_Color", color);
             renderer.material = fallbackMat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;

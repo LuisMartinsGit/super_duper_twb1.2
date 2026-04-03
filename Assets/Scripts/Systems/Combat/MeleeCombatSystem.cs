@@ -287,12 +287,11 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Battalion members NEVER chase — formation controls their movement
+                    // Battalion members don't chase — BattalionSyncSystem will encircle
+                    // the target and reposition them into melee range.
+                    // KEEP the target so they attack once repositioned.
                     if (em.HasComponent<BattalionMemberData>(entity))
                     {
-                        tgt.Value = Entity.Null;
-                        if (em.HasComponent<AttackCommand>(entity))
-                            ecb.RemoveComponent<AttackCommand>(entity);
                         continue;
                     }
 

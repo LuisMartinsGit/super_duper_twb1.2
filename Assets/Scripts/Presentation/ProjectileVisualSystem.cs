@@ -95,6 +95,17 @@ namespace TheWaningBorder.Presentation
                 go.transform.position = (Vector3)transforms[i].Position;
                 go.transform.rotation = transforms[i].Rotation;
 
+                // Scale up siege projectiles (ballista bolts) for visual distinction
+                if (!isLaser && _em.HasComponent<Projectile>(entities[i]))
+                {
+                    var proj = _em.GetComponentData<Projectile>(entities[i]);
+                    if (proj.DmgType == DamageType.Siege)
+                    {
+                        go.transform.localScale = Vector3.one * 2.5f;
+                        go.name = $"Bolt_{entities[i].Index}";
+                    }
+                }
+
                 _visuals[entities[i]] = go;
             }
 
