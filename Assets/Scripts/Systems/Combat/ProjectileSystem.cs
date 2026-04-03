@@ -23,6 +23,7 @@ namespace TheWaningBorder.Systems.Combat
     {
         // Flight parameters
         private const float FlightDuration = 0.8f;     // How long arrows take to reach target
+        private const float ArrowSpeed = 30f;            // Projectile speed (matches RangedCombatSystem)
         private const float ArcHeight = 3f;            // Height of arc above midpoint
         private const float HitRadius = 0.8f;          // Distance to register a hit
 
@@ -171,40 +172,21 @@ namespace TheWaningBorder.Systems.Combat
 
                         bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
 
-                        if (t >= 0.95f || distToTarget < HitRadius)
-                        {
-                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
-
-                            if (isPiercing)
-                            {
-                                // Piercing bolt: don't destroy, keep flying through
-                                var pierce = em.GetComponentData<PiercingProjectile>(entity);
-                                pierce.RemainingPierces--;
-                                if (pierce.RemainingPierces <= 0)
-                                    shouldDestroy = true;
-                                else
-                                    em.SetComponentData(entity, pierce);
-                            }
-                            else
-                            {
-                                shouldDestroy = true;
-                            }
-                        }
-
-                        // Piercing: also scan for enemies along trajectory while in flight
-                        if (isPiercing && !shouldDestroy && t < 0.95f)
+                        // Piercing bolts: scan for ALL enemies near the bolt's path each frame
+                        if (isPiercing && !shouldDestroy)
                         {
                             var pierceScan = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
                             var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
                             var pierceFactions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+                            var pierceHealth = _aoeTargetQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
 
                             var pierce = em.GetComponentData<PiercingProjectile>(entity);
                             for (int pi = 0; pi < pierceScan.Length; pi++)
                             {
                                 if (pierceFactions[pi].Value == proj.Faction) continue;
-                                if (pierceScan[pi] == proj.Target) continue; // primary target handled above
+                                if (pierceHealth[pi].Value <= 0) continue; // skip dead
                                 float d = math.length(pierceTransforms[pi].Position - arrowPos);
-                                if (d < 2.5f) // generous hit radius for bolt piercing
+                                if (d < 2.5f)
                                 {
                                     ApplyDamage(em, ecb, proj, pierceScan[pi], true, arr.Shooter);
                                     pierce.RemainingPierces--;
@@ -216,6 +198,23 @@ namespace TheWaningBorder.Systems.Combat
                             pierceScan.Dispose();
                             pierceTransforms.Dispose();
                             pierceFactions.Dispose();
+                            pierceHealth.Dispose();
+
+                            // Move bolt straight through (ignore Bezier homing)
+                            if (!shouldDestroy)
+                            {
+                                float boltDt = SystemAPI.Time.DeltaTime;
+                                float3 newPos = arrowPos + math.normalizesafe(arr.Velocity) * ArrowSpeed * boltDt;
+                                newPos.y = math.max(newPos.y, TerrainUtility.GetHeight(newPos.x, newPos.z) + 0.5f);
+                                trans.Position = newPos;
+                                // Destroy if past max flight time
+                                if (t > 1.5f) shouldDestroy = true;
+                            }
+                        }
+                        else if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
+                        {
+                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
+                            shouldDestroy = true;
                         }
                         else if (!shouldDestroy)
                         {
