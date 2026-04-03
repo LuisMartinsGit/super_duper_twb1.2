@@ -378,7 +378,23 @@ namespace TheWaningBorder.Systems.Movement
                 // battalions are within EncircleDistance, per-member targets are assigned.
                 const float EncircleDistance = 7f;
                 bool inEncircleRange = false;
+                bool inFiringRange = false;
                 bool battalionInCombat = false;
+
+                // Detect if this is a ranged battalion (first alive member has ArcherTag)
+                bool isRangedBattalion = false;
+                float battalionMaxRange = 25f;
+                for (int i = 0; i < memberCount; i++)
+                {
+                    if (!_memberAlive[i]) continue;
+                    if (em.HasComponent<ArcherTag>(_members[i]))
+                    {
+                        isRangedBattalion = true;
+                        if (em.HasComponent<ArcherState>(_members[i]))
+                            battalionMaxRange = em.GetComponentData<ArcherState>(_members[i]).MaxRange;
+                    }
+                    break;
+                }
 
                 if (em.HasComponent<Target>(entity))
                 {
@@ -416,26 +432,43 @@ namespace TheWaningBorder.Systems.Movement
 
                         float centerDist = math.length(new float2(ownCenter.x - enemyCenter.x, ownCenter.z - enemyCenter.z));
                         inEncircleRange = centerDist < EncircleDistance;
+                        inFiringRange = isRangedBattalion && centerDist < battalionMaxRange;
+
+                        // Determine engage range: ranged battalions stop at firing range, melee at encircle range
+                        bool shouldStop = isRangedBattalion ? inFiringRange : inEncircleRange;
 
                         // Track enemy movement: update leader destination to follow the enemy battalion
-                        if (!inEncircleRange && em.HasComponent<DesiredDestination>(entity))
+                        if (!shouldStop && em.HasComponent<DesiredDestination>(entity))
                         {
                             em.SetComponentData(entity, new DesiredDestination { Position = enemyCenter, Has = 1 });
                         }
-                        // Stop marching when in encircle range — combat takes over
-                        else if (inEncircleRange && em.HasComponent<DesiredDestination>(entity))
+                        // Stop marching when in engage range — combat takes over
+                        else if (shouldStop && em.HasComponent<DesiredDestination>(entity))
                         {
                             em.SetComponentData(entity, new DesiredDestination { Has = 0 });
                         }
 
-                        // If in encircle range, assign per-member targets from enemy battalion
-                        if (inEncircleRange && em.HasComponent<BattalionAttackTarget>(entity))
+                        // Determine if we should assign per-member targets
+                        bool shouldAssignTargets = isRangedBattalion ? inFiringRange : inEncircleRange;
+
+                        if (shouldAssignTargets && em.HasComponent<BattalionAttackTarget>(entity))
                         {
                             var bat = em.GetComponentData<BattalionAttackTarget>(entity);
                             if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
                                 && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
                             {
                                 var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+
+                                // Build list of living enemies
+                                int livingEnemyCount = 0;
+                                for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                {
+                                    var enemy = enemyBuf[ei].Value;
+                                    if (enemy != Entity.Null && em.Exists(enemy)
+                                        && em.HasComponent<Health>(enemy) && em.GetComponentData<Health>(enemy).Value > 0)
+                                        livingEnemyCount++;
+                                }
+
                                 for (int i = 0; i < memberCount; i++)
                                 {
                                     if (!_memberAlive[i]) continue;
@@ -448,23 +481,43 @@ namespace TheWaningBorder.Systems.Movement
                                             && em.GetComponentData<Health>(curTgt.Value).Value > 0)
                                             continue;
                                     }
-                                    // Find nearest living enemy from enemy battalion
-                                    Entity best = Entity.Null;
-                                    float bestD = float.MaxValue;
-                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
+
+                                    Entity assignedTarget = Entity.Null;
+
+                                    if (isRangedBattalion && livingEnemyCount > 0)
                                     {
-                                        var enemy = enemyBuf[ei].Value;
-                                        if (enemy == Entity.Null || !em.Exists(enemy)) continue;
-                                        if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
-                                        if (!em.HasComponent<LocalTransform>(enemy)) continue;
-                                        float3 ePos = em.GetComponentData<LocalTransform>(enemy).Position;
-                                        float3 diff = ePos - _memberPos[i];
-                                        diff.y = 0;
-                                        float d = math.lengthsq(diff);
-                                        if (d < bestD) { bestD = d; best = enemy; }
+                                        // Ranged: assign random enemy to spread fire
+                                        int pick = (entity.Index * 31 + i * 7 + (int)(ownCenter.x * 100)) % livingEnemyCount;
+                                        int count = 0;
+                                        for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                        {
+                                            var enemy = enemyBuf[ei].Value;
+                                            if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                            if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                            if (count == pick) { assignedTarget = enemy; break; }
+                                            count++;
+                                        }
                                     }
-                                    if (best != Entity.Null)
-                                        em.SetComponentData(_members[i], new Target { Value = best });
+                                    else
+                                    {
+                                        // Melee: assign nearest enemy
+                                        float bestD = float.MaxValue;
+                                        for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                        {
+                                            var enemy = enemyBuf[ei].Value;
+                                            if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                            if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                            if (!em.HasComponent<LocalTransform>(enemy)) continue;
+                                            float3 ePos = em.GetComponentData<LocalTransform>(enemy).Position;
+                                            float3 diff = ePos - _memberPos[i];
+                                            diff.y = 0;
+                                            float d = math.lengthsq(diff);
+                                            if (d < bestD) { bestD = d; assignedTarget = enemy; }
+                                        }
+                                    }
+
+                                    if (assignedTarget != Entity.Null)
+                                        em.SetComponentData(_members[i], new Target { Value = assignedTarget });
                                 }
                             }
                         }
@@ -482,8 +535,11 @@ namespace TheWaningBorder.Systems.Movement
                         continue;
                     }
 
-                    // Members with a combat target in encircle range are released from formation
-                    if (inEncircleRange && em.HasComponent<Target>(_members[i]))
+                    // Members with a combat target are released from formation when in engage range
+                    // Melee: released at encircle range (they pathfind to enemy)
+                    // Ranged: released at firing range (they stay put and shoot)
+                    bool memberInEngageRange = isRangedBattalion ? inFiringRange : inEncircleRange;
+                    if (memberInEngageRange && em.HasComponent<Target>(_members[i]))
                     {
                         var mt = em.GetComponentData<Target>(_members[i]);
                         if (mt.Value != Entity.Null && em.Exists(mt.Value)
@@ -568,7 +624,8 @@ namespace TheWaningBorder.Systems.Movement
                 // ── 5a. Move combat members toward their enemy targets ──
                 // These members were released from formation (distances set to -1).
                 // BattalionSyncSystem must move them since MovementSystem excludes battalion members.
-                if (battalionInCombat)
+                // Ranged members do NOT chase — they stay at their position and RangedCombatSystem fires.
+                if (battalionInCombat && !isRangedBattalion)
                 {
                     for (int i = 0; i < memberCount; i++)
                     {
