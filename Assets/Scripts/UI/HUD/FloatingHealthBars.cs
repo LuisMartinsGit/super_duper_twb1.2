@@ -84,22 +84,10 @@ namespace TheWaningBorder.UI.HUD
 
         private bool ShouldShowBar(Entity e)
         {
-            // Entities without faction (resource deposits, neutral objects) — show if visible
-            if (!_em.HasComponent<FactionTag>(e))
-            {
-                if (!_em.HasComponent<LocalTransform>(e)) return false;
-                var p = _em.GetComponentData<LocalTransform>(e).Position;
-                return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, p);
-            }
-
-            var faction = _em.GetComponentData<FactionTag>(e).Value;
-            if (faction == GameSettings.LocalPlayerFaction)
-                return true;
-
-            // Enemy: only show if visible through fog of war
-            if (!_em.HasComponent<LocalTransform>(e)) return false;
-            var pos = _em.GetComponentData<LocalTransform>(e).Position;
-            return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
+            // If the entity exists and has Health, show the bar.
+            // FogVisibilitySyncSystem already hides invisible entities by deactivating
+            // their GameObjects, so if the hover raycast hit this entity, it is visible.
+            return _em.Exists(e);
         }
 
         private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false, bool isHovered = false)

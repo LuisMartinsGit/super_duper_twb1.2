@@ -480,16 +480,11 @@ namespace TheWaningBorder.Input
         
         private bool IsSelectableByPlayer(Entity e)
         {
-            // Resource deposits (iron mines, crystal cadavers) are always selectable if visible
+            if (!_em.Exists(e)) return false;
+
+            // Resource deposits are always selectable
             if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<CadaverTag>(e))
-            {
-                if (_em.HasComponent<LocalTransform>(e))
-                {
-                    var pos = _em.GetComponentData<LocalTransform>(e).Position;
-                    return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
-                }
-                return false;
-            }
+                return true;
 
             // Must have faction tag
             if (!_em.HasComponent<FactionTag>(e))
@@ -499,16 +494,10 @@ namespace TheWaningBorder.Input
             if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
                 return false;
 
-            // Own units are always selectable
-            if (_em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction)
-                return true;
-
-            // Enemy units/buildings are selectable if visible through fog of war
-            if (_em.HasComponent<LocalTransform>(e))
-            {
-                var pos = _em.GetComponentData<LocalTransform>(e).Position;
-                return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
-            }
+            // If the raycast hit the entity's GameObject, it is visible on screen
+            // (FogVisibilitySyncSystem already hides invisible entities by deactivating GOs).
+            // No need for a redundant fog check here — the raycast itself is the visibility proof.
+            return true;
 
             return false;
         }
