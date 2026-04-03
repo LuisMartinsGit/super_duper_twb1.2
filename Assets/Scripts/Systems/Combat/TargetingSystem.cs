@@ -424,6 +424,7 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     // Battalion members: propagate to leader as battalion-level reaction.
                     // Leader moves in formation; BattalionSyncSystem assigns per-member targets at encircle range.
+                    // Use em directly (not ECB) since leader is excluded from this query via WithNone<BattalionLeader>.
                     if (isBattalionMember)
                     {
                         var memberData = em.GetComponentData<BattalionMemberData>(entity);
@@ -435,9 +436,9 @@ namespace TheWaningBorder.Systems.Combat
                                 // Leader has no target yet — set it and move toward enemy
                                 em.SetComponentData(memberData.Leader, new Target { Value = bestTarget });
                                 if (!em.HasComponent<AttackCommand>(memberData.Leader))
-                                    ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    em.AddComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
                                 else
-                                    ecb.SetComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    em.SetComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
 
                                 // Track enemy battalion
                                 Entity enemyLeader = Entity.Null;
@@ -446,17 +447,20 @@ namespace TheWaningBorder.Systems.Combat
                                 if (enemyLeader != Entity.Null)
                                 {
                                     if (!em.HasComponent<BattalionAttackTarget>(memberData.Leader))
-                                        ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        em.AddComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                     else
-                                        ecb.SetComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        em.SetComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                                 }
 
                                 // Move leader in formation toward enemy
-                                var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
-                                if (!em.HasComponent<DesiredDestination>(memberData.Leader))
-                                    ecb.AddComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
-                                else
-                                    ecb.SetComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                if (em.HasComponent<LocalTransform>(bestTarget))
+                                {
+                                    var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
+                                    if (em.HasComponent<DesiredDestination>(memberData.Leader))
+                                        em.SetComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                    else
+                                        em.AddComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                }
                             }
                         }
                         // Don't set target on the member — wait for encircle range

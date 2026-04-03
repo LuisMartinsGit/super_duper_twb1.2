@@ -417,6 +417,17 @@ namespace TheWaningBorder.Systems.Movement
                         float centerDist = math.length(new float2(ownCenter.x - enemyCenter.x, ownCenter.z - enemyCenter.z));
                         inEncircleRange = centerDist < EncircleDistance;
 
+                        // Track enemy movement: update leader destination to follow the enemy battalion
+                        if (!inEncircleRange && em.HasComponent<DesiredDestination>(entity))
+                        {
+                            em.SetComponentData(entity, new DesiredDestination { Position = enemyCenter, Has = 1 });
+                        }
+                        // Stop marching when in encircle range — combat takes over
+                        else if (inEncircleRange && em.HasComponent<DesiredDestination>(entity))
+                        {
+                            em.SetComponentData(entity, new DesiredDestination { Has = 0 });
+                        }
+
                         // If in encircle range, assign per-member targets from enemy battalion
                         if (inEncircleRange && em.HasComponent<BattalionAttackTarget>(entity))
                         {
