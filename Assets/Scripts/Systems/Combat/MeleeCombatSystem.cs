@@ -287,15 +287,9 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Battalion members don't chase — BattalionSyncSystem will encircle
-                    // the target and reposition them into melee range.
-                    // KEEP the target so they attack once repositioned.
-                    if (em.HasComponent<BattalionMemberData>(entity))
-                    {
-                        continue;
-                    }
-
-                    // Chase target (only non-battalion units reach here)
+                    // Chase target — battalion members pathfind toward their target
+                    // just like non-battalion units. BattalionSyncSystem releases them
+                    // from formation when they have a combat target.
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
