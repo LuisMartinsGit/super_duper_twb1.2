@@ -176,16 +176,22 @@ namespace TheWaningBorder.Entities
             int count = math.max(1, (int)math.round(usable / InstanceSpacing));
             float actualSpacing = usable / count;
 
-            var buffer = em.GetBuffer<WallInstanceRef>(segment);
-
+            // Collect all instances first, then add to buffer in one go.
+            // Each CreateInstance calls em.CreateEntity which is a structural change
+            // that invalidates any live buffer handles.
+            var instances = new Entity[count];
             for (int i = 0; i < count; i++)
             {
                 float t = HubInset + actualSpacing * (i + 0.5f);
                 float3 pos = posA + direction * t;
-                // Y will be snapped to terrain by presentation system
+                instances[i] = CreateInstance(em, pos, rotation, faction, segment);
+            }
 
-                var instance = CreateInstance(em, pos, rotation, faction, segment);
-                buffer.Add(new WallInstanceRef { Instance = instance });
+            // Now safe to get buffer and populate it (no more structural changes)
+            var buffer = em.GetBuffer<WallInstanceRef>(segment);
+            for (int i = 0; i < count; i++)
+            {
+                buffer.Add(new WallInstanceRef { Instance = instances[i] });
             }
         }
 
