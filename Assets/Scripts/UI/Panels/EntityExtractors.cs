@@ -313,12 +313,18 @@ namespace TheWaningBorder.UI
 
         private static string GetUnitName(Entity entity, EntityManager em)
         {
+            // Use PresentationId for precise unit identification
+            if (em.HasComponent<PresentationId>(entity))
+            {
+                int pid = em.GetComponentData<PresentationId>(entity).Id;
+                string name = GetUnitNameByPresentationId(pid);
+                if (name != null) return name;
+            }
+
+            // Legacy fallback for units without PresentationId
             if (em.HasComponent<CanBuild>(entity)) return "Builder";
             if (em.HasComponent<MinerTag>(entity)) return "Miner";
-            if (em.HasComponent<ArcherTag>(entity)) return "Archer";
-            if (em.HasComponent<BerserkerTag>(entity)) return "Berserker";
 
-            // Fall back to UnitTag.Class for units without specific tags
             if (em.HasComponent<UnitTag>(entity))
             {
                 var unitTag = em.GetComponentData<UnitTag>(entity);
@@ -336,6 +342,57 @@ namespace TheWaningBorder.UI
             }
 
             return "Unit";
+        }
+
+        /// <summary>
+        /// Map PresentationId to display name for all unit types.
+        /// Returns null if the ID is not recognized.
+        /// </summary>
+        private static string GetUnitNameByPresentationId(int pid)
+        {
+            return pid switch
+            {
+                // Era 1 core units
+                200 => "Builder",
+                201 => "Swordsman",
+                202 => "Archer",
+                203 => "Miner",
+                206 => "Scout",
+                207 => "Litharch",
+                210 => "Berserker",
+                // Crystal units
+                320 => "Crystalling",
+                321 => "Veilstinger",
+                322 => "Godsplinter",
+                // Runai culture units
+                330 => "Spearman",
+                331 => "Skirmisher",
+                332 => "Raider",
+                333 => "Catapult",
+                // Alanthor culture units
+                334 => "Sentinel",
+                335 => "Crossbowman",
+                336 => "Cataphract",
+                337 => "Ballista",
+                // Feraldis culture units
+                338 => "Hunter",
+                339 => "Warboar Rider",
+                340 => "Siege Ram",
+                // Sect unique units
+                370 => "Scar Guard",
+                371 => "Golem Autark",
+                372 => "Stone Warden",
+                373 => "Archivist Adept",
+                374 => "Flame Warden",
+                375 => "Vault Keeper",
+                376 => "Glassmark Arcanist",
+                377 => "Judicator",
+                378 => "Ashblade",
+                379 => "Brandbreaker",
+                380 => "Chaincaster",
+                381 => "Nullblade",
+                _ => null
+            };
         }
 
         /// <summary>
