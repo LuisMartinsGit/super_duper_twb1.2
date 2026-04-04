@@ -74,6 +74,7 @@ namespace TheWaningBorder.Systems.Work
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()
                          .WithAll<BuildingTag>()
                          .WithNone<UnderConstruction>()
+                         .WithNone<WallGateTag>() // Gates managed by WallGatePassabilitySystem
                          .WithEntityAccess())
             {
                 bool hasSize = em.HasComponent<BuildingSize>(entity);

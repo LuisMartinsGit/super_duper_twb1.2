@@ -23,7 +23,8 @@ public enum ScenarioType
     LargeMixed,
     HealerTest,
     FourWayCultures,
-    FullArmy
+    FullArmy,
+    WallSiege
 }
 
 public enum SpawnLayout

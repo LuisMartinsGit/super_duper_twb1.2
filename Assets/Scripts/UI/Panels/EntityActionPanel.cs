@@ -12,6 +12,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Commands;
+using TheWaningBorder.Data;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -115,6 +116,10 @@ namespace TheWaningBorder.UI.Panels
 
                 case ActionType.BattalionStance:
                     DrawStancePanel(entity, em);
+                    break;
+
+                case ActionType.WallInstanceUpgrade:
+                    DrawWallUpgradePanel(entity);
                     break;
             }
 
@@ -1706,6 +1711,112 @@ namespace TheWaningBorder.UI.Panels
         // ═══════════════════════════════════════════════════════════════════════
         // BATTALION STANCE PANEL
         // ═══════════════════════════════════════════════════════════════════════
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // WALL INSTANCE UPGRADE PANEL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawWallUpgradePanel(Entity entity)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            var em = UnifiedUIManager.GetEntityManager();
+            if (!em.Exists(entity) || !em.HasComponent<WallInstanceTag>(entity))
+            {
+                GUILayout.Label("Wall not available", _smallStyle);
+                GUILayout.EndArea();
+                return;
+            }
+
+            // Show upgrade progress if upgrading
+            if (em.HasComponent<WallUpgradeState>(entity))
+            {
+                var state = em.GetComponentData<WallUpgradeState>(entity);
+                string typeName = state.UpgradeType == 1 ? "Tower" : "Gate";
+                float progress = 1f - (state.Remaining / state.Duration);
+                GUILayout.Label($"Upgrading to {typeName}...", _headerStyle);
+                GUILayout.Space(4);
+
+                var barRect = GUILayoutUtility.GetRect(innerRect.width - 10, 16);
+                GUI.Box(barRect, "");
+                var fillRect = new Rect(barRect.x, barRect.y, barRect.width * progress, barRect.height);
+                GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+                GUILayout.Label($"{progress * 100f:F0}%", _smallStyle);
+
+                GUILayout.EndArea();
+                return;
+            }
+
+            GUILayout.Label("Upgrade Wall", _headerStyle);
+            GUILayout.Space(4);
+
+            var faction = em.HasComponent<FactionTag>(entity)
+                ? em.GetComponentData<FactionTag>(entity).Value
+                : GameSettings.LocalPlayerFaction;
+
+            // Upgrade to Tower button
+            BuildCosts.TryGet("Alanthor_WallTower", out var towerCost);
+            bool canAffordTower = FactionEconomy.CanAfford(em, faction, towerCost);
+            string towerLabel = $"Tower ({towerCost.Supplies}S {towerCost.Iron}I)";
+
+            GUI.enabled = canAffordTower;
+            if (GUILayout.Button(towerLabel, GUILayout.Height(28)))
+            {
+                if (FactionEconomy.Spend(em, faction, towerCost))
+                {
+                    em.AddComponentData(entity, new WallUpgradeState
+                    {
+                        UpgradeType = 1,
+                        Duration = 10f,
+                        Remaining = 10f
+                    });
+                }
+            }
+            GUI.enabled = true;
+
+            GUILayout.Space(2);
+
+            // Upgrade to Gate button
+            BuildCosts.TryGet("Alanthor_WallGate", out var gateCost);
+            bool canAffordGate = FactionEconomy.CanAfford(em, faction, gateCost);
+            string gateLabel = $"Gate ({gateCost.Supplies}S {gateCost.Iron}I)";
+
+            GUI.enabled = canAffordGate;
+            if (GUILayout.Button(gateLabel, GUILayout.Height(28)))
+            {
+                if (FactionEconomy.Spend(em, faction, gateCost))
+                {
+                    em.AddComponentData(entity, new WallUpgradeState
+                    {
+                        UpgradeType = 2,
+                        Duration = 8f,
+                        Remaining = 8f
+                    });
+                }
+            }
+            GUI.enabled = true;
+
+            GUILayout.EndArea();
+        }
 
         private void DrawStancePanel(Entity entity, EntityManager em)
         {

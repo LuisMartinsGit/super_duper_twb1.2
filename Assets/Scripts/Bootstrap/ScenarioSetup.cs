@@ -111,6 +111,9 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.FullArmy:
                     SpawnFullArmy(em);
                     break;
+                case ScenarioType.WallSiege:
+                    SpawnWallSiege(em);
+                    break;
             }
 
             // Focus camera on center
@@ -292,6 +295,161 @@ namespace TheWaningBorder.Bootstrap
             }
 
             Debug.Log("[ScenarioSetup] Full Army: 3 Archer + 3 Swordsman battalions + 6 Litharchs + 2 Ballistas per side");
+        }
+
+        /// <summary>
+        /// Wall Siege scenario: Blue has walls with gates and towers defending a position.
+        /// Blue has swordsmen behind walls and ballistas on towers.
+        /// Red has siege rams and swordsmen attacking the walls.
+        /// Tests: wall passability, gate auto-open for friendlies, siege destruction of walls.
+        /// </summary>
+        private static void SpawnWallSiege(EntityManager em)
+        {
+            // ── Blue (defender) — south side ──
+            // Wall line running east-west at z = -10, with hubs at the ends and middle
+            float wallZ = -10f;
+            float wallExtent = 24f; // total wall width
+            int hubCount = 5; // 5 hubs across = 4 segments
+            float hubSpacing = wallExtent / (hubCount - 1);
+
+            var hubs = new Entity[hubCount];
+            for (int i = 0; i < hubCount; i++)
+            {
+                float x = -wallExtent * 0.5f + i * hubSpacing;
+                float3 pos = new float3(x, 0, wallZ);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                hubs[i] = AlanthorWall.CreateHub(em, pos, Faction.Blue);
+            }
+
+            // Connect hubs with segments (which auto-spawn wall instances)
+            for (int i = 0; i < hubCount - 1; i++)
+            {
+                AlanthorWall.CreateSegment(em, hubs[i], hubs[i + 1], Faction.Blue);
+            }
+
+            // Upgrade center instances to gates (find instances near the center gap)
+            // We'll upgrade 2 instances closest to x=0 to gates, and 2 near flanks to towers
+            UpgradeWallInstancesNear(em, Faction.Blue, new float3(0, 0, wallZ), 3f,
+                upgradeType: 2); // Gate at center
+
+            UpgradeWallInstancesNear(em, Faction.Blue, new float3(-wallExtent * 0.35f, 0, wallZ), 2f,
+                upgradeType: 1); // Tower on left
+            UpgradeWallInstancesNear(em, Faction.Blue, new float3(wallExtent * 0.35f, 0, wallZ), 2f,
+                upgradeType: 1); // Tower on right
+
+            // Blue defenders behind the wall
+            SpawnArmyRow(em, "Swordsman", Faction.Blue, 2, new float3(0, 0, wallZ - 12f));
+            SpawnArmyRow(em, "Archer", Faction.Blue, 2, new float3(0, 0, wallZ - 18f));
+
+            // 2 Ballistas behind the wall on the flanks
+            for (int i = 0; i < 2; i++)
+            {
+                float x = (i == 0) ? -10f : 10f;
+                float3 pos = new float3(x, 0, wallZ - 14f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                UnitFactory.Create(em, "Alanthor_Ballista", pos, Faction.Blue);
+            }
+
+            // ── Red (attacker) — north side, with enemy walls to show destruction ──
+
+            // Red has a small wall section (for Blue to tear down)
+            float redWallZ = 30f;
+            var redHub1Pos = new float3(-8f, 0, redWallZ);
+            var redHub2Pos = new float3(8f, 0, redWallZ);
+            redHub1Pos.y = TerrainUtility.GetHeight(redHub1Pos.x, redHub1Pos.z);
+            redHub2Pos.y = TerrainUtility.GetHeight(redHub2Pos.x, redHub2Pos.z);
+            var redHub1 = AlanthorWall.CreateHub(em, redHub1Pos, Faction.Red);
+            var redHub2 = AlanthorWall.CreateHub(em, redHub2Pos, Faction.Red);
+            AlanthorWall.CreateSegment(em, redHub1, redHub2, Faction.Red);
+
+            // Red attackers — siege rams + swordsmen approaching Blue's wall
+            SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, 15f));
+
+            // Siege Rams aimed at the wall
+            for (int i = 0; i < 3; i++)
+            {
+                float x = (i - 1) * 8f;
+                float3 pos = new float3(x, 0, 20f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                UnitFactory.Create(em, "Feraldis_SiegeRam", pos, Faction.Red);
+            }
+
+            // Catapults behind the attackers
+            for (int i = 0; i < 2; i++)
+            {
+                float x = (i == 0) ? -12f : 12f;
+                float3 pos = new float3(x, 0, 25f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                UnitFactory.Create(em, "Runai_Catapult", pos, Faction.Red);
+            }
+
+            Debug.Log("[ScenarioSetup] Wall Siege: Blue defended by walls (with gates+towers) vs Red siege attackers + Red walls to tear down");
+        }
+
+        /// <summary>
+        /// Find wall instances near a position and instantly complete an upgrade on them.
+        /// upgradeType: 1 = Tower, 2 = Gate.
+        /// </summary>
+        private static void UpgradeWallInstancesNear(EntityManager em, Faction faction,
+            float3 searchPos, float radius, byte upgradeType)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallInstanceTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<Unity.Transforms.LocalTransform>(Allocator.Temp);
+
+            float radiusSq = radius * radius;
+            bool upgraded = false;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                if (em.HasComponent<WallTowerTag>(entities[i]) || em.HasComponent<WallGateTag>(entities[i]))
+                    continue;
+
+                float distSq = math.distancesq(
+                    new float2(transforms[i].Position.x, transforms[i].Position.z),
+                    new float2(searchPos.x, searchPos.z));
+
+                if (distSq > radiusSq) continue;
+
+                // Instantly apply upgrade (skip timer)
+                if (upgradeType == 1)
+                {
+                    em.AddComponentData(entities[i], new WallTowerTag());
+                    em.AddComponentData(entities[i], new BuildingRangedAttack
+                    {
+                        Range = 16f,
+                        Damage = 12,
+                        Cooldown = 2.5f,
+                        Timer = 0f,
+                        MaxTargets = 1
+                    });
+                    em.AddComponentData(entities[i], new DamageTypeData { Value = DamageType.Ranged });
+                    var hp = em.GetComponentData<Health>(entities[i]);
+                    em.SetComponentData(entities[i], new Health { Value = 500, Max = 500 });
+                    em.SetComponentData(entities[i], new PresentationId
+                        { Id = AlanthorWall.TowerPresentationID });
+                }
+                else if (upgradeType == 2)
+                {
+                    em.AddComponentData(entities[i], new WallGateTag());
+                    em.AddComponentData(entities[i], new WallGateState { IsOpen = 0, RecheckTimer = 0f });
+                    em.SetComponentData(entities[i], new PresentationId
+                        { Id = AlanthorWall.GatePresentationID });
+                }
+
+                upgraded = true;
+                break; // Upgrade one instance per call
+            }
+
+            if (!upgraded)
+                Debug.LogWarning($"[ScenarioSetup] No wall instance found near {searchPos} to upgrade");
         }
 
         // ═══════════════════════════════════════════════════════════════

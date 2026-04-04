@@ -59,6 +59,8 @@ namespace TheWaningBorder.Data
             // Alanthor Culture Buildings
             { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, crystal: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
+            { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
+            { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
             { "Alanthor_Garrison",       Cost.Of(supplies: 220, iron: 90) },
             { "Alanthor_Stable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },

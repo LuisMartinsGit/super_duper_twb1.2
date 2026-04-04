@@ -560,16 +560,27 @@ namespace TheWaningBorder.UI.Panels
             {
                 Entity segment = AlanthorWall.CreateSegment(_em, _wallFirstHub, hub, fac);
 
-                // Mark segment as under construction too
-                if (!_em.HasComponent<UnderConstruction>(segment))
-                    _em.AddComponentData(segment, new UnderConstruction { Progress = 0f, Total = 5f });
-                if (_em.HasComponent<Health>(segment))
+                // Mark all wall instances in this segment as under construction
+                if (_em.HasBuffer<WallInstanceRef>(segment))
                 {
-                    var hp = _em.GetComponentData<Health>(segment);
-                    _em.SetComponentData(segment, new Health { Value = 1, Max = hp.Max });
+                    var instances = _em.GetBuffer<WallInstanceRef>(segment);
+                    for (int i = 0; i < instances.Length; i++)
+                    {
+                        var inst = instances[i].Instance;
+                        if (_em.Exists(inst))
+                        {
+                            if (!_em.HasComponent<UnderConstruction>(inst))
+                                _em.AddComponentData(inst, new UnderConstruction { Progress = 0f, Total = 5f });
+                            if (_em.HasComponent<Health>(inst))
+                            {
+                                var hp = _em.GetComponentData<Health>(inst);
+                                _em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
+                            }
+                            AssignBuildersToConstruction(inst, "Alanthor_Wall",
+                                _em.GetComponentData<LocalTransform>(inst).Position);
+                        }
+                    }
                 }
-
-                AssignBuildersToConstruction(segment, "Alanthor_Wall", pos);
             }
 
             // Current hub becomes the first hub for the next chain link

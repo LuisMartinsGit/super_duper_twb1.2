@@ -283,7 +283,10 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
             if (em.HasComponent<SmelterTag>(entity)) return "Smelter";
             if (em.HasComponent<WallHubTag>(entity)) return "Wall Hub";
-            if (em.HasComponent<WallSegmentTag>(entity)) return "Wall";
+            if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
+            if (em.HasComponent<WallGateTag>(entity)) return "Wall Gate";
+            if (em.HasComponent<WallInstanceTag>(entity)) return "Wall";
+            if (em.HasComponent<WallSegmentTag>(entity)) return "Wall Segment";
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
@@ -448,6 +451,16 @@ namespace TheWaningBorder.UI
                     info.Type = ActionType.BattalionStance;
                     return info;
                 }
+            }
+
+            // Check if this is an upgradeable wall instance (not already tower or gate)
+            if (em.HasComponent<WallInstanceTag>(entity) &&
+                !em.HasComponent<WallTowerTag>(entity) &&
+                !em.HasComponent<WallGateTag>(entity) &&
+                !em.HasComponent<UnderConstruction>(entity))
+            {
+                info.Type = ActionType.WallInstanceUpgrade;
+                return info;
             }
 
             // Check if this is a builder (can place buildings)

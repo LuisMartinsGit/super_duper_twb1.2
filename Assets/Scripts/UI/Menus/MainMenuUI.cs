@@ -198,7 +198,7 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawScenarios()
         {
-            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * 8 + Padding * 2;
+            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * 9 + Padding * 2;
             float startX = (Screen.width - ButtonWidth) * 0.5f;
             float startY = (Screen.height - totalH) * 0.5f;
 
@@ -224,6 +224,9 @@ namespace TheWaningBorder.UI.Menus
 
             if (DrawMenuButton(startX, ref y, "Full Army (3 Archer + 3 Sword + Litharchs + Ballistas)"))
                 _pendingScenario = ScenarioType.FullArmy;
+
+            if (DrawMenuButton(startX, ref y, "Wall Siege (Walls + Gates + Towers vs Siege)"))
+                _pendingScenario = ScenarioType.WallSiege;
 
             y += ButtonSpacing; // Extra gap before Back
 

@@ -72,7 +72,8 @@ public struct EntityDisplayInfo
         VaultManagement,
         UnitTrainingAndResearch,
         TempleUpgrade,
-        BattalionStance
+        BattalionStance,
+        WallInstanceUpgrade
     }
 
     /// <summary>
