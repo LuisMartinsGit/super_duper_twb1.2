@@ -42,9 +42,7 @@ namespace TheWaningBorder.UI.Menus
 
         // Background panning
         private Texture2D _bgTexture;
-        private float _panTime;
-        private const float PanSpeed = 0.03f; // Perlin noise time scale (slow drift)
-        private const float PanOverscale = 1.10f; // 10% larger than screen for pan room
+        // Pan/zoom removed — static background
 
         // Layout constants
         private const float ButtonWidth = 280f;
@@ -79,7 +77,7 @@ namespace TheWaningBorder.UI.Menus
 
         void Update()
         {
-            _panTime += PanSpeed * Time.deltaTime;
+            // (pan animation removed)
 
             if (_pendingScenario.HasValue)
             {
@@ -117,37 +115,9 @@ namespace TheWaningBorder.UI.Menus
 
             float screenW = Screen.width;
             float screenH = Screen.height;
-            float screenAspect = screenW / screenH;
-            float texAspect = (float)_bgTexture.width / _bgTexture.height;
 
-            // Fit-to-screen: cover the screen, then add 10% overscale for pan room
-            float drawW, drawH;
-            if (texAspect > screenAspect)
-            {
-                // Image is wider than screen — fit height, width overflows
-                drawH = screenH * PanOverscale;
-                drawW = drawH * texAspect;
-            }
-            else
-            {
-                // Image is taller than screen — fit width, height overflows
-                drawW = screenW * PanOverscale;
-                drawH = drawW / texAspect;
-            }
-
-            // Pan room = how much the image extends beyond the screen on each axis
-            float panRangeX = drawW - screenW;
-            float panRangeY = drawH - screenH;
-
-            // Smooth random-direction pan using Perlin noise (never jerks at edges)
-            // Use different noise seeds for X and Y so they move independently
-            float nx = Mathf.PerlinNoise(_panTime, 0.5f);        // 0..1
-            float ny = Mathf.PerlinNoise(0.5f, _panTime + 100f); // 0..1
-
-            float offsetX = -nx * panRangeX;
-            float offsetY = -ny * panRangeY;
-
-            GUI.DrawTexture(new Rect(offsetX, offsetY, drawW, drawH), _bgTexture, ScaleMode.StretchToFill);
+            // Static background — fit to screen, no pan or zoom
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), _bgTexture, ScaleMode.ScaleAndCrop);
 
             // Subtle dark overlay for text readability
             GUI.color = new Color(0f, 0f, 0.02f, 0.35f);
