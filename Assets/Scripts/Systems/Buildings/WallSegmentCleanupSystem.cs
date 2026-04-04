@@ -123,17 +123,22 @@ namespace TheWaningBorder.Systems.Buildings
         {
             if (!em.Exists(segment)) return;
 
-            // Destroy all child instances
+            // Copy instance refs to local array BEFORE any structural changes.
+            // DestroyEntity invalidates live buffer handles.
             if (em.HasBuffer<WallInstanceRef>(segment))
             {
-                var instances = em.GetBuffer<WallInstanceRef>(segment);
-                for (int i = 0; i < instances.Length; i++)
+                var buffer = em.GetBuffer<WallInstanceRef>(segment);
+                var instanceCopy = new NativeArray<Entity>(buffer.Length, Allocator.Temp);
+                for (int i = 0; i < buffer.Length; i++)
+                    instanceCopy[i] = buffer[i].Instance;
+
+                // Now destroy instances (structural changes are safe — we hold a copy)
+                for (int i = 0; i < instanceCopy.Length; i++)
                 {
-                    if (em.Exists(instances[i].Instance))
-                    {
-                        em.DestroyEntity(instances[i].Instance);
-                    }
+                    if (em.Exists(instanceCopy[i]))
+                        em.DestroyEntity(instanceCopy[i]);
                 }
+                instanceCopy.Dispose();
             }
 
             DestroySegment(em, segment);
