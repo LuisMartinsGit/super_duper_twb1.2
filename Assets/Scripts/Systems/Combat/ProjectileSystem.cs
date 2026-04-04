@@ -186,7 +186,10 @@ namespace TheWaningBorder.Systems.Combat
                             {
                                 if (pierceFactions[pi].Value == proj.Faction) continue;
                                 if (pierceHealth[pi].Value <= 0) continue; // skip dead
-                                float d = math.length(pierceTransforms[pi].Position - arrowPos);
+                                // Use XZ distance — bolts fly with upward pitch and no gravity,
+                                // so 3D distance would cause them to fly over targets
+                                float3 diff = pierceTransforms[pi].Position - arrowPos;
+                                float d = math.length(new float2(diff.x, diff.z));
                                 if (d < 2.5f)
                                 {
                                     ApplyDamage(em, ecb, proj, pierceScan[pi], true, arr.Shooter);

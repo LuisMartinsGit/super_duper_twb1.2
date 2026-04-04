@@ -451,39 +451,49 @@ namespace TheWaningBorder.Systems.Movement
                         // Determine if we should assign per-member targets
                         bool shouldAssignTargets = isRangedBattalion ? inFiringRange : inEncircleRange;
 
-                        if (shouldAssignTargets && em.HasComponent<BattalionAttackTarget>(entity))
+                        if (shouldAssignTargets)
                         {
-                            var bat = em.GetComponentData<BattalionAttackTarget>(entity);
-                            if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
-                                && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
-                            {
-                                var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                            // Check if enemy is a battalion (has BattalionAttackTarget with valid leader)
+                            bool enemyIsBattalion = false;
+                            DynamicBuffer<BattalionMember> enemyBuf = default;
+                            int livingEnemyCount = 0;
 
-                                // Build list of living enemies
-                                int livingEnemyCount = 0;
-                                for (int ei = 0; ei < enemyBuf.Length; ei++)
+                            if (em.HasComponent<BattalionAttackTarget>(entity))
+                            {
+                                var bat = em.GetComponentData<BattalionAttackTarget>(entity);
+                                if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                                    && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
                                 {
-                                    var enemy = enemyBuf[ei].Value;
-                                    if (enemy != Entity.Null && em.Exists(enemy)
-                                        && em.HasComponent<Health>(enemy) && em.GetComponentData<Health>(enemy).Value > 0)
-                                        livingEnemyCount++;
+                                    enemyIsBattalion = true;
+                                    enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+
+                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
+                                    {
+                                        var enemy = enemyBuf[ei].Value;
+                                        if (enemy != Entity.Null && em.Exists(enemy)
+                                            && em.HasComponent<Health>(enemy) && em.GetComponentData<Health>(enemy).Value > 0)
+                                            livingEnemyCount++;
+                                    }
+                                }
+                            }
+
+                            for (int i = 0; i < memberCount; i++)
+                            {
+                                if (!_memberAlive[i]) continue;
+                                // Skip members with living targets
+                                if (em.HasComponent<Target>(_members[i]))
+                                {
+                                    var curTgt = em.GetComponentData<Target>(_members[i]);
+                                    if (curTgt.Value != Entity.Null && em.Exists(curTgt.Value)
+                                        && em.HasComponent<Health>(curTgt.Value)
+                                        && em.GetComponentData<Health>(curTgt.Value).Value > 0)
+                                        continue;
                                 }
 
-                                for (int i = 0; i < memberCount; i++)
+                                Entity assignedTarget = Entity.Null;
+
+                                if (enemyIsBattalion)
                                 {
-                                    if (!_memberAlive[i]) continue;
-                                    // Skip members with living targets
-                                    if (em.HasComponent<Target>(_members[i]))
-                                    {
-                                        var curTgt = em.GetComponentData<Target>(_members[i]);
-                                        if (curTgt.Value != Entity.Null && em.Exists(curTgt.Value)
-                                            && em.HasComponent<Health>(curTgt.Value)
-                                            && em.GetComponentData<Health>(curTgt.Value).Value > 0)
-                                            continue;
-                                    }
-
-                                    Entity assignedTarget = Entity.Null;
-
                                     if (isRangedBattalion && livingEnemyCount > 0)
                                     {
                                         // Ranged: assign random enemy to spread fire
@@ -500,7 +510,7 @@ namespace TheWaningBorder.Systems.Movement
                                     }
                                     else
                                     {
-                                        // Melee: assign nearest enemy
+                                        // Melee: assign nearest enemy from battalion
                                         float bestD = float.MaxValue;
                                         for (int ei = 0; ei < enemyBuf.Length; ei++)
                                         {
@@ -515,10 +525,15 @@ namespace TheWaningBorder.Systems.Movement
                                             if (d < bestD) { bestD = d; assignedTarget = enemy; }
                                         }
                                     }
-
-                                    if (assignedTarget != Entity.Null)
-                                        em.SetComponentData(_members[i], new Target { Value = assignedTarget });
                                 }
+                                else
+                                {
+                                    // Standalone enemy (ballista, litharch, etc.) — all members target it
+                                    assignedTarget = lt.Value;
+                                }
+
+                                if (assignedTarget != Entity.Null)
+                                    em.SetComponentData(_members[i], new Target { Value = assignedTarget });
                             }
                         }
                     }

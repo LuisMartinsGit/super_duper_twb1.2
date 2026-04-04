@@ -1136,19 +1136,15 @@ namespace TheWaningBorder.Input
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, clickMask))
             {
-                var go = hit.collider.gameObject;
-                
-                // Check for EntityReference component
-                var link = go.GetComponent<EntityReference>();
-                if (link != null && _em.Exists(link.Entity))
-                    return link.Entity;
-                
-                // Check parent
-                if (go.transform.parent != null)
+                // Walk up the hierarchy to find EntityReference (buildings/units
+                // may have colliders on deeply nested children)
+                var current = hit.collider.transform;
+                while (current != null)
                 {
-                    link = go.transform.parent.GetComponent<EntityReference>();
+                    var link = current.GetComponent<EntityReference>();
                     if (link != null && _em.Exists(link.Entity))
                         return link.Entity;
+                    current = current.parent;
                 }
             }
             return Entity.Null;

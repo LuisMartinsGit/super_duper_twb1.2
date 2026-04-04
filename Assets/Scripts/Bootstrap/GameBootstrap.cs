@@ -189,6 +189,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<MinimapRenderer>();          // Minimap display
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
+            managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines

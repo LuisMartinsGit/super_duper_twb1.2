@@ -296,6 +296,15 @@ public struct DeathAnimationState : IComponentData
     public float Timer; // Seconds remaining before entity destruction
 }
 
+/// <summary>
+/// Added to buildings when health reaches 0 to delay destruction for collapse animation.
+/// BuildingEffectSystem handles the visual collapse; DeathSystem destroys when Timer expires.
+/// </summary>
+public struct BuildingCollapseState : IComponentData
+{
+    public float Timer; // Seconds remaining before entity destruction
+}
+
 // ==================== Construction System ====================
 
 /// <summary>

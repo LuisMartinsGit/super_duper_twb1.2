@@ -37,6 +37,8 @@ namespace TheWaningBorder.Systems.Combat
 
         /// <summary>Death animation duration in seconds before entity destruction.</summary>
         private const float DeathAnimationDuration = 2.0f;
+        /// <summary>Building collapse animation duration in seconds before entity destruction.</summary>
+        private const float BuildingCollapseDuration = 2.0f;
 
         public void OnUpdate(ref SystemState state)
         {
@@ -44,7 +46,7 @@ namespace TheWaningBorder.Systems.Combat
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             float dt = SystemAPI.Time.DeltaTime;
 
-            // Phase 0: Tick death animation timers and collect expired entities
+            // Phase 0a: Tick death animation timers and collect expired entities
             var expiredEntities = new NativeList<Entity>(Allocator.Temp);
             foreach (var (deathAnim, entity) in SystemAPI
                          .Query<RefRW<DeathAnimationState>>()
@@ -56,16 +58,29 @@ namespace TheWaningBorder.Systems.Combat
                     expiredEntities.Add(entity);
                 }
             }
+
+            // Phase 0b: Tick building collapse timers and collect expired buildings
+            foreach (var (collapse, entity) in SystemAPI
+                         .Query<RefRW<BuildingCollapseState>>()
+                         .WithEntityAccess())
+            {
+                collapse.ValueRW.Timer -= dt;
+                if (collapse.ValueRO.Timer <= 0f)
+                {
+                    expiredEntities.Add(entity);
+                }
+            }
+
             for (int i = 0; i < expiredEntities.Length; i++)
                 ecb.DestroyEntity(expiredEntities[i]);
             expiredEntities.Dispose();
 
-            // Phase 1: Collect all dead entities (health <= 0, no death animation yet)
+            // Phase 1: Collect all dead entities (health <= 0, no death/collapse animation yet)
             var deadEntities = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (health, entity) in SystemAPI
                          .Query<RefRO<Health>>()
-                         .WithNone<BattalionLeader, DeathAnimationState>()
+                         .WithNone<BattalionLeader, DeathAnimationState, BuildingCollapseState>()
                          .WithEntityAccess())
             {
                 if (health.ValueRO.Value <= 0)
@@ -165,7 +180,8 @@ namespace TheWaningBorder.Systems.Combat
                     }
                     else
                     {
-                        ecb.DestroyEntity(dead);
+                        // Buildings get a collapse animation delay (visual handled by BuildingEffectSystem)
+                        ecb.AddComponent(dead, new BuildingCollapseState { Timer = BuildingCollapseDuration });
                     }
                 }
             }
