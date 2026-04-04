@@ -24,7 +24,8 @@ public enum ScenarioType
     HealerTest,
     FourWayCultures,
     FullArmy,
-    WallSiege
+    WallSiege,
+    SectShowcase
 }
 
 public enum SpawnLayout

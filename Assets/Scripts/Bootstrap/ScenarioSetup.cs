@@ -114,6 +114,9 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.WallSiege:
                     SpawnWallSiege(em);
                     break;
+                case ScenarioType.SectShowcase:
+                    SpawnSectShowcase(em);
+                    break;
             }
 
             // Focus camera on center
@@ -450,6 +453,78 @@ namespace TheWaningBorder.Bootstrap
 
             if (!upgraded)
                 Debug.LogWarning($"[ScenarioSetup] No wall instance found near {searchPos} to upgrade");
+        }
+
+        /// <summary>
+        /// Sect Showcase: 12 test areas arranged in a 4x3 grid, one per sect.
+        /// Each area has 3 friendly sect units (Blue) facing 5 enemy Swordsmen (Red).
+        /// Player can select sect units and test their abilities.
+        /// Layout: Alanthor sects (top row), Runai sects (middle row), Feraldis sects (bottom row).
+        /// </summary>
+        private static void SpawnSectShowcase(EntityManager em)
+        {
+            GameSettings.TotalPlayers = 2;
+            GameSettings.IsObserver = false;
+
+            // 12 sects: 4 columns x 3 rows
+            var sects = new (string unitId, string label)[]
+            {
+                // Row 0 — Alanthor (4 sects)
+                ("Sect_ScarGuard",         "Renewal: ScarGuard\nRapidMend (self-heal)"),
+                ("Sect_GolemAutark",        "Antiquity: GolemAutark\nArcanePulse (AOE dmg)"),
+                ("Sect_StoneWarden",        "LivingStone: StoneWarden\nFortify (armor+root self)"),
+                ("Sect_ArchivistAdept",     "VeiledMemory: ArchivistAdept\nDispel (strip buffs)"),
+                // Row 1 — Runai (4 sects)
+                ("Sect_FlameWarden",        "StillFlame: FlameWarden\nSanction (root enemy)"),
+                ("Sect_VaultKeeper",        "QuietVault: VaultKeeper\nSafeguard (AOE armor)"),
+                ("Sect_GlassmarkArcanist",  "MirrorRite: GlassmarkArcanist\nMirrorShield (reflect)"),
+                ("Sect_Judicator",          "ShardJudgment: Judicator\nCondemn (+25% dmg taken)"),
+                // Row 2 — Feraldis (4 sects)
+                ("Sect_Ashblade",           "EmberAsh: Ashblade\nIgnite (fire dmg x3)"),
+                ("Sect_Brandbreaker",       "HollowBrand: Brandbreaker\nWarCry (AOE slow)"),
+                ("Sect_Chaincaster",        "FlamewroughtChains: Chaincaster\nChainBind (root)"),
+                ("Sect_Nullblade",          "UnmakersGrasp: Nullblade\nVoidStrike (+40 next hit)"),
+            };
+
+            float colSpacing = 30f;  // distance between area centers in X
+            float rowSpacing = 30f;  // distance between area centers in Z
+            float gridOffsetX = -colSpacing * 1.5f; // center the 4-column grid
+            float gridOffsetZ = -rowSpacing * 1f;    // center the 3-row grid
+
+            for (int i = 0; i < sects.Length; i++)
+            {
+                int col = i % 4;
+                int row = i / 4;
+
+                float3 areaCenter = new float3(
+                    gridOffsetX + col * colSpacing,
+                    0f,
+                    gridOffsetZ + row * rowSpacing);
+                areaCenter.y = TerrainUtility.GetHeight(areaCenter.x, areaCenter.z);
+
+                // Spawn 3 friendly sect units (Blue) on the south side of the area
+                for (int u = 0; u < 3; u++)
+                {
+                    float x = (u - 1) * 2.5f;
+                    float3 pos = areaCenter + new float3(x, 0, -4f);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    UnitFactory.Create(em, sects[i].unitId, pos, Faction.Blue);
+                }
+
+                // Spawn 5 enemy Swordsmen (Red) on the north side as targets
+                for (int u = 0; u < 5; u++)
+                {
+                    float x = (u - 2) * 2.5f;
+                    float3 pos = areaCenter + new float3(x, 0, 6f);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    UnitFactory.Create(em, "Swordsman", pos, Faction.Red);
+                }
+            }
+
+            // Focus camera on center of grid
+            GameCamera.FocusOn(new UnityEngine.Vector3(0, 0, 0), instant: true);
+
+            Debug.Log("[ScenarioSetup] Sect Showcase: 12 areas (4x3 grid), 3 sect units vs 5 Swordsmen each");
         }
 
         // ═══════════════════════════════════════════════════════════════

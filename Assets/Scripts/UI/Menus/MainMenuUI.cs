@@ -40,9 +40,11 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _transparentWindow;
         private bool _stylesInitialized = false;
 
-        // Background panning
+        // Background
         private Texture2D _bgTexture;
-        // Pan/zoom removed — static background
+
+        // Scenario scroll
+        private Vector2 _scenarioScrollPos;
 
         // Layout constants
         private const float ButtonWidth = 280f;
@@ -168,39 +170,50 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawScenarios()
         {
-            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * 9 + Padding * 2;
+            float maxVisibleButtons = 8;
+            float scrollAreaH = (ButtonHeight + ButtonSpacing) * maxVisibleButtons;
+            float totalH = TitleHeight + Padding + scrollAreaH + Padding + ButtonHeight + Padding;
             float startX = (Screen.width - ButtonWidth) * 0.5f;
             float startY = (Screen.height - totalH) * 0.5f;
 
+            // Title
             GUI.Label(new Rect(startX, startY, ButtonWidth, TitleHeight),
                 "SCENARIOS", _titleStyle);
 
-            float y = startY + TitleHeight + Padding;
+            // Scrollable area for scenario buttons
+            var scrollRect = new Rect(startX, startY + TitleHeight + Padding, ButtonWidth, scrollAreaH);
+            var scenarios = new (string label, ScenarioType type)[]
+            {
+                ("Large Melee Battle (6v6)", ScenarioType.LargeMelee),
+                ("Large Ranged Battle (6v6)", ScenarioType.LargeRanged),
+                ("Large Mixed Battle (6v6)", ScenarioType.LargeMixed),
+                ("Healer Test", ScenarioType.HealerTest),
+                ("Four-Way Cultures (4 armies)", ScenarioType.FourWayCultures),
+                ("Full Army (Archers + Swords + Siege)", ScenarioType.FullArmy),
+                ("Wall Siege (Walls vs Siege)", ScenarioType.WallSiege),
+                ("Sect Showcase (12 Sect Abilities)", ScenarioType.SectShowcase),
+            };
 
-            if (DrawMenuButton(startX, ref y, "Large Melee Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeMelee;
+            float contentH = (ButtonHeight + ButtonSpacing) * scenarios.Length;
+            var viewRect = new Rect(0, 0, ButtonWidth - 16, contentH);
 
-            if (DrawMenuButton(startX, ref y, "Large Ranged Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeRanged;
+            _scenarioScrollPos = GUI.BeginScrollView(scrollRect, _scenarioScrollPos, viewRect);
 
-            if (DrawMenuButton(startX, ref y, "Large Mixed Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeMixed;
+            float y = 0;
+            for (int i = 0; i < scenarios.Length; i++)
+            {
+                var btnRect = new Rect(0, y, ButtonWidth - 16, ButtonHeight);
+                if (GUI.Button(btnRect, scenarios[i].label, _buttonStyle))
+                    _pendingScenario = scenarios[i].type;
+                y += ButtonHeight + ButtonSpacing;
+            }
 
-            if (DrawMenuButton(startX, ref y, "Healer Test"))
-                _pendingScenario = ScenarioType.HealerTest;
+            GUI.EndScrollView();
 
-            if (DrawMenuButton(startX, ref y, "Four-Way Cultures (4 armies)"))
-                _pendingScenario = ScenarioType.FourWayCultures;
-
-            if (DrawMenuButton(startX, ref y, "Full Army (3 Archer + 3 Sword + Litharchs + Ballistas)"))
-                _pendingScenario = ScenarioType.FullArmy;
-
-            if (DrawMenuButton(startX, ref y, "Wall Siege (Walls + Gates + Towers vs Siege)"))
-                _pendingScenario = ScenarioType.WallSiege;
-
-            y += ButtonSpacing; // Extra gap before Back
-
-            if (DrawMenuButton(startX, ref y, "Back"))
+            // Back button below scroll area
+            float backY = scrollRect.yMax + Padding;
+            var backRect = new Rect(startX, backY, ButtonWidth, ButtonHeight);
+            if (GUI.Button(backRect, "Back", _buttonStyle))
                 _pendingState = MenuState.MainMenu;
         }
 
