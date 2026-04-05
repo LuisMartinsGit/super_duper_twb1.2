@@ -121,6 +121,10 @@ namespace TheWaningBorder.UI.Panels
                 case ActionType.WallInstanceUpgrade:
                     DrawWallUpgradePanel(entity);
                     break;
+
+                case ActionType.BazaarWagonUnpack:
+                    DrawBazaarWagonPanel(entity);
+                    break;
             }
 
             } // end try
@@ -279,6 +283,16 @@ namespace TheWaningBorder.UI.Panels
             {
                 var em = UnifiedUIManager.GetEntityManager();
                 if (!em.Exists(entity)) return;
+
+                // Bazaar Pack button — add pack command instead of training
+                if (button.Id == "BazaarPack")
+                {
+                    if (!em.HasComponent<BazaarPackCommand>(entity))
+                        em.AddComponent<BazaarPackCommand>(entity);
+                    Debug.Log("Packing Bazaar into wagon");
+                    Event.current.Use();
+                    return;
+                }
 
                 Faction faction = GameSettings.LocalPlayerFaction;
                 if (em.HasComponent<FactionTag>(entity))
@@ -1715,6 +1729,45 @@ namespace TheWaningBorder.UI.Panels
         // ═══════════════════════════════════════════════════════════════════════
         // WALL INSTANCE UPGRADE PANEL
         // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Panel for the Bazaar Wagon — shows an Unpack button to convert back to building.
+        /// </summary>
+        private void DrawBazaarWagonPanel(Entity entity)
+        {
+            PanelVisible = true;
+
+            float panelHeight = 100f;
+            var panelRect = new Rect(
+                Screen.width - PanelWidth - PanelPadding,
+                Screen.height * 0.5f - panelHeight * 0.5f,
+                PanelWidth,
+                panelHeight);
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+            GUILayout.BeginArea(new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical));
+
+            GUILayout.Label("Bazaar Wagon", _headerStyle);
+            GUILayout.Space(8);
+
+            if (GUILayout.Button("Unpack Bazaar", _buttonStyle, GUILayout.Height(28)))
+            {
+                var em = UnifiedUIManager.GetEntityManager();
+                if (em.Exists(entity) && !em.HasComponent<BazaarUnpackCommand>(entity))
+                {
+                    em.AddComponent<BazaarUnpackCommand>(entity);
+                    Debug.Log("Unpacking wagon into Bazaar");
+                }
+                Event.current.Use();
+            }
+
+            GUILayout.EndArea();
+        }
 
         private void DrawWallUpgradePanel(Entity entity)
         {

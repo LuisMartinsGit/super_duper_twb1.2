@@ -290,12 +290,9 @@ namespace TheWaningBorder.UI
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
-            if (em.HasComponent<TradingPostTag>(entity))
-            {
-                int num = em.HasComponent<TradingPostData>(entity) ? em.GetComponentData<TradingPostData>(entity).PostNumber : 0;
-                return num > 0 ? $"Trading Post #{num}" : "Trading Post";
-            }
-            if (em.HasComponent<BazaarTag>(entity)) return "Bazaar";
+            if (em.HasComponent<TradingPostTag>(entity)) return "Trading Post";
+            if (em.HasComponent<BazaarTag>(entity)) return "Thessara's Bazaar";
+            if (em.HasComponent<BazaarWagonTag>(entity)) return "Bazaar Wagon";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
             // Alanthor culture buildings
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
@@ -520,6 +517,22 @@ namespace TheWaningBorder.UI
                 return info;
             }
 
+            // Check if this is a Bazaar Wagon (packed Bazaar — show unpack button)
+            if (em.HasComponent<BazaarWagonTag>(entity))
+            {
+                info.Type = ActionType.BazaarWagonUnpack;
+                info.Actions = new List<ActionButton>
+                {
+                    new ActionButton
+                    {
+                        Id = "BazaarUnpack",
+                        Label = "Unpack",
+                        Tooltip = "Unpack wagon back into Thessara's Bazaar"
+                    }
+                };
+                return info;
+            }
+
             // Check if this is a builder (can place buildings)
             if (em.HasComponent<CanBuild>(entity))
             {
@@ -561,6 +574,17 @@ namespace TheWaningBorder.UI
             {
                 var trainingActions = GetTrainingActions(entity, em);
                 bool hasResearch = em.HasComponent<ResearchState>(entity);
+
+                // Bazaar: add Pack button to training actions
+                if (em.HasComponent<BazaarTag>(entity) && !em.HasComponent<UnderConstruction>(entity))
+                {
+                    trainingActions.Add(new ActionButton
+                    {
+                        Id = "BazaarPack",
+                        Label = "Pack",
+                        Tooltip = "Pack Bazaar into a mobile wagon"
+                    });
+                }
 
                 if (trainingActions.Count > 0)
                 {
@@ -701,6 +725,10 @@ namespace TheWaningBorder.UI
 
                     // Alanthor cannot build Gatherer's Huts (they use walls for income)
                     if (building.id == "GatherersHut" && factionCulture == Cultures.Alanthor)
+                        continue;
+
+                    // Runai cannot build Huts (population is set to 200 on age-up)
+                    if (building.id == "Hut" && factionCulture == Cultures.Runai)
                         continue;
 
                     var cost = building.cost != null ? new Cost

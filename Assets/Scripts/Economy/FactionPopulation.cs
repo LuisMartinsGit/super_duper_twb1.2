@@ -231,6 +231,7 @@ namespace TheWaningBorder.Economy
                 "FiendstoneKeep" => 25,
                 "KingsCourt" => 30,
                 "Feraldis_Longhouse" => 15,
+                "ThessarasBazaar" => 40,
                 _ => 0  // Most buildings don't provide population
             };
         }

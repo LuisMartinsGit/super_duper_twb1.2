@@ -8,14 +8,13 @@ using Cost = TheWaningBorder.Core.Cost;
 namespace TheWaningBorder.Systems.Economy
 {
     /// <summary>
-    /// Handles trader death: loot distribution and lane bookkeeping.
+    /// Handles trader death: loot distribution.
     ///
     /// Runs BEFORE DeathSystem so it can process trader-specific logic
     /// before the entity is destroyed.
     ///
     /// On trader death:
-    /// 1. Credits the killer's faction with 50% of the trader's current cargo
-    /// 2. Decrements the lane's ActiveTraders count
+    /// 1. Credits the killer's faction with 50% of accumulated resources
     ///
     /// DeathSystem handles actual entity destruction.
     /// </summary>
@@ -33,43 +32,27 @@ namespace TheWaningBorder.Systems.Economy
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
-            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
-            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
-            // =============================================================
-            // Process dead traders (new TraderState system)
-            // =============================================================
+            // Process dead traders (RunaiTraderState system)
             foreach (var (health, trader, lastDamager, entity) in SystemAPI
-                .Query<RefRO<Health>, RefRO<TraderState>, RefRO<LastDamagedByFaction>>()
+                .Query<RefRO<Health>, RefRO<RunaiTraderState>, RefRO<LastDamagedByFaction>>()
                 .WithAll<CaravanTag>()
                 .WithEntityAccess())
             {
                 if (health.ValueRO.Value > 0) continue;
 
-                // --- Loot: credit killer's faction with 50% of cargo ---
-                int lootAmount = (int)(trader.ValueRO.CurrentCargo * DeathLootFraction);
-                if (lootAmount > 0)
+                // Loot: credit killer's faction with 50% of accumulated resources
+                int lootSupplies = (int)(trader.ValueRO.AccumulatedSupplies * DeathLootFraction);
+                int lootCrystal = (int)(trader.ValueRO.AccumulatedCrystal * DeathLootFraction);
+
+                if (lootSupplies > 0 || lootCrystal > 0)
                 {
                     Faction killerFaction = lastDamager.ValueRO.Value;
-                    FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootAmount));
-                }
-
-                // --- Decrement active trader count on lane ---
-                Entity lanePost = trader.ValueRO.OwnerLanePost;
-                if (em.Exists(lanePost) && em.HasComponent<TradeLane>(lanePost))
-                {
-                    var lane = em.GetComponentData<TradeLane>(lanePost);
-                    lane.ActiveTraders = math.max(0, lane.ActiveTraders - 1);
-                    // Reset second trader timer if we lost a trader so a replacement can spawn
-                    if (lane.ActiveTraders < 2)
-                        lane.SecondTraderTimer = 60f; // Respawn replacement in 1 minute
-                    em.SetComponentData(lanePost, lane);
+                    FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootSupplies, crystal: lootCrystal));
                 }
 
                 // DeathSystem will handle actual entity destruction
             }
-
-            // Old CaravanState system removed — all traders now use TraderState
         }
     }
 }

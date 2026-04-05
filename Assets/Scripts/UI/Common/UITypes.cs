@@ -73,7 +73,8 @@ public struct EntityDisplayInfo
         UnitTrainingAndResearch,
         TempleUpgrade,
         BattalionStance,
-        WallInstanceUpgrade
+        WallInstanceUpgrade,
+        BazaarWagonUnpack
     }
 
     /// <summary>

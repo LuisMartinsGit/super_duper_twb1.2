@@ -279,14 +279,9 @@ namespace TheWaningBorder.UI.Panels
         // TRADE LANE CARAVAN COUNTDOWN (Runai Trading Posts)
         // ═══════════════════════════════════════════════════════════════════════
 
-        /// <summary>Initial delay for 2nd trader spawn (matches TradingPostSystem constant).</summary>
-        private const float SecondTraderDelay = 240f;
-        /// <summary>Respawn delay when a trader dies (matches CaravanDeathSystem).</summary>
-        private const float TraderRespawnDelay = 60f;
-
         /// <summary>
-        /// If the selected entity is a TradingPost with an active TradeLane waiting
-        /// for a caravan spawn, draw a countdown progress bar.
+        /// If the selected entity is a TradeHub with a TradeHubSpawner waiting
+        /// for a trader spawn, draw a countdown progress bar.
         /// </summary>
         private void DrawTradeLaneCountdown()
         {
@@ -295,23 +290,18 @@ namespace TheWaningBorder.UI.Panels
             var em = UnifiedUIManager.GetEntityManager();
             if (em.Equals(default(EntityManager))) return;
 
-            // Only show for trading posts that have a lane
-            if (!em.HasComponent<TradingPostTag>(entity)) return;
-            if (!em.HasComponent<TradeLane>(entity)) return;
+            // Only show for trade hubs with a spawner
+            if (!em.HasComponent<TradeHubTag>(entity)) return;
+            if (!em.HasComponent<TradeHubSpawner>(entity)) return;
 
-            var lane = em.GetComponentData<TradeLane>(entity);
-            if (lane.LaneValid == 0) return;
+            var spawner = em.GetComponentData<TradeHubSpawner>(entity);
 
-            // Show countdown only when waiting for a trader (< max traders)
-            const int MaxTradersPerLane = 2;
-            if (lane.ActiveTraders >= MaxTradersPerLane) return;
-            if (lane.SecondTraderTimer <= 0f) return;
+            const float SpawnInterval = 30f;
+            const int MaxTradersPerFaction = 30;
 
-            // Determine total duration for progress calculation
-            float total = (lane.ActiveTraders == 0) ? TraderRespawnDelay : SecondTraderDelay;
-            float remaining = Mathf.Max(0f, lane.SecondTraderTimer);
-            float elapsed = total - remaining;
-            float pct = Mathf.Clamp01(elapsed / total);
+            float remaining = Mathf.Max(0f, spawner.TraderTimer);
+            float elapsed = SpawnInterval - remaining;
+            float pct = Mathf.Clamp01(elapsed / SpawnInterval);
             int seconds = Mathf.CeilToInt(remaining);
 
             GUILayout.Space(6);
@@ -325,10 +315,7 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.Space(4);
 
             // Label
-            string label = lane.ActiveTraders == 0
-                ? $"Respawning Caravan  {seconds}s"
-                : $"Next Caravan  {seconds}s";
-            GUILayout.Label(label, _labelStyle);
+            GUILayout.Label($"Next Trader  {seconds}s", _labelStyle);
             GUILayout.Space(2);
 
             // Progress bar background
@@ -354,8 +341,8 @@ namespace TheWaningBorder.UI.Panels
 
             GUI.color = Color.white;
 
-            // Active traders info
-            GUILayout.Label($"Active Traders: {lane.ActiveTraders}/{MaxTradersPerLane}", _smallStyle);
+            // Spawned traders info
+            GUILayout.Label($"Traders Spawned: {spawner.TradersSpawned} (max {MaxTradersPerFaction}/faction)", _smallStyle);
         }
 
         // ═══════════════════════════════════════════════════════════════════════

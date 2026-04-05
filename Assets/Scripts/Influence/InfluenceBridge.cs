@@ -215,48 +215,44 @@ public class InfluenceBridge : MonoBehaviour
     // =========================================================================
 
     /// <summary>
-    /// Reads all valid TradeLane components (one per TradingPost entity that has a
-    /// next post in sequence). Converts from-post → to-post world positions into
-    /// a lane list and sends it to RunaiiInfluence.
-    ///
-    /// TradingPostSystem already maintains LaneValid; we trust that flag here.
+    /// Builds trade lanes between all pairs of TradeNodeTag entities of the same faction.
+    /// Visualizes the fully-connected trade network between TradeHubs, Halls, and Bazaars.
     /// </summary>
     private void SyncRunaiiTradeLanes(EntityManager em)
     {
         if (_runaii == null) return;
 
-        // Query: TradingPostTag + TradeLane + LocalTransform, exclude under-construction
+        // Query all trade nodes (TradeHubs, Halls, Bazaars with TradeNodeTag)
         var query = em.CreateEntityQuery(new EntityQueryDesc
         {
-            All  = new[] { ComponentType.ReadOnly<TradingPostTag>(),
-                           ComponentType.ReadOnly<TradeLane>(),
+            All  = new[] { ComponentType.ReadOnly<TradeNodeTag>(),
+                           ComponentType.ReadOnly<FactionTag>(),
                            ComponentType.ReadOnly<LocalTransform>() },
             None = new[] { ComponentType.ReadOnly<UnderConstruction>() }
         });
 
         using var entities   = query.ToEntityArray(Allocator.Temp);
-        using var lanes      = query.ToComponentDataArray<TradeLane>(Allocator.Temp);
+        using var factions   = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
         using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
         var activeLanes = new List<(Vector3 from, Vector3 to, float width)>();
 
+        // Build lanes between all pairs of same-faction trade nodes
         for (int i = 0; i < entities.Length; i++)
         {
-            // Skip invalid lanes (end-of-chain posts have LaneValid = 0)
-            if (lanes[i].LaneValid == 0) continue;
+            for (int j = i + 1; j < entities.Length; j++)
+            {
+                if (factions[i].Value != factions[j].Value) continue;
 
-            Entity nextPost = lanes[i].NextPost;
-            if (nextPost == Entity.Null || !em.Exists(nextPost)) continue;
-            if (!em.HasComponent<LocalTransform>(nextPost)) continue;
+                var fromP = transforms[i].Position;
+                var toP   = transforms[j].Position;
 
-            var fromP = transforms[i].Position;
-            var toP   = em.GetComponentData<LocalTransform>(nextPost).Position;
-
-            activeLanes.Add((
-                new Vector3(fromP.x, fromP.y, fromP.z),
-                new Vector3(toP.x,   toP.y,   toP.z),
-                tradeLaneHalfWidth
-            ));
+                activeLanes.Add((
+                    new Vector3(fromP.x, fromP.y, fromP.z),
+                    new Vector3(toP.x,   toP.y,   toP.z),
+                    tradeLaneHalfWidth
+                ));
+            }
         }
 
         _runaii.SetLanes(activeLanes);

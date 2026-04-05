@@ -1,304 +1,361 @@
 // File: Assets/Scripts/Systems/Economy/TradingPostSystem.cs
+// Renamed internally to RunaiTradeHubSystem — manages the Runai trade network.
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Systems.Economy
 {
     /// <summary>
-    /// Manages the Runai trading post chain system.
+    /// Manages the Runai trade network between TradeHubs, Halls, and Bazaars.
     ///
     /// Responsibilities:
-    /// 1. Post Numbering: Assigns sequential PostNumber to newly completed posts.
-    /// 2. Lane Discovery: Every 2s, establishes TradeLane between consecutive posts.
-    /// 3. Trader Spawning: 1st trader immediately on lane creation, 2nd after 4 minutes.
-    /// 4. Patrol Spawning: 5 free patrol units per lane on creation.
-    ///
-    /// Posts are numbered in build order (1-based). Gaps stay on destruction.
-    /// Traders traverse the full chain: Post 1→2→...→N then reverse.
+    /// 1. Node Discovery: Tags completed trade buildings with TradeNodeTag.
+    /// 2. Trader Spawning: Each TradeHub spawns 1 trader every 30s (faction max 30).
+    /// 3. Patrol Spawning: All trade nodes spawn patrol soldiers (1 every 20s, cap 5 per trader).
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct TradingPostSystem : ISystem
     {
-        private const float LaneDiscoveryInterval = 2f;
-        private const float SecondTraderDelay = 240f; // 4 minutes
-        private const int MaxTradersPerLane = 2;
-        private const int PatrolUnitsPerLane = 5;
-        private const float BaseIncome = 25f;
-        private const float RouteLengthDivisor = 30f;
+        private const float NodeDiscoveryInterval = 2f;
+        private const float TraderSpawnInterval = 30f;
+        private const float PatrolSpawnInterval = 20f;
+        private const int MaxTradersPerFaction = 30;
+        private const int PatrolsPerTrader = 5;
+        private const int DefaultPatrolCap = 5; // For Hall/Bazaar (non-hub nodes)
 
         private float _discoveryTimer;
-        private EntityQuery _postQuery;
+        private uint _randomSeed;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
-
-            _postQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TradingPostTag>(),
-                ComponentType.ReadOnly<TradingPostData>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            _randomSeed = 42;
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
-            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
-            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             // =============================================================
-            // PHASE 1: Assign PostNumber to newly completed posts (PostNumber == 0)
-            // =============================================================
-            AssignPostNumbers(em, ecb);
-
-            // =============================================================
-            // PHASE 2: Lane Discovery (every 2 seconds)
+            // PHASE 1: Node Discovery (every 2 seconds)
             // =============================================================
             _discoveryTimer -= dt;
             if (_discoveryTimer <= 0f)
             {
-                _discoveryTimer = LaneDiscoveryInterval;
-                DiscoverLanes(em, ecb);
+                _discoveryTimer = NodeDiscoveryInterval;
+                DiscoverTradeNodes(em);
             }
 
             // =============================================================
-            // PHASE 3: Trader Spawning (per frame)
+            // PHASE 2: Trader Spawning (TradeHubs only)
             // =============================================================
-            SpawnTraders(ref state, em, ecb, dt);
+            SpawnTraders(ref state, em, dt);
 
             // =============================================================
-            // PHASE 4: Patrol Unit Spawning (check each lane)
+            // PHASE 3: Patrol Spawning (all trade nodes)
             // =============================================================
-            SpawnPatrolUnits(ref state, em, ecb);
+            SpawnPatrolsFromHubs(ref state, em, dt);
+            SpawnPatrolsFromNodes(ref state, em, dt);
         }
 
         /// <summary>
-        /// Assign sequential PostNumber to completed posts that still have PostNumber == 0.
+        /// Tag completed TradeHubs, Bazaars, and Halls of Runai factions with TradeNodeTag.
+        /// Also add spawner components where missing.
         /// </summary>
-        private void AssignPostNumbers(EntityManager em, EntityCommandBuffer ecb)
+        private void DiscoverTradeNodes(EntityManager em)
         {
-            // Find max existing post number across all factions
-            // (each faction has its own numbering, so we need per-faction max)
-            using var allPosts = _postQuery.ToEntityArray(Allocator.Temp);
-            using var allData = _postQuery.ToComponentDataArray<TradingPostData>(Allocator.Temp);
-            using var allFactions = _postQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            // --- TradeHubs ---
+            DiscoverBuildingType<TradeHubTag>(em, addHubSpawner: true);
 
-            // Build per-faction max post number
-            var factionMax = new NativeHashMap<int, int>(8, Allocator.Temp);
-            for (int i = 0; i < allPosts.Length; i++)
-            {
-                int fKey = (int)allFactions[i].Value;
-                int num = allData[i].PostNumber;
-                if (!factionMax.TryGetValue(fKey, out int curMax) || num > curMax)
-                    factionMax[fKey] = num;
-            }
+            // --- Bazaars ---
+            DiscoverBuildingType<BazaarTag>(em, addHubSpawner: false);
 
-            // Assign numbers to posts with PostNumber == 0
-            for (int i = 0; i < allPosts.Length; i++)
-            {
-                if (allData[i].PostNumber != 0) continue;
-
-                int fKey = (int)allFactions[i].Value;
-                factionMax.TryGetValue(fKey, out int curMax);
-                int newNumber = curMax + 1;
-                factionMax[fKey] = newNumber;
-
-                em.SetComponentData(allPosts[i], new TradingPostData { PostNumber = newNumber });
-            }
-
-            factionMax.Dispose();
+            // --- Halls (only Runai factions) ---
+            DiscoverHalls(em);
         }
 
-        /// <summary>
-        /// For each faction, establish TradeLane components between consecutive numbered posts.
-        /// </summary>
-        private void DiscoverLanes(EntityManager em, EntityCommandBuffer ecb)
+        private void DiscoverBuildingType<T>(EntityManager em, bool addHubSpawner) where T : unmanaged, IComponentData
         {
-            using var posts = _postQuery.ToEntityArray(Allocator.Temp);
-            using var postData = _postQuery.ToComponentDataArray<TradingPostData>(Allocator.Temp);
-            using var postFactions = _postQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
 
-            // Group posts by faction, sorted by PostNumber
-            // Simple approach: for each post, find the next-higher-numbered post of same faction
-            for (int i = 0; i < posts.Length; i++)
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
             {
-                if (postData[i].PostNumber == 0) continue;
+                // Only Runai factions participate in trade network
+                if (FactionColors.GetFactionCulture(factions[i].Value) != Cultures.Runai) continue;
 
-                Faction fac = postFactions[i].Value;
-                int myNum = postData[i].PostNumber;
+                Entity e = entities[i];
 
-                // Find the post with the smallest PostNumber > myNum for same faction
-                Entity nextPost = Entity.Null;
-                int nextNum = int.MaxValue;
+                if (!em.HasComponent<TradeNodeTag>(e))
+                    em.AddComponent<TradeNodeTag>(e);
 
-                for (int j = 0; j < posts.Length; j++)
+                if (addHubSpawner && !em.HasComponent<TradeHubSpawner>(e))
                 {
-                    if (j == i) continue;
-                    if (postFactions[j].Value != fac) continue;
-                    int jNum = postData[j].PostNumber;
-                    if (jNum > myNum && jNum < nextNum)
+                    em.AddComponentData(e, new TradeHubSpawner
                     {
-                        nextNum = jNum;
-                        nextPost = posts[j];
-                    }
+                        TraderTimer = TraderSpawnInterval,
+                        PatrolTimer = PatrolSpawnInterval,
+                        TradersSpawned = 0,
+                        PatrolsSpawned = 0
+                    });
                 }
-
-                if (nextPost != Entity.Null)
+                else if (!addHubSpawner && !em.HasComponent<TradeNodePatrolSpawner>(e))
                 {
-                    // Ensure TradeLane exists on this post
-                    if (em.HasComponent<TradeLane>(posts[i]))
+                    em.AddComponentData(e, new TradeNodePatrolSpawner
                     {
-                        var lane = em.GetComponentData<TradeLane>(posts[i]);
-                        lane.NextPost = nextPost;
-                        lane.LaneValid = 1;
-                        em.SetComponentData(posts[i], lane);
-                    }
-                    else
-                    {
-                        ecb.AddComponent(posts[i], new TradeLane
-                        {
-                            NextPost = nextPost,
-                            ActiveTraders = 0,
-                            SecondTraderTimer = SecondTraderDelay,
-                            PatrolUnitsSpawned = 0,
-                            LaneValid = 1
-                        });
-                    }
+                        PatrolTimer = PatrolSpawnInterval,
+                        PatrolsSpawned = 0,
+                        PatrolCap = DefaultPatrolCap
+                    });
                 }
-                else
+            }
+        }
+
+        private void DiscoverHalls(EntityManager em)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (FactionColors.GetFactionCulture(factions[i].Value) != Cultures.Runai) continue;
+
+                Entity e = entities[i];
+
+                if (!em.HasComponent<TradeNodeTag>(e))
+                    em.AddComponent<TradeNodeTag>(e);
+
+                if (!em.HasComponent<TradeNodePatrolSpawner>(e))
                 {
-                    // This is the highest-numbered post — no outgoing lane
-                    if (em.HasComponent<TradeLane>(posts[i]))
+                    em.AddComponentData(e, new TradeNodePatrolSpawner
                     {
-                        var lane = em.GetComponentData<TradeLane>(posts[i]);
-                        lane.LaneValid = 0;
-                        em.SetComponentData(posts[i], lane);
-                    }
+                        PatrolTimer = PatrolSpawnInterval,
+                        PatrolsSpawned = 0,
+                        PatrolCap = DefaultPatrolCap
+                    });
                 }
             }
         }
 
         /// <summary>
-        /// Spawn traders on lanes that need them (max 2 per lane).
-        /// First trader spawns immediately, second after 4 minute timer.
+        /// Spawn traders from TradeHubs. Each hub spawns 1 trader every 30s, faction max 30.
         /// </summary>
-        private void SpawnTraders(ref SystemState state, EntityManager em, EntityCommandBuffer ecb, float dt)
+        private void SpawnTraders(ref SystemState state, EntityManager em, float dt)
         {
-            foreach (var (lane, postData, transform, faction, entity) in SystemAPI
-                .Query<RefRW<TradeLane>, RefRO<TradingPostData>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<TradingPostTag>()
+            // Count active traders per faction
+            var factionTraderCount = new NativeHashMap<int, int>(8, Allocator.Temp);
+            foreach (var (traderFaction, _) in SystemAPI
+                .Query<RefRO<FactionTag>, RefRO<RunaiTraderState>>()
+                .WithAll<CaravanTag>())
+            {
+                int fKey = (int)traderFaction.ValueRO.Value;
+                factionTraderCount.TryGetValue(fKey, out int count);
+                factionTraderCount[fKey] = count + 1;
+            }
+
+            foreach (var (spawner, transform, faction, entity) in SystemAPI
+                .Query<RefRW<TradeHubSpawner>, RefRO<LocalTransform>, RefRO<FactionTag>>()
+                .WithAll<TradeHubTag, TradeNodeTag>()
                 .WithNone<UnderConstruction>()
                 .WithEntityAccess())
             {
-                ref var l = ref lane.ValueRW;
-                if (l.LaneValid == 0) continue;
+                ref var s = ref spawner.ValueRW;
+                s.TraderTimer -= dt;
 
-                // Validate next post still exists
-                if (!em.Exists(l.NextPost) || !em.HasComponent<TradingPostTag>(l.NextPost))
+                if (s.TraderTimer > 0f) continue;
+
+                // Check faction cap
+                int fKey = (int)faction.ValueRO.Value;
+                factionTraderCount.TryGetValue(fKey, out int currentCount);
+
+                if (currentCount >= MaxTradersPerFaction)
                 {
-                    l.LaneValid = 0;
+                    s.TraderTimer = TraderSpawnInterval; // Reset and try later
                     continue;
                 }
 
-                // Spawn first trader immediately if none exist
-                if (l.ActiveTraders < 1)
+                // Find a random destination
+                if (!TryPickRandomNode(em, faction.ValueRO.Value, entity, out Entity dest, out float3 destPos))
                 {
-                    SpawnTrader(em, entity, l.NextPost, faction.ValueRO.Value,
-                        transform.ValueRO.Position, postData.ValueRO.PostNumber);
-                    l.ActiveTraders = 1;
+                    s.TraderTimer = 5f; // Retry sooner if no destinations
+                    continue;
                 }
 
-                // Tick second trader timer
-                if (l.ActiveTraders < MaxTradersPerLane)
+                // Spawn trader
+                float3 spawnPos = transform.ValueRO.Position + new float3(2f, 0f, 0f);
+                Entity trader = Caravan.Create(em, spawnPos, faction.ValueRO.Value);
+
+                em.AddComponentData(trader, new RunaiTraderState
                 {
-                    l.SecondTraderTimer -= dt;
-                    if (l.SecondTraderTimer <= 0f)
-                    {
-                        SpawnTrader(em, entity, l.NextPost, faction.ValueRO.Value,
-                            transform.ValueRO.Position, postData.ValueRO.PostNumber);
-                        l.ActiveTraders = 2;
-                    }
-                }
+                    CurrentDest = dest,
+                    AccumulatedSupplies = 0f,
+                    AccumulatedCrystal = 0f,
+                    PreviousPosition = spawnPos
+                });
+
+                em.SetComponentData(trader, new DesiredDestination
+                {
+                    Position = destPos,
+                    Has = 1
+                });
+
+                s.TradersSpawned++;
+                s.TraderTimer = TraderSpawnInterval;
+
+                factionTraderCount[fKey] = currentCount + 1;
+
+                FlowFieldManager.Instance?.RequestFlowField(destPos);
             }
+
+            factionTraderCount.Dispose();
         }
 
         /// <summary>
-        /// Spawn a single trader at the given post, heading toward nextPost.
+        /// Spawn patrols from TradeHub nodes.
         /// </summary>
-        private static void SpawnTrader(EntityManager em, Entity lanePost, Entity nextPost,
-            Faction faction, float3 spawnPos, int originPostNumber)
+        private void SpawnPatrolsFromHubs(ref SystemState state, EntityManager em, float dt)
         {
-            float3 destPos = em.GetComponentData<LocalTransform>(nextPost).Position;
-            int destNum = em.GetComponentData<TradingPostData>(nextPost).PostNumber;
-
-            float dist = math.distance(spawnPos, destPos);
-            float maxCargo = BaseIncome * (dist / RouteLengthDivisor);
-
-            // Apply sect trade income multiplier
-            if (FactionSectState.Instance != null)
-                maxCargo *= FactionSectState.Instance.GetMultipliers(faction).TradeIncome;
-
-            Entity trader = Caravan.Create(em, spawnPos + new float3(2f, 0f, 0f), faction);
-
-            em.AddComponentData(trader, new TraderState
-            {
-                CurrentDestPost = nextPost,
-                CurrentCargo = maxCargo,
-                MaxCargo = maxCargo,
-                IsForward = 1,
-                DestPostNumber = destNum,
-                OwnerLanePost = lanePost
-            });
-
-            em.SetComponentData(trader, new DesiredDestination
-            {
-                Position = destPos,
-                Has = 1
-            });
-        }
-
-        /// <summary>
-        /// Spawn patrol units for lanes that don't have their full complement yet.
-        /// </summary>
-        private void SpawnPatrolUnits(ref SystemState state, EntityManager em, EntityCommandBuffer ecb)
-        {
-            foreach (var (lane, transform, faction, entity) in SystemAPI
-                .Query<RefRW<TradeLane>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<TradingPostTag>()
+            foreach (var (spawner, transform, faction, entity) in SystemAPI
+                .Query<RefRW<TradeHubSpawner>, RefRO<LocalTransform>, RefRO<FactionTag>>()
+                .WithAll<TradeHubTag, TradeNodeTag>()
                 .WithNone<UnderConstruction>()
                 .WithEntityAccess())
             {
-                ref var l = ref lane.ValueRW;
-                if (l.LaneValid == 0) continue;
-                if (l.PatrolUnitsSpawned >= PatrolUnitsPerLane) continue;
+                ref var s = ref spawner.ValueRW;
+                s.PatrolTimer -= dt;
 
-                if (!em.Exists(l.NextPost) || !em.HasComponent<LocalTransform>(l.NextPost))
-                    continue;
+                if (s.PatrolTimer > 0f) continue;
 
-                float3 posA = transform.ValueRO.Position;
-                float3 posB = em.GetComponentData<LocalTransform>(l.NextPost).Position;
-                Faction fac = faction.ValueRO.Value;
-
-                // Spawn remaining patrol units
-                int toSpawn = PatrolUnitsPerLane - l.PatrolUnitsSpawned;
-                for (int i = 0; i < toSpawn; i++)
+                int patrolCap = s.TradersSpawned * PatrolsPerTrader;
+                if (patrolCap <= 0) patrolCap = DefaultPatrolCap; // At least some patrols
+                if (s.PatrolsSpawned >= patrolCap)
                 {
-                    // Spread units along the lane
-                    float t = (i + 1f) / (toSpawn + 1f);
-                    float3 spawnPos = math.lerp(posA, posB, t);
-
-                    Entity patrol = TradePatrol.Create(em, spawnPos, fac, entity, l.NextPost, posA, posB);
-                    // TradePatrol.Create handles all components including PatrolWaypoint buffer
+                    s.PatrolTimer = PatrolSpawnInterval;
+                    continue;
                 }
-                l.PatrolUnitsSpawned = PatrolUnitsPerLane;
+
+                SpawnPatrolUnit(em, entity, transform.ValueRO.Position, faction.ValueRO.Value);
+                s.PatrolsSpawned++;
+                s.PatrolTimer = PatrolSpawnInterval;
             }
+        }
+
+        /// <summary>
+        /// Spawn patrols from Hall/Bazaar trade nodes.
+        /// </summary>
+        private void SpawnPatrolsFromNodes(ref SystemState state, EntityManager em, float dt)
+        {
+            foreach (var (spawner, transform, faction, entity) in SystemAPI
+                .Query<RefRW<TradeNodePatrolSpawner>, RefRO<LocalTransform>, RefRO<FactionTag>>()
+                .WithAll<TradeNodeTag>()
+                .WithNone<UnderConstruction>()
+                .WithEntityAccess())
+            {
+                ref var s = ref spawner.ValueRW;
+                s.PatrolTimer -= dt;
+
+                if (s.PatrolTimer > 0f) continue;
+
+                if (s.PatrolsSpawned >= s.PatrolCap)
+                {
+                    s.PatrolTimer = PatrolSpawnInterval;
+                    continue;
+                }
+
+                SpawnPatrolUnit(em, entity, transform.ValueRO.Position, faction.ValueRO.Value);
+                s.PatrolsSpawned++;
+                s.PatrolTimer = PatrolSpawnInterval;
+            }
+        }
+
+        /// <summary>
+        /// Spawn a patrol unit at the given building, with waypoints to 2 random trade nodes.
+        /// </summary>
+        private void SpawnPatrolUnit(EntityManager em, Entity sourceBuilding, float3 sourcePos, Faction faction)
+        {
+            // Pick 2 random destination nodes for patrol waypoints
+            if (!TryPickRandomNode(em, faction, sourceBuilding, out Entity destA, out float3 posA))
+                return;
+
+            if (!TryPickRandomNode(em, faction, destA, out Entity destB, out float3 posB))
+                posB = sourcePos; // Fallback: patrol between source and destA
+
+            Entity patrol = TradePatrol.Create(em, sourcePos, faction, sourceBuilding, destA, sourcePos, posA);
+
+            // Update waypoints to include destB for variety
+            if (em.HasBuffer<PatrolWaypoint>(patrol))
+            {
+                var waypoints = em.GetBuffer<PatrolWaypoint>(patrol);
+                waypoints.Clear();
+                waypoints.Add(new PatrolWaypoint { Position = sourcePos, WaitSeconds = 0f });
+                waypoints.Add(new PatrolWaypoint { Position = posA, WaitSeconds = 0f });
+                waypoints.Add(new PatrolWaypoint { Position = posB, WaitSeconds = 0f });
+            }
+        }
+
+        /// <summary>
+        /// Pick a random TradeNodeTag entity of the same faction, excluding a specific entity.
+        /// </summary>
+        private bool TryPickRandomNode(EntityManager em, Faction faction, Entity exclude,
+            out Entity node, out float3 position)
+        {
+            node = Entity.Null;
+            position = float3.zero;
+
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TradeNodeTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            // Build candidates list
+            var candidates = new NativeList<int>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                if (entities[i] == exclude) continue;
+                candidates.Add(i);
+            }
+
+            if (candidates.Length == 0)
+            {
+                candidates.Dispose();
+                return false;
+            }
+
+            // Pick random
+            _randomSeed = _randomSeed * 1103515245 + 12345; // LCG
+            int pick = (int)(_randomSeed % (uint)candidates.Length);
+            int idx = candidates[pick];
+
+            node = entities[idx];
+            position = transforms[idx].Position;
+
+            candidates.Dispose();
+            return true;
         }
     }
 }

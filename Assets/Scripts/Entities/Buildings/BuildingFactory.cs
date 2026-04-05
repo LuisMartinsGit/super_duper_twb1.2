@@ -693,7 +693,6 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.SetComponentData(entity, new Radius { Value = radius });
             em.AddComponent<TradingPostTag>(entity);
-            em.AddComponentData(entity, new TradingPostData { PostNumber = 0 }); // Assigned by TradingPostSystem
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
@@ -1667,7 +1666,6 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
             ecb.AddComponent(entity, new Radius { Value = radius });
             ecb.AddComponent<TradingPostTag>(entity);
-            ecb.AddComponent(entity, new TradingPostData { PostNumber = 0 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
         }
