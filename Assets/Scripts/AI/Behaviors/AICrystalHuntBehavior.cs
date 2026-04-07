@@ -47,9 +47,11 @@ namespace TheWaningBorder.AI
             {
                 if (brain.ValueRO.IsActive == 0) continue;
 
-                var hunt = huntState.ValueRW;
-                if (time < hunt.LastHuntCheck + hunt.HuntCheckInterval) continue;
-                hunt.LastHuntCheck = time;
+                // Fix #201: write directly through ValueRW so LastHuntCheck persists.
+                // Previously the code copied into a local struct and never wrote it back,
+                // causing the throttle to be bypassed and the hunt to run every frame.
+                if (time < huntState.ValueRO.LastHuntCheck + huntState.ValueRO.HuntCheckInterval) continue;
+                huntState.ValueRW.LastHuntCheck = time;
 
                 AssignHunters(ref state, brain.ValueRO.Owner, ref deferredAttacks);
             }
