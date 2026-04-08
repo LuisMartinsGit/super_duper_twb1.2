@@ -3,6 +3,7 @@
 // 8-directional movement with same corner-cutting rules as FlowFieldGenerator.
 // Location: Assets/Scripts/Systems/Movement/AStarPathfinder.cs
 
+using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using TheWaningBorder.World.Terrain;
@@ -20,6 +21,32 @@ namespace TheWaningBorder.Systems.Movement
         private const int CardinalCost = 10;
         private const int DiagonalCost = 14;
         private const int MaxSnapSearch = 25;
+
+        // Fix #208: pooled scratch buffers for A* state. Previously every
+        // FindPath call allocated three fresh managed arrays (gCost, parent,
+        // closed) sized width*height. On a 200x200 grid that was ~320KB of
+        // GC pressure per call; with up to 20 paths/frame = 6.4MB/frame.
+        //
+        // These pools are sized lazily to the largest grid seen and cleared
+        // (not reallocated) on each call. Main-thread-only by contract —
+        // AStarPathStore only calls FindPath from Update().
+        private static int[] s_gCostPool;
+        private static int[] s_parentPool;
+        private static bool[] s_closedPool;
+
+        /// <summary>
+        /// Ensure the pooled scratch arrays are at least `minSize` in length.
+        /// Grows (reallocates) only when the grid has gotten bigger.
+        /// </summary>
+        private static void EnsurePools(int minSize)
+        {
+            if (s_gCostPool == null || s_gCostPool.Length < minSize)
+            {
+                s_gCostPool = new int[minSize];
+                s_parentPool = new int[minSize];
+                s_closedPool = new bool[minSize];
+            }
+        }
 
         // 8 neighbors: 4 cardinal + 4 diagonal
         // dx, dy, cost, adj1dx, adj1dy, adj2dx, adj2dy (for corner-cutting check)
@@ -76,11 +103,15 @@ namespace TheWaningBorder.Systems.Movement
 
             int totalCells = w * h;
 
-            // g costs (ushort.MaxValue = unvisited)
-            var gCost = new int[totalCells];
-            var parent = new int[totalCells];
-            var closed = new bool[totalCells];
+            // Rent pooled scratch buffers (Fix #208) instead of allocating.
+            EnsurePools(totalCells);
+            var gCost  = s_gCostPool;
+            var parent = s_parentPool;
+            var closed = s_closedPool;
 
+            // Clear the slice we're about to use.
+            // Array.Clear is ~one memset and far cheaper than new int[].
+            Array.Clear(closed, 0, totalCells);
             for (int i = 0; i < totalCells; i++)
             {
                 gCost[i] = int.MaxValue;
