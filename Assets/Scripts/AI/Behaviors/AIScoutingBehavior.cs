@@ -595,10 +595,15 @@ namespace TheWaningBorder.AI
 
         private float3 GetBasePosition(ref SystemState state, Faction faction)
         {
+            // Fix #229: must filter by IsBase == 1 to match the Hall, not just
+            // any building owned by the faction. Previously this returned the
+            // first building (often a Hut or GathererHut) which meant scout
+            // exploration zones were centred on an arbitrary building instead
+            // of the actual base, causing scouts to cover the wrong area.
             foreach (var (factionTag, transform, building) in
                      SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<BuildingTag>>())
             {
-                if (factionTag.ValueRO.Value == faction)
+                if (factionTag.ValueRO.Value == faction && building.ValueRO.IsBase == 1)
                     return transform.ValueRO.Position;
             }
             return float3.zero;
