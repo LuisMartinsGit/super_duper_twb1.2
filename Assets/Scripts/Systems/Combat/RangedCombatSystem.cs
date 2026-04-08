@@ -78,6 +78,19 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
+                // Fix #212: defensively check HasComponent<Health> before reading.
+                // If DeathSystem removed Health via ECB playback, GetComponentData
+                // would throw.
+                if (!em.HasComponent<Health>(tgt.Value))
+                {
+                    tgt.Value = Entity.Null;
+                    if (em.HasComponent<AttackCommand>(entity))
+                    {
+                        ecb.RemoveComponent<AttackCommand>(entity);
+                    }
+                    continue;
+                }
+
                 // Validate target is alive
                 var targetHealth = em.GetComponentData<Health>(tgt.Value);
                 if (targetHealth.Value <= 0)
@@ -89,6 +102,9 @@ namespace TheWaningBorder.Systems.Combat
                     }
                     continue;
                 }
+
+                // Fix #211: skip targets that are currently Invulnerable.
+                if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
 
                 var myPos = transform.ValueRO.Position;
                 var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;

@@ -285,6 +285,9 @@ namespace TheWaningBorder.Systems.Combat
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
 
+            // Fix #211: skip damage application if the target is Invulnerable.
+            if (em.HasComponent<Invulnerable>(targetEntity)) return;
+
             int baseDamage = proj.Damage;
             DamageType dmgType = proj.DmgType;
 
