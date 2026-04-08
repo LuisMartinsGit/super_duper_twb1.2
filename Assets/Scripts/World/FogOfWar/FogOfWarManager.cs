@@ -200,12 +200,43 @@ namespace TheWaningBorder.World.FogOfWar
                 return;
             }
 
+            int oldW = _w;
+            int oldH = _h;
+            byte[] oldRevealed = _revealed;
+
             _w = newW;
             _h = newH;
 
             int slice = _w * _h;
             _visible = new byte[MaxFactions * slice];
-            _revealed = clearRevealed ? new byte[MaxFactions * slice] : new byte[MaxFactions * slice];
+
+            if (clearRevealed || oldRevealed == null || oldW <= 0 || oldH <= 0)
+            {
+                _revealed = new byte[MaxFactions * slice];
+            }
+            else
+            {
+                // Fix #242: previously both branches of the ternary allocated a
+                // fresh zero array, so clearRevealed=false still wiped
+                // exploration progress. Now we copy the old revealed data into
+                // the new grid, clipping to the overlap rectangle when the
+                // dimensions change.
+                _revealed = new byte[MaxFactions * slice];
+                int copyW = Mathf.Min(oldW, _w);
+                int copyH = Mathf.Min(oldH, _h);
+                for (int f = 0; f < MaxFactions; f++)
+                {
+                    int oldBase = f * oldW * oldH;
+                    int newBase = f * _w * _h;
+                    for (int y = 0; y < copyH; y++)
+                    {
+                        System.Array.Copy(
+                            oldRevealed, oldBase + y * oldW,
+                            _revealed,   newBase + y * _w,
+                            copyW);
+                    }
+                }
+            }
 
             if (_tex == null)
                 _tex = new Texture2D(_w, _h, TextureFormat.Alpha8, false, true);
