@@ -30,55 +30,11 @@ namespace TheWaningBorder.Core.Commands
         System
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // COMMAND INTERFACE
-    // ═══════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Interface for command pattern implementation.
-    /// Commands encapsulate all information needed to execute an action.
-    /// </summary>
-    public interface IGameCommand
-    {
-        /// <summary>The entity this command targets</summary>
-        Entity TargetEntity { get; }
-        
-        /// <summary>Where the command originated from</summary>
-        CommandSource Source { get; }
-        
-        /// <summary>Execute the command immediately</summary>
-        void Execute(EntityManager em);
-        
-        /// <summary>Check if the command can be executed</summary>
-        bool CanExecute(EntityManager em);
-    }
-
-    /// <summary>
-    /// Interface for commands that can be undone (future feature).
-    /// </summary>
-    public interface IUndoableCommand : IGameCommand
-    {
-        /// <summary>Undo the command's effects</summary>
-        void Undo(EntityManager em);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // COMMAND RESULT
-    // ═══════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Result of a command execution attempt
-    /// </summary>
-    public enum CommandResult
-    {
-        Success,
-        EntityNotFound,
-        TargetNotFound,
-        InvalidState,
-        InsufficientResources,
-        NoPermission,
-        QueuedForLockstep
-    }
+    // Fix #237: IGameCommand / IUndoableCommand / CommandResult were defined
+    // but never implemented or used — the actual command system uses static
+    // helper classes (MoveCommandHelper.Execute, etc.). Removed rather than
+    // leaving dead interfaces that imply a pattern the codebase doesn't
+    // follow. Resurrect fresh if the static-helper style is ever revisited.
 
     // ═══════════════════════════════════════════════════════════════
     // HELPER MARKER COMPONENTS

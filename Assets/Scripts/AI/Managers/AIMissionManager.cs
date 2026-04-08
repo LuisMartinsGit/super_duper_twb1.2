@@ -65,17 +65,11 @@ namespace TheWaningBorder.AI
             ecb.Dispose();
         }
 
-        private void EvaluateStrategicSituation(ref SystemState state, AIBrain brain,
-            DynamicBuffer<EnemySighting> sightings, AISharedKnowledge knowledge)
-        {
-            int enemyStrength = knowledge.EnemyEstimatedStrength;
-            int ownStrength = knowledge.OwnMilitaryStrength;
-
-            if (sightings.Length > 0)
-            {
-                float strengthRatio = ownStrength > 0 ? (float)enemyStrength / ownStrength : 1f;
-            }
-        }
+        // Fix #237: EvaluateStrategicSituation had no implementation — it
+        // computed a strengthRatio and immediately discarded it. Removed
+        // entirely rather than leaving dead scaffolding that implies a
+        // behaviour that doesn't exist. When strategic evaluation is needed,
+        // implement it fresh rather than resurrecting the stub.
 
         private void CreateMissions(ref SystemState state, AIBrain brain,
             DynamicBuffer<EnemySighting> sightings, AISharedKnowledge knowledge,

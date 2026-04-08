@@ -2,11 +2,11 @@ using UnityEngine;
 using Unity.Entities;
 
 public class DebugEntityCounter : MonoBehaviour
-{   
-    bool active = true;
+{
+    // Fix #237: removed 'bool active = true' field that was never set to false.
     void Update()
     {
-        if (UnityEngine.Input.GetKeyDown(KeyCode.F1) && active)
+        if (UnityEngine.Input.GetKeyDown(KeyCode.F1))
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null) { Debug.Log("No ECS World!"); return; }

@@ -497,9 +497,8 @@ namespace TheWaningBorder.Input
             // If the raycast hit the entity's GameObject, it is visible on screen
             // (FogVisibilitySyncSystem already hides invisible entities by deactivating GOs).
             // No need for a redundant fog check here — the raycast itself is the visibility proof.
+            // Fix #237: removed unreachable `return false` that followed this line.
             return true;
-
-            return false;
         }
         
         private bool IsOwnedByPlayer(Entity e)

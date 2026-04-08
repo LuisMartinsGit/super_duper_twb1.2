@@ -42,19 +42,9 @@ namespace TheWaningBorder.AI
         public Faction Owner;
     }
 
-    /// <summary>
-    /// Buffer element for storing multiple exploration zones per AI brain.
-    /// </summary>
-    public struct ExplorationZoneBuffer : IBufferElementData
-    {
-        public float3 CenterPosition;
-        public float Radius;
-        public float LastVisitedTime;
-        public int VisitCount;
-        public int Priority;
-        public byte IsExplored;
-        public byte HasEnemyPresence;
-    }
+    // Fix #237: removed unused ExplorationZoneBuffer struct. ExplorationZone
+    // (above) already implements IBufferElementData and is the only type
+    // referenced by AIScoutingBehavior.
 
     // ═══════════════════════════════════════════════════════════════════════
     // COMBAT POWER
