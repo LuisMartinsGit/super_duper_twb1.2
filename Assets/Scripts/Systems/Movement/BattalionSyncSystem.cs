@@ -1,5 +1,6 @@
 // BattalionSyncSystem.cs
-// Moves battalion members toward their formation slot positions each frame.
+// Orchestrates per-frame battalion updates: formation slot reassignment,
+// combat target state, and member movement toward slots or enemies.
 //
 // Slot assignments are STICKY — each member keeps its Column/Row between frames.
 // Greedy nearest-slot reassignment only runs when:
@@ -12,6 +13,16 @@
 //
 // Obstacle handling: members whose slot is unreachable (blocked by passability)
 // path toward the leader using flow fields. They rejoin formation once close.
+//
+// Fix #218: the reassignment logic and combat state computation used to live
+// inline in OnUpdate, making this file 795 lines with 5+ concerns mixed together.
+// Both have been extracted to sibling helper files:
+//   - BattalionFormationHelpers.cs : slot reassignment (§ 3)
+//   - BattalionCombatHelpers.cs    : target cleanup, center-of-mass,
+//                                    encirclement check, per-member targets
+//                                    (§ 3a/3b/3c)
+// This file now owns: the persistent scratch caches, the outer per-leader
+// loop, the reassignment gating (§ 0-2), and the movement phases (§ 4/5a/5b).
 //
 // Location: Assets/Scripts/Systems/Movement/BattalionSyncSystem.cs
 
@@ -239,305 +250,30 @@ namespace TheWaningBorder.Systems.Movement
                 }
 
                 // ── 3. Greedy nearest-slot assignment (only when needed) ──
+                // Delegated to BattalionFormationHelpers (Fix #218).
                 if (runReassignment && aliveCount > 0)
                 {
-                    // Compute slot world positions for assignment (reuse cached array)
-                    for (int row = 0; row < rows; row++)
-                    {
-                        for (int col = 0; col < cols; col++)
-                        {
-                            int idx = row * cols + col;
-                            float3 localOffset = BattalionFormation.ComputeSlotOffset(col, row, cols, rows, spacing);
-                            _slotWorldPositions[idx] = leaderPos + math.mul(formationRot, localOffset);
-                        }
-                    }
-
-                    for (int s = 0; s < slotCount; s++)
-                        _slotAssignment[s] = -1;
-                    for (int m = 0; m < memberCount; m++)
-                        _memberUsed[m] = false;
-
-                    // Greedy front-to-back: for each slot, find closest alive unassigned member
-                    for (int s = 0; s < slotCount; s++)
-                    {
-                        float3 slotPos = _slotWorldPositions[s];
-                        float bestDist = float.MaxValue;
-                        int bestMember = -1;
-
-                        for (int m = 0; m < memberCount; m++)
-                        {
-                            if (!_memberAlive[m] || _memberUsed[m]) continue;
-
-                            float3 diff = slotPos - _memberPos[m];
-                            diff.y = 0f;
-                            float d = math.lengthsq(diff);
-                            if (d < bestDist)
-                            {
-                                bestDist = d;
-                                bestMember = m;
-                            }
-                        }
-
-                        if (bestMember >= 0)
-                        {
-                            _slotAssignment[s] = bestMember;
-                            _memberUsed[bestMember] = true;
-                        }
-                    }
-
-                    // Write new assignments onto member components
-                    for (int s = 0; s < slotCount; s++)
-                    {
-                        int mi = _slotAssignment[s];
-                        if (mi < 0) continue;
-
-                        int newCol = s % cols;
-                        int newRow = s / cols;
-
-                        var md = em.GetComponentData<BattalionMemberData>(_members[mi]);
-                        if (md.Column != newCol || md.Row != newRow)
-                        {
-                            md.Column = newCol;
-                            md.Row = newRow;
-                            em.SetComponentData(_members[mi], md);
-                        }
-                    }
-
-                    // Record the rotation used for this assignment
+                    BattalionFormationHelpers.ReassignSlots(
+                        em, leaderPos, formationRot, cols, rows, spacing,
+                        memberCount, _members, _memberPos, _memberAlive,
+                        _slotWorldPositions, _slotAssignment, _memberUsed);
                     leader.ValueRW.LastAssignmentRot = formationRot;
                 }
 
                 // ── 3a. Clear stale leader target + BattalionAttackTarget ──
-                if (em.HasComponent<Target>(entity))
-                {
-                    var lt = em.GetComponentData<Target>(entity);
-                    if (lt.Value != Entity.Null)
-                    {
-                        bool targetGone = !em.Exists(lt.Value)
-                            || !em.HasComponent<Health>(lt.Value)
-                            || em.GetComponentData<Health>(lt.Value).Value <= 0;
-                        if (targetGone)
-                        {
-                            // Try to reassign leader target to next living enemy from same battalion
-                            bool reassigned = false;
-                            if (em.HasComponent<BattalionAttackTarget>(entity))
-                            {
-                                var bat = em.GetComponentData<BattalionAttackTarget>(entity);
-                                if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
-                                    && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
-                                {
-                                    var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
-                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
-                                    {
-                                        var em2 = enemyBuf[ei].Value;
-                                        if (em2 != Entity.Null && em.Exists(em2)
-                                            && em.HasComponent<Health>(em2)
-                                            && em.GetComponentData<Health>(em2).Value > 0)
-                                        {
-                                            em.SetComponentData(entity, new Target { Value = em2 });
-                                            if (em.HasComponent<AttackCommand>(entity))
-                                                em.SetComponentData(entity, new AttackCommand { Target = em2 });
-                                            reassigned = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!reassigned)
-                                    {
-                                        // All enemies from target battalion dead — clear tracking
-                                        ecb.RemoveComponent<BattalionAttackTarget>(entity);
-                                    }
-                                }
-                                else
-                                {
-                                    ecb.RemoveComponent<BattalionAttackTarget>(entity);
-                                }
-                            }
+                // Delegated to BattalionCombatHelpers (Fix #218).
+                BattalionCombatHelpers.ClearStaleLeaderTarget(em, ecb, entity);
 
-                            if (!reassigned)
-                            {
-                                em.SetComponentData(entity, new Target { Value = Entity.Null });
-                                if (em.HasComponent<AttackCommand>(entity))
-                                    ecb.RemoveComponent<AttackCommand>(entity);
-                            }
-                        }
-                    }
-                }
+                // ── 3b / 3c. Combat state: own center, encirclement check,
+                // per-member target assignment. Delegated to BattalionCombatHelpers.
+                var combatState = BattalionCombatHelpers.UpdateCombatState(
+                    em, entity, leaderPos,
+                    memberCount, _members, _memberPos, _memberAlive, aliveCount);
 
-                // ── 3b. Compute own battalion center of mass ──
-                float3 ownCenter = leaderPos;
-                if (aliveCount > 0)
-                {
-                    float3 sum = float3.zero;
-                    for (int i = 0; i < memberCount; i++)
-                        if (_memberAlive[i]) sum += _memberPos[i];
-                    ownCenter = sum / aliveCount;
-                }
-
-                // ── 3c. Check encirclement distance using battalion centers ──
-                // Engagement is battalion-level: when the geometric centers of two
-                // battalions are within EncircleDistance, per-member targets are assigned.
-                const float EncircleDistance = 7f;
-                bool inEncircleRange = false;
-                bool inFiringRange = false;
-                bool battalionInCombat = false;
-
-                // Detect if this is a ranged battalion (first alive member has ArcherTag)
-                bool isRangedBattalion = false;
-                float battalionMaxRange = 25f;
-                for (int i = 0; i < memberCount; i++)
-                {
-                    if (!_memberAlive[i]) continue;
-                    if (em.HasComponent<ArcherTag>(_members[i]))
-                    {
-                        isRangedBattalion = true;
-                        if (em.HasComponent<ArcherState>(_members[i]))
-                            battalionMaxRange = em.GetComponentData<ArcherState>(_members[i]).MaxRange;
-                    }
-                    break;
-                }
-
-                if (em.HasComponent<Target>(entity))
-                {
-                    var lt = em.GetComponentData<Target>(entity);
-                    if (lt.Value != Entity.Null && em.Exists(lt.Value)
-                        && em.HasComponent<Health>(lt.Value)
-                        && em.GetComponentData<Health>(lt.Value).Value > 0)
-                    {
-                        battalionInCombat = true;
-
-                        // Compute enemy battalion center of mass
-                        float3 enemyCenter = em.GetComponentData<LocalTransform>(lt.Value).Position;
-                        if (em.HasComponent<BattalionAttackTarget>(entity))
-                        {
-                            var bat = em.GetComponentData<BattalionAttackTarget>(entity);
-                            if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
-                                && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
-                            {
-                                var eBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
-                                float3 eSum = float3.zero;
-                                int eCnt = 0;
-                                for (int ei = 0; ei < eBuf.Length; ei++)
-                                {
-                                    var e2 = eBuf[ei].Value;
-                                    if (e2 != Entity.Null && em.Exists(e2) && em.HasComponent<LocalTransform>(e2)
-                                        && em.HasComponent<Health>(e2) && em.GetComponentData<Health>(e2).Value > 0)
-                                    {
-                                        eSum += em.GetComponentData<LocalTransform>(e2).Position;
-                                        eCnt++;
-                                    }
-                                }
-                                if (eCnt > 0) enemyCenter = eSum / eCnt;
-                            }
-                        }
-
-                        float centerDist = math.length(new float2(ownCenter.x - enemyCenter.x, ownCenter.z - enemyCenter.z));
-                        inEncircleRange = centerDist < EncircleDistance;
-                        inFiringRange = isRangedBattalion && centerDist < battalionMaxRange;
-
-                        // Determine engage range: ranged battalions stop at firing range, melee at encircle range
-                        bool shouldStop = isRangedBattalion ? inFiringRange : inEncircleRange;
-
-                        // Track enemy movement: update leader destination to follow the enemy battalion
-                        if (!shouldStop && em.HasComponent<DesiredDestination>(entity))
-                        {
-                            em.SetComponentData(entity, new DesiredDestination { Position = enemyCenter, Has = 1 });
-                        }
-                        // Stop marching when in engage range — combat takes over
-                        else if (shouldStop && em.HasComponent<DesiredDestination>(entity))
-                        {
-                            em.SetComponentData(entity, new DesiredDestination { Has = 0 });
-                        }
-
-                        // Determine if we should assign per-member targets
-                        bool shouldAssignTargets = isRangedBattalion ? inFiringRange : inEncircleRange;
-
-                        if (shouldAssignTargets)
-                        {
-                            // Check if enemy is a battalion (has BattalionAttackTarget with valid leader)
-                            bool enemyIsBattalion = false;
-                            DynamicBuffer<BattalionMember> enemyBuf = default;
-                            int livingEnemyCount = 0;
-
-                            if (em.HasComponent<BattalionAttackTarget>(entity))
-                            {
-                                var bat = em.GetComponentData<BattalionAttackTarget>(entity);
-                                if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
-                                    && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
-                                {
-                                    enemyIsBattalion = true;
-                                    enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
-
-                                    for (int ei = 0; ei < enemyBuf.Length; ei++)
-                                    {
-                                        var enemy = enemyBuf[ei].Value;
-                                        if (enemy != Entity.Null && em.Exists(enemy)
-                                            && em.HasComponent<Health>(enemy) && em.GetComponentData<Health>(enemy).Value > 0)
-                                            livingEnemyCount++;
-                                    }
-                                }
-                            }
-
-                            for (int i = 0; i < memberCount; i++)
-                            {
-                                if (!_memberAlive[i]) continue;
-                                // Skip members with living targets
-                                if (em.HasComponent<Target>(_members[i]))
-                                {
-                                    var curTgt = em.GetComponentData<Target>(_members[i]);
-                                    if (curTgt.Value != Entity.Null && em.Exists(curTgt.Value)
-                                        && em.HasComponent<Health>(curTgt.Value)
-                                        && em.GetComponentData<Health>(curTgt.Value).Value > 0)
-                                        continue;
-                                }
-
-                                Entity assignedTarget = Entity.Null;
-
-                                if (enemyIsBattalion)
-                                {
-                                    if (isRangedBattalion && livingEnemyCount > 0)
-                                    {
-                                        // Ranged: assign random enemy to spread fire
-                                        int pick = (entity.Index * 31 + i * 7 + (int)(ownCenter.x * 100)) % livingEnemyCount;
-                                        int count = 0;
-                                        for (int ei = 0; ei < enemyBuf.Length; ei++)
-                                        {
-                                            var enemy = enemyBuf[ei].Value;
-                                            if (enemy == Entity.Null || !em.Exists(enemy)) continue;
-                                            if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
-                                            if (count == pick) { assignedTarget = enemy; break; }
-                                            count++;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // Melee: assign nearest enemy from battalion
-                                        float bestD = float.MaxValue;
-                                        for (int ei = 0; ei < enemyBuf.Length; ei++)
-                                        {
-                                            var enemy = enemyBuf[ei].Value;
-                                            if (enemy == Entity.Null || !em.Exists(enemy)) continue;
-                                            if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
-                                            if (!em.HasComponent<LocalTransform>(enemy)) continue;
-                                            float3 ePos = em.GetComponentData<LocalTransform>(enemy).Position;
-                                            float3 diff = ePos - _memberPos[i];
-                                            diff.y = 0;
-                                            float d = math.lengthsq(diff);
-                                            if (d < bestD) { bestD = d; assignedTarget = enemy; }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    // Standalone enemy (ballista, litharch, etc.) — all members target it
-                                    assignedTarget = lt.Value;
-                                }
-
-                                if (assignedTarget != Entity.Null)
-                                    em.SetComponentData(_members[i], new Target { Value = assignedTarget });
-                            }
-                        }
-                    }
-                }
+                bool isRangedBattalion = combatState.IsRangedBattalion;
+                bool inEncircleRange   = combatState.InEncircleRange;
+                bool inFiringRange     = combatState.InFiringRange;
+                bool battalionInCombat = combatState.BattalionInCombat;
 
                 // ── 4. Compute per-member target positions ──
                 float maxDist = 0f;
