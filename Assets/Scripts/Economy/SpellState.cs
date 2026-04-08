@@ -45,6 +45,13 @@ namespace TheWaningBorder.Economy
         /// </summary>
         private readonly Dictionary<int, Dictionary<string, float>> _cooldownsByFaction = new();
 
+        // Fix #202: reuse a single scratch list instead of allocating a new
+        // List<string> every Update() frame. With up to 8 factions holding
+        // cooldowns, the old code generated one allocation + one free per
+        // faction per frame (~480 allocs/sec at 60fps), churning the GC for
+        // no reason.
+        private readonly List<string> _keysToRemoveScratch = new();
+
         // ═══════════════════════════════════════════════════════════════════
         // UPDATE
         // ═══════════════════════════════════════════════════════════════════
@@ -55,7 +62,7 @@ namespace TheWaningBorder.Economy
             if (dt <= 0f) return;
 
             // Tick down all active cooldowns
-            var keysToRemove = new List<string>();
+            var keysToRemove = _keysToRemoveScratch;
 
             foreach (var factionKvp in _cooldownsByFaction)
             {
