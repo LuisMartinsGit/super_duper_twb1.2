@@ -43,6 +43,13 @@ namespace TheWaningBorder.UI.Panels
         private GUIStyle _requireStyle;
         private RectOffset _padding;
         private GUIStyle _tooltipStyle;
+        // Fix #221: cached colour variants used inside draw loops so we don't
+        // allocate `new GUIStyle(...)` every OnGUI frame. Picked via ternary
+        // on canAfford/canAffordRP in the draw sites.
+        private GUIStyle _costStyleGreen;
+        private GUIStyle _costStyleRed;
+        private GUIStyle _rpStyleGreen;
+        private GUIStyle _rpStyleRed;
         private bool _stylesInit = false;
 
         /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
@@ -190,6 +197,25 @@ namespace TheWaningBorder.UI.Panels
                 fontSize = 11,
                 wordWrap = true,
                 normal = { textColor = new Color(0.7f, 0.5f, 0.3f) }
+            };
+
+            // Fix #221: pre-cache per-color label variants used inside OnGUI
+            // draw paths, instead of allocating `new GUIStyle(...)` every frame.
+            _costStyleGreen = new GUIStyle(_requireStyle ?? GUI.skin.label)
+            {
+                normal = { textColor = new Color(0.3f, 0.9f, 0.3f) }
+            };
+            _costStyleRed = new GUIStyle(_requireStyle ?? GUI.skin.label)
+            {
+                normal = { textColor = new Color(1f, 0.3f, 0.3f) }
+            };
+            _rpStyleGreen = new GUIStyle(_smallStyle ?? GUI.skin.label)
+            {
+                normal = { textColor = new Color(0.3f, 0.9f, 0.3f) }
+            };
+            _rpStyleRed = new GUIStyle(_smallStyle ?? GUI.skin.label)
+            {
+                normal = { textColor = new Color(1f, 0.3f, 0.3f) }
             };
 
             _tooltipStyle = new GUIStyle(GUI.skin.box)
@@ -562,13 +588,10 @@ namespace TheWaningBorder.UI.Panels
 
             GUI.enabled = wasEnabled;
 
-            // Cost display
+            // Cost display — Fix #221: use pre-cached colour variants
             if (!upgradeCost.IsZero)
             {
-                var costStyle = new GUIStyle(_requireStyle)
-                {
-                    normal = { textColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) }
-                };
+                var costStyle = canAfford ? _costStyleGreen : _costStyleRed;
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Cost: ", costStyle, GUILayout.Width(40));
                 ResourceIcons.DrawCostLayout(upgradeCost, 12f, costStyle);
@@ -748,9 +771,8 @@ namespace TheWaningBorder.UI.Panels
                     GUILayout.BeginHorizontal();
                     GUILayout.Label($"  {displayName}", _labelStyle, GUILayout.Width(140));
 
-                    // RP cost label
-                    var rpColor = canAffordRP ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
-                    var rpStyle = new GUIStyle(_smallStyle) { normal = { textColor = rpColor } };
+                    // RP cost label — Fix #221: use pre-cached colour variants
+                    var rpStyle = canAffordRP ? _rpStyleGreen : _rpStyleRed;
                     GUILayout.Label($"{rpCost} RP", rpStyle, GUILayout.Width(40));
 
                     bool wasEnabled = GUI.enabled;
