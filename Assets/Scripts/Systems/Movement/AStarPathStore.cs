@@ -32,6 +32,13 @@ namespace TheWaningBorder.Systems.Movement
         private Queue<PathRequest> _pendingRequests;
         private int _pathsComputedThisFrame;
 
+        // Fix #209: periodic sweep to remove paths for destroyed entities.
+        // Without this, dead units leak their paths into _paths/_entityToPath
+        // for the remainder of the match.
+        private const float DeadEntityCleanupInterval = 5f;
+        private float _deadEntityCleanupTimer;
+        private readonly List<Entity> _cleanupScratch = new List<Entity>(64);
+
         private struct PathRequest
         {
             public Entity Entity;
@@ -58,6 +65,42 @@ namespace TheWaningBorder.Systems.Movement
         {
             _pathsComputedThisFrame = 0;
             ProcessPendingRequests();
+
+            _deadEntityCleanupTimer += Time.deltaTime;
+            if (_deadEntityCleanupTimer >= DeadEntityCleanupInterval)
+            {
+                _deadEntityCleanupTimer = 0f;
+                SweepDeadEntities();
+            }
+        }
+
+        /// <summary>
+        /// Remove paths belonging to entities that no longer exist.
+        /// Called periodically (every DeadEntityCleanupInterval seconds) so
+        /// units killed without re-requesting a path don't leak storage.
+        /// </summary>
+        private void SweepDeadEntities()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            _cleanupScratch.Clear();
+            foreach (var kvp in _entityToPath)
+            {
+                if (!em.Exists(kvp.Key))
+                    _cleanupScratch.Add(kvp.Key);
+            }
+
+            if (_cleanupScratch.Count == 0) return;
+
+            foreach (var e in _cleanupScratch)
+                ClearPath(e);
+
+            #if UNITY_EDITOR
+            Debug.Log($"[AStarPathStore] Swept {_cleanupScratch.Count} dead-entity paths " +
+                      $"(remaining: {_entityToPath.Count})");
+            #endif
         }
 
         // =====================================================================
