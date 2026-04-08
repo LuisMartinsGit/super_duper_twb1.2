@@ -474,9 +474,11 @@ namespace TheWaningBorder.AI
                 if (!CanAffordBuilding(ref state, faction, buildingTypeFixed))
                     continue;
 
-                // Calculate build position: random offset 15-25 units from Hall
-                var random = new Unity.Mathematics.Random(
-                    (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + existingCount * 17));
+                // Calculate build position: random offset 15-25 units from Hall.
+                // Fix #230: guard against seed 0 (produces all-zero sequence).
+                uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + existingCount * 17);
+                if (seed == 0) seed = 1;
+                var random = new Unity.Mathematics.Random(seed);
                 float angle = random.NextFloat(0, math.PI * 2);
                 float distance = random.NextFloat(15f, 25f);
                 float3 buildPos = hallPos + new float3(

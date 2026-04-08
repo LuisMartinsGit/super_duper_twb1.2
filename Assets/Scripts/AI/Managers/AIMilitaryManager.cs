@@ -776,7 +776,12 @@ namespace TheWaningBorder.AI
             {
                 if (factionTag.ValueRO.Value == faction && buildingTag.ValueRO.IsBase == 1)
                 {
-                    var random = new Unity.Mathematics.Random((uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction));
+                    // Fix #230: Unity.Mathematics.Random with seed 0 produces
+                    // all zeros. At ElapsedTime==0 for Faction.Blue (index 0)
+                    // this expression was 0. Guard by forcing 1 on underflow.
+                    uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction);
+                    if (seed == 0) seed = 1;
+                    var random = new Unity.Mathematics.Random(seed);
                     float angle = random.NextFloat(0, math.PI * 2);
                     float distance = random.NextFloat(10, 20);
                     return transform.ValueRO.Position + new float3(
