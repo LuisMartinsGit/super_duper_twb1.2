@@ -17,13 +17,16 @@ public partial struct SummonDespawnSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<SummonedUnit>();
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         float dt = SystemAPI.Time.DeltaTime;
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        // Fix #225: Singleton ECB.
+        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
         foreach (var (summon, entity) in SystemAPI
             .Query<RefRW<SummonedUnit>>()
@@ -37,7 +40,6 @@ public partial struct SummonDespawnSystem : ISystem
             }
         }
 
-        ecb.Playback(state.EntityManager);
-        ecb.Dispose();
+        // ECB plays back automatically at EndSimulation.
     }
 }

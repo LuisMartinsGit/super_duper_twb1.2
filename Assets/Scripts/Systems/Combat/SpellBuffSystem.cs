@@ -21,12 +21,19 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SpellBuffSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
             if (dt <= 0f) return;
 
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            // Fix #225: use the frame-scoped Singleton ECB.
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             // ── Tick SpellBuff timers ──
             foreach (var (buff, entity) in SystemAPI.Query<RefRW<SpellBuff>>().WithEntityAccess())
@@ -58,8 +65,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            // ECB plays back automatically at EndSimulation.
         }
     }
 }

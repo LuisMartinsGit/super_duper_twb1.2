@@ -27,6 +27,7 @@ public partial struct BurningGroundSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BurningGround>();
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         _tickTimer = 0f;
     }
 
@@ -35,7 +36,11 @@ public partial struct BurningGroundSystem : ISystem
         float dt = SystemAPI.Time.DeltaTime;
         _tickTimer += dt;
 
-        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        // Fix #225: use the frame-scoped Singleton ECB so structural changes
+        // (DestroyEntity below) play back at EndSimulation in a predictable
+        // order, instead of immediately via a local ECB mid-frame.
+        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
         // Always tick down BurningGround timers
         foreach (var (burning, entity) in SystemAPI
@@ -107,8 +112,6 @@ public partial struct BurningGroundSystem : ISystem
             groundRadii.Dispose();
             groundFactions.Dispose();
         }
-
-        ecb.Playback(state.EntityManager);
-        ecb.Dispose();
+        // ECB is played back automatically by EndSimulationEntityCommandBufferSystem.
     }
 }

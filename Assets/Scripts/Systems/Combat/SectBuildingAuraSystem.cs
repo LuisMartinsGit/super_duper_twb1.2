@@ -36,6 +36,7 @@ namespace TheWaningBorder.Systems.Combat
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<SectUniqueBuildingTag>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
             _sectBuildingQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<SectUniqueBuildingTag>(),
@@ -54,7 +55,9 @@ namespace TheWaningBorder.Systems.Combat
             if (_timer < TickInterval) return;
             _timer = 0f;
 
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            // Fix #225: Singleton ECB.
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var em = state.EntityManager;
 
             var buildingPositions = _sectBuildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -106,9 +109,7 @@ namespace TheWaningBorder.Systems.Combat
             buildingPositions.Dispose();
             buildingPids.Dispose();
             buildingFactions.Dispose();
-
-            ecb.Playback(em);
-            ecb.Dispose();
+            // ECB plays back automatically at EndSimulation.
         }
 
         // ═══════════════════════════════════════════════════════════════════════
