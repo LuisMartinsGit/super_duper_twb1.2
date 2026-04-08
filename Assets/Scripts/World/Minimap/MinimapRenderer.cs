@@ -376,17 +376,25 @@ namespace TheWaningBorder.World.Minimap
 
         /// <summary>
         /// Dim areas not visible or revealed by fog of war.
+        ///
+        /// Fix #236: sample the FoW at half resolution (stride=2) and reuse
+        /// each sample for the 2x2 pixel block it covers. Fog queries went
+        /// from sizePixels^2 (65,536 at 256px) to sizePixels^2/4 (16,384)
+        /// per refresh — a 75% reduction. Visual quality is unchanged at
+        /// minimap scale because fog dimming is already a coarse-grained
+        /// 3-state classification (visible / revealed / hidden).
         /// </summary>
         private void ApplyFogOfWarDimming()
         {
             float minX = worldMin.x, minZ = worldMin.y;
             float maxX = worldMax.x, maxZ = worldMax.y;
             int W = sizePixels;
+            const int stride = 2;
 
-            for (int y = 0; y < sizePixels; y++)
+            for (int y = 0; y < sizePixels; y += stride)
             {
                 float vz = Mathf.Lerp(minZ, maxZ, (y + 0.5f) / sizePixels);
-                for (int x = 0; x < sizePixels; x++)
+                for (int x = 0; x < sizePixels; x += stride)
                 {
                     float vx = Mathf.Lerp(minX, maxX, (x + 0.5f) / sizePixels);
                     float3 pos = new float3(vx, 0f, vz);
@@ -395,19 +403,21 @@ namespace TheWaningBorder.World.Minimap
                     if (vis) continue;
 
                     bool rev = FogOfWarSystem.IsRevealedToFaction(humanFaction, pos);
-                    int idx = y * W + x;
-                    Color c = _frame[idx];
+                    float mult = rev ? 0.5f : 0.15f;
 
-                    if (rev)
+                    // Apply the dimming multiplier to the 2x2 pixel block.
+                    int yEnd = math.min(y + stride, sizePixels);
+                    int xEnd = math.min(x + stride, sizePixels);
+                    for (int by = y; by < yEnd; by++)
                     {
-                        c.r *= 0.5f; c.g *= 0.5f; c.b *= 0.5f;
+                        for (int bx = x; bx < xEnd; bx++)
+                        {
+                            int idx = by * W + bx;
+                            Color c = _frame[idx];
+                            c.r *= mult; c.g *= mult; c.b *= mult;
+                            _frame[idx] = c;
+                        }
                     }
-                    else
-                    {
-                        c.r *= 0.15f; c.g *= 0.15f; c.b *= 0.15f;
-                    }
-
-                    _frame[idx] = c;
                 }
             }
         }
