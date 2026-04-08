@@ -182,7 +182,12 @@ namespace TheWaningBorder.Systems.Combat
                             if (healAmount < 1) healAmount = 1;
 
                             targetHealth.Value = math.min(targetHealth.Value + healAmount, targetHealth.Max);
-                            ecb.SetComponent(healTarget, targetHealth);
+                            // Fix #228: write health immediately via EntityManager
+                            // to match how combat systems apply damage. ECB playback
+                            // happens AFTER Melee/RangedCombatSystem in the same
+                            // frame, so an ECB heal write would overwrite damage
+                            // dealt this frame — effectively nullifying it.
+                            em.SetComponentData(healTarget, targetHealth);
 
                             // If fully healed, clear target
                             if (targetHealth.Value >= targetHealth.Max)
