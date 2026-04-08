@@ -56,6 +56,19 @@ namespace TheWaningBorder.Systems.Combat
             var time = SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
 
+            // Fix #213: snapshot the piercing-target arrays ONCE per frame
+            // instead of once per projectile. The previous code called
+            // _aoeTargetQuery.ToEntityArray / ToComponentDataArray inside the
+            // per-projectile loop, copying the entire enemy list for every
+            // piercing bolt in flight. With 20 siege units each firing 3 bolts
+            // that was 60 full entity-list copies per frame. Now we copy once
+            // at the top of OnUpdate and every piercing bolt shares the
+            // snapshots.
+            using var pierceEntities   = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var pierceFactions   = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var pierceHealth     = _aoeTargetQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+
             foreach (var (transform, arrow, projectile, entity)
                      in SystemAPI.Query<RefRW<LocalTransform>, RefRW<ArrowProjectile>, RefRW<Projectile>>()
                      .WithEntityAccess())
@@ -173,16 +186,12 @@ namespace TheWaningBorder.Systems.Combat
 
                         bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
 
-                        // Piercing bolts: scan for ALL enemies near the bolt's path each frame
+                        // Piercing bolts: scan the shared per-frame enemy snapshot
+                        // (see Fix #213 at the top of OnUpdate). No per-bolt query.
                         if (isPiercing && !shouldDestroy)
                         {
-                            var pierceScan = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-                            var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-                            var pierceFactions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
-                            var pierceHealth = _aoeTargetQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
-
                             var pierce = em.GetComponentData<PiercingProjectile>(entity);
-                            for (int pi = 0; pi < pierceScan.Length; pi++)
+                            for (int pi = 0; pi < pierceEntities.Length; pi++)
                             {
                                 if (pierceFactions[pi].Value == proj.Faction) continue;
                                 if (pierceHealth[pi].Value <= 0) continue; // skip dead
@@ -192,17 +201,12 @@ namespace TheWaningBorder.Systems.Combat
                                 float d = math.length(new float2(diff.x, diff.z));
                                 if (d < 2.5f)
                                 {
-                                    ApplyDamage(em, ecb, proj, pierceScan[pi], true, arr.Shooter);
+                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter);
                                     pierce.RemainingPierces--;
                                     if (pierce.RemainingPierces <= 0) { shouldDestroy = true; break; }
                                 }
                             }
                             if (!shouldDestroy) em.SetComponentData(entity, pierce);
-
-                            pierceScan.Dispose();
-                            pierceTransforms.Dispose();
-                            pierceFactions.Dispose();
-                            pierceHealth.Dispose();
 
                             // Move bolt straight through (ignore Bezier homing)
                             if (!shouldDestroy)
