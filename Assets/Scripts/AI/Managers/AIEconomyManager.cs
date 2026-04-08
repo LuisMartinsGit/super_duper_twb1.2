@@ -24,11 +24,24 @@ namespace TheWaningBorder.AI
             state.RequireForUpdate<AIBrain>();
         }
 
+        // Fix #215: deferred gather assignments. GatherCommandHelper.Execute
+        // performs structural changes (ClearAllCommands + SetupGather), which
+        // is unsafe while the outer OnUpdate foreach is still iterating faction
+        // brains. We collect the assignments during iteration and drain them
+        // after the foreach completes.
+        private struct DeferredGather
+        {
+            public Entity Miner;
+            public Entity Target;
+            public Entity Dropoff;
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var deferredGathers = new NativeList<DeferredGather>(Allocator.Temp);
 
             foreach (var (brain, economyState, resourceReqs, entity)
                 in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIEconomyState>, DynamicBuffer<ResourceRequest>>()
@@ -86,7 +99,7 @@ namespace TheWaningBorder.AI
                     }
 
                     // Crystal cadaver mining — send idle miners to harvest crystal from corpses
-                    AssignMinersToCadavers(ref state, faction);
+                    AssignMinersToCadavers(ref state, faction, deferredGathers);
                 }
 
                 // 4-7. Barracks, military, crystal hunting — handled by AIMilitaryManager + AICrystalHuntBehavior
@@ -111,7 +124,7 @@ namespace TheWaningBorder.AI
                 if (time >= economy.LastSmelterCheck + AITuning.SmelterCheckInterval)
                 {
                     economy.LastSmelterCheck = time;
-                    ManageSmelters(ref state, faction);
+                    ManageSmelters(ref state, faction, ecb);
                 }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
@@ -123,6 +136,16 @@ namespace TheWaningBorder.AI
 
             ecb.Playback(em);
             ecb.Dispose();
+
+            // Drain deferred gather assignments after the outer SystemAPI
+            // iteration has fully closed. GatherCommandHelper.Execute performs
+            // structural changes, so it must run post-iteration (see #215).
+            for (int i = 0; i < deferredGathers.Length; i++)
+            {
+                var g = deferredGathers[i];
+                GatherCommandHelper.Execute(em, g.Miner, g.Target, g.Dropoff);
+            }
+            deferredGathers.Dispose();
         }
 
         private void UpdateMineAssignments(ref SystemState state, Faction faction,
@@ -906,7 +929,12 @@ namespace TheWaningBorder.AI
         /// Manages smelter supply for AI factions.
         /// Finds idle miners and assigns ForgeSupplyOrders to supply the faction's smelter.
         /// </summary>
-        private void ManageSmelters(ref SystemState state, Faction faction)
+        // Fix #215: takes an EntityCommandBuffer from the caller so structural
+        // changes (adding ForgeSupplyOrder to idle miners) are deferred to a
+        // safe playback point instead of mutating the archetype of an entity
+        // while the outer AIEconomyManager.OnUpdate foreach is still iterating
+        // faction brains via SystemAPI.Query.
+        private void ManageSmelters(ref SystemState state, Faction faction, EntityCommandBuffer ecb)
         {
             var em = state.EntityManager;
 
@@ -967,32 +995,29 @@ namespace TheWaningBorder.AI
             {
                 Entity miner = idleMiners[i];
 
-                // Reset miner state
+                // Reset miner state — pure data write on an existing component,
+                // no archetype change, so the direct EntityManager path is safe
+                // even during an outer SystemAPI iteration.
                 var ms = em.GetComponentData<MinerState>(miner);
                 ms.State = MinerWorkState.Idle;
                 ms.AssignedDeposit = Entity.Null;
                 ms.DropoffTarget = Entity.Null;
                 em.SetComponentData(miner, ms);
 
-                // Assign forge supply order (same pattern as RTSInputManager)
+                // Assign forge supply order via ECB — adding the component when
+                // the miner doesn't already have it is a structural change and
+                // must not be done inline against the EntityManager while
+                // queries are still iterating upstream.
+                var forgeOrder = new ForgeSupplyOrder
+                {
+                    Forge = smelterEntity,
+                    ResourceType = 0,
+                    Phase = 0
+                };
                 if (em.HasComponent<ForgeSupplyOrder>(miner))
-                {
-                    em.SetComponentData(miner, new ForgeSupplyOrder
-                    {
-                        Forge = smelterEntity,
-                        ResourceType = 0,
-                        Phase = 0
-                    });
-                }
+                    ecb.SetComponent(miner, forgeOrder);
                 else
-                {
-                    em.AddComponentData(miner, new ForgeSupplyOrder
-                    {
-                        Forge = smelterEntity,
-                        ResourceType = 0,
-                        Phase = 0
-                    });
-                }
+                    ecb.AddComponent(miner, forgeOrder);
             }
 
             idleMiners.Dispose();
@@ -1009,7 +1034,11 @@ namespace TheWaningBorder.AI
         /// MiningSystem auto-finds cadavers within SearchRadius (50f), but cadavers may be far away.
         /// This method searches the whole map for non-depleted cadavers and assigns idle miners.
         /// </summary>
-        private void AssignMinersToCadavers(ref SystemState state, Faction faction)
+        // Fix #215: accepts a deferredGathers list instead of calling
+        // GatherCommandHelper.Execute inline. The helper performs structural
+        // changes that would invalidate the enclosing SystemAPI query iterators.
+        private void AssignMinersToCadavers(ref SystemState state, Faction faction,
+            NativeList<DeferredGather> deferredGathers)
         {
             var em = state.EntityManager;
 
@@ -1105,7 +1134,12 @@ namespace TheWaningBorder.AI
 
                 if (bestIdx < 0) continue;
 
-                GatherCommandHelper.Execute(em, idleMiners[m], cadaverList[bestIdx], dropoff);
+                deferredGathers.Add(new DeferredGather
+                {
+                    Miner = idleMiners[m],
+                    Target = cadaverList[bestIdx],
+                    Dropoff = dropoff
+                });
                 assigned++;
 
                 AILogger.Log(faction, "ECONOMY",
@@ -1164,8 +1198,10 @@ namespace TheWaningBorder.AI
                 break;
             }
 
-            var random = new Unity.Mathematics.Random(
-                (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 137 + 7));
+            // Fix #230: guard against seed 0 (produces all-zero sequence).
+            uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 137 + 7);
+            if (seed == 0) seed = 1;
+            var random = new Unity.Mathematics.Random(seed);
 
             float3 bestPos = basePos + new float3(30, 0, 0); // fallback
             float bestMinDist = 0f;
@@ -1238,8 +1274,10 @@ namespace TheWaningBorder.AI
             if (!foundBase)
                 return new float3(10, 0, 10);
 
-            var random = new Unity.Mathematics.Random(
-                (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53));
+            // Fix #230: guard against seed 0 (produces all-zero sequence).
+            uint seedFbl = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53);
+            if (seedFbl == 0) seedFbl = 1;
+            var random = new Unity.Mathematics.Random(seedFbl);
             float angle = random.NextFloat(0, math.PI * 2);
             float distance = random.NextFloat(15, 25);
 
