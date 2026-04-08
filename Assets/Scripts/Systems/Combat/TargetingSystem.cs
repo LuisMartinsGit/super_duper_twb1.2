@@ -30,6 +30,12 @@ namespace TheWaningBorder.Systems.Combat
         private const float BattalionDefaultLeash = 25f;
         private const float DefaultMeleeRange = 1.5f;
 
+        // Fix #207: spatial-hash cell size for the enemy scan.
+        // Cell=20 means a unit with LOS<=20 only visits a 3x3 neighborhood
+        // (9 cells); LOS<=40 (aggressive-stance boost) visits 5x5 (25 cells).
+        // Keeps per-unit inner-loop work bounded regardless of total enemy count.
+        private const float TargetingCellSize = 20f;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -65,15 +71,29 @@ namespace TheWaningBorder.Systems.Combat
             using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
+            // Fix #207: build a spatial hash so per-unit enemy scans visit
+            // only nearby cells instead of every enemy in the world. Shared
+            // between AutoAcquireTargets and ProcessReturnToGuard.
+            using var spatialMap = new NativeParallelMultiHashMap<int2, int>(
+                math.max(16, allEnemies.Length * 2), Allocator.Temp);
+            for (int i = 0; i < allEnemies.Length; i++)
+            {
+                var pos = allEnemyTransforms[i].Position;
+                var cell = new int2(
+                    (int)math.floor(pos.x / TargetingCellSize),
+                    (int)math.floor(pos.z / TargetingCellSize));
+                spatialMap.Add(cell, i);
+            }
+
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
             // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
+            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
 
             // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
             // =============================================================================
-            ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
+            ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -211,7 +231,8 @@ namespace TheWaningBorder.Systems.Combat
         [BurstCompile]
         private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
+            NativeParallelMultiHashMap<int2, int> spatialMap)
         {
             var em = state.EntityManager;
 
@@ -397,25 +418,39 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
-                // ── Fallback: generic enemy scan (all enemies within LOS) ──
+                // ── Fallback: spatial-hash enemy scan (Fix #207) ──
+                // Visit only cells within LOS instead of iterating all enemies.
                 if (bestTarget == Entity.Null)
                 {
-                    for (int i = 0; i < allEnemies.Length; i++)
+                    int radius = (int)math.ceil(los / TargetingCellSize);
+                    var myCell = new int2(
+                        (int)math.floor(myPos.x / TargetingCellSize),
+                        (int)math.floor(myPos.z / TargetingCellSize));
+
+                    for (int dx = -radius; dx <= radius; dx++)
                     {
-                        if (allEnemyFactions[i].Value == myFaction) continue;
-                        if (allEnemyHealth[i].Value <= 0) continue;
-
-                        var enemyPos = allEnemyTransforms[i].Position;
-                        var dist = DistXZ(myPos, enemyPos);
-
-                        // Skip stealthed enemies unless within proximity reveal range (3u)
-                        if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
-                            continue;
-
-                        if (dist <= los && dist < bestDist)
+                        for (int dy = -radius; dy <= radius; dy++)
                         {
-                            bestTarget = allEnemies[i];
-                            bestDist = dist;
+                            var cell = new int2(myCell.x + dx, myCell.y + dy);
+                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
+                            do
+                            {
+                                if (allEnemyFactions[i].Value == myFaction) continue;
+                                if (allEnemyHealth[i].Value <= 0) continue;
+
+                                var enemyPos = allEnemyTransforms[i].Position;
+                                var dist = DistXZ(myPos, enemyPos);
+
+                                // Skip stealthed enemies unless within proximity reveal range (3u)
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                    continue;
+
+                                if (dist <= los && dist < bestDist)
+                                {
+                                    bestTarget = allEnemies[i];
+                                    bestDist = dist;
+                                }
+                            } while (spatialMap.TryGetNextValue(out i, ref it));
                         }
                     }
                 }
@@ -490,7 +525,8 @@ namespace TheWaningBorder.Systems.Combat
         [BurstCompile]
         private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
+            NativeParallelMultiHashMap<int2, int> spatialMap)
         {
             var em = state.EntityManager;
 
@@ -587,26 +623,39 @@ namespace TheWaningBorder.Systems.Combat
                 // Only consider returning if we're far from guard point
                 if (distToGuard > GuardReturnThreshold)
                 {
-                    // Check if there are any enemies in line of sight
+                    // Check if there are any enemies in line of sight (Fix #207: spatial hash).
                     Entity nearestEnemy = Entity.Null;
                     float nearestDist = float.MaxValue;
 
-                    for (int i = 0; i < allEnemies.Length; i++)
+                    int radius = (int)math.ceil(los / TargetingCellSize);
+                    var myCell = new int2(
+                        (int)math.floor(myPos.x / TargetingCellSize),
+                        (int)math.floor(myPos.z / TargetingCellSize));
+
+                    for (int dx = -radius; dx <= radius; dx++)
                     {
-                        if (allEnemyFactions[i].Value == myFaction) continue;
-                        if (allEnemyHealth[i].Value <= 0) continue;
-
-                        var enemyPos = allEnemyTransforms[i].Position;
-                        var dist = DistXZ(myPos, enemyPos);
-
-                        // Skip stealthed enemies unless within proximity reveal range (3u)
-                        if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
-                            continue;
-
-                        if (dist <= los && dist < nearestDist)
+                        for (int dy = -radius; dy <= radius; dy++)
                         {
-                            nearestEnemy = allEnemies[i];
-                            nearestDist = dist;
+                            var cell = new int2(myCell.x + dx, myCell.y + dy);
+                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
+                            do
+                            {
+                                if (allEnemyFactions[i].Value == myFaction) continue;
+                                if (allEnemyHealth[i].Value <= 0) continue;
+
+                                var enemyPos = allEnemyTransforms[i].Position;
+                                var dist = DistXZ(myPos, enemyPos);
+
+                                // Skip stealthed enemies unless within proximity reveal range (3u)
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                    continue;
+
+                                if (dist <= los && dist < nearestDist)
+                                {
+                                    nearestEnemy = allEnemies[i];
+                                    nearestDist = dist;
+                                }
+                            } while (spatialMap.TryGetNextValue(out i, ref it));
                         }
                     }
 
