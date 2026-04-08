@@ -40,15 +40,21 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool LogCommands = false;
 
+        // Fix #235: the nested `CommandSource` enum was removed. The canonical
+        // definition lives in ICommand.cs at the namespace level
+        // (TheWaningBorder.Core.Commands.CommandSource). Both enums had
+        // identical members and any reference that disambiguated with
+        // `CommandRouter.CommandSource.X` was migrated to `CommandSource.X`.
+
         /// <summary>
-        /// Command source enum for routing decisions
+        /// Returns true if the entity has NotControllableTag and the command source is LocalPlayer.
+        /// Auto-controlled units (caravans, trade patrols) ignore player orders.
         /// </summary>
-        public enum CommandSource
+        private static bool IsBlockedByNotControllable(EntityManager em, Entity unit, CommandSource source)
         {
-            LocalPlayer,
-            RemotePlayer,
-            AI,
-            System
+            if (source != CommandSource.LocalPlayer) return false;
+            if (unit == Entity.Null || !em.Exists(unit)) return false;
+            return em.HasComponent<NotControllableTag>(unit);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -58,10 +64,11 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Issue a move command to a unit.
         /// </summary>
-        public static void IssueMove(EntityManager em, Entity unit, float3 destination, 
+        public static void IssueMove(EntityManager em, Entity unit, float3 destination,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] Move: {unit.Index} -> {destination} (Source: {source})");
@@ -87,6 +94,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
             if (LogCommands)
@@ -114,6 +122,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] AttackMove: {unit.Index} -> {destination} (Source: {source})");
@@ -141,6 +150,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] Patrol: {unit.Index} -> {destination} (Source: {source})");
@@ -166,6 +176,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] Stop: {unit.Index} (Source: {source})");
@@ -192,6 +203,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] HoldPosition: {unit.Index} (Source: {source})");
@@ -217,6 +229,7 @@ namespace TheWaningBorder.Core.Commands
             string buildingId, float3 position, CommandSource source = CommandSource.LocalPlayer)
         {
             if (builder == Entity.Null || !em.Exists(builder)) return;
+            if (IsBlockedByNotControllable(em, builder, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] Build: {builder.Index} -> {buildingId} at {position} (Source: {source})");
@@ -242,6 +255,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (miner == Entity.Null || !em.Exists(miner)) return;
+            if (IsBlockedByNotControllable(em, miner, source)) return;
 
             if (LogCommands)
                 Debug.Log($"[CommandRouter] Gather: {miner.Index} -> Resource:{resource.Index} (Source: {source})");
@@ -267,6 +281,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (healer == Entity.Null || !em.Exists(healer)) return;
+            if (IsBlockedByNotControllable(em, healer, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
             if (LogCommands)
@@ -293,6 +308,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (miner == Entity.Null || !em.Exists(miner)) return;
+            if (IsBlockedByNotControllable(em, miner, source)) return;
             if (keep == Entity.Null || !em.Exists(keep)) return;
 
             if (LogCommands)
@@ -319,6 +335,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (builder == Entity.Null || !em.Exists(builder)) return;
+            if (IsBlockedByNotControllable(em, builder, source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
             if (LogCommands)
@@ -371,6 +388,7 @@ namespace TheWaningBorder.Core.Commands
             BattalionStance stance, CommandSource source = CommandSource.LocalPlayer)
         {
             if (leader == Entity.Null || !em.Exists(leader)) return;
+            if (IsBlockedByNotControllable(em, leader, source)) return;
             if (!em.HasComponent<BattalionStanceData>(leader)) return;
 
             if (LogCommands)
@@ -390,6 +408,7 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (!em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
             if (!em.HasComponent<UnitAbility>(unit)) return;
 
             var ability = em.GetComponentData<UnitAbility>(unit);

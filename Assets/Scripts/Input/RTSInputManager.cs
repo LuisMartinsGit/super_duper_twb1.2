@@ -439,7 +439,7 @@ namespace TheWaningBorder.Input
                 if (_em.HasComponent<BuildingTag>(e)) continue;
                 if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssueStop(_em, e, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueStop(_em, e, CommandSource.LocalPlayer);
             }
         }
 
@@ -455,7 +455,7 @@ namespace TheWaningBorder.Input
                 if (_em.HasComponent<BuildingTag>(e)) continue;
                 if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssueHoldPosition(_em, e, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueHoldPosition(_em, e, CommandSource.LocalPlayer);
             }
         }
 
@@ -487,7 +487,7 @@ namespace TheWaningBorder.Input
                 if (processed.Contains(leader)) continue;
                 processed.Add(leader);
 
-                CommandRouter.IssueStanceChange(_em, leader, stance, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueStanceChange(_em, leader, stance, CommandSource.LocalPlayer);
             }
         }
 
@@ -499,7 +499,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<BuildingTag>(e)) continue;
 
-                CommandRouter.SetRallyPoint(_em, e, position, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.SetRallyPoint(_em, e, position, CommandSource.LocalPlayer);
 
             }
         }
@@ -513,7 +513,7 @@ namespace TheWaningBorder.Input
                 if (_em.HasComponent<BuildingTag>(e)) continue; // Buildings can't attack-move
                 if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssueAttack(_em, e, target, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueAttack(_em, e, target, CommandSource.LocalPlayer);
             }
         }
 
@@ -525,7 +525,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!CanHeal(e)) continue;
 
-                CommandRouter.IssueHeal(_em, e, target, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueHeal(_em, e, target, CommandSource.LocalPlayer);
             }
         }
 
@@ -537,7 +537,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<MinerTag>(e)) continue;
 
-                CommandRouter.IssueConvert(_em, e, keep, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueConvert(_em, e, keep, CommandSource.LocalPlayer);
             }
         }
 
@@ -551,7 +551,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<MinerTag>(e)) continue;
 
-                CommandRouter.IssueGather(_em, e, resourceNode, depositLocation, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueGather(_em, e, resourceNode, depositLocation, CommandSource.LocalPlayer);
             }
         }
 
@@ -567,7 +567,7 @@ namespace TheWaningBorder.Input
                 if (!_em.HasComponent<CanBuild>(e)) continue;
 
                 CommandRouter.IssueBuild(_em, e, targetBuilding, "", buildPos,
-                    CommandRouter.CommandSource.LocalPlayer);
+                    CommandSource.LocalPlayer);
             }
         }
 
@@ -582,7 +582,7 @@ namespace TheWaningBorder.Input
                 if (!_em.HasComponent<CanBuild>(e)) continue;
 
                 CommandRouter.IssueRepair(_em, e, targetBuilding,
-                    CommandRouter.CommandSource.LocalPlayer);
+                    CommandSource.LocalPlayer);
             }
         }
 
@@ -710,7 +710,7 @@ namespace TheWaningBorder.Input
                 if (_em.HasComponent<BuildingTag>(e)) continue;
                 if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssuePatrol(_em, e, destination, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssuePatrol(_em, e, destination, CommandSource.LocalPlayer);
             }
         }
 
@@ -795,7 +795,7 @@ namespace TheWaningBorder.Input
             // Issue moves — all units move at the slowest speed (BFME2 group move)
             for (int i = 0; i < count; i++)
             {
-                CommandRouter.IssueMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueMove(_em, units[i], slots[i], CommandSource.LocalPlayer);
 
                 if (_em.HasComponent<FormationSpeedOverride>(units[i]))
                     _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
@@ -823,7 +823,7 @@ namespace TheWaningBorder.Input
 
                 if (!hasDest && !hasQueue)
                 {
-                    CommandRouter.IssueMove(_em, e, clickWorld, CommandRouter.CommandSource.LocalPlayer);
+                    CommandRouter.IssueMove(_em, e, clickWorld, CommandSource.LocalPlayer);
                     continue;
                 }
 
@@ -923,7 +923,7 @@ namespace TheWaningBorder.Input
             // Issue attack-move with formation speed overrides for synchronized arrival
             for (int i = 0; i < count; i++)
             {
-                CommandRouter.IssueAttackMove(_em, units[i], slots[i], CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueAttackMove(_em, units[i], slots[i], CommandSource.LocalPlayer);
 
                 // All units move at slowest speed (BFME2 group move)
                 if (_em.HasComponent<FormationSpeedOverride>(units[i]))
