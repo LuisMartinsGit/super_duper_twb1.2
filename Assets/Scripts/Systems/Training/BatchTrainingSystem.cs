@@ -196,18 +196,12 @@ namespace TheWaningBorder.Systems.Training
                 float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
                     spawnPos, 0.5f, em, maxAttempts: 16);
 
-                // Create unit via the same factory switch
+                // Create unit via the same factory switch. UnitFactory already
+                // applies the TechTreeDB stats at creation time (Fix #243: the
+                // redundant ecb.SetComponent overwrites previously done here
+                // raced against any factory-specific adjustments and dropped
+                // them, so they have been removed).
                 Entity unit = SpawnSingleUnit(em, unitId, finalPos, faction);
-
-                // Apply TechTreeDB stats
-                if (TechTreeDB.Instance != null &&
-                    TechTreeDB.Instance.TryGetUnit(unitId, out var udef))
-                {
-                    ecb.SetComponent(unit, new Health { Value = (int)udef.hp, Max = (int)udef.hp });
-                    ecb.SetComponent(unit, new MoveSpeed { Value = udef.speed });
-                    ecb.SetComponent(unit, new Damage { Value = (int)udef.damage });
-                    ecb.SetComponent(unit, new LineOfSight { Radius = udef.lineOfSight });
-                }
 
                 // Apply completed tech effects
                 TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
