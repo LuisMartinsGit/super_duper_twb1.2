@@ -148,25 +148,35 @@ namespace TheWaningBorder.Economy
         // INCOME COLLECTION METHODS (non-supplies)
         // ═══════════════════════════════════════════════════════════════════════
 
+        // Fix #217: integrate true (PerMinute / 60f) rate into per-building
+        // accumulator and deliver whole units as they build up. This fixes
+        // buildings with PerMinute < 60 (which used to truncate to 0/sec and
+        // never deliver anything). The accumulator field lives on the income
+        // component itself, which is why these methods now need RefRW access.
+
         private void CollectIronIncome(ref SystemState state,
             ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
         {
             foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<IronIncome>>()
+                SystemAPI.Query<RefRO<FactionTag>, RefRW<IronIncome>>()
                     .WithNone<UnderConstruction>())
             {
-                int perSecond = income.ValueRO.PerMinute / 60;
-                if (perSecond <= 0) continue;
+                if (income.ValueRO.PerMinute <= 0) continue;
+
+                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
+                int whole = (int)income.ValueRO.FractionalAccumulator;
+                if (whole <= 0) continue;
+                income.ValueRW.FractionalAccumulator -= whole;
 
                 var key = (byte)tag.ValueRO.Value;
                 if (perFactionIncome.TryGetValue(key, out var existing))
                 {
-                    existing.Iron += perSecond;
+                    existing.Iron += whole;
                     perFactionIncome[key] = existing;
                 }
                 else
                 {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Iron = perSecond });
+                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Iron = whole });
                 }
             }
         }
@@ -175,21 +185,25 @@ namespace TheWaningBorder.Economy
             ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
         {
             foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<CrystalIncome>>()
+                SystemAPI.Query<RefRO<FactionTag>, RefRW<CrystalIncome>>()
                     .WithNone<UnderConstruction>())
             {
-                int perSecond = income.ValueRO.PerMinute / 60;
-                if (perSecond <= 0) continue;
+                if (income.ValueRO.PerMinute <= 0) continue;
+
+                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
+                int whole = (int)income.ValueRO.FractionalAccumulator;
+                if (whole <= 0) continue;
+                income.ValueRW.FractionalAccumulator -= whole;
 
                 var key = (byte)tag.ValueRO.Value;
                 if (perFactionIncome.TryGetValue(key, out var existing))
                 {
-                    existing.Crystal += perSecond;
+                    existing.Crystal += whole;
                     perFactionIncome[key] = existing;
                 }
                 else
                 {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Crystal = perSecond });
+                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Crystal = whole });
                 }
             }
         }
@@ -198,21 +212,25 @@ namespace TheWaningBorder.Economy
             ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
         {
             foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<VeilsteelIncome>>()
+                SystemAPI.Query<RefRO<FactionTag>, RefRW<VeilsteelIncome>>()
                     .WithNone<UnderConstruction>())
             {
-                int perSecond = income.ValueRO.PerMinute / 60;
-                if (perSecond <= 0) continue;
+                if (income.ValueRO.PerMinute <= 0) continue;
+
+                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
+                int whole = (int)income.ValueRO.FractionalAccumulator;
+                if (whole <= 0) continue;
+                income.ValueRW.FractionalAccumulator -= whole;
 
                 var key = (byte)tag.ValueRO.Value;
                 if (perFactionIncome.TryGetValue(key, out var existing))
                 {
-                    existing.Veilsteel += perSecond;
+                    existing.Veilsteel += whole;
                     perFactionIncome[key] = existing;
                 }
                 else
                 {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Veilsteel = perSecond });
+                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Veilsteel = whole });
                 }
             }
         }
@@ -221,21 +239,25 @@ namespace TheWaningBorder.Economy
             ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
         {
             foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRO<GlowIncome>>()
+                SystemAPI.Query<RefRO<FactionTag>, RefRW<GlowIncome>>()
                     .WithNone<UnderConstruction>())
             {
-                int perSecond = income.ValueRO.PerMinute / 60;
-                if (perSecond <= 0) continue;
+                if (income.ValueRO.PerMinute <= 0) continue;
+
+                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
+                int whole = (int)income.ValueRO.FractionalAccumulator;
+                if (whole <= 0) continue;
+                income.ValueRW.FractionalAccumulator -= whole;
 
                 var key = (byte)tag.ValueRO.Value;
                 if (perFactionIncome.TryGetValue(key, out var existing))
                 {
-                    existing.Glow += perSecond;
+                    existing.Glow += whole;
                     perFactionIncome[key] = existing;
                 }
                 else
                 {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Glow = perSecond });
+                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Glow = whole });
                 }
             }
         }

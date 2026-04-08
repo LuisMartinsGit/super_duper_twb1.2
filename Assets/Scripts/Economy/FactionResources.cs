@@ -169,6 +169,13 @@ namespace TheWaningBorder.Economy
         public float PerMinute => Interval > 0 ? (PerTick / Interval * 60f) : 0f;
     }
     
+    // Fix #217: Iron/Crystal/Veilsteel/Glow income used to expose
+    // `int PerSecond => PerMinute / 60;` which truncated to zero for any
+    // PerMinute below 60. A building producing 30 iron/min reported 0/sec
+    // and never actually delivered anything. The fractional accumulator
+    // lets the ResourceTickSystem ticker integrate the true rate across
+    // multiple 1-second ticks and deliver whole units as they build up.
+
     /// <summary>
     /// Attach to any building that provides passive Iron income.
     /// Example: Foundry provides iron from nearby deposits.
@@ -177,10 +184,11 @@ namespace TheWaningBorder.Economy
     {
         /// <summary>Iron generated per minute</summary>
         public int PerMinute;
-        
-        public int PerSecond => PerMinute / 60;
+
+        /// <summary>Fractional accumulator (see Fix #217) — integrates sub-unit income across ticks.</summary>
+        public float FractionalAccumulator;
     }
-    
+
     /// <summary>
     /// Attach to any building that provides passive Crystal income.
     /// Example: Crystal Shrine generates crystal over time.
@@ -189,10 +197,11 @@ namespace TheWaningBorder.Economy
     {
         /// <summary>Crystal generated per minute</summary>
         public int PerMinute;
-        
-        public int PerSecond => PerMinute / 60;
+
+        /// <summary>Fractional accumulator (see Fix #217).</summary>
+        public float FractionalAccumulator;
     }
-    
+
     /// <summary>
     /// Attach to any building that provides passive Veilsteel income.
     /// Example: Advanced smeltery with veilsteel processing.
@@ -201,10 +210,11 @@ namespace TheWaningBorder.Economy
     {
         /// <summary>Veilsteel generated per minute</summary>
         public int PerMinute;
-        
-        public int PerSecond => PerMinute / 60;
+
+        /// <summary>Fractional accumulator (see Fix #217).</summary>
+        public float FractionalAccumulator;
     }
-    
+
     /// <summary>
     /// Attach to any building that provides passive Glow income.
     /// Example: Ley line nexus building.
@@ -213,8 +223,9 @@ namespace TheWaningBorder.Economy
     {
         /// <summary>Glow generated per minute</summary>
         public int PerMinute;
-        
-        public int PerSecond => PerMinute / 60;
+
+        /// <summary>Fractional accumulator (see Fix #217).</summary>
+        public float FractionalAccumulator;
     }
     
     // ═══════════════════════════════════════════════════════════════════════
@@ -226,25 +237,47 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public static class FactionResourcesHelper
     {
+        // Fix #206: cache the query so repeated UI calls don't allocate
+        // native memory every time. Invalidated by TryGetFactionResources
+        // when the world changes out from under it (world recreation).
+        private static EntityQuery _cachedQuery;
+        private static EntityManager _queryOwner;
+
+        /// <summary>
+        /// Clear the cached query. Call on world reset so a stale query
+        /// bound to a destroyed world is not reused.
+        /// </summary>
+        public static void ClearCache()
+        {
+            _cachedQuery = default;
+            _queryOwner = default;
+        }
+
         /// <summary>
         /// Get resources for a specific faction.
         /// </summary>
         public static bool TryGetFactionResources(Faction faction, out FactionResources resources)
         {
             resources = default;
-            
+
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null) return false;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionResources>()
-            );
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var resourceData = query.ToComponentDataArray<FactionResources>(Allocator.Temp);
+            // Rebuild the query if this is the first call or the world changed.
+            if (!_queryOwner.Equals(em))
+            {
+                _cachedQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionResources>()
+                );
+                _queryOwner = em;
+            }
+
+            using var entities = _cachedQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _cachedQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var resourceData = _cachedQuery.ToComponentDataArray<FactionResources>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
