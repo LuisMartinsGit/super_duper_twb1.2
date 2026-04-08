@@ -590,10 +590,13 @@ namespace TheWaningBorder.UI.Panels
             _snappedHub = Entity.Null;
         }
 
+        // Fix #222: cached Camera.main reference
+        private Camera _cachedCamera;
+
         private bool TryGetMouseWorld(out Vector3 world)
         {
             world = default;
-            var cam = Camera.main;
+            var cam = _cachedCamera != null ? _cachedCamera : (_cachedCamera = Camera.main);
             if (!cam) return false;
 
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);

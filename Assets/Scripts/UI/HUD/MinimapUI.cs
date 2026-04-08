@@ -59,6 +59,9 @@ namespace TheWaningBorder.UI.HUD
         // Fallback: direct CameraController reference (in case RTSCameraRig not in scene)
         private CameraController _cameraController;
 
+        // Fix #222: cached Camera.main reference
+        private Camera _cachedCamera;
+
         // UI
         private RawImage _raw;
         private RectTransform _rawRect;
@@ -312,7 +315,8 @@ namespace TheWaningBorder.UI.HUD
         private void UpdateCameraViewRect()
         {
             if (_viewLines == null || _rawRect == null) return;
-            var main = Camera.main;
+            // Fix #222: cache Camera.main reference
+            var main = _cachedCamera != null ? _cachedCamera : (_cachedCamera = Camera.main);
             if (!main) return;
 
             Vector3 p00 = RayToGround(main, new Vector2(0f, 0f));

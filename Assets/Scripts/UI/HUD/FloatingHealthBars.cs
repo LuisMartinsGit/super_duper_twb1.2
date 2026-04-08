@@ -27,6 +27,7 @@ namespace TheWaningBorder.UI.HUD
 
         private EntityWorld _world;
         private EntityManager _em;
+        private Camera _cachedCamera;  // Fix #222
 
         private static readonly Color BgColor = new Color(0.04f, 0.05f, 0.12f, 0.85f);
         private static readonly Color BorderColor = new Color(0f, 0f, 0f, 0.6f);
@@ -48,7 +49,8 @@ namespace TheWaningBorder.UI.HUD
             }
             if (_em.Equals(default(EntityManager))) return;
 
-            var cam = Camera.main;
+            // Fix #222: cache Camera.main (FindGameObjectWithTag on every call).
+            var cam = _cachedCamera != null ? _cachedCamera : (_cachedCamera = Camera.main);
             if (cam == null) return;
 
             // Track which entities already have bars drawn (avoid duplicates for hovered+selected)

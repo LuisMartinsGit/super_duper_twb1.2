@@ -28,6 +28,9 @@ namespace TheWaningBorder.UI.HUD
         private readonly List<FloatingText> _pool = new();
         private readonly List<FloatingText> _active = new();
 
+        // Fix #222: cached Camera.main reference
+        private Camera _cachedCamera;
+
         // Track per-entity elapsed to detect tick resets
         private readonly Dictionary<Entity, float> _prevElapsed = new();
 
@@ -91,9 +94,10 @@ namespace TheWaningBorder.UI.HUD
                 color.a = 1f - t;
                 ft.Mesh.color = color;
 
-                // Billboard: face camera
-                if (Camera.main != null)
-                    ft.GO.transform.rotation = Camera.main.transform.rotation;
+                // Billboard: face camera (Fix #222: cached Camera.main)
+                if (_cachedCamera == null) _cachedCamera = Camera.main;
+                if (_cachedCamera != null)
+                    ft.GO.transform.rotation = _cachedCamera.transform.rotation;
 
                 _active[i] = ft;
             }
