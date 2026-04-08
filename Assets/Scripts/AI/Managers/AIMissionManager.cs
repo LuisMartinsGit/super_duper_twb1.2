@@ -52,7 +52,8 @@ namespace TheWaningBorder.AI
                 {
                     state_val.LastMissionUpdate = time;
 
-                    EvaluateStrategicSituation(ref state, brain.ValueRO, sightings, sharedKnowledge.ValueRO);
+                    // Fix #237: EvaluateStrategicSituation was removed — it had no
+                    // implementation (computed a strengthRatio and discarded it).
                     CreateMissions(ref state, brain.ValueRO, sightings, sharedKnowledge.ValueRO, ecb);
                 }
 
