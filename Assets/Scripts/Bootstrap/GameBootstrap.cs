@@ -206,7 +206,12 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
             managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
             managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
-            managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC key)
+            // Fix #232: duplicate InGameMenuPanel AddComponent removed.
+            // The first AddComponent<InGameMenuPanel>() a few lines above
+            // already registers the ESC menu; adding it twice attached two
+            // instances of the same MonoBehaviour to the RuntimeManagers
+            // GameObject, causing doubled event handling and a second render
+            // pass per frame.
             managersGO.AddComponent<AStarPathStore>();               // A* per-unit path storage
             managersGO.AddComponent<PathfindingToggleHUD>();         // FF/A* toggle button (F5)
             Object.DontDestroyOnLoad(managersGO);
