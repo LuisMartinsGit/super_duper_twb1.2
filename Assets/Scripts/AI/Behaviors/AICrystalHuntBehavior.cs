@@ -18,9 +18,11 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(AIMilitaryManager))]
     public partial struct AICrystalHuntBehavior : ISystem
     {
-        private const float HUNT_CHECK_INTERVAL = 8.0f;
-        private const float HUNT_RANGE = 80f;
-        private const int MAX_HUNTERS_PER_TARGET = 3;
+        // Fix #231: constants moved to AITuning.CrystalHuntRange /
+        // MaxCrystalHuntersPerTarget. Kept a local alias for HUNT_RANGE
+        // because the field is read in a Burst-friendly hot path.
+        private static readonly float HUNT_RANGE = AITuning.CrystalHuntRange;
+        private static readonly int MAX_HUNTERS_PER_TARGET = AITuning.MaxCrystalHuntersPerTarget;
 
         private struct DeferredAttack
         {

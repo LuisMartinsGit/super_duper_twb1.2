@@ -67,5 +67,74 @@ namespace TheWaningBorder.AI
 
         /// <summary>Target number of miners assigned to supply each smelter.</summary>
         public static int SmelterTargetMiners = 2;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MILITARY MANAGER (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Minimum army size before the AI will issue offensive commands.</summary>
+        public static int MinArmySize = 3;
+
+        /// <summary>Maximum army size the AI will maintain.</summary>
+        public static int MaxArmySize = 12;
+
+        /// <summary>Target number of barracks the AI tries to build.</summary>
+        public static int TargetBarracks = 2;
+
+        /// <summary>Population headroom to leave free when queuing new units.</summary>
+        public static int PopulationHeadroom = 2;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MISSION MANAGER (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Minimum own-military strength required before issuing a defend mission.</summary>
+        public static int MinDefenseStrength = 3;
+
+        /// <summary>Minimum own-military strength required before issuing an attack mission.</summary>
+        public static int MinAttackStrength = 5;
+
+        /// <summary>Seconds to wait before issuing a blind (no-intel) attack.</summary>
+        public static float BlindAttackDelay = 180f;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TACTICAL MANAGER (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Range at which the AI considers units to be in engagement.</summary>
+        public static float EngagementRange = 25f;
+
+        /// <summary>Spacing between formation slots when deploying a battalion.</summary>
+        public static float FormationSpacing = 3f;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SCOUTING BEHAVIOR (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Number of scouts the AI tries to maintain.</summary>
+        public static int DesiredScouts = 2;
+
+        /// <summary>World-space size of a scouting zone.</summary>
+        public static float ScoutingZoneSize = 60f;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DEFENSE BEHAVIOR (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Radius around the base to detect approaching threats.</summary>
+        public static float ThreatDetectionRadius = 50f;
+
+        /// <summary>Radius for emergency reaction (units pulled to defend immediately).</summary>
+        public static float EmergencyDefenseRadius = 25f;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CRYSTAL HUNT BEHAVIOR (Fix #231)
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Range from base within which the AI hunts crystal entities.</summary>
+        public static float CrystalHuntRange = 80f;
+
+        /// <summary>Maximum hunters the AI assigns per crystal target.</summary>
+        public static int MaxCrystalHuntersPerTarget = 3;
     }
 }
