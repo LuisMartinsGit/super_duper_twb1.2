@@ -403,14 +403,19 @@ namespace TheWaningBorder.UI
             if (em.Equals(default(EntityManager)))
                 return 1;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionEra>()
-            );
+            // Fix #206: cache query across OnGUI frames.
+            if (!_eraQueryOwner.Equals(em))
+            {
+                _eraQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionEra>()
+                );
+                _eraQueryOwner = em;
+            }
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var eras = query.ToComponentDataArray<FactionEra>(Allocator.Temp);
+            using var entities = _eraQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _eraQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var eras = _eraQuery.ToComponentDataArray<FactionEra>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
@@ -432,14 +437,19 @@ namespace TheWaningBorder.UI
             if (em.Equals(default(EntityManager)))
                 return 0;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<ReligionPoints>()
-            );
+            // Fix #206: cache query across OnGUI frames.
+            if (!_rpQueryOwner.Equals(em))
+            {
+                _rpQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<ReligionPoints>()
+                );
+                _rpQueryOwner = em;
+            }
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var rps = query.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+            using var entities = _rpQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _rpQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var rps = _rpQuery.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
@@ -449,6 +459,12 @@ namespace TheWaningBorder.UI
 
             return 0;
         }
+
+        // Fix #206: per-query caches, invalidated on world change.
+        private static EntityQuery _eraQuery;
+        private static EntityManager _eraQueryOwner;
+        private static EntityQuery _rpQuery;
+        private static EntityManager _rpQueryOwner;
     }
 
     /// <summary>

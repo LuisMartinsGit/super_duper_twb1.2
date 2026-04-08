@@ -129,23 +129,40 @@ namespace TheWaningBorder.Economy
         /// <param name="current">Current population used</param>
         /// <param name="max">Maximum population available</param>
         /// <returns>True if faction population data was found</returns>
+        // Fix #206: cache the query so per-frame UI calls don't allocate
+        // native memory every time.
+        private static EntityQuery _cachedQuery;
+        private static EntityManager _queryOwner;
+
+        /// <summary>Clear the cached query on world reset.</summary>
+        public static void ClearCache()
+        {
+            _cachedQuery = default;
+            _queryOwner = default;
+        }
+
         public static bool TryGetFactionPopulation(Faction faction, out int current, out int max)
         {
             current = 0;
             max = 0;
-            
+
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null) return false;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionPopulation>()
-            );
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var populations = query.ToComponentDataArray<FactionPopulation>(Allocator.Temp);
+            if (!_queryOwner.Equals(em))
+            {
+                _cachedQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionPopulation>()
+                );
+                _queryOwner = em;
+            }
+
+            using var entities = _cachedQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _cachedQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var populations = _cachedQuery.ToComponentDataArray<FactionPopulation>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {

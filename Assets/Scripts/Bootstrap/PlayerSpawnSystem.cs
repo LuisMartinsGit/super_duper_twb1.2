@@ -38,6 +38,11 @@ namespace TheWaningBorder.Bootstrap
             // menu and starting a new game) don't leak into the fresh world.
             FactionEconomy.ClearCache();
 
+            // Fix #206: also clear the per-helper query caches so stale
+            // EntityQuery handles from the previous world are not reused.
+            FactionResourcesHelper.ClearCache();
+            PopulationHelper.ClearCache();
+
             int playerCount = GameSettings.TotalPlayers;
             
             // Calculate spawn positions based on layout
