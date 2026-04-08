@@ -356,6 +356,12 @@ namespace TheWaningBorder.Multiplayer
 
         private void ProcessTick(int tick)
         {
+            // Fix #199: partition the NetworkId space per-tick so any entity
+            // spawned during this tick on either peer falls into a deterministic
+            // slot range. Order divergence inside a tick then manifests as a
+            // checksum desync rather than silent ID drift.
+            TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.BeginTick(tick);
+
             // Gather all commands for this tick
             var allCommands = new List<LockstepCommand>();
 
