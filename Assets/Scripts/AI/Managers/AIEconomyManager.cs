@@ -514,25 +514,11 @@ namespace TheWaningBorder.AI
         // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Culture-specific build orders. Each entry is queued in order; the AI
-        /// skips buildings it already owns or has pending in the build queue.
-        /// </summary>
-        private static readonly string[] RunaiBuildOrder = {
-            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost",
-            "Runai_SiegeWorkshop", "Runai_TradingPost", "ThessarasBazaar"
-        };
-        private static readonly string[] AlanthorBuildOrder = {
-            "Alanthor_Smelter", "Alanthor_Tower", "Alanthor_Garrison",
-            "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Tower"
-        };
-        private static readonly string[] FeraldisBuildOrder = {
-            "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
-            "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_SiegeYard"
-        };
-
-        /// <summary>
-        /// After age-up, queue culture-specific buildings one at a time.
-        /// Only queues the next building if the previous one is built or building.
+        /// Alanthor-specific wall expansion, gated on era+culture. The generic
+        /// culture-building queuing used to live here too, but it was a verbatim
+        /// duplicate of AIBuildingManager.QueueCultureBuildings and the two
+        /// would fight over the build queue — see #214. The Alanthor wall
+        /// logic stays here because it is unique to this system.
         /// </summary>
         private void QueueCultureBuildings(ref SystemState state, AIBrain brain, EntityCommandBuffer ecb)
         {
@@ -551,7 +537,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            if (culture == Cultures.None) return; // Not aged up yet
+            if (culture != Cultures.Alanthor) return; // Only Alanthor builds walls here
 
             // Check era — must be era 2+
             int era = 1;
@@ -561,15 +547,6 @@ namespace TheWaningBorder.AI
                 era = em.GetComponentData<FactionEra>(bankEntity).Value;
             }
             if (era < 2) return;
-
-            string[] buildOrder = culture switch
-            {
-                Cultures.Runai => RunaiBuildOrder,
-                Cultures.Alanthor => AlanthorBuildOrder,
-                Cultures.Feraldis => FeraldisBuildOrder,
-                _ => null
-            };
-            if (buildOrder == null) return;
 
             // Find brain entity for build queue access
             DynamicBuffer<BuildRequest> buildReqs = default;
@@ -585,60 +562,7 @@ namespace TheWaningBorder.AI
             }
             if (!foundBrain) return;
 
-            // Count existing buildings and pending requests per building type
-            foreach (string buildingId in buildOrder)
-            {
-                // Check if already pending in build queue
-                bool alreadyPending = false;
-                for (int i = 0; i < buildReqs.Length; i++)
-                {
-                    if (buildReqs[i].BuildingType.Equals(buildingId) && buildReqs[i].Assigned == 0)
-                    {
-                        alreadyPending = true;
-                        break;
-                    }
-                }
-                if (alreadyPending) continue;
-
-                // Count existing instances of this building (built or under construction)
-                int existingCount = CountFactionBuildings(ref state, faction, buildingId);
-
-                // Allow duplicates for buildings in the build order that appear multiple times
-                int targetCount = 0;
-                foreach (string b in buildOrder)
-                {
-                    if (b == buildingId) targetCount++;
-                }
-
-                if (existingCount >= targetCount) continue;
-
-                // Check affordability
-                if (!BuildCosts.TryGet(buildingId, out var cost)) continue;
-                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
-
-                // Queue the build
-                float3 buildLocation = FindBuildLocation(ref state, faction, buildingId);
-                buildReqs.Add(new BuildRequest
-                {
-                    BuildingType = buildingId,
-                    DesiredPosition = buildLocation,
-                    Priority = 5,
-                    Assigned = 0,
-                    AssignedBuilder = Entity.Null
-                });
-
-                AILogger.Log(faction, "ECONOMY",
-                    $"Era 2: Queued {buildingId} ({existingCount}/{targetCount} existing)");
-
-                // Only queue one culture building per tick to avoid overwhelming builders
-                return;
-            }
-
-            // Alanthor: build walls around base after initial culture buildings are placed
-            if (culture == Cultures.Alanthor)
-            {
-                BuildAlanthorWalls(ref state, faction, buildReqs);
-            }
+            BuildAlanthorWalls(ref state, faction, buildReqs);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
