@@ -40,15 +40,28 @@ namespace TheWaningBorder.Economy
         // ==================== Helpers ====================
 
         /// <summary>
-        /// Clamp every resource to ResourceCap. Burst-safe.
+        /// Clamp every resource to the range [0, ResourceCap]. Burst-safe.
+        ///
+        /// Fix #216: previously this only capped at ResourceCap and allowed
+        /// negative values to slip through when direct component mutations
+        /// (MiningSystem, CrystalMiningSystem, etc.) bypassed FactionEconomy.
+        /// Spend's balance check. A negative bank could cascade into integer
+        /// underflow and nonsensical UI. The lower bound is now enforced here
+        /// as a defensive safety net.
         /// </summary>
         public void Clamp()
         {
-            if (Supplies > ResourceCap) Supplies = ResourceCap;
-            if (Iron > ResourceCap) Iron = ResourceCap;
-            if (Crystal > ResourceCap) Crystal = ResourceCap;
+            if (Supplies  > ResourceCap) Supplies  = ResourceCap;
+            if (Iron      > ResourceCap) Iron      = ResourceCap;
+            if (Crystal   > ResourceCap) Crystal   = ResourceCap;
             if (Veilsteel > ResourceCap) Veilsteel = ResourceCap;
-            if (Glow > ResourceCap) Glow = ResourceCap;
+            if (Glow      > ResourceCap) Glow      = ResourceCap;
+
+            if (Supplies  < 0) Supplies  = 0;
+            if (Iron      < 0) Iron      = 0;
+            if (Crystal   < 0) Crystal   = 0;
+            if (Veilsteel < 0) Veilsteel = 0;
+            if (Glow      < 0) Glow      = 0;
         }
         
         /// <summary>
