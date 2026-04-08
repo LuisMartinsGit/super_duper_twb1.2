@@ -188,49 +188,11 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = math.max(1, finalDamage);
                         }
 
-                        // Condemned mark: target takes bonus damage
-                        if (em.HasComponent<Condemned>(tgt.Value))
-                        {
-                            var condemned = em.GetComponentData<Condemned>(tgt.Value);
-                            finalDamage = (int)(finalDamage * condemned.DamageMultiplier);
-                        }
+                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper
+                        finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
 
-                        // IgniteBuff: attacker's next attacks deal bonus fire damage
-                        if (em.HasComponent<IgniteBuff>(entity))
-                        {
-                            var ignite = em.GetComponentData<IgniteBuff>(entity);
-                            if (ignite.AttacksRemaining > 0)
-                            {
-                                finalDamage += (int)ignite.BonusDamage;
-                                ignite.AttacksRemaining--;
-                                if (ignite.AttacksRemaining <= 0)
-                                    ecb.RemoveComponent<IgniteBuff>(entity);
-                                else
-                                    em.SetComponentData(entity, ignite);
-                            }
-                        }
-
-                        // VoidStrikeBuff: attacker's next attack deals bonus damage
-                        if (em.HasComponent<VoidStrikeBuff>(entity))
-                        {
-                            var voidStrike = em.GetComponentData<VoidStrikeBuff>(entity);
-                            float bonus = em.HasComponent<CrystalTag>(tgt.Value) ? voidStrike.BonusVsCrystal : voidStrike.BonusDamage;
-                            finalDamage += (int)bonus;
-                            ecb.RemoveComponent<VoidStrikeBuff>(entity);
-                        }
-
-                        // DamageReflect: target reflects damage back to attacker
-                        if (em.HasComponent<SpellBuff>(tgt.Value))
-                        {
-                            var tgtBuff = em.GetComponentData<SpellBuff>(tgt.Value);
-                            if (tgtBuff.DamageReflect > 0f)
-                            {
-                                int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
-                                var attackerHealth = em.GetComponentData<Health>(entity);
-                                attackerHealth.Value -= reflected;
-                                em.SetComponentData(entity, attackerHealth);
-                            }
-                        }
+                        // Fix #226: DamageReflect routed through shared helper
+                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
 
                         finalDamage = math.max(1, finalDamage);
 
@@ -241,50 +203,12 @@ namespace TheWaningBorder.Systems.Combat
                         if (health.Value < 0) health.Value = 0;
                         em.SetComponentData(tgt.Value, health);
 
-                        // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
-                        if (em.HasComponent<FactionTag>(entity))
-                        {
-                            var lastDamaged = new LastDamagedByFaction
-                            {
-                                Value = em.GetComponentData<FactionTag>(entity).Value
-                            };
-                            if (targetHasLastDamaged)
-                                em.SetComponentData(tgt.Value, lastDamaged);
-                            else
-                                ecb.AddComponent(tgt.Value, lastDamaged);
-                        }
+                        // Fix #226: last-damager tracking routed through shared helper
+                        CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value);
 
-                        // Track attacker entity for defensive stance return-fire
-                        if (targetHasLastAttacker)
-                            em.SetComponentData(tgt.Value, new LastAttackerEntity { Value = entity });
-                        else
-                            ecb.AddComponent(tgt.Value, new LastAttackerEntity { Value = entity });
-
-                        // Sect panic chance: apply SpellDebuff (speed reduction) on hit
-                        if (hasSectMults && sectMults.PanicChance > 0f)
-                        {
-                            int hash = entity.Index ^ (tgt.Value.Index * 397);
-                            if ((math.abs(hash) % 100) < (int)(sectMults.PanicChance * 100f))
-                            {
-                                if (!em.HasComponent<SpellDebuff>(tgt.Value))
-                                    ecb.AddComponent(tgt.Value, new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f });
-                                else
-                                    ecb.SetComponent(tgt.Value, new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f });
-                            }
-                        }
-
-                        // Sect control chance: apply full root SpellDebuff on hit
-                        if (hasSectMults && sectMults.ControlChance > 0f)
-                        {
-                            int hash = entity.Index ^ (tgt.Value.Index * 631);
-                            if ((math.abs(hash) % 100) < (int)(sectMults.ControlChance * 100f))
-                            {
-                                if (!em.HasComponent<SpellDebuff>(tgt.Value))
-                                    ecb.AddComponent(tgt.Value, new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f });
-                                else
-                                    ecb.SetComponent(tgt.Value, new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f });
-                            }
-                        }
+                        // Fix #226: sect on-hit debuffs routed through shared helper
+                        if (hasSectMults)
+                            CombatDamageHelper.ApplySectOnHitDebuffs(em, ecb, entity, tgt.Value, sectMults);
 
                         // Reset cooldown (with sect attack speed bonus)
                         float cooldownVal = cd.Cooldown;

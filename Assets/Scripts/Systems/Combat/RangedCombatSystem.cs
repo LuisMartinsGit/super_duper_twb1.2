@@ -264,50 +264,9 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = math.max(1, finalDamage - fortReduction);
                         }
 
-                        // Condemned mark: target takes bonus damage
-                        if (em.HasComponent<Condemned>(tgt.Value))
-                        {
-                            var condemned = em.GetComponentData<Condemned>(tgt.Value);
-                            finalDamage = (int)(finalDamage * condemned.DamageMultiplier);
-                        }
-
-                        // IgniteBuff: attacker's next attacks deal bonus fire damage
-                        if (em.HasComponent<IgniteBuff>(entity))
-                        {
-                            var ignite = em.GetComponentData<IgniteBuff>(entity);
-                            if (ignite.AttacksRemaining > 0)
-                            {
-                                finalDamage += (int)ignite.BonusDamage;
-                                ignite.AttacksRemaining--;
-                                if (ignite.AttacksRemaining <= 0)
-                                    ecb.RemoveComponent<IgniteBuff>(entity);
-                                else
-                                    em.SetComponentData(entity, ignite);
-                            }
-                        }
-
-                        // VoidStrikeBuff: attacker's next attack deals bonus damage
-                        if (em.HasComponent<VoidStrikeBuff>(entity))
-                        {
-                            var voidStrike = em.GetComponentData<VoidStrikeBuff>(entity);
-                            float bonus = em.HasComponent<CrystalTag>(tgt.Value) ? voidStrike.BonusVsCrystal : voidStrike.BonusDamage;
-                            finalDamage += (int)bonus;
-                            ecb.RemoveComponent<VoidStrikeBuff>(entity);
-                        }
-
-                        // DamageReflect: target reflects damage back to attacker
-                        if (em.HasComponent<SpellBuff>(tgt.Value))
-                        {
-                            var tgtBuff = em.GetComponentData<SpellBuff>(tgt.Value);
-                            if (tgtBuff.DamageReflect > 0f)
-                            {
-                                int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
-                                var attackerHealth = em.GetComponentData<Health>(entity);
-                                attackerHealth.Value -= reflected;
-                                em.SetComponentData(entity, attackerHealth);
-                            }
-                        }
-
+                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) + DamageReflect routed through shared helper
+                        finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
+                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
                         finalDamage = math.max(1, finalDamage);
 
                         // Get shooter's damage type (default Ranged for archers)
