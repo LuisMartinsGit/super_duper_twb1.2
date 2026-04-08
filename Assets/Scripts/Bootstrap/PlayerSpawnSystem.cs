@@ -33,6 +33,11 @@ namespace TheWaningBorder.Bootstrap
             // Reset network ID generator so all clients assign IDs in the same deterministic order
             NetworkIdGenerator.Reset();
 
+            // Fix #200: clear the FactionEconomy static bank cache so any stale
+            // Entity handles from a previous world (e.g., returning to the main
+            // menu and starting a new game) don't leak into the fresh world.
+            FactionEconomy.ClearCache();
+
             int playerCount = GameSettings.TotalPlayers;
             
             // Calculate spawn positions based on layout
