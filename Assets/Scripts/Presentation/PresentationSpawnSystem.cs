@@ -928,8 +928,8 @@ public class PresentationSpawnSystem : MonoBehaviour
             var patchRenderer = patch.GetComponent<Renderer>();
             if (patchRenderer != null)
             {
-                patchRenderer.material = new Material(litShader);
-                patchRenderer.material.color = Color.Lerp(foliageDark, foliageLight, colorT);
+                // Fix #203: use shared material + MaterialPropertyBlock
+                ProceduralMaterialHelper.SetColor(patchRenderer, Color.Lerp(foliageDark, foliageLight, colorT));
                 patchRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             var patchCol = patch.GetComponent<Collider>();
@@ -961,8 +961,8 @@ public class PresentationSpawnSystem : MonoBehaviour
             var trunkRenderer = trunk.GetComponent<Renderer>();
             if (trunkRenderer != null)
             {
-                trunkRenderer.material = new Material(litShader);
-                trunkRenderer.material.color = trunkBrown;
+                // Fix #203: shared material + MPB
+                ProceduralMaterialHelper.SetColor(trunkRenderer, trunkBrown);
             }
             // Remove trunk collider (individual tree ECS entities handle collision)
             var trunkCol = trunk.GetComponent<Collider>();
@@ -977,9 +977,9 @@ public class PresentationSpawnSystem : MonoBehaviour
             var canopyRenderer = canopy.GetComponent<Renderer>();
             if (canopyRenderer != null)
             {
-                canopyRenderer.material = new Material(litShader);
+                // Fix #203: shared material + MPB
                 float greenVariation = (float)rng.NextDouble();
-                canopyRenderer.material.color = Color.Lerp(canopyDarkGreen, canopyLightGreen, greenVariation);
+                ProceduralMaterialHelper.SetColor(canopyRenderer, Color.Lerp(canopyDarkGreen, canopyLightGreen, greenVariation));
             }
             // Remove canopy collider
             var canopyCol = canopy.GetComponent<Collider>();
@@ -1049,11 +1049,11 @@ public class PresentationSpawnSystem : MonoBehaviour
             var boulderRenderer = boulder.GetComponent<Renderer>();
             if (boulderRenderer != null)
             {
-                boulderRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                // Fix #203: shared material + MPB
                 float greyVariation = (float)rng.NextDouble();
                 Color baseColor = Color.Lerp(darkGrey, lightGrey, greyVariation);
                 baseColor = Color.Lerp(baseColor, warmGrey, (float)rng.NextDouble() * 0.3f);
-                boulderRenderer.material.color = baseColor;
+                ProceduralMaterialHelper.SetColor(boulderRenderer, baseColor);
             }
 
             // Remove individual boulder colliders
@@ -1122,17 +1122,11 @@ public class PresentationSpawnSystem : MonoBehaviour
             var oreRenderer = ore.GetComponent<Renderer>();
             if (oreRenderer != null)
             {
-                oreRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                // Fix #203: shared material + MPB (metallic sheen preserved via SetProperties)
                 float variation = (float)rng.NextDouble();
                 Color baseColor = Color.Lerp(ironDark, ironLight, variation * 0.5f);
-                // Mix in rusty tint for ore vein appearance
                 baseColor = Color.Lerp(baseColor, ironRusty, (float)rng.NextDouble() * 0.45f);
-                oreRenderer.material.color = baseColor;
-                // Slight metallic sheen
-                if (oreRenderer.material.HasProperty("_Metallic"))
-                    oreRenderer.material.SetFloat("_Metallic", 0.4f);
-                if (oreRenderer.material.HasProperty("_Smoothness"))
-                    oreRenderer.material.SetFloat("_Smoothness", 0.3f);
+                ProceduralMaterialHelper.SetProperties(oreRenderer, baseColor, metallic: 0.4f, smoothness: 0.3f);
             }
 
             // Remove individual colliders

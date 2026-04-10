@@ -83,20 +83,13 @@ namespace TheWaningBorder.Presentation
         //  MATERIAL HELPERS
         // ═══════════════════════════════════════════════════════════════════════
 
-        private static Material MakeMat(Color color, float metallic = 0f, float smoothness = 0.3f)
-        {
-            var mat = new Material(LitShader);
-            mat.color = color;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
-            return mat;
-        }
+        // Fix #203: MakeMat used to allocate a new Material per primitive.
+        // Now delegates to ProceduralMaterialHelper (shared base + MPB).
 
         private static void SetMat(GameObject go, Color color, float metallic = 0f, float smoothness = 0.3f)
         {
             var r = go.GetComponent<Renderer>();
-            if (r != null) r.material = MakeMat(color, metallic, smoothness);
+            ProceduralMaterialHelper.SetProperties(r, color, metallic, smoothness);
         }
 
         private static void DestroyCollider(GameObject go)
