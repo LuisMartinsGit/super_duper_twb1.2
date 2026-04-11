@@ -9,6 +9,8 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Input;          // EntityReference
+using TheWaningBorder.Presentation;   // EntityViewManager
 
 public partial class PresentationSpawnSystem
 {
