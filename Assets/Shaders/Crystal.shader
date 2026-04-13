@@ -4,8 +4,8 @@
 // Visual recipe (Blender source):
 //   - Principled BSDF: Transmission 0.91, IOR 1.45, Roughness 0, Metallic 0
 //   - Base color:  orange (configurable via _Color)
-//   - Bump chain:  Noise(1.7) → ColorRamp → Bump(0.1) → Voronoi(3.5) → Bump(0.06)
-//   - Displacement: Noise(7.0) → ColorRamp → vertex offset (scale 0.1)
+//   - Bump chain:  Noise(1.7) -> ColorRamp -> Bump(0.1) -> Voronoi(3.5) -> Bump(0.06)
+//   - Displacement: Noise(7.0) -> ColorRamp -> vertex offset (scale 0.1)
 //   - Emission:    same as base color, strength 1.0
 //
 // Built-in RP, forward rendering, transparent queue.
@@ -25,7 +25,6 @@ Shader "Custom/Crystal"
 
         [Header(Surface Noise Bump)]
         _NoiseScale1    ("Noise Scale",        Float)          = 1.7
-        _NoiseDetail1   ("Noise Detail",       Float)          = 15.0
         _BumpStr1       ("Bump Strength",      Range(0,1))     = 0.1
         _RampPos1       ("ColorRamp Midpoint", Range(0,1))     = 0.337
 
@@ -35,7 +34,6 @@ Shader "Custom/Crystal"
 
         [Header(Displacement)]
         _NoiseScale2    ("Displacement Noise Scale", Float)    = 7.0
-        _NoiseDetail2   ("Displacement Noise Detail",Float)    = 15.0
         _RampPos2       ("Displacement Ramp Midpoint",Range(0,1))= 0.469
         _DispScale      ("Displacement Scale", Range(0,0.5))   = 0.1
     }
@@ -48,9 +46,6 @@ Shader "Custom/Crystal"
             "RenderType"      = "Transparent"
             "IgnoreProjector" = "True"
         }
-
-        // --- Pass 0: grab the screen behind this object for refraction ---
-        GrabPass { "_CrystalGrab" }
 
         Pass
         {
@@ -65,15 +60,11 @@ Shader "Custom/Crystal"
             #pragma vertex   vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
-            #pragma target 3.5
+            #pragma target 3.0
 
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
-            #include "AutoLight.cginc"
 
-            // ---------------------------------------------------------------
-            // Properties
-            // ---------------------------------------------------------------
             fixed4 _Color;
             half   _Opacity;
             half   _EmissionStr;
@@ -81,7 +72,6 @@ Shader "Custom/Crystal"
             half   _ChromaShift;
 
             half   _NoiseScale1;
-            half   _NoiseDetail1;
             half   _BumpStr1;
             half   _RampPos1;
 
@@ -89,17 +79,16 @@ Shader "Custom/Crystal"
             half   _BumpStr2;
 
             half   _NoiseScale2;
-            half   _NoiseDetail2;
             half   _RampPos2;
             half   _DispScale;
 
-            sampler2D _CrystalGrab;
-            float4    _CrystalGrab_TexelSize;
+            sampler2D _CameraOpaqueTexture;
+            float4    _CameraOpaqueTexture_TexelSize;
 
             // ---------------------------------------------------------------
-            // Noise helpers (3D value noise, matches Blender "Noise Texture")
+            // Hash (no leading underscores - reserved in HLSL)
             // ---------------------------------------------------------------
-            float3 _hash33(float3 p)
+            float3 hash33(float3 p)
             {
                 p = float3(dot(p, float3(127.1, 311.7, 74.7)),
                            dot(p, float3(269.5, 183.3, 246.1)),
@@ -107,35 +96,35 @@ Shader "Custom/Crystal"
                 return frac(sin(p) * 43758.5453);
             }
 
-            float _valueNoise3D(float3 p)
+            float valueNoise3D(float3 p)
             {
-                float3 i = floor(p);
-                float3 f = frac(p);
-                f = f * f * (3.0 - 2.0 * f); // smoothstep
+                float3 ip = floor(p);
+                float3 fp = frac(p);
+                fp = fp * fp * (3.0 - 2.0 * fp);
 
-                float a = dot(_hash33(i + float3(0,0,0)), float3(1,1,1)) / 3.0;
-                float b = dot(_hash33(i + float3(1,0,0)), float3(1,1,1)) / 3.0;
-                float c = dot(_hash33(i + float3(0,1,0)), float3(1,1,1)) / 3.0;
-                float d = dot(_hash33(i + float3(1,1,0)), float3(1,1,1)) / 3.0;
-                float e = dot(_hash33(i + float3(0,0,1)), float3(1,1,1)) / 3.0;
-                float g = dot(_hash33(i + float3(1,0,1)), float3(1,1,1)) / 3.0;
-                float h = dot(_hash33(i + float3(0,1,1)), float3(1,1,1)) / 3.0;
-                float k = dot(_hash33(i + float3(1,1,1)), float3(1,1,1)) / 3.0;
+                float a = dot(hash33(ip + float3(0,0,0)), float3(1,1,1)) / 3.0;
+                float b = dot(hash33(ip + float3(1,0,0)), float3(1,1,1)) / 3.0;
+                float c = dot(hash33(ip + float3(0,1,0)), float3(1,1,1)) / 3.0;
+                float d = dot(hash33(ip + float3(1,1,0)), float3(1,1,1)) / 3.0;
+                float e = dot(hash33(ip + float3(0,0,1)), float3(1,1,1)) / 3.0;
+                float g = dot(hash33(ip + float3(1,0,1)), float3(1,1,1)) / 3.0;
+                float h = dot(hash33(ip + float3(0,1,1)), float3(1,1,1)) / 3.0;
+                float k = dot(hash33(ip + float3(1,1,1)), float3(1,1,1)) / 3.0;
 
-                return lerp(lerp(lerp(a,b,f.x), lerp(c,d,f.x), f.y),
-                            lerp(lerp(e,g,f.x), lerp(h,k,f.x), f.y), f.z);
+                return lerp(lerp(lerp(a,b,fp.x), lerp(c,d,fp.x), fp.y),
+                            lerp(lerp(e,g,fp.x), lerp(h,k,fp.x), fp.y), fp.z);
             }
 
-            // fBm with "detail" octaves (Blender Detail parameter)
-            float fbm3D(float3 p, float octaves)
+            // fBm with fixed 8 octaves (Blender Detail=15 clamped for perf)
+            float fbm3D(float3 p)
             {
                 float v = 0.0;
                 float amp = 0.5;
                 float freq = 1.0;
-                int oct = (int)clamp(octaves, 1, 16);
-                for (int i = 0; i < oct; i++)
+                [unroll]
+                for (int j = 0; j < 8; j++)
                 {
-                    v += amp * _valueNoise3D(p * freq);
+                    v += amp * valueNoise3D(p * freq);
                     freq *= 2.0;
                     amp  *= 0.5;
                 }
@@ -143,67 +132,58 @@ Shader "Custom/Crystal"
             }
 
             // ---------------------------------------------------------------
-            // Voronoi F1 (Euclidean) — matches Blender's Voronoi Texture
+            // Voronoi F1 (Euclidean)
             // ---------------------------------------------------------------
             float voronoiF1(float3 p)
             {
-                float3 i = floor(p);
-                float3 f = frac(p);
-                float minDist = 1e10;
+                float3 ip = floor(p);
+                float3 fp = frac(p);
+                float minDist = 100.0;
 
                 for (int x = -1; x <= 1; x++)
-                for (int y = -1; y <= 1; y++)
-                for (int z = -1; z <= 1; z++)
                 {
-                    float3 neighbor = float3(x, y, z);
-                    float3 point    = _hash33(i + neighbor);
-                    float3 diff     = neighbor + point - f;
-                    float  d        = dot(diff, diff);
-                    minDist = min(minDist, d);
+                    for (int y = -1; y <= 1; y++)
+                    {
+                        for (int z = -1; z <= 1; z++)
+                        {
+                            float3 nb = float3(x, y, z);
+                            float3 pt = hash33(ip + nb);
+                            float3 diff = nb + pt - fp;
+                            float  ds = dot(diff, diff);
+                            minDist = min(minDist, ds);
+                        }
+                    }
                 }
                 return sqrt(minDist);
             }
 
-            // ---------------------------------------------------------------
-            // ColorRamp helper (Blender black→white with adjustable midpoint)
-            // ---------------------------------------------------------------
+            // ColorRamp: black->white with adjustable midpoint
             float colorRamp(float t, float midpoint)
             {
                 return saturate(t / max(midpoint, 0.001));
             }
 
-            // ---------------------------------------------------------------
-            // Normal-from-height (central differences on a height function)
-            // ---------------------------------------------------------------
-            float3 perturbNormal(float3 worldPos, float3 worldNormal,
-                                 float height, float3 hDx, float3 hDy, float strength)
+            // Normal perturbation from height via finite differences
+            float3 perturbNormal(float3 wNormal, float hC, float hDx, float hDy, float str)
             {
-                // hDx / hDy = height sampled at small offsets along tangent axes
-                // We pass the actual height values for center, +du, +dv
-                // and reconstruct partial derivatives.
-                // (Caller packs: hDx.x = h_center, hDx.y = h_du, hDy.y = h_dv)
-                float dHdu = (hDx.y - hDx.x);
-                float dHdv = (hDy.y - hDy.x);
+                float dHdu = hDx - hC;
+                float dHdv = hDy - hC;
 
-                float3 T = normalize(cross(worldNormal, float3(0,0,1)));
-                if (length(cross(worldNormal, float3(0,0,1))) < 0.001)
-                    T = normalize(cross(worldNormal, float3(0,1,0)));
-                float3 B = cross(worldNormal, T);
+                // Build tangent frame (branchless fallback)
+                float3 up = abs(wNormal.z) < 0.999 ? float3(0,0,1) : float3(0,1,0);
+                float3 T = normalize(cross(wNormal, up));
+                float3 B = cross(wNormal, T);
 
-                float3 perturbed = normalize(worldNormal
-                    - strength * dHdu * T
-                    - strength * dHdv * B);
-                return perturbed;
+                return normalize(wNormal - str * dHdu * T - str * dHdv * B);
             }
 
             // ---------------------------------------------------------------
-            // Vertex / Fragment
+            // Structs
             // ---------------------------------------------------------------
             struct appdata
             {
                 float4 vertex  : POSITION;
                 float3 normal  : NORMAL;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
@@ -213,18 +193,17 @@ Shader "Custom/Crystal"
                 float3 worldNorm  : TEXCOORD1;
                 float4 grabPos    : TEXCOORD2;
                 float3 objPos     : TEXCOORD3;
-                UNITY_FOG_COORDS(4)
-                SHADOW_COORDS(5)
             };
 
             v2f vert(appdata v)
             {
                 v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
 
-                // --- Vertex displacement (Noise #2 → ColorRamp → offset along normal) ---
                 float3 objP = v.vertex.xyz;
-                float noise2 = fbm3D(objP * _NoiseScale2, _NoiseDetail2);
+
+                // Vertex displacement: Noise #2 -> ColorRamp -> offset along normal
+                float noise2 = fbm3D(objP * _NoiseScale2);
                 float dispH  = colorRamp(noise2, _RampPos2);
                 v.vertex.xyz += v.normal * dispH * _DispScale;
 
@@ -232,10 +211,8 @@ Shader "Custom/Crystal"
                 o.worldPos  = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.worldNorm = UnityObjectToWorldNormal(v.normal);
                 o.objPos    = objP;
-                o.grabPos   = ComputeGrabScreenPos(o.pos);
+                o.grabPos   = ComputeScreenPos(o.pos);
 
-                UNITY_TRANSFER_FOG(o, o.pos);
-                TRANSFER_SHADOW(o);
                 return o;
             }
 
@@ -247,32 +224,22 @@ Shader "Custom/Crystal"
                 float3 H     = normalize(L + V);
                 float3 objP  = i.objPos;
 
-                // === Noise #1 → ColorRamp → Bump #1 ===
+                // === Noise #1 -> ColorRamp -> Bump #1 ===
                 float eps = 0.02;
-                float n1_c  = fbm3D(objP * _NoiseScale1, _NoiseDetail1);
-                float n1_dx = fbm3D((objP + float3(eps,0,0)) * _NoiseScale1, _NoiseDetail1);
-                float n1_dy = fbm3D((objP + float3(0,eps,0)) * _NoiseScale1, _NoiseDetail1);
+                float h1_c  = colorRamp(fbm3D(objP * _NoiseScale1), _RampPos1);
+                float h1_dx = colorRamp(fbm3D((objP + float3(eps,0,0)) * _NoiseScale1), _RampPos1);
+                float h1_dy = colorRamp(fbm3D((objP + float3(0,eps,0)) * _NoiseScale1), _RampPos1);
 
-                float h1_c  = colorRamp(n1_c,  _RampPos1);
-                float h1_dx = colorRamp(n1_dx, _RampPos1);
-                float h1_dy = colorRamp(n1_dy, _RampPos1);
+                N = perturbNormal(N, h1_c, h1_dx, h1_dy, _BumpStr1 * 5.0);
 
-                N = perturbNormal(i.worldPos, N, h1_c,
-                    float3(h1_c, h1_dx, 0),
-                    float3(h1_c, h1_dy, 0),
-                    _BumpStr1 * 5.0);
-
-                // === Voronoi → Bump #2 (chained from Bump #1 normal) ===
+                // === Voronoi -> Bump #2 (chained) ===
                 float v_c  = voronoiF1(objP * _VoronoiScale);
                 float v_dx = voronoiF1((objP + float3(eps,0,0)) * _VoronoiScale);
                 float v_dy = voronoiF1((objP + float3(0,eps,0)) * _VoronoiScale);
 
-                N = perturbNormal(i.worldPos, N, v_c,
-                    float3(v_c, v_dx, 0),
-                    float3(v_c, v_dy, 0),
-                    _BumpStr2 * 5.0);
+                N = perturbNormal(N, v_c, v_dx, v_dy, _BumpStr2 * 5.0);
 
-                // === Lighting (GGX-ish specular, no roughness → sharp highlights) ===
+                // === Lighting ===
                 float NdotL = max(dot(N, L), 0.0);
                 float NdotH = max(dot(N, H), 0.0);
                 float NdotV = max(dot(N, V), 0.001);
@@ -281,56 +248,48 @@ Shader "Custom/Crystal"
                 float f0 = pow((_IOR - 1.0) / (_IOR + 1.0), 2.0);
                 float fresnel = f0 + (1.0 - f0) * pow(1.0 - NdotV, 5.0);
 
-                // Sharp specular (roughness ≈ 0)
+                // Sharp specular (roughness ~ 0)
                 float spec = pow(NdotH, 512.0) * fresnel;
 
-                // Diffuse tint (very subtle for glass)
+                // Diffuse tint (subtle for glass)
                 float3 diffuse = _Color.rgb * NdotL * _LightColor0.rgb * _Opacity;
 
-                // === Refraction (GrabPass + distortion) ===
+                // === Refraction (GrabPass) ===
                 float2 grabUV = i.grabPos.xy / i.grabPos.w;
                 float2 refractOffset = N.xy * (1.0 - 1.0 / _IOR) * 0.08;
 
-                // Chromatic aberration
                 float2 uvR = grabUV + refractOffset * (1.0 + _ChromaShift);
                 float2 uvG = grabUV + refractOffset;
                 float2 uvB = grabUV + refractOffset * (1.0 - _ChromaShift);
 
                 float3 refracted;
-                refracted.r = tex2D(_CrystalGrab, uvR).r;
-                refracted.g = tex2D(_CrystalGrab, uvG).g;
-                refracted.b = tex2D(_CrystalGrab, uvB).b;
+                refracted.r = tex2D(_CameraOpaqueTexture, uvR).r;
+                refracted.g = tex2D(_CameraOpaqueTexture, uvG).g;
+                refracted.b = tex2D(_CameraOpaqueTexture, uvB).b;
 
-                // Tint refracted light by crystal color
                 refracted *= lerp(float3(1,1,1), _Color.rgb, 0.4);
 
                 // === Emission ===
                 float3 emission = _Color.rgb * _EmissionStr * 0.15;
 
-                // === Composite ===
-                float  reflectivity = fresnel;
-                float3 envReflect   = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0,
-                                        reflect(-V, N)).rgb;
+                // === Reflection probe ===
+                float3 reflDir = reflect(-V, N);
+                float3 envReflect = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflDir).rgb;
 
-                float3 col = refracted * (1.0 - reflectivity)
-                           + envReflect * reflectivity * _Color.rgb
+                // === Composite ===
+                float3 col = refracted * (1.0 - fresnel)
+                           + envReflect * fresnel * _Color.rgb
                            + spec * _LightColor0.rgb
                            + diffuse
                            + emission;
 
-                // Shadow
-                UNITY_LIGHT_ATTENUATION(atten, i, i.worldPos);
-                col *= lerp(0.5, 1.0, atten);
-
                 float alpha = saturate(_Opacity + fresnel * 0.5 + spec);
 
-                UNITY_APPLY_FOG(i.fogCoord, col);
                 return fixed4(col, alpha);
             }
             ENDCG
         }
 
-        // --- Pass 1: shadow caster (so the crystal casts faint shadows) ---
         Pass
         {
             Name "ShadowCaster"
