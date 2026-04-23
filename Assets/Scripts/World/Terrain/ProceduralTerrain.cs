@@ -183,6 +183,16 @@ namespace TheWaningBorder.World.Terrain
             // Create water plane
             CreateWaterPlane();
 
+            // Place realistic spruce trees via noise-based forest placement
+            // (deferred one frame so player spawn positions are ready)
+            StartCoroutine(PlaceTreesDeferred());
+        }
+
+        private System.Collections.IEnumerator PlaceTreesDeferred()
+        {
+            yield return null; // wait one frame for spawn system to resolve positions
+            var spawns = GetMultiplayerSpawnPositions(GameSettings.TotalPlayers);
+            PlaceTerrainTrees(spawns);
         }
 
         void OnDestroy()
@@ -1538,6 +1548,164 @@ namespace TheWaningBorder.World.Terrain
             }
 
             return positions;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TERRAIN TREE PLACEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        [Header("Trees")]
+        [Tooltip("Enable noise-based realistic tree placement across terrain")]
+        public bool placeTrees = true;
+        [Tooltip("Perlin noise scale for tree placement (lower = larger forest patches)")]
+        public float treeNoiseScale = 0.018f;
+        [Tooltip("Noise threshold above which trees spawn (0.45-0.55 dense, 0.6+ sparse)")]
+        public float treeDensityThreshold = 0.52f;
+        [Tooltip("Grid spacing in world units between tree candidate points")]
+        public float treeGridSpacing = 4.5f;
+
+        private GameObject _treeRoot;
+        private Transform _treesParent;
+
+        /// <summary>
+        /// Public entry point to place realistic trees across the terrain using
+        /// noise-based forest placement with the Spruce_008 prefab. Uses direct
+        /// Instantiate + StaticBatchingUtility (Unity Terrain Tree system does
+        /// not work with the URP/Lit shader the prefab uses).
+        /// </summary>
+        public void PlaceTerrainTrees(Vector3[] playerSpawnPositions)
+        {
+            if (!placeTrees) return;
+            if (_treeRoot != null) return; // already placed
+
+            // Load the tree prefab — dev/editor path first, then Resources fallback
+            GameObject treePrefab = LoadTreePrefab();
+            if (treePrefab == null)
+            {
+                Debug.LogWarning("[ProceduralTerrain] Spruce_008 prefab not found — skipping trees");
+                return;
+            }
+
+            _treeRoot = new GameObject("TerrainTrees");
+            _treesParent = _treeRoot.transform;
+
+            int worldSize = (int)_data.size.x;
+            float halfSize = worldSize * 0.5f;
+
+            // Player spawn exclusion: inner clear (no trees), outer fade (sparse)
+            const float innerClear = 30f;
+            const float outerFade = 70f;
+
+            int placed = 0;
+            var spawnList = new List<GameObject>();
+
+            for (float z = -halfSize; z < halfSize; z += treeGridSpacing)
+            {
+                for (float x = -halfSize; x < halfSize; x += treeGridSpacing)
+                {
+                    // Deterministic hash for jitter (same seed always produces same forest)
+                    uint hash = (uint)((int)(x * 7919) ^ (int)(z * 31) ^ GameSettings.SpawnSeed);
+                    hash ^= hash >> 13; hash *= 0x5bd1e995; hash ^= hash >> 15;
+                    float jitterX = ((hash & 0xFFFF) / 65535f - 0.5f) * treeGridSpacing * 0.7f;
+                    float jitterZ = (((hash >> 16) & 0xFFFF) / 65535f - 0.5f) * treeGridSpacing * 0.7f;
+                    float wx = x + jitterX;
+                    float wz = z + jitterZ;
+
+                    // 3-octave FBM noise for organic forest shapes
+                    float n = Mathf.PerlinNoise(wx * treeNoiseScale + 13.7f, wz * treeNoiseScale + 91.3f) * 0.5f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 2.1f + 217f, wz * treeNoiseScale * 2.1f + 301f) * 0.3f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 4.7f + 41f, wz * treeNoiseScale * 4.7f + 173f) * 0.2f;
+
+                    // Raise threshold near player spawns (quadratic falloff)
+                    float threshold = treeDensityThreshold;
+                    if (playerSpawnPositions != null)
+                    {
+                        foreach (var spawn in playerSpawnPositions)
+                        {
+                            float d = Vector2.Distance(new Vector2(wx, wz), new Vector2(spawn.x, spawn.z));
+                            if (d < innerClear) { threshold = 10f; break; }  // impossible threshold = no trees
+                            if (d < innerClear + outerFade)
+                            {
+                                float t = (d - innerClear) / outerFade;
+                                threshold = Mathf.Lerp(10f, treeDensityThreshold, t * t);
+                            }
+                        }
+                    }
+
+                    if (n < threshold) continue;
+
+                    // Skip water + steep slopes (sample neighbor heights)
+                    float y = TerrainUtility.GetHeight(wx, wz);
+                    if (y < 2f) continue;
+                    float yN = TerrainUtility.GetHeight(wx, wz + 2f);
+                    float yE = TerrainUtility.GetHeight(wx + 2f, wz);
+                    float slope = Mathf.Max(Mathf.Abs(yN - y), Mathf.Abs(yE - y)) / 2f;
+                    if (slope > 0.35f) continue;
+
+                    // Instantiate tree with variation
+                    var tree = Object.Instantiate(treePrefab, new Vector3(wx, y, wz),
+                        Quaternion.Euler(0, ((hash >> 8) & 0xFFFF) / 65535f * 360f, 0),
+                        _treesParent);
+
+                    // Scale variation: 0.15 - 0.7 (smaller than prefab default)
+                    float scaleHash = (((hash >> 20) & 0xFFF) / 4095f);
+                    float scale = Mathf.Lerp(0.15f, 0.7f, scaleHash);
+                    tree.transform.localScale = Vector3.one * scale;
+
+                    // Tint variation via MaterialPropertyBlock (dark green to olive/brown)
+                    ApplyTreeTint(tree, scaleHash);
+
+                    tree.isStatic = true;
+                    spawnList.Add(tree);
+                    placed++;
+                }
+            }
+
+            // Batch all trees into fewer draw calls
+            if (spawnList.Count > 0)
+                StaticBatchingUtility.Combine(spawnList.ToArray(), _treeRoot);
+
+            Debug.Log($"[ProceduralTerrain] Placed {placed} trees across {worldSize}x{worldSize} terrain");
+        }
+
+        private GameObject LoadTreePrefab()
+        {
+            #if UNITY_EDITOR
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/Spruce_008.prefab");
+            if (prefab != null) return prefab;
+            #endif
+            // Runtime fallback: Resources folder (prefab must be in Assets/Resources/Trees/)
+            return Resources.Load<GameObject>("Trees/Spruce_008");
+        }
+
+        private static readonly MaterialPropertyBlock _treeMpb = new MaterialPropertyBlock();
+        private static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
+
+        private void ApplyTreeTint(GameObject tree, float variation)
+        {
+            // Palette: dark green -> olive -> brown
+            Color[] palette = {
+                new Color(0.15f, 0.30f, 0.12f), // dark green
+                new Color(0.22f, 0.35f, 0.15f), // mid green
+                new Color(0.30f, 0.32f, 0.14f), // olive
+                new Color(0.35f, 0.25f, 0.12f), // brown-green
+                new Color(0.20f, 0.28f, 0.10f), // forest green
+            };
+            Color tint = palette[Mathf.FloorToInt(variation * palette.Length) % palette.Length];
+
+            foreach (var r in tree.GetComponentsInChildren<Renderer>())
+            {
+                r.GetPropertyBlock(_treeMpb);
+                _treeMpb.SetColor(_baseColorId, tint);
+                r.SetPropertyBlock(_treeMpb);
+            }
+        }
+
+        public void ClearTerrainTrees()
+        {
+            if (_treeRoot != null) Destroy(_treeRoot);
+            _treeRoot = null;
         }
     }
 }
