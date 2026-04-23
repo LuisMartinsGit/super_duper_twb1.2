@@ -53,7 +53,6 @@ namespace TheWaningBorder.Bootstrap
             if (_didSetupThisScene) return;
             _didSetupThisScene = true;
 
-            Debug.Log("[GameBootstrap] Initializing game systems...");
 
             // 0. Ensure ECS world exists (may have been disposed on previous game exit)
             EnsureECSWorld();
@@ -63,7 +62,6 @@ namespace TheWaningBorder.Bootstrap
             {
                 InitializeDataSystems();
                 PathfindingTestSetup.Bootstrap();
-                Debug.Log("[GameBootstrap] BattalionTest mode initialized");
                 return;
             }
 
@@ -72,7 +70,6 @@ namespace TheWaningBorder.Bootstrap
             {
                 InitializeDataSystems();
                 ScenarioSetup.Bootstrap();
-                Debug.Log($"[GameBootstrap] Scenario mode initialized: {GameSettings.ActiveScenario}");
                 return;
             }
 
@@ -104,8 +101,6 @@ namespace TheWaningBorder.Bootstrap
             // 7. Sync systems after all initialization
             PostInitializationSync();
 
-            Debug.Log($"[GameBootstrap] Game initialized - IsMultiplayer: {GameSettings.IsMultiplayer}, " +
-                      $"LocalFaction: {GameSettings.LocalPlayerFaction}, Players: {GameSettings.TotalPlayers}");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -122,13 +117,10 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world != null && world.IsCreated)
             {
-                Debug.Log("[GameBootstrap] ECS world already exists");
                 return;
             }
 
-            Debug.Log("[GameBootstrap] Recreating ECS world...");
             Unity.Entities.DefaultWorldInitialization.Initialize("Default World");
-            Debug.Log("[GameBootstrap] ECS world recreated successfully");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -144,7 +136,6 @@ namespace TheWaningBorder.Bootstrap
         {
             if (TechTreeDB.Instance != null)
             {
-                Debug.Log("[GameBootstrap] TechTreeDB already initialized");
                 return;
             }
 
@@ -152,7 +143,6 @@ namespace TheWaningBorder.Bootstrap
             var existing = Object.FindFirstObjectByType<TechTreeDB>();
             if (existing != null)
             {
-                Debug.Log("[GameBootstrap] Found existing TechTreeDB");
                 return;
             }
 
@@ -160,7 +150,6 @@ namespace TheWaningBorder.Bootstrap
             var techTreeGO = new GameObject("TechTreeDB");
             techTreeGO.AddComponent<TechTreeDB>();
             Object.DontDestroyOnLoad(techTreeGO);
-            Debug.Log("[GameBootstrap] Created TechTreeDB (will auto-load from Resources)");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -172,7 +161,6 @@ namespace TheWaningBorder.Bootstrap
             var existing = Object.FindFirstObjectByType<RuntimeManagers>();
             if (existing != null)
             {
-                Debug.Log("[GameBootstrap] RuntimeManagers already exists");
                 return;
             }
 
@@ -215,7 +203,6 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<AStarPathStore>();               // A* per-unit path storage
             managersGO.AddComponent<PathfindingToggleHUD>();         // FF/A* toggle button (F5)
             Object.DontDestroyOnLoad(managersGO);
-            Debug.Log("[GameBootstrap] Created RuntimeManagers");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -230,7 +217,13 @@ namespace TheWaningBorder.Bootstrap
             {
                 var terrainGO = new GameObject("ProceduralTerrain");
                 terrainGO.AddComponent<TheWaningBorder.World.Terrain.ProceduralTerrain>();
-                Debug.Log("[GameBootstrap] Created ProceduralTerrain");
+            }
+
+            // Day-night cycle with directional sun + cloud shadows
+            if (Object.FindFirstObjectByType<TheWaningBorder.World.DayNightCycle>() == null)
+            {
+                var dnGO = new GameObject("DayNightCycle");
+                dnGO.AddComponent<TheWaningBorder.World.DayNightCycle>();
             }
 
             // Create passability grid for flow-field pathfinding (needs terrain)
@@ -239,7 +232,6 @@ namespace TheWaningBorder.Bootstrap
             {
                 var gridGO = new GameObject("PassabilityGrid");
                 gridGO.AddComponent<PassabilityGrid>();
-                Debug.Log("[GameBootstrap] Created PassabilityGrid");
             }
 
             // Create flow field manager for obstacle-aware pathfinding (needs grid)
@@ -251,18 +243,15 @@ namespace TheWaningBorder.Bootstrap
                 #if UNITY_EDITOR
                 ffmGO.AddComponent<FlowFieldGizmos>();
                 #endif
-                Debug.Log("[GameBootstrap] Created FlowFieldManager");
             }
 
             // Initialize fog of war if enabled (disabled for Observer - they see everything)
             if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)
             {
                 FogOfWarManager.SetupFogOfWar();
-                Debug.Log("[GameBootstrap] Fog of war initialized");
             }
             else if (GameSettings.IsObserver)
             {
-                Debug.Log("[GameBootstrap] Fog of war disabled (Observer mode)");
             }
         }
 
@@ -289,7 +278,6 @@ namespace TheWaningBorder.Bootstrap
             // Sandbox / PathfindingTest: no AI opponents
             if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest)
             {
-                Debug.Log("[GameBootstrap] Skipping AI initialization (Sandbox/PathfindingTest mode)");
                 return;
             }
 
@@ -300,8 +288,6 @@ namespace TheWaningBorder.Bootstrap
                 var slot = LobbyConfig.Slots[i];
                 if (slot != null && slot.Type == SlotType.AI)
                 {
-                    Debug.Log($"[GameBootstrap] AI initialized for faction {slot.Faction} " +
-                              $"(Difficulty: {slot.AIDifficulty})");
                 }
             }
         }
@@ -313,7 +299,6 @@ namespace TheWaningBorder.Bootstrap
         private static void PostInitializationSync()
         {
             // Any final synchronization needed after all systems are up
-            Debug.Log("[GameBootstrap] Post-initialization sync complete");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -327,7 +312,6 @@ namespace TheWaningBorder.Bootstrap
         {
             _didSetupThisScene = false;
             GameCamera.Cleanup();
-            Debug.Log("[GameBootstrap] Reset for new game");
         }
     }
 
@@ -339,7 +323,6 @@ namespace TheWaningBorder.Bootstrap
     {
         void Awake()
         {
-            Debug.Log("[RuntimeManagers] Awake");
         }
     }
 }

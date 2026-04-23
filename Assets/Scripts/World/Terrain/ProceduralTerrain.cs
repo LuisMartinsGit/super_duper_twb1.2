@@ -158,7 +158,6 @@ namespace TheWaningBorder.World.Terrain
             // Create terrain
             var size = new Vector3(worldMax.x - worldMin.x, maxHeight, worldMax.y - worldMin.y);
 
-            Debug.Log($"[ProceduralTerrain] Creating terrain: size={size}, heightmapRes={heightmapRes}");
 
             _data = new TerrainData();
             _data.heightmapResolution = heightmapRes;
@@ -172,7 +171,6 @@ namespace TheWaningBorder.World.Terrain
             _terrain = go.GetComponent<UnityEngine.Terrain>();
             _terrain.drawInstanced = true;
 
-            Debug.Log($"[ProceduralTerrain] Terrain created at {go.transform.position}, data.size={_data.size}");
 
             // Generate textures if not assigned
             GenerateTerrainLayers();
@@ -185,7 +183,6 @@ namespace TheWaningBorder.World.Terrain
             // Create water plane
             CreateWaterPlane();
 
-            Debug.Log($"[ProceduralTerrain] Generated continental map with {_islands.Count} player regions (seed: {seed})");
         }
 
         void OnDestroy()
@@ -234,7 +231,6 @@ namespace TheWaningBorder.World.Terrain
             // Initialize with world bounds
             water.Initialize(worldMin, worldMax, waterHeight);
 
-            Debug.Log($"[ProceduralTerrain] Water plane at {waterHeight} units");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -267,9 +263,12 @@ namespace TheWaningBorder.World.Terrain
                 snow = CreateTerrainLayer("Snow", GenerateSnowTexture(texOffsetX, texOffsetY), tileSize);
 
             if (curse == null)
+            {
                 curse = CreateTerrainLayer("Curse", GenerateCurseTexture(texOffsetX, texOffsetY), tileSize);
+                curse.metallic = 0.7f;    // Reflective crystalline surface
+                curse.smoothness = 0.85f; // Glassy sheen
+            }
 
-            Debug.Log("[ProceduralTerrain] Generated terrain layer textures");
         }
 
         TerrainLayer CreateTerrainLayer(string name, Texture2D diffuse, float tileSize)
@@ -639,12 +638,12 @@ namespace TheWaningBorder.World.Terrain
         {
             var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
 
-            // Dark purple corruption palette
-            var baseCorrupt = new Color(0.12f, 0.04f, 0.18f);
-            var deepViolet  = new Color(0.20f, 0.06f, 0.28f);
-            var glowPurple  = new Color(0.35f, 0.10f, 0.45f);
-            var darkVein    = new Color(0.06f, 0.02f, 0.10f);
-            var crystalBit  = new Color(0.50f, 0.15f, 0.60f);
+            // Bright purple, reflective — like a glassy crystalline veil
+            var baseViolet    = new Color(0.25f, 0.08f, 0.35f);
+            var brightPurple  = new Color(0.55f, 0.15f, 0.70f);
+            var hotPink       = new Color(0.70f, 0.20f, 0.55f);
+            var deepVoid      = new Color(0.10f, 0.03f, 0.18f);
+            var crystalGlint  = new Color(0.80f, 0.40f, 0.90f);
 
             for (int y = 0; y < textureResolution; y++)
             {
@@ -653,32 +652,27 @@ namespace TheWaningBorder.World.Terrain
                     float u = x / (float)textureResolution;
                     float v = y / (float)textureResolution;
 
-                    // Multi-octave corruption noise
-                    float noise = Mathf.PerlinNoise(u * 30 + offsetX, v * 30 + offsetY) * 0.4f;
-                    noise += Mathf.PerlinNoise(u * 60 + offsetX, v * 60 + offsetY) * 0.35f;
-                    noise += Mathf.PerlinNoise(u * 120 + offsetX, v * 120 + offsetY) * 0.25f;
+                    // Base swirl
+                    float n = Mathf.PerlinNoise(u * 25 + offsetX, v * 25 + offsetY) * 0.5f
+                            + Mathf.PerlinNoise(u * 50 + offsetX, v * 50 + offsetY) * 0.3f
+                            + Mathf.PerlinNoise(u * 100 + offsetX, v * 100 + offsetY) * 0.2f;
 
-                    Color c = Color.Lerp(baseCorrupt, deepViolet, noise);
+                    Color c = Color.Lerp(baseViolet, brightPurple, n);
 
-                    // Vein-like dark streaks
-                    float veins = Mathf.PerlinNoise(u * 80 + offsetY, v * 80 + offsetX);
-                    veins = Mathf.Pow(Mathf.Abs(veins * 2f - 1f), 3f);
-                    c = Color.Lerp(c, darkVein, veins * 0.5f);
+                    // Hot pink streaks (veins)
+                    float vein = Mathf.PerlinNoise(u * 60 + offsetY, v * 60 + offsetX);
+                    vein = Mathf.Pow(Mathf.Abs(vein * 2f - 1f), 4f);
+                    c = Color.Lerp(c, hotPink, vein * 0.4f);
 
-                    // Glowing patches
-                    float glow = Mathf.PerlinNoise(u * 15 + offsetX * 2, v * 15 + offsetY * 2);
-                    if (glow > 0.6f)
-                    {
-                        float glowAmount = (glow - 0.6f) * 2.5f;
-                        c = Color.Lerp(c, glowPurple, glowAmount * 0.5f);
-                    }
+                    // Deep void pools
+                    float voidN = Mathf.PerlinNoise(u * 15 + offsetX * 2, v * 15 + offsetY * 2);
+                    if (voidN < 0.35f)
+                        c = Color.Lerp(c, deepVoid, (0.35f - voidN) * 1.5f);
 
-                    // Small bright crystal specks
-                    float specks = Mathf.PerlinNoise(u * 250 + offsetY * 3, v * 250 + offsetX * 3);
-                    if (specks > 0.9f)
-                    {
-                        c = Color.Lerp(c, crystalBit, (specks - 0.9f) * 5f);
-                    }
+                    // Crystal glint specks (reflective highlights baked into albedo)
+                    float glint = Mathf.PerlinNoise(u * 300 + offsetY * 3, v * 300 + offsetX * 3);
+                    if (glint > 0.88f)
+                        c = Color.Lerp(c, crystalGlint, (glint - 0.88f) * 6f);
 
                     tex.SetPixel(x, y, c);
                 }
@@ -1039,7 +1033,6 @@ namespace TheWaningBorder.World.Terrain
             float angleStep = 360f / playerCount;
             float startAngle = _rng.Next(0, 360);
 
-            Debug.Log($"[ProceduralTerrain] Generating continental map for {playerCount} players");
 
             for (int i = 0; i < playerCount; i++)
             {
@@ -1058,7 +1051,6 @@ namespace TheWaningBorder.World.Terrain
                     PlayerIndex = i
                 });
 
-                Debug.Log($"[ProceduralTerrain] Player {i + 1} spawn region at {center}");
             }
         }
 
@@ -1078,7 +1070,6 @@ namespace TheWaningBorder.World.Terrain
             // Normalized height references
             float waterNorm = waterHeight / maxHeight;
 
-            Debug.Log($"[ProceduralTerrain] Generating continental heightmap with layered noise");
 
             for (int y = 0; y < res; y++)
             {
@@ -1226,7 +1217,6 @@ namespace TheWaningBorder.World.Terrain
             }
 
             _data.SetHeights(0, 0, heights);
-            Debug.Log($"[ProceduralTerrain] Continental heightmap complete (with {smoothPasses} smoothing passes)");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1407,7 +1397,6 @@ namespace TheWaningBorder.World.Terrain
             }
 
             _data.SetAlphamaps(0, 0, splat);
-            Debug.Log($"[ProceduralTerrain] Splatmap painted — continental style");
         }
 
         TerrainLayer[] BuildLayerArray()
@@ -1534,7 +1523,6 @@ namespace TheWaningBorder.World.Terrain
                     float y = TerrainUtility.GetHeight(region.Center.x, region.Center.y);
                     positions[i] = new Vector3(region.Center.x, y, region.Center.y);
 
-                    Debug.Log($"[ProceduralTerrain] Player {i + 1} spawns at {region.Center}");
                 }
                 else
                 {
@@ -1546,7 +1534,6 @@ namespace TheWaningBorder.World.Terrain
                     float y = TerrainUtility.GetHeight(x, z);
                     positions[i] = new Vector3(x, y, z);
 
-                    Debug.LogWarning($"[ProceduralTerrain] No region for player {i + 1}, using fallback position");
                 }
             }
 
