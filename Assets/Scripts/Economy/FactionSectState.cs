@@ -240,7 +240,6 @@ namespace TheWaningBorder.Economy
             }
 
             _techFlagsByFaction[key] = flags;
-            Debug.Log($"[FactionSectState] {faction} researched sect tech: {SectConfig.GetTechDisplayName(sectId)}");
 
             // Update multipliers to account for tech effects
             RecomputeMultipliers(faction);
@@ -321,7 +320,6 @@ namespace TheWaningBorder.Economy
             // Already adopted?
             if (HasAdopted(faction, sectId))
             {
-                Debug.LogWarning($"[FactionSectState] {faction} already adopted {sectId}");
                 return false;
             }
 
@@ -337,7 +335,6 @@ namespace TheWaningBorder.Economy
             var rp = em.GetComponentData<ReligionPoints>(bank);
             if (rp.Value < cost)
             {
-                Debug.Log($"[FactionSectState] {faction} cannot afford {sectId}: need {cost} RP, have {rp.Value}");
                 return false;
             }
 
@@ -354,8 +351,6 @@ namespace TheWaningBorder.Economy
             }
             set.Add(sectId);
 
-            Debug.Log($"[FactionSectState] {faction} adopted {SectConfig.GetDisplayName(sectId)} " +
-                      $"(cost: {cost} RP, remaining: {rp.Value} RP)");
 
             // Recompute multipliers
             RecomputeMultipliers(faction);
@@ -460,10 +455,6 @@ namespace TheWaningBorder.Economy
 
             _multipliersByFaction[key] = mults;
 
-            Debug.Log($"[FactionSectState] Recomputed multipliers for {faction}: " +
-                      $"ResearchSpeed={mults.ResearchSpeed:F2}, BuildSpeed={mults.BuildSpeed:F2}, " +
-                      $"Income={mults.AllIncome:F2}, MeleeDmg={mults.MeleeDamage:F2}, " +
-                      $"DmgVsCrystal={mults.DamageVsCrystal:F2}");
         }
 
         /// <summary>
@@ -585,7 +576,6 @@ namespace TheWaningBorder.Economy
                     break;
             }
 
-            Debug.Log($"[FactionSectState] Synergy '{pair.Name}' active: {pair.Description} (x{scaling} scaling)");
         }
 
         /// <summary>
@@ -632,7 +622,6 @@ namespace TheWaningBorder.Economy
             _adoptedByFaction.Clear();
             _multipliersByFaction.Clear();
             _techFlagsByFaction.Clear();
-            Debug.Log("[FactionSectState] Reset all sect state");
         }
     }
 }

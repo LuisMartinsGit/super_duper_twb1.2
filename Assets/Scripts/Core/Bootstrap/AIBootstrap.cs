@@ -48,7 +48,6 @@ namespace TheWaningBorder.AI
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[AIBootstrap] No valid World exists!");
                 return;
             }
 
@@ -71,7 +70,6 @@ namespace TheWaningBorder.AI
                 aiCount++;
             }
 
-            Debug.Log($"[AIBootstrap] Initialized {aiCount} AI players");
         }
 
         /// <summary>
@@ -110,7 +108,6 @@ namespace TheWaningBorder.AI
                     var brain = brains[i];
                     brain.Difficulty = difficulty;
                     em.SetComponentData(entities[i], brain);
-                    Debug.Log($"[AIBootstrap] Set {faction} difficulty to {difficulty}");
                     break;
                 }
             }
@@ -138,7 +135,6 @@ namespace TheWaningBorder.AI
                     var brain = brains[i];
                     brain.Personality = personality;
                     em.SetComponentData(entities[i], brain);
-                    Debug.Log($"[AIBootstrap] Set {faction} personality to {personality}");
                     break;
                 }
             }
@@ -166,7 +162,6 @@ namespace TheWaningBorder.AI
                     var brain = brains[i];
                     brain.IsActive = active ? (byte)1 : (byte)0;
                     em.SetComponentData(entities[i], brain);
-                    Debug.Log($"[AIBootstrap] {faction} AI is now {(active ? "active" : "inactive")}");
                     break;
                 }
             }
@@ -187,7 +182,6 @@ namespace TheWaningBorder.AI
             var query = em.CreateEntityQuery(typeof(AIBrain));
             em.DestroyEntity(query);
 
-            Debug.Log("[AIBootstrap] Cleaned up all AI brains");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -282,6 +276,29 @@ namespace TheWaningBorder.AI
                 HuntCheckInterval = 8.0f
             });
 
+            // Dynamic Strategy State — random initial strategy, eval rate by difficulty
+            float evalInterval = difficulty switch
+            {
+                AIDifficulty.Easy => 9999f,   // Never adapts
+                AIDifficulty.Normal => 120f,  // Every 2 minutes
+                AIDifficulty.Hard => 60f,     // Every minute
+                AIDifficulty.Expert => 30f,   // Every 30s
+                _ => 120f
+            };
+            AIStrategy initialStrategy = GetRandomStrategy(faction);
+            em.AddComponentData(brainEntity, new AIStrategyState
+            {
+                Current = initialStrategy,
+                Previous = initialStrategy,
+                LastEvalTime = 0,
+                EvalInterval = evalInterval,
+                StrategyStartTime = 0,
+                ArmiesLostSinceSwitch = 0,
+                SuccessfulAttacks = 0,
+                HasAgedUp = 0
+            });
+            AILogger.Log(faction, "STRATEGY", $"Initial strategy: {initialStrategy} (difficulty: {difficulty})");
+
             // Dynamic Buffers
             em.AddBuffer<MineAssignment>(brainEntity);
             em.AddBuffer<BuildRequest>(brainEntity);
@@ -331,6 +348,17 @@ namespace TheWaningBorder.AI
             }
 
             return AIDifficulty.Normal;
+        }
+
+        private static AIStrategy GetRandomStrategy(Faction faction)
+        {
+            // Deterministic random based on faction + spawn seed so multiplayer stays synced
+            uint hash = (uint)((int)faction * 7919 + GameSettings.SpawnSeed + 31);
+            hash ^= hash >> 13;
+            hash *= 0x5bd1e995;
+            hash ^= hash >> 15;
+            int roll = (int)(hash % 5);
+            return (AIStrategy)roll;
         }
     }
 }

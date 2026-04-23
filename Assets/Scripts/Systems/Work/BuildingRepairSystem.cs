@@ -143,7 +143,6 @@ namespace TheWaningBorder.Systems.Work
                         {
                             // Can't afford repair - remove order
                             em.RemoveComponent<RepairOrder>(builder);
-                            UnityEngine.Debug.Log("Cannot afford repair - insufficient resources.");
                             continue;
                         }
 
@@ -162,7 +161,6 @@ namespace TheWaningBorder.Systems.Work
                     {
                         // Repair complete
                         em.RemoveComponent<RepairOrder>(builder);
-                        UnityEngine.Debug.Log($"Building {site.Index} repair complete!");
 
                         if (em.HasComponent<GuardPoint>(builder))
                         {

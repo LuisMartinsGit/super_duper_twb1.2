@@ -66,8 +66,8 @@ namespace TheWaningBorder.Core.Commands.Types
             // Update guard point to new destination
             if (em.HasComponent<GuardPoint>(unit))
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
-            else
-                em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
+                else
+                    em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
 
             // Battalion leader: store destination facing so formation rotates to match preview on arrival
             if (em.HasComponent<BattalionLeader>(unit))

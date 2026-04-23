@@ -430,9 +430,6 @@ namespace TheWaningBorder.UI.Menus
             _statusMessage = "Settings applied!";
             _statusTimer = 2f;
 
-            Debug.Log($"[OptionsMenu] Applied: Quality={_qualityLabels[_qualityLevel]}, " +
-                      $"Resolution={Screen.width}x{Screen.height}, " +
-                      $"Fullscreen={_fullscreen}, Volume={Mathf.RoundToInt(_masterVolume)}%");
         }
 
         // ================================================================

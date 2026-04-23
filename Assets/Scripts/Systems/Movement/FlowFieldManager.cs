@@ -150,7 +150,6 @@ namespace TheWaningBorder.Systems.Movement
         {
             if (Instance != null && Instance != this)
             {
-                Debug.LogWarning("[FlowFieldManager] Duplicate instance destroyed.");
                 Destroy(this);
                 return;
             }
@@ -253,8 +252,6 @@ namespace TheWaningBorder.Systems.Movement
 
                 #if UNITY_EDITOR
                 sw.Stop();
-                Debug.Log($"[FlowFieldManager] Completed async flow field for cell {handle.DestinationIndex} " +
-                          $"(direction pass: {sw.Elapsed.TotalMilliseconds:F2}ms, {handle.Width}x{handle.Height} grid)");
                 #endif
 
                 int snappedDest = handle.DestinationIndex;
@@ -289,8 +286,6 @@ namespace TheWaningBorder.Systems.Movement
                     continue;
 
                 #if UNITY_EDITOR
-                Debug.Log($"[FlowFieldManager] Scheduling async flow field for cell {snappedDest} " +
-                          $"(gridVersion={_gridVersion})");
                 #endif
 
                 var handle = FlowFieldGenerator.ScheduleAsync(
@@ -410,7 +405,6 @@ namespace TheWaningBorder.Systems.Movement
             _gridVersion++;
 
             #if UNITY_EDITOR
-            Debug.Log($"[FlowFieldManager] InvalidateAll — grid version now {_gridVersion}");
             #endif
         }
 
@@ -483,9 +477,6 @@ namespace TheWaningBorder.Systems.Movement
 
             _poolInitialized = true;
 
-            Debug.Log($"[FlowFieldManager] Pool initialized: {_totalCells} cells/field, " +
-                      $"{MaxCacheSize} cache slots, " +
-                      $"{MaxCacheSize * _totalCells * 8 / 1024}KB lookup buffer");
         }
 
         // =====================================================================

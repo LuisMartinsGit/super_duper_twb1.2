@@ -74,7 +74,6 @@ namespace TheWaningBorder.Economy
                     float remaining = spellKvp.Value - dt;
                     if (remaining <= 0f)
                         keysToRemove.Add(spellKvp.Key);
-                    else
                         cooldowns[spellKvp.Key] = remaining;
                 }
 

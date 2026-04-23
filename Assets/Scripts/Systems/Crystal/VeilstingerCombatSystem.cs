@@ -239,7 +239,6 @@ namespace TheWaningBorder.Systems.Crystal
                 // =============================================================================
                 // BEHAVIOR: Too far - CHASE (unless holding position)
                 // =============================================================================
-                else
                 {
                     // Hold position units do NOT chase
                     if (em.HasComponent<HoldPositionTag>(entity))

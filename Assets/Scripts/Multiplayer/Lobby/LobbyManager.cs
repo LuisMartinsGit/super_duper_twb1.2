@@ -129,20 +129,14 @@ namespace TheWaningBorder.Multiplayer
                 if (proc != null)
                 {
                     proc.WaitForExit(5000);
-                    if (proc.ExitCode == 0)
-                        Debug.Log("[LobbyManager] Firewall rule added successfully");
-                    else
-                        Debug.LogWarning("[LobbyManager] Firewall rule may not have been added (non-zero exit code)");
                 }
             }
             catch (System.ComponentModel.Win32Exception)
             {
                 // User cancelled UAC prompt — that's fine
-                Debug.LogWarning("[LobbyManager] Firewall rule not added (UAC cancelled). Manual firewall config may be needed.");
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogWarning($"[LobbyManager] Could not add firewall rule: {e.Message}");
             }
         }
 
@@ -242,19 +236,16 @@ namespace TheWaningBorder.Multiplayer
                 _slots[0].PlayerName = playerName;
                 _slots[0].ClientKey = "";
 
-                Debug.Log($"[LobbyManager] Started hosting '{gameName}' on port {BROADCAST_PORT}");
                 return true;
             }
             catch (SocketException se)
             {
                 OnError?.Invoke($"Network error: {FormatSocketError(se)}");
-                Debug.LogError($"[LobbyManager] Host socket error: {FormatSocketError(se)} (code: {se.SocketErrorCode})");
                 return false;
             }
             catch (Exception e)
             {
                 OnError?.Invoke($"Failed to start host: {e.Message}");
-                Debug.LogError($"[LobbyManager] {e.Message}");
                 return false;
             }
         }
@@ -278,19 +269,16 @@ namespace TheWaningBorder.Multiplayer
                 _clientSocket.Client.ReceiveTimeout = 1;
                 _clientPort = ((IPEndPoint)_clientSocket.Client.LocalEndPoint).Port;
 
-                Debug.Log($"[LobbyManager] Started client on port {_clientPort}");
                 return true;
             }
             catch (SocketException se)
             {
                 OnError?.Invoke($"Network error: {FormatSocketError(se)}");
-                Debug.LogError($"[LobbyManager] Client socket error: {FormatSocketError(se)} (code: {se.SocketErrorCode})");
                 return false;
             }
             catch (Exception e)
             {
                 OnError?.Invoke($"Failed to start client: {e.Message}");
-                Debug.LogError($"[LobbyManager] {e.Message}");
                 return false;
             }
         }
@@ -310,7 +298,6 @@ namespace TheWaningBorder.Multiplayer
             _connectedClients.Clear();
             _discoveredGames.Clear();
             
-            Debug.Log("[LobbyManager] Shutdown complete");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -385,9 +372,8 @@ namespace TheWaningBorder.Multiplayer
                 byte[] data = Encoding.UTF8.GetBytes(message);
                 _hostSocket.Send(data, data.Length, new IPEndPoint(IPAddress.Broadcast, BROADCAST_PORT));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogError($"[LobbyManager] Broadcast failed: {e.Message}");
             }
         }
 
@@ -437,11 +423,9 @@ namespace TheWaningBorder.Multiplayer
                     byte[] data = Encoding.UTF8.GetBytes(message);
                     _hostSocket.Send(data, data.Length, client.IP, client.Port);
                     
-                    Debug.Log($"[LobbyManager] Sent START to {client.PlayerName} at {client.IP}:{client.Port}");
                 }
-                catch (Exception e)
-                {
-                    Debug.LogError($"[LobbyManager] Failed to send START: {e.Message}");
+                catch (Exception)
+            {
                 }
             }
         }
@@ -465,7 +449,6 @@ namespace TheWaningBorder.Multiplayer
                 byte[] data = Encoding.UTF8.GetBytes(message);
                 _clientSocket.Send(data, data.Length, game.IPAddress, BROADCAST_PORT);
                 
-                Debug.Log($"[LobbyManager] Sent JOIN to {game.IPAddress}:{BROADCAST_PORT}");
             }
             catch (Exception e)
             {
@@ -524,9 +507,8 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
             catch (SocketException) { }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogError($"[LobbyManager] Receive error: {e.Message}");
             }
         }
 
@@ -595,7 +577,6 @@ namespace TheWaningBorder.Multiplayer
                 };
                 _discoveredGames.Add(game);
                 OnGameDiscovered?.Invoke(game);
-                Debug.Log($"[LobbyManager] Discovered game: {gameName} at {senderIP}");
             }
         }
 
@@ -657,7 +638,6 @@ namespace TheWaningBorder.Multiplayer
                 byte[] data = Encoding.UTF8.GetBytes(acceptMsg);
                 _hostSocket.Send(data, data.Length, senderIP, clientPrivatePort);
 
-                Debug.Log($"[LobbyManager] {playerName} joined slot {assignedSlot}");
                 OnLobbyUpdated?.Invoke();
             }
         }
@@ -677,7 +657,6 @@ namespace TheWaningBorder.Multiplayer
                 GameSettings.NetworkRole = NetworkRole.Client;
                 
                 OnJoinAccepted?.Invoke(slotIndex);
-                Debug.Log($"[LobbyManager] Joined lobby, assigned slot {slotIndex}");
             }
         }
 
@@ -734,7 +713,6 @@ namespace TheWaningBorder.Multiplayer
                 _slots[slotIndex].ClientKey = "";
                 
                 OnLobbyUpdated?.Invoke();
-                Debug.Log($"[LobbyManager] Player left slot {slotIndex}");
             }
         }
 
@@ -755,7 +733,6 @@ namespace TheWaningBorder.Multiplayer
             GameSettings.LocalPlayerFaction = (Faction)factionIndex;
             
             OnGameStarting?.Invoke(lockstepPort, factionIndex);
-            Debug.Log($"[LobbyManager] Game starting! Faction: {GameSettings.LocalPlayerFaction}");
         }
     }
 

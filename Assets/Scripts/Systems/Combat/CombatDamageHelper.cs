@@ -109,14 +109,16 @@ namespace TheWaningBorder.Systems.Combat
                 };
                 if (em.HasComponent<LastDamagedByFaction>(target))
                     em.SetComponentData(target, lastDamaged);
-                else
-                    ecb.AddComponent(target, lastDamaged);
+                    else
+                        ecb.AddComponent(target, lastDamaged);
             }
 
+            // Use ECB for structural add (required during query iteration),
+            // but immediate write for existing component to ensure latest attacker wins.
             if (em.HasComponent<LastAttackerEntity>(target))
                 em.SetComponentData(target, new LastAttackerEntity { Value = attacker });
-            else
-                ecb.AddComponent(target, new LastAttackerEntity { Value = attacker });
+                else
+                    ecb.AddComponent(target, new LastAttackerEntity { Value = attacker });
         }
 
         /// <summary>
@@ -136,8 +138,8 @@ namespace TheWaningBorder.Systems.Combat
                     var panic = new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f };
                     if (!em.HasComponent<SpellDebuff>(target))
                         ecb.AddComponent(target, panic);
-                    else
-                        ecb.SetComponent(target, panic);
+                        else
+                            ecb.SetComponent(target, panic);
                 }
             }
 
@@ -150,8 +152,8 @@ namespace TheWaningBorder.Systems.Combat
                     var root = new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f };
                     if (!em.HasComponent<SpellDebuff>(target))
                         ecb.AddComponent(target, root);
-                    else
-                        ecb.SetComponent(target, root);
+                        else
+                            ecb.SetComponent(target, root);
                 }
             }
         }

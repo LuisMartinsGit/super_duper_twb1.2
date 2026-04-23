@@ -31,6 +31,7 @@ namespace TheWaningBorder.Core.Commands.Types
         public static void Execute(EntityManager em, Entity unit, Entity target)
         {
             if (!em.Exists(unit) || !em.Exists(target)) return;
+            if (!em.HasComponent<LocalTransform>(target)) return;
 
             // Battalion leader: move leader toward target, propagate attack to members
             if (em.HasComponent<BattalionLeader>(unit) && em.HasBuffer<BattalionMember>(unit))
@@ -101,8 +102,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 {
                     if (!em.HasComponent<BattalionAttackTarget>(unit))
                         em.AddComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
-                    else
-                        em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                        else
+                            em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                 }
 
                 memberEntities.Dispose();
@@ -169,19 +170,28 @@ namespace TheWaningBorder.Core.Commands.Types
             // Add or update AttackCommand component
             if (!em.HasComponent<AttackCommand>(unit))
                 em.AddComponentData(unit, new AttackCommand { Target = target });
-            else
-                em.SetComponentData(unit, new AttackCommand { Target = target });
+                else
+                    em.SetComponentData(unit, new AttackCommand { Target = target });
 
             // Also set Target component for combat system
             if (em.HasComponent<Target>(unit))
                 em.SetComponentData(unit, new Target { Value = target });
-            else
-                em.AddComponentData(unit, new Target { Value = target });
+                else
+                    em.AddComponentData(unit, new Target { Value = target });
         }
 
         private static void SetGuardPointToCurrent(EntityManager em, Entity unit)
         {
             if (!em.HasComponent<LocalTransform>(unit)) return;
+
+            // If the unit already has a guard point (e.g., from a move command),
+            // keep it — the unit should return to its intended destination after combat,
+            // not to where it happened to be when attacked.
+            if (em.HasComponent<GuardPoint>(unit))
+            {
+                var existing = em.GetComponentData<GuardPoint>(unit);
+                if (existing.Has != 0) return; // Preserve existing guard point
+            }
 
             var pos = em.GetComponentData<LocalTransform>(unit).Position;
 

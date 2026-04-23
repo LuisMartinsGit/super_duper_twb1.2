@@ -94,6 +94,7 @@ public static class FlowFieldArrayPool
     private static bool _initialized;
 
     #if UNITY_EDITOR
+    #pragma warning disable 414
     private static bool _warmUp;
     #endif
 
@@ -107,6 +108,7 @@ public static class FlowFieldArrayPool
         _initialized = true;
         #if UNITY_EDITOR
         _warmUp = false;
+        #pragma warning restore 414
         #endif
     }
 
@@ -119,11 +121,6 @@ public static class FlowFieldArrayPool
         if (_integrationPool.Count > 0)
             return _integrationPool.Pop();
 
-        #if UNITY_EDITOR
-        if (_warmUp)
-            Debug.Log("[FlowFieldArrayPool] Allocating new integration NativeArray (pool empty)");
-        #endif
-
         return new NativeArray<ushort>(_cellCount, Allocator.Persistent);
     }
 
@@ -135,11 +132,6 @@ public static class FlowFieldArrayPool
     {
         if (_directionPool.Count > 0)
             return _directionPool.Pop();
-
-        #if UNITY_EDITOR
-        if (_warmUp)
-            Debug.Log("[FlowFieldArrayPool] Allocating new direction NativeArray (pool empty)");
-        #endif
 
         return new NativeArray<float2>(_cellCount, Allocator.Persistent);
     }

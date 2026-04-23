@@ -48,14 +48,35 @@ namespace TheWaningBorder.AI
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var deferredGathers = new NativeList<DeferredGather>(Allocator.Temp);
 
-            foreach (var (brain, economyState, resourceReqs, entity)
-                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIEconomyState>, DynamicBuffer<ResourceRequest>>()
+            foreach (var (brain, economyState, stratState, resourceReqs, entity)
+                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIEconomyState>, RefRO<AIStrategyState>, DynamicBuffer<ResourceRequest>>()
                 .WithEntityAccess())
             {
                 if (brain.ValueRO.IsActive == 0) continue;
 
                 var economy = economyState.ValueRW;
                 Faction faction = brain.ValueRO.Owner;
+                var strategy = stratState.ValueRO.Current;
+
+                // Strategy adjusts economy targets
+                economy.DesiredGatherersHuts = strategy switch
+                {
+                    AIStrategy.Rush => 2,       // Minimal economy
+                    AIStrategy.EcoBoom => 6,    // Heavy economy
+                    AIStrategy.TechRush => 3,   // Moderate
+                    AIStrategy.Aggressive => 4, // Balanced
+                    AIStrategy.Defensive => 4,  // Stable
+                    _ => AITuning.TargetGatherersHuts
+                };
+                economy.DesiredMiners = strategy switch
+                {
+                    AIStrategy.Rush => 2,
+                    AIStrategy.EcoBoom => math.min(8, AITuning.MaxMiners),
+                    AIStrategy.TechRush => 4,
+                    AIStrategy.Aggressive => 5,
+                    AIStrategy.Defensive => 5,
+                    _ => 4
+                };
 
                 CheckEconomyNeeds(ref state, faction, ref economy);
 
@@ -113,7 +134,7 @@ namespace TheWaningBorder.AI
                 CheckChoiceBuildingNeeds(ref state, brain.ValueRO, ecb);
 
                 // 9. Age up (requires completed choice building + resources)
-                CheckAgeUp(ref state, brain.ValueRO, ecb);
+                CheckAgeUp(ref state, brain.ValueRO, strategy, ecb);
 
                 // 9b. Queue culture-specific buildings after age-up
                 QueueCultureBuildings(ref state, brain.ValueRO, ecb);
@@ -424,7 +445,6 @@ namespace TheWaningBorder.AI
                     AssignedBuilder = Entity.Null
                 });
 
-                UnityEngine.Debug.Log($"[AIEconomyManager] {faction} requesting choice building: {buildingId}");
                 break;
             }
         }
@@ -434,7 +454,7 @@ namespace TheWaningBorder.AI
         /// Requires: a completed choice building, enough resources, and not already aged-up.
         /// Uses ECB for structural changes to avoid invalidating iterators.
         /// </summary>
-        private void CheckAgeUp(ref SystemState state, AIBrain brain, EntityCommandBuffer ecb)
+        private void CheckAgeUp(ref SystemState state, AIBrain brain, AIStrategy strategy, EntityCommandBuffer ecb)
         {
             var em = state.EntityManager;
             Faction faction = brain.Owner;
@@ -488,15 +508,19 @@ namespace TheWaningBorder.AI
             // Spend resources
             if (!FactionEconomy.Spend(em, faction, CultureConfig.AgeUpCost)) return;
 
-            // Choose culture based on personality
-            byte culture = brain.Personality switch
+            // Choose culture based on current strategy (not personality)
+            byte culture = strategy switch
             {
-                AIPersonality.Aggressive => Cultures.Feraldis,
-                AIPersonality.Rush => Cultures.Feraldis,
-                AIPersonality.Defensive => Cultures.Runai,
-                AIPersonality.Economic => Cultures.Alanthor,
-                _ => Cultures.Runai // Balanced
+                AIStrategy.Rush => Cultures.Feraldis,        // Fast training, blood totems
+                AIStrategy.EcoBoom => Cultures.Runai,        // Trade routes, income scaling
+                AIStrategy.TechRush => Cultures.Alanthor,    // Smelters, walls protect tech
+                AIStrategy.Aggressive => Cultures.Feraldis,  // Totems buff army
+                AIStrategy.Defensive => Cultures.Alanthor,   // Walls, strong defense
+                _ => Cultures.Runai
             };
+
+            AILogger.Log(brain.Owner, "STRATEGY",
+                $"Age-up culture selection: {strategy} → culture {culture}");
 
             // Add AgeUpState timer to the Hall — completion handled by AgeUpSystem
             float duration = CultureConfig.AgeUpDuration;
@@ -511,7 +535,6 @@ namespace TheWaningBorder.AI
             FactionColors.SetFactionCulture(faction, culture);
 
             AILogger.Log(faction, "ECONOMY", $"=== STARTED AGE-UP to Era 2 — culture: {CultureConfig.GetName(culture)} ({duration}s) ===");
-            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -945,8 +968,8 @@ namespace TheWaningBorder.AI
                 };
                 if (em.HasComponent<ForgeSupplyOrder>(miner))
                     ecb.SetComponent(miner, forgeOrder);
-                else
-                    ecb.AddComponent(miner, forgeOrder);
+                    else
+                        ecb.AddComponent(miner, forgeOrder);
             }
 
             idleMiners.Dispose();

@@ -308,8 +308,8 @@ namespace TheWaningBorder.Core.Commands.Types
 
             if (!em.HasComponent<BuildCommand>(builder))
                 em.AddComponentData(builder, cmd);
-            else
-                em.SetComponentData(builder, cmd);
+                else
+                    em.SetComponentData(builder, cmd);
 
             // Set destination to build position
             if (em.HasComponent<DesiredDestination>(builder))

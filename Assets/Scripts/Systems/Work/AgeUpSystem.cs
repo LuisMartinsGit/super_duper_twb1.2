@@ -95,7 +95,6 @@ namespace TheWaningBorder.Systems.Work
                         var rp = em.GetComponentData<ReligionPoints>(bankEntity);
                         rp.Value += TempleLevelConfig.GetRPGranted(1);
                         em.SetComponentData(bankEntity, rp);
-                        UnityEngine.Debug.Log($"[AgeUpSystem] {faction} granted {TempleLevelConfig.GetRPGranted(1)} RP for temple");
                     }
                 }
 
@@ -129,7 +128,6 @@ namespace TheWaningBorder.Systems.Work
                 // 7. Remove AgeUpState — age-up is complete
                 em.RemoveComponent<AgeUpState>(hallEntity);
 
-                UnityEngine.Debug.Log($"[AgeUpSystem] {faction} completed age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
             }
 
             completed.Dispose();
@@ -186,9 +184,6 @@ namespace TheWaningBorder.Systems.Work
                 });
                 count++;
             }
-
-            if (count > 0)
-                UnityEngine.Debug.Log($"[AgeUpSystem] Runai: {count} Hut(s) marked for self-destruct (2 min)");
         }
 
         /// <summary>
@@ -219,9 +214,6 @@ namespace TheWaningBorder.Systems.Work
                 });
                 count++;
             }
-
-            if (count > 0)
-                UnityEngine.Debug.Log($"[AgeUpSystem] {count} Gatherer's Hut(s) marked for self-destruct (2 min)");
         }
     }
 }

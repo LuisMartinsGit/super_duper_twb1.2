@@ -33,7 +33,6 @@ namespace TheWaningBorder.Bootstrap
 
         public static void Bootstrap()
         {
-            Debug.Log($"[ScenarioSetup] Starting scenario: {GameSettings.ActiveScenario}");
 
             GameSettings.TotalPlayers = GameSettings.ActiveScenario == ScenarioType.FourWayCultures ? 4 : 2;
             GameSettings.LocalPlayerFaction = Faction.Blue;
@@ -125,7 +124,6 @@ namespace TheWaningBorder.Bootstrap
             // Dismiss loading screen
             LoadingScreen.NotifyReady();
 
-            Debug.Log($"[ScenarioSetup] Scenario '{GameSettings.ActiveScenario}' ready");
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -197,7 +195,6 @@ namespace TheWaningBorder.Bootstrap
             healerPos.y = TerrainUtility.GetHeight(healerPos.x, healerPos.z);
             UnitFactory.Create(em, "Litharch", healerPos, Faction.Blue);
 
-            Debug.Log("[ScenarioSetup] Healer test: 1 battalion at 50% HP + 1 Litharch");
         }
 
         /// <summary>
@@ -237,7 +234,6 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 2, yellowCenter + new float3(-RowSpacing * 2, 0, 0));
             AttackMoveAllBattalions(em, Faction.Yellow, center);
 
-            Debug.Log("[ScenarioSetup] Four-way cultures: Blue(basic) vs Red(Alanthor) vs Green(Runai) vs Yellow(Feraldis)");
         }
 
         /// <summary>
@@ -297,7 +293,6 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
 
-            Debug.Log("[ScenarioSetup] Full Army: 3 Archer + 3 Swordsman battalions + 6 Litharchs + 2 Ballistas per side");
         }
 
         /// <summary>
@@ -386,7 +381,6 @@ namespace TheWaningBorder.Bootstrap
                 UnitFactory.Create(em, "Runai_Catapult", pos, Faction.Red);
             }
 
-            Debug.Log("[ScenarioSetup] Wall Siege: Blue defended by walls (with gates+towers) vs Red siege attackers + Red walls to tear down");
         }
 
         /// <summary>
@@ -407,7 +401,7 @@ namespace TheWaningBorder.Bootstrap
             using var transforms = query.ToComponentDataArray<Unity.Transforms.LocalTransform>(Allocator.Temp);
 
             float radiusSq = radius * radius;
-            bool upgraded = false;
+            // upgraded tracking removed
 
             for (int i = 0; i < entities.Length; i++)
             {
@@ -447,12 +441,10 @@ namespace TheWaningBorder.Bootstrap
                         { Id = AlanthorWall.GatePresentationID });
                 }
 
-                upgraded = true;
+                
                 break; // Upgrade one instance per call
             }
 
-            if (!upgraded)
-                Debug.LogWarning($"[ScenarioSetup] No wall instance found near {searchPos} to upgrade");
         }
 
         /// <summary>
@@ -524,7 +516,6 @@ namespace TheWaningBorder.Bootstrap
             // Focus camera on center of grid
             GameCamera.FocusOn(new UnityEngine.Vector3(0, 0, 0), instant: true);
 
-            Debug.Log("[ScenarioSetup] Sect Showcase: 12 areas (4x3 grid), 3 sect units vs 5 Swordsmen each");
         }
 
         // ═══════════════════════════════════════════════════════════════

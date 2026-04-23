@@ -169,7 +169,6 @@ namespace TheWaningBorder.UI.HUD
             if (!EliminationTimes.ContainsKey(faction))
             {
                 EliminationTimes[faction] = gameTime;
-                Debug.Log($"[GameStatsTracker] {faction} eliminated at {gameTime:F1}s");
             }
         }
 
@@ -184,8 +183,6 @@ namespace TheWaningBorder.UI.HUD
             GameEndTime = Time.time;
             GameEnded = true;
 
-            Debug.Log($"[GameStatsTracker] Game ended. Duration: {GameEndTime - GameStartTime:F1}s, " +
-                      $"Factions tracked: {FactionTimelines.Count}");
         }
 
         void OnDestroy()

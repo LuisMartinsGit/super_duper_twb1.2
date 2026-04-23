@@ -64,7 +64,7 @@ namespace TheWaningBorder.Input
                 _em = _world.EntityManager;
 
             // Ensure ControlGroupSystem exists
-            if (FindObjectOfType<ControlGroupSystem>() == null)
+            if (FindFirstObjectByType<ControlGroupSystem>() == null)
                 gameObject.AddComponent<ControlGroupSystem>();
         }
 
@@ -431,15 +431,19 @@ namespace TheWaningBorder.Input
         {
             var selection = SelectionSystem.CurrentSelection;
             if (selection == null || selection.Count == 0) return;
+            var issued = new HashSet<Entity>();
 
             foreach (var e in selection)
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
-                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssueStop(_em, e, CommandSource.LocalPlayer);
+                Entity unit = ResolveBattalionLeader(e);
+                if (unit == Entity.Null) continue;
+                if (!issued.Add(unit)) continue;
+
+                CommandRouter.IssueStop(_em, unit, CommandSource.LocalPlayer);
             }
         }
 
@@ -447,15 +451,19 @@ namespace TheWaningBorder.Input
         {
             var selection = SelectionSystem.CurrentSelection;
             if (selection == null || selection.Count == 0) return;
+            var issued = new HashSet<Entity>();
 
             foreach (var e in selection)
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
-                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssueHoldPosition(_em, e, CommandSource.LocalPlayer);
+                Entity unit = ResolveBattalionLeader(e);
+                if (unit == Entity.Null) continue;
+                if (!issued.Add(unit)) continue;
+
+                CommandRouter.IssueHoldPosition(_em, unit, CommandSource.LocalPlayer);
             }
         }
 
@@ -506,14 +514,18 @@ namespace TheWaningBorder.Input
 
         private void IssueAttackCommands(Entity target)
         {
+            var issued = new HashSet<Entity>();
             foreach (var e in SelectionSystem.CurrentSelection)
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
-                if (_em.HasComponent<BuildingTag>(e)) continue; // Buildings can't attack-move
-                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
+                if (_em.HasComponent<BuildingTag>(e)) continue;
 
-                CommandRouter.IssueAttack(_em, e, target, CommandSource.LocalPlayer);
+                Entity unit = ResolveBattalionLeader(e);
+                if (unit == Entity.Null) continue;
+                if (!issued.Add(unit)) continue; // Deduplicate leader commands
+
+                CommandRouter.IssueAttack(_em, unit, target, CommandSource.LocalPlayer);
             }
         }
 
@@ -703,14 +715,18 @@ namespace TheWaningBorder.Input
 
         private void IssuePatrolCommands(float3 destination)
         {
+            var issued = new HashSet<Entity>();
             foreach (var e in SelectionSystem.CurrentSelection)
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
-                if (_em.HasComponent<BattalionMemberData>(e)) continue; // Commands go to leader only
 
-                CommandRouter.IssuePatrol(_em, e, destination, CommandSource.LocalPlayer);
+                Entity unit = ResolveBattalionLeader(e);
+                if (unit == Entity.Null) continue;
+                if (!issued.Add(unit)) continue;
+
+                CommandRouter.IssuePatrol(_em, unit, destination, CommandSource.LocalPlayer);
             }
         }
 
@@ -722,6 +738,7 @@ namespace TheWaningBorder.Input
             var units = new List<Entity>();
             var positions = new List<float3>();
             var speeds = new List<float>();
+            var addedLeaders = new HashSet<Entity>();
 
             foreach (var e in selection)
             {
@@ -729,16 +746,18 @@ namespace TheWaningBorder.Input
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
                     continue;
-                // Battalion members follow formation automatically; only route to leader
-                if (_em.HasComponent<BattalionMemberData>(e))
-                    continue;
 
-                units.Add(e);
-                positions.Add(_em.HasComponent<LocalTransform>(e)
-                    ? _em.GetComponentData<LocalTransform>(e).Position
+                // Resolve battalion members to their leader (dedup)
+                Entity unit = ResolveBattalionLeader(e);
+                if (unit == Entity.Null) continue;
+                if (!addedLeaders.Add(unit)) continue;
+
+                units.Add(unit);
+                positions.Add(_em.HasComponent<LocalTransform>(unit)
+                    ? _em.GetComponentData<LocalTransform>(unit).Position
                     : float3.zero);
-                speeds.Add(_em.HasComponent<MoveSpeed>(e)
-                    ? _em.GetComponentData<MoveSpeed>(e).Value
+                speeds.Add(_em.HasComponent<MoveSpeed>(unit)
+                    ? _em.GetComponentData<MoveSpeed>(unit).Value
                     : 3.5f);
             }
 
@@ -1023,6 +1042,20 @@ namespace TheWaningBorder.Input
         {
             if (!_em.HasComponent<FactionTag>(e)) return false;
             return _em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction;
+        }
+
+        /// <summary>
+        /// If entity is a battalion member, resolve to its leader.
+        /// Returns the entity unchanged if it's not a member.
+        /// Returns Entity.Null if the leader doesn't exist.
+        /// </summary>
+        private Entity ResolveBattalionLeader(Entity e)
+        {
+            if (!_em.HasComponent<BattalionMemberData>(e)) return e;
+            var memberData = _em.GetComponentData<BattalionMemberData>(e);
+            if (memberData.Leader == Entity.Null || !_em.Exists(memberData.Leader))
+                return Entity.Null;
+            return memberData.Leader;
         }
 
         /// <summary>

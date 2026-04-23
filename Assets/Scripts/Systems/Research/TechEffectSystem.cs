@@ -33,7 +33,6 @@ namespace TheWaningBorder.Systems.Research
             {
                 researchState.OnTechCompleted += OnTechCompleted;
                 _subscribed = true;
-                Debug.Log("[TechEffectSystem] Subscribed to OnTechCompleted");
             }
         }
 
@@ -61,7 +60,6 @@ namespace TheWaningBorder.Systems.Research
             {
                 researchState.OnTechCompleted += OnTechCompleted;
                 _subscribed = true;
-                Debug.Log("[TechEffectSystem] Late-subscribed to OnTechCompleted");
             }
         }
 
@@ -76,11 +74,9 @@ namespace TheWaningBorder.Systems.Research
             var tech = TechTreeDB.Instance.GetTechnology(techId);
             if (tech == null || tech.effects == null || !tech.effects.HasAnyEffect)
             {
-                Debug.Log($"[TechEffectSystem] {faction} completed {techId} - no stat effects to apply");
                 return;
             }
 
-            Debug.Log($"[TechEffectSystem] Applying effects for {techId} to {faction} entities...");
 
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
@@ -143,8 +139,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied miner effects to {count} miners " +
-                      $"(gatherSpeed: x{effects.gatherSpeedMult}, carryBonus: +{effects.carryCapacityBonus})");
         }
 
         /// <summary>
@@ -176,7 +170,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied meleeAttackSpeedMult x{multiplier} to {count} melee units");
         }
 
         /// <summary>
@@ -207,7 +200,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied meleeDefenseAdd +{bonus} to {count} units");
         }
 
         // ═══════════════════════════════════════════════════════════════

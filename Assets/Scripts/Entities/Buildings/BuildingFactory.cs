@@ -1042,7 +1042,6 @@ namespace TheWaningBorder.Entities
         {
             float hp = 600f;
             float los = 12f;
-            float radius = 1.0f;
             int pid = GetChapelPresentationId(sectId);
 
             var entity = em.CreateEntity(
@@ -1087,7 +1086,6 @@ namespace TheWaningBorder.Entities
         {
             float hp = 600f;
             float los = 12f;
-            float radius = 1.0f;
             int pid = GetChapelPresentationId(sectId);
 
             var entity = ecb.CreateEntity();
@@ -1399,7 +1397,6 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateDefault(EntityManager em, string buildingId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[BuildingFactory] Unknown building type '{buildingId}', creating generic structure");
             
             var entity = em.CreateEntity(
                 typeof(PresentationId),
@@ -1945,7 +1942,6 @@ namespace TheWaningBorder.Entities
 
         private static Entity CreateDefault(EntityCommandBuffer ecb, string buildingId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[BuildingFactory] Unknown building type '{buildingId}', creating generic structure");
 
             var entity = ecb.CreateEntity();
 
@@ -2012,7 +2008,6 @@ namespace TheWaningBorder.Entities
                 SlotIndex = slotIndex
             });
 
-            UnityEngine.Debug.Log($"[BuildingFactory] Created chapel '{sectId}' at slot {slotIndex} for {faction}");
             return chapel;
         }
         // ═══════════════════════════════════════════════════════════════════════

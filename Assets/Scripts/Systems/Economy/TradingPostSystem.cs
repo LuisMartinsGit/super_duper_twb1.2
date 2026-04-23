@@ -547,7 +547,6 @@ namespace TheWaningBorder.Systems.Economy
             float len = math.length(dir);
             if (len > 0.01f)
                 position = buildingPos + (dir / len) * 3f;
-            else
                 position = buildingPos + new float3(3f, 0f, 0f);
 
             candidates.Dispose();

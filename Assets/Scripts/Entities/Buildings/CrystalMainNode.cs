@@ -33,6 +33,7 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalSpreadState),
                 typeof(CrystalNodeLevel),
                 typeof(CrystalAIState),
+                typeof(CrystalTrainingState),
                 typeof(CrystalResourceValue),
                 typeof(BuildingRangedAttack),
                 typeof(Defense)
@@ -116,6 +117,12 @@ namespace TheWaningBorder.Entities
                 BuildTimer = 0f,
                 UnitSpawnTimer = 0f,
                 Phase = 0
+            });
+            ecb.AddComponent(entity, new CrystalTrainingState
+            {
+                TrainingUnitType = 0,
+                TimeRemaining = 0f,
+                TotalTime = 0f
             });
             ecb.AddComponent(entity, new CrystalResourceValue
             {

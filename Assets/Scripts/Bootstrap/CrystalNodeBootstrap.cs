@@ -29,7 +29,6 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[CrystalNodeBootstrap] No ECS World available!");
                 return 0;
             }
 
@@ -106,10 +105,22 @@ namespace TheWaningBorder.Bootstrap
                 em.SetComponentData(bankEntity, new FactionResources { Crystal = 100 * nodesSpawned });
             }
 
+            // Initialize attack wave state singleton so CrystalAISystem can send waves
+            var waveQuery = em.CreateEntityQuery(ComponentType.ReadOnly<CrystalWaveState>());
+            if (waveQuery.IsEmpty)
+            {
+                var waveEntity = em.CreateEntity(typeof(CrystalWaveState));
+                em.SetComponentData(waveEntity, new CrystalWaveState
+                {
+                    WaveTimer = 60f,
+                    WaveInterval = 90f,
+                    WaveNumber = 0
+                });
+            }
+
             // Spawn a small crystal resource patch near each player's starting position
             SpawnStartingCrystalPatches(em, playerPositions, ref random);
 
-            Debug.Log($"[CrystalNodeBootstrap] Spawned {nodesSpawned} crystal nodes, bank initialised with {100 * nodesSpawned} crystal");
             return nodesSpawned;
         }
 
@@ -148,7 +159,6 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
 
-            Debug.Log($"[CrystalNodeBootstrap] Spawned {CadaversPerPlayer} starting crystal cadavers for each of {playerPositions.Length} players");
         }
 
         /// <summary>

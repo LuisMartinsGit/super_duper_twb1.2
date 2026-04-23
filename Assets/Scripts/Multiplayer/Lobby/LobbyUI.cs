@@ -139,12 +139,10 @@ namespace TheWaningBorder.Multiplayer
 
         private void OnGameDiscovered(DiscoveredGame game)
         {
-            Debug.Log($"[LobbyUI] Discovered: {game.GameName}");
         }
 
         private void OnGameLost(string ip)
         {
-            Debug.Log($"[LobbyUI] Lost game at {ip}");
         }
 
         private void OnJoinAccepted(int slotIndex)
@@ -168,7 +166,6 @@ namespace TheWaningBorder.Multiplayer
         private void OnLobbyError(string error)
         {
             _error = error;
-            Debug.LogError($"[LobbyUI] {error}");
         }
 
         // ═══════════════════════════════════════════════════════════════════════

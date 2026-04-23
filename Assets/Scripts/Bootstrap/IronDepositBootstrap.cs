@@ -44,7 +44,6 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[IronDepositBootstrap] No ECS World available!");
                 return;
             }
 
@@ -75,7 +74,6 @@ namespace TheWaningBorder.Bootstrap
 
             placedPositions.Dispose();
 
-            Debug.Log($"[IronDepositBootstrap] Spawned {depositsSpawned} iron deposits");
         }
 
         /// <summary>

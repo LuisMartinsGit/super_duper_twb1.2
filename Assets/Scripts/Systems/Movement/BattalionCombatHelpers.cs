@@ -135,8 +135,9 @@ namespace TheWaningBorder.Systems.Movement
                     s.IsRangedBattalion = true;
                     if (em.HasComponent<ArcherState>(members[i]))
                         s.BattalionMaxRange = em.GetComponentData<ArcherState>(members[i]).MaxRange;
+                    break;
                 }
-                break;
+                break; // First alive member is not an archer — this is a melee battalion
             }
 
             if (!em.HasComponent<Target>(leaderEntity)) return s;

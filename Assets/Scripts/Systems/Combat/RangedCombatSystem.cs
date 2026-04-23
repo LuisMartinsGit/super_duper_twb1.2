@@ -106,6 +106,31 @@ namespace TheWaningBorder.Systems.Combat
                 // Fix #211: skip targets that are currently Invulnerable.
                 if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
 
+                // Archers cannot fire while moving — enforce mutual exclusion.
+                // Individual archers: check own DesiredDestination.
+                // Battalion members: check leader's DesiredDestination (battalion is marching).
+                bool isMoving = false;
+                if (em.HasComponent<BattalionMemberData>(entity))
+                {
+                    var md = em.GetComponentData<BattalionMemberData>(entity);
+                    if (md.Leader != Entity.Null && em.Exists(md.Leader)
+                        && em.HasComponent<DesiredDestination>(md.Leader))
+                    {
+                        isMoving = em.GetComponentData<DesiredDestination>(md.Leader).Has != 0;
+                    }
+                }
+                else if (em.HasComponent<DesiredDestination>(entity))
+                {
+                    isMoving = em.GetComponentData<DesiredDestination>(entity).Has != 0;
+                }
+
+                if (isMoving)
+                {
+                    archer.AimTimer = 0;
+                    archer.IsFiring = 0;
+                    continue;
+                }
+
                 var myPos = transform.ValueRO.Position;
                 var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
                 var dist = DistXZ(myPos, targetPos);

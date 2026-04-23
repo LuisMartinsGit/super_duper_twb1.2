@@ -74,9 +74,6 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Move: {unit.Index} -> {destination} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueMoveForLockstep(em, unit, destination);
@@ -101,9 +98,6 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Attack: {unit.Index} -> {target.Index} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueAttackForLockstep(em, unit, target);
@@ -127,9 +121,6 @@ namespace TheWaningBorder.Core.Commands
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] AttackMove: {unit.Index} -> {destination} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -156,9 +147,6 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Patrol: {unit.Index} -> {destination} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueuePatrolForLockstep(em, unit, destination);
@@ -181,9 +169,6 @@ namespace TheWaningBorder.Core.Commands
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Stop: {unit.Index} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -209,9 +194,6 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] HoldPosition: {unit.Index} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueHoldPositionForLockstep(em, unit);
@@ -235,9 +217,6 @@ namespace TheWaningBorder.Core.Commands
             if (builder == Entity.Null || !em.Exists(builder)) return;
             if (IsBlockedByNotControllable(em, builder, source)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Build: {builder.Index} -> {buildingId} at {position} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueBuildForLockstep(em, builder, targetBuilding, buildingId, position);
@@ -260,9 +239,6 @@ namespace TheWaningBorder.Core.Commands
         {
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Gather: {miner.Index} -> Resource:{resource.Index} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -288,9 +264,6 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, healer, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Heal: {healer.Index} -> {target.Index} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueHealForLockstep(em, healer, target);
@@ -314,9 +287,6 @@ namespace TheWaningBorder.Core.Commands
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
             if (keep == Entity.Null || !em.Exists(keep)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Convert: {miner.Index} -> Keep:{keep.Index} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -342,9 +312,6 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, builder, source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Repair: {builder.Index} -> {building.Index} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueRepairForLockstep(em, builder, building);
@@ -366,9 +333,6 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (building == Entity.Null || !em.Exists(building)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] SetRally: {building.Index} -> {position} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -394,9 +358,6 @@ namespace TheWaningBorder.Core.Commands
             if (leader == Entity.Null || !em.Exists(leader)) return;
             if (IsBlockedByNotControllable(em, leader, source)) return;
             if (!em.HasComponent<BattalionStanceData>(leader)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] StanceChange: {leader.Index} -> {stance} (Source: {source})");
 
             em.SetComponentData(leader, new BattalionStanceData { Value = stance });
         }
@@ -424,9 +385,6 @@ namespace TheWaningBorder.Core.Commands
                 if (!em.Exists(target)) return;
             }
 
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Ability: {unit.Index} -> {(target != Entity.Null ? target.Index.ToString() : "self")} (Source: {source})");
-
             if (ShouldQueueForLockstep(source))
             {
                 QueueAbilityForLockstep(em, unit, target);
@@ -440,8 +398,8 @@ namespace TheWaningBorder.Core.Commands
         {
             if (!em.HasComponent<AbilityActivated>(unit))
                 em.AddComponentData(unit, new AbilityActivated { Target = target });
-            else
-                em.SetComponentData(unit, new AbilityActivated { Target = target });
+                else
+                    em.SetComponentData(unit, new AbilityActivated { Target = target });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -455,9 +413,6 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (building == Entity.Null || !em.Exists(building)) return;
-
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] Train: {building.Index} -> {unitId} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -488,8 +443,6 @@ namespace TheWaningBorder.Core.Commands
         public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
             Faction faction, CommandSource source = CommandSource.LocalPlayer)
         {
-            if (LogCommands)
-                Debug.Log($"[CommandRouter] PlaceBuilding: {buildingId} at {position} (Source: {source})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -523,8 +476,8 @@ namespace TheWaningBorder.Core.Commands
             float buildTime = GetBuildTime(buildingId);
             if (!em.HasComponent<UnderConstruction>(building))
                 em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
-            else
-                em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+                else
+                    em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
             // Set HP to 1 during construction
             if (em.HasComponent<Health>(building))

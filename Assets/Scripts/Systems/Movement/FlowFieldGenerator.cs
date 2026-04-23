@@ -452,6 +452,11 @@ namespace TheWaningBorder.Systems.Movement
                     return;
 
                 int neighborIndex = ny * Width + nx;
+
+                // Skip impassable cells (buildings, terrain, obstacles)
+                if (Cells[neighborIndex] != 0)
+                    return;
+
                 ushort neighborCost = IntegrationField[neighborIndex];
 
                 if (neighborCost < bestCost)

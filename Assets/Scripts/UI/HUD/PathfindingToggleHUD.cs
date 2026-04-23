@@ -45,7 +45,6 @@ namespace TheWaningBorder.UI.HUD
         private static void Toggle()
         {
             GameSettings.UseFlowFields = !GameSettings.UseFlowFields;
-            Debug.Log($"[PathfindingToggle] Switched to {(GameSettings.UseFlowFields ? "Flow Fields" : "A*")}");
         }
 
         private void InitStyles()

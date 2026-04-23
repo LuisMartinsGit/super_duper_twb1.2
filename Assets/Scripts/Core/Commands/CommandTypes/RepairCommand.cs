@@ -38,8 +38,8 @@ namespace TheWaningBorder.Core.Commands.Types
                     TargetHP = hp.Max,
                     StartHP = hp.Value
                 });
-            else
-                em.SetComponentData(builder, new RepairOrder
+                else
+                    em.SetComponentData(builder, new RepairOrder
                 {
                     Site = building,
                     CostPaid = 0,

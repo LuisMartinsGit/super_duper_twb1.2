@@ -75,8 +75,8 @@ namespace TheWaningBorder.Core.Commands.Types
             // Set GuardPoint to the start position (unit returns here after max chase)
             if (em.HasComponent<GuardPoint>(unit))
                 em.SetComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
-            else
-                em.AddComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
+                else
+                    em.AddComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
 
             // Do NOT add UserMoveOrder - patrolling units should auto-acquire targets
             if (em.HasComponent<UserMoveOrder>(unit))

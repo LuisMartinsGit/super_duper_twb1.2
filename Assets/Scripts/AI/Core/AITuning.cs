@@ -35,13 +35,13 @@ namespace TheWaningBorder.AI
         public static int TargetMinersPerMine = 2;
 
         /// <summary>Hard cap on total miners.</summary>
-        public static int MaxMiners = 6;
+        public static int MaxMiners = 10;
 
         /// <summary>Below this Supplies threshold the AI flags NeedsMoreSupplyIncome.</summary>
         public static int MinSuppliesThreshold = 200;
 
-        /// <summary>Number of GathererHuts the AI tries to build in early game.</summary>
-        public static int TargetGatherersHuts = 3;
+        /// <summary>Number of GathererHuts the AI tries to build.</summary>
+        public static int TargetGatherersHuts = 5;
 
         /// <summary>Crystal amount required before AI attempts a choice building.</summary>
         public static int CrystalForChoiceBuilding = 100;
@@ -131,8 +131,9 @@ namespace TheWaningBorder.AI
         // CRYSTAL HUNT BEHAVIOR (Fix #231)
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>Range from base within which the AI hunts crystal entities.</summary>
-        public static float CrystalHuntRange = 80f;
+        /// <summary>Range from base within which the AI defends against crystal waves.
+        /// Kept tight so AI farms crystal cadavers near base rather than chasing outward.</summary>
+        public static float CrystalHuntRange = 35f;
 
         /// <summary>Maximum hunters the AI assigns per crystal target.</summary>
         public static int MaxCrystalHuntersPerTarget = 3;

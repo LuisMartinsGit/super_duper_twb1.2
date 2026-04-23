@@ -33,7 +33,6 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
-                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
                 MoveCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -54,7 +53,6 @@ namespace TheWaningBorder.Core.Commands
 
             if (unitId <= 0 || targetId <= 0)
             {
-                Debug.LogWarning($"[CommandRouter] Missing network IDs for attack, executing locally");
                 AttackCommandHelper.Execute(em, unit, target);
                 return;
             }
@@ -73,7 +71,6 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
-                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
                 AttackMoveCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -230,7 +227,6 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
-                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
                 PatrolCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -290,7 +286,6 @@ namespace TheWaningBorder.Core.Commands
 
             if (unitId <= 0)
             {
-                Debug.LogWarning($"[CommandRouter] Entity {unit.Index} has no network ID, executing locally");
                 IssueAbilityDirect(em, unit, target);
                 return;
             }

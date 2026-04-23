@@ -215,7 +215,6 @@ namespace TheWaningBorder.Systems.Movement
                     leader.ValueRW.NeedsReassignment = 0;
                 }
                 // Check if formation direction changed significantly
-                else
                 {
                     float3 oldFwd = math.mul(lastAssignRot, new float3(0, 0, 1));
                     float3 newFwd = math.mul(formationRot, new float3(0, 0, 1));
@@ -435,7 +434,6 @@ namespace TheWaningBorder.Systems.Movement
                             float3 altPos = memberXf.Position + altDir * step;
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
-                            else
                                 newPos = memberXf.Position;
                         }
 
@@ -515,7 +513,6 @@ namespace TheWaningBorder.Systems.Movement
                             float3 altPos = memberXf.Position + ffDir * step;
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
-                            else
                                 newPos = memberXf.Position; // truly stuck, don't move
                         }
                     }

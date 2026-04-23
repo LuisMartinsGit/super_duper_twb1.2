@@ -305,6 +305,21 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<LonghouseTag>(entity)) return "Longhouse";
             if (em.HasComponent<TotemTowerTag>(entity)) return "Totem Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Siege Yard";
+            // Crystal faction buildings
+            if (em.HasComponent<CrystalMainNodeTag>(entity)) return "Crystal Hive";
+            if (em.HasComponent<CrystalSubNodeTag>(entity))
+            {
+                var subType = em.GetComponentData<CrystalSubNodeTag>(entity).Type;
+                return subType switch
+                {
+                    CrystalSubNodeType.Resource => "Crystal Wellspring",
+                    CrystalSubNodeType.Enforcement => "Enforcement Spire",
+                    CrystalSubNodeType.Suppression => "Suppression Spire",
+                    CrystalSubNodeType.Restoration => "Restoration Bloom",
+                    CrystalSubNodeType.Turret => "Crystal Turret",
+                    _ => "Crystal Node"
+                };
+            }
             return "Building";
         }
 

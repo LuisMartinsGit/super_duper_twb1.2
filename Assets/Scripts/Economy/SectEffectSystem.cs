@@ -83,7 +83,6 @@ namespace TheWaningBorder.Economy
             {
                 sectState.OnSectAdopted += OnSectAdopted;
                 _subscribed = true;
-                Debug.Log("[SectEffectSystem] Subscribed to OnSectAdopted");
             }
         }
 
@@ -105,7 +104,6 @@ namespace TheWaningBorder.Economy
             {
                 sectState.OnSectAdopted += OnSectAdopted;
                 _subscribed = true;
-                Debug.Log("[SectEffectSystem] Late-subscribed to OnSectAdopted");
             }
         }
 
@@ -115,7 +113,6 @@ namespace TheWaningBorder.Economy
 
         private void OnSectAdopted(Faction faction, string sectId)
         {
-            Debug.Log($"[SectEffectSystem] Applying effects for {SectConfig.GetDisplayName(sectId)} to {faction}...");
 
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
@@ -204,7 +201,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Melee damage delta {oldMult:F2}→{newMult:F2} (x{delta:F3}) applied to {count} units");
         }
 
         // LOS bonus is additive on top of base (stored value = base * (1 + bonus))
@@ -233,7 +229,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] LOS bonus delta {oldBonus * 100:F0}%→{newBonus * 100:F0}% (x{delta:F3}) applied to {count} units");
         }
 
         // Vault interest: delta factor = new / old
@@ -261,7 +256,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Vault interest delta {oldMult:F2}→{newMult:F2} (x{delta:F3}) applied to {count} vaults");
         }
 
         // Ranged accuracy is additive bonus that multiplies cooldown by (1 - bonus).
@@ -292,7 +286,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Ranged accuracy delta {oldBonus * 100:F0}%→{newBonus * 100:F0}% (x{delta:F3}) applied to {count} ranged units");
         }
 
         // Building HP: delta factor = new / old. Adjusts Max and Value proportionally.
@@ -323,7 +316,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Building HP delta {oldMult:F2}→{newMult:F2} (x{delta:F3}) applied to {count} buildings");
         }
 
         // Ranged damage: delta factor = new / old
@@ -353,7 +345,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Ranged damage delta {oldMult:F2}→{newMult:F2} (x{delta:F3}) applied to {count} ranged units");
         }
 
         // Attack speed: cooldown = base / speed. Delta cooldown factor = old / new.
@@ -381,7 +372,6 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Attack speed delta {oldMult:F2}→{newMult:F2} (cd x{delta:F3}) applied to {count} units");
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -417,8 +407,6 @@ namespace TheWaningBorder.Economy
             ApplyMultiplierDelta(em, faction, oldMults, newMults);
             _appliedMults[faction] = newMults;
 
-            Debug.Log($"[SectEffectSystem] Recalculated passives for {faction} " +
-                      $"(adopted: {sectState.GetAdoptedCount(faction)} sects)");
         }
 
         // ═══════════════════════════════════════════════════════════════════

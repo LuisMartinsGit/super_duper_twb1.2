@@ -63,8 +63,6 @@ public class AlanthorInfluence : MonoBehaviour
         // Cache compute kernel (defined as "CSMain" in AlanthorPaint.compute)
         if (alanthorPaintCS != null)
             _kernelPointInPolygon = alanthorPaintCS.FindKernel("CSMain");
-        else
-            Debug.LogWarning("[AlanthorInfluence] AlanthorPaintCS not assigned.");
 
         // Scratch RT is the same size as the InfluenceMap, single-channel float
         // We paint Alanthor data here, then blit into the R channel of InfluenceMap.

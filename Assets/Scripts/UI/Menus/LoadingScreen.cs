@@ -17,6 +17,7 @@ namespace TheWaningBorder.UI.Menus
         private float _alpha = 1f;
         private float _fadeSpeed = 1.5f;
         private bool _fadingOut;
+        #pragma warning disable 414
         private bool _sceneLoaded;
         private string _statusText = "Loading...";
         private float _progress;

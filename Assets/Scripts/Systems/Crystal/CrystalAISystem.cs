@@ -10,6 +10,7 @@ using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.AI;
 using Cost = TheWaningBorder.Core.Cost;
 using static TheWaningBorder.Core.Config.CrystalConstants;
 
@@ -175,6 +176,8 @@ namespace TheWaningBorder.Systems.Crystal
                             float3 spawnPos = FindValidSpawnPos(nodePos, ref random);
                             if (spawnPos.x != float.MinValue)
                             {
+                                string unitName = ts.TrainingUnitType switch { 1 => "Crystalling", 2 => "Veilstinger", 3 => "Godsplinter", _ => "?" };
+                                AILogger.Log(Faction.White, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}");
                                 switch (ts.TrainingUnitType)
                                 {
                                     case 1: Crystalling.Create(em, spawnPos, Faction.White); break;
@@ -312,8 +315,8 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 if (em.HasComponent<OwnerNode>(created))
                     em.SetComponentData(created, new OwnerNode { Value = mainNode });
-                else
-                    em.AddComponentData(created, new OwnerNode { Value = mainNode });
+                    else
+                        em.AddComponentData(created, new OwnerNode { Value = mainNode });
             }
         }
 
@@ -478,6 +481,8 @@ namespace TheWaningBorder.Systems.Crystal
             wave.WaveTimer -= DecisionInterval;
             if (wave.WaveTimer <= 0)
             {
+                AILogger.Log(Faction.White, "WAVE",
+                    $"Wave #{wave.WaveNumber + 1} — phase:{wavePhase} nodes:{nodeCount} interval:{wave.WaveInterval:F0}s");
                 SendWave(em, nodeTransforms, ref random, wavePhase, nodeCount);
                 wave.WaveTimer = wave.WaveInterval;
                 wave.WaveNumber++;
@@ -580,9 +585,27 @@ namespace TheWaningBorder.Systems.Crystal
             if (idleUnits.Length < 3)
             { idleUnits.Dispose(); targets.Dispose(); targetDists.Dispose(); return; }
 
+            // Waves cost resources — 25 crystal per unit deployed (mobilization cost)
+            const int WaveCostPerUnit = 25;
             float waveFraction = math.min(0.9f, 0.5f + nodeCount * 0.05f);
             int waveSize = math.max(5, (int)(idleUnits.Length * waveFraction));
             waveSize = math.min(waveSize, idleUnits.Length);
+
+            // Cap wave size to what we can afford
+            if (FactionEconomy.TryGetResources(em, Faction.White, out var waveBank))
+            {
+                int affordable = waveBank.Crystal / math.max(1, WaveCostPerUnit);
+                waveSize = math.min(waveSize, affordable);
+            }
+            if (waveSize < 3)
+            { idleUnits.Dispose(); targets.Dispose(); targetDists.Dispose(); return; }
+
+            // Spend the mobilization cost
+            int totalWaveCost = waveSize * WaveCostPerUnit;
+            FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: totalWaveCost));
+
+            AILogger.Log(Faction.White, "WAVE",
+                $"Deploying {waveSize} units to {targetCount} targets, cost:{totalWaveCost} crystal, idle:{idleUnits.Length}");
 
             int unitsPerTarget = waveSize / targetCount;
             int remainder = waveSize % targetCount;
@@ -598,8 +621,8 @@ namespace TheWaningBorder.Systems.Crystal
                     int idx = idleUnits[unitIdx];
                     if (em.HasComponent<DesiredDestination>(units[idx]))
                         em.SetComponentData(units[idx], new DesiredDestination { Position = targetPos, Has = 1 });
-                    else
-                        em.AddComponentData(units[idx], new DesiredDestination { Position = targetPos, Has = 1 });
+                        else
+                            em.AddComponentData(units[idx], new DesiredDestination { Position = targetPos, Has = 1 });
                 }
             }
 

@@ -55,7 +55,6 @@ namespace TheWaningBorder.Systems.Economy
                 // Destroy the building
                 ecb.DestroyEntity(entity);
 
-                UnityEngine.Debug.Log($"[BazaarPackSystem] {fac} packed Bazaar into Wagon (HP {wagonHP}/{BazaarWagon.MaxHP})");
             }
 
             // =============================================================
@@ -74,7 +73,6 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     // Invalid position — remove command, player must move wagon first
                     ecb.RemoveComponent<BazaarUnpackCommand>(entity);
-                    UnityEngine.Debug.Log($"[BazaarPackSystem] Cannot unpack — invalid position");
                     continue;
                 }
 
@@ -98,7 +96,6 @@ namespace TheWaningBorder.Systems.Economy
                 // Destroy wagon
                 ecb.DestroyEntity(entity);
 
-                UnityEngine.Debug.Log($"[BazaarPackSystem] {fac} unpacked Wagon into Bazaar (HP {bazaarHP}/{originalMaxHP})");
             }
         }
     }

@@ -39,6 +39,33 @@ namespace TheWaningBorder.AI
         Expert = 3
     }
 
+    // ==================== AI Strategy ====================
+
+    public enum AIStrategy : byte
+    {
+        Rush = 0,       // Fast barracks, early harassment, minimal economy
+        EcoBoom = 1,    // Heavy gatherers, crystal farming, delayed military
+        TechRush = 2,   // Rush Age 2, culture buildings, advanced units
+        Aggressive = 3, // Continuous pressure, balanced but attack-focused
+        Defensive = 4,  // Walls, standing army, counter-attack on opportunity
+    }
+
+    /// <summary>
+    /// Dynamic strategy state that changes during the game based on conditions.
+    /// Attached to the same entity as AIBrain.
+    /// </summary>
+    public struct AIStrategyState : IComponentData
+    {
+        public AIStrategy Current;
+        public AIStrategy Previous;
+        public float LastEvalTime;       // When strategy was last evaluated
+        public float EvalInterval;       // How often to re-evaluate (difficulty-dependent)
+        public float StrategyStartTime;  // When the current strategy was adopted
+        public int ArmiesLostSinceSwitch;   // Armies lost without dealing significant damage
+        public int SuccessfulAttacks;        // Attacks that dealt significant damage
+        public byte HasAgedUp;               // Whether this AI has completed age-up
+    }
+
     // ==================== Shared Knowledge ====================
 
     public struct AISharedKnowledge : IComponentData

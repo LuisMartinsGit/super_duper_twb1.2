@@ -31,6 +31,19 @@ public struct TradeUpgrades : IComponentData
     public byte ArmedTrade;
 }
 
+// ==================== Caravan Follower ====================
+
+/// <summary>Marker tag for patrol units that follow caravans instead of fixed waypoints.</summary>
+public struct CaravanFollowerTag : IComponentData { }
+
+// ==================== Not Controllable ====================
+
+/// <summary>
+/// Marker tag for auto-controlled units (caravans, trade patrols) that ignore player orders.
+/// CommandRouter checks this to block LocalPlayer commands.
+/// </summary>
+public struct NotControllableTag : IComponentData { }
+
 // ==================== Trade Patrol Unit ====================
 
 /// <summary>

@@ -64,8 +64,8 @@ namespace TheWaningBorder.Core.Commands.Types
             // Set GuardPoint to destination (unit resumes here after combat)
             if (em.HasComponent<GuardPoint>(unit))
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
-            else
-                em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
+                else
+                    em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
 
             // Add AttackMoveTag marker
             if (!em.HasComponent<AttackMoveTag>(unit))

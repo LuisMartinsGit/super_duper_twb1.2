@@ -24,7 +24,6 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[PlayerSpawnSystem] No ECS World available!");
                 return;
             }
 
@@ -57,7 +56,6 @@ namespace TheWaningBorder.Bootstrap
                 var spawnPos = positions[i];
 
                 SpawnFactionBase(em, faction, spawnPos);
-                Debug.Log($"[PlayerSpawnSystem] Spawned {faction} at {spawnPos}");
             }
         }
 
@@ -125,7 +123,6 @@ namespace TheWaningBorder.Bootstrap
                 {
                     result[i] = new float3(positions3D[i].x, positions3D[i].y, positions3D[i].z);
                 }
-                Debug.Log($"[PlayerSpawnSystem] Using island-aware spawn positions across {terrain.Islands.Count} landmasses");
                 return result;
             }
 

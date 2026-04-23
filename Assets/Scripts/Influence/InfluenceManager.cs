@@ -84,7 +84,6 @@ public class InfluenceManager : MonoBehaviour
         // Enforce singleton
         if (Instance != null && Instance != this)
         {
-            Debug.LogWarning("[InfluenceManager] Duplicate instance destroyed.");
             Destroy(gameObject);
             return;
         }
@@ -117,14 +116,10 @@ public class InfluenceManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[InfluenceManager] Terrain has no material assigned. " +
-                                 "Please create a material using TerrainInfluence.shader " +
-                                 "and assign it to the terrain's Material Template field.");
             }
         }
         else
         {
-            Debug.LogWarning("[InfluenceManager] No target terrain assigned.");
         }
 
         // Tell each faction sub-component about us and trigger their first bake

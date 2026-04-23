@@ -261,7 +261,6 @@ namespace TheWaningBorder.Systems.Movement
                                 float pushZ = halfH - math.abs(dz);
                                 if (pushX < pushZ)
                                     correctedPos.x = bPos.x + math.sign(dx) * halfW;
-                                else
                                     correctedPos.z = bPos.z + math.sign(dz) * halfH;
                                 correctedPos.y = myPos.y;
                             }

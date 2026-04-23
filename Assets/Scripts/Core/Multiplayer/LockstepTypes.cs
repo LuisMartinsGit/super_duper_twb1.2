@@ -118,9 +118,8 @@ namespace TheWaningBorder.Core.Multiplayer
                     BuildingId = parts.Length > 7 ? parts[7] : ""
                 };
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                UnityEngine.Debug.LogError($"[LockstepCommand] Deserialize failed: {e.Message}");
                 return null;
             }
         }
@@ -226,9 +225,6 @@ namespace TheWaningBorder.Core.Multiplayer
                 // Pre-lockstep bootstrap mode
                 if (_bootstrapNextId >= BOOTSTRAP_RESERVE)
                 {
-                    UnityEngine.Debug.LogError(
-                        $"[NetworkIdGenerator] Exceeded BOOTSTRAP_RESERVE budget ({BOOTSTRAP_RESERVE}) — " +
-                        "either increase it or move the spawning system into the lockstep tick pipeline.");
                 }
                 return _bootstrapNextId++;
             }
@@ -238,10 +234,6 @@ namespace TheWaningBorder.Core.Multiplayer
             _nextIdInTick++;
             if (_nextIdInTick >= SLOTS_PER_TICK)
             {
-                UnityEngine.Debug.LogError(
-                    $"[NetworkIdGenerator] Exceeded {SLOTS_PER_TICK} spawns in a single tick — " +
-                    "subsequent IDs will collide with the next tick's range. " +
-                    "Split the burst across multiple ticks or raise SLOTS_PER_TICK.");
             }
             return id;
         }
@@ -254,7 +246,6 @@ namespace TheWaningBorder.Core.Multiplayer
         {
             if (tick < 0)
             {
-                UnityEngine.Debug.LogError($"[NetworkIdGenerator] BeginTick called with negative tick {tick}");
                 tick = 0;
             }
             _currentTickBase = BOOTSTRAP_RESERVE + tick * SLOTS_PER_TICK;

@@ -98,8 +98,6 @@ namespace TheWaningBorder.Systems.Movement
                 ClearPath(e);
 
             #if UNITY_EDITOR
-            Debug.Log($"[AStarPathStore] Swept {_cleanupScratch.Count} dead-entity paths " +
-                      $"(remaining: {_entityToPath.Count})");
             #endif
         }
 
@@ -221,8 +219,6 @@ namespace TheWaningBorder.Systems.Movement
             }
 
             #if UNITY_EDITOR
-            Debug.Log($"[AStarPathStore] Path computed for entity {entity.Index}: " +
-                      $"{path.Count} waypoints (pathId={pathId})");
             #endif
         }
     }

@@ -78,7 +78,6 @@ namespace TheWaningBorder.Systems.Training
                     {
                         // Unknown unit - remove from queue
                         queue.RemoveAt(0);
-                        UnityEngine.Debug.LogWarning($"Unknown unit ID in training queue: {unitId}");
                         continue;
                     }
 
@@ -238,7 +237,6 @@ namespace TheWaningBorder.Systems.Training
                     em.SetComponentData(leader, new GuardPoint { Position = rallyTarget, Has = 1 });
                 }
 
-                UnityEngine.Debug.Log($"Spawned {unitId} battalion for {faction} at {finalPos}");
                 return;
             }
 
@@ -253,16 +251,15 @@ namespace TheWaningBorder.Systems.Training
             {
                 if (!em.HasComponent<DesiredDestination>(unit))
                     em.AddComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
-                else
-                    em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                    else
+                        em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
 
                 if (!em.HasComponent<GuardPoint>(unit))
                     em.AddComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
-                else
-                    em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                    else
+                        em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
             }
 
-            UnityEngine.Debug.Log($"Spawned {unitId} for {faction} at {finalPos}");
         }
     }
 }

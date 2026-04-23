@@ -254,13 +254,11 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateDefault(EntityManager em, string unitId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[UnitFactory] Unknown unit type '{unitId}', creating default melee unit");
             return Swordsman.Create(em, position, faction);
         }
 
         private static Entity CreateDefault(EntityCommandBuffer ecb, string unitId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[UnitFactory] Unknown unit type '{unitId}', creating default melee unit");
             return Swordsman.Create(ecb, position, faction);
         }
     }

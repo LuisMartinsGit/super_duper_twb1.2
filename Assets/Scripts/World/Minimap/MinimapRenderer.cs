@@ -94,13 +94,13 @@ namespace TheWaningBorder.World.Minimap
         void Awake()
         {
             // Ensure EventSystem for click handling
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 es.hideFlags = HideFlags.DontSave;
             }
 
-            _fow = FindObjectOfType<FogOfWarManager>();
+            _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null)
             {
                 worldMin = _fow.WorldMin;
@@ -624,9 +624,6 @@ namespace TheWaningBorder.World.Minimap
         {
             if (!TryGetWorldPosition(eventData, out float worldX, out float worldZ)) return;
 
-            if (logClicks)
-                Debug.Log($"[Minimap] Left Click -> Camera({worldX:F1}, {worldZ:F1})");
-
             GameCamera.FocusOn(new Vector3(worldX, 0, worldZ), instant: true);
         }
 
@@ -636,9 +633,6 @@ namespace TheWaningBorder.World.Minimap
         internal void HandleRightClick(PointerEventData eventData)
         {
             if (!TryGetWorldPosition(eventData, out float worldX, out float worldZ)) return;
-
-            if (logClicks)
-                Debug.Log($"[Minimap] Right Click -> Move({worldX:F1}, {worldZ:F1})");
 
             var selection = SelectionSystem.CurrentSelection;
             if (selection == null || selection.Count == 0) return;
@@ -672,7 +666,7 @@ namespace TheWaningBorder.World.Minimap
 
         private void EnsureCanvasAndImage()
         {
-            var canvas = FindObjectOfType<Canvas>();
+            var canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
                 var cGo = new GameObject("MinimapCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -735,7 +729,6 @@ namespace TheWaningBorder.World.Minimap
 
             if (eventData.button == PointerEventData.InputButton.Right)
                 minimap.HandleRightClick(eventData);
-            else
                 minimap.HandleLeftClick(eventData);
         }
     }

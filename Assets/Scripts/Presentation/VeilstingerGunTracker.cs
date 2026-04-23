@@ -38,15 +38,9 @@ namespace TheWaningBorder.Presentation
             // Find gun child objects in the prefab hierarchy
             LeftGun = FindChildRecursive(transform, "leftgun");
             RightGun = FindChildRecursive(transform, "rightgun");
-
-            if (LeftGun == null)
-                Debug.LogWarning($"[VeilstingerGunTracker] 'leftgun' child not found on {gameObject.name}");
-            else
+            if (LeftGun != null)
                 _leftGunDefaultLocalRot = LeftGun.localRotation;
-
-            if (RightGun == null)
-                Debug.LogWarning($"[VeilstingerGunTracker] 'rightgun' child not found on {gameObject.name}");
-            else
+            if (RightGun != null)
                 _rightGunDefaultLocalRot = RightGun.localRotation;
 
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;

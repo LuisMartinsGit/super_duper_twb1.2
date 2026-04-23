@@ -102,7 +102,8 @@ namespace TheWaningBorder.AI
                 .WithAll<CrystalTag, UnitTag>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value != Faction.White) continue;
+                // CrystalTag already identifies crystal faction — no Faction.White check
+                // needed (Faction.White is a player color, not a crystal-only identifier)
 
                 float dist = math.distance(basePos, transform.ValueRO.Position);
                 if (dist <= HUNT_RANGE)
@@ -118,8 +119,6 @@ namespace TheWaningBorder.AI
                 .WithAll<CrystalTag, BuildingTag>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value != Faction.White) continue;
-
                 float dist = math.distance(basePos, transform.ValueRO.Position);
                 if (dist <= HUNT_RANGE)
                 {
@@ -165,6 +164,9 @@ namespace TheWaningBorder.AI
 
                 idleHunters.Add(entity);
             }
+
+            AILogger.Log(faction, "CRYSTAL_DEFENSE",
+                $"Threats:{creatures.Length} near base, idle hunters:{idleHunters.Length}");
 
             // Assign hunters to creatures (round-robin, max per target)
             int hunterIdx = 0;

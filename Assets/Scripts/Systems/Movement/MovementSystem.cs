@@ -303,6 +303,27 @@ namespace TheWaningBorder.Systems.Movement
                 if (speed <= 0f)
                     continue;
 
+                // Archers with an active target in range should not move — enforce
+                // mutual exclusion between attacking and moving. Skip battalion members
+                // (their movement is handled by BattalionSyncSystem).
+                if (em.HasComponent<ArcherTag>(entity) && !em.HasComponent<BattalionMemberData>(entity)
+                    && em.HasComponent<Target>(entity))
+                {
+                    var tgt = em.GetComponentData<Target>(entity);
+                    if (tgt.Value != Entity.Null && em.Exists(tgt.Value)
+                        && em.HasComponent<LocalTransform>(tgt.Value)
+                        && em.HasComponent<Health>(tgt.Value)
+                        && em.GetComponentData<Health>(tgt.Value).Value > 0)
+                    {
+                        float3 tgtPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
+                        float tgtDist = math.distance(xf.ValueRO.Position, tgtPos);
+                        float maxRange = em.HasComponent<ArcherState>(entity)
+                            ? em.GetComponentData<ArcherState>(entity).MaxRange : 25f;
+                        if (tgtDist <= maxRange)
+                            continue; // In firing range — don't move, let RangedCombatSystem handle it
+                    }
+                }
+
                 float3 pos = xf.ValueRO.Position;
                 float3 goal = dd.ValueRO.Position;
 
@@ -487,9 +508,7 @@ namespace TheWaningBorder.Systems.Movement
                 if (blocked)
                 {
                     if (em.HasComponent<StuckState>(entity))
-
                     {
-
                         var stuck = em.GetComponentData<StuckState>(entity);
                         stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
 

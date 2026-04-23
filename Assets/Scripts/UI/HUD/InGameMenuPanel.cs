@@ -64,7 +64,6 @@ namespace TheWaningBorder.UI.HUD
         {
             if (IsOpen)
                 Close();
-            else
                 Open();
         }
 

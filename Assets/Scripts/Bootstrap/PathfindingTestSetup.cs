@@ -28,7 +28,6 @@ namespace TheWaningBorder.Bootstrap
     {
         public static void Bootstrap()
         {
-            Debug.Log("[PathfindingTestSetup] Starting battalion test mode...");
 
             GameSettings.TotalPlayers = 1;
             GameSettings.LocalPlayerFaction = Faction.Blue;
@@ -99,7 +98,6 @@ namespace TheWaningBorder.Bootstrap
             // Dismiss loading screen
             LoadingScreen.NotifyReady();
 
-            Debug.Log("[PathfindingTestSetup] Battalion test ready: Blue + Red Swordsman battalions spawned");
         }
     }
 }

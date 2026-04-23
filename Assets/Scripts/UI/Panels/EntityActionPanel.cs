@@ -55,7 +55,6 @@ namespace TheWaningBorder.UI.Panels
         /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
         private string _hoveredTooltip;
         private Cost _hoveredCost;
-        private Cost _hoveredAvailable;
 
         /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
         private int _selectedChapelSlot = -1;
@@ -73,7 +72,6 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = false;
             _hoveredTooltip = null;
             _hoveredCost = default;
-            _hoveredAvailable = default;
 
             // Observer cannot issue commands
             if (GameSettings.IsObserver) return;
@@ -261,7 +259,6 @@ namespace TheWaningBorder.UI.Panels
 
             if (BuilderCommandPanel.IsPlacingBuilding)
                 GUILayout.Label("Left-click to place, Right/Esc to cancel", _headerStyle);
-            else
                 GUILayout.Label("Build Structure", _headerStyle);
 
             GUILayout.Space(8);
@@ -315,7 +312,6 @@ namespace TheWaningBorder.UI.Panels
                 {
                     if (!em.HasComponent<BazaarPackCommand>(entity))
                         em.AddComponent<BazaarPackCommand>(entity);
-                    Debug.Log("Packing Bazaar into wagon");
                     Event.current.Use();
                     return;
                 }
@@ -352,7 +348,6 @@ namespace TheWaningBorder.UI.Panels
 
                 // Add to training queue (via CommandRouter for multiplayer sync)
                 CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                Debug.Log($"Queued {button.Id} for training");
                 Event.current.Use();
             });
 
@@ -448,7 +443,6 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                    Debug.Log($"Queued {button.Id} for training");
                     Event.current.Use();
                 });
 
@@ -581,7 +575,6 @@ namespace TheWaningBorder.UI.Panels
                         Remaining = duration
                     });
 
-                    Debug.Log($"[TempleUpgrade] {faction} started temple upgrade to Level {nextLevel} ({duration}s)");
                     PlayerNotificationSystem.Notify($"Temple upgrade started ({(int)duration}s)");
                 }
             }
@@ -796,7 +789,6 @@ namespace TheWaningBorder.UI.Panels
                                 slots[_selectedChapelSlot] = slot;
 
                                 _selectedChapelSlot = -1;
-                                Debug.Log($"[TempleUI] Adopted sect '{sectId}' and started chapel build");
                                 PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
                             }
                             else
@@ -1034,7 +1026,6 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                    Debug.Log($"Queued {button.Id} for training");
                     Event.current.Use();
                 });
 
@@ -1098,7 +1089,6 @@ namespace TheWaningBorder.UI.Panels
                             {
                                 TechId = new Unity.Collections.FixedString64Bytes(button.Id)
                             });
-                            Debug.Log($"Queued research: {button.Id}");
                             Event.current.Use();
                         }
                     });
@@ -1493,11 +1483,9 @@ namespace TheWaningBorder.UI.Panels
             if (!cost.IsZero)
             {
                 FactionEconomy.Add(em, faction, cost);
-                Debug.Log($"Cancelled {unitId}, refunded {cost}");
             }
             else
             {
-                Debug.Log($"Cancelled {unitId} (no cost to refund)");
             }
 
             queue.RemoveAt(bufferIndex);
@@ -1783,7 +1771,6 @@ namespace TheWaningBorder.UI.Panels
                 if (em.Exists(entity) && !em.HasComponent<BazaarUnpackCommand>(entity))
                 {
                     em.AddComponent<BazaarUnpackCommand>(entity);
-                    Debug.Log("Unpacking wagon into Bazaar");
                 }
                 Event.current.Use();
             }

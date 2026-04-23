@@ -99,8 +99,6 @@ namespace TheWaningBorder.Systems.Building
                 // Recalculate sect passives since a new chapel is complete
                 SectEffectSystem.Instance?.RecalculateAllPassives(faction);
 
-                UnityEngine.Debug.Log(
-                    $"[TempleChapelBuild] Chapel '{spawn.SectId}' completed at slot {spawn.SlotIndex} for {faction}");
             }
 
             deferredSpawns.Dispose();
@@ -119,8 +117,6 @@ namespace TheWaningBorder.Systems.Building
                     var rp = em.GetComponentData<ReligionPoints>(bank);
                     rp.Value += TempleLevelConfig.ShrineBonus;
                     em.SetComponentData(bank, rp);
-                    UnityEngine.Debug.Log(
-                        $"[TempleChapelBuild] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for chapel construction");
                 }
             }
         }

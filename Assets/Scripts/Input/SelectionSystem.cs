@@ -462,7 +462,6 @@ namespace TheWaningBorder.Input
                     var cls = _em.GetComponentData<UnitTag>(e).Class;
                     if (cls == UnitClass.Economy || cls == UnitClass.Miner)
                         economic.Add(e);
-                    else
                         military.Add(e);
                 }
 

@@ -93,7 +93,6 @@ namespace TheWaningBorder.Systems.Training
                 // Spawn berserker at the same position
                 Berserker.Create(ecb, conv.Position, conv.Faction);
 
-                UnityEngine.Debug.Log($"Converted Miner to Berserker for {conv.Faction} at {conv.Position}");
             }
 
             conversions.Dispose();

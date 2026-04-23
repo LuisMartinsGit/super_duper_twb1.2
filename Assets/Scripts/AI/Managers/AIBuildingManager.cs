@@ -82,7 +82,6 @@ namespace TheWaningBorder.AI
             int queueSize = buildingState.QueuedConstructions;
             if (queueSize > 3)
                 buildingState.DesiredBuilders = math.min(AITuning.MaxBuilders, AITuning.TargetBuilders + 1);
-            else
                 buildingState.DesiredBuilders = AITuning.TargetBuilders;
 
             int queuedBuilders = CountQueuedBuilders(ref state, faction);

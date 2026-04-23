@@ -428,7 +428,6 @@ namespace TheWaningBorder.UI.Panels
                 headerText = $"Army ({allEntities.Count} units)";
             else if (hasBuildings && !hasUnits)
                 headerText = $"Buildings ({allEntities.Count} selected)";
-            else
                 headerText = $"Selection ({allEntities.Count} entities)";
 
             GUILayout.Label(headerText, _headerStyle);

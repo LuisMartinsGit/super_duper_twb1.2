@@ -71,7 +71,6 @@ namespace TheWaningBorder.Systems.Work
                         );
 
                         FactionEconomy.Add(em, faction, refund);
-                        UnityEngine.Debug.Log($"[SelfDestruct] {buildingId} destroyed — refunded {refund.Supplies}S {refund.Iron}Fe to {faction}");
                     }
                 }
 

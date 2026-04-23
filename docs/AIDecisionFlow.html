@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Waning Border — AI Strategy Flow</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d0d1a; overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, Fragment } = React;
+
+/* ═══════════════════════════════════════════════════════════════════
+   STRATEGY DATA MODEL
+   ═══════════════════════════════════════════════════════════════════ */
+
+const strategies = {
+  rush:      { label: 'Rush',       color: '#e94560', icon: '\u2694', desc: 'Fast barracks, early harassment, minimal economy' },
+  economy:   { label: 'Eco Boom',   color: '#16c79a', icon: '\u{1F4B0}', desc: 'Heavy gatherers, crystal farming, delayed military' },
+  tech:      { label: 'Tech Rush',  color: '#c77dff', icon: '\u{1F52C}', desc: 'Rush Age 2, culture buildings, advanced units' },
+  aggressive:{ label: 'Aggressive', color: '#ff6b6b', icon: '\u{1F525}', desc: 'Continuous pressure, balanced but attack-focused' },
+  defensive: { label: 'Defensive',  color: '#3498db', icon: '\u{1F6E1}', desc: 'Walls, standing army, counter-attack on opportunity' },
+};
+
+const difficulties = {
+  easy:   { label: 'Easy',   color: '#2ecc71', mods: 'Slower decisions, poor composition, no strategy changes, 0.7x gather rate' },
+  normal: { label: 'Normal', color: '#f1c40f', mods: 'Standard thresholds, adapts 1x per phase, 1.0x rates' },
+  hard:   { label: 'Hard',   color: '#e67e22', mods: 'Faster ticks, better composition, adapts mid-phase, 1.2x gather rate' },
+  expert: { label: 'Expert', color: '#e94560', mods: 'Optimal play, reads game state, aggressive adaptation, 1.5x gather rate' },
+};
+
+const cultures = {
+  runai:    { label: 'Runai',    color: '#f39c12', desc: 'Trade routes, caravans, income scaling. Best for Eco Boom.' },
+  alanthor: { label: 'Alanthor', color: '#3498db', desc: 'Walls, smelters, iron economy. Best for Defensive / Tech.' },
+  feraldis: { label: 'Feraldis', color: '#e74c3c', desc: 'Blood totems, Thul units, fast training. Best for Rush / Aggressive.' },
+};
+
+const phases = [
+  { label: 'Phase 1: Opening', time: '0-3 min', color: '#27ae60' },
+  { label: 'Phase 2: Build-Up', time: '3-8 min', color: '#f1c40f' },
+  { label: 'Phase 3: Age-Up', time: '8-15 min', color: '#e67e22' },
+  { label: 'Phase 4: Mid-Game', time: '15-25 min', color: '#e94560' },
+  { label: 'Phase 5: Late-Game', time: '25+ min', color: '#9b59b6' },
+];
+
+/* Strategy x Phase priority tables */
+const strategyPhases = {
+  rush: [
+    { phase: 'Opening',  priorities: ['Barracks ASAP', '2 miners only', 'Skip GathererHut', 'Queue swords immediately'] },
+    { phase: 'Build-Up', priorities: ['2nd Barracks', 'Send first wave', 'Harass enemy miners', 'Crystal hunt near base'] },
+    { phase: 'Age-Up',   priorities: ['Delay age-up', 'Keep pressure', 'If harass failed: pivot to Defensive', 'Build huts for pop'] },
+    { phase: 'Mid-Game', priorities: ['Transition: Aggressive or Defensive', 'Age up (Feraldis preferred)', 'Mixed army composition'] },
+    { phase: 'Late-Game',priorities: ['Full army push', 'Siege units', 'Target enemy economy', 'Rebuild if wiped'] },
+  ],
+  economy: [
+    { phase: 'Opening',  priorities: ['3 GathererHuts first', '4+ miners', 'Skip barracks until 4 min', 'Lure crystal for cadavers'] },
+    { phase: 'Build-Up', priorities: ['5+ GathererHuts', '1 Barracks (defense only)', 'Small standing army', 'Scout for deposits'] },
+    { phase: 'Age-Up',   priorities: ['Choice building early', 'Age up ASAP (Runai preferred)', 'Trade Hub + Outpost', 'Crystal stockpile'] },
+    { phase: 'Mid-Game', priorities: ['Transition: Tech or Aggressive', 'Trade routes active', '3+ Barracks', 'Continuous production'] },
+    { phase: 'Late-Game',priorities: ['Economic superiority', 'Outproduce opponents', 'Multiple armies', 'Map control'] },
+  ],
+  tech: [
+    { phase: 'Opening',  priorities: ['2 miners, 2 GathererHuts', 'Mine crystal cadavers', 'Save crystal for choice building'] },
+    { phase: 'Build-Up', priorities: ['Choice building ASAP', '1 Barracks minimum', 'Crystal priority over iron', 'Defend while teching'] },
+    { phase: 'Age-Up',   priorities: ['Age up immediately', 'Culture buildings rush', 'Advanced unit unlock', 'Temple of Ridan'] },
+    { phase: 'Mid-Game', priorities: ['Culture-specific army', 'Tech advantage push', 'Transition: Aggressive', 'Research upgrades'] },
+    { phase: 'Late-Game',priorities: ['Full culture army', 'All upgrades complete', 'Overwhelming force', 'Multi-front attacks'] },
+  ],
+  aggressive: [
+    { phase: 'Opening',  priorities: ['Balanced: 2 GathererHuts + Barracks', '3 miners', 'Start training early', 'Scout enemy base'] },
+    { phase: 'Build-Up', priorities: ['2 Barracks', 'Continuous training', 'Form first army', 'Attack when army >= 2 battalions'] },
+    { phase: 'Age-Up',   priorities: ['Age up when safe', 'Keep attacking while aging', 'Feraldis or Alanthor', 'Never stop producing'] },
+    { phase: 'Mid-Game', priorities: ['Constant pressure', '3-4 armies rotating', 'Target weakest player', 'Expand if dominant'] },
+    { phase: 'Late-Game',priorities: ['Siege + full army', 'Destroy enemy production', 'Map control', 'Final push'] },
+  ],
+  defensive: [
+    { phase: 'Opening',  priorities: ['3 GathererHuts', '3+ miners', 'Barracks for defense', 'Crystal hunt passive'] },
+    { phase: 'Build-Up', priorities: ['Defend base perimeter', '2 Barracks', 'Standing army near base', 'Wall approach (if Alanthor)'] },
+    { phase: 'Age-Up',   priorities: ['Alanthor preferred (walls)', 'Wall hubs around base', 'Towers at chokepoints', 'Age up safely'] },
+    { phase: 'Mid-Game', priorities: ['Counter-attack opportunity', 'Transition: Aggressive if ahead', 'Fortify expansions', 'Mixed army'] },
+    { phase: 'Late-Game',priorities: ['Secure map', 'Overwhelming defense', 'Push from fortified positions', 'Siege to break stalemates'] },
+  ],
+};
+
+/* Strategy transition triggers */
+const transitions = [
+  { from: 'rush', to: 'defensive', trigger: 'Harass failed (lost >60% army before dealing damage)', when: 'Phase 2-3' },
+  { from: 'rush', to: 'aggressive', trigger: 'Harass succeeded (enemy economy damaged)', when: 'Phase 3-4' },
+  { from: 'economy', to: 'aggressive', trigger: 'Economy established (income > 2x opponent estimate)', when: 'Phase 3-4' },
+  { from: 'economy', to: 'defensive', trigger: 'Attacked before ready (enemy spotted near base)', when: 'Phase 1-2' },
+  { from: 'economy', to: 'tech', trigger: 'Crystal stockpile > 200 AND safe', when: 'Phase 2-3' },
+  { from: 'tech', to: 'aggressive', trigger: 'Age-up complete + culture army available', when: 'Phase 3-4' },
+  { from: 'tech', to: 'defensive', trigger: 'Attacked during age-up transition', when: 'Phase 2-3' },
+  { from: 'aggressive', to: 'defensive', trigger: 'Lost 2+ armies without significant damage dealt', when: 'Any' },
+  { from: 'aggressive', to: 'economy', trigger: 'Resources depleted, no production possible', when: 'Phase 3+' },
+  { from: 'defensive', to: 'aggressive', trigger: 'Threat eliminated + army strength > 2x minimum', when: 'Any' },
+  { from: 'defensive', to: 'economy', trigger: 'No threats detected for 120s', when: 'Phase 2+' },
+  { from: 'ANY', to: 'defensive', trigger: 'Base health critical (Hall below 50%)', when: 'Any (EMERGENCY)' },
+];
+
+/* Culture selection by strategy */
+const culturePreference = {
+  rush:       { first: 'feraldis', second: 'alanthor', reason: 'Feraldis fast training (1.75x time but 2x output), blood totems from kills' },
+  economy:    { first: 'runai',    second: 'alanthor', reason: 'Runai trade routes scale with time, passive income compounds' },
+  tech:       { first: 'alanthor', second: 'runai',    reason: 'Alanthor smelters convert iron to advanced resources, walls protect tech' },
+  aggressive: { first: 'feraldis', second: 'runai',    reason: 'Feraldis totems buff army, Runai funds continuous production' },
+  defensive:  { first: 'alanthor', second: 'runai',    reason: 'Alanthor walls are the only true defense, Runai income sustains defense' },
+};
+
+/* Difficulty modifiers */
+const difficultyModifiers = {
+  easy:   { gatherMult: 0.7, tickMult: 1.5, adaptFreq: 'Never', composQuality: 'Random', sightRange: 0.6 },
+  normal: { gatherMult: 1.0, tickMult: 1.0, adaptFreq: 'Phase change', composQuality: 'By personality', sightRange: 1.0 },
+  hard:   { gatherMult: 1.2, tickMult: 0.75, adaptFreq: 'Every 60s', composQuality: 'Counter-pick', sightRange: 1.3 },
+  expert: { gatherMult: 1.5, tickMult: 0.5, adaptFreq: 'Every 30s', composQuality: 'Optimal counter', sightRange: 1.5 },
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   REACT APP
+   ═══════════════════════════════════════════════════════════════════ */
+
+function App() {
+  const [selectedStrategy, setSelectedStrategy] = useState('rush');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('normal');
+  const [showTransitions, setShowTransitions] = useState(false);
+  const [showCultures, setShowCultures] = useState(false);
+  const [hoveredPhase, setHoveredPhase] = useState(null);
+
+  const strat = strategies[selectedStrategy];
+  const diff = difficulties[selectedDifficulty];
+  const diffMod = difficultyModifiers[selectedDifficulty];
+  const phaseData = strategyPhases[selectedStrategy];
+  const culturePref = culturePreference[selectedStrategy];
+
+  return (
+    <div style={{ background: '#0d0d1a', minHeight: '100vh', padding: '20px 30px', fontFamily: "'Segoe UI', monospace", color: '#ccc' }}>
+
+      {/* HEADER */}
+      <h1 style={{ color: '#e94560', textAlign: 'center', fontSize: 22, marginBottom: 4 }}>
+        The Waning Border — Dynamic AI Strategy System
+      </h1>
+      <p style={{ color: '#556', textAlign: 'center', fontSize: 11, marginBottom: 24 }}>
+        AI selects a strategy at game start, adapts based on game state, and transitions between strategies as conditions change
+      </p>
+
+      {/* ── ROW 1: STRATEGY + DIFFICULTY SELECTORS ── */}
+      <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
+
+        {/* Strategy selector */}
+        <div style={{ flex: 1, background: '#111122', borderRadius: 8, padding: 16, border: '1px solid #222' }}>
+          <h3 style={{ color: '#889', fontSize: 12, marginBottom: 10, letterSpacing: 1 }}>STRATEGY TYPE (click to explore)</h3>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(strategies).map(([key, s]) => (
+              <button key={key} onClick={() => setSelectedStrategy(key)}
+                style={{
+                  background: selectedStrategy === key ? s.color + '33' : '#1a1a2e',
+                  border: `2px solid ${selectedStrategy === key ? s.color : '#333'}`,
+                  borderRadius: 6, padding: '8px 14px', cursor: 'pointer',
+                  color: selectedStrategy === key ? s.color : '#778', fontSize: 12, fontFamily: 'monospace',
+                  transition: 'all 0.2s',
+                }}>
+                <span style={{ fontSize: 16, marginRight: 6 }}>{s.icon}</span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <p style={{ color: strat.color, fontSize: 11, marginTop: 10, fontStyle: 'italic' }}>{strat.desc}</p>
+        </div>
+
+        {/* Difficulty selector */}
+        <div style={{ width: 280, background: '#111122', borderRadius: 8, padding: 16, border: '1px solid #222' }}>
+          <h3 style={{ color: '#889', fontSize: 12, marginBottom: 10, letterSpacing: 1 }}>DIFFICULTY</h3>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {Object.entries(difficulties).map(([key, d]) => (
+              <button key={key} onClick={() => setSelectedDifficulty(key)}
+                style={{
+                  background: selectedDifficulty === key ? d.color + '33' : '#1a1a2e',
+                  border: `2px solid ${selectedDifficulty === key ? d.color : '#333'}`,
+                  borderRadius: 4, padding: '6px 10px', cursor: 'pointer', flex: 1,
+                  color: selectedDifficulty === key ? d.color : '#556', fontSize: 10, fontFamily: 'monospace',
+                }}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 9, color: '#778', lineHeight: 1.5 }}>
+            <div>Gather: <span style={{ color: diff.color }}>{diffMod.gatherMult}x</span></div>
+            <div>Tick speed: <span style={{ color: diff.color }}>{diffMod.tickMult}x</span></div>
+            <div>Adapts: <span style={{ color: diff.color }}>{diffMod.adaptFreq}</span></div>
+            <div>Composition: <span style={{ color: diff.color }}>{diffMod.composQuality}</span></div>
+            <div>Sight range: <span style={{ color: diff.color }}>{diffMod.sightRange}x</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── ROW 2: PHASE TIMELINE ── */}
+      <div style={{ background: '#111122', borderRadius: 8, padding: 16, marginBottom: 20, border: '1px solid #222' }}>
+        <h3 style={{ color: '#889', fontSize: 12, marginBottom: 12, letterSpacing: 1 }}>
+          GAME PHASES — {strat.label} Strategy
+        </h3>
+
+        {/* Phase bar */}
+        <div style={{ display: 'flex', gap: 2, marginBottom: 16 }}>
+          {phases.map((p, i) => (
+            <div key={i}
+              onMouseEnter={() => setHoveredPhase(i)}
+              onMouseLeave={() => setHoveredPhase(null)}
+              style={{
+                flex: i < 4 ? 1 : 1.5,
+                background: hoveredPhase === i ? p.color + '44' : p.color + '22',
+                border: `1px solid ${p.color}`,
+                borderRadius: 4, padding: '8px 10px', cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ color: p.color, fontSize: 10, fontWeight: 'bold' }}>{p.label}</div>
+              <div style={{ color: '#556', fontSize: 9 }}>{p.time}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Phase detail cards */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {phaseData.map((pd, i) => (
+            <div key={i} style={{
+              flex: 1, background: '#0a0a15', borderRadius: 6, padding: 10,
+              border: `1px solid ${hoveredPhase === i ? phases[i].color : '#1a1a2e'}`,
+              transition: 'border 0.2s',
+            }}>
+              <div style={{ color: phases[i].color, fontSize: 10, fontWeight: 'bold', marginBottom: 6 }}>
+                {pd.phase}
+              </div>
+              {pd.priorities.map((p, j) => (
+                <div key={j} style={{
+                  fontSize: 9, color: j === 0 ? '#ddd' : '#778',
+                  padding: '2px 0', borderLeft: `2px solid ${j === 0 ? phases[i].color : '#222'}`,
+                  paddingLeft: 6, marginBottom: 2,
+                  fontWeight: j === 0 ? 'bold' : 'normal',
+                }}>
+                  {p}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── ROW 3: CULTURE PREFERENCE + TRANSITIONS ── */}
+      <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
+
+        {/* Culture preference */}
+        <div style={{ flex: 1, background: '#111122', borderRadius: 8, padding: 16, border: '1px solid #222' }}>
+          <h3 style={{ color: '#889', fontSize: 12, marginBottom: 10, letterSpacing: 1, cursor: 'pointer' }}
+            onClick={() => setShowCultures(!showCultures)}>
+            CULTURE SELECTION for {strat.label} {showCultures ? '\u25B2' : '\u25BC'}
+          </h3>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+            {/* First choice */}
+            <div style={{
+              flex: 1, background: cultures[culturePref.first].color + '15',
+              border: `2px solid ${cultures[culturePref.first].color}`,
+              borderRadius: 6, padding: 10,
+            }}>
+              <div style={{ color: cultures[culturePref.first].color, fontSize: 11, fontWeight: 'bold' }}>
+                1st: {cultures[culturePref.first].label}
+              </div>
+              <div style={{ fontSize: 9, color: '#889', marginTop: 4 }}>{cultures[culturePref.first].desc}</div>
+            </div>
+
+            {/* Second choice */}
+            <div style={{
+              flex: 1, background: '#1a1a2e',
+              border: `1px solid ${cultures[culturePref.second].color}55`,
+              borderRadius: 6, padding: 10,
+            }}>
+              <div style={{ color: cultures[culturePref.second].color, fontSize: 11, fontWeight: 'bold', opacity: 0.7 }}>
+                2nd: {cultures[culturePref.second].label}
+              </div>
+              <div style={{ fontSize: 9, color: '#667', marginTop: 4 }}>{cultures[culturePref.second].desc}</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 9, color: strat.color, fontStyle: 'italic' }}>
+            Why: {culturePref.reason}
+          </div>
+
+          {showCultures && (
+            <div style={{ marginTop: 12, padding: 10, background: '#0a0a15', borderRadius: 6 }}>
+              <div style={{ fontSize: 10, color: '#889', fontWeight: 'bold', marginBottom: 6 }}>All Culture Preferences by Strategy:</div>
+              {Object.entries(culturePreference).map(([sKey, cp]) => (
+                <div key={sKey} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'center' }}>
+                  <span style={{ color: strategies[sKey].color, fontSize: 10, width: 80, fontWeight: 'bold' }}>{strategies[sKey].label}</span>
+                  <span style={{ color: cultures[cp.first].color, fontSize: 9 }}>{cultures[cp.first].label}</span>
+                  <span style={{ color: '#444', fontSize: 9 }}>&gt;</span>
+                  <span style={{ color: cultures[cp.second].color, fontSize: 9 }}>{cultures[cp.second].label}</span>
+                  <span style={{ color: '#445', fontSize: 8, flex: 1 }}>({cp.reason})</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Strategy transitions */}
+        <div style={{ flex: 1, background: '#111122', borderRadius: 8, padding: 16, border: '1px solid #222' }}>
+          <h3 style={{ color: '#889', fontSize: 12, marginBottom: 10, letterSpacing: 1, cursor: 'pointer' }}
+            onClick={() => setShowTransitions(!showTransitions)}>
+            STRATEGY TRANSITIONS {showTransitions ? '\u25B2' : '\u25BC'}
+          </h3>
+
+          {/* Relevant transitions for current strategy */}
+          {transitions.filter(t => t.from === selectedStrategy || t.from === 'ANY').map((t, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+              padding: '5px 8px', background: '#0a0a15', borderRadius: 4,
+              borderLeft: `3px solid ${strategies[t.to]?.color || '#e94560'}`,
+            }}>
+              <span style={{ color: strategies[t.from === 'ANY' ? selectedStrategy : t.from]?.color, fontSize: 10, fontWeight: 'bold', minWidth: 60 }}>
+                {strat.label}
+              </span>
+              <span style={{ color: '#445' }}>{'\u2192'}</span>
+              <span style={{ color: strategies[t.to].color, fontSize: 10, fontWeight: 'bold', minWidth: 70 }}>
+                {strategies[t.to].label}
+              </span>
+              <span style={{ color: '#667', fontSize: 8, flex: 1 }}>{t.trigger}</span>
+              <span style={{ color: '#445', fontSize: 8 }}>{t.when}</span>
+            </div>
+          ))}
+
+          {showTransitions && (
+            <Fragment>
+              <div style={{ height: 1, background: '#222', margin: '10px 0' }} />
+              <div style={{ fontSize: 10, color: '#889', fontWeight: 'bold', marginBottom: 6 }}>All Transitions:</div>
+              {transitions.filter(t => t.from !== selectedStrategy && t.from !== 'ANY').map((t, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4,
+                  padding: '4px 8px', opacity: 0.5,
+                }}>
+                  <span style={{ color: strategies[t.from]?.color || '#888', fontSize: 9, minWidth: 60 }}>
+                    {strategies[t.from]?.label || t.from}
+                  </span>
+                  <span style={{ color: '#333' }}>{'\u2192'}</span>
+                  <span style={{ color: strategies[t.to].color, fontSize: 9, minWidth: 70 }}>
+                    {strategies[t.to].label}
+                  </span>
+                  <span style={{ color: '#445', fontSize: 8, flex: 1 }}>{t.trigger}</span>
+                </div>
+              ))}
+            </Fragment>
+          )}
+        </div>
+      </div>
+
+      {/* ── ROW 4: DECISION FLOW DIAGRAM ── */}
+      <div style={{ background: '#111122', borderRadius: 8, padding: 16, marginBottom: 20, border: '1px solid #222' }}>
+        <h3 style={{ color: '#889', fontSize: 12, marginBottom: 12, letterSpacing: 1 }}>
+          DECISION FLOW — {strat.label} AI Brain (every tick)
+        </h3>
+        <svg width="1060" height="520" viewBox="0 0 1060 520">
+          <defs>
+            <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill="#556" />
+            </marker>
+            <filter id="glow"><feGaussianBlur stdDeviation="2" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+
+          {/* Brain */}
+          <rect x="400" y="10" width="260" height="40" rx="6" fill="#1a1a2e" stroke={strat.color} strokeWidth="2" filter="url(#glow)" />
+          <text x="530" y="25" textAnchor="middle" fill={strat.color} fontSize="11" fontWeight="bold" fontFamily="monospace">
+            AI Brain: {strat.label} Strategy
+          </text>
+          <text x="530" y="40" textAnchor="middle" fill="#778" fontSize="8" fontFamily="monospace">
+            Difficulty: {diff.label} | Adapts: {diffMod.adaptFreq}
+          </text>
+
+          {/* Arrows from brain */}
+          <line x1="430" y1="50" x2="120" y2="80" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+          <line x1="480" y1="50" x2="340" y2="80" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+          <line x1="530" y1="50" x2="530" y2="80" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+          <line x1="580" y1="50" x2="720" y2="80" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+          <line x1="630" y1="50" x2="940" y2="80" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+
+          {/* TIER 1: Systems */}
+          {[
+            { x: 30,  label: 'Economy',  sub: 'Gather | Mine | Build', color: '#16c79a' },
+            { x: 250, label: 'Building', sub: 'Builders | Construct',  color: '#2ec4b6' },
+            { x: 450, label: 'Military', sub: 'Train | Form Army',     color: '#e94560' },
+            { x: 640, label: 'Scouting', sub: 'Explore | Detect',      color: '#ffd460' },
+            { x: 860, label: 'Defense',  sub: 'Threat | Rally',        color: '#e67e22' },
+          ].map((s, i) => (
+            <g key={i}>
+              <rect x={s.x} y="80" width="170" height="36" rx="5" fill="#0f0f1f" stroke={s.color} strokeWidth="1.2" />
+              <text x={s.x + 85} y="95" textAnchor="middle" fill={s.color} fontSize="10" fontWeight="bold" fontFamily="monospace">{s.label}</text>
+              <text x={s.x + 85} y="108" textAnchor="middle" fill="#556" fontSize="8" fontFamily="monospace">{s.sub}</text>
+            </g>
+          ))}
+
+          {/* Strategy-specific priorities shown below each system */}
+          {/* Economy priorities */}
+          <line x1="115" y1="116" x2="115" y2="135" stroke="#16c79a44" strokeWidth="1" markerEnd="url(#ah)" />
+          <rect x="20" y="135" width="190" height="70" rx="4" fill="#0a1a15" stroke="#16c79a44" strokeWidth="1" />
+          <text x="30" y="150" fill="#16c79a" fontSize="9" fontWeight="bold" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'MINIMAL (2 miners)' :
+             selectedStrategy === 'economy' ? 'PRIORITY (4+ miners)' :
+             selectedStrategy === 'tech' ? 'CRYSTAL FOCUS' :
+             selectedStrategy === 'aggressive' ? 'BALANCED (3 miners)' : 'STABLE (3+ miners)'}
+          </text>
+          <text x="30" y="163" fill="#778" fontSize="8" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'Skip extra huts early' :
+             selectedStrategy === 'economy' ? '5+ GathererHuts, lure crystal' :
+             selectedStrategy === 'tech' ? 'Mine cadavers for crystal' :
+             selectedStrategy === 'aggressive' ? '2 huts + mine ASAP' : '3 huts + deposits secured'}
+          </text>
+          <text x="30" y="176" fill="#556" fontSize="8" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'All resources to barracks' :
+             selectedStrategy === 'economy' ? 'Reinvest all income' :
+             selectedStrategy === 'tech' ? 'Save 200c for choice bldg' :
+             selectedStrategy === 'aggressive' ? 'Fund continuous training' : 'Surplus into vault'}
+          </text>
+          <text x="30" y="189" fill="#445" fontSize="8" fontFamily="monospace">
+            Gather rate: {diffMod.gatherMult}x ({diff.label})
+          </text>
+
+          {/* Military priorities */}
+          <line x1="535" y1="116" x2="535" y2="135" stroke="#e9456044" strokeWidth="1" markerEnd="url(#ah)" />
+          <rect x="440" y="135" width="190" height="70" rx="4" fill="#1a0a0f" stroke="#e9456044" strokeWidth="1" />
+          <text x="450" y="150" fill="#e94560" fontSize="9" fontWeight="bold" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'PRIORITY (Barracks 1st)' :
+             selectedStrategy === 'economy' ? 'DELAYED (defense only)' :
+             selectedStrategy === 'tech' ? 'MINIMAL (1 barracks)' :
+             selectedStrategy === 'aggressive' ? 'CONTINUOUS (2+ barracks)' : 'STANDING ARMY'}
+          </text>
+          <text x="450" y="163" fill="#778" fontSize="8" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'Swords only, skip archers' :
+             selectedStrategy === 'economy' ? 'Small guard force' :
+             selectedStrategy === 'tech' ? 'Defend while teching' :
+             selectedStrategy === 'aggressive' ? 'Mixed composition' : 'Archers + melee mix'}
+          </text>
+          <text x="450" y="176" fill="#556" fontSize="8" fontFamily="monospace">
+            {selectedStrategy === 'rush' ? 'Attack at 1 battalion' :
+             selectedStrategy === 'economy' ? 'Attack at 3+ battalions' :
+             selectedStrategy === 'tech' ? 'Attack post age-up' :
+             selectedStrategy === 'aggressive' ? 'Attack at 2 battalions' : 'Counter-attack only'}
+          </text>
+          <text x="450" y="189" fill="#445" fontSize="8" fontFamily="monospace">
+            Tick: {diffMod.tickMult}x speed ({diff.label})
+          </text>
+
+          {/* STRATEGY EVALUATION (center) */}
+          <line x1="530" y1="50" x2="530" y2="230" stroke="#33335544" strokeWidth="1" strokeDasharray="4,4" />
+
+          <rect x="290" y="225" width="480" height="42" rx="6" fill="#1a1a2e" stroke={strat.color} strokeWidth="1.5" />
+          <text x="530" y="242" textAnchor="middle" fill={strat.color} fontSize="11" fontWeight="bold" fontFamily="monospace">
+            Strategy Evaluation (every {diffMod.adaptFreq === 'Never' ? 'NEVER' : diffMod.adaptFreq})
+          </text>
+          <text x="530" y="257" textAnchor="middle" fill="#667" fontSize="8" fontFamily="monospace">
+            Check: army losses | economy state | enemy threat | crystal income | game phase
+          </text>
+
+          {/* Decision diamonds */}
+          {[
+            { x: 180, label: 'Losing\narmy?', to: 'Defensive' },
+            { x: 370, label: 'Econ\nstrong?', to: 'Aggressive' },
+            { x: 530, label: 'Crystal\nhigh?', to: 'Tech Rush' },
+            { x: 690, label: 'Base\nthreat?', to: 'Defensive' },
+            { x: 880, label: 'No threat\n120s?', to: 'Eco Boom' },
+          ].map((d, i) => {
+            const half = 22;
+            return (
+              <g key={i}>
+                <polygon points={`${d.x},${295-half} ${d.x+half},${295} ${d.x},${295+half} ${d.x-half},${295}`}
+                  fill="#2c2c3a" stroke="#ffd460" strokeWidth="1" />
+                <text x={d.x} y={293} textAnchor="middle" fill="#ffd460" fontSize="7" fontWeight="bold" fontFamily="monospace">
+                  {d.label.split('\n')[0]}
+                </text>
+                <text x={d.x} y={302} textAnchor="middle" fill="#ffd460" fontSize="7" fontFamily="monospace">
+                  {d.label.split('\n')[1]}
+                </text>
+                <line x1={d.x} y1={317} x2={d.x} y2={340} stroke="#ffd46066" strokeWidth="1" markerEnd="url(#ah)" />
+                <text x={d.x} y={352} textAnchor="middle" fill="#889" fontSize="7" fontFamily="monospace">{d.to}</text>
+              </g>
+            );
+          })}
+
+          {/* Arrows from evaluation to diamonds */}
+          <line x1="350" y1="267" x2="180" y2="273" stroke="#556" strokeWidth="0.8" />
+          <line x1="420" y1="267" x2="370" y2="273" stroke="#556" strokeWidth="0.8" />
+          <line x1="530" y1="267" x2="530" y2="273" stroke="#556" strokeWidth="0.8" />
+          <line x1="640" y1="267" x2="690" y2="273" stroke="#556" strokeWidth="0.8" />
+          <line x1="710" y1="267" x2="880" y2="273" stroke="#556" strokeWidth="0.8" />
+
+          {/* MISSION CREATION */}
+          <rect x="310" y="375" width="440" height="40" rx="6" fill="#1a0a2e" stroke="#c77dff" strokeWidth="1.2" />
+          <text x="530" y="392" textAnchor="middle" fill="#c77dff" fontSize="10" fontWeight="bold" fontFamily="monospace">
+            Mission Manager (create attack / defend / raid / expand)
+          </text>
+          <text x="530" y="405" textAnchor="middle" fill="#667" fontSize="8" fontFamily="monospace">
+            Sightings + Army Strength + Current Strategy = Mission Priority
+          </text>
+
+          <line x1="530" y1="358" x2="530" y2="375" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+
+          {/* Mission types with strategy-aware priorities */}
+          {[
+            { x: 50,  w: 150, label: 'DEFEND', pri: selectedStrategy === 'defensive' ? 'P10 (boosted)' : 'P10', col: '#3498db' },
+            { x: 230, w: 150, label: 'ATTACK', pri: selectedStrategy === 'rush' || selectedStrategy === 'aggressive' ? 'P8 (priority)' : 'P6', col: '#e94560' },
+            { x: 410, w: 150, label: 'BLIND ATK', pri: selectedStrategy === 'aggressive' ? 'P7 (60s delay)' : 'P7 (180s)', col: '#ff6b6b' },
+            { x: 590, w: 150, label: 'RAID', pri: selectedStrategy === 'rush' ? 'P6 (enabled)' : selectedStrategy === 'aggressive' ? 'P4' : 'P2 (rare)', col: '#e67e22' },
+            { x: 770, w: 150, label: 'EXPAND', pri: selectedStrategy === 'economy' ? 'P6 (early)' : 'P3 (late)', col: '#27ae60' },
+          ].map((m, i) => (
+            <g key={i}>
+              <line x1={530} y1="415" x2={m.x + m.w/2} y2="438" stroke="#556" strokeWidth="0.8" markerEnd="url(#ah)" />
+              <rect x={m.x} y="440" width={m.w} height="32" rx="4" fill="#0a0a15" stroke={m.col} strokeWidth="1" />
+              <text x={m.x + m.w/2} y="453" textAnchor="middle" fill={m.col} fontSize="9" fontWeight="bold" fontFamily="monospace">{m.label}</text>
+              <text x={m.x + m.w/2} y="465" textAnchor="middle" fill="#667" fontSize="7" fontFamily="monospace">{m.pri}</text>
+            </g>
+          ))}
+
+          {/* TACTICAL EXECUTION */}
+          <line x1="530" y1="472" x2="530" y2="490" stroke="#556" strokeWidth="1" markerEnd="url(#ah)" />
+          <rect x="360" y="490" width="340" height="25" rx="4" fill="#1a0a0a" stroke="#ff6b6b" strokeWidth="1" />
+          <text x="530" y="506" textAnchor="middle" fill="#ff6b6b" fontSize="9" fontWeight="bold" fontFamily="monospace">
+            Tactical: Assign Armies {'\u2192'} March {'\u2192'} Engage {'\u2192'} Adapt
+          </text>
+
+          {/* Crystal faction (independent) */}
+          <rect x="860" y="135" width="190" height="70" rx="4" fill="#0a0a1e" stroke="#9b59b6" strokeWidth="1.2" />
+          <text x="955" y="152" textAnchor="middle" fill="#9b59b6" fontSize="10" fontWeight="bold" fontFamily="monospace">Crystal AI (independent)</text>
+          <text x="955" y="166" textAnchor="middle" fill="#778" fontSize="8" fontFamily="monospace">Train | Build | Expand</text>
+          <text x="955" y="180" textAnchor="middle" fill="#778" fontSize="8" fontFamily="monospace">Waves: 25-120s cycle</text>
+          <text x="955" y="194" textAnchor="middle" fill="#556" fontSize="8" fontFamily="monospace">25c/unit mobilization</text>
+        </svg>
+      </div>
+
+      {/* ── ROW 5: EXAMPLE SCENARIOS ── */}
+      <div style={{ background: '#111122', borderRadius: 8, padding: 16, border: '1px solid #222' }}>
+        <h3 style={{ color: '#889', fontSize: 12, marginBottom: 12, letterSpacing: 1 }}>EXAMPLE GAME NARRATIVES</h3>
+        <div style={{ display: 'flex', gap: 12 }}>
+
+          <div style={{ flex: 1, background: '#0a0a15', borderRadius: 6, padding: 12, borderLeft: '3px solid #e94560' }}>
+            <div style={{ color: '#e94560', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Rush {'\u2192'} Defensive {'\u2192'} Alanthor</div>
+            <div style={{ fontSize: 9, color: '#889', lineHeight: 1.6 }}>
+              AI starts <b style={{color:'#e94560'}}>Rush</b>. Builds barracks immediately, 2 miners only. Sends first battalion at 3 min to harass enemy miners.
+              <br />Enemy defends well, AI loses 60% of army. Strategy evaluator triggers: <b style={{color:'#3498db'}}>pivot to Defensive</b>.
+              <br />AI builds huts, trains standing army, ages up and picks <b style={{color:'#3498db'}}>Alanthor</b> for walls.
+              <br />Walls go up, towers at chokepoints. Waits for full army before counter-attacking.
+            </div>
+          </div>
+
+          <div style={{ flex: 1, background: '#0a0a15', borderRadius: 6, padding: 12, borderLeft: '3px solid #16c79a' }}>
+            <div style={{ color: '#16c79a', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Eco Boom {'\u2192'} Tech {'\u2192'} Aggressive</div>
+            <div style={{ fontSize: 9, color: '#889', lineHeight: 1.6 }}>
+              AI starts <b style={{color:'#16c79a'}}>Eco Boom</b>. Builds 3 GathererHuts, 4 miners. Lures crystal wave near base for cadaver farming.
+              <br />Small guard force kills Crystallings, miners harvest 200+ crystal. Strategy evaluator: <b style={{color:'#c77dff'}}>switch to Tech</b>.
+              <br />Builds choice building, ages up to <b style={{color:'#f39c12'}}>Runai</b>. Trade Hub + caravans compound income.
+              <br />At 15 min, trade income funds 3 barracks. <b style={{color:'#ff6b6b'}}>Transitions to Aggressive</b> with economic superiority.
+            </div>
+          </div>
+
+          <div style={{ flex: 1, background: '#0a0a15', borderRadius: 6, padding: 12, borderLeft: '3px solid #c77dff' }}>
+            <div style={{ color: '#c77dff', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Tech {'\u2192'} Defensive {'\u2192'} Aggressive</div>
+            <div style={{ fontSize: 9, color: '#889', lineHeight: 1.6 }}>
+              AI starts <b style={{color:'#c77dff'}}>Tech Rush</b>. Minimal army, saves crystal for choice building at 5 min.
+              <br />Enemy Rush player attacks at 4 min. Strategy evaluator: <b style={{color:'#3498db'}}>emergency Defensive</b>.
+              <br />Rallies all available units, builds emergency barracks. Survives the push, finishes choice building.
+              <br />Ages up to <b style={{color:'#3498db'}}>Alanthor</b>, walls up, smelter online. At 18 min, culture army ready: <b style={{color:'#ff6b6b'}}>Aggressive push</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style={{ color: '#333', textAlign: 'center', marginTop: 16, fontSize: 9 }}>
+        The Waning Border 1.2 — AI Strategy System Design Document — Click strategy buttons above to explore each flow
+      </p>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

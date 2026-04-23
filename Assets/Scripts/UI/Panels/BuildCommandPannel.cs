@@ -199,7 +199,7 @@ namespace TheWaningBorder.UI.Panels
         {
             if (GameSettings.IsObserver) return;
 
-            var instance = FindObjectOfType<BuilderCommandPanel>();
+            var instance = FindFirstObjectByType<BuilderCommandPanel>();
             if (instance == null) return;
 
             instance._currentBuild = buildingId switch

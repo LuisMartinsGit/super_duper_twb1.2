@@ -104,7 +104,6 @@ public sealed class TechTreeDB : MonoBehaviour
 
         if (humanTechJson == null || string.IsNullOrWhiteSpace(humanTechJson.text))
         {
-            Debug.LogError("[TechTreeDB] No JSON provided! Assign TechTree.json or place in Resources folder.");
             return;
         }
 
@@ -125,7 +124,6 @@ public sealed class TechTreeDB : MonoBehaviour
             var asset = UnityEngine.Resources.Load<TextAsset>(path);
             if (asset != null)
             {
-                Debug.Log($"[TechTreeDB] Auto-loaded from Resources/{path}");
                 return asset;
             }
         }
@@ -158,7 +156,6 @@ public sealed class TechTreeDB : MonoBehaviour
     {
         try
         {
-            Debug.Log("[TechTreeDB] Parsing tech tree...");
 
             // Global fields via a minimal root DTO
             var root = JsonUtility.FromJson<TechTreeRootJson>(json);
@@ -173,7 +170,6 @@ public sealed class TechTreeDB : MonoBehaviour
             };
 
             // Parse Era 1 - Human Core
-            Debug.Log("[TechTreeDB] Parsing Era 1 Human units and buildings...");
             ParseBuilding(json, "Hall");
             ParseBuilding(json, "Hut");
             ParseBuilding(json, "GatherersHut");
@@ -190,7 +186,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Litharch");
 
             // Parse Era 1 - Feraldis (if present)
-            Debug.Log("[TechTreeDB] Parsing Feraldis (Era 1 variant)...");
             ParseBuilding(json, "FiendstoneKeep");
             ParseBuilding(json, "Feraldis_BeastPen");
             ParseBuilding(json, "Feraldis_HuntingLodge");
@@ -206,7 +201,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Feraldis_SiegeRam");
 
             // Parse Era 2 - Alanthor
-            Debug.Log("[TechTreeDB] Parsing Alanthor (Era 2)...");
             ParseBuilding(json, "KingsCourt");
             ParseBuilding(json, "Alanthor_Wall");
             ParseBuilding(json, "Alanthor_Tower");
@@ -222,7 +216,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Alanthor_Ballista");
 
             // Parse Era 2 - Runai
-            Debug.Log("[TechTreeDB] Parsing Runai (Era 2)...");
             ParseBuilding(json, "ThessarasBazaar");
             ParseBuilding(json, "Runai_Outpost");
             ParseBuilding(json, "Runai_TradeHub");
@@ -243,7 +236,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseTechnology(json, "Runai_EscortedCaravans");
 
             // Parse Technologies (Era 1)
-            Debug.Log("[TechTreeDB] Parsing Technologies...");
             ParseTechnology(json, "Research_Era2");
             ParseTechnology(json, "ImprovedTools");
             ParseTechnology(json, "StorageCarts");
@@ -251,7 +243,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseTechnology(json, "WoodenArmor");
 
             // Parse Sects
-            Debug.Log("[TechTreeDB] Parsing Sects...");
             ParseAllSects(json);
 
             // Ensure Shrine and Temple entries exist with defaults if not in JSON
@@ -273,15 +264,12 @@ public sealed class TechTreeDB : MonoBehaviour
             }
 
             // Log summary
-            Debug.Log($"[TechTreeDB] ✓ Loaded {_buildingsById.Count} buildings, {_unitsById.Count} units, " +
-                     $"{_technologiesById.Count} technologies, {_sectsById.Count} sects");
 
             // Log sample units for verification
             LogSampleUnits();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.LogError($"[TechTreeDB] Parse error: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -292,8 +280,6 @@ public sealed class TechTreeDB : MonoBehaviour
         {
             if (_unitsById.TryGetValue(unitId, out var unit))
             {
-                Debug.Log($"[TechTreeDB] {unit.id}: HP={unit.hp}, Speed={unit.speed}, " +
-                         $"Dmg={unit.damage}, Range={unit.attackRange}, LOS={unit.lineOfSight}");
             }
         }
     }
@@ -343,7 +329,6 @@ public sealed class TechTreeDB : MonoBehaviour
     {
         if (!TrySliceObjectById(json, techId, out string slice))
         {
-            Debug.LogWarning($"[TechTreeDB] Technology not found: {techId}");
             return;
         }
         var dto = JsonUtility.FromJson<TechnologyJson>(slice);
@@ -456,7 +441,6 @@ public sealed class TechTreeDB : MonoBehaviour
             unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
 
         _unitsById[normalizedId] = unit;
-        Debug.Log($"[TechTreeDB] Sect unit: {normalizedId} (from {sect.id}) HP={unit.hp} Dmg={unit.damage}");
     }
 
     /// <summary>
@@ -479,7 +463,6 @@ public sealed class TechTreeDB : MonoBehaviour
             tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
 
         _technologiesById[normalizedId] = tech;
-        Debug.Log($"[TechTreeDB] Sect tech: {normalizedId} (from {sect.id}) Time={tech.researchTime}s");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

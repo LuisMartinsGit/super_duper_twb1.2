@@ -461,8 +461,8 @@ namespace TheWaningBorder.Systems.Work
 
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
-            else
-                ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+                else
+                    ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
 
             return true;
         }

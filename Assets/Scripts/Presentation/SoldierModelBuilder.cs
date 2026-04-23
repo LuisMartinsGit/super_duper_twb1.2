@@ -28,7 +28,6 @@ namespace TheWaningBorder.Presentation
             root.transform.position = position;
 
             // Body center offset - legs are at ground level
-            float groundOffset = 0.5f; // half leg height
 
             // === TORSO ===
             var torso = CreatePart("Torso", PrimitiveType.Cube, root.transform,

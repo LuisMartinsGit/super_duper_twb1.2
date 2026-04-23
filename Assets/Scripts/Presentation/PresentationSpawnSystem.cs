@@ -237,7 +237,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
                 _spawnedEntities.Add(entity);
 
-                Debug.Log($"[PresentationSpawnSystem] Spawned visual for entity {entity.Index} (PresentationId: {presentationId})");
             }
         }
 
@@ -419,10 +418,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             if (presentationId >= 200 && presentationId < 500)
                 prefab = _fallbackUnitPrefab;
-            else
                 prefab = _fallbackBuildingPrefab;
 
-            Debug.LogWarning($"[PresentationSpawnSystem] No prefab for PresentationId {presentationId}, using fallback");
         }
 
         if (prefab == null) return null;
@@ -809,7 +806,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         presentations.Dispose();
         transforms.Dispose();
 
-        Debug.Log($"[PresentationSpawnSystem] Rebuilt visuals for {faction} with culture {CultureConfig.GetName(culture)}");
     }
 
     private void SyncTransforms()
@@ -1789,7 +1785,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // 6 posts: 4 corners + 2 mid-posts on the long sides for structural support
         // Layout: 4.0 x 3.2 post grid (±2.0 on X, ±1.6 on Z)
 
-        float postHeight = 1.45f;
         float[] postX = { 2.0f, -2.0f, 2.0f, -2.0f, 0f, 0f };
         float[] postZ = { 1.6f, 1.6f, -1.6f, -1.6f, 1.6f, -1.6f };
         float[] postThick = { 0.36f, 0.38f, 0.34f, 0.36f, 0.32f, 0.30f };
@@ -2734,10 +2729,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         float scale = presentationId == 310 ? 1.5f : 1f; // Main node is 50% larger
 
-        // --- Colour palette ---
-        var purpleBase  = new Color(0.40f, 0.08f, 0.55f, 0.70f); // translucent deep purple
-        var greenTip    = new Color(0.06f, 0.28f, 0.10f, 0.55f); // translucent dark green
-        var emissionPurple = new Color(0.35f, 0.05f, 0.50f);     // dim purple glow
+        // --- Per-function colour palette derived from coreColor ---
+        var purpleBase = new Color(coreColor.r * 0.7f, coreColor.g * 0.5f, coreColor.b * 0.8f, 0.70f);
+        var greenTip   = new Color(coreColor.r * 0.15f, coreColor.g * 0.6f, coreColor.b * 0.25f, 0.55f);
+        var emissionPurple = coreColor * 0.7f;
 
         var rng = new System.Random(entity.Index + presentationId);
 

@@ -69,7 +69,6 @@ namespace TheWaningBorder.Economy
             IsTargeting = true;
             ActiveSpell = spell;
             CastingFaction = faction;
-            Debug.Log($"[SpellCastSystem] Targeting mode: {spell.Name} for {faction}");
         }
 
         /// <summary>
@@ -101,7 +100,6 @@ namespace TheWaningBorder.Economy
             var spellState = SpellState.Instance;
             if (spellState != null && spellState.IsOnCooldown(faction, spell.Id))
             {
-                Debug.Log($"[SpellCastSystem] {spell.Name} is on cooldown");
                 CancelTargeting();
                 return false;
             }
@@ -113,7 +111,6 @@ namespace TheWaningBorder.Economy
             {
                 // Start cooldown
                 spellState?.StartCooldown(faction, spell.Id, spell.Cooldown);
-                Debug.Log($"[SpellCastSystem] {faction} cast {spell.Name} at {targetPosition}");
             }
 
             // Exit targeting mode
@@ -181,7 +178,6 @@ namespace TheWaningBorder.Economy
                 case "Spell_Annihilation":
                     return ApplyAnnihilation(em, faction, targetPosition, spell);
                 default:
-                    Debug.LogWarning($"[SpellCastSystem] Unknown spell ID: {spell.Id}");
                     return false;
             }
         }
@@ -241,7 +237,6 @@ namespace TheWaningBorder.Economy
                 healed++;
             }
 
-            Debug.Log($"[SpellCastSystem] Restoration Wave: healed {healed} entities globally");
             return true;
         }
 
@@ -256,7 +251,6 @@ namespace TheWaningBorder.Economy
         private bool ApplyArcaneBombardment(EntityManager em, Faction faction, float3 target, SpellDefinition spell)
         {
             StartCoroutine(ArcaneBombardmentCoroutine(faction, target, spell));
-            Debug.Log($"[SpellCastSystem] Arcane Bombardment: 8 bolts over 8s at {target}");
             return true;
         }
 
@@ -375,13 +369,12 @@ namespace TheWaningBorder.Economy
 
                 if (em.HasComponent<SpellDebuff>(uEntities[i]))
                     em.SetComponentData(uEntities[i], debuff);
-                else
-                    em.AddComponentData(uEntities[i], debuff);
+                    else
+                        em.AddComponentData(uEntities[i], debuff);
 
                 stunned++;
             }
 
-            Debug.Log($"[SpellCastSystem] Earthquake: damaged {damaged} buildings, stunned {stunned} units");
             return true;
         }
 
@@ -411,13 +404,12 @@ namespace TheWaningBorder.Economy
 
                 if (em.HasComponent<StealthTag>(entities[i]))
                     em.SetComponentData(entities[i], stealth);
-                else
-                    em.AddComponentData(entities[i], stealth);
+                    else
+                        em.AddComponentData(entities[i], stealth);
 
                 stealthed++;
             }
 
-            Debug.Log($"[SpellCastSystem] Veil of Shadows: stealthed {stealthed} units for {spell.Duration}s");
             return true;
         }
 
@@ -444,7 +436,6 @@ namespace TheWaningBorder.Economy
                 em.AddComponentData(unit, new SummonedUnit { DespawnTimer = lifetime });
             }
 
-            Debug.Log($"[SpellCastSystem] Summon Caravan Guard: spawned {count} Flame Wardens for {lifetime}s");
             return true;
         }
 
@@ -486,13 +477,12 @@ namespace TheWaningBorder.Economy
 
                 if (em.HasComponent<SpellBuff>(bankEntities[i]))
                     em.SetComponentData(bankEntities[i], buff);
-                else
-                    em.AddComponentData(bankEntities[i], buff);
+                    else
+                        em.AddComponentData(bankEntities[i], buff);
 
                 break;
             }
 
-            Debug.Log($"[SpellCastSystem] Golden Tribute: +500 Supplies, +200 Iron, +100 Crystal for {faction}");
             return true;
         }
 
@@ -508,7 +498,6 @@ namespace TheWaningBorder.Economy
         private bool ApplyArcaneStorm(EntityManager em, Faction faction, float3 target, SpellDefinition spell)
         {
             StartCoroutine(ArcaneStormCoroutine(faction, target, spell));
-            Debug.Log($"[SpellCastSystem] Arcane Storm: 16 bolts over 8s at {target}");
             return true;
         }
 
@@ -619,7 +608,6 @@ namespace TheWaningBorder.Economy
 
             if (closestIdx < 0)
             {
-                Debug.Log("[SpellCastSystem] Dominate: no valid enemy unit found within range");
                 return false;
             }
 
@@ -635,13 +623,12 @@ namespace TheWaningBorder.Economy
 
             if (em.HasComponent<MindControlled>(entities[closestIdx]))
                 em.SetComponentData(entities[closestIdx], mc);
-            else
-                em.AddComponentData(entities[closestIdx], mc);
+                else
+                    em.AddComponentData(entities[closestIdx], mc);
 
             // Change faction to caster's
             em.SetComponentData(entities[closestIdx], new FactionTag { Value = faction });
 
-            Debug.Log($"[SpellCastSystem] Dominate: took control of enemy unit from {originalFaction} for {duration}s");
             return true;
         }
 
@@ -691,7 +678,6 @@ namespace TheWaningBorder.Economy
                 }
             }
 
-            Debug.Log($"[SpellCastSystem] Firestorm: created {tilesCreated} burning ground tiles for {spell.Duration}s");
             return true;
         }
 
@@ -719,7 +705,6 @@ namespace TheWaningBorder.Economy
                 em.AddComponentData(unit, new SummonedUnit { DespawnTimer = lifetime });
             }
 
-            Debug.Log($"[SpellCastSystem] Summon War Host: spawned 3 Brandbreakers + 2 Ashblades for {lifetime}s");
             return true;
         }
 
@@ -765,7 +750,6 @@ namespace TheWaningBorder.Economy
             if (closestIdx < 0)
             {
                 hitSet.Dispose();
-                Debug.Log("[SpellCastSystem] Chain Lightning: no valid target found");
                 return false;
             }
 
@@ -811,7 +795,6 @@ namespace TheWaningBorder.Economy
             }
 
             hitSet.Dispose();
-            Debug.Log($"[SpellCastSystem] Chain Lightning: hit {totalHits} enemies");
             return true;
         }
 
@@ -851,7 +834,6 @@ namespace TheWaningBorder.Economy
 
             if (closestIdx < 0)
             {
-                Debug.Log("[SpellCastSystem] Annihilation: no valid target found");
                 return false;
             }
 
@@ -863,7 +845,6 @@ namespace TheWaningBorder.Economy
                 var hp = healths[closestIdx];
                 hp.Value = 0;
                 em.SetComponentData(target, hp);
-                Debug.Log("[SpellCastSystem] Annihilation: destroyed Crystal sub-node instantly");
                 return true;
             }
 
@@ -871,11 +852,6 @@ namespace TheWaningBorder.Economy
             var targetHp = healths[closestIdx];
             targetHp.Value = math.max(0, targetHp.Value - (int)spell.EffectValue); // 500
             em.SetComponentData(target, targetHp);
-
-            if (em.HasComponent<CrystalMainNodeTag>(target))
-                Debug.Log($"[SpellCastSystem] Annihilation: dealt {spell.EffectValue} true damage to Crystal main node");
-            else
-                Debug.Log($"[SpellCastSystem] Annihilation: dealt {spell.EffectValue} true damage to target");
 
             return true;
         }

@@ -83,7 +83,6 @@ namespace TheWaningBorder.Systems.Buildings
 
                     if (nowOpen == 1)
                         grid.UnblockBuildingRect(gatePos, size);
-                    else
                         grid.BlockBuildingRect(gatePos, size);
 
                     anyChanged = true;

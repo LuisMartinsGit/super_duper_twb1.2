@@ -171,7 +171,6 @@ namespace TheWaningBorder.AI
             var em = state.EntityManager;
             float3 basePos = GetBasePosition(ref state, faction);
 
-            Debug.Log($"[AIDefenseBehavior] {faction} EMERGENCY DEFENSE triggered! Threat at {threatPos}");
 
             float3 interceptPos = math.lerp(basePos, threatPos, 0.3f);
 

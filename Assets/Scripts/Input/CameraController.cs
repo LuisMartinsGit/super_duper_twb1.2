@@ -226,7 +226,6 @@ namespace TheWaningBorder.Input
             
             if (_terrain != null)
             {
-                Debug.Log($"[CameraController] Found terrain: {_terrain.name}");
             }
         }
         

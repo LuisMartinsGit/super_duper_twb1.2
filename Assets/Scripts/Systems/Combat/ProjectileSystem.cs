@@ -327,16 +327,16 @@ namespace TheWaningBorder.Systems.Combat
             // Use ECB for AddComponent to avoid structural changes during iteration
             if (em.HasComponent<LastDamagedByFaction>(targetEntity))
                 em.SetComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
-            else
-                ecb.AddComponent(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
+                else
+                    ecb.AddComponent(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
 
             // Track attacker entity for defensive stance return-fire
             if (shooter != Entity.Null && em.Exists(shooter))
             {
                 if (em.HasComponent<LastAttackerEntity>(targetEntity))
                     em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
-                else
-                    ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
+                    else
+                        ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
             }
         }
 
@@ -389,15 +389,15 @@ namespace TheWaningBorder.Systems.Combat
                 // Track last damager for kill credit
                 if (em.HasComponent<LastDamagedByFaction>(entities[i]))
                     em.SetComponentData(entities[i], new LastDamagedByFaction { Value = proj.Faction });
-                else
-                    ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
+                    else
+                        ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
 
                 if (shooter != Entity.Null && em.Exists(shooter))
                 {
                     if (em.HasComponent<LastAttackerEntity>(entities[i]))
                         em.SetComponentData(entities[i], new LastAttackerEntity { Value = shooter });
-                    else
-                        ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
+                        else
+                            ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
                 }
             }
         }
