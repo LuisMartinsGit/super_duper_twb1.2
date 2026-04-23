@@ -23,116 +23,12 @@ public partial class PresentationSpawnSystem
     /// </summary>
     private GameObject CreateProceduralForest(Vector3 center, float radius, Entity entity)
     {
+        // Tree visuals are handled by ProceduralTerrain.PlaceTerrainTrees (Spruce_008 prefab).
+        // This method returns an empty invisible root so PresentationSpawnSystem can track
+        // the forest entity for cleanup on destroy, and so minimap tracking still works.
         var root = new GameObject($"Forest_{entity.Index}");
         root.transform.position = center;
-
-        var rng = new System.Random(entity.Index + 12345);
-        int treeCount = rng.Next(20, 31); // Dense forest: 20-30 trees
-
-        // Colors
-        var trunkBrown = new Color(0.35f, 0.22f, 0.10f);
-        var canopyDarkGreen = new Color(0.15f, 0.35f, 0.10f);
-        var canopyLightGreen = new Color(0.25f, 0.50f, 0.15f);
-
-        // Ground foliage colors (fallen leaves / forest floor)
-        var foliageDark = new Color(0.20f, 0.28f, 0.08f);
-        var foliageLight = new Color(0.30f, 0.22f, 0.10f);
-
-        // Shared materials
-        var litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-
-        // Forest floor: scattered ground cover patches (uses separate RNG to not desync tree positions)
-        var groundRng = new System.Random(entity.Index + 99999);
-        int patchCount = groundRng.Next(8, 15);
-        for (int p = 0; p < patchCount; p++)
-        {
-            float pAngle = (float)(groundRng.NextDouble() * Mathf.PI * 2f);
-            float pDist = (float)(groundRng.NextDouble() * radius * 0.75f);
-            float px = Mathf.Cos(pAngle) * pDist;
-            float pz = Mathf.Sin(pAngle) * pDist;
-            float py = TerrainUtility.GetHeight(center.x + px, center.z + pz) - center.y;
-
-            float patchSize = 1.5f + (float)groundRng.NextDouble() * 2.5f;
-            float patchRot = (float)groundRng.NextDouble() * 360f;
-            float colorT = (float)groundRng.NextDouble();
-
-            var patch = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            patch.name = $"GroundPatch_{p}";
-            patch.transform.SetParent(root.transform, false);
-            patch.transform.localPosition = new Vector3(px, py + 0.05f, pz);
-            patch.transform.localRotation = Quaternion.Euler(90f, patchRot, 0f);
-            patch.transform.localScale = new Vector3(patchSize, patchSize, 1f);
-
-            var patchRenderer = patch.GetComponent<Renderer>();
-            if (patchRenderer != null)
-            {
-                // Fix #203: use shared material + MaterialPropertyBlock
-                ProceduralMaterialHelper.SetColor(patchRenderer, Color.Lerp(foliageDark, foliageLight, colorT));
-                patchRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
-            var patchCol = patch.GetComponent<Collider>();
-            if (patchCol != null) Destroy(patchCol);
-        }
-
-        for (int i = 0; i < treeCount; i++)
-        {
-            // Random position tightly packed within radius
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = (float)(rng.NextDouble() * radius * 0.65f); // Tighter packing
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-
-            float treeHeight = 2.5f + (float)rng.NextDouble() * 3f;
-            float trunkRadius = 0.12f + (float)rng.NextDouble() * 0.08f;
-            float canopyRadius = 0.7f + (float)rng.NextDouble() * 0.5f;
-
-            // Get terrain height at tree position
-            float treeY = TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ);
-            Vector3 treeBase = new Vector3(offsetX, treeY - center.y, offsetZ);
-
-            // Trunk (cylinder)
-            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunk.name = $"Trunk_{i}";
-            trunk.transform.SetParent(root.transform, false);
-            trunk.transform.localPosition = treeBase + Vector3.up * (treeHeight * 0.35f);
-            trunk.transform.localScale = new Vector3(trunkRadius * 2f, treeHeight * 0.4f, trunkRadius * 2f);
-            var trunkRenderer = trunk.GetComponent<Renderer>();
-            if (trunkRenderer != null)
-            {
-                // Fix #203: shared material + MPB
-                ProceduralMaterialHelper.SetColor(trunkRenderer, trunkBrown);
-            }
-            // Remove trunk collider (individual tree ECS entities handle collision)
-            var trunkCol = trunk.GetComponent<Collider>();
-            if (trunkCol != null) Destroy(trunkCol);
-
-            // Canopy (sphere)
-            var canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            canopy.name = $"Canopy_{i}";
-            canopy.transform.SetParent(root.transform, false);
-            canopy.transform.localPosition = treeBase + Vector3.up * (treeHeight * 0.65f);
-            canopy.transform.localScale = Vector3.one * canopyRadius * 2f;
-            var canopyRenderer = canopy.GetComponent<Renderer>();
-            if (canopyRenderer != null)
-            {
-                // Fix #203: shared material + MPB
-                float greenVariation = (float)rng.NextDouble();
-                ProceduralMaterialHelper.SetColor(canopyRenderer, Color.Lerp(canopyDarkGreen, canopyLightGreen, greenVariation));
-            }
-            // Remove canopy collider
-            var canopyCol = canopy.GetComponent<Collider>();
-            if (canopyCol != null) Destroy(canopyCol);
-        }
-
-        // Add a single large collider for the whole forest (selection/raycasting)
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(radius * 2f, 6f, radius * 2f);
-        boxCol.center = Vector3.up * 3f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
+        root.SetActive(false);
         return root;
     }
 

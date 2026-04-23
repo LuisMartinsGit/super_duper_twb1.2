@@ -335,14 +335,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === CRYSTAL CURSE: paint terrain splatmap instead of spawning visible plane ===
+        // === CRYSTAL CURSE: tiles are DPS markers only — visual is painted
+        // once per node by CrystalSpreadSystem as an organic growing blob ===
         if (presentationId == CursedGroundPresentationId)
         {
-            float radius = _em.HasComponent<Radius>(entity) ? _em.GetComponentData<Radius>(entity).Value : 2f;
-            if (ProceduralTerrain.Instance != null)
-            {
-                ProceduralTerrain.Instance.PaintCursedGround(pos.x, pos.z, radius);
-            }
             // Return a minimal hidden root so PresentationSpawnSystem tracks this entity
             // (needed for cleanup when entity is destroyed, e.g. crystal node killed)
             var go = new GameObject($"CursedGround_{entity.Index}");

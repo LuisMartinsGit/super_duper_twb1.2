@@ -754,7 +754,11 @@ namespace TheWaningBorder.World.Terrain
             const float noiseStrength = 0.35f; // How much the radius varies (±35%)
 
             float basePixelRadius = (radius / terrainSizeX) * res;
+            float terrainCellSize = terrainSizeX / res;
 
+            // Paint area is oversized (1.3x) so noise tendrils extend beyond the ring.
+            // Extra world-space noise offsets make each node's shape unique but still
+            // tile across overlapping nodes (shared world-space noise field).
             for (int z = 0; z < height; z++)
             {
                 for (int x = 0; x < width; x++)
@@ -763,19 +767,32 @@ namespace TheWaningBorder.World.Terrain
                     float dz = (minZ + z) - centerPixelZ;
                     float dist = Mathf.Sqrt(dx * dx + dz * dz);
 
-                    // Use world-space pixel position for noise (shared across all patches)
-                    float worldPixelX = (minX + x) * (terrainSizeX / res) + terrainPosX;
-                    float worldPixelZ = (minZ + z) * (terrainSizeZ / res) + terrainPosZ;
+                    // World-space pixel position for noise sampling (shared field)
+                    float worldPixelX = (minX + x) * terrainCellSize + terrainPosX;
+                    float worldPixelZ = (minZ + z) * terrainCellSize + terrainPosZ;
 
-                    // Multi-octave Perlin noise for organic edge shape
-                    float noise = Mathf.PerlinNoise(worldPixelX * noiseScale1 + 100f, worldPixelZ * noiseScale1 + 100f) * 0.5f
-                                + Mathf.PerlinNoise(worldPixelX * noiseScale2 + 200f, worldPixelZ * noiseScale2 + 200f) * 0.3f
-                                + Mathf.PerlinNoise(worldPixelX * noiseScale3 + 300f, worldPixelZ * noiseScale3 + 300f) * 0.2f;
-                    // Remap noise from 0..1 to -1..1 range
+                    // ── DOMAIN WARPING: perturb the sample point with a low-frequency
+                    //    noise field. Creates swirling, non-circular bulges and tendrils.
+                    float warpScale = 0.08f;
+                    float warpStrength = radius * 0.5f; // warp grows with blob size
+                    float wx = Mathf.PerlinNoise(worldPixelX * warpScale + 55f, worldPixelZ * warpScale + 77f) - 0.5f;
+                    float wz = Mathf.PerlinNoise(worldPixelX * warpScale + 211f, worldPixelZ * warpScale + 13f) - 0.5f;
+                    float sampleX = worldPixelX + wx * warpStrength;
+                    float sampleZ = worldPixelZ + wz * warpStrength;
+
+                    // Multi-octave FBM on the warped coordinates (high contrast for
+                    // strong tendril shapes instead of round bulges)
+                    float noise = Mathf.PerlinNoise(sampleX * noiseScale1 + 100f, sampleZ * noiseScale1 + 100f) * 0.55f
+                                + Mathf.PerlinNoise(sampleX * noiseScale2 + 200f, sampleZ * noiseScale2 + 200f) * 0.3f
+                                + Mathf.PerlinNoise(sampleX * noiseScale3 + 300f, sampleZ * noiseScale3 + 300f) * 0.15f;
+                    noise = Mathf.Pow(noise, 1.4f); // sharpen — deeper indentations
                     float noiseOffset = (noise - 0.5f) * 2f * noiseStrength;
 
-                    // Distorted radius at this pixel
-                    float localRadius = basePixelRadius * (1f + noiseOffset);
+                    // Compute local distorted radius. We also add a secondary edge-biased
+                    // perturbation so lobes and pseudopods extend past the base radius.
+                    float tendril = Mathf.PerlinNoise(worldPixelX * 0.05f + 400f, worldPixelZ * 0.05f + 500f);
+                    tendril = Mathf.Pow(tendril, 3f); // rare but strong bulges
+                    float localRadius = basePixelRadius * (1f + noiseOffset + tendril * 0.4f);
                     if (localRadius < 1f) localRadius = 1f;
 
                     if (dist > localRadius) continue;
@@ -1578,11 +1595,11 @@ namespace TheWaningBorder.World.Terrain
             if (!placeTrees) return;
             if (_treeRoot != null) return; // already placed
 
-            // Load the tree prefab — dev/editor path first, then Resources fallback
-            GameObject treePrefab = LoadTreePrefab();
-            if (treePrefab == null)
+            // Load all tree prefabs for variety — dev/editor path first, then Resources fallback
+            var treePrefabs = LoadTreePrefabs();
+            if (treePrefabs == null || treePrefabs.Length == 0)
             {
-                Debug.LogWarning("[ProceduralTerrain] Spruce_008 prefab not found — skipping trees");
+                Debug.LogError("[ProceduralTerrain] No tree prefabs could be loaded — check path to Spruce_008.prefab or copy it to Assets/Resources/Trees/");
                 return;
             }
 
@@ -1642,6 +1659,9 @@ namespace TheWaningBorder.World.Terrain
                     float slope = Mathf.Max(Mathf.Abs(yN - y), Mathf.Abs(yE - y)) / 2f;
                     if (slope > 0.35f) continue;
 
+                    // Pick a prefab variant from the loaded array
+                    var treePrefab = treePrefabs[(int)(hash >> 4) % treePrefabs.Length];
+
                     // Instantiate tree with variation
                     var tree = Object.Instantiate(treePrefab, new Vector3(wx, y, wz),
                         Quaternion.Euler(0, ((hash >> 8) & 0xFFFF) / 65535f * 360f, 0),
@@ -1668,15 +1688,45 @@ namespace TheWaningBorder.World.Terrain
             Debug.Log($"[ProceduralTerrain] Placed {placed} trees across {worldSize}x{worldSize} terrain");
         }
 
+        // Cache loaded prefabs so we don't reload every instantiation
+        private GameObject[] _treePrefabCache;
+
+        private GameObject[] LoadTreePrefabs()
+        {
+            if (_treePrefabCache != null && _treePrefabCache.Length > 0)
+                return _treePrefabCache;
+
+            var list = new List<GameObject>();
+            string[] paths = {
+                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/Spruce_008.prefab",
+                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/SpruceClutter_009.prefab",
+            };
+
+            #if UNITY_EDITOR
+            foreach (var p in paths)
+            {
+                var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p);
+                if (prefab != null) list.Add(prefab);
+                else Debug.LogWarning($"[ProceduralTerrain] Could not load tree prefab at: {p}");
+            }
+            #endif
+
+            // Resources fallback (needs prefabs in Assets/Resources/Trees/)
+            if (list.Count == 0)
+            {
+                var r1 = Resources.Load<GameObject>("Trees/Spruce_008");
+                if (r1 != null) list.Add(r1);
+            }
+
+            _treePrefabCache = list.ToArray();
+            Debug.Log($"[ProceduralTerrain] Loaded {_treePrefabCache.Length} tree prefabs");
+            return _treePrefabCache;
+        }
+
         private GameObject LoadTreePrefab()
         {
-            #if UNITY_EDITOR
-            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
-                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/Spruce_008.prefab");
-            if (prefab != null) return prefab;
-            #endif
-            // Runtime fallback: Resources folder (prefab must be in Assets/Resources/Trees/)
-            return Resources.Load<GameObject>("Trees/Spruce_008");
+            var prefabs = LoadTreePrefabs();
+            return prefabs.Length > 0 ? prefabs[0] : null;
         }
 
         private static readonly MaterialPropertyBlock _treeMpb = new MaterialPropertyBlock();
