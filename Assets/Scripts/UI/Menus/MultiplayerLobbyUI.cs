@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Multiplayer;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -110,7 +111,7 @@ namespace TheWaningBorder.UI.Menus
         private float _lobbySyncTimer;
         private string _error;
 
-        // Styles
+        // Specialty styles (no Styles.cs counterpart — rich-text bold headers + bare slot/list boxes)
         private GUIStyle _headerStyle;
         private GUIStyle _slotStyle;
         private GUIStyle _factionLabelStyle;
@@ -148,6 +149,7 @@ namespace TheWaningBorder.UI.Menus
 
         void OnGUI()
         {
+            Styles.Initialize();
             InitStyles();
             _windowRect = GUI.Window(10003, _windowRect, DrawWindow, "Multiplayer Lobby");
         }
@@ -156,6 +158,7 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInit) return;
 
+            // Bold rich-text label for "<b>...</b>" section headers (no Styles match — needs richText=true)
             _headerStyle = new GUIStyle(GUI.skin.label)
             {
                 fontStyle = FontStyle.Bold,
@@ -390,8 +393,16 @@ namespace TheWaningBorder.UI.Menus
             {
                 if (GUILayout.Button("■", GUILayout.Width(24), GUILayout.Height(20)))
                 {
+                    // Earlier missing braces meant SendColorChange ran for
+                    // host AND non-host. SendColorChange itself calls
+                    // CycleSlotColor on the host side, so the host effectively
+                    // cycled twice per click. Non-host worked by coincidence
+                    // because the unconditional SendColorChange was what the
+                    // surrounding canChangeColor permission expected.
+                    // (task-060 F-5)
                     if (isHost)
                         CycleSlotColor(index);
+                    else
                         SendColorChange(index);
                 }
             }

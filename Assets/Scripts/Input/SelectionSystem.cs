@@ -460,8 +460,15 @@ namespace TheWaningBorder.Input
                 {
                     if (!_em.HasComponent<UnitTag>(e)) continue;
                     var cls = _em.GetComponentData<UnitTag>(e).Class;
+                    // Earlier missing braces put EVERY unit into `military`, so
+                    // the post-filter that should drop economic units when
+                    // soldiers are present (lines below) replaced _selection
+                    // with itself. Box-selecting 5 builders + 5 swordsmen
+                    // returned all 10 instead of just the 5 swordsmen.
+                    // (task-053 F-4 / task-060 F-1)
                     if (cls == UnitClass.Economy || cls == UnitClass.Miner)
                         economic.Add(e);
+                    else
                         military.Add(e);
                 }
 
@@ -595,19 +602,19 @@ namespace TheWaningBorder.Input
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, clickMask))
             {
-                var go = hit.collider.gameObject;
-                
-                // Check for EntityReference component
-                var link = go.GetComponent<EntityReference>();
-                if (link != null && _em.Exists(link.Entity))
-                    return link.Entity;
-                
-                // Check parent
-                if (go.transform.parent != null)
+                // Walk the full hierarchy from the hit GameObject up to the root
+                // looking for an EntityReference. Procedural buildings put it on
+                // the root, but prefabs may have nested mesh hierarchies (mesh →
+                // group → root) where the collider lives on a deep child. The
+                // earlier "root or one parent" lookup missed those, which made
+                // the click look like a terrain hit and triggered deselection.
+                var t = hit.collider.transform;
+                while (t != null)
                 {
-                    link = go.transform.parent.GetComponent<EntityReference>();
+                    var link = t.GetComponent<EntityReference>();
                     if (link != null && _em.Exists(link.Entity))
                         return link.Entity;
+                    t = t.parent;
                 }
             }
             return Entity.Null;

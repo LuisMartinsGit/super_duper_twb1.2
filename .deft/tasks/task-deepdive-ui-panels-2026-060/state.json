@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-ui-panels-2026-060",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:56:37Z",
+  "updatedAt": "2026-05-03T13:56:37Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:56:37Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "UI Panels deep-dive. 12 verified findings: 5 missing-brace bugs (selection filter, in-game menu toggle, spell cancel, build label, lobby color cycle), per-frame allocation pervasive across 8+ panels, quit-to-menu cleanup shallow, volume slider doesn't apply mid-session. Surface-scan W-1/W-6/W-9 all CONFIRMED.",
+      "timestamp": "2026-05-03T13:56:37Z"
+    }
+  ]
+}

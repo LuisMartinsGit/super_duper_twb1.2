@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-tech-research-2026-057",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:26:52Z",
+  "updatedAt": "2026-05-03T13:26:52Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:26:52Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Tech/Research/Sect deep-dive. Found 2 critical wiring holes the surface scan missed: (F-1) all 12 sect technologies are silently inert because FactionSectState.SetTechFlag has zero callers; (F-2) sect adoption never applies to newly trained units because SectEffectSystem.ApplySectEffectsToUnit is defined but never called. Plus 8 lower-severity findings. Surface-scan verification: 4 of 12 T-* / MB-27/28 claims are real bugs (T-3 perf, T-4 critical SetTechFlag, T-9 cosmetic, T-10 low perf); 8 are refuted or design-correct.",
+      "timestamp": "2026-05-03T13:26:52Z"
+    }
+  ]
+}

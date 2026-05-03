@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-crystal-construction-2026-058",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:37:39Z",
+  "updatedAt": "2026-05-03T13:37:39Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:37:39Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Crystal/Construction deep-dive. Found 3 critical bugs the surface scan missed: F-1 Veilstinger combat AI broken (missing else if causes oscillation), F-2 CrystalExtinctionSystem multiplayer determinism break (genuine MB-21), F-3 failed respawn costs 3 minutes. Plus F-5 (HIGH): construction tick erases combat damage, half-built buildings unkillable. Surface-scan verification: 4/9 confirmed, but only MB-21 is the cosmetic-class bug (others mis-described). Cumulative across 7 deep-dives: ~80 verified findings, ~25 critical/high.",
+      "timestamp": "2026-05-03T13:37:39Z"
+    }
+  ]
+}

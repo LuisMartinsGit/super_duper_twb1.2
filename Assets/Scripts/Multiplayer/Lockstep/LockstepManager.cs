@@ -520,6 +520,22 @@ namespace TheWaningBorder.Multiplayer
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
                     }
                     break;
+
+                case LockstepCommandType.Ability:
+                    // Earlier this case was missing entirely; CommandRouter still
+                    // queued ability commands for lockstep, so on every peer
+                    // (including the issuer in MP) the command was silently
+                    // dropped. Litharch heal, Cadaver crystal cast, and every
+                    // other UnitAbility were dead in MP. Wire it up to mirror
+                    // the post-lockstep helpers other cases use.
+                    {
+                        Entity targetEntity = cmd.TargetEntityId > 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId)
+                            : Entity.Null;
+                        CommandRouter.IssueAbilityDirect(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                    }
+                    break;
             }
         }
 

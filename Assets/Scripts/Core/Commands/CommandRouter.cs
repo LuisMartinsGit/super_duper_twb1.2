@@ -61,6 +61,22 @@ namespace TheWaningBorder.Core.Commands
             return em.HasComponent<NotControllableTag>(unit);
         }
 
+        // Wipes any waypoint queue on the unit. Called by every fresh primary
+        // command (move/attack/gather/etc.) so issuing a new order while the
+        // unit still has Shift-queued waypoints cancels them. CommandQueueSystem
+        // bypasses CommandRouter and calls helpers directly during drain — it
+        // is unaffected by this clear.
+        private static void CancelQueuedCommands(EntityManager em, Entity unit)
+        {
+            if (!em.Exists(unit)) return;
+            if (em.HasBuffer<QueuedCommand>(unit))
+                em.GetBuffer<QueuedCommand>(unit).Clear();
+            if (em.HasComponent<CommandQueueActive>(unit))
+                em.RemoveComponent<CommandQueueActive>(unit);
+            if (em.HasComponent<CommandQueueFrozen>(unit))
+                em.RemoveComponent<CommandQueueFrozen>(unit);
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // MOVEMENT COMMANDS
         // ═══════════════════════════════════════════════════════════════
@@ -73,6 +89,8 @@ namespace TheWaningBorder.Core.Commands
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
+
+            CancelQueuedCommands(em, unit);
 
             if (ShouldQueueForLockstep(source))
             {
@@ -98,6 +116,8 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
+            CancelQueuedCommands(em, unit);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueAttackForLockstep(em, unit, target);
@@ -121,6 +141,8 @@ namespace TheWaningBorder.Core.Commands
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
+
+            CancelQueuedCommands(em, unit);
 
             if (ShouldQueueForLockstep(source))
             {
@@ -147,6 +169,8 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
+            CancelQueuedCommands(em, unit);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueuePatrolForLockstep(em, unit, destination);
@@ -169,6 +193,8 @@ namespace TheWaningBorder.Core.Commands
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
+
+            CancelQueuedCommands(em, unit);
 
             if (ShouldQueueForLockstep(source))
             {
@@ -194,6 +220,8 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
+            CancelQueuedCommands(em, unit);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueHoldPositionForLockstep(em, unit);
@@ -217,6 +245,8 @@ namespace TheWaningBorder.Core.Commands
             if (builder == Entity.Null || !em.Exists(builder)) return;
             if (IsBlockedByNotControllable(em, builder, source)) return;
 
+            CancelQueuedCommands(em, builder);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueBuildForLockstep(em, builder, targetBuilding, buildingId, position);
@@ -239,6 +269,8 @@ namespace TheWaningBorder.Core.Commands
         {
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
+
+            CancelQueuedCommands(em, miner);
 
             if (ShouldQueueForLockstep(source))
             {
@@ -264,6 +296,8 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, healer, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
+            CancelQueuedCommands(em, healer);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueHealForLockstep(em, healer, target);
@@ -288,6 +322,8 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, miner, source)) return;
             if (keep == Entity.Null || !em.Exists(keep)) return;
 
+            CancelQueuedCommands(em, miner);
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueConvertForLockstep(em, miner, keep);
@@ -311,6 +347,8 @@ namespace TheWaningBorder.Core.Commands
             if (builder == Entity.Null || !em.Exists(builder)) return;
             if (IsBlockedByNotControllable(em, builder, source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
+
+            CancelQueuedCommands(em, builder);
 
             if (ShouldQueueForLockstep(source))
             {
@@ -394,12 +432,19 @@ namespace TheWaningBorder.Core.Commands
             IssueAbilityDirect(em, unit, target);
         }
 
-        private static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
+        /// <summary>
+        /// Direct ability application path. Called by IssueAbility for non-MP and
+        /// by LockstepManager.ExecuteCommand on the lockstep replay path. Made
+        /// public to mirror PlaceBuildingDirect / TrainCommandDirect (post-lockstep
+        /// helpers).
+        /// </summary>
+        public static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
         {
-            if (!em.HasComponent<AbilityActivated>(unit))
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (em.HasComponent<AbilityActivated>(unit))
+                em.SetComponentData(unit, new AbilityActivated { Target = target });
+            else
                 em.AddComponentData(unit, new AbilityActivated { Target = target });
-                else
-                    em.SetComponentData(unit, new AbilityActivated { Target = target });
         }
 
         // ═══════════════════════════════════════════════════════════════

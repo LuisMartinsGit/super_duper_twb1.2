@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-economy-2026-056",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:14:34Z",
+  "updatedAt": "2026-05-03T13:14:34Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:14:34Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Economy deep-dive. 3 critical bugs the surface scan missed: pillage/caravan loot pay every frame for 2s per kill (60-120x scaling), wall enclosure income never deposits. Plus 7 lower-severity (vault interest 2x multiplied, miner load lost on smelter reassign, dead WallIncomeFromTech, etc.). Surface-scan verification: 9 of 10 MB-* claims REFUTED, only MB-5 (TradingPostSystem trader-approach offset) is a real bug. Continues the pattern from combat (0/11 confirmed) and movement (3/3 confirmed) — task-051's MB sweep is significantly smaller than reported.",
+      "timestamp": "2026-05-03T13:14:34Z"
+    }
+  ]
+}

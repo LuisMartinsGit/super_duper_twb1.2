@@ -33,10 +33,21 @@ namespace TheWaningBorder.Systems.Economy
         {
             var em = state.EntityManager;
 
-            // Process dead traders (RunaiTraderState system)
+            // Process dead traders (RunaiTraderState system).
+            //
+            // Earlier this query had no death-marker exclusion. DeathSystem
+            // keeps the trader entity alive ~2s for animation, so the loop
+            // hit the same dead trader every frame and called FactionEconomy.Add
+            // on EACH frame: a trader carrying 20 supplies + 5 crystal paid
+            // ~1200 supplies + ~300 crystal over 2s instead of the intended
+            // 10 + 2. The `[UpdateBefore(DeathSystem)]` on this system only
+            // gates the FIRST frame of death — subsequent frames still see
+            // the entity. WithNone on the death markers caps the payout to
+            // exactly one frame. (task-056 F-2)
             foreach (var (health, trader, lastDamager, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<RunaiTraderState>, RefRO<LastDamagedByFaction>>()
                 .WithAll<CaravanTag>()
+                .WithNone<DeathAnimationState, BuildingCollapseState>()
                 .WithEntityAccess())
             {
                 if (health.ValueRO.Value > 0) continue;

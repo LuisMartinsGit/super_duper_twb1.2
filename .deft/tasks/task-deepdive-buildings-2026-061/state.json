@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-buildings-2026-061",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T14:11:47Z",
+  "updatedAt": "2026-05-03T14:11:47Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T14:11:47Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Final deep-dive in series (task-052..061). Building factories + cultural variants. Found 19 verified findings: B-1 critical (walls bypass lockstep entirely), B-2 dormant (chapel PIDs collide with Forest/Rock), B-5 high (BuildType enum missing 8+ IDs — half cultural roster unbuildable via UI), B-6 medium (Shrine footprint mismatch). Cultural building coverage matrix shows 8 player-facing buildings have no UI path. Deep-dive series complete: 10 audit tasks (052-061), ~140 verified findings.",
+      "timestamp": "2026-05-03T14:11:47Z"
+    }
+  ]
+}

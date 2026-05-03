@@ -44,9 +44,20 @@ namespace TheWaningBorder.Systems.Economy
         {
             var em = state.EntityManager;
 
-            // Process all dead entities that have kill credit tracking
+            // Process all dead entities that have kill credit tracking.
+            //
+            // Earlier this query had no death-marker exclusion, and the body
+            // only filtered by `Health.Value <= 0`. DeathSystem keeps dead
+            // entities alive for ~2s during the death animation / collapse,
+            // so this loop hit the same dead entity for ~120 frames at 60fps
+            // and called FactionEconomy.Add on EACH frame — a single worker
+            // kill paid ~1800 supplies + 120 iron instead of 15 + 1, a
+            // building kill paid 6000 supplies + 600 iron instead of 50 + 5.
+            // The `WithNone` excludes dead entities still in the animation
+            // pipeline so each kill pays exactly once. (task-056 F-1)
             foreach (var (health, lastDamager, faction, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LastDamagedByFaction>, RefRO<FactionTag>>()
+                .WithNone<DeathAnimationState, BuildingCollapseState>()
                 .WithEntityAccess())
             {
                 if (health.ValueRO.Value > 0) continue;

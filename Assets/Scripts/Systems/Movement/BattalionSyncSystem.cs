@@ -432,8 +432,13 @@ namespace TheWaningBorder.Systems.Movement
                             float3 altDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, enemyPos, -dir, distToEnemy);
                             float3 altPos = memberXf.Position + altDir * step;
+                            // Earlier this fell through to `newPos = memberXf.Position`
+                            // unconditionally because of missing braces — the alt-direction
+                            // probe was always discarded so combat members never used the
+                            // detour even when one existed. (task-053 F-1 / MB-1)
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
+                            else
                                 newPos = memberXf.Position;
                         }
 
@@ -511,8 +516,13 @@ namespace TheWaningBorder.Systems.Movement
                             float3 ffDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, leaderPos, dir, dist);
                             float3 altPos = memberXf.Position + ffDir * step;
+                            // Same missing-brace bug as the combat path above — the
+                            // flow-field detour was always discarded so formation members
+                            // blocked by terrain never made it around obstacles.
+                            // (task-053 F-2 / MB-2)
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
+                            else
                                 newPos = memberXf.Position; // truly stuck, don't move
                         }
                     }
