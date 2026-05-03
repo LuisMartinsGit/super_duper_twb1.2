@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Systems.Movement;
 
 namespace TheWaningBorder.Core.Commands.Types
 {
@@ -230,6 +231,14 @@ namespace TheWaningBorder.Core.Commands.Types
                         Has = 1
                     });
                 }
+
+                // Pre-warm the flow field at the resource node so the BFS is
+                // ready by the time MovementSystem processes the miner. Without
+                // this, the miner walks one or two frames of direct-line before
+                // the field is cached — long enough to clip a building corner
+                // when the deposit sits just past one.
+                if (GameSettings.UseFlowFields)
+                    FlowFieldManager.Instance?.RequestFlowField(nodePos);
             }
         }
     }

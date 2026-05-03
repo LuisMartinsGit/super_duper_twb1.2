@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -25,6 +24,10 @@ namespace TheWaningBorder.UI.HUD
         [SerializeField] private Color supportMarkerColor = new Color(0.3f, 1f, 0.3f, 0.6f);
         [SerializeField] private Color moveLineColor = new Color(1f, 0.82f, 0.2f, 0.35f);
         [SerializeField] private Color moveMarkerColor = new Color(1f, 0.82f, 0.2f, 0.6f);
+        // Saturated yellow for queued waypoints (Shift+rclick chain). More
+        // opaque than moveLineColor so the chain reads against terrain.
+        [SerializeField] private Color queueLineColor = new Color(1f, 0.95f, 0.2f, 0.85f);
+        [SerializeField] private Color queueMarkerColor = new Color(1f, 0.95f, 0.2f, 0.95f);
         [SerializeField] private float lineWidth = 0.06f;
         [SerializeField] private float markerSize = 0.3f;
         [SerializeField] private int lineSegments = 10;
@@ -88,7 +91,12 @@ namespace TheWaningBorder.UI.HUD
                 if (!_em.HasComponent<LocalTransform>(entity)) continue;
 
                 var dest = _em.GetComponentData<DesiredDestination>(entity);
-                if (dest.Has == 0) continue;
+                bool hasActiveDest = dest.Has != 0;
+                bool hasQueuedCommands = _em.HasBuffer<QueuedCommand>(entity)
+                                       && _em.GetBuffer<QueuedCommand>(entity).Length > 0;
+                // Skip entities that have neither an active destination nor any
+                // queued waypoints — nothing to draw.
+                if (!hasActiveDest && !hasQueuedCommands) continue;
 
                 // For battalion leaders, use average position of living members
                 float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
@@ -144,30 +152,67 @@ namespace TheWaningBorder.UI.HUD
                 }
 
                 Vector3 unitWorld = new Vector3(pos.x, 0f, pos.z);
-                Vector3 destWorld = new Vector3(dest.Position.x, 0f, dest.Position.z);
 
-                // Draw terrain-hugging multi-segment line
-                var lr = GetOrCreateLine();
-                ApplyLineColor(lr, lColor);
-                lr.gameObject.SetActive(true);
-                lr.positionCount = lineSegments + 1;
-                for (int s = 0; s <= lineSegments; s++)
+                // Tracks the endpoint each subsequent segment starts from. As
+                // we draw the active line, then each queued waypoint, this
+                // walks W0 → W1 → W2 → … so we connect them as a chain.
+                Vector3 chainEnd = unitWorld;
+
+                if (hasActiveDest)
                 {
-                    float t = (float)s / lineSegments;
-                    float x = Mathf.Lerp(unitWorld.x, destWorld.x, t);
-                    float z = Mathf.Lerp(unitWorld.z, destWorld.z, t);
-                    float y = TerrainUtility.GetHeight(x, z) + lineYOffset;
-                    lr.SetPosition(s, new Vector3(x, y, z));
+                    Vector3 destWorld = new Vector3(dest.Position.x, 0f, dest.Position.z);
+                    DrawSegment(unitWorld, destWorld, lColor);
+                    PlaceMarker(dest.Position, mColor);
+                    chainEnd = destWorld;
                 }
-                _activeLines.Add(lr);
 
-                // Draw destination marker (decal projected on terrain)
-                float destY = TerrainUtility.GetHeight(dest.Position.x, dest.Position.z);
-                var marker = GetOrCreateMarker(mColor);
-                marker.SetActive(true);
-                marker.transform.position = new Vector3(dest.Position.x, destY + 5f, dest.Position.z);
-                _activeMarkers.Add(marker);
+                // ── Queued-waypoint chain (Shift+rclick) ──
+                // Draws a yellow line from the previous waypoint endpoint to
+                // each queued waypoint, plus a marker at every queued point.
+                if (hasQueuedCommands)
+                {
+                    var buffer = _em.GetBuffer<QueuedCommand>(entity);
+                    for (int q = 0; q < buffer.Length; q++)
+                    {
+                        var cmd = buffer[q];
+                        Vector3 wp = new Vector3(cmd.TargetPosition.x, 0f, cmd.TargetPosition.z);
+                        DrawSegment(chainEnd, wp, queueLineColor);
+                        PlaceMarker(cmd.TargetPosition, queueMarkerColor);
+                        chainEnd = wp;
+                    }
+                }
             }
+        }
+
+        // Draws a terrain-hugging segmented line between two ground-projected
+        // points, pulled from the line pool. Y is sampled per segment so the
+        // line follows hills.
+        private void DrawSegment(Vector3 fromXZ, Vector3 toXZ, Color color)
+        {
+            var lr = GetOrCreateLine();
+            ApplyLineColor(lr, color);
+            lr.gameObject.SetActive(true);
+            lr.positionCount = lineSegments + 1;
+            for (int s = 0; s <= lineSegments; s++)
+            {
+                float t = (float)s / lineSegments;
+                float x = Mathf.Lerp(fromXZ.x, toXZ.x, t);
+                float z = Mathf.Lerp(fromXZ.z, toXZ.z, t);
+                float y = TerrainUtility.GetHeight(x, z) + lineYOffset;
+                lr.SetPosition(s, new Vector3(x, y, z));
+            }
+            _activeLines.Add(lr);
+        }
+
+        // Places a destination decal marker at the given world XZ point,
+        // pulled from the marker pool.
+        private void PlaceMarker(float3 worldPos, Color color)
+        {
+            float terrainY = TerrainUtility.GetHeight(worldPos.x, worldPos.z);
+            var marker = GetOrCreateMarker(color);
+            marker.SetActive(true);
+            marker.transform.position = new Vector3(worldPos.x, terrainY + 5f, worldPos.z);
+            _activeMarkers.Add(marker);
         }
 
         private void ApplyLineColor(LineRenderer lr, Color color)
@@ -209,13 +254,6 @@ namespace TheWaningBorder.UI.HUD
 
         private void ApplyMarkerColor(GameObject marker, Color color)
         {
-            var decal = marker.GetComponent<DecalProjector>();
-            if (decal != null && decal.material != null)
-            {
-                if (decal.material.HasProperty("_BaseColor")) decal.material.SetColor("_BaseColor", color);
-                else if (decal.material.HasProperty("Base_Color")) decal.material.SetColor("Base_Color", color);
-                return;
-            }
             var renderer = marker.GetComponent<Renderer>();
             if (renderer != null && renderer.material != null)
             {
@@ -234,26 +272,7 @@ namespace TheWaningBorder.UI.HUD
                 return m;
             }
 
-            // Use DecalProjector for terrain-projected marker
-            var baseMat = DecalHelper.GetDotMarkerMaterial();
-            if (baseMat != null)
-            {
-                var marker = new GameObject("MoveMarkerDecal");
-                marker.transform.SetParent(transform);
-                marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-
-                var decal = marker.AddComponent<DecalProjector>();
-                var mat = new Material(baseMat);
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-                else if (mat.HasProperty("Base_Color")) mat.SetColor("Base_Color", color);
-                decal.material = mat;
-                decal.size = new Vector3(markerSize * 2f, 10f, markerSize * 2f);
-                decal.drawDistance = 500f;
-
-                return marker;
-            }
-
-            // Fallback: sphere primitive
+            // Sphere primitive (no decals)
             var fallback = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             fallback.name = "MoveMarker";
             fallback.transform.SetParent(transform);

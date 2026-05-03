@@ -222,7 +222,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 new float3(newMax.x, 0, newMax.y)
             };
 
-            const float maxSlope = 0.55f;
+            // tan(15°) ≈ 0.2679 — buildings reject placement on terrain steeper than 15°.
+            const float maxSlope = 0.2679f;
             const float slopeStep = 1.5f;
 
             foreach (var pt in checkPoints)

@@ -24,7 +24,7 @@ namespace TheWaningBorder.UI.HUD
     ///     Red    = attacking (in range / dealing damage)
     ///     Magenta = taking damage
     /// </summary>
-    [DefaultExecutionOrder(920)] // After PresentationSpawnSystem (default) and SelectionRings (900)
+    [DefaultExecutionOrder(920)] // After PresentationSpawnSystem (default)
     public class UnitIndicatorSystem : MonoBehaviour
     {
         [Header("Direction Arrow")]

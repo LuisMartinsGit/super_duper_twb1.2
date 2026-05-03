@@ -30,14 +30,13 @@ namespace TheWaningBorder.UI.Panels
         private const float ColumnSpacing = 12f;
         private const float Padding = 16f;
 
-        // ─── Cached styles ───────────────────────────────────────────
-        private GUIStyle _bgStyle;
-        private GUIStyle _headerStyle;
-        private GUIStyle _nameStyle;
-        private GUIStyle _descStyle;
-        private GUIStyle _chooseStyle;
-        private GUIStyle _cancelStyle;
-        private GUIStyle _costStyle;
+        // ─── Cached styles (specialty centered variants — no 1:1 Styles match) ──
+        private GUIStyle _headerCenteredStyle;   // derived from Styles.Header, centered, 22pt
+        private GUIStyle _nameStyle;             // 16pt bold centered (derived from SubHeader)
+        private GUIStyle _descStyle;             // 12pt wordWrap upper-center (bespoke)
+        private GUIStyle _chooseStyle;           // 14pt bold gold-text button
+        private GUIStyle _costAffordable;        // pre-cached 13pt centered green cost label
+        private GUIStyle _costUnaffordable;      // pre-cached 13pt centered red cost label
         private bool _stylesInit;
 
         // ═══════════════════════════════════════════════════════════
@@ -92,9 +91,11 @@ namespace TheWaningBorder.UI.Panels
         {
             if (!_visible) return;
 
+            Styles.Initialize();
             InitStyles();
 
-            // Dim background overlay (full screen)
+            // Dim background overlay (full screen) — 0.6 alpha is lighter than DimOverlayColor's
+            // 0.7, kept inline to preserve the popup's existing modal-tint feel.
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = Color.white;
@@ -104,8 +105,8 @@ namespace TheWaningBorder.UI.Panels
             float y = (Screen.height - PopupHeight) * 0.5f;
             _popupRect = new Rect(x, y, PopupWidth, PopupHeight);
 
-            // Panel background
-            GUI.Box(_popupRect, "", _bgStyle);
+            // Panel background — canonical bordered navy panel.
+            GUI.Box(_popupRect, "", Styles.PanelBox);
 
             var inner = new Rect(
                 _popupRect.x + Padding,
@@ -117,16 +118,14 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.BeginArea(inner);
 
             // ── Header ──
-            GUILayout.Label("Advance to Era 2", _headerStyle);
+            GUILayout.Label("Advance to Era 2", _headerCenteredStyle);
             GUILayout.Space(4);
 
-            // Cost line
+            // Cost line — pre-cached affordable/unaffordable styles (no per-frame alloc).
             string costText = $"Cost: {UIHelpers.FormatCost(CultureConfig.AgeUpCost)}";
             var em = UnifiedUIManager.GetEntityManager();
             bool canAfford = !em.Equals(default(EntityManager)) && FactionEconomy.CanAfford(em, _faction, CultureConfig.AgeUpCost);
-            var costColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
-            var costStyleInst = new GUIStyle(_costStyle) { normal = { textColor = costColor } };
-            GUILayout.Label(costText, costStyleInst);
+            GUILayout.Label(costText, canAfford ? _costAffordable : _costUnaffordable);
 
             GUILayout.Space(8);
             GUILayout.Label("Choose your cultural specialization:", _descStyle);
@@ -148,7 +147,7 @@ namespace TheWaningBorder.UI.Panels
             // ── Cancel button ──
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Cancel", _cancelStyle, GUILayout.Width(100), GUILayout.Height(30)))
+            if (GUILayout.Button("Cancel", Styles.Button, GUILayout.Width(100), GUILayout.Height(30)))
             {
                 Close();
             }
@@ -266,29 +265,20 @@ namespace TheWaningBorder.UI.Panels
         {
             if (_stylesInit) return;
 
-            _bgStyle = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = UIHelpers.MakeBorderedTexture(64, 64,
-                    UIHelpers.ThemePanelBg,
-                    UIHelpers.ThemeGoldBorder, 2) }
-            };
-
-            _headerStyle = new GUIStyle(GUI.skin.label)
+            // Centered 22pt header — derived from Styles.Header (20pt bold gold).
+            _headerCenteredStyle = new GUIStyle(Styles.Header)
             {
                 fontSize = 22,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = UIHelpers.ThemeGold }
+                alignment = TextAnchor.MiddleCenter
             };
 
-            _nameStyle = new GUIStyle(GUI.skin.label)
+            // Centered 16pt bold name label — derived from Styles.SubHeader.
+            _nameStyle = new GUIStyle(Styles.SubHeader)
             {
-                fontSize = 16,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = UIHelpers.ThemeText }
+                alignment = TextAnchor.MiddleCenter
             };
 
+            // Bespoke: 12pt wordWrap upper-center description (no Styles match).
             _descStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 12,
@@ -297,23 +287,22 @@ namespace TheWaningBorder.UI.Panels
                 normal = { textColor = UIHelpers.ThemeTextDim }
             };
 
+            // Bespoke: 14pt bold gold-tinted choose button.
             _chooseStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 14,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = UIHelpers.ThemeGold },
+                normal = { textColor = Styles.HighlightColor },
                 hover = { textColor = Color.white }
             };
 
-            _cancelStyle = new GUIStyle(GUI.skin.button)
+            // Pre-cached cost styles — derived from canonical CostStyle members with center alignment.
+            _costAffordable = new GUIStyle(Styles.CostStyleAffordable)
             {
-                fontSize = 13,
-                normal = { textColor = UIHelpers.ThemeTextDim }
+                alignment = TextAnchor.MiddleCenter
             };
-
-            _costStyle = new GUIStyle(GUI.skin.label)
+            _costUnaffordable = new GUIStyle(Styles.CostStyleUnaffordable)
             {
-                fontSize = 13,
                 alignment = TextAnchor.MiddleCenter
             };
 

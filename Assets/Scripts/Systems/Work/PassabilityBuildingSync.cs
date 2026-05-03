@@ -25,6 +25,14 @@ namespace TheWaningBorder.Systems.Work
     {
         private const float PollInterval = 0.5f;
 
+        // Pads the blocked footprint outward so units keep a small gap from buildings.
+        // Set to 0: with 1 m cells and ~0.5 m unit radii the grid block already gives
+        // ~0.5 m clearance, and any +1 was doubling building footprints — corridors
+        // collapsed in tight bases and trained units spawned/got trapped inside the
+        // padding. If "scraping" returns, raise the unit-vs-building separation
+        // force in CombatSeparationSystem instead of inflating the obstacle grid.
+        private const int FootprintPaddingCells = 0;
+
         private float _timer;
         private NativeHashMap<Entity, BuildingRecord> _knownBuildings;
         private NativeHashMap<Entity, BuildingRecord> _knownObstacles;
@@ -81,13 +89,15 @@ namespace TheWaningBorder.Systems.Work
                 var record = new BuildingRecord
                 {
                     Position = transform.ValueRO.Position,
-                    Radius = radius.ValueRO.Value,
+                    Radius = radius.ValueRO.Value + FootprintPaddingCells,
                     HasSize = (byte)(hasSize ? 1 : 0)
                 };
                 if (hasSize)
                 {
                     var bs = em.GetComponentData<BuildingSize>(entity);
-                    record.Size = new int2(bs.Width, bs.Height);
+                    record.Size = new int2(
+                        bs.Width + FootprintPaddingCells * 2,
+                        bs.Height + FootprintPaddingCells * 2);
                 }
                 currentBuildings.Add(entity, record);
             }
@@ -101,6 +111,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.UnblockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    else
                         grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     toRemove.Add(kvp.Key);
                 }
@@ -119,6 +130,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.BlockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    else
                         grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     _knownBuildings.Add(kvp.Key, kvp.Value);
                     newBuildingsAdded = true;

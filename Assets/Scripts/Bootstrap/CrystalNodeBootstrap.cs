@@ -20,6 +20,13 @@ namespace TheWaningBorder.Bootstrap
         private const float MinDistFromPlayers = 60f;
         private const float MinDistBetweenNodes = 50f;
 
+        // Connectivity probe — see CrystalAISystem.HasOpenNeighbourhood. Reject
+        // candidates with too few passable neighbours so the curse main never
+        // seeds onto a beach pocket where its spawned units would be stranded
+        // between water and a cliff edge.
+        private const int MinPassableNeighbours = 6;     // out of 8 sampled
+        private const float ConnectivityProbeRadius = 10f;
+
         /// <summary>
         /// Spawn crystal main nodes.
         /// Returns the number of nodes spawned.
@@ -59,6 +66,25 @@ namespace TheWaningBorder.Bootstrap
                     var terrain = ProceduralTerrain.Instance;
                     if (terrain != null && terrain.IsInWater(new Vector3(x, y, z)))
                         continue;
+
+                    // Connectivity gate: reject candidates surrounded by water or
+                    // cliff (e.g. small beach pockets). Sample 8 directions around
+                    // the candidate and require enough passable neighbours.
+                    var grid = PassabilityGrid.Instance;
+                    if (grid != null)
+                    {
+                        int passable = 0;
+                        for (int d = 0; d < 8; d++)
+                        {
+                            float a = d * (math.PI * 2f / 8f);
+                            float3 sample = candidate + new float3(
+                                math.cos(a) * ConnectivityProbeRadius, 0f,
+                                math.sin(a) * ConnectivityProbeRadius);
+                            sample.y = TerrainUtility.GetHeight(sample.x, sample.z);
+                            if (grid.IsPassable(sample)) passable++;
+                        }
+                        if (passable < MinPassableNeighbours) continue;
+                    }
 
                     // Check distance from all player positions
                     bool tooCloseToPlayer = false;
@@ -131,9 +157,9 @@ namespace TheWaningBorder.Bootstrap
         private static void SpawnStartingCrystalPatches(EntityManager em, float3[] playerPositions, ref Unity.Mathematics.Random random)
         {
             const int CadaversPerPlayer = 5;
-            const int CrystalPerCadaver = 80;
-            const float PatchDistance = 12f;  // Distance from Hall
-            const float PatchSpread = 4f;     // Spread between cadavers
+            const int CrystalPerCadaver = 320; // 5 × 320 = 1600 crystal per player's starter patch
+            const float PatchDistance = 12f;   // Distance from Hall
+            const float PatchSpread = 4f;      // Spread between cadavers
 
             for (int p = 0; p < playerPositions.Length; p++)
             {
@@ -155,7 +181,10 @@ namespace TheWaningBorder.Bootstrap
                     float3 pos = patchCenter + offset;
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
-                    Cadaver.Create(em, pos, CrystalPerCadaver, 0.6f);
+                    // CreateOrMerge: adjacent placements within Cadaver.MergeRadius
+                    // coalesce into a single node carrying the summed crystal value.
+                    // Per-player total stays at 1600 regardless of how many merges occur.
+                    Cadaver.CreateOrMerge(em, pos, CrystalPerCadaver);
                 }
             }
 

@@ -3,6 +3,7 @@
 // Location: Assets/Scripts/UI/HUD/PathfindingToggleHUD.cs
 
 using UnityEngine;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -13,9 +14,6 @@ namespace TheWaningBorder.UI.HUD
     /// </summary>
     public class PathfindingToggleHUD : MonoBehaviour
     {
-        private GUIStyle _buttonStyle;
-        private bool _stylesInitialized;
-
         void Update()
         {
             if (UnityEngine.Input.GetKeyDown(KeyCode.F5))
@@ -24,7 +22,7 @@ namespace TheWaningBorder.UI.HUD
 
         void OnGUI()
         {
-            InitStyles();
+            Styles.Initialize();
 
             string label = GameSettings.UseFlowFields ? "FF" : "A*";
             string tooltip = GameSettings.UseFlowFields
@@ -38,25 +36,13 @@ namespace TheWaningBorder.UI.HUD
             // Position top-right, below resource bar area
             var rect = new Rect(Screen.width - btnW - margin, 60f + margin, btnW, btnH);
 
-            if (GUI.Button(rect, new GUIContent(label, tooltip), _buttonStyle))
+            if (GUI.Button(rect, new GUIContent(label, tooltip), Styles.ToggleButton))
                 Toggle();
         }
 
         private static void Toggle()
         {
             GameSettings.UseFlowFields = !GameSettings.UseFlowFields;
-        }
-
-        private void InitStyles()
-        {
-            if (_stylesInitialized) return;
-            _buttonStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 12,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-            _stylesInitialized = true;
         }
     }
 }

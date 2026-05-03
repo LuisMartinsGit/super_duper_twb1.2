@@ -130,6 +130,7 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_notifications.Count == 0) return;
 
+            Styles.Initialize();
             InitStyles();
 
             // Draw notifications from top (newest first — newest is at end of list)
@@ -237,15 +238,18 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_stylesInit) return;
 
-            // Dark navy background for the pill
-            _pillBgTex = UIHelpers.MakeTexture(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
+            // Dark navy background for the pill — sourced from canonical PanelBgColor
+            // with a slightly higher alpha (0.92 vs Styles' 0.95) for the floating pill look.
+            var bgColor = Styles.PanelBgColor;
+            bgColor.a = 0.92f;
+            _pillBgTex = Styles.MakeSolid(bgColor);
 
             _pillTextStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 16,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = UIHelpers.ThemeGold }
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _stylesInit = true;

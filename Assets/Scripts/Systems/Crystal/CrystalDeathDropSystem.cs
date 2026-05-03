@@ -13,9 +13,12 @@ namespace TheWaningBorder.Systems.Crystal
     /// before DeathSystem destroys them. Spawns a crystal node (Cadaver) at the
     /// death position worth the entity's BuildCost in gatherable crystal.
     ///
-    /// ALL curse entity deaths drop crystal nodes. The only limit is a cap of
-    /// 32 crystal nodes alive on the map at once — players can clear them to
-    /// allow more to spawn.
+    /// Fires once per death: WithNone&lt;DeathAnimationState, BuildingCollapseState&gt;
+    /// excludes entities whose death has already been registered, so the 2-second
+    /// death animation no longer spawns a fresh cadaver every frame.
+    ///
+    /// Drops route through Cadaver.CreateOrMerge — adjacent drops within
+    /// Cadaver.MergeRadius coalesce into a single node carrying the summed crystal.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSystem))]
@@ -26,12 +29,6 @@ namespace TheWaningBorder.Systems.Crystal
     {
         private const int MaxCrystalNodes = 128;
 
-        /// <summary>Radius for cadavers dropped by main curse nodes (large).</summary>
-        private const float MainNodeCadaverRadius = 2.0f;
-
-        /// <summary>Default cadaver radius for regular curse entities.</summary>
-        private const float DefaultCadaverRadius = 0.8f;
-
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<CrystalResourceValue>();
@@ -39,38 +36,31 @@ namespace TheWaningBorder.Systems.Crystal
 
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
             var em = state.EntityManager;
 
-            // Count existing crystal nodes (cadavers) on the map
-            int activeNodes = 0;
-            foreach (var _ in SystemAPI.Query<RefRO<CadaverTag>>())
-                activeNodes++;
+            var dropPositions = new NativeList<float3>(Allocator.Temp);
+            var dropAmounts = new NativeList<int>(Allocator.Temp);
 
-            foreach (var (health, transform, resourceValue, entity) in SystemAPI
+            foreach (var (health, transform, resourceValue) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<CrystalResourceValue>>()
-                .WithEntityAccess())
+                .WithNone<DeathAnimationState, BuildingCollapseState>())
             {
                 if (health.ValueRO.Value > 0) continue;
 
                 int lootAmount = resourceValue.ValueRO.BuildCost;
                 if (lootAmount <= 0) continue;
 
-                // Respect the cap — skip drop but keep processing deaths
-                if (activeNodes >= MaxCrystalNodes) continue;
-
-                var pos = transform.ValueRO.Position;
-
-                // Main curse nodes leave behind larger crystal deposits
-                bool isMainNode = em.HasComponent<CrystalMainNodeTag>(entity);
-                float radius = isMainNode ? MainNodeCadaverRadius : DefaultCadaverRadius;
-
-                Cadaver.Create(ecb, pos, lootAmount, radius);
-                activeNodes++;
+                dropPositions.Add(transform.ValueRO.Position);
+                dropAmounts.Add(lootAmount);
             }
 
-            ecb.Playback(em);
-            ecb.Dispose();
+            for (int i = 0; i < dropPositions.Length; i++)
+            {
+                Cadaver.CreateOrMerge(em, dropPositions[i], dropAmounts[i], MaxCrystalNodes);
+            }
+
+            dropPositions.Dispose();
+            dropAmounts.Dispose();
         }
     }
 }

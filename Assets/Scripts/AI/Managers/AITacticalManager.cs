@@ -10,6 +10,7 @@ using System.Collections.Generic;  // For IComparer<T>
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIMissionManager))]
     public partial struct AITacticalManager : ISystem

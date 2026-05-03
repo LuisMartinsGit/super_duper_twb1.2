@@ -24,8 +24,14 @@ namespace TheWaningBorder.Systems.Movement
     /// </summary>
     public static class FlowFieldMovementHelper
     {
-        /// <summary>Blend radius in world units (approx 3 cells at cellSize=2).</summary>
-        private const float BlendRadius = 6f;
+        /// <summary>
+        /// Blend radius in world units. Within this distance of the goal, the
+        /// helper blends to direct-line for precise arrival. Kept tight (2m) so
+        /// units close to a building still consult the flow field — earlier 6m
+        /// caused units to walk direct-line straight into a building when their
+        /// goal was just past it. Aligned with FlowFieldLookup.BlendRadius.
+        /// </summary>
+        private const float BlendRadius = 2f;
 
         /// <summary>
         /// Given a unit position and its goal, return the movement direction

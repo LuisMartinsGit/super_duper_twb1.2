@@ -13,6 +13,7 @@ namespace TheWaningBorder.AI
     /// Handles reactive defense behavior for AI factions.
     /// Detects threats approaching the base and rallies defense forces.
     /// </summary>
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIScoutingBehavior))]
     public partial struct AIDefenseBehavior : ISystem

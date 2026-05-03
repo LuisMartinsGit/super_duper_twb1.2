@@ -34,13 +34,11 @@ namespace TheWaningBorder.Systems.Work
         private const int MaxCarryAmount = 10;          // Deliver after accumulating 10
         private const float GatherRange = 5f;           // How close miner needs to be to mine
         private const float DropoffRange = 6f;          // How close to dropoff to deposit
-        private const float SearchRadius = 50f;         // How far AI miners search for deposits
 
         // Cached queries — created once in OnCreate, reused every frame
         private EntityQuery _hallDropoffQuery;
         private EntityQuery _hutDropoffQuery;
         private EntityQuery _ironDepositQuery;
-        private EntityQuery _cadaverQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -63,12 +61,6 @@ namespace TheWaningBorder.Systems.Work
             _ironDepositQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<IronMineTag>(),
                 ComponentType.ReadOnly<IronDepositState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            _cadaverQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<CadaverTag>(),
-                ComponentType.ReadOnly<CadaverState>(),
                 ComponentType.ReadOnly<LocalTransform>()
             );
         }
@@ -155,50 +147,21 @@ namespace TheWaningBorder.Systems.Work
                 miner.State = MinerWorkState.MovingToDeposit;
                 miner.GatheringResource = newResourceType;
 
-                // Move to the deposit
+                // Move to the deposit. Miners always have DesiredDestination from the
+                // factory, so SetComponentData is the only path; ecb.AddComponent is a
+                // safety net for any external creator that forgot to add it.
                 var depositPos = em.GetComponentData<LocalTransform>(gatherCmd.ResourceNode).Position;
                 if (em.HasComponent<DesiredDestination>(entity))
                     em.SetComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
-                    else
-                        em.AddComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
+                else
+                    ecb.AddComponent(entity, new DesiredDestination { Position = depositPos, Has = 1 });
                 return;
             }
 
-            // Local player miners wait for commands — no auto-find.
-            // AI miners auto-find the nearest deposit so they stay productive.
-            if (fac == GameSettings.LocalPlayerFaction) return;
-
-            // AI auto-find: nearest iron deposit or cadaver
-            Entity nearestIron = FindNearestDeposit(em, pos, _ironDepositQuery);
-            float ironDist = float.MaxValue;
-            if (nearestIron != Entity.Null)
-                ironDist = DistXZ(pos, em.GetComponentData<LocalTransform>(nearestIron).Position);
-
-            Entity nearestCadaver = FindNearestCadaver(em, pos, _cadaverQuery);
-            float cadaverDist = float.MaxValue;
-            if (nearestCadaver != Entity.Null)
-                cadaverDist = DistXZ(pos, em.GetComponentData<LocalTransform>(nearestCadaver).Position);
-
-            Entity target;
-            bool isCrystal;
-            if (nearestIron != Entity.Null && ironDist <= cadaverDist)
-            { target = nearestIron; isCrystal = false; }
-            else if (nearestCadaver != Entity.Null)
-            { target = nearestCadaver; isCrystal = true; }
-            else if (nearestIron != Entity.Null)
-            { target = nearestIron; isCrystal = false; }
-            else
-                return;
-
-            miner.AssignedDeposit = target;
-            miner.State = MinerWorkState.MovingToDeposit;
-            miner.GatheringResource = isCrystal ? (byte)1 : (byte)0;
-
-            var depPos = em.GetComponentData<LocalTransform>(target).Position;
-            if (em.HasComponent<DesiredDestination>(entity))
-                em.SetComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
-                else
-                    em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
+            // Idle miners do nothing on their own. Both player and AI miners
+            // sit idle until commanded with an explicit GatherCommand (iron or
+            // crystal). The AI brain in SimpleAISystem.AssignIdleMiners issues
+            // those commands; the player issues them via right-click.
         }
 
         private void ProcessMovingState(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
@@ -248,6 +211,23 @@ namespace TheWaningBorder.Systems.Work
                 {
                     em.SetComponentData(entity, new DesiredDestination { Has = 0 });
                 }
+                return;
+            }
+
+            // We are NOT at the deposit yet. If the destination component
+            // exists and MovementSystem cleared it (tier-3 stuck cancel),
+            // drop back to Idle so ProcessIdleState can re-find next frame.
+            //
+            // We deliberately treat "DesiredDestination component missing" as
+            // "ProcessIdleState's AddComponentData hasn't synced yet" — NOT
+            // as a stuck signal. Reading missing-then-Idle would race against
+            // the structural-change deferral and trap the miner in an
+            // Idle ↔ MovingToDeposit ping-pong that prevents any movement.
+            if (em.HasComponent<DesiredDestination>(entity)
+                && em.GetComponentData<DesiredDestination>(entity).Has == 0)
+            {
+                miner.State = MinerWorkState.Idle;
+                miner.AssignedDeposit = Entity.Null;
             }
         }
 
@@ -383,14 +363,11 @@ namespace TheWaningBorder.Systems.Work
 
                 if (depositHasIron)
                 {
-                    // Go back for more iron
+                    // Go back for more iron. Miners always carry DesiredDestination from
+                    // the factory, so SetComponentData is the only path used at runtime.
                     miner.State = MinerWorkState.MovingToDeposit;
                     var depPos = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
-
-                    if (em.HasComponent<DesiredDestination>(entity))
-                        em.SetComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
-                        else
-                            em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
+                    em.SetComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
                 }
                 else
                 {
@@ -404,12 +381,8 @@ namespace TheWaningBorder.Systems.Work
                     {
                         miner.AssignedDeposit = nearbyDeposit;
                         miner.State = MinerWorkState.MovingToDeposit;
-
                         var newPos = em.GetComponentData<LocalTransform>(nearbyDeposit).Position;
-                        if (em.HasComponent<DesiredDestination>(entity))
-                            em.SetComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
-                            else
-                                em.AddComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
+                        em.SetComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
                     }
                     else
                     {
@@ -466,14 +439,12 @@ namespace TheWaningBorder.Systems.Work
 
             miner.DropoffTarget = nearest;
 
-            // Set move destination to dropoff
+            // Set move destination to dropoff. Miner factory bakes in
+            // DesiredDestination, so SetComponentData is always safe.
             if (nearest != Entity.Null)
             {
                 var dropoffPos = em.GetComponentData<LocalTransform>(nearest).Position;
-                if (em.HasComponent<DesiredDestination>(minerEntity))
-                    em.SetComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
-                    else
-                        em.AddComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
+                em.SetComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
             }
         }
 
@@ -497,60 +468,6 @@ namespace TheWaningBorder.Systems.Work
                 if (dist < nearestDist && dist <= maxRange)
                 {
                     nearest = deposits[i];
-                    nearestDist = dist;
-                }
-            }
-
-            return nearest;
-        }
-
-        /// <summary>
-        /// Find the nearest non-depleted iron deposit within search radius.
-        /// </summary>
-        private static Entity FindNearestDeposit(EntityManager em, float3 pos, EntityQuery depositQuery)
-        {
-            using var deposits = depositQuery.ToEntityArray(Allocator.Temp);
-            using var states = depositQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
-            using var transforms = depositQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            for (int i = 0; i < deposits.Length; i++)
-            {
-                if (states[i].Depleted == 1) continue;
-
-                float dist = DistXZ(pos, transforms[i].Position);
-                if (dist < nearestDist && dist <= SearchRadius)
-                {
-                    nearest = deposits[i];
-                    nearestDist = dist;
-                }
-            }
-
-            return nearest;
-        }
-
-        /// <summary>
-        /// Find the nearest non-depleted creature cadaver within search radius.
-        /// </summary>
-        private static Entity FindNearestCadaver(EntityManager em, float3 pos, EntityQuery cadaverQuery)
-        {
-            using var cadavers = cadaverQuery.ToEntityArray(Allocator.Temp);
-            using var states = cadaverQuery.ToComponentDataArray<CadaverState>(Allocator.Temp);
-            using var transforms = cadaverQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            for (int i = 0; i < cadavers.Length; i++)
-            {
-                if (states[i].Depleted == 1) continue;
-
-                float dist = DistXZ(pos, transforms[i].Position);
-                if (dist < nearestDist && dist <= SearchRadius)
-                {
-                    nearest = cadavers[i];
                     nearestDist = dist;
                 }
             }

@@ -25,7 +25,8 @@ public enum ScenarioType
     FourWayCultures,
     FullArmy,
     WallSiege,
-    SectShowcase
+    SectShowcase,
+    BuildingShowcase
 }
 
 public enum SpawnLayout
@@ -112,6 +113,15 @@ public static class GameSettings
 
     /// <summary>Whether the Crystal Curse faction spawns on this map.</summary>
     public static bool CrystalCurseEnabled = true;
+
+    /// <summary>
+    /// Flat test map for AI/pathfinding work: skips noise heightmap, terrain
+    /// trees, ObstacleBootstrap (forests + rocks), and CrystalNodeBootstrap.
+    /// Result: flat ground at <c>spawnTargetHeight</c>, only Halls and iron
+    /// deposits, water plane hidden below the terrain. Toggle off when you
+    /// want production-style maps with hills and forests back.
+    /// </summary>
+    public static bool FlatTestMap = true;
 
     // ==================== Pathfinding Settings ====================
 

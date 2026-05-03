@@ -1,90 +1,88 @@
-// File: Assets/Scripts/Bootstrap/IronDepositBootstrap.cs
-// Spawns iron ore as patches (clusters) instead of single scattered deposits.
-// Each player gets one patch close to their Hall plus several patches scattered
-// across the map. Replaces the earlier "scatter N deposits with min-distance
-// from players" loop, which formed an obvious ring around each spawn.
+// File: Assets/Scripts/Bootstrap/CrystalPatchBootstrap.cs
+// Spawns mineable crystal cadavers as patches near each player and scattered
+// across the map, so AI / players have a starting crystal source without
+// having to fight Crystallings first. Used in addition to (or in place of)
+// CrystalNodeBootstrap depending on map mode.
 
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
+using TheWaningBorder.Entities;
 using TheWaningBorder.World.Terrain;
-using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
-    /// Spawns iron deposits in patches. Each patch = a tight cluster of N
-    /// deposits players can mine without ferrying miners across the map.
+    /// Spawns cadaver-based crystal patches at game start.
     ///
     /// Layout per player:
     /// - 1 NEAR patch close to the Hall (within NearPatchMinDist..MaxDist)
-    /// - <see cref="ScatteredPatchesPerPlayer"/> patches scattered across the
-    ///   map, with min-distance gates so patches don't overlap and stay out of
-    ///   spawn footprints.
+    /// - <see cref="ScatteredPatchesPerPlayer"/> patches scattered across the map
+    ///
+    /// Each patch = a small cluster of cadavers with crystal in them. Mineable
+    /// by Miners via GatherCommand on a cadaver (CrystalMiningSystem handles
+    /// the gathering loop). Independent of CrystalNodeBootstrap (which spawns
+    /// the curse main nodes that grow Crystallings).
     /// </summary>
-    public static class IronDepositBootstrap
+    public static class CrystalPatchBootstrap
     {
-        // Presentation ID (must match PresentationSpawnSystem)
-        public const int IronDepositPresentationId = 402;
+        // Crystal amount per cadaver. 200 = ~10s of mining at 1 crystal/1.5s
+        // for one miner. With 3 cadavers per patch (DefaultCadaversPerPatch),
+        // a patch yields ~600 crystal — enough to cover an age-up's crystal
+        // cost from a single near-patch even before scattered patches kick in.
+        private const int CrystalPerOutcrop = 200;
+        private const int DefaultOutcropsPerPatch = 3;
 
-        // Per-deposit settings
-        private const float DepositRadius = 1.5f;
-        private const int IronPerDeposit = 500;
-
-        // Patch settings
-        private const int DepositsPerPatch = 3;            // 3 deposits per cluster
-        private const float PatchSpread = 4f;              // deposits within 4u of patch center
+        // Cluster geometry: cadavers within PatchSpread units of patch center.
+        // Larger than iron's 4u because cadavers are bigger visually.
+        private const float PatchSpread = 5f;
 
         // NEAR patch (one per player)
-        private const float NearPatchMinDist = 22f;        // outside Hall footprint (~20u)
-        private const float NearPatchMaxDist = 32f;        // close enough to mine without long walks
+        private const float NearPatchMinDist = 22f; // outside Hall footprint
+        private const float NearPatchMaxDist = 32f;
 
         // SCATTERED patches
-        private const int ScatteredPatchesPerPlayer = 4;
+        private const int ScatteredPatchesPerPlayer = 2;
         private const float ScatteredMinDistFromPlayer = 50f;
         private const float MinDistBetweenPatchCenters = 24f;
 
         // Heightmap constraints (only enforced when NOT FlatTestMap)
-        private const float MinHeight = 23f;               // above shoreline
+        private const float MinHeight = 23f;
         private const float MaxHeight = 85f;
-        private const float MaxSlope = 0.6f;               // not on cliffs
+        private const float MaxSlope = 0.6f;
 
-        public static void SpawnIronDeposits()
+        public static void SpawnCrystalPatches()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
 
             var em = world.EntityManager;
-            var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xDEAD));
+            var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xCEED));
 
             var playerPositions = GetPlayerPositions(em);
             int half = GameSettings.MapHalfSize;
             float spawnRange = half * 0.85f;
 
-            // Track placed patch centers so scattered patches don't overlap them
-            // (or each other) and form visible clusters across the map.
             var patchCenters = new Unity.Collections.NativeList<float3>(
                 playerPositions.Length * (1 + ScatteredPatchesPerPlayer),
                 Unity.Collections.Allocator.Temp);
 
-            // 1. NEAR patches — one per player. Always succeed (we picked the
-            //    direction from the player ourselves; no validation step).
+            // 1. NEAR patches — one per player.
             for (int p = 0; p < playerPositions.Length; p++)
             {
                 float3 center = PickNearPatchCenter(playerPositions[p], ref random);
-                SpawnIronPatch(em, center, ref random);
+                SpawnCrystalPatch(em, center, ref random);
                 patchCenters.Add(center);
             }
 
-            // 2. SCATTERED patches — N per player, gated by distance and terrain.
+            // 2. SCATTERED patches — N per player, gated by distance + terrain.
             int scatteredCount = playerPositions.Length * ScatteredPatchesPerPlayer;
             for (int i = 0; i < scatteredCount; i++)
             {
                 if (TryFindScatteredPatchCenter(ref random, spawnRange,
                         playerPositions, patchCenters, out float3 center))
                 {
-                    SpawnIronPatch(em, center, ref random);
+                    SpawnCrystalPatch(em, center, ref random);
                     patchCenters.Add(center);
                 }
             }
@@ -92,31 +90,19 @@ namespace TheWaningBorder.Bootstrap
             patchCenters.Dispose();
         }
 
-        /// <summary>
-        /// Place <see cref="DepositsPerPatch"/> deposits jittered within
-        /// <see cref="PatchSpread"/> of <paramref name="center"/>. Snaps each to
-        /// terrain height. No water/slope check — patch centers were already
-        /// validated upstream.
-        /// </summary>
-        private static void SpawnIronPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
+        private static void SpawnCrystalPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
         {
-            for (int i = 0; i < DepositsPerPatch; i++)
+            for (int i = 0; i < DefaultOutcropsPerPatch; i++)
             {
                 float angle = random.NextFloat(0f, math.PI * 2f);
                 float dist  = random.NextFloat(0f, PatchSpread);
                 float x = center.x + math.cos(angle) * dist;
                 float z = center.z + math.sin(angle) * dist;
                 float y = TerrainUtility.GetHeight(x, z);
-                CreateIronDepositEntity(em, new float3(x, y, z));
+                Cadaver.Create(em, new float3(x, y, z), CrystalPerOutcrop);
             }
         }
 
-        /// <summary>
-        /// Pick a random direction from <paramref name="player"/> at a random
-        /// distance in [NearPatchMinDist, NearPatchMaxDist]. No validation —
-        /// the spawn area is guaranteed clear of obstacles by spawn flatten,
-        /// and on FlatTestMap there are no water/slope concerns.
-        /// </summary>
         private static float3 PickNearPatchCenter(float3 player, ref Unity.Mathematics.Random random)
         {
             float angle = random.NextFloat(0f, math.PI * 2f);
@@ -127,11 +113,6 @@ namespace TheWaningBorder.Bootstrap
             return new float3(x, y, z);
         }
 
-        /// <summary>
-        /// Pick a random position on the map for a scattered patch, ensuring
-        /// minimum distance from all players and from already-placed patches.
-        /// On non-flat maps, also rejects water and out-of-band heights.
-        /// </summary>
         private static bool TryFindScatteredPatchCenter(
             ref Unity.Mathematics.Random random,
             float spawnRange,
@@ -155,7 +136,6 @@ namespace TheWaningBorder.Bootstrap
                     if (terrain != null && terrain.IsInWater(new Vector3(x, y, z))) continue;
                     if (y < MinHeight || y > MaxHeight) continue;
 
-                    // Slope check (skip cliffs).
                     float step = 2f;
                     float hL = TerrainUtility.GetHeight(x - step, z);
                     float hR = TerrainUtility.GetHeight(x + step, z);
@@ -189,45 +169,15 @@ namespace TheWaningBorder.Bootstrap
             return false;
         }
 
-        private static Entity CreateIronDepositEntity(EntityManager em, float3 position)
-        {
-            var entity = em.CreateEntity(
-                typeof(IronMineTag),
-                typeof(IronDepositState),
-                typeof(LocalTransform),
-                typeof(Radius),
-                typeof(PresentationId)
-            );
-
-            em.SetComponentData(entity, LocalTransform.FromPosition(position));
-            em.SetComponentData(entity, new Radius { Value = DepositRadius });
-            em.SetComponentData(entity, new PresentationId { Id = IronDepositPresentationId });
-            em.SetComponentData(entity, new IronDepositState
-            {
-                RemainingIron = IronPerDeposit,
-                Depleted = 0
-            });
-
-            em.AddComponentData(entity, new NetworkedEntity
-            {
-                NetworkId = NetworkIdGenerator.GetNextId(),
-                SpawnTick = 0
-            });
-
-            return entity;
-        }
-
-        /// <summary>
-        /// Get player positions from existing Halls, or estimate from spawn layout.
-        /// </summary>
         private static float3[] GetPlayerPositions(EntityManager em)
         {
             var hallQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
+                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>()
             );
 
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var hallTransforms = hallQuery.ToComponentDataArray<Unity.Transforms.LocalTransform>(
+                Unity.Collections.Allocator.Temp);
 
             if (hallTransforms.Length > 0)
             {
@@ -237,22 +187,16 @@ namespace TheWaningBorder.Bootstrap
                 return positions;
             }
 
-            // Fallback: estimate from player count
             int playerCount = GameSettings.TotalPlayers;
             int half = GameSettings.MapHalfSize;
             float spawnRadius = half * 0.5f;
             var fallback = new float3[playerCount];
-
             for (int i = 0; i < playerCount; i++)
             {
                 float angle = (i / (float)playerCount) * math.PI * 2f;
                 fallback[i] = new float3(
-                    math.cos(angle) * spawnRadius,
-                    0f,
-                    math.sin(angle) * spawnRadius
-                );
+                    math.cos(angle) * spawnRadius, 0f, math.sin(angle) * spawnRadius);
             }
-
             return fallback;
         }
     }

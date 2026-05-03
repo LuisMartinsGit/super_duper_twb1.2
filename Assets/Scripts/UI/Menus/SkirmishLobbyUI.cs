@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -57,16 +58,12 @@ namespace TheWaningBorder.UI.Menus
         // Error display
         private string _error;
 
-        // Styles
+        // Specialty styles (no Styles.cs counterpart — rich-text headers, slot boxes, faction labels)
         private GUIStyle _headerStyle;
         private GUIStyle _slotStyle;
         private GUIStyle _factionLabelStyle;
         private GUIStyle _colorBtnStyle;
-        private GUIStyle _tabActiveStyle;
-        private GUIStyle _tabInactiveStyle;
         private Texture2D _colorSwatchTex;
-        private Texture2D _tabActiveTex;
-        private Texture2D _tabInactiveTex;
         private bool _stylesInit = false;
 
         void OnEnable()
@@ -91,11 +88,13 @@ namespace TheWaningBorder.UI.Menus
 
         void OnGUI()
         {
+            Styles.Initialize();
             InitStyles();
             _windowRect = GUI.Window(10002, _windowRect, DrawWindow, "Skirmish Setup");
 
             if (!string.IsNullOrEmpty(_error))
             {
+                // Softer pink-red form-error tint (intentionally NOT Styles.ErrorColor — see AD-3)
                 GUI.color = new Color(1, 0.5f, 0.5f, 1);
                 GUI.Box(new Rect(_windowRect.x, _windowRect.yMax + 8, _windowRect.width, 50), _error);
                 GUI.color = Color.white;
@@ -106,6 +105,7 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInit) return;
 
+            // Bold rich-text label for "<b>...</b>" section headers (no Styles match — needs richText=true)
             _headerStyle = new GUIStyle(GUI.skin.label)
             {
                 fontStyle = FontStyle.Bold,
@@ -134,44 +134,12 @@ namespace TheWaningBorder.UI.Menus
             _colorSwatchTex.SetPixel(0, 0, Color.white);
             _colorSwatchTex.Apply();
 
-            // Tab styles
-            _tabActiveTex = MakeSolidTexture(new Color(0.83f, 0.66f, 0.26f, 0.35f));
-            _tabInactiveTex = MakeSolidTexture(new Color(0.15f, 0.15f, 0.25f, 0.5f));
-            _tabActiveStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontStyle = FontStyle.Bold,
-                fontSize = 13,
-                normal = { background = _tabActiveTex, textColor = new Color(0.83f, 0.66f, 0.26f) },
-                hover = { background = _tabActiveTex, textColor = new Color(0.93f, 0.76f, 0.36f) },
-                active = { background = _tabActiveTex, textColor = new Color(0.93f, 0.76f, 0.36f) },
-                padding = new RectOffset(12, 12, 6, 6)
-            };
-
-            _tabInactiveStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 13,
-                normal = { background = _tabInactiveTex, textColor = new Color(0.7f, 0.7f, 0.7f) },
-                hover = { background = _tabActiveTex, textColor = new Color(0.9f, 0.9f, 0.9f) },
-                active = { background = _tabActiveTex, textColor = new Color(0.9f, 0.9f, 0.9f) },
-                padding = new RectOffset(12, 12, 6, 6)
-            };
-
             _stylesInit = true;
         }
 
         void OnDestroy()
         {
             if (_colorSwatchTex != null) Destroy(_colorSwatchTex);
-            if (_tabActiveTex != null) Destroy(_tabActiveTex);
-            if (_tabInactiveTex != null) Destroy(_tabInactiveTex);
-        }
-
-        private Texture2D MakeSolidTexture(Color color)
-        {
-            var tex = new Texture2D(1, 1);
-            tex.SetPixel(0, 0, color);
-            tex.Apply();
-            return tex;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -214,21 +182,21 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.BeginHorizontal();
 
             if (GUILayout.Button("Player Setup",
-                _activeTab == LobbyTab.PlayerSetup ? _tabActiveStyle : _tabInactiveStyle,
+                _activeTab == LobbyTab.PlayerSetup ? Styles.TabActive : Styles.TabInactive,
                 GUILayout.Height(30)))
             {
                 _activeTab = LobbyTab.PlayerSetup;
             }
 
             if (GUILayout.Button("Map Setup",
-                _activeTab == LobbyTab.MapSetup ? _tabActiveStyle : _tabInactiveStyle,
+                _activeTab == LobbyTab.MapSetup ? Styles.TabActive : Styles.TabInactive,
                 GUILayout.Height(30)))
             {
                 _activeTab = LobbyTab.MapSetup;
             }
 
             if (GUILayout.Button("Game Setup",
-                _activeTab == LobbyTab.GameSetup ? _tabActiveStyle : _tabInactiveStyle,
+                _activeTab == LobbyTab.GameSetup ? Styles.TabActive : Styles.TabInactive,
                 GUILayout.Height(30)))
             {
                 _activeTab = LobbyTab.GameSetup;
@@ -556,20 +524,27 @@ namespace TheWaningBorder.UI.Menus
             int newOption = GUILayout.SelectionGrid(currentOption, options, 2, GUILayout.Width(100));
             slot.Type = newOption == 1 ? SlotType.AI : SlotType.Empty;
 
-            // AI difficulty (only for AI slots)
+            // AI difficulty + strategy (only for AI slots)
             if (slot.Type == SlotType.AI)
             {
                 string[] difficulties = { "Easy", "Normal", "Hard", "Expert" };
                 int diffIndex = (int)slot.AIDifficulty;
-
                 if (GUILayout.Button(difficulties[diffIndex], GUILayout.Width(65)))
                 {
                     slot.AIDifficulty = (LobbyAIDifficulty)((diffIndex + 1) % difficulties.Length);
                 }
+
+                // Strategy selector — Random rolls one of the six at game start.
+                string[] strategies = { "Random", "Eco", "Balanced", "Tech", "Rush", "Turtle", "Def" };
+                int stratIndex = (int)slot.AIStrategy;
+                if (GUILayout.Button(strategies[stratIndex], GUILayout.Width(75)))
+                {
+                    slot.AIStrategy = (LobbyAIStrategy)((stratIndex + 1) % strategies.Length);
+                }
             }
             else
             {
-                GUILayout.Label("", GUILayout.Width(65));
+                GUILayout.Label("", GUILayout.Width(65 + 75 + 4));
             }
         }
 
@@ -677,6 +652,7 @@ namespace TheWaningBorder.UI.Menus
 
             if (_sandbox)
                 GameSettings.Mode = GameMode.Sandbox;
+            else
                 GameSettings.Mode = GameMode.FreeForAll;
 
             // Apply color selections to FactionColors runtime system

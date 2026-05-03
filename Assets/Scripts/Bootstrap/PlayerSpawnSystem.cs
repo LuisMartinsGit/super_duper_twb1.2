@@ -50,7 +50,16 @@ namespace TheWaningBorder.Bootstrap
             for (int i = 0; i < playerCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
-                if (slot == null || slot.Type == SlotType.Empty || slot.Type == SlotType.Observer) continue;
+                if (slot == null || slot.Type == SlotType.Empty) continue;
+
+                // In observer mode the watcher's slot is SlotType.Observer; we
+                // still spawn it so the AI brain (created by AIBootstrap because
+                // IsFactionHumanControlled returns false for everyone in
+                // observer mode) has a Hall + builders + miners to play with.
+                // Skip Observer only when we're NOT in observer mode (that
+                // means a real spectator with no faction to play, an edge case
+                // we don't currently use but kept here for safety).
+                if (slot.Type == SlotType.Observer && !GameSettings.IsObserver) continue;
 
                 var faction = slot.Faction;
                 var spawnPos = positions[i];
@@ -67,8 +76,9 @@ namespace TheWaningBorder.Bootstrap
             // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
             BuildingFactory.Create(em, "Hall", spawnPos, faction);
 
-            // Spawn starting Builders — use UnitFactory for NetworkedEntity assignment
-            float offset = 3f;
+            // Spawn starting Builders just outside the Hall's inflated footprint
+            // (Hall is 4x4 cells + 1 cell padding = blocked at +/-3 m, so 6 m of clearance).
+            float offset = 6f;
             float3 builderPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
             float3 builderPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
             float3 builderPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));

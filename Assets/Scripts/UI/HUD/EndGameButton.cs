@@ -3,6 +3,7 @@
 // Location: Assets/Scripts/UI/HUD/EndGameButton.cs
 
 using UnityEngine;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -19,7 +20,10 @@ namespace TheWaningBorder.UI.HUD
         private const float ButtonHeight = 28f;
         private const float Margin = 10f;
 
+        // Cached styles: button uses warning amber accent, the confirm-prompt label
+        // is hoisted out of the per-frame OnGUI allocation path (Fix #221 contract).
         private GUIStyle _buttonStyle;
+        private GUIStyle _confirmLabelStyle;
         private bool _stylesInit;
         private bool _showConfirm;
 
@@ -39,6 +43,7 @@ namespace TheWaningBorder.UI.HUD
             // Don't show if in-game menu is open
             if (InGameMenuPanel.IsOpen) return;
 
+            Styles.Initialize();
             InitStyles();
 
             float x = Screen.width - ButtonWidth - Margin;
@@ -61,14 +66,7 @@ namespace TheWaningBorder.UI.HUD
                 GUI.Box(new Rect(cx - 5, y - 5, confirmWidth + 10, ButtonHeight + 30),
                     "", GUI.skin.box);
 
-                GUI.Label(new Rect(cx, y, confirmWidth, 20),
-                    "Surrender?",
-                    new GUIStyle(GUI.skin.label)
-                    {
-                        alignment = TextAnchor.MiddleCenter,
-                        fontStyle = FontStyle.Bold,
-                        normal = { textColor = new Color(1f, 0.85f, 0.4f) }
-                    });
+                GUI.Label(new Rect(cx, y, confirmWidth, 20), "Surrender?", _confirmLabelStyle);
 
                 if (GUI.Button(new Rect(cx, y + 22, 100, ButtonHeight), "Surrender"))
                 {
@@ -115,7 +113,14 @@ namespace TheWaningBorder.UI.HUD
             {
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(1f, 0.85f, 0.4f) }
+                normal = { textColor = Styles.WarningColor }
+            };
+
+            _confirmLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Styles.WarningColor }
             };
 
             _stylesInit = true;

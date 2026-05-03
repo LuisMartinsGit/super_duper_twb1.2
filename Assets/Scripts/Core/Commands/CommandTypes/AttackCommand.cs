@@ -80,6 +80,20 @@ namespace TheWaningBorder.Core.Commands.Types
                     MoveCommandHelper.Execute(em, unit, targetPos);
                 }
 
+                // Clear stale member combat state from any previous engagement.
+                // Why: AssignPerMemberTargets skips members that already have a *living*
+                // target, so a re-targeting order would never propagate to members and
+                // they'd keep firing at the old target until it died.
+                for (int i = 0; i < memberCount; i++)
+                {
+                    var m = memberEntities[i];
+                    if (m == Entity.Null || !em.Exists(m)) continue;
+                    if (em.HasComponent<Target>(m))
+                        em.SetComponentData(m, new Target { Value = Entity.Null });
+                    if (em.HasComponent<AttackCommand>(m))
+                        em.RemoveComponent<AttackCommand>(m);
+                }
+
                 // Set target on the leader itself so BattalionSyncSystem can detect
                 // combat mode and MovementLineDisplay shows red line.
                 // Do NOT set targets on members — they march in formation until
@@ -104,6 +118,13 @@ namespace TheWaningBorder.Core.Commands.Types
                         em.AddComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
                         else
                             em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                }
+                else if (em.HasComponent<BattalionAttackTarget>(unit))
+                {
+                    // New target is standalone (e.g. a building). Drop stale battalion
+                    // tracking so AssignPerMemberTargets uses the new fallback target
+                    // instead of routing members to the previous enemy battalion.
+                    em.RemoveComponent<BattalionAttackTarget>(unit);
                 }
 
                 memberEntities.Dispose();

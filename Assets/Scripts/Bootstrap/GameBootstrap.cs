@@ -53,7 +53,6 @@ namespace TheWaningBorder.Bootstrap
             if (_didSetupThisScene) return;
             _didSetupThisScene = true;
 
-
             // 0. Ensure ECS world exists (may have been disposed on previous game exit)
             EnsureECSWorld();
 
@@ -65,12 +64,16 @@ namespace TheWaningBorder.Bootstrap
                 return;
             }
 
-            // Scenario mode: minimal bootstrap with predefined combat layouts
-            if (GameSettings.Mode == GameMode.Scenario)
+            // Scenario mode: same init pipeline as skirmish (so RuntimeManagers
+            // gets created — input, formation drag preview, etc. — and terrain,
+            // passability grid, flow fields, fog of war flag are all wired up
+            // identically). Only the spawn step differs: instead of placing
+            // halls + builders for each player, we place the scenario's
+            // predefined entities.
+            bool isScenario = GameSettings.Mode == GameMode.Scenario;
+            if (isScenario)
             {
-                InitializeDataSystems();
-                ScenarioSetup.Bootstrap();
-                return;
+                ScenarioSetup.PreInit();
             }
 
             // 0.5. Initialize lockstep BEFORE anything else in multiplayer
@@ -92,15 +95,19 @@ namespace TheWaningBorder.Bootstrap
             // 4. Initialize game world (terrain, fog of war)
             InitializeWorld();
 
-            // 5. Initialize factions and economy
-            InitializeFactions();
+            // 5. Spawn — either scenario entities OR factions/economy/AI
+            if (isScenario)
+            {
+                ScenarioSetup.SpawnScenarioEntities();
+            }
+            else
+            {
+                InitializeFactions();
+                InitializeAI();
+            }
 
-            // 6. Initialize AI players
-            InitializeAI();
-
-            // 7. Sync systems after all initialization
+            // 6. Sync systems after all initialization
             PostInitializationSync();
-
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -173,7 +180,6 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<UnifiedUIManager>();         // Entity info + action panels
             managersGO.AddComponent<BuilderCommandPanel>();      // Building placement preview
             managersGO.AddComponent<ResourceHUD>();              // Resource display
-            managersGO.AddComponent<SelectionRings>();           // Selection visual indicators
             managersGO.AddComponent<MinimapRenderer>();          // Minimap display
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
@@ -184,7 +190,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
             managersGO.AddComponent<FormationPreview>();        // Formation preview arrows at destination
-            managersGO.AddComponent<PlacementGridOverlay>();     // Grid overlay during building placement
+            managersGO.AddComponent<FormationDragPreview>();    // Right-click-hold formation preview (rows + rotation)
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC)
             managersGO.AddComponent<EndGameButton>();              // End Game button

@@ -166,6 +166,12 @@ public struct MovementCache : IComponentData
     public int2 LastHeightCell;
     /// <summary>Cached terrain height for LastHeightCell.</summary>
     public float CachedHeight;
+    /// <summary>
+    /// FlowFieldManager.GridVersion at the time the cached flow-field lookup
+    /// was acquired. When the live grid version diverges, the cached field is
+    /// stale and the unit must re-request even if its destination is unchanged.
+    /// </summary>
+    public int LastGridVersion;
 }
 
 /// <summary>

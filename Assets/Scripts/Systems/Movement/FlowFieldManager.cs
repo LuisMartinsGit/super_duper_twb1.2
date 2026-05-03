@@ -82,6 +82,13 @@ namespace TheWaningBorder.Systems.Movement
         /// </summary>
         private int _gridVersion;
 
+        /// <summary>
+        /// Public read of the current grid version so consumer systems
+        /// (MovementSystem) can detect that their per-unit cached flow-field
+        /// lookup has been invalidated and force a fresh request.
+        /// </summary>
+        public int GridVersion => _gridVersion;
+
         // =====================================================================
         // THROTTLE & REQUEST QUEUE
         // =====================================================================
@@ -466,7 +473,6 @@ namespace TheWaningBorder.Systems.Movement
             {
                 DirectionData = _lookupDirectionData,
                 DestToSlot = _lookupDestToSlot,
-                PassabilityCells = grid.Cells,
                 CellsPerField = _totalCells,
                 GridWidth = grid.Width,
                 GridHeight = grid.Height,
@@ -575,7 +581,6 @@ namespace TheWaningBorder.Systems.Movement
             {
                 DirectionData = _lookupDirectionData,
                 DestToSlot = _lookupDestToSlot,
-                PassabilityCells = grid.Cells,
                 CellsPerField = _totalCells,
                 GridWidth = grid.Width,
                 GridHeight = grid.Height,

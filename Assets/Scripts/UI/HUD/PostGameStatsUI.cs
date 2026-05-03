@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.UI;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -38,20 +39,14 @@ namespace TheWaningBorder.UI.HUD
         private Faction[] _factionValues;
         private readonly string[] _graphNames = { "Supplies", "Iron", "Crystal", "Veilsteel", "Glow", "Population" };
 
-        // Result banner style
-        private GUIStyle _resultStyle;
+        // Result banner styles — cached once, picked via ternary at draw time (Fix #221)
+        private GUIStyle _resultStyleVictory;
+        private GUIStyle _resultStyleDefeat;
+        private bool _resultStylesBuilt;
 
-        // Styles
-        private GUIStyle _windowStyle;
-        private GUIStyle _headerStyle;
-        private GUIStyle _subHeaderStyle;
-        private GUIStyle _labelStyle;
-        private GUIStyle _buttonStyle;
-        private GUIStyle _dropdownStyle;
+        // Specialty styles with no Styles.cs counterpart
         private GUIStyle _graphLabelStyle;
-        private Texture2D _bgTex;
         private Texture2D _graphBgTex;
-        private Texture2D _gridLineTex;
         private bool _stylesInit;
 
         // Scroll
@@ -119,12 +114,12 @@ namespace TheWaningBorder.UI.HUD
         void OnGUI()
         {
             if (!_visible) return;
+            Styles.Initialize();
             InitStyles();
+            BuildResultStyles();
 
-            // Full-screen darkened overlay
-            GUI.color = new Color(0, 0, 0, 0.7f);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
-            GUI.color = Color.white;
+            // Full-screen darkened overlay (canonical case — matches DimOverlayColor exactly)
+            Styles.DrawDimOverlay(new Rect(0, 0, Screen.width, Screen.height));
 
             // Main window
             float windowWidth = Mathf.Min(Screen.width - 80f, 1100f);
@@ -133,14 +128,14 @@ namespace TheWaningBorder.UI.HUD
             float windowY = (Screen.height - windowHeight) / 2f;
 
             var windowRect = new Rect(windowX, windowY, windowWidth, windowHeight);
-            GUI.Box(windowRect, "", _windowStyle);
+            GUI.Box(windowRect, "", Styles.PanelBox);
 
             GUILayout.BeginArea(new Rect(windowRect.x + 20f, windowRect.y + 15f,
                 windowRect.width - 40f, windowRect.height - 30f));
 
             // Title row
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Game Statistics", _headerStyle);
+            GUILayout.Label("Game Statistics", Styles.Header);
             GUILayout.FlexibleSpace();
 
             // Game duration
@@ -149,25 +144,16 @@ namespace TheWaningBorder.UI.HUD
                 float duration = GameStatsTracker.Instance.GameEndTime - GameStatsTracker.Instance.GameStartTime;
                 int minutes = (int)(duration / 60f);
                 int seconds = (int)(duration % 60f);
-                GUILayout.Label($"Duration: {minutes}:{seconds:D2}", _labelStyle);
+                GUILayout.Label($"Duration: {minutes}:{seconds:D2}", Styles.Label);
             }
             GUILayout.EndHorizontal();
 
-            // Result banner (VICTORY / DEFEAT)
+            // Result banner (VICTORY / DEFEAT) — uses pre-cached styles, no per-frame alloc
             if (!string.IsNullOrEmpty(GameResult))
             {
                 GUILayout.Space(5);
-                var resultStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 28,
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter
-                };
-                resultStyle.normal.textColor = GameResult == "VICTORY"
-                    ? new Color(1f, 0.85f, 0.2f)
-                    : new Color(1f, 0.25f, 0.25f);
-
-                GUILayout.Label(GameResult, resultStyle);
+                var s = GameResult == "VICTORY" ? _resultStyleVictory : _resultStyleDefeat;
+                GUILayout.Label(GameResult, s);
                 GUILayout.Space(5);
             }
 
@@ -175,14 +161,14 @@ namespace TheWaningBorder.UI.HUD
 
             // Player selector row
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Player:", _labelStyle, GUILayout.Width(55));
+            GUILayout.Label("Player:", Styles.Label, GUILayout.Width(55));
 
             for (int i = 0; i < _factionNames.Length; i++)
             {
                 Color factionColor = GetFactionColor(_factionValues[i]);
                 bool isSelected = (i == _selectedFactionIndex);
 
-                var btnStyle = new GUIStyle(_buttonStyle);
+                var btnStyle = new GUIStyle(Styles.Button);
                 if (isSelected)
                 {
                     btnStyle.normal.textColor = Color.white;
@@ -205,10 +191,10 @@ namespace TheWaningBorder.UI.HUD
 
             // Graph type selector
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Show:", _labelStyle, GUILayout.Width(55));
+            GUILayout.Label("Show:", Styles.Label, GUILayout.Width(55));
             for (int i = 0; i < _graphNames.Length; i++)
             {
-                var btnStyle = new GUIStyle(_buttonStyle);
+                var btnStyle = new GUIStyle(Styles.Button);
                 if (i == _selectedGraphIndex)
                 {
                     btnStyle.normal.textColor = Color.white;
@@ -246,7 +232,7 @@ namespace TheWaningBorder.UI.HUD
 
                 // Draw a combined overview of ALL factions for the selected metric
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("All Players — ", _subHeaderStyle);
+                GUILayout.Label("All Players — ", Styles.SubHeader);
                 ResourceIcons.DrawLayoutIcon(_graphNames[_selectedGraphIndex], 14f);
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
@@ -255,7 +241,7 @@ namespace TheWaningBorder.UI.HUD
             }
             else
             {
-                GUILayout.Label("No data available", _labelStyle);
+                GUILayout.Label("No data available", Styles.Label);
             }
 
             GUILayout.EndScrollView();
@@ -267,14 +253,14 @@ namespace TheWaningBorder.UI.HUD
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("Return to Main Menu", _buttonStyle, GUILayout.Width(200), GUILayout.Height(40)))
+            if (GUILayout.Button("Return to Main Menu", Styles.Button, GUILayout.Width(200), GUILayout.Height(40)))
             {
                 ReturnToMainMenu();
             }
 
             GUILayout.Space(20);
 
-            if (GUILayout.Button("Close", _buttonStyle, GUILayout.Width(120), GUILayout.Height(40)))
+            if (GUILayout.Button("Close", Styles.Button, GUILayout.Width(120), GUILayout.Height(40)))
             {
                 Hide();
             }
@@ -300,7 +286,7 @@ namespace TheWaningBorder.UI.HUD
             if (data.Count < 2) return;
 
             Color graphColor = GetGraphColor(graphIndex);
-            GUILayout.Label($"{faction} — {title}", _subHeaderStyle);
+            GUILayout.Label($"{faction} — {title}", Styles.SubHeader);
             GUILayout.Space(4);
 
             // Reserve rect for graph
@@ -574,49 +560,10 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_stylesInit) return;
 
-            _bgTex = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.97f));
-            _graphBgTex = MakeTex(2, 2, new Color(0.03f, 0.04f, 0.10f, 1f));
-            _gridLineTex = MakeTex(2, 2, new Color(1f, 1f, 1f, 0.1f));
+            // Graph-area background — unique to this panel (no Styles match)
+            _graphBgTex = Styles.MakeSolid(new Color(0.03f, 0.04f, 0.10f, 1f));
 
-            _windowStyle = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = MakeBorderedTex(
-                    new Color(0.06f, 0.08f, 0.18f, 0.97f),
-                    new Color(0.83f, 0.66f, 0.26f, 0.8f), 2) }
-            };
-
-            _headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 22,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            _subHeaderStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 16,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
-            _buttonStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 13,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            _dropdownStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 12,
-                alignment = TextAnchor.MiddleLeft
-            };
-
+            // Tiny right-aligned grey label for graph axis labels — unique to this panel
             _graphLabelStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 10,
@@ -627,33 +574,24 @@ namespace TheWaningBorder.UI.HUD
             _stylesInit = true;
         }
 
-        private static Texture2D MakeTex(int w, int h, Color c)
+        /// <summary>
+        /// Build the per-result banner styles once. Picked at draw time via ternary
+        /// (Fix #221 — no per-frame GUIStyle alloc).
+        /// </summary>
+        private void BuildResultStyles()
         {
-            var pix = new Color[w * h];
-            for (int i = 0; i < pix.Length; i++) pix[i] = c;
-            var t = new Texture2D(w, h);
-            t.SetPixels(pix);
-            t.Apply();
-            return t;
-        }
+            if (_resultStylesBuilt) return;
 
-        private static Texture2D MakeBorderedTex(Color bg, Color border, int borderWidth)
-        {
-            int size = 64;
-            var pix = new Color[size * size];
-            for (int y = 0; y < size; y++)
+            _resultStyleVictory = new GUIStyle(Styles.BannerLarge)
             {
-                for (int x = 0; x < size; x++)
-                {
-                    bool isBorder = x < borderWidth || x >= size - borderWidth ||
-                                    y < borderWidth || y >= size - borderWidth;
-                    pix[y * size + x] = isBorder ? border : bg;
-                }
-            }
-            var t = new Texture2D(size, size);
-            t.SetPixels(pix);
-            t.Apply();
-            return t;
+                normal = { textColor = Styles.VictoryColor }
+            };
+            _resultStyleDefeat = new GUIStyle(Styles.BannerLarge)
+            {
+                normal = { textColor = Styles.DefeatColor }
+            };
+
+            _resultStylesBuilt = true;
         }
 
         void OnDestroy()

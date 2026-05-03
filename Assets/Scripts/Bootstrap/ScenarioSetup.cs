@@ -31,65 +31,37 @@ namespace TheWaningBorder.Bootstrap
         private const float RowSpacing = 10f;     // space between rows
         private const float ArmySeparation = 60f; // distance between the two armies
 
-        public static void Bootstrap()
+        /// <summary>
+        /// Set scenario-specific GameSettings BEFORE the main world init runs
+        /// (so fog-of-war state, player count, observer flag are correct when
+        /// GameBootstrap.InitializeWorld and InitializeAI run).
+        /// </summary>
+        public static void PreInit()
         {
-
-            GameSettings.TotalPlayers = GameSettings.ActiveScenario == ScenarioType.FourWayCultures ? 4 : 2;
+            bool fourPlayer =
+                GameSettings.ActiveScenario == ScenarioType.FourWayCultures ||
+                GameSettings.ActiveScenario == ScenarioType.BuildingShowcase;
+            GameSettings.TotalPlayers = fourPlayer ? 4 : 2;
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
-            GameSettings.IsObserver = GameSettings.ActiveScenario == ScenarioType.FourWayCultures;
+            GameSettings.IsObserver = fourPlayer;
+        }
 
-            // Ensure ECS world
+        /// <summary>
+        /// Place the scenario's predefined entities. Called by GameBootstrap
+        /// AFTER the world / managers / terrain have been set up the same way
+        /// they are for skirmish — only the unit/building placement differs.
+        /// </summary>
+        public static void SpawnScenarioEntities()
+        {
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                DefaultWorldInitialization.Initialize("Default World");
-                world = EntityWorld.DefaultGameObjectInjectionWorld;
+                Debug.LogError("[ScenarioSetup] No ECS world — bootstrap order is wrong");
+                return;
             }
             var em = world.EntityManager;
 
-            // Create managers
-            var managersGO = new GameObject("ScenarioManagers");
-            managersGO.AddComponent<EntityViewManager>();
-            managersGO.AddComponent<PresentationSpawnSystem>();
-            managersGO.AddComponent<SelectionSystem>();
-            managersGO.AddComponent<RTSInputManager>();
-            managersGO.AddComponent<UnifiedUIManager>();
-            managersGO.AddComponent<SelectionRings>();
-            managersGO.AddComponent<FloatingHealthBars>();
-            managersGO.AddComponent<ResourceHUD>();
-            managersGO.AddComponent<ProjectileVisualSystem>();
-            managersGO.AddComponent<MovementLineDisplay>();
-            managersGO.AddComponent<UnitIndicatorSystem>();
-            managersGO.AddComponent<PlanningModeOverlay>();
-            managersGO.AddComponent<FormationPreview>();
-            Object.DontDestroyOnLoad(managersGO);
-
-            // Create terrain
-            if (Object.FindFirstObjectByType<ProceduralTerrain>() == null)
-            {
-                var terrainGO = new GameObject("ProceduralTerrain");
-                terrainGO.AddComponent<ProceduralTerrain>();
-            }
-
-            // Create passability grid
-            if (Object.FindFirstObjectByType<PassabilityGrid>() == null)
-            {
-                var gridGO = new GameObject("PassabilityGrid");
-                gridGO.AddComponent<PassabilityGrid>();
-            }
-
-            // Create flow field manager
-            if (Object.FindFirstObjectByType<FlowFieldManager>() == null)
-            {
-                var ffmGO = new GameObject("FlowFieldManager");
-                ffmGO.AddComponent<FlowFieldManager>();
-            }
-
-            // Initialize camera
-            GameCamera.Ensure();
-
-            // Spawn scenario
             switch (GameSettings.ActiveScenario)
             {
                 case ScenarioType.LargeMelee:
@@ -116,14 +88,24 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.SectShowcase:
                     SpawnSectShowcase(em);
                     break;
+                case ScenarioType.BuildingShowcase:
+                    SpawnBuildingShowcase(em);
+                    break;
             }
 
-            // Focus camera on center
             GameCamera.FocusOn(Vector3.zero, instant: true);
-
-            // Dismiss loading screen
             LoadingScreen.NotifyReady();
+        }
 
+        /// <summary>
+        /// Legacy entry point — kept for API compatibility. Delegates to the
+        /// new split. GameBootstrap.OnSceneLoadedHandler now uses the split
+        /// directly so scenarios go through the same init flow as skirmish.
+        /// </summary>
+        public static void Bootstrap()
+        {
+            PreInit();
+            SpawnScenarioEntities();
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -516,6 +498,76 @@ namespace TheWaningBorder.Bootstrap
             // Focus camera on center of grid
             GameCamera.FocusOn(new UnityEngine.Vector3(0, 0, 0), instant: true);
 
+        }
+
+        /// <summary>
+        /// Building Showcase: one of each building type, organised by culture.
+        /// Five rows centred on origin, each row a different faction colour for
+        /// quick visual separation:
+        ///   Row 0 (Blue,    south): Era-1 generic buildings.
+        ///   Row 1 (Teal):           Era-2 choice buildings (pre-culture).
+        ///   Row 2 (Green):          Runai culture buildings.
+        ///   Row 3 (Yellow):         Feraldis culture buildings.
+        ///   Row 4 (Red,     north): Alanthor culture buildings.
+        /// </summary>
+        private static void SpawnBuildingShowcase(EntityManager em)
+        {
+            const float ColSpacing = 16f;
+            const float RowZSpacing = 24f;
+
+            // Each row uses a distinct faction. Set the per-faction culture so
+            // procedural building generators render the correct culture treatment
+            // (FactionColors.GetFactionCulture is what feeds into culture overlays).
+            FactionColors.SetFactionCulture(Faction.Blue,   Cultures.None);
+            FactionColors.SetFactionCulture(Faction.Teal,   Cultures.None);
+            FactionColors.SetFactionCulture(Faction.Green,  Cultures.Runai);
+            FactionColors.SetFactionCulture(Faction.Yellow, Cultures.Feraldis);
+            FactionColors.SetFactionCulture(Faction.Red,    Cultures.Alanthor);
+
+            // Each culture row leads with the four culture-aware Era 1 buildings
+            // (Hall, Hut, GatherersHut, Barracks) so the four cultural variants
+            // line up vertically across rows for side-by-side comparison.
+            var rows = new (Faction faction, string[] buildings)[]
+            {
+                // Era 1 generic (no culture)
+                (Faction.Blue, new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
+                // Era 2 pre-culture choice buildings (no culture yet)
+                (Faction.Teal, new[] { "ShrineOfAhridan", "TempleOfRidan", "VaultOfAlmierra" }),
+                // Runai (Runai_TradingPost omitted — reuses Alanthor_Garrison presentation)
+                (Faction.Green, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
+                    "Runai_Vault", "Runai_VeilsteelFoundry", "Runai_SiegeWorkshop"
+                }),
+                // Feraldis
+                (Faction.Yellow, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "FiendstoneKeep", "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
+                    "Feraldis_Foundry", "Feraldis_Tower", "Feraldis_Longhouse", "Feraldis_SiegeYard"
+                }),
+                // Alanthor
+                (Faction.Red, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_Garrison",
+                    "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
+                }),
+            };
+
+            float startZ = -((rows.Length - 1) * 0.5f) * RowZSpacing;
+
+            for (int r = 0; r < rows.Length; r++)
+            {
+                var (faction, buildings) = rows[r];
+                float rowZ = startZ + r * RowZSpacing;
+                float startX = -((buildings.Length - 1) * 0.5f) * ColSpacing;
+
+                for (int c = 0; c < buildings.Length; c++)
+                {
+                    float3 pos = new float3(startX + c * ColSpacing, 0f, rowZ);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    BuildingFactory.Create(em, buildings[c], pos, faction);
+                }
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════

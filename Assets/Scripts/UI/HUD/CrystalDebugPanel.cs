@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Economy;
+using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.UI.HUD
@@ -46,9 +47,8 @@ namespace TheWaningBorder.UI.HUD
         private EntityQuery _nodeDetailQuery;
         private bool _queriesInit;
 
-        // Styles
-        private GUIStyle _bgStyle;
-        private GUIStyle _headerStyle;
+        // Styles — debug-specific colors (light-blue label + cyan value) cached locally;
+        // panel bg + header pulled from Styles.cs.
         private GUIStyle _labelStyle;
         private GUIStyle _valueStyle;
         private bool _stylesInit;
@@ -166,6 +166,7 @@ namespace TheWaningBorder.UI.HUD
         void OnGUI()
         {
             if (!_visible) return;
+            Styles.Initialize();
             InitStyles();
 
             float w = 340f;
@@ -173,10 +174,10 @@ namespace TheWaningBorder.UI.HUD
             h = Mathf.Min(h, Screen.height - 40f);
             Rect panelRect = new Rect(Screen.width - w - 10, 10, w, h);
 
-            GUI.Box(panelRect, GUIContent.none, _bgStyle);
+            GUI.Box(panelRect, GUIContent.none, Styles.PanelBox);
             GUILayout.BeginArea(new Rect(panelRect.x + 8, panelRect.y + 8, w - 16, h - 16));
 
-            GUILayout.Label("CRYSTAL FACTION DEBUG", _headerStyle);
+            GUILayout.Label("CRYSTAL FACTION DEBUG", Styles.Header);
             GUILayout.Space(4);
 
             // Economy
@@ -187,14 +188,14 @@ namespace TheWaningBorder.UI.HUD
             GUILayout.Space(6);
 
             // Waves
-            GUILayout.Label("ATTACK WAVES", _headerStyle);
+            GUILayout.Label("ATTACK WAVES", Styles.Header);
             DrawRow("Next wave in:", $"{Mathf.Max(0, _waveTimer):F0}s");
             DrawRow("Interval:", $"{_waveInterval:F0}s");
             DrawRow("Waves sent:", $"{_waveNumber}");
             GUILayout.Space(6);
 
             // Per-node
-            GUILayout.Label($"NODES ({_nodeCount})", _headerStyle);
+            GUILayout.Label($"NODES ({_nodeCount})", Styles.Header);
             for (int i = 0; i < _nodes.Length; i++)
             {
                 var n = _nodes[i];
@@ -227,17 +228,7 @@ namespace TheWaningBorder.UI.HUD
             if (_stylesInit) return;
             _stylesInit = true;
 
-            var bgTex = new Texture2D(1, 1);
-            bgTex.SetPixel(0, 0, new Color(0.06f, 0.08f, 0.18f, 0.92f));
-            bgTex.Apply();
-            _bgStyle = new GUIStyle(GUI.skin.box);
-            _bgStyle.normal.background = bgTex;
-
-            _headerStyle = new GUIStyle(GUI.skin.label);
-            _headerStyle.fontStyle = FontStyle.Bold;
-            _headerStyle.normal.textColor = new Color(0.83f, 0.66f, 0.26f);
-            _headerStyle.fontSize = 13;
-
+            // Debug-specific text tints (light-blue label, cyan value) — no Styles match.
             _labelStyle = new GUIStyle(GUI.skin.label);
             _labelStyle.normal.textColor = new Color(0.8f, 0.8f, 0.9f);
             _labelStyle.fontSize = 12;

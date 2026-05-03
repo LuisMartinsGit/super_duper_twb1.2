@@ -38,13 +38,12 @@ namespace TheWaningBorder.UI.Panels
         private static bool _stylesInit;
 
         // ═══════════════════════════════════════════════════════════════════
-        // CULTURE COLORS
+        // CULTURE COLORS — palette colors sourced from Styles.cs where possible.
         // ═══════════════════════════════════════════════════════════════════
 
         private static readonly Color AlanthorColor = new Color(0.55f, 0.65f, 0.50f);  // sage green
         private static readonly Color RunaiColor = new Color(0.25f, 0.75f, 0.80f);     // cyan
         private static readonly Color FeraldisColor = new Color(0.70f, 0.18f, 0.15f);  // crimson red
-        private static readonly Color GoldAccent = new Color(0.83f, 0.66f, 0.26f);
         private static readonly Color DimText = new Color(0.7f, 0.68f, 0.60f);
         private static readonly Color BrightText = new Color(0.9f, 0.88f, 0.82f);
 
@@ -80,6 +79,7 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         public static void Draw(Faction faction)
         {
+            Styles.Initialize();
             InitStyles();
 
             var sectState = FactionSectState.Instance;
@@ -102,7 +102,7 @@ namespace TheWaningBorder.UI.Panels
             // ── Separator ──
             GUILayout.Space(8);
             var sepRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
-            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.4f);
+            GUI.color = new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.4f);
             GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUILayout.Space(6);
@@ -194,8 +194,8 @@ namespace TheWaningBorder.UI.Panels
             }
             else
             {
-                // Cost label
-                var costColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
+                // Cost label — affordable green / unaffordable red sourced from Styles.
+                var costColor = canAfford ? Styles.AffordableColor : Styles.UnaffordableColor;
                 var savedCostColor = _costStyle.normal.textColor;
                 _costStyle.normal.textColor = costColor;
                 GUILayout.Label($"{cost} RP", _costStyle, GUILayout.Width(30));
@@ -240,7 +240,7 @@ namespace TheWaningBorder.UI.Panels
                     {
                         GUILayout.Space(6);
                         var sepRect = GUILayoutUtility.GetRect(0, 1, GUILayout.ExpandWidth(true));
-                        GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.3f);
+                        GUI.color = new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.3f);
                         GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
                         GUI.color = Color.white;
                         GUILayout.Space(4);
@@ -264,7 +264,7 @@ namespace TheWaningBorder.UI.Panels
             {
                 fontSize = 16,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = GoldAccent }
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _cultureHeaderStyle = new GUIStyle(GUI.skin.label)
@@ -291,7 +291,7 @@ namespace TheWaningBorder.UI.Panels
             {
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = GoldAccent },
+                normal = { textColor = Styles.HighlightColor },
                 hover = { textColor = Color.white }
             };
 
@@ -322,7 +322,7 @@ namespace TheWaningBorder.UI.Panels
             {
                 fontSize = 10,
                 fontStyle = FontStyle.Italic,
-                normal = { textColor = GoldAccent }
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _stylesInit = true;

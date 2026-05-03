@@ -47,6 +47,9 @@ namespace TheWaningBorder.Input
         private EntityManager _em;
         private bool _attackMoveMode = false;
         private bool _patrolMode = false;
+        // Tracks Shift state across frames so we can detect the down→up
+        // transition and unfreeze accumulated queues at that moment.
+        private bool _shiftWasHeld = false;
 
         /// <summary>
         /// Currently hovered entity (for UI highlighting).
@@ -71,10 +74,20 @@ namespace TheWaningBorder.Input
         void Update()
         {
             if (_world == null || !_world.IsCreated) return;
-            
+
             // Refresh EntityManager if needed
             if (_em.Equals(default(EntityManager)))
                 _em = _world.EntityManager;
+
+            // Detect Shift release independent of UI/blocking guards: if the
+            // user lets go of Shift while their cursor happens to be over a
+            // panel, queues must still resume — otherwise the frozen tag
+            // would persist forever and the units would never move.
+            bool shiftHeldNow = UnityEngine.Input.GetKey(KeyCode.LeftShift)
+                              || UnityEngine.Input.GetKey(KeyCode.RightShift);
+            if (_shiftWasHeld && !shiftHeldNow)
+                UnfreezeAllQueues();
+            _shiftWasHeld = shiftHeldNow;
 
             // Allow ESC to close menu even when other input is blocked
             // (but not during building placement -- let BuilderCommandPanel handle ESC there)
@@ -267,7 +280,6 @@ namespace TheWaningBorder.Input
             var hovered = RaycastPickEntity();
             CurrentHover = (_em.Exists(hovered)) ? hovered : Entity.Null;
 
-            // Sync to RTSInput static accessor so SelectionRings can read it
             RTSInput.SetHovered(CurrentHover);
         }
         
@@ -277,7 +289,17 @@ namespace TheWaningBorder.Input
         
         private void HandleRightClick()
         {
-            if (!UnityEngine.Input.GetMouseButtonDown(1)) return;
+            // Drag-to-preview formation: when the user has held right-mouse and
+            // dragged, FormationDragPreview takes over. Skip the instant move.
+            if (TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick)
+            {
+                TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick = false;
+                return;
+            }
+
+            // Fire on mouse-up so drag-preview can intercept hold gestures.
+            // A short click+release acts like the previous instant right-click.
+            if (!UnityEngine.Input.GetMouseButtonUp(1)) return;
 
             var selection = SelectionSystem.CurrentSelection;
             if (selection == null || selection.Count == 0) return;
@@ -764,57 +786,180 @@ namespace TheWaningBorder.Input
             int count = units.Count;
             if (count == 0) return;
 
-            // Calculate formation grid
-            int cols = Mathf.CeilToInt(Mathf.Sqrt(count));
-            int rows = Mathf.CeilToInt((float)count / cols);
+            // ── Move direction = from selection centroid to click target ──
+            float3 centroid = float3.zero;
+            for (int i = 0; i < count; i++) centroid += positions[i];
+            centroid /= count;
 
-            // Get camera-relative directions
-            var cam = Camera.main;
-            Vector3 camForward = cam
-                ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized
-                : Vector3.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, camForward).normalized;
+            float3 moveDir = clickWorld - centroid;
+            moveDir.y = 0f;
+            if (math.lengthsq(moveDir) < 0.01f)
+            {
+                // Click is on top of selection — keep current camera-forward fallback
+                var cam0 = Camera.main;
+                Vector3 cf = cam0
+                    ? Vector3.ProjectOnPlane(cam0.transform.forward, Vector3.up).normalized
+                    : Vector3.forward;
+                moveDir = new float3(cf.x, 0f, cf.z);
+            }
+            moveDir = math.normalize(moveDir);
 
-            float3 forward = new float3(camForward.x, camForward.y, camForward.z);
-            float3 rightF3 = new float3(right.x, right.y, right.z);
+            // Right vector lies in the horizontal plane, perpendicular to moveDir
+            float3 rightDir = math.cross(new float3(0f, 1f, 0f), moveDir);
 
-            // Top-left of formation
-            float3 topLeft = clickWorld
-                - rightF3 * ((cols - 1) * formationSpacing * 0.5f)
-                + forward * ((rows - 1) * formationSpacing * 0.5f);
-
-            // Calculate slots and find slowest speed / max distance
-            var slots = new float3[count];
-            var dists = new float[count];
-            float slowestSpeed = float.MaxValue;
-            float maxDist = 0f;
-
+            // ── Per-unit footprint (width × depth) ──
+            float[] widths = new float[count];
+            float[] depths = new float[count];
+            float maxBattalionWidth = formationSpacing;
+            float maxBattalionDepth = formationSpacing;
             for (int i = 0; i < count; i++)
             {
-                int row = i / cols;
-                int col = i % cols;
-                slots[i] = topLeft + rightF3 * (col * formationSpacing) - forward * (row * formationSpacing);
+                if (_em.HasComponent<BattalionLeader>(units[i]))
+                {
+                    var bl = _em.GetComponentData<BattalionLeader>(units[i]);
+                    widths[i] = bl.Columns * bl.Spacing + 1.5f;
+                    depths[i] = bl.Rows * bl.Spacing + 1.5f;
+                }
+                else
+                {
+                    widths[i] = formationSpacing;
+                    depths[i] = formationSpacing;
+                }
+                if (widths[i] > maxBattalionWidth) maxBattalionWidth = widths[i];
+                if (depths[i] > maxBattalionDepth) maxBattalionDepth = depths[i];
+            }
 
-                float3 to = slots[i] - positions[i];
-                to.y = 0;
-                dists[i] = math.length(to);
+            // ── Square-ish grid layout ──
+            // cols = ceil(sqrt(N)), rows = ceil(N/cols). Front rows fill first
+            // so the back row may be partial and gets centered.
+            //   N=2 → 2×1 (front=2)
+            //   N=3 → 2×2 (front=2, back=1 centered)
+            //   N=5 → 3×2 (front=3, back=2)
+            //   N=6 → 3×2 (front=3, back=3)
+            int cols = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
+            int rows = Mathf.Max(1, Mathf.CeilToInt(count / (float)cols));
+            int[] rowCount = new int[rows];
+            int remainingForLayout = count;
+            for (int r = 0; r < rows; r++)
+            {
+                rowCount[r] = Mathf.Min(cols, remainingForLayout);
+                remainingForLayout -= rowCount[r];
+            }
 
-                if (speeds[i] > 0 && speeds[i] < slowestSpeed)
-                    slowestSpeed = speeds[i];
-                if (dists[i] > maxDist)
-                    maxDist = dists[i];
+            // Build slot world positions. Slot index = sequential (front-to-back, left-to-right).
+            var slots = new float3[count];
+            int[] slotRow = new int[count];
+            int[] slotCol = new int[count];   // col within its row
+            int[] slotsInRow = new int[count]; // total cols in this slot's row
+            int slotIdx = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                int rc = rowCount[r];
+                float rowWidth = rc * maxBattalionWidth;
+                float startOffset = -rowWidth * 0.5f + maxBattalionWidth * 0.5f;
+                for (int c = 0; c < rc; c++)
+                {
+                    float lateralOffset = startOffset + c * maxBattalionWidth;
+                    slots[slotIdx] = clickWorld
+                                   + rightDir * lateralOffset
+                                   - moveDir * (r * maxBattalionDepth);
+                    slotRow[slotIdx] = r;
+                    slotCol[slotIdx] = c;
+                    slotsInRow[slotIdx] = rc;
+                    slotIdx++;
+                }
+            }
+
+            // ── Categorize slots and battalions by tactical role ──
+            //   Back   = back rows (ranged / siege / support / magic)
+            //   Wing   = leftmost / rightmost slot of the front row (cavalry)
+            //   Front  = front-row interior (melee)
+            // Role values are deliberately gapped so role-mismatch dominates distance.
+            const float ROLE_PENALTY = 1_000_000f;
+            int[] slotRole = new int[count];
+            for (int s = 0; s < count; s++)
+            {
+                if (slotRow[s] > 0) slotRole[s] = 2;                            // Back
+                else if (slotsInRow[s] > 1
+                         && (slotCol[s] == 0 || slotCol[s] == slotsInRow[s] - 1))
+                    slotRole[s] = 1;                                            // Wing
+                else slotRole[s] = 0;                                           // Front
+            }
+
+            int[] leaderRole = new int[count];
+            for (int l = 0; l < count; l++)
+                leaderRole[l] = ClassifyLeaderRole(units[l]);
+
+            // ── Greedy assignment with role-mismatch penalty ──
+            // Distance is the tiebreaker WITHIN a role; role match wins overall.
+            int[] leaderToSlot = new int[count];
+            bool[] slotUsed = new bool[count];
+            for (int i = 0; i < count; i++) leaderToSlot[i] = -1;
+
+            var pairs = new List<(int leader, int slot, float cost)>(count * count);
+            for (int l = 0; l < count; l++)
+            for (int s = 0; s < count; s++)
+            {
+                float3 d = slots[s] - positions[l];
+                d.y = 0f;
+                float cost = math.lengthsq(d);
+                if (slotRole[s] != leaderRole[l]) cost += ROLE_PENALTY;
+                pairs.Add((l, s, cost));
+            }
+            pairs.Sort((a, b) => a.cost.CompareTo(b.cost));
+
+            int assigned = 0;
+            for (int p = 0; p < pairs.Count && assigned < count; p++)
+            {
+                var pair = pairs[p];
+                if (leaderToSlot[pair.leader] != -1) continue;
+                if (slotUsed[pair.slot]) continue;
+                leaderToSlot[pair.leader] = pair.slot;
+                slotUsed[pair.slot] = true;
+                assigned++;
+            }
+
+            // Compute distances + slowest speed using the assigned mapping
+            float slowestSpeed = float.MaxValue;
+            float maxDist = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                int sIdx = leaderToSlot[i];
+                if (sIdx < 0) sIdx = i; // fallback (shouldn't happen)
+                float3 to = slots[sIdx] - positions[i];
+                to.y = 0f;
+                float d = math.length(to);
+                if (speeds[i] > 0 && speeds[i] < slowestSpeed) slowestSpeed = speeds[i];
+                if (d > maxDist) maxDist = d;
             }
 
             if (slowestSpeed <= 0f || slowestSpeed == float.MaxValue)
                 slowestSpeed = 3.5f;
 
-            // Arrival time = how long the slowest unit takes to cover the max distance
-            float arrivalTime = maxDist / slowestSpeed;
+            // Each battalion should face the original move direction, not its
+            // own slot's direction (so all formations face the same way after
+            // arrival, side-by-side in a tidy line).
+            quaternion sharedFacing = quaternion.LookRotationSafe(moveDir, new float3(0f, 1f, 0f));
 
             // Issue moves — all units move at the slowest speed (BFME2 group move)
             for (int i = 0; i < count; i++)
             {
-                CommandRouter.IssueMove(_em, units[i], slots[i], CommandSource.LocalPlayer);
+                int sIdx = leaderToSlot[i];
+                if (sIdx < 0) sIdx = i;
+                CommandRouter.IssueMove(_em, units[i], slots[sIdx], CommandSource.LocalPlayer);
+
+                // Override DestinationRot so battalions face the move direction,
+                // not the angle from their start to their slot. MoveCommandHelper
+                // sets DestinationRot from delta; we replace it with the shared
+                // facing for a clean side-by-side line.
+                if (_em.HasComponent<BattalionLeader>(units[i]))
+                {
+                    var bl = _em.GetComponentData<BattalionLeader>(units[i]);
+                    bl.DestinationRot = sharedFacing;
+                    bl.HasDestinationRot = 1;
+                    bl.NeedsReassignment = 1;
+                    _em.SetComponentData(units[i], bl);
+                }
 
                 if (_em.HasComponent<FormationSpeedOverride>(units[i]))
                     _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
@@ -828,6 +973,10 @@ namespace TheWaningBorder.Input
         /// </summary>
         private void QueueWaypointForSelection(float3 clickWorld)
         {
+            // Called only while Shift is held. Every waypoint is appended to
+            // the command queue and the entity is marked CommandQueueFrozen,
+            // so CommandQueueSystem will not pop the next command until Shift
+            // is released (UnfreezeAllQueues clears the tag).
             var selection = SelectionSystem.CurrentSelection;
             foreach (var e in selection)
             {
@@ -835,18 +984,6 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BattalionMemberData>(e)) continue;
 
-                // If unit has no current destination, issue move directly
-                bool hasDest = _em.HasComponent<DesiredDestination>(e)
-                    && _em.GetComponentData<DesiredDestination>(e).Has != 0;
-                bool hasQueue = _em.HasComponent<CommandQueueActive>(e);
-
-                if (!hasDest && !hasQueue)
-                {
-                    CommandRouter.IssueMove(_em, e, clickWorld, CommandSource.LocalPlayer);
-                    continue;
-                }
-
-                // Append to command queue
                 if (!_em.HasBuffer<QueuedCommand>(e))
                     _em.AddBuffer<QueuedCommand>(e);
                 _em.GetBuffer<QueuedCommand>(e).Add(new QueuedCommand
@@ -858,7 +995,20 @@ namespace TheWaningBorder.Input
 
                 if (!_em.HasComponent<CommandQueueActive>(e))
                     _em.AddComponent<CommandQueueActive>(e);
+                if (!_em.HasComponent<CommandQueueFrozen>(e))
+                    _em.AddComponent<CommandQueueFrozen>(e);
             }
+        }
+
+        // Strips CommandQueueFrozen from every entity that carries it. Called
+        // on the frame Shift transitions from held → released, so any queues
+        // built up during the hold start draining on the next CommandQueueSystem tick.
+        private void UnfreezeAllQueues()
+        {
+            var query = _em.CreateEntityQuery(typeof(CommandQueueFrozen));
+            if (!query.IsEmpty)
+                _em.RemoveComponent<CommandQueueFrozen>(query);
+            query.Dispose();
         }
 
         private void IssueAttackMoveFormation(float3 clickWorld)
@@ -1042,6 +1192,46 @@ namespace TheWaningBorder.Input
         {
             if (!_em.HasComponent<FactionTag>(e)) return false;
             return _em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction;
+        }
+
+        /// <summary>
+        /// Classify a leader (or individual unit) into a formation role:
+        ///   0 = Front  (melee — front-row interior)
+        ///   1 = Wing   (cavalry — front-row edges)
+        ///   2 = Back   (ranged / siege / support / magic — back rows)
+        /// Looks at the first alive battalion member or the unit itself.
+        /// </summary>
+        private int ClassifyLeaderRole(Entity unit)
+        {
+            // Helper to read a single entity's role
+            int FromEntity(Entity e)
+            {
+                if (_em.HasComponent<CavalryTag>(e)) return 1; // Wing
+                if (_em.HasComponent<UnitTag>(e))
+                {
+                    var c = _em.GetComponentData<UnitTag>(e).Class;
+                    if (c == UnitClass.Ranged || c == UnitClass.Siege
+                        || c == UnitClass.Support || c == UnitClass.Magic)
+                        return 2; // Back
+                    if (c == UnitClass.Melee) return 0; // Front
+                }
+                return 0; // default to Front
+            }
+
+            // Battalion leader: classify by first alive member
+            if (_em.HasComponent<BattalionLeader>(unit) && _em.HasBuffer<BattalionMember>(unit))
+            {
+                var members = _em.GetBuffer<BattalionMember>(unit);
+                for (int i = 0; i < members.Length; i++)
+                {
+                    var m = members[i].Value;
+                    if (m == Entity.Null || !_em.Exists(m)) continue;
+                    if (_em.HasComponent<Health>(m)
+                        && _em.GetComponentData<Health>(m).Value <= 0) continue;
+                    return FromEntity(m);
+                }
+            }
+            return FromEntity(unit);
         }
 
         /// <summary>

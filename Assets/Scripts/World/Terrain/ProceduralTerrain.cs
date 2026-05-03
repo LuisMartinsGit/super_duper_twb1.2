@@ -94,6 +94,7 @@ namespace TheWaningBorder.World.Terrain
         public TerrainLayer rock;
         public TerrainLayer snow;
         public TerrainLayer curse;
+        public TerrainLayer forestFloor;
 
         [Header("Texture Settings")]
         public int textureResolution = 512;
@@ -133,6 +134,51 @@ namespace TheWaningBorder.World.Terrain
         /// Singleton instance for easy access.
         /// </summary>
         public static ProceduralTerrain Instance { get; private set; }
+
+        /// <summary>
+        /// Flatten a square region of the terrain heightmap to the height sampled
+        /// at the region's centre. Called when a building is placed so the model
+        /// sits on level ground. <paramref name="halfExtent"/> is the half-side
+        /// length in world units (so a 4x4-cell building uses halfExtent = 2).
+        /// </summary>
+        public void FlattenAt(Vector3 worldCenter, float halfExtent)
+        {
+            if (_terrain == null || _data == null) return;
+            if (halfExtent <= 0f) return;
+
+            int res = _data.heightmapResolution;
+            float terrainPosX = _terrain.transform.position.x;
+            float terrainPosZ = _terrain.transform.position.z;
+            float terrainSizeX = _data.size.x;
+            float terrainSizeZ = _data.size.z;
+            float terrainSizeY = _data.size.y;
+            if (terrainSizeY <= 0f) return;
+
+            // Target normalized height = current sample at the centre.
+            float centerHeight = _terrain.SampleHeight(worldCenter);
+            float targetNorm = Mathf.Clamp01(centerHeight / terrainSizeY);
+
+            // Convert world XZ rect to heightmap pixel rect.
+            float minNormX = ((worldCenter.x - halfExtent) - terrainPosX) / terrainSizeX;
+            float maxNormX = ((worldCenter.x + halfExtent) - terrainPosX) / terrainSizeX;
+            float minNormZ = ((worldCenter.z - halfExtent) - terrainPosZ) / terrainSizeZ;
+            float maxNormZ = ((worldCenter.z + halfExtent) - terrainPosZ) / terrainSizeZ;
+
+            int minX = Mathf.Clamp(Mathf.FloorToInt(minNormX * (res - 1)), 0, res - 1);
+            int maxX = Mathf.Clamp(Mathf.CeilToInt (maxNormX * (res - 1)), 0, res - 1);
+            int minZ = Mathf.Clamp(Mathf.FloorToInt(minNormZ * (res - 1)), 0, res - 1);
+            int maxZ = Mathf.Clamp(Mathf.CeilToInt (maxNormZ * (res - 1)), 0, res - 1);
+
+            int width = maxX - minX + 1;
+            int height = maxZ - minZ + 1;
+            if (width <= 0 || height <= 0) return;
+
+            float[,] heights = new float[height, width];
+            for (int z = 0; z < height; z++)
+                for (int x = 0; x < width; x++)
+                    heights[z, x] = targetNorm;
+            _data.SetHeights(minX, minZ, heights);
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // INITIALIZATION
@@ -279,6 +325,54 @@ namespace TheWaningBorder.World.Terrain
                 curse.smoothness = 0.85f; // Glassy sheen
             }
 
+            if (forestFloor == null)
+                forestFloor = CreateTerrainLayer("ForestFloor", GenerateForestFloorTexture(texOffsetX, texOffsetY), tileSize * 0.5f);
+
+        }
+
+        Texture2D GenerateForestFloorTexture(float offsetX, float offsetY)
+        {
+            // Brown leafy forest floor — fallen needles + dirt + moss
+            var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
+
+            var darkLeaf = new Color(0.16f, 0.10f, 0.04f);   // wet soil
+            var midLeaf  = new Color(0.32f, 0.20f, 0.08f);   // brown leaves
+            var lightLeaf= new Color(0.48f, 0.34f, 0.14f);   // dry needles
+            var moss     = new Color(0.18f, 0.26f, 0.10f);   // patches of green moss
+            var twig     = new Color(0.12f, 0.07f, 0.03f);   // dark twigs
+
+            for (int y = 0; y < textureResolution; y++)
+            {
+                for (int x = 0; x < textureResolution; x++)
+                {
+                    float u = x / (float)textureResolution;
+                    float v = y / (float)textureResolution;
+
+                    // Base FBM grain — leafy texture
+                    float n = Mathf.PerlinNoise(u * 50 + offsetX, v * 50 + offsetY) * 0.5f
+                            + Mathf.PerlinNoise(u * 120 + offsetX, v * 120 + offsetY) * 0.3f
+                            + Mathf.PerlinNoise(u * 280 + offsetX, v * 280 + offsetY) * 0.2f;
+
+                    Color c = Color.Lerp(darkLeaf, midLeaf, n);
+                    c = Color.Lerp(c, lightLeaf, Mathf.Pow(n, 2.5f));
+
+                    // Sparse moss patches
+                    float mossN = Mathf.PerlinNoise(u * 18 + offsetX * 2, v * 18 + offsetY * 2);
+                    if (mossN > 0.65f)
+                        c = Color.Lerp(c, moss, (mossN - 0.65f) * 2.5f);
+
+                    // High-frequency twig specks
+                    float twigN = Mathf.PerlinNoise(u * 400 + offsetY * 3, v * 400 + offsetX * 3);
+                    if (twigN > 0.85f)
+                        c = Color.Lerp(c, twig, (twigN - 0.85f) * 5f);
+
+                    tex.SetPixel(x, y, c);
+                }
+            }
+            tex.Apply();
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            return tex;
         }
 
         TerrainLayer CreateTerrainLayer(string name, Texture2D diffuse, float tileSize)
@@ -1090,6 +1184,21 @@ namespace TheWaningBorder.World.Terrain
             int res = _data.heightmapResolution;
             float[,] heights = new float[res, res];
 
+            // Flat test map: every cell at the spawn height. Slope = 0
+            // everywhere so PassabilityGrid marks the whole map walkable, and
+            // the water plane (at waterHeight=20) sits below the terrain
+            // (spawnTargetHeight=30) where it can't be seen. Used for isolating
+            // AI/pathfinding tests from terrain-noise variables.
+            if (GameSettings.FlatTestMap)
+            {
+                float h = spawnTargetHeight / maxHeight;
+                for (int y = 0; y < res; y++)
+                    for (int x = 0; x < res; x++)
+                        heights[y, x] = h;
+                _data.SetHeights(0, 0, heights);
+                return;
+            }
+
             float mapSizeX = worldMax.x - worldMin.x;
             float mapSizeZ = worldMax.y - worldMin.y;
             float mapHalf = mapSizeX * 0.5f;
@@ -1435,6 +1544,7 @@ namespace TheWaningBorder.World.Terrain
             if (rock != null) list.Add(rock);
             if (snow != null) list.Add(snow);
             if (curse != null) list.Add(curse);
+            if (forestFloor != null) list.Add(forestFloor);
             return list.ToArray();
         }
 
@@ -1575,11 +1685,15 @@ namespace TheWaningBorder.World.Terrain
         [Tooltip("Enable noise-based realistic tree placement across terrain")]
         public bool placeTrees = true;
         [Tooltip("Perlin noise scale for tree placement (lower = larger forest patches)")]
-        public float treeNoiseScale = 0.018f;
+        public float treeNoiseScale = 0.012f;
         [Tooltip("Noise threshold above which trees spawn (0.45-0.55 dense, 0.6+ sparse)")]
-        public float treeDensityThreshold = 0.52f;
-        [Tooltip("Grid spacing in world units between tree candidate points")]
-        public float treeGridSpacing = 4.5f;
+        public float treeDensityThreshold = 0.45f;
+        [Tooltip("Grid spacing in world units between tree candidate points (smaller = denser)")]
+        public float treeGridSpacing = 2.0f;
+        [Tooltip("Maximum slope (delta height per meter) for tree placement")]
+        public float treeMaxSlope = 0.6f;
+        [Tooltip("Minimum height above water for trees (skips beach zone)")]
+        public float treeMinHeightAboveWater = 4f;
 
         private GameObject _treeRoot;
         private Transform _treesParent;
@@ -1593,7 +1707,12 @@ namespace TheWaningBorder.World.Terrain
         public void PlaceTerrainTrees(Vector3[] playerSpawnPositions)
         {
             if (!placeTrees) return;
+            if (GameSettings.FlatTestMap) return; // flat test map → no decorative trees
             if (_treeRoot != null) return; // already placed
+
+            // Paint forest floor splatmap first so the brown leafy texture is
+            // visible beneath the trees. Uses the same noise field as placement.
+            PaintForestFloorSplat(playerSpawnPositions);
 
             // Load all tree prefabs for variety — dev/editor path first, then Resources fallback
             var treePrefabs = LoadTreePrefabs();
@@ -1614,12 +1733,15 @@ namespace TheWaningBorder.World.Terrain
             const float outerFade = 70f;
 
             int placed = 0;
+            int candidates = 0;
+            int rejNoise = 0, rejSpawn = 0, rejWater = 0, rejSlope = 0;
             var spawnList = new List<GameObject>();
 
             for (float z = -halfSize; z < halfSize; z += treeGridSpacing)
             {
                 for (float x = -halfSize; x < halfSize; x += treeGridSpacing)
                 {
+                    candidates++;
                     // Deterministic hash for jitter (same seed always produces same forest)
                     uint hash = (uint)((int)(x * 7919) ^ (int)(z * 31) ^ GameSettings.SpawnSeed);
                     hash ^= hash >> 13; hash *= 0x5bd1e995; hash ^= hash >> 15;
@@ -1649,15 +1771,22 @@ namespace TheWaningBorder.World.Terrain
                         }
                     }
 
-                    if (n < threshold) continue;
+                    if (n < threshold)
+                    {
+                        if (threshold < 5f) rejNoise++; // ignore the impossible-threshold spawn-zone case
+                        else rejSpawn++;
+                        continue;
+                    }
 
-                    // Skip water + steep slopes (sample neighbor heights)
+                    // Skip water + beach + steep slopes. Beach zone goes up to
+                    // ~waterHeight+3 (sandy shore) and we add a small buffer so
+                    // forests don't bleed onto the sand.
                     float y = TerrainUtility.GetHeight(wx, wz);
-                    if (y < 2f) continue;
+                    if (y < waterHeight + treeMinHeightAboveWater) { rejWater++; continue; }
                     float yN = TerrainUtility.GetHeight(wx, wz + 2f);
                     float yE = TerrainUtility.GetHeight(wx + 2f, wz);
                     float slope = Mathf.Max(Mathf.Abs(yN - y), Mathf.Abs(yE - y)) / 2f;
-                    if (slope > 0.35f) continue;
+                    if (slope > treeMaxSlope) { rejSlope++; continue; }
 
                     // Pick a prefab variant from the loaded array
                     var treePrefab = treePrefabs[(int)(hash >> 4) % treePrefabs.Length];
@@ -1685,7 +1814,96 @@ namespace TheWaningBorder.World.Terrain
             if (spawnList.Count > 0)
                 StaticBatchingUtility.Combine(spawnList.ToArray(), _treeRoot);
 
-            Debug.Log($"[ProceduralTerrain] Placed {placed} trees across {worldSize}x{worldSize} terrain");
+            Debug.Log($"[ProceduralTerrain] Trees: placed {placed} / {candidates} candidates " +
+                      $"(rejected: noise {rejNoise}, spawnzone {rejSpawn}, water {rejWater}, slope {rejSlope}) " +
+                      $"on {worldSize}x{worldSize} terrain | waterHeight={waterHeight} threshold={treeDensityThreshold}");
+        }
+
+        /// <summary>
+        /// Paints the forest-floor terrain layer wherever the same noise field
+        /// used for tree placement exceeds the threshold. Produces a smooth brown
+        /// leafy ground beneath the forests.
+        /// </summary>
+        private void PaintForestFloorSplat(Vector3[] playerSpawnPositions)
+        {
+            if (_terrain == null || _data == null || forestFloor == null) return;
+
+            var layers = _data.terrainLayers;
+            int forestIdx = IndexOf(layers, forestFloor);
+            if (forestIdx < 0) return;
+
+            int res = _data.alphamapResolution;
+            int layerCount = layers.Length;
+            float terrainPosX = _terrain.transform.position.x;
+            float terrainPosZ = _terrain.transform.position.z;
+            float sizeX = _data.size.x;
+            float sizeZ = _data.size.z;
+
+            const float innerClear = 30f;
+            const float outerFade = 70f;
+
+            float[,,] splat = _data.GetAlphamaps(0, 0, res, res);
+
+            for (int y = 0; y < res; y++)
+            {
+                for (int x = 0; x < res; x++)
+                {
+                    // World-space position of this alphamap pixel
+                    float wx = (x / (float)res) * sizeX + terrainPosX;
+                    float wz = (y / (float)res) * sizeZ + terrainPosZ;
+
+                    // Skip beach + water (matches tree placement filter)
+                    float h = TerrainUtility.GetHeight(wx, wz);
+                    if (h < waterHeight + treeMinHeightAboveWater) continue;
+
+                    // Same 3-octave FBM noise as tree placement
+                    float n = Mathf.PerlinNoise(wx * treeNoiseScale + 13.7f, wz * treeNoiseScale + 91.3f) * 0.5f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 2.1f + 217f, wz * treeNoiseScale * 2.1f + 301f) * 0.3f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 4.7f + 41f, wz * treeNoiseScale * 4.7f + 173f) * 0.2f;
+
+                    // Player spawn exclusion (matches tree placement)
+                    float threshold = treeDensityThreshold;
+                    if (playerSpawnPositions != null)
+                    {
+                        for (int i = 0; i < playerSpawnPositions.Length; i++)
+                        {
+                            var spawn = playerSpawnPositions[i];
+                            float d = Vector2.Distance(new Vector2(wx, wz), new Vector2(spawn.x, spawn.z));
+                            if (d < innerClear) { threshold = 10f; break; }
+                            if (d < innerClear + outerFade)
+                            {
+                                float t = (d - innerClear) / outerFade;
+                                threshold = Mathf.Lerp(10f, treeDensityThreshold, t * t);
+                            }
+                        }
+                    }
+
+                    if (n < threshold) continue;
+
+                    // Smooth weight: 0 at threshold, 1 well above
+                    float weight = Mathf.Clamp01((n - threshold) / 0.15f);
+                    weight = weight * weight * (3f - 2f * weight); // smoothstep
+
+                    // Apply forest-floor weight, scale down other layers proportionally
+                    float existing = splat[y, x, forestIdx];
+                    float newVal = Mathf.Max(existing, weight);
+                    if (newVal - existing < 0.001f) continue;
+
+                    float otherTotal = 0f;
+                    for (int l = 0; l < layerCount; l++)
+                        if (l != forestIdx) otherTotal += splat[y, x, l];
+
+                    if (otherTotal > 0.001f)
+                    {
+                        float scale = (1f - newVal) / otherTotal;
+                        for (int l = 0; l < layerCount; l++)
+                            if (l != forestIdx) splat[y, x, l] *= scale;
+                    }
+                    splat[y, x, forestIdx] = newVal;
+                }
+            }
+
+            _data.SetAlphamaps(0, 0, splat);
         }
 
         // Cache loaded prefabs so we don't reload every instantiation
@@ -1729,11 +1947,16 @@ namespace TheWaningBorder.World.Terrain
             return prefabs.Length > 0 ? prefabs[0] : null;
         }
 
-        private static readonly MaterialPropertyBlock _treeMpb = new MaterialPropertyBlock();
+        // Lazy-init: MaterialPropertyBlock cannot be constructed in a static
+        // field initializer because the type initializer runs during AddComponent,
+        // which Unity forbids. Initialized on first use in ApplyTreeTint.
+        private static MaterialPropertyBlock _treeMpb;
         private static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
 
         private void ApplyTreeTint(GameObject tree, float variation)
         {
+            if (_treeMpb == null) _treeMpb = new MaterialPropertyBlock();
+
             // Palette: dark green -> olive -> brown
             Color[] palette = {
                 new Color(0.15f, 0.30f, 0.12f), // dark green

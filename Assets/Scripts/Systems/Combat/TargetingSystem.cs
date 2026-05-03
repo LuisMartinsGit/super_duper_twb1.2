@@ -293,6 +293,13 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<AttackCommand>(memberData.Leader))
                             continue;
 
+                        // If the leader has a UserMoveOrder (player disengaging or relocating),
+                        // skip auto-acquire. Without this guard, the propagate-to-leader block
+                        // below overwrites the leader's DesiredDestination with the enemy's
+                        // position, silently cancelling the user's move order mid-march.
+                        if (em.HasComponent<UserMoveOrder>(memberData.Leader))
+                            continue;
+
                         if (em.HasComponent<BattalionStanceData>(memberData.Leader))
                             stance = em.GetComponentData<BattalionStanceData>(memberData.Leader).Value;
                     }

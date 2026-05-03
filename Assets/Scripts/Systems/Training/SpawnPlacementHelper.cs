@@ -6,6 +6,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
+using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Systems.Training
 {
@@ -68,12 +69,18 @@ namespace TheWaningBorder.Systems.Training
         }
 
         /// <summary>
-        /// Check if a position is clear of other entities.
+        /// Check if a position is clear of other entities AND lies on a passable
+        /// grid cell. The PassabilityGrid check guards against spawning units
+        /// inside a building's blocked footprint, which previously caused the
+        /// unit to be born stuck and get its destination cancelled by the
+        /// 3-tier stuck handler in MovementSystem.
         /// </summary>
         private static bool IsPositionClear(float3 position, float radius, EntityManager em)
         {
-            float checkRadius = radius * 2f;  // Account for other unit radii
-            float checkRadiusSq = checkRadius * checkRadius;
+            // PassabilityGrid check first (cheap, eliminates spawn-into-building).
+            var grid = PassabilityGrid.Instance;
+            if (grid != null && !grid.IsPassable(position))
+                return false;
 
             // Query all entities with positions
             var query = em.CreateEntityQuery(typeof(LocalTransform), typeof(Radius));
@@ -82,15 +89,15 @@ namespace TheWaningBorder.Systems.Training
             var radii = query.ToComponentDataArray<Radius>(Allocator.Temp);
 
             bool isClear = true;
-            
+
             for (int i = 0; i < entities.Length; i++)
             {
                 float3 otherPos = transforms[i].Position;
                 float otherRadius = radii[i].Value;
-                
+
                 float distSq = math.distancesq(position, otherPos);
                 float minDist = radius + otherRadius;
-                
+
                 if (distSq < minDist * minDist)
                 {
                     isClear = false;

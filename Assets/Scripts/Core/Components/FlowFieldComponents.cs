@@ -202,9 +202,6 @@ public struct FlowFieldLookup
     /// <summary>Maps destination cell index to slot index in DirectionData.</summary>
     [ReadOnly] public NativeHashMap<int, int> DestToSlot;
 
-    /// <summary>Passability grid cells (0 = passable). Used for line-of-sight checks.</summary>
-    [ReadOnly] public NativeArray<byte> PassabilityCells;
-
     /// <summary>Number of cells per flow field (Width * Height).</summary>
     public int CellsPerField;
 
@@ -223,15 +220,22 @@ public struct FlowFieldLookup
     /// <summary>Whether this lookup has been populated with valid data.</summary>
     public bool IsValid;
 
-    /// <summary>Blend radius in world units for direct-line blending near destination.</summary>
-    private const float BlendRadius = 6f;
+    /// <summary>
+    /// Blend radius in world units. Within this distance of the goal, GetDirection
+    /// returns direct-line instead of the flow field — used to avoid the last-cell
+    /// jitter where the flow field has near-zero direction. Kept tight (2m) so
+    /// that buildings sitting close to a destination are still routed around by
+    /// the flow field; earlier 6m caused units to walk direct-line straight into
+    /// a building when the goal (e.g. an iron deposit) was just past it.
+    /// </summary>
+    private const float BlendRadius = 2f;
 
     /// <summary>
     /// Given a unit position, return the movement direction from a cached flow field.
-    /// Checks if the direct path is clear by sampling cells ahead:
-    /// - If all cells along the direct path are passable, uses direct direction for smooth movement.
-    /// - If any cell ahead is blocked, follows the flow field direction around obstacles.
-    /// Near the destination, always uses direct direction for precise arrival.
+    /// The Gaussian-smoothed flow direction already approximates direct-line on open
+    /// ground and routes around obstacles where they exist; we trust it whenever the
+    /// flow field is valid. Near the destination, switch to direct-line for precise
+    /// arrival; if the flow field has no usable neighbors, fall back to direct-line.
     /// </summary>
     /// <param name="position">Unit's current world position.</param>
     /// <param name="snappedDest">Snapped destination cell index from FlowField.DestinationIndex, or -1 if no field.</param>
@@ -291,38 +295,7 @@ public struct FlowFieldLookup
             return directDir;
 
         float2 smoothDir2 = math.normalize(weightedSum);
-        float3 flowDir = new float3(smoothDir2.x, 0f, smoothDir2.y);
-
-        // Check if the direct path is clear by sampling cells ahead.
-        // Only use direct direction if there are no obstacles in the way.
-        // This replaces the old dot-product agreement check which let units
-        // walk into forests when the flow field direction was close to direct.
-        if (PassabilityCells.IsCreated)
-        {
-            float lookAhead = math.min(distToGoal, CellSize * 8f);
-            bool pathClear = true;
-
-            for (float d = CellSize; d <= lookAhead; d += CellSize)
-            {
-                float3 checkPos = position + directDir * d;
-                int checkX = (int)math.floor((checkPos.x - Origin.x) / CellSize);
-                int checkZ = (int)math.floor((checkPos.z - Origin.z) / CellSize);
-                checkX = math.clamp(checkX, 0, GridWidth - 1);
-                checkZ = math.clamp(checkZ, 0, GridHeight - 1);
-
-                int cellIdx = checkZ * GridWidth + checkX;
-                if (cellIdx >= 0 && cellIdx < PassabilityCells.Length && PassabilityCells[cellIdx] != 0)
-                {
-                    pathClear = false;
-                    break;
-                }
-            }
-
-            if (pathClear)
-                return directDir;
-        }
-
-        return flowDir;
+        return new float3(smoothDir2.x, 0f, smoothDir2.y);
     }
 
     /// <summary>

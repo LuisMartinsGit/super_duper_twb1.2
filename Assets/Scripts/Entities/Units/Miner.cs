@@ -51,6 +51,11 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Damage { Value = (int)damage });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = 0.5f });
+            // MovementSystem's query requires DesiredDestination. Without this baked in,
+            // MiningSystem.ProcessIdleState would have to add it mid-iteration via
+            // em.AddComponentData — a structural change inside a SystemAPI.Query foreach,
+            // which invalidates the iterator and aborts OnUpdate with no miner movement.
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
             creator.AddComponent<MinerTag>(entity);
             creator.AddComponent(entity, new MinerState
             {

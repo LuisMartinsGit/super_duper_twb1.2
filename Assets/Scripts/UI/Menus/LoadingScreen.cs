@@ -2,6 +2,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -21,7 +22,7 @@ namespace TheWaningBorder.UI.Menus
         private bool _sceneLoaded;
         private string _statusText = "Loading...";
         private float _progress;
-        private Texture2D _bgTex;
+        // Specialty cached styles (no Styles.cs counterpart — light-blue title, grey status, both centered).
         private GUIStyle _titleStyle;
         private GUIStyle _statusStyle;
         private bool _stylesInit;
@@ -98,11 +99,12 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_alpha <= 0f) return;
 
+            Styles.Initialize();
             InitStyles();
 
-            // Full-screen black overlay
+            // Full-screen black overlay (alpha-fading)
             GUI.color = new Color(0, 0, 0, _alpha);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _bgTex);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = new Color(1, 1, 1, _alpha);
 
             float cx = Screen.width * 0.5f;
@@ -134,10 +136,7 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInit) return;
 
-            _bgTex = new Texture2D(1, 1);
-            _bgTex.SetPixel(0, 0, Color.black);
-            _bgTex.Apply();
-
+            // 28pt bold light-blue centered title — unique to loading screen, no Styles match.
             _titleStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 28,
@@ -146,6 +145,7 @@ namespace TheWaningBorder.UI.Menus
                 normal = { textColor = new Color(0.8f, 0.85f, 1f) }
             };
 
+            // 14pt grey centered status text — unique to loading screen, no Styles match.
             _statusStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 14,

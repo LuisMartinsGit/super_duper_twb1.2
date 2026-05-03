@@ -6,7 +6,9 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Input;
 using TheWaningBorder.UI;
+using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
 
@@ -61,18 +63,16 @@ namespace TheWaningBorder.UI.HUD
         private const float MenuBtnHeight = 30f;
         private const float MenuBtnMargin = 10f;
 
-        // Alanthor wall income
+        // Alanthor wall income — per-faction so observer mode can switch
+        // between AI economies and still show the right value.
         private EntityQuery _wallIncomeQuery;
-        private float _wallIncome;
+        private readonly Dictionary<Faction, float> _wallIncomePerFaction = new();
 
-        // Styles
-        private GUIStyle _panelBg;
-        private GUIStyle _rowBg;
-        private GUIStyle _labelStyle;
+        // Local cached styles (no clean Styles.cs counterpart):
+        // _valueStyle: bold-white right-aligned. _menuButtonStyle: bordered button with hover textures.
         private GUIStyle _valueStyle;
-        private GUIStyle _headerStyle;
         private GUIStyle _menuButtonStyle;
-        private Texture2D _texPanel, _texRow, _texMenuBtn, _texMenuBtnHover;
+        private Texture2D _texMenuBtn, _texMenuBtnHover;
         private bool _stylesBuilt = false;
 
         // Cached panel rect for pointer detection
@@ -96,10 +96,11 @@ namespace TheWaningBorder.UI.HUD
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<ReligionPoints>());
 
-            _texPanel = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.92f));
-            _texRow = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.4f));
-            _texMenuBtn = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.85f));
-            _texMenuBtnHover = MakeTex(2, 2, new Color(0.12f, 0.14f, 0.28f, 0.9f));
+            // Menu button textures use the canonical navy panel bg + a brighter hover variant.
+            // Source the base color from Styles.PanelBgColor so the palette stays canonical.
+            var menuBtnBg = new Color(Styles.PanelBgColor.r, Styles.PanelBgColor.g, Styles.PanelBgColor.b, 0.85f);
+            _texMenuBtn = Styles.MakeSolid(menuBtnBg);
+            _texMenuBtnHover = Styles.MakeSolid(new Color(0.12f, 0.14f, 0.28f, 0.9f));
 
             // Alanthor wall income query
             _wallIncomeQuery = _em.CreateEntityQuery(
@@ -160,25 +161,25 @@ namespace TheWaningBorder.UI.HUD
                 _rpCache[rpTags[i].Value] = rpData[i].Value;
             }
 
-            // Get Alanthor wall enclosure income
-            _wallIncome = 0f;
-            var localFaction = GameSettings.LocalPlayerFaction;
-            if (FactionColors.GetFactionCulture(localFaction) == Cultures.Alanthor)
+            // Cache Alanthor wall enclosure income per-faction so the panel can
+            // show the correct income for whoever the observer is currently
+            // watching (DrawResourcePanel reads from _wallIncomePerFaction).
+            _wallIncomePerFaction.Clear();
+            using var wallEntities = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
+            using var wallTags = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var wallIncomes = _wallIncomeQuery.ToComponentDataArray<SuppliesIncome>(Allocator.Temp);
+            for (int i = 0; i < wallEntities.Length; i++)
             {
-                using var wallEntities = _wallIncomeQuery.ToEntityArray(Allocator.Temp);
-                using var wallTags = _wallIncomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                using var wallIncomes = _wallIncomeQuery.ToComponentDataArray<SuppliesIncome>(Allocator.Temp);
-                for (int i = 0; i < wallEntities.Length; i++)
-                {
-                    if (wallTags[i].Value == localFaction)
-                        _wallIncome += wallIncomes[i].PerMinute;
-                }
+                var f = wallTags[i].Value;
+                _wallIncomePerFaction.TryGetValue(f, out float prev);
+                _wallIncomePerFaction[f] = prev + wallIncomes[i].PerMinute;
             }
         }
 
         private void OnGUI()
         {
-            if (!_stylesBuilt) BuildStyles();
+            Styles.Initialize();
+            if (!_stylesBuilt) BuildLocalStyles();
 
             // Always draw Menu button in top-left
             DrawMenuButton();
@@ -191,18 +192,12 @@ namespace TheWaningBorder.UI.HUD
             ResourceIcons.DrawTooltip();
         }
 
-        private void BuildStyles()
+        // Build the truly-unique cached locals that have no Styles.cs counterpart.
+        // Colors are sourced from Styles.HighlightColor where applicable so the palette
+        // stays canonical (no inline navy/gold literals here except the brighter hover
+        // tint which is a hover-state accent, not a palette base color).
+        private void BuildLocalStyles()
         {
-            _panelBg = new GUIStyle { normal = { background = _texPanel } };
-            _rowBg = new GUIStyle { normal = { background = _texRow } };
-
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = 12,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
             _valueStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleRight,
@@ -211,20 +206,12 @@ namespace TheWaningBorder.UI.HUD
                 normal = { textColor = Color.white }
             };
 
-            _headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = 13,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
             _menuButtonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontStyle = FontStyle.Bold,
                 fontSize = 13,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { background = _texMenuBtn, textColor = new Color(0.83f, 0.66f, 0.26f) },
+                normal = { background = _texMenuBtn, textColor = Styles.HighlightColor },
                 hover = { background = _texMenuBtnHover, textColor = new Color(0.93f, 0.76f, 0.36f) },
                 active = { background = _texMenuBtnHover, textColor = Color.white },
                 border = new RectOffset(2, 2, 2, 2),
@@ -234,31 +221,46 @@ namespace TheWaningBorder.UI.HUD
             _stylesBuilt = true;
         }
 
-        private static Texture2D MakeTex(int w, int h, Color c)
+        /// <summary>
+        /// In observer mode, follow the player's selection: if any selected
+        /// entity has a FactionTag, show that faction's resources. Otherwise
+        /// (and in non-observer modes) show the local player's. Lets the
+        /// observer flip between AI economies just by clicking on their stuff.
+        /// </summary>
+        private Faction GetDisplayedFaction()
         {
-            var pix = new Color[w * h];
-            for (int i = 0; i < pix.Length; i++) pix[i] = c;
-            var t = new Texture2D(w, h);
-            t.SetPixels(pix);
-            t.Apply();
-            return t;
+            if (GameSettings.IsObserver)
+            {
+                var sel = SelectionSystem.CurrentSelection;
+                if (sel != null && sel.Count > 0 && _world != null && _world.IsCreated)
+                {
+                    var em = _world.EntityManager;
+                    for (int i = 0; i < sel.Count; i++)
+                    {
+                        var e = sel[i];
+                        if (em.Exists(e) && em.HasComponent<FactionTag>(e))
+                            return em.GetComponentData<FactionTag>(e).Value;
+                    }
+                }
+            }
+            return GameSettings.LocalPlayerFaction;
         }
 
         private void DrawResourcePanel()
         {
-            var localFaction = GameSettings.LocalPlayerFaction;
-            if (!_cache.ContainsKey(localFaction)) return;
-            if (!_cache.TryGetValue(localFaction, out var res)) return;
+            var displayedFaction = GetDisplayedFaction();
+            if (!_cache.ContainsKey(displayedFaction)) return;
+            if (!_cache.TryGetValue(displayedFaction, out var res)) return;
 
             int curPop = 0, maxPop = 0;
-            if (_popCache.TryGetValue(localFaction, out var pop))
+            if (_popCache.TryGetValue(displayedFaction, out var pop))
             {
                 curPop = pop.current;
                 maxPop = pop.max;
             }
 
             int rp = 0;
-            if (_rpCache.TryGetValue(localFaction, out var rpVal))
+            if (_rpCache.TryGetValue(displayedFaction, out var rpVal))
             {
                 rp = rpVal;
             }
@@ -271,9 +273,10 @@ namespace TheWaningBorder.UI.HUD
 
             // Draw panel background
             GUI.color = Color.white;
-            GUI.Box(_panelRect, "", _panelBg);
+            GUI.Box(_panelRect, "", Styles.PanelBox);
 
             // Golden border (top, bottom, left, right)
+            // Kept inline: alpha 0.7 differs from Styles.HighlightColor's alpha 1.0.
             Color borderColor = new Color(0.83f, 0.66f, 0.26f, 0.7f);
             GUI.color = borderColor;
             GUI.DrawTexture(new Rect(panelX, panelY, PanelWidth, 2f), Texture2D.whiteTexture);                      // top
@@ -282,10 +285,19 @@ namespace TheWaningBorder.UI.HUD
             GUI.DrawTexture(new Rect(panelX + PanelWidth - 2f, panelY, 2f, HudBarHeight), Texture2D.whiteTexture);  // right
             GUI.color = Color.white;
 
-            // Header
+            // Header — in observer mode, show whose resources we're viewing
+            // (tinted with their faction color) so the watcher can tell when a
+            // selection click switched the panel to a different AI.
             float yPos = panelY + PanelPadding;
+            string headerText = "RESOURCES";
+            if (GameSettings.IsObserver)
+                headerText = displayedFaction.ToString().ToUpperInvariant();
+            var prevColor = GUI.color;
+            if (GameSettings.IsObserver)
+                GUI.color = FactionColors.Get(displayedFaction);
             GUI.Label(new Rect(panelX + PanelPadding, yPos, PanelWidth - PanelPadding * 2, HeaderHeight),
-                      "RESOURCES", _headerStyle);
+                      headerText, Styles.Header);
+            GUI.color = prevColor;
             yPos += HeaderHeight;
 
             // Resource rows: Pop, RP, Supplies, Iron, Crystal, Veilsteel, Glow
@@ -300,12 +312,15 @@ namespace TheWaningBorder.UI.HUD
             DrawResourceRow(panelX, ref yPos, "Veilsteel", res.Veilsteel.ToString(), new Color(0.8f, 0.5f, 1f));
             DrawResourceRow(panelX, ref yPos, "Glow", res.Glow.ToString(), new Color(1f, 1f, 0.6f));
 
-            // Alanthor wall income (inside the panel, not a separate sub-bar)
-            if (_wallIncome > 0f)
+            // Alanthor wall income — only meaningful for the displayed faction.
+            float wallIncome = 0f;
+            if (FactionColors.GetFactionCulture(displayedFaction) == Cultures.Alanthor)
+                _wallIncomePerFaction.TryGetValue(displayedFaction, out wallIncome);
+            if (wallIncome > 0f)
             {
                 yPos += RowSpacing * 2;
                 Color alanthorGreen = CultureConfig.AlanthorPrimary;
-                DrawResourceRow(panelX, ref yPos, "Wall Income", $"+{_wallIncome:F0}/min", alanthorGreen);
+                DrawResourceRow(panelX, ref yPos, "Wall Income", $"+{wallIncome:F0}/min", alanthorGreen);
             }
 
             // Pointer detection — convert mouse position from bottom-left origin to GUI top-left origin
@@ -321,7 +336,7 @@ namespace TheWaningBorder.UI.HUD
 
             // Row background
             var rowRect = new Rect(rowX, yPos, rowWidth, RowHeight);
-            GUI.Box(rowRect, "", _rowBg);
+            GUI.Box(rowRect, "", Styles.InnerRowBox);
 
             // Icon or text label (left-aligned)
             var icon = ResourceIcons.Get(label);
@@ -333,8 +348,12 @@ namespace TheWaningBorder.UI.HUD
             }
             else
             {
-                var styledLabel = new GUIStyle(_labelStyle)
+                // Per-row text-color override on top of the canonical SmallLabel style.
+                // The original code allocated a per-row GUIStyle here too; not introducing
+                // new per-frame allocs.
+                var styledLabel = new GUIStyle(Styles.SmallLabel)
                 {
+                    alignment = TextAnchor.MiddleLeft,
                     normal = { textColor = labelColor }
                 };
                 GUI.Label(new Rect(rowX + 6f, yPos, rowWidth * 0.5f, RowHeight), label, styledLabel);

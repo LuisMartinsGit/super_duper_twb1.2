@@ -13,6 +13,7 @@ using Cost = TheWaningBorder.Core.Cost;
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIBuildingManager))]
     public partial struct AIMilitaryManager : ISystem

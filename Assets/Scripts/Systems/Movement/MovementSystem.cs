@@ -395,35 +395,53 @@ namespace TheWaningBorder.Systems.Movement
                 }
                 else
                 {
-                    // Flow field direction lookup with per-unit destination caching
+                    // Flow field direction lookup with per-unit destination caching.
+                    // We must re-request when EITHER the destination changed OR the
+                    // grid version bumped (a building got placed/destroyed). Without
+                    // the version check, units pathed against the new obstacle layout
+                    // using stale direction data and walked straight into walls.
                     int snappedDest = -1;
                     if (ffm != null)
                     {
-                        bool destChanged = true;
+                        int liveGridVersion = ffm.GridVersion;
+                        bool needsRefresh = true;
                         if (em.HasComponent<MovementCache>(entity))
                         {
                             var cache = em.GetComponentData<MovementCache>(entity);
                             float3 diff2 = goal - cache.LastDestination;
-                            destChanged = math.lengthsq(diff2) > DestChangedThresholdSq;
-                            if (!destChanged)
+                            bool destChanged = math.lengthsq(diff2) > DestChangedThresholdSq;
+                            bool gridChanged = cache.LastGridVersion != liveGridVersion;
+                            needsRefresh = destChanged || gridChanged;
+                            if (!needsRefresh)
                             {
                                 snappedDest = cache.LastSnappedDest;
                             }
                         }
 
-                        if (destChanged)
+                        if (needsRefresh)
                         {
                             var field = ffm.RequestFlowField(goal);
                             if (field.HasValue)
-                                snappedDest = field.Value.DestinationIndex;
-
-                            if (em.HasComponent<MovementCache>(entity))
                             {
-                                var mvc = em.GetComponentData<MovementCache>(entity);
-                                mvc.LastDestination = goal;
-                                mvc.LastSnappedDest = snappedDest;
-                                em.SetComponentData(entity, mvc);
+                                // BFS completed (or already cached) — commit to per-unit cache.
+                                snappedDest = field.Value.DestinationIndex;
+                                if (em.HasComponent<MovementCache>(entity))
+                                {
+                                    var mvc = em.GetComponentData<MovementCache>(entity);
+                                    mvc.LastDestination = goal;
+                                    mvc.LastSnappedDest = snappedDest;
+                                    mvc.LastGridVersion = liveGridVersion;
+                                    em.SetComponentData(entity, mvc);
+                                }
                             }
+                            // else: field is queued for async generation. DO NOT
+                            // commit (-1, liveGridVersion) to the per-unit cache —
+                            // doing so would freeze destChanged/gridChanged at false
+                            // next frame and the unit would walk direct-line forever
+                            // (straight into any building between it and the goal),
+                            // never consulting the flow field once the BFS completes.
+                            // Leaving the cache untouched keeps needsRefresh=true so
+                            // we re-request until a real field comes back.
                         }
                     }
                     dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
@@ -514,15 +532,38 @@ namespace TheWaningBorder.Systems.Movement
 
                         if (stuck.Counter > 30)
                         {
-                            // Tier 3 (30+ frames ~ 0.5s): cancel destination entirely
-                            dd.ValueRW.Has = 0;
-                            if (em.HasComponent<UserMoveOrder>(entity))
-                                ecb.RemoveComponent<UserMoveOrder>(entity);
-                            if (em.HasComponent<AttackMoveTag>(entity))
-                                ecb.RemoveComponent<AttackMoveTag>(entity);
-                            if (em.HasComponent<FormationSpeedOverride>(entity))
-                                ecb.RemoveComponent<FormationSpeedOverride>(entity);
-                            ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                            // Tier 3 (30+ frames ~ 0.5s). Two paths:
+                            //   (a) Unit's CURRENT cell is non-passable — it spawned
+                            //       inside a building or got fenced in by a new one.
+                            //       Spiral-search outward for the nearest passable
+                            //       cell and snap there so the unit can resume moving.
+                            //   (b) Unit's current cell IS passable but the path is
+                            //       still blocked — cancel the destination as before.
+                            bool escaped = false;
+                            if (passGrid != null)
+                            {
+                                int2 hereCell = passGrid.WorldToCell(pos);
+                                if (!passGrid.IsPassable(hereCell)
+                                    && TryFindNearestPassableCell(passGrid, hereCell, 5, out int2 escapeCell))
+                                {
+                                    var ec = passGrid.CellToWorld(escapeCell);
+                                    t.Position = new float3(ec.x, TerrainUtility.GetHeight(ec.x, ec.z), ec.z);
+                                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                                    escaped = true;
+                                }
+                            }
+
+                            if (!escaped)
+                            {
+                                dd.ValueRW.Has = 0;
+                                if (em.HasComponent<UserMoveOrder>(entity))
+                                    ecb.RemoveComponent<UserMoveOrder>(entity);
+                                if (em.HasComponent<AttackMoveTag>(entity))
+                                    ecb.RemoveComponent<AttackMoveTag>(entity);
+                                if (em.HasComponent<FormationSpeedOverride>(entity))
+                                    ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                                ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                            }
                         }
                         else if (stuck.Counter > 5)
                         {
@@ -595,6 +636,37 @@ namespace TheWaningBorder.Systems.Movement
                 t.Position = nextPos;
                 xf.ValueRW = t;
             }
+        }
+
+        /// <summary>
+        /// Spiral outward from <paramref name="origin"/> looking for a passable
+        /// grid cell within <paramref name="maxRadius"/> Chebyshev steps. Used
+        /// by the tier-3 stuck handler to teleport units that ended up inside a
+        /// non-passable cell (spawned in a building, fenced in by a new one).
+        /// NOT [BurstCompile] — takes a managed <see cref="PassabilityGrid"/>.
+        /// </summary>
+        private static bool TryFindNearestPassableCell(
+            PassabilityGrid grid, int2 origin, int maxRadius, out int2 result)
+        {
+            for (int r = 1; r <= maxRadius; r++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    for (int dz = -r; dz <= r; dz++)
+                    {
+                        // Only iterate the ring at distance r (skip interior).
+                        if (math.abs(dx) != r && math.abs(dz) != r) continue;
+                        int2 c = new int2(origin.x + dx, origin.y + dz);
+                        if (grid.IsPassable(c))
+                        {
+                            result = c;
+                            return true;
+                        }
+                    }
+                }
+            }
+            result = origin;
+            return false;
         }
 
         /// <summary>

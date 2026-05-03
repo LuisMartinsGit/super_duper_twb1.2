@@ -10,6 +10,7 @@ namespace TheWaningBorder.Systems.Movement
     /// When the current command completes (no DesiredDestination, no Target),
     /// pops the next QueuedCommand and issues it via existing command helpers.
     /// Removes CommandQueueActive when the buffer is empty.
+    /// Skips entities tagged CommandQueueFrozen (Shift held — see RTSInputManager).
     /// Runs before MovementSystem so queued commands set DesiredDestination before movement.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -23,6 +24,7 @@ namespace TheWaningBorder.Systems.Movement
             foreach (var (dd, target, entity) in SystemAPI
                 .Query<RefRO<DesiredDestination>, RefRO<Target>>()
                 .WithAll<CommandQueueActive>()
+                .WithNone<CommandQueueFrozen>()
                 .WithEntityAccess())
             {
                 // Current command still in progress

@@ -76,10 +76,11 @@ Assets/*.jpg.meta
 Assets/Resources/UI/
 Assets/Resources/UI.meta
 
-# Audio files
+# Audio binary assets (clips, banks). Audio C# source under
+# Assets/Scripts/Audio/ is tracked — only binary content is excluded.
 Assets/Resources/Audio/
 Assets/Resources/Audio.meta
-Assets/Scripts/Audio/
+# Orphan meta from earlier broader exclusion; the folder itself is now tracked.
 Assets/Scripts/Audio.meta
 
 # Prefabs with 3D mesh data
@@ -147,7 +148,24 @@ desktop.ini
 *~
 
 # ===========================
+# Additional asset packs (large binary, not in repo)
+# ===========================
+Assets/Synty/
+Assets/Synty.meta
+Assets/Resources/Grass007_1K-JPG/
+Assets/Resources/Grass007_1K-JPG.meta
+
+# ===========================
 # Local secrets & Claude Code
 # ===========================
 .claude/
+.claude copy/
 .env
+
+# ===========================
+# .deft local agent scaffolding
+# (.deft/tasks/ IS tracked — only local-only files excluded)
+# ===========================
+.deft/SCHEMA.md
+.deft/memory/
+.deft/project.md

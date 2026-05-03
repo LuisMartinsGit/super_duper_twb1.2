@@ -32,16 +32,10 @@ namespace TheWaningBorder.UI.Panels
         private Vector2 _scrollPos;
         private float _prevTimeScale = 1f;
 
-        // Styles (lazy init)
-        private GUIStyle _panelBox;
-        private GUIStyle _headerStyle;
-        private GUIStyle _subHeaderStyle;
-        private GUIStyle _labelStyle;
-        private GUIStyle _smallStyle;
-        private GUIStyle _buttonStyle;
-        private GUIStyle _rowBg;
-        private Texture2D _panelTex;
-        private Texture2D _rowTex;
+        // Styles — bespoke wordWrap/bold variants cached locally (no Styles match);
+        // panel, header, subheader, label all sourced from Styles.cs.
+        private GUIStyle _smallStyle;     // 11pt wordWrap (TinyLabel doesn't wrap)
+        private GUIStyle _buttonStyle;    // 12pt bold gold-tinted
         private bool _stylesInit;
 
         // Tech grouping
@@ -57,6 +51,7 @@ namespace TheWaningBorder.UI.Panels
 
         void OnGUI()
         {
+            Styles.Initialize();
             InitStyles();
 
             // Draw toggle button in top-right (next to End Game)
@@ -111,7 +106,7 @@ namespace TheWaningBorder.UI.Panels
             float y = (Screen.height - PanelHeight) * 0.5f;
             var panelRect = new Rect(x, y, PanelWidth, PanelHeight);
 
-            GUI.Box(panelRect, "", _panelBox);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             // Inner area
             var innerRect = new Rect(x + 12f, y + 12f, PanelWidth - 24f, PanelHeight - 24f);
@@ -119,13 +114,13 @@ namespace TheWaningBorder.UI.Panels
 
             // Header row
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Technology Overview", _headerStyle);
+            GUILayout.Label("Technology Overview", Styles.Header);
             GUILayout.FlexibleSpace();
 
             var faction = GameSettings.LocalPlayerFaction;
             var researchState = FactionResearchState.Instance;
             int completedCount = researchState != null ? researchState.GetCompletedCount(faction) : 0;
-            GUILayout.Label($"Researched: {completedCount}", _labelStyle);
+            GUILayout.Label($"Researched: {completedCount}", Styles.Label);
 
             GUILayout.Space(12f);
             if (GUILayout.Button("X", GUILayout.Width(28f), GUILayout.Height(24f)))
@@ -136,7 +131,7 @@ namespace TheWaningBorder.UI.Panels
 
             // Golden separator
             var sepRect = GUILayoutUtility.GetRect(1, 2, GUILayout.ExpandWidth(true));
-            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.6f);
+            GUI.color = new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.6f);
             GUI.DrawTexture(sepRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
 
@@ -159,7 +154,7 @@ namespace TheWaningBorder.UI.Panels
             var db = TechTreeDB.Instance;
             if (db == null) return;
 
-            GUILayout.Label(title, _subHeaderStyle);
+            GUILayout.Label(title, Styles.SubHeader);
             GUILayout.Space(4f);
 
             foreach (var techId in techIds)
@@ -181,7 +176,7 @@ namespace TheWaningBorder.UI.Panels
             var sectState = FactionSectState.Instance;
             if (sectState == null) return;
 
-            GUILayout.Label("Sect Technologies", _subHeaderStyle);
+            GUILayout.Label("Sect Technologies", Styles.SubHeader);
             GUILayout.Space(4f);
 
             // Group by culture
@@ -230,26 +225,26 @@ namespace TheWaningBorder.UI.Panels
                 if (techResearched)
                 {
                     status = "RESEARCHED";
-                    statusColor = new Color(0.3f, 1f, 0.3f);
+                    statusColor = Styles.SuccessColor;
                 }
                 else if (adopted)
                 {
                     status = "AVAILABLE";
-                    statusColor = new Color(0.83f, 0.66f, 0.26f);
+                    statusColor = Styles.HighlightColor;
                 }
                 else
                 {
                     status = "LOCKED";
-                    statusColor = new Color(0.5f, 0.5f, 0.5f);
+                    statusColor = Styles.DisabledColor;
                 }
 
                 // Row background
                 var rowRect = GUILayoutUtility.GetRect(PanelWidth - 60f, RowHeight);
-                GUI.Box(rowRect, "", _rowBg);
+                GUI.Box(rowRect, "", Styles.InnerRowBox);
 
                 // Sect display name + passive
                 string sectName = SectConfig.GetDisplayName(sectId);
-                var nameStyle = new GUIStyle(_labelStyle) { fontStyle = FontStyle.Bold };
+                var nameStyle = new GUIStyle(Styles.Label) { fontStyle = FontStyle.Bold };
                 GUI.Label(new Rect(rowRect.x + 8f, rowRect.y + 2f, 180f, 20f), sectName, nameStyle);
                 GUI.Label(new Rect(rowRect.x + 8f, rowRect.y + 20f, 280f, 18f), passive, _smallStyle);
 
@@ -257,7 +252,7 @@ namespace TheWaningBorder.UI.Panels
                 GUI.Label(new Rect(rowRect.x + 300f, rowRect.y + 4f, 240f, 36f), desc, _smallStyle);
 
                 // Status label
-                var statusStyle = new GUIStyle(_labelStyle)
+                var statusStyle = new GUIStyle(Styles.Label)
                 {
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.MiddleRight,
@@ -274,29 +269,29 @@ namespace TheWaningBorder.UI.Panels
             bool researched, bool meetsPrereqs)
         {
             var rowRect = GUILayoutUtility.GetRect(PanelWidth - 60f, RowHeight);
-            GUI.Box(rowRect, "", _rowBg);
+            GUI.Box(rowRect, "", Styles.InnerRowBox);
 
             // Status indicator
             Color statusColor;
             string statusText;
             if (researched)
             {
-                statusColor = new Color(0.3f, 1f, 0.3f);
+                statusColor = Styles.SuccessColor;
                 statusText = "DONE";
             }
             else if (meetsPrereqs)
             {
-                statusColor = new Color(0.83f, 0.66f, 0.26f);
+                statusColor = Styles.HighlightColor;
                 statusText = "READY";
             }
             else
             {
-                statusColor = new Color(0.5f, 0.5f, 0.5f);
+                statusColor = Styles.DisabledColor;
                 statusText = "LOCKED";
             }
 
             // Name
-            var nameStyle = new GUIStyle(_labelStyle) { fontStyle = FontStyle.Bold };
+            var nameStyle = new GUIStyle(Styles.Label) { fontStyle = FontStyle.Bold };
             GUI.Label(new Rect(rowRect.x + 8f, rowRect.y + 2f, 160f, 20f), name, nameStyle);
 
             // Effect
@@ -310,7 +305,7 @@ namespace TheWaningBorder.UI.Panels
             }
 
             // Status
-            var sStyle = new GUIStyle(_labelStyle)
+            var sStyle = new GUIStyle(Styles.Label)
             {
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleRight,
@@ -324,37 +319,7 @@ namespace TheWaningBorder.UI.Panels
         {
             if (_stylesInit) return;
 
-            _panelTex = UIHelpers.MakeBorderedTexture(64, 64,
-                new Color(0.06f, 0.08f, 0.18f, 0.97f),
-                new Color(0.83f, 0.66f, 0.26f, 0.8f), 2);
-
-            _rowTex = UIHelpers.MakeTexture(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.5f));
-
-            _panelBox = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = _panelTex }
-            };
-
-            _headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 20,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            _subHeaderStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 15,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
+            // 11pt wordWrap small text (TinyLabel is 11pt but doesn't wrap).
             _smallStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 11,
@@ -362,17 +327,12 @@ namespace TheWaningBorder.UI.Panels
                 normal = { textColor = new Color(0.7f, 0.68f, 0.60f) }
             };
 
+            // 12pt bold gold-tinted toggle button.
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            _rowBg = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = _rowTex },
-                margin = new RectOffset(0, 0, 1, 1)
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _stylesInit = true;

@@ -85,7 +85,10 @@ namespace TheWaningBorder.Systems.Work
                 var fac = faction.ValueRO.Value;
 
                 // --- UserMoveOrder interrupt ---
-                // Player issued a move command: stop mining, keep load, go idle
+                // Player issued a move command: stop mining, keep load, go idle.
+                // GatheringResource stays 1 — explicit move commands don't switch
+                // the miner's resource type. The player can issue a fresh
+                // GatherCommand on iron to convert intent.
                 if (em.HasComponent<UserMoveOrder>(entity))
                 {
                     if (miner.State != MinerWorkState.Idle)
@@ -93,11 +96,7 @@ namespace TheWaningBorder.Systems.Work
                         miner.State = MinerWorkState.Idle;
                         miner.AssignedDeposit = Entity.Null;
                         miner.DropoffTarget = Entity.Null;
-                        // Keep CurrentLoad and GatheringResource — miner carries crystal while moving
-                        // Will be reset to iron (0) when going idle below if no GatherCommand follows
                     }
-                    // Don't reset GatheringResource here — let the Idle case handle it
-                    // so MiningSystem picks them up next frame
                     continue;
                 }
 
@@ -116,8 +115,10 @@ namespace TheWaningBorder.Systems.Work
                         break;
 
                     case MinerWorkState.Idle:
-                        // Idle crystal miners get reset - MiningSystem will reassign
-                        miner.GatheringResource = 0;
+                        // Idle crystal miners do nothing on their own. AI miners
+                        // are reassigned by SimpleAISystem.AssignIdleMiners; the
+                        // player issues a fresh GatherCommand via right-click.
+                        // Crystal flow stays independent — never revert to iron.
                         break;
                 }
             }
@@ -140,10 +141,12 @@ namespace TheWaningBorder.Systems.Work
 
             if (needNewTarget)
             {
+                // No cadaver in LOS — go idle as a crystal miner. The Idle handler
+                // will widen the search to the whole map next tick. We keep
+                // GatheringResource=1 so the miner stays committed to crystal.
                 if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
                 {
                     miner.State = MinerWorkState.Idle;
-                    miner.GatheringResource = 0;
                     miner.AssignedDeposit = Entity.Null;
                 }
                 return;
@@ -163,6 +166,20 @@ namespace TheWaningBorder.Systems.Work
                 {
                     em.SetComponentData(entity, new DesiredDestination { Has = 0 });
                 }
+                return;
+            }
+
+            // Tier-3 stuck recovery: if our destination got cleared while we
+            // were trying to reach the cadaver, drop to Idle so the next tick
+            // assigns a fresh target. Stays a crystal miner — flows are
+            // independent. Same caveats as MiningSystem — only fire when the
+            // component EXISTS but its Has==0 (otherwise we race the
+            // structural-change deferral and ping-pong forever).
+            if (em.HasComponent<DesiredDestination>(entity)
+                && em.GetComponentData<DesiredDestination>(entity).Has == 0)
+            {
+                miner.State = MinerWorkState.Idle;
+                miner.AssignedDeposit = Entity.Null;
             }
         }
 
@@ -183,6 +200,8 @@ namespace TheWaningBorder.Systems.Work
                 if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
                 {
                     // Node gone - deposit what we have or go idle
+                    // Cadaver gone — drop off what we carry, then Idle case will
+                    // re-search for a new cadaver. Crystal intent preserved.
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
@@ -191,7 +210,6 @@ namespace TheWaningBorder.Systems.Work
                     else
                     {
                         miner.State = MinerWorkState.Idle;
-                        miner.GatheringResource = 0;
                     }
                     return;
                 }
@@ -206,7 +224,6 @@ namespace TheWaningBorder.Systems.Work
                     else
                     {
                         miner.State = MinerWorkState.Idle;
-                        miner.GatheringResource = 0;
                     }
                     return;
                 }
@@ -251,12 +268,13 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // Node depleted and nothing to carry — try to find next cadaver in LOS
+                        // Node depleted and nothing to carry — try LOS search.
+                        // If none, go Idle but stay committed to crystal — the
+                        // Idle handler will widen the search next tick.
                         var minerPos = em.GetComponentData<LocalTransform>(entity).Position;
                         if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, minerPos))
                         {
                             miner.State = MinerWorkState.Idle;
-                            miner.GatheringResource = 0;
                             miner.AssignedDeposit = Entity.Null;
                         }
                     }
@@ -274,9 +292,8 @@ namespace TheWaningBorder.Systems.Work
                 SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                 if (miner.DropoffTarget == Entity.Null)
                 {
-                    // No dropoff available - go idle
+                    // No dropoff available — go idle but keep crystal intent.
                     miner.State = MinerWorkState.Idle;
-                    miner.GatheringResource = 0;
                     return;
                 }
             }
@@ -339,12 +356,13 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    // Cadaver depleted — try to find next cadaver in LOS
+                    // Cadaver depleted — try LOS search. If none, go Idle but
+                    // stay a crystal miner; the Idle handler will widen the
+                    // search to the whole map next tick.
                     miner.DropoffTarget = Entity.Null;
                     if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
                     {
                         miner.State = MinerWorkState.Idle;
-                        miner.GatheringResource = 0;
                         miner.AssignedDeposit = Entity.Null;
                     }
                 }

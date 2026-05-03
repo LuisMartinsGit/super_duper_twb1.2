@@ -193,6 +193,10 @@ namespace TheWaningBorder.AI
         {
             var brainEntity = em.CreateEntity();
 
+            // Pick the build-order strategy up-front. The SimpleAISystem reads
+            // AIBrain.Strategy each tick to look up the corresponding build order.
+            AIStrategy initialStrategy = GetRandomStrategy(faction);
+
             // Core AI Brain
             em.AddComponentData(brainEntity, new AIBrain
             {
@@ -201,10 +205,23 @@ namespace TheWaningBorder.AI
                 NextUpdateTime = 0,
                 IsActive = 1,
                 Personality = personality,
-                Difficulty = difficulty
+                Difficulty = difficulty,
+                Strategy = initialStrategy,
             });
 
             em.AddComponentData(brainEntity, new FactionTag { Value = faction });
+
+            // SimpleAISystem state — build-order step pointer + think timer.
+            em.AddComponentData(brainEntity, new SimpleAIState
+            {
+                StepIndex = 0,
+                ThinkTimer = 0f,           // fire on first update
+                AgeUpIssued = 0,
+                CrystalMinerTarget = 0,    // raised by SetCrystalTarget steps in the build order
+                DesiredMilitary = 0,       // bumped by each successful military Train step
+                DesiredMiners = 0,         // bumped by each successful Miner Train step
+                LastMilitaryUnit = default,// e.g. "Swordsman" — used to refill losses
+            });
 
             // Economy Manager State
             em.AddComponentData(brainEntity, new AIEconomyState
@@ -285,7 +302,6 @@ namespace TheWaningBorder.AI
                 AIDifficulty.Expert => 30f,   // Every 30s
                 _ => 120f
             };
-            AIStrategy initialStrategy = GetRandomStrategy(faction);
             em.AddComponentData(brainEntity, new AIStrategyState
             {
                 Current = initialStrategy,
@@ -352,13 +368,44 @@ namespace TheWaningBorder.AI
 
         private static AIStrategy GetRandomStrategy(Faction faction)
         {
-            // Deterministic random based on faction + spawn seed so multiplayer stays synced
+            // First, honour the lobby's per-slot strategy choice if set.
+            int factionIndex = (int)faction;
+            if (factionIndex >= 0 && factionIndex < LobbyConfig.Slots.Length)
+            {
+                var slot = LobbyConfig.Slots[factionIndex];
+                if (slot != null && slot.Type == SlotType.AI)
+                {
+                    var picked = LobbyToAIStrategy(slot.AIStrategy);
+                    if (picked.HasValue) return picked.Value;
+                    // else fall through to random roll (LobbyAIStrategy.Random)
+                }
+            }
+
+            // Deterministic random based on faction + spawn seed so multiplayer stays synced.
             uint hash = (uint)((int)faction * 7919 + GameSettings.SpawnSeed + 31);
             hash ^= hash >> 13;
             hash *= 0x5bd1e995;
             hash ^= hash >> 15;
-            int roll = (int)(hash % 5);
+            // Six AIStrategy values (Rush, EcoBoom, TechRush, Aggressive,
+            // Defensive, Turtle) — TechRush/Aggressive are legacy aliases for
+            // TechBoom/Balanced. SimpleAISystem maps both to their Age-1 builds.
+            int roll = (int)(hash % 6);
             return (AIStrategy)roll;
         }
+
+        /// <summary>
+        /// Map the lobby-side strategy choice onto the runtime AIStrategy enum.
+        /// Returns null when the lobby picked Random (caller rolls a random).
+        /// </summary>
+        private static AIStrategy? LobbyToAIStrategy(LobbyAIStrategy choice) => choice switch
+        {
+            LobbyAIStrategy.EcoBoom   => AIStrategy.EcoBoom,
+            LobbyAIStrategy.Balanced  => AIStrategy.Aggressive, // legacy alias for Balanced
+            LobbyAIStrategy.TechBoom  => AIStrategy.TechRush,   // legacy alias for TechBoom
+            LobbyAIStrategy.Rush      => AIStrategy.Rush,
+            LobbyAIStrategy.Turtle    => AIStrategy.Turtle,
+            LobbyAIStrategy.Defensive => AIStrategy.Defensive,
+            _                         => (AIStrategy?)null,     // Random
+        };
     }
 }

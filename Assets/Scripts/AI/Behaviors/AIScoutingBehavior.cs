@@ -9,6 +9,7 @@ using UnityEngine;
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIMilitaryManager))]
     public partial struct AIScoutingBehavior : ISystem

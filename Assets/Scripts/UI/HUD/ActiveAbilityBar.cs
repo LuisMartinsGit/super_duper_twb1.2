@@ -39,7 +39,8 @@ namespace TheWaningBorder.UI.HUD
 
         void OnGUI()
         {
-            if (!_stylesInit) InitStyles();
+            Styles.Initialize();
+            if (!_stylesInit) BuildLocalStyles();
 
             _cacheTimer -= Time.deltaTime;
             if (_cacheTimer <= 0f)
@@ -133,13 +134,20 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
-        private void InitStyles()
+        // Build the truly-unique cached locals (bar/button/tooltip — all bordered with golden
+        // accents but with custom font sizes and dimensions specific to this top bar).
+        // Standard panel/header/label/button styles are not used here because the ability bar
+        // has its own visual language (top centered, slim, icon-text mixed buttons).
+        private void BuildLocalStyles()
         {
+            // Bar background: navy panel bg with thin 1px golden border (alpha 0.6).
+            // Both colors derived from Styles to keep palette canonical.
             _barStyle = new GUIStyle(GUI.skin.box)
             {
                 normal = { background = UIHelpers.MakeBorderedTexture(64, 64,
-                    new Color(0.06f, 0.08f, 0.18f, 0.9f),
-                    new Color(0.83f, 0.66f, 0.26f, 0.6f), 1) }
+                    new Color(Styles.PanelBgColor.r, Styles.PanelBgColor.g, Styles.PanelBgColor.b, 0.9f),
+                    new Color(Styles.HighlightColor.r, Styles.HighlightColor.g,
+                              Styles.HighlightColor.b, 0.6f), 1) }
             };
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
@@ -147,9 +155,11 @@ namespace TheWaningBorder.UI.HUD
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
+                normal = { textColor = Styles.HighlightColor }
             };
 
+            // Tooltip box: bordered word-wrap rich-text with custom padding. Background uses a
+            // slightly darker navy variant kept inline (no Styles match). Border from HighlightColor.
             _tooltipStyle = new GUIStyle(GUI.skin.box)
             {
                 wordWrap = true,
@@ -159,7 +169,8 @@ namespace TheWaningBorder.UI.HUD
                     textColor = new Color(0.9f, 0.85f, 0.7f),
                     background = UIHelpers.MakeBorderedTexture(64, 64,
                         new Color(0.05f, 0.06f, 0.14f, 0.97f),
-                        new Color(0.83f, 0.66f, 0.26f, 0.6f), 1)
+                        new Color(Styles.HighlightColor.r, Styles.HighlightColor.g,
+                                  Styles.HighlightColor.b, 0.6f), 1)
                 },
                 alignment = TextAnchor.UpperLeft,
                 padding = new RectOffset(8, 8, 6, 6)

@@ -71,6 +71,10 @@ namespace TheWaningBorder.UI.Panels
         // Placement validity
         private bool _placementValid = true;
 
+        // Placement yaw in degrees (mouse-wheel rotation during placement)
+        private float _placementYaw;
+        private const float YawStepDegrees = 15f;
+
         // Wall hub snapping
         private const float WallHubSnapDistance = 2.0f;
         private Entity _snappedHub;  // Hub we're snapping to (Entity.Null if not snapping)
@@ -113,6 +117,16 @@ namespace TheWaningBorder.UI.Panels
             {
                 if (_placingInstance == null) { CancelPlacement(); return; }
 
+                // Mouse-wheel rotation (non-wall buildings only). Walls follow hub snap.
+                if (_currentBuild != BuildType.Wall)
+                {
+                    float wheel = UnityEngine.Input.mouseScrollDelta.y;
+                    if (math.abs(wheel) > 0.01f)
+                    {
+                        _placementYaw += math.sign(wheel) * YawStepDegrees;
+                    }
+                }
+
                 if (TryGetMouseWorld(out Vector3 p))
                 {
                     // Wall hub snapping: snap preview to nearby existing hubs
@@ -127,16 +141,9 @@ namespace TheWaningBorder.UI.Panels
                         }
                     }
 
-                    // Snap building placement to grid (rect-aware for even/odd dimensions).
-                    var snapGrid = PassabilityGrid.Instance;
-                    if (snapGrid != null && _currentBuild != BuildType.Wall)
-                    {
-                        var buildSize = BuildingSizeConfig.GetSize(BuildId(_currentBuild));
-                        float3 snapped = snapGrid.SnapToGridRect((float3)p, buildSize);
-                        p = new Vector3(snapped.x, snapped.y, snapped.z);
-                    }
-
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
+                    if (_currentBuild != BuildType.Wall)
+                        _placingInstance.transform.rotation = Quaternion.Euler(0f, _placementYaw, 0f);
 
                     // Check placement validity for non-wall buildings (AABB collision)
                     if (_currentBuild != BuildType.Wall)
@@ -165,7 +172,7 @@ namespace TheWaningBorder.UI.Panels
                     }
                     else
                     {
-                        SpawnSelectedBuilding((float3)pos);
+                        SpawnSelectedBuilding((float3)pos, _placementYaw);
 
                         // Shift held → stay in placement mode for another building
                         if (UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift))
@@ -304,22 +311,41 @@ namespace TheWaningBorder.UI.Panels
             foreach (var col in _placingInstance.GetComponentsInChildren<Collider>())
                 col.enabled = false;
 
-            // Make semi-transparent
+            // Switch each preview material to URP Transparent surface so the
+            // green/red tint (RGBA, alpha < 1) renders translucent. Without this,
+            // URP Lit materials default to Opaque and ignore the alpha channel.
             foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
             {
                 foreach (var mat in renderer.materials)
-                {
-                    if (mat.HasProperty("_Color"))
-                    {
-                        var c = mat.color;
-                        c.a = 0.5f;
-                        mat.color = c;
-                    }
-                }
+                    MakeMaterialTransparent(mat);
             }
+
+            // Reset rotation for fresh placement (mouse wheel adjusts during Update).
+            _placementYaw = 0f;
 
             IsPlacingBuilding = true;
             GathererHutAreaDisplay.IsPlacingGathererHutType = (_currentBuild == BuildType.GatherersHut);
+        }
+
+        /// <summary>
+        /// Reconfigure a URP Lit/Unlit material clone to render in Transparent
+        /// surface mode so per-frame `_BaseColor` alpha values actually blend.
+        /// Safe no-op for non-URP shaders that don't have these properties.
+        /// </summary>
+        private static void MakeMaterialTransparent(Material mat)
+        {
+            if (mat == null) return;
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f); // 1 = Transparent
+            if (mat.HasProperty("_Blend"))   mat.SetFloat("_Blend", 0f);   // 0 = Alpha
+            if (mat.HasProperty("_ZWrite"))  mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHABLEND_ON");
         }
 
         public void CancelPlacement()
@@ -353,13 +379,16 @@ namespace TheWaningBorder.UI.Panels
             {
                 foreach (var mat in renderer.materials)
                 {
+                    // URP Lit/Unlit use _BaseColor; legacy shaders use _Color.
+                    if (mat.HasProperty("_BaseColor"))
+                        mat.SetColor("_BaseColor", tint);
                     if (mat.HasProperty("_Color"))
                         mat.color = tint;
                 }
             }
         }
 
-        private void SpawnSelectedBuilding(float3 pos)
+        private void SpawnSelectedBuilding(float3 pos, float yawDegrees)
         {
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
 
@@ -421,6 +450,22 @@ namespace TheWaningBorder.UI.Panels
 
             // Single player: create building directly and assign builders
             Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac);
+
+            // Apply mouse-wheel rotation to the new building's transform.
+            if (_em.HasComponent<LocalTransform>(building))
+            {
+                var lt = _em.GetComponentData<LocalTransform>(building);
+                lt.Rotation = quaternion.RotateY(math.radians(yawDegrees));
+                _em.SetComponentData(building, lt);
+            }
+
+            // Flatten the terrain under the building footprint so the model
+            // sits on level ground regardless of the (≤15°) underlying slope.
+            var sizeForFlatten = BuildCommandHelper.GetBuildingSize(id);
+            float halfExtent = math.max(sizeForFlatten.x, sizeForFlatten.y) * 0.5f;
+            var pt = TheWaningBorder.World.Terrain.ProceduralTerrain.Instance;
+            if (pt != null) pt.FlattenAt(new Vector3(pos.x, 0f, pos.z), halfExtent);
+
             AssignBuildersToConstruction(building, id, pos);
         }
 
@@ -560,26 +605,37 @@ namespace TheWaningBorder.UI.Panels
             {
                 Entity segment = AlanthorWall.CreateSegment(_em, _wallFirstHub, hub, fac);
 
-                // Mark all wall instances in this segment as under construction
+                // Mark all wall instances in this segment as under construction.
+                // Snapshot entities BEFORE iterating: AddComponentData below is a
+                // structural change that invalidates the WallInstanceRef buffer
+                // handle, and AssignBuildersToConstruction → IssueBuild also
+                // mutates archetypes — touching the live buffer in the next loop
+                // iteration throws ObjectDisposedException.
                 if (_em.HasBuffer<WallInstanceRef>(segment))
                 {
                     var instances = _em.GetBuffer<WallInstanceRef>(segment);
-                    for (int i = 0; i < instances.Length; i++)
+                    int count = instances.Length;
+                    var snapshot = new Unity.Collections.NativeArray<Entity>(
+                        count, Unity.Collections.Allocator.Temp);
+                    for (int i = 0; i < count; i++)
+                        snapshot[i] = instances[i].Instance;
+
+                    for (int i = 0; i < count; i++)
                     {
-                        var inst = instances[i].Instance;
-                        if (_em.Exists(inst))
+                        var inst = snapshot[i];
+                        if (!_em.Exists(inst)) continue;
+                        if (!_em.HasComponent<UnderConstruction>(inst))
+                            _em.AddComponentData(inst, new UnderConstruction { Progress = 0f, Total = 5f });
+                        if (_em.HasComponent<Health>(inst))
                         {
-                            if (!_em.HasComponent<UnderConstruction>(inst))
-                                _em.AddComponentData(inst, new UnderConstruction { Progress = 0f, Total = 5f });
-                            if (_em.HasComponent<Health>(inst))
-                            {
-                                var hp = _em.GetComponentData<Health>(inst);
-                                _em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
-                            }
+                            var hp = _em.GetComponentData<Health>(inst);
+                            _em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
+                        }
+                        if (_em.HasComponent<LocalTransform>(inst))
                             AssignBuildersToConstruction(inst, "Alanthor_Wall",
                                 _em.GetComponentData<LocalTransform>(inst).Position);
-                        }
                     }
+                    snapshot.Dispose();
                 }
             }
 

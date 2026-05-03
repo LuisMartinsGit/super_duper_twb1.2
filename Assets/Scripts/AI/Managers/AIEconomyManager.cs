@@ -14,6 +14,7 @@ using TheWaningBorder.Data;
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(Unity.Transforms.TransformSystemGroup))]
     public partial struct AIEconomyManager : ISystem

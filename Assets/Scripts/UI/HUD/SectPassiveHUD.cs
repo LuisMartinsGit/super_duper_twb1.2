@@ -23,9 +23,13 @@ namespace TheWaningBorder.UI.HUD
         private const float RowHeight = 36f;
         private const float RowPadding = 4f;
 
+        // Specialty bordered textures + a cached letter overlay (no Styles match) —
+        // colors sourced from Styles.HighlightColor / Styles.PanelBgColor so the
+        // palette stays canonical.
         private GUIStyle _iconStyle;
         private GUIStyle _tooltipStyle;
         private GUIStyle _bgStyle;
+        private GUIStyle _letterStyle;
         private bool _stylesInit;
 
         // Cache
@@ -42,6 +46,7 @@ namespace TheWaningBorder.UI.HUD
 
         void OnGUI()
         {
+            Styles.Initialize();
             if (!_stylesInit) InitStyles();
 
             // Refresh cache every 0.5s
@@ -80,14 +85,8 @@ namespace TheWaningBorder.UI.HUD
                 GUI.Box(iconRect, "", _iconStyle);
                 GUI.color = Color.white;
 
-                // Draw letter
-                var letterStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 14, fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter,
-                    normal = { textColor = Color.white }
-                };
-                GUI.Label(iconRect, displayName.Substring(0, 1), letterStyle);
+                // Draw letter (cached style — was per-frame alloc before)
+                GUI.Label(iconRect, displayName.Substring(0, 1), _letterStyle);
 
                 // Tooltip on hover
                 if (iconRect.Contains(Event.current.mousePosition))
@@ -124,20 +123,24 @@ namespace TheWaningBorder.UI.HUD
 
         private void InitStyles()
         {
+            // Bordered row background — navy bg, gold border at 0.5 alpha.
             _bgStyle = new GUIStyle(GUI.skin.box)
             {
                 normal = { background = UIHelpers.MakeBorderedTexture(64, 64,
-                    new Color(0.06f, 0.08f, 0.18f, 0.85f),
-                    new Color(0.83f, 0.66f, 0.26f, 0.5f), 1) }
+                    new Color(Styles.PanelBgColor.r, Styles.PanelBgColor.g, Styles.PanelBgColor.b, 0.85f),
+                    new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.5f), 1) }
             };
 
+            // Icon background — dark grey with gold border at 0.6 alpha.
             _iconStyle = new GUIStyle(GUI.skin.box)
             {
                 normal = { background = UIHelpers.MakeBorderedTexture(32, 32,
                     new Color(0.15f, 0.15f, 0.15f, 0.9f),
-                    new Color(0.83f, 0.66f, 0.26f, 0.6f), 1) }
+                    new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.6f), 1) }
             };
 
+            // Tooltip box — dark bordered, rich text. Bg literal (0.05,0.06,0.14,0.97) is
+            // a slightly darker variant of PanelBgColor for tooltip contrast (no Styles match).
             _tooltipStyle = new GUIStyle(GUI.skin.box)
             {
                 wordWrap = true,
@@ -147,10 +150,18 @@ namespace TheWaningBorder.UI.HUD
                     textColor = new Color(0.9f, 0.85f, 0.7f),
                     background = UIHelpers.MakeBorderedTexture(64, 64,
                         new Color(0.05f, 0.06f, 0.14f, 0.97f),
-                        new Color(0.83f, 0.66f, 0.26f, 0.6f), 1)
+                        new Color(Styles.HighlightColor.r, Styles.HighlightColor.g, Styles.HighlightColor.b, 0.6f), 1)
                 },
                 alignment = TextAnchor.UpperLeft,
                 padding = new RectOffset(8, 8, 6, 6)
+            };
+
+            _letterStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
             };
 
             _stylesInit = true;

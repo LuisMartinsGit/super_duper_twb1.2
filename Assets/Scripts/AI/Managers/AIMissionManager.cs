@@ -8,6 +8,7 @@ using Unity.Transforms;
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIScoutingBehavior))]
     public partial struct AIMissionManager : ISystem

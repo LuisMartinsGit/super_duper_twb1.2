@@ -13,6 +13,7 @@ using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.AI
 {
+    [DisableAutoCreation] // Replaced by SimpleAISystem.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AIEconomyManager))]
     public partial struct AIBuildingManager : ISystem

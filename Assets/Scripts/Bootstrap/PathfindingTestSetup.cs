@@ -50,7 +50,6 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<SelectionSystem>();
             managersGO.AddComponent<RTSInputManager>();
             managersGO.AddComponent<UnifiedUIManager>();
-            managersGO.AddComponent<SelectionRings>();
             managersGO.AddComponent<FloatingHealthBars>();
             managersGO.AddComponent<ResourceHUD>();
             managersGO.AddComponent<UnitIndicatorSystem>();

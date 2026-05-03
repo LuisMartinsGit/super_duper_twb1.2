@@ -27,7 +27,10 @@ namespace TheWaningBorder.Entities
         public const float InstanceSpacing = 2f;
 
         /// <summary>Inset from each hub center to avoid overlapping hub footprint.</summary>
-        private const float HubInset = 1.0f;
+        // Reduced from 1.0 to 0.5 so the first/last wall instance edge slips
+        // under the hub plinth (radius ~0.78) — closes the visible gap between
+        // the wall row and the hub tower.
+        private const float HubInset = 0.5f;
 
         // Hub defaults (loaded from TechTreeDB "Alanthor_Wall" when available)
         private const float DefaultHubHP = 600f;
@@ -173,7 +176,10 @@ namespace TheWaningBorder.Entities
                 return;
             }
 
-            int count = math.max(1, (int)math.round(usable / InstanceSpacing));
+            // Use ceil so actualSpacing never exceeds InstanceSpacing — adjacent
+            // wall instances are 2 m wide each, so spacing > 2 m would leave a
+            // visible gap between them. Ceil guarantees touch-or-overlap.
+            int count = math.max(1, (int)math.ceil(usable / InstanceSpacing));
             float actualSpacing = usable / count;
 
             // Collect all instances first, then add to buffer in one go.

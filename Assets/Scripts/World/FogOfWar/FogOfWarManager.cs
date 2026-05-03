@@ -283,23 +283,29 @@ namespace TheWaningBorder.World.FogOfWar
 
             var root = new GameObject("FogOfWar");
             var mgr = root.AddComponent<FogOfWarManager>();
-            mgr.WorldMin = new Vector2(-half, -half);
-            mgr.WorldMax = new Vector2(half, half);
-            mgr.CellSize = 1f;
+            // Note: Awake() ran on AddComponent above and allocated the grid/texture
+            // using the default WorldMin/Max (±12.5, CellSize 0.1). Setting the
+            // fields directly afterwards used to leave _w/_h/_visible/_revealed
+            // sized for that 25x25 default — every unit outside that box stamped
+            // onto the clamped edge instead of revealing fog. ApplyBounds()
+            // reallocates everything to the real map dimensions.
             mgr.HumanFaction = GameSettings.LocalPlayerFaction;
 
             var mat = new Material(Shader.Find("Unlit/FogOfWar"));
             mat.renderQueue = 3000;
-            mat.SetVector("_WorldMin", new Vector4(mgr.WorldMin.x, 0, mgr.WorldMin.y, 0));
-            mat.SetVector("_WorldMax", new Vector4(mgr.WorldMax.x, 0, mgr.WorldMax.y, 0));
+            mgr.FogMaterial = mat;
 
-            GameObject fogSurface = FogOfWarConformingMesh.Create(mgr.WorldMin, mgr.WorldMax, 128, mat);
-            fogSurface.name = "FogSurface";
-            fogSurface.transform.SetParent(root.transform, false);
+            mgr.ApplyBounds(
+                new Vector2(-half, -half),
+                new Vector2(half, half),
+                newCellSize: 1f,
+                clearRevealed: true,
+                surfaceGrid: 128);
 
-            var mr = fogSurface.GetComponent<MeshRenderer>();
-            mgr.FogMaterial = mr.sharedMaterial;
-            mgr.FogRenderer = mr;
+            // ApplyBounds creates the fog surface itself; parent it under our root
+            // so the hierarchy stays tidy.
+            if (mgr.FogRenderer != null)
+                mgr.FogRenderer.transform.SetParent(root.transform, true);
 
             if (UnityEngine.Terrain.activeTerrain == null)
             {

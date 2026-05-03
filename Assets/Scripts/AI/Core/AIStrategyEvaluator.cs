@@ -11,6 +11,7 @@ namespace TheWaningBorder.AI
     /// Evaluates game conditions and transitions AI strategy when triggers are met.
     /// Easy AI never adapts. Normal adapts on phase change. Hard every 60s. Expert every 30s.
     /// </summary>
+    [DisableAutoCreation] // Replaced by SimpleAISystem (Age-1 build-order driven AI).
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(AIEconomyManager))]
     public partial struct AIStrategyEvaluator : ISystem

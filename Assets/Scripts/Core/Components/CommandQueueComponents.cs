@@ -31,3 +31,11 @@ public struct QueuedCommand : IBufferElementData
 /// CommandQueueSystem processes the next command when the current one completes.
 /// </summary>
 public struct CommandQueueActive : IComponentData { }
+
+/// <summary>
+/// Marker tag: entity's command queue is paused. CommandQueueSystem ignores
+/// frozen entities, so queued commands accumulate without executing.
+/// Added while the user holds Shift to build up a queue; removed on release
+/// so the queue starts draining.
+/// </summary>
+public struct CommandQueueFrozen : IComponentData { }

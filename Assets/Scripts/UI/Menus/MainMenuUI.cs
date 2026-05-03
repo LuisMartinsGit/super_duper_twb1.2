@@ -6,6 +6,7 @@ using TheWaningBorder.Core.Config;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheWaningBorder.UI.Menus;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -33,11 +34,9 @@ namespace TheWaningBorder.UI.Menus
         private MultiplayerLobbyUI _multiplayerLobby;
         private OptionsMenuUI _optionsMenu;
 
-        // Styling
+        // Styling — specialty cached locals (bold 16pt buttons + 24pt title; no Styles match)
         private GUIStyle _buttonStyle;
-        private GUIStyle _disabledButtonStyle;
         private GUIStyle _titleStyle;
-        private GUIStyle _transparentWindow;
         private bool _stylesInitialized = false;
 
         // Background
@@ -98,6 +97,7 @@ namespace TheWaningBorder.UI.Menus
 
         void OnGUI()
         {
+            Styles.Initialize();
             InitStyles();
             DrawBackground();
 
@@ -121,7 +121,8 @@ namespace TheWaningBorder.UI.Menus
             // Static background — fit to screen, no pan or zoom
             GUI.DrawTexture(new Rect(0, 0, screenW, screenH), _bgTexture, ScaleMode.ScaleAndCrop);
 
-            // Subtle dark overlay for text readability
+            // Subtle dark overlay for text readability — navy-tinted 0.35 alpha,
+            // intentionally NOT Styles.DrawDimOverlay (0.7 black would over-darken). See AD-2.
             GUI.color = new Color(0f, 0f, 0.02f, 0.35f);
             GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
             GUI.color = Color.white;
@@ -192,6 +193,7 @@ namespace TheWaningBorder.UI.Menus
                 ("Full Army (Archers + Swords + Siege)", ScenarioType.FullArmy),
                 ("Wall Siege (Walls vs Siege)", ScenarioType.WallSiege),
                 ("Sect Showcase (12 Sect Abilities)", ScenarioType.SectShowcase),
+                ("Building Showcase (every culture)", ScenarioType.BuildingShowcase),
             };
 
             float contentH = (ButtonHeight + ButtonSpacing) * scenarios.Length;
@@ -232,10 +234,11 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInitialized) return;
 
-            // Button: dark semi-transparent background with golden text
-            var btnNormal = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.16f, 0.75f));
-            var btnHover = MakeTex(2, 2, new Color(0.12f, 0.14f, 0.24f, 0.85f));
-            var btnActive = MakeTex(2, 2, new Color(0.16f, 0.18f, 0.3f, 0.9f));
+            // Bold 16pt menu buttons with hover textures — specialty (no Styles match).
+            // Colors sourced from Styles.HighlightColor; dark-navy bg variants are unique to this menu.
+            var btnNormal = Styles.MakeSolid(new Color(0.06f, 0.08f, 0.16f, 0.75f));
+            var btnHover = Styles.MakeSolid(new Color(0.12f, 0.14f, 0.24f, 0.85f));
+            var btnActive = Styles.MakeSolid(new Color(0.16f, 0.18f, 0.3f, 0.9f));
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
@@ -247,32 +250,20 @@ namespace TheWaningBorder.UI.Menus
                 padding = new RectOffset(10, 10, 8, 8)
             };
             _buttonStyle.normal.background = btnNormal;
-            _buttonStyle.normal.textColor = new Color(0.83f, 0.66f, 0.26f);
+            _buttonStyle.normal.textColor = Styles.HighlightColor;
             _buttonStyle.hover.background = btnHover;
             _buttonStyle.hover.textColor = new Color(1f, 0.85f, 0.4f);
             _buttonStyle.active.background = btnActive;
             _buttonStyle.active.textColor = new Color(1f, 0.9f, 0.5f);
 
-            // Title: large golden text
-            _titleStyle = new GUIStyle(GUI.skin.label)
+            // Title: large 24pt golden text — derived from Styles.Header (which is 20pt gold).
+            _titleStyle = new GUIStyle(Styles.Header)
             {
                 fontSize = 24,
-                fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            _titleStyle.normal.textColor = new Color(0.83f, 0.66f, 0.26f);
 
             _stylesInitialized = true;
-        }
-
-        private static Texture2D MakeTex(int w, int h, Color col)
-        {
-            var tex = new Texture2D(w, h);
-            var pixels = new Color[w * h];
-            for (int i = 0; i < pixels.Length; i++) pixels[i] = col;
-            tex.SetPixels(pixels);
-            tex.Apply();
-            return tex;
         }
 
         private void LaunchScenario(ScenarioType scenario)

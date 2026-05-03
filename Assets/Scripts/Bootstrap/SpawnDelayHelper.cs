@@ -37,9 +37,16 @@ namespace TheWaningBorder.Bootstrap
                     }
 
                     PlayerSpawnSystem.SpawnAllFactions();
-                    ObstacleBootstrap.SpawnObstacles();
+                    // Flat test map skips world clutter — see GameSettings.FlatTestMap.
+                    if (!GameSettings.FlatTestMap)
+                        ObstacleBootstrap.SpawnObstacles();
                     IronDepositBootstrap.SpawnIronDeposits();
-                    if (GameSettings.CrystalCurseEnabled)
+                    // Mineable crystal patches always spawn (1 near each player
+                    // + scattered) so AI/players can age up without hunting
+                    // Crystallings first. Curse main nodes are still gated on
+                    // CrystalCurseEnabled and skipped on flat test maps.
+                    CrystalPatchBootstrap.SpawnCrystalPatches();
+                    if (GameSettings.CrystalCurseEnabled && !GameSettings.FlatTestMap)
                         CrystalNodeBootstrap.SpawnCrystalNodes();
                     FocusCameraOnHall();
                     LoadingScreen.NotifyReady();
@@ -51,10 +58,14 @@ namespace TheWaningBorder.Bootstrap
                 yield return null;
             }
 
+            // Same gating in the timeout fallback path.
             PlayerSpawnSystem.SpawnAllFactions();
-            ObstacleBootstrap.SpawnObstacles();
+            if (!GameSettings.FlatTestMap)
+                ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
-            CrystalNodeBootstrap.SpawnCrystalNodes();
+            CrystalPatchBootstrap.SpawnCrystalPatches();
+            if (!GameSettings.FlatTestMap)
+                CrystalNodeBootstrap.SpawnCrystalNodes();
             FocusCameraOnHall();
             LoadingScreen.NotifyReady();
             Destroy(gameObject);

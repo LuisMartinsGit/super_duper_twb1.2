@@ -14,58 +14,149 @@ public partial class PresentationSpawnSystem
 {
     // ═══════════════════════════════════════════════════════════════════════
     // ALANTHOR WALL PROCEDURAL GENERATION
+    // Aesthetic: white-stone Alanthor masonry — courses of cut stone, marble
+    // accents, crenellations, cyan-tinted night lights, faction stripe banner.
     // ═══════════════════════════════════════════════════════════════════════
 
+    // Shared palette for all wall pieces.
+    private static readonly Color WallStone     = new Color(0.78f, 0.76f, 0.72f);   // light limestone
+    private static readonly Color WallStoneDark = new Color(0.52f, 0.50f, 0.46f);   // course shadow line
+    private static readonly Color WallMarble    = new Color(0.92f, 0.92f, 0.90f);   // capital / band
+    private static readonly Color WallIron      = new Color(0.30f, 0.30f, 0.34f);   // gate iron
+    private static readonly Color WallCyan      = new Color(0.30f, 0.78f, 0.85f);   // Alanthor accent
+    private static readonly Color WallWood      = new Color(0.42f, 0.28f, 0.16f);   // gate door
+
+    private static GameObject WallPrim(PrimitiveType type, string name, Transform parent,
+        Vector3 localPos, Vector3 localScale, Color color, float metallic = 0f, float smoothness = 0.3f)
+    {
+        var go = GameObject.CreatePrimitive(type);
+        go.name = name;
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = localScale;
+        var r = go.GetComponent<Renderer>();
+        if (r != null)
+        {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color"))     mat.color = color;
+            if (mat.HasProperty("_Metallic"))  mat.SetFloat("_Metallic", metallic);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
+            r.material = mat;
+        }
+        var col = go.GetComponent<Collider>();
+        if (col != null) Destroy(col);
+        return go;
+    }
+
+    private static GameObject WallPrimRot(PrimitiveType type, string name, Transform parent,
+        Vector3 localPos, Vector3 localScale, Quaternion localRot, Color color, float metallic = 0f, float smoothness = 0.3f)
+    {
+        var go = WallPrim(type, name, parent, localPos, localScale, color, metallic, smoothness);
+        go.transform.localRotation = localRot;
+        return go;
+    }
+
+    private static void AddWallNightLight(Transform parent, Vector3 localPos, float intensity, float range)
+    {
+        var lightGo = new GameObject("WallLight");
+        lightGo.transform.SetParent(parent, false);
+        lightGo.transform.localPosition = localPos;
+        var l = lightGo.AddComponent<Light>();
+        l.type = LightType.Point;
+        l.color = WallCyan;
+        l.intensity = intensity;
+        l.range = range;
+        l.shadows = LightShadows.None;
+        // Emissive bulb so the lamp reads in daylight too.
+        var bulb = WallPrim(PrimitiveType.Sphere, "Bulb", lightGo.transform,
+            Vector3.zero, Vector3.one * 0.18f, WallCyan);
+        var rend = bulb.GetComponent<Renderer>();
+        if (rend != null)
+        {
+            var mat = rend.material;
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", WallCyan * 1.8f);
+            }
+        }
+    }
+
     /// <summary>
-    /// Create a wall hub: a cylinder tower representing a wall connection point.
+    /// Wall hub: tower-like connection point. Stone drum on a marble plinth, with
+    /// a banded marble cap, eight crenellation merlons, and a faction-coloured
+    /// banner (Stripe_*) on the side.
     /// </summary>
     private GameObject CreateProceduralWallHub(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallHub_{entity.Index}");
         root.transform.position = center;
 
-        // Main cylinder tower
-        var cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cylinder.name = "HubCylinder";
-        cylinder.transform.SetParent(root.transform, false);
-        cylinder.transform.localPosition = Vector3.up * 1.5f;
-        cylinder.transform.localScale = new Vector3(1.2f, 1.5f, 1.2f); // Diameter 1.2, height 3 (cylinder is 2 tall * 1.5 scale)
+        // Plinth (marble) — slightly wider than the drum so it reads as a base.
+        WallPrim(PrimitiveType.Cylinder, "Plinth", root.transform,
+            new Vector3(0f, 0.20f, 0f), new Vector3(1.55f, 0.20f, 1.55f),
+            WallMarble, smoothness: 0.5f);
 
-        var renderer = cylinder.GetComponent<Renderer>();
-        if (renderer != null)
+        // Stone drum — three stacked sections give visible courses.
+        WallPrim(PrimitiveType.Cylinder, "DrumLow", root.transform,
+            new Vector3(0f, 0.85f, 0f), new Vector3(1.20f, 0.55f, 1.20f), WallStone);
+        WallPrim(PrimitiveType.Cylinder, "DrumCourseLine1", root.transform,
+            new Vector3(0f, 1.42f, 0f), new Vector3(1.24f, 0.04f, 1.24f), WallStoneDark);
+        WallPrim(PrimitiveType.Cylinder, "DrumMid", root.transform,
+            new Vector3(0f, 2.00f, 0f), new Vector3(1.20f, 0.55f, 1.20f), WallStone);
+        WallPrim(PrimitiveType.Cylinder, "DrumCourseLine2", root.transform,
+            new Vector3(0f, 2.58f, 0f), new Vector3(1.24f, 0.04f, 1.24f), WallStoneDark);
+        WallPrim(PrimitiveType.Cylinder, "DrumHigh", root.transform,
+            new Vector3(0f, 3.10f, 0f), new Vector3(1.20f, 0.50f, 1.20f), WallStone);
+
+        // Marble cap and band so the silhouette reads as Alanthor masonry.
+        WallPrim(PrimitiveType.Cylinder, "Cap", root.transform,
+            new Vector3(0f, 3.65f, 0f), new Vector3(1.40f, 0.10f, 1.40f),
+            WallMarble, smoothness: 0.5f);
+
+        // Eight merlons around the rim (crenellations).
+        for (int i = 0; i < 8; i++)
         {
-            renderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            renderer.material.color = new Color(0.55f, 0.50f, 0.42f); // Stone grey-brown
+            float a = i * 45f * Mathf.Deg2Rad;
+            float ox = Mathf.Cos(a) * 0.62f;
+            float oz = Mathf.Sin(a) * 0.62f;
+            WallPrimRot(PrimitiveType.Cube, $"Merlon_{i}", root.transform,
+                new Vector3(ox, 3.95f, oz), new Vector3(0.30f, 0.45f, 0.30f),
+                Quaternion.Euler(0f, i * 45f, 0f), WallStone);
         }
 
-        // Remove individual collider
-        var col = cylinder.GetComponent<Collider>();
-        if (col != null) Destroy(col);
+        // Faction stripe banner hanging on the front face.
+        // ApplyFactionColor will tint anything named "Stripe_*" with the player colour.
+        WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
+            new Vector3(0f, 2.10f, 0.62f),
+            new Vector3(0.55f, 1.30f, 0.04f), Color.white);
 
-        // Single collider on root
+        // A small cyan night light at the cap.
+        AddWallNightLight(root.transform, new Vector3(0f, 4.10f, 0f), 1.4f, 7f);
+
+        // Single collider on root.
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(1.5f, 3f, 1.5f);
-        boxCol.center = Vector3.up * 1.5f;
+        boxCol.size = new Vector3(1.7f, 4.4f, 1.7f);
+        boxCol.center = Vector3.up * 2.0f;
 
-        // Add EntityReference
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
-
         return root;
     }
 
     /// <summary>
-    /// Create a wall segment: an elongated tall cube connecting two hubs.
-    /// Reads WallConnection to determine length and orientation.
+    /// Wall segment connecting two hubs. The instance entities spawned along the
+    /// segment carry the visible masonry; the segment itself is rendered as an
+    /// almost-flat curb so it reads as a foundation under the row.
     /// </summary>
     private GameObject CreateProceduralWallSegment(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallSegment_{entity.Index}");
         root.transform.position = center;
 
-        // Calculate segment length from WallConnection
-        float length = 5f; // default fallback
+        // Length from WallConnection.
+        float length = 5f;
         if (_em.HasComponent<WallConnection>(entity))
         {
             var conn = _em.GetComponentData<WallConnection>(entity);
@@ -75,57 +166,33 @@ public partial class PresentationSpawnSystem
             {
                 var posA = _em.GetComponentData<Unity.Transforms.LocalTransform>(conn.HubA).Position;
                 var posB = _em.GetComponentData<Unity.Transforms.LocalTransform>(conn.HubB).Position;
-                length = Unity.Mathematics.math.distance(
-                    new Unity.Mathematics.float2(posA.x, posA.z),
-                    new Unity.Mathematics.float2(posB.x, posB.z));
+                length = math.distance(new float2(posA.x, posA.z), new float2(posB.x, posB.z));
             }
         }
 
-        // Wall cube: thin, tall, stretched along local Z
-        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wall.name = "WallCube";
-        wall.transform.SetParent(root.transform, false);
-        wall.transform.localPosition = Vector3.up * 1.5f;
-        wall.transform.localScale = new Vector3(0.6f, 3f, length); // Thin, 3 units tall, spans the distance
+        // Foundation curb under the row of instances (low and slightly oversized).
+        WallPrim(PrimitiveType.Cube, "Foundation_Curb", root.transform,
+            new Vector3(0f, 0.10f, 0f), new Vector3(1.10f, 0.20f, length + 0.10f),
+            WallStoneDark);
 
-        var renderer = wall.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            renderer.material.color = new Color(0.50f, 0.45f, 0.38f); // Slightly darker stone
-        }
+        // Thin marble plinth course visible above the curb.
+        WallPrim(PrimitiveType.Cube, "PlinthBand", root.transform,
+            new Vector3(0f, 0.30f, 0f), new Vector3(0.95f, 0.10f, length + 0.05f),
+            WallMarble, smoothness: 0.4f);
 
-        // Remove individual collider
-        var col = wall.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-
-        // Single collider on root
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(0.8f, 3f, length);
-        boxCol.center = Vector3.up * 1.5f;
+        boxCol.size = new Vector3(1.10f, 0.40f, length + 0.10f);
+        boxCol.center = Vector3.up * 0.20f;
 
-        // Add EntityReference
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        // Apply rotation from ECS entity (segment is rotated to face hub A → hub B)
         if (_em.HasComponent<Unity.Transforms.LocalTransform>(entity))
-        {
             root.transform.rotation = _em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Rotation;
-        }
 
         return root;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ALANTHOR WALL INSTANCES / TOWERS / GATES PROCEDURAL GENERATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Force-respawn a visual for an entity whose PresentationId has changed (e.g., wall upgrade).
-    /// Destroys the old GO and removes tracking so SpawnMissingVisuals picks it up next frame.
-    /// </summary>
     public void ForceRespawn(Entity entity)
     {
         if (EntityViewManager.Instance != null &&
@@ -138,195 +205,257 @@ public partial class PresentationSpawnSystem
     }
 
     /// <summary>
-    /// Create a wall instance: a small stone block, 1m wide, 3m tall, 0.6m deep.
+    /// Wall instance: a 2m-long, ~3m-tall stone module that tiles seamlessly
+    /// with neighbours at AlanthorWall.InstanceSpacing = 2m. Stacked stone
+    /// courses with alternating x-offsets, marble capstone, two pairs of
+    /// merlons, arrow slits, and a faction-stripe pennant.
     /// </summary>
     private GameObject CreateProceduralWallInstance(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallInstance_{entity.Index}");
         root.transform.position = center;
 
-        var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        block.name = "WallBlock";
-        block.transform.SetParent(root.transform, false);
-        block.transform.localPosition = Vector3.up * 1.5f;
-        block.transform.localScale = new Vector3(0.6f, 3f, 1.0f); // Thin, 3m tall, 1m along wall
+        const float WallLen = 2.0f; // matches AlanthorWall.InstanceSpacing
 
-        var renderer = block.GetComponent<Renderer>();
-        if (renderer != null)
+        // Three stone courses — alternating x-offsets to look like masonry blocks.
+        WallPrim(PrimitiveType.Cube, "Course1", root.transform,
+            new Vector3(-0.05f, 0.45f, 0f), new Vector3(0.55f, 0.85f, WallLen), WallStone);
+        WallPrim(PrimitiveType.Cube, "Course2", root.transform,
+            new Vector3( 0.05f, 1.30f, 0f), new Vector3(0.55f, 0.85f, WallLen), WallStone);
+        WallPrim(PrimitiveType.Cube, "Course3", root.transform,
+            new Vector3(-0.05f, 2.15f, 0f), new Vector3(0.55f, 0.85f, WallLen), WallStone);
+
+        // Course shadow lines (horizontal seams).
+        WallPrim(PrimitiveType.Cube, "Seam1", root.transform,
+            new Vector3(0f, 0.90f, 0f), new Vector3(0.62f, 0.04f, WallLen + 0.04f), WallStoneDark);
+        WallPrim(PrimitiveType.Cube, "Seam2", root.transform,
+            new Vector3(0f, 1.75f, 0f), new Vector3(0.62f, 0.04f, WallLen + 0.04f), WallStoneDark);
+
+        // Marble capstone running the full length.
+        WallPrim(PrimitiveType.Cube, "Capstone", root.transform,
+            new Vector3(0f, 2.65f, 0f), new Vector3(0.70f, 0.18f, WallLen + 0.05f),
+            WallMarble, smoothness: 0.5f);
+
+        // Four merlons on top of the capstone (two pairs along the wall axis).
+        for (int i = 0; i < 2; i++)
         {
-            renderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            renderer.material.color = new Color(0.50f, 0.45f, 0.38f); // Stone grey-brown
+            float zz = (i == 0 ? -0.55f : 0.55f);
+            WallPrim(PrimitiveType.Cube, $"Merlon_F_{i}", root.transform,
+                new Vector3(-0.15f, 2.92f, zz), new Vector3(0.38f, 0.40f, 0.30f), WallStone);
+            WallPrim(PrimitiveType.Cube, $"Merlon_B_{i}", root.transform,
+                new Vector3( 0.15f, 2.92f, zz), new Vector3(0.38f, 0.40f, 0.30f), WallStone);
         }
 
-        var col = block.GetComponent<Collider>();
-        if (col != null) Destroy(col);
+        // Two arrow slits along the wall length on the front face.
+        WallPrim(PrimitiveType.Cube, "ArrowSlit_A", root.transform,
+            new Vector3(0.30f, 1.55f, -0.50f), new Vector3(0.05f, 0.45f, 0.10f), WallStoneDark);
+        WallPrim(PrimitiveType.Cube, "ArrowSlit_B", root.transform,
+            new Vector3(0.30f, 1.55f,  0.50f), new Vector3(0.05f, 0.45f, 0.10f), WallStoneDark);
+
+        // Small pennant strip (faction stripe) centred on the front face.
+        WallPrim(PrimitiveType.Cube, "Stripe_Pennant", root.transform,
+            new Vector3(0.32f, 1.10f, 0f), new Vector3(0.04f, 0.50f, 0.30f), Color.white);
 
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(0.8f, 3f, 1.2f);
-        boxCol.center = Vector3.up * 1.5f;
+        boxCol.size = new Vector3(0.80f, 3.20f, WallLen + 0.10f);
+        boxCol.center = Vector3.up * 1.55f;
 
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        // Apply rotation from ECS entity
         if (_em.HasComponent<Unity.Transforms.LocalTransform>(entity))
-        {
             root.transform.rotation = _em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Rotation;
-        }
 
         return root;
     }
 
     /// <summary>
-    /// Create a wall tower: taller, wider cylinder with a platform cap and crenellations.
+    /// Wall tower: taller crenellated drum on a marble plinth, with archer ports,
+    /// 8 merlons and a banner.
     /// </summary>
     private GameObject CreateProceduralWallTower(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallTower_{entity.Index}");
         root.transform.position = center;
 
-        // Main cylinder — taller and wider than a wall hub
-        var cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cylinder.name = "TowerCylinder";
-        cylinder.transform.SetParent(root.transform, false);
-        cylinder.transform.localPosition = Vector3.up * 2.0f;
-        cylinder.transform.localScale = new Vector3(1.6f, 2.0f, 1.6f); // Diameter 1.6, height 4
+        // Plinth.
+        WallPrim(PrimitiveType.Cylinder, "Plinth", root.transform,
+            new Vector3(0f, 0.20f, 0f), new Vector3(2.0f, 0.20f, 2.0f),
+            WallMarble, smoothness: 0.5f);
 
-        var cRend = cylinder.GetComponent<Renderer>();
-        if (cRend != null)
+        // Wall stubs poking out either side along the wall axis (Z) so the
+        // tower visually connects to adjacent regular wall instances. The stub
+        // matches a standard wall instance's stone-course look but extends only
+        // halfway out so it overlaps the neighbour's edge.
+        for (int side = -1; side <= 1; side += 2)
         {
-            cRend.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            cRend.material.color = new Color(0.45f, 0.42f, 0.36f); // Darker stone
+            string s = side < 0 ? "S" : "N";
+            float z0 = side * 0.60f; // start just outside the drum
+            float zLen = 1.10f;       // reach into the neighbour instance
+            float cz = z0 + side * (zLen * 0.5f);
+            WallPrim(PrimitiveType.Cube, $"Stub_{s}_C1", root.transform,
+                new Vector3(-0.05f, 0.55f, cz), new Vector3(0.55f, 1.05f, zLen), WallStone);
+            WallPrim(PrimitiveType.Cube, $"Stub_{s}_C2", root.transform,
+                new Vector3( 0.05f, 1.60f, cz), new Vector3(0.55f, 1.05f, zLen), WallStone);
+            WallPrim(PrimitiveType.Cube, $"Stub_{s}_Cap", root.transform,
+                new Vector3(0f, 2.65f, cz), new Vector3(0.70f, 0.18f, zLen + 0.05f),
+                WallMarble, smoothness: 0.5f);
+            WallPrim(PrimitiveType.Cube, $"Stub_{s}_Seam", root.transform,
+                new Vector3(0f, 1.10f, cz), new Vector3(0.62f, 0.04f, zLen + 0.04f), WallStoneDark);
         }
-        var cCol = cylinder.GetComponent<Collider>();
-        if (cCol != null) Destroy(cCol);
 
-        // Platform cap
-        var cap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cap.name = "TowerCap";
-        cap.transform.SetParent(root.transform, false);
-        cap.transform.localPosition = Vector3.up * 4.2f;
-        cap.transform.localScale = new Vector3(2.0f, 0.3f, 2.0f);
+        // Stone drum in two visible courses.
+        WallPrim(PrimitiveType.Cylinder, "TowerLow", root.transform,
+            new Vector3(0f, 1.20f, 0f), new Vector3(1.60f, 0.95f, 1.60f), WallStone);
+        WallPrim(PrimitiveType.Cylinder, "TowerCourseLine", root.transform,
+            new Vector3(0f, 2.18f, 0f), new Vector3(1.64f, 0.05f, 1.64f), WallStoneDark);
+        WallPrim(PrimitiveType.Cylinder, "TowerHigh", root.transform,
+            new Vector3(0f, 3.20f, 0f), new Vector3(1.60f, 0.95f, 1.60f), WallStone);
 
-        var capRend = cap.GetComponent<Renderer>();
-        if (capRend != null)
-        {
-            capRend.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            capRend.material.color = new Color(0.35f, 0.35f, 0.38f); // Iron grey
-        }
-        var capCol = cap.GetComponent<Collider>();
-        if (capCol != null) Destroy(capCol);
-
-        // Crenellation nubs (4 small cubes on the corners of the cap)
+        // 4 archer slits (cardinal directions, on the upper drum).
         for (int i = 0; i < 4; i++)
         {
-            var merlon = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            merlon.name = $"Merlon_{i}";
-            merlon.transform.SetParent(root.transform, false);
-            float angle = i * 90f * Mathf.Deg2Rad;
-            float offset = 0.75f;
-            merlon.transform.localPosition = new Vector3(
-                Mathf.Cos(angle) * offset, 4.6f, Mathf.Sin(angle) * offset);
-            merlon.transform.localScale = new Vector3(0.4f, 0.5f, 0.4f);
-
-            var mRend = merlon.GetComponent<Renderer>();
-            if (mRend != null)
-            {
-                mRend.material = new Material(
-                    Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mRend.material.color = new Color(0.35f, 0.35f, 0.38f);
-            }
-            var mCol = merlon.GetComponent<Collider>();
-            if (mCol != null) Destroy(mCol);
+            float a = i * 90f * Mathf.Deg2Rad;
+            WallPrimRot(PrimitiveType.Cube, $"ArrowSlit_{i}", root.transform,
+                new Vector3(Mathf.Cos(a) * 0.85f, 3.20f, Mathf.Sin(a) * 0.85f),
+                new Vector3(0.10f, 0.55f, 0.10f),
+                Quaternion.Euler(0f, i * 90f, 0f), WallStoneDark);
         }
 
+        // Marble cap platform.
+        WallPrim(PrimitiveType.Cylinder, "Cap", root.transform,
+            new Vector3(0f, 4.20f, 0f), new Vector3(2.05f, 0.18f, 2.05f),
+            WallMarble, smoothness: 0.5f);
+        // Iron platform deck on top of the cap.
+        WallPrim(PrimitiveType.Cylinder, "Deck", root.transform,
+            new Vector3(0f, 4.42f, 0f), new Vector3(1.85f, 0.06f, 1.85f),
+            WallIron, metallic: 0.5f);
+
+        // 8 crenellation merlons around the cap.
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * 45f * Mathf.Deg2Rad;
+            WallPrimRot(PrimitiveType.Cube, $"Merlon_{i}", root.transform,
+                new Vector3(Mathf.Cos(a) * 0.95f, 4.75f, Mathf.Sin(a) * 0.95f),
+                new Vector3(0.40f, 0.50f, 0.40f),
+                Quaternion.Euler(0f, i * 45f, 0f), WallStone);
+        }
+
+        // Flag pole + faction stripe pennant on top.
+        WallPrim(PrimitiveType.Cylinder, "FlagPole", root.transform,
+            new Vector3(0f, 5.40f, 0f), new Vector3(0.06f, 0.60f, 0.06f), WallIron, metallic: 0.5f);
+        WallPrim(PrimitiveType.Cube, "Stripe_Pennant", root.transform,
+            new Vector3(0.30f, 5.70f, 0f), new Vector3(0.55f, 0.30f, 0.04f), Color.white);
+
+        // Big faction banner on the front face.
+        WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
+            new Vector3(0f, 2.40f, 0.85f), new Vector3(0.65f, 1.40f, 0.04f), Color.white);
+
+        // Cyan apex light.
+        AddWallNightLight(root.transform, new Vector3(0f, 5.10f, 0f), 2.2f, 9f);
+
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(2.0f, 5f, 2.0f);
-        boxCol.center = Vector3.up * 2.5f;
+        boxCol.size = new Vector3(2.2f, 5.6f, 2.2f);
+        boxCol.center = Vector3.up * 2.7f;
 
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
-
         return root;
     }
 
     /// <summary>
-    /// Create a wall gate: two stone pillars with an archway lintel.
+    /// Wall gate: two stone pillars on a marble plinth with a wooden gate door,
+    /// iron-banded lintel, crenellated parapet on top, hanging faction banner.
+    ///
+    /// Wall axis is the entity's local +Z (LookRotationSafe of dirFlat). Pillars
+    /// straddle that axis so they integrate with the wall row, and the door and
+    /// archway open across the wall (local X) — i.e. traffic passes perpendicular
+    /// to the wall, walking from one side to the other through the gate.
     /// </summary>
     private GameObject CreateProceduralWallGate(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallGate_{entity.Index}");
         root.transform.position = center;
 
-        // Left pillar
-        var leftPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        leftPillar.name = "LeftPillar";
-        leftPillar.transform.SetParent(root.transform, false);
-        leftPillar.transform.localPosition = new Vector3(-0.5f, 1.75f, 0f);
-        leftPillar.transform.localScale = new Vector3(0.3f, 3.5f, 0.8f);
+        // Marble plinth — narrow across the wall (X), spanning along it (Z) so it
+        // matches the footprint of a wall instance.
+        WallPrim(PrimitiveType.Cube, "Plinth", root.transform,
+            new Vector3(0f, 0.10f, 0f), new Vector3(1.20f, 0.20f, 2.20f),
+            WallMarble, smoothness: 0.5f);
 
-        var lpRend = leftPillar.GetComponent<Renderer>();
-        if (lpRend != null)
+        // Two stone pillars in three courses each, set at the ENDS of the wall
+        // slot (along Z) so they continue the wall row instead of sticking out
+        // perpendicular to it.
+        for (int side = -1; side <= 1; side += 2)
         {
-            lpRend.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            lpRend.material.color = new Color(0.42f, 0.40f, 0.35f);
+            string s = side < 0 ? "L" : "R";
+            float z = 0.85f * side;
+            WallPrim(PrimitiveType.Cube, $"Pillar{s}_C1", root.transform,
+                new Vector3(0f, 0.85f, z), new Vector3(0.85f, 1.10f, 0.55f), WallStone);
+            WallPrim(PrimitiveType.Cube, $"Pillar{s}_Seam1", root.transform,
+                new Vector3(0f, 1.42f, z), new Vector3(0.90f, 0.04f, 0.60f), WallStoneDark);
+            WallPrim(PrimitiveType.Cube, $"Pillar{s}_C2", root.transform,
+                new Vector3(0f, 2.00f, z), new Vector3(0.85f, 1.10f, 0.55f), WallStone);
+            WallPrim(PrimitiveType.Cube, $"Pillar{s}_Seam2", root.transform,
+                new Vector3(0f, 2.58f, z), new Vector3(0.90f, 0.04f, 0.60f), WallStoneDark);
+            WallPrim(PrimitiveType.Cube, $"Pillar{s}_C3", root.transform,
+                new Vector3(0f, 3.10f, z), new Vector3(0.85f, 1.00f, 0.55f), WallStone);
         }
-        var lpCol = leftPillar.GetComponent<Collider>();
-        if (lpCol != null) Destroy(lpCol);
 
-        // Right pillar
-        var rightPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        rightPillar.name = "RightPillar";
-        rightPillar.transform.SetParent(root.transform, false);
-        rightPillar.transform.localPosition = new Vector3(0.5f, 1.75f, 0f);
-        rightPillar.transform.localScale = new Vector3(0.3f, 3.5f, 0.8f);
-
-        var rpRend = rightPillar.GetComponent<Renderer>();
-        if (rpRend != null)
+        // Wooden gate door spanning the opening between the pillars. Thin in X
+        // (so it acts as the wall's barrier in that direction) and tall in Y.
+        WallPrim(PrimitiveType.Cube, "GateDoor", root.transform,
+            new Vector3(0f, 1.55f, 0f), new Vector3(0.20f, 2.80f, 1.10f), WallWood, smoothness: 0.2f);
+        // Iron studs on the gate (4 + 4, on each face).
+        for (int i = 0; i < 4; i++)
         {
-            rpRend.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            rpRend.material.color = new Color(0.42f, 0.40f, 0.35f);
+            float yy = 0.55f + i * 0.65f;
+            WallPrim(PrimitiveType.Sphere, $"Stud_F_{i}", root.transform,
+                new Vector3(0.12f, yy, -0.35f), new Vector3(0.10f, 0.10f, 0.10f),
+                WallIron, metallic: 0.7f);
+            WallPrim(PrimitiveType.Sphere, $"Stud_B_{i}", root.transform,
+                new Vector3(0.12f, yy,  0.35f), new Vector3(0.10f, 0.10f, 0.10f),
+                WallIron, metallic: 0.7f);
         }
-        var rpCol = rightPillar.GetComponent<Collider>();
-        if (rpCol != null) Destroy(rpCol);
 
-        // Lintel (top beam across the arch)
-        var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        lintel.name = "Lintel";
-        lintel.transform.SetParent(root.transform, false);
-        lintel.transform.localPosition = new Vector3(0f, 3.7f, 0f);
-        lintel.transform.localScale = new Vector3(1.3f, 0.4f, 0.8f);
+        // Iron-banded stone lintel above the gate, oriented along the wall (Z).
+        WallPrim(PrimitiveType.Cube, "Lintel", root.transform,
+            new Vector3(0f, 3.30f, 0f), new Vector3(0.95f, 0.40f, 2.30f),
+            WallStone);
+        WallPrim(PrimitiveType.Cube, "LintelIronF", root.transform,
+            new Vector3( 0.50f, 3.30f, 0f), new Vector3(0.06f, 0.30f, 2.30f),
+            WallIron, metallic: 0.6f);
+        WallPrim(PrimitiveType.Cube, "LintelIronB", root.transform,
+            new Vector3(-0.50f, 3.30f, 0f), new Vector3(0.06f, 0.30f, 2.30f),
+            WallIron, metallic: 0.6f);
 
-        var lRend = lintel.GetComponent<Renderer>();
-        if (lRend != null)
+        // Crenellated parapet on top of the lintel (5 merlons spaced along Z).
+        for (int i = 0; i < 5; i++)
         {
-            lRend.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            lRend.material.color = new Color(0.38f, 0.36f, 0.32f); // Slightly darker
+            float zz = -0.92f + i * 0.46f;
+            WallPrim(PrimitiveType.Cube, $"Merlon_{i}", root.transform,
+                new Vector3(0f, 3.80f, zz), new Vector3(0.85f, 0.45f, 0.30f), WallStone);
         }
-        var lCol = lintel.GetComponent<Collider>();
-        if (lCol != null) Destroy(lCol);
 
-        // Collider on root — smaller than wall instance to allow passage
+        // Hanging faction banner on the front face (perpendicular to wall axis).
+        WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
+            new Vector3(0.51f, 2.55f, 0f), new Vector3(0.04f, 1.20f, 0.80f), Color.white);
+
+        // Two cyan flank lights at the pillar tops so the gate reads at night.
+        AddWallNightLight(root.transform, new Vector3(0.55f, 3.30f, -0.85f), 1.6f, 6f);
+        AddWallNightLight(root.transform, new Vector3(0.55f, 3.30f,  0.85f), 1.6f, 6f);
+
+        // Collider on root — slim in X (wall depth) and long in Z (wall axis).
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(1.2f, 4f, 1.0f);
+        boxCol.size = new Vector3(1.10f, 4.30f, 2.30f);
         boxCol.center = Vector3.up * 2.0f;
 
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        // Apply rotation from ECS entity
         if (_em.HasComponent<Unity.Transforms.LocalTransform>(entity))
-        {
             root.transform.rotation = _em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Rotation;
-        }
 
         return root;
     }
-
 }

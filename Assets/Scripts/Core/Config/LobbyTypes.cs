@@ -18,6 +18,22 @@ namespace TheWaningBorder.Core.Config
     }
 
     /// <summary>
+    /// AI strategy choice for lobby configuration. Random rolls one of the six
+    /// concrete strategies at game start (matches the legacy behaviour);
+    /// the rest pin a specific build order from <c>AIBuildOrder.cs</c>.
+    /// </summary>
+    public enum LobbyAIStrategy
+    {
+        Random = 0,
+        EcoBoom,
+        Balanced,
+        TechBoom,
+        Rush,
+        Turtle,
+        Defensive,
+    }
+
+    /// <summary>
     /// Type of player in a lobby slot.
     /// </summary>
     public enum SlotType
@@ -49,6 +65,7 @@ namespace TheWaningBorder.Core.Config
         public SlotType Type;
         public Faction Faction;
         public LobbyAIDifficulty AIDifficulty;
+        public LobbyAIStrategy AIStrategy;
         public string PlayerName;
         /// <summary>Index into FactionColors.ColorPool (0-11)</summary>
         public int ColorIndex;
@@ -59,6 +76,7 @@ namespace TheWaningBorder.Core.Config
             Faction = faction;
             Type = SlotType.Empty;
             AIDifficulty = LobbyAIDifficulty.Normal;
+            AIStrategy = LobbyAIStrategy.Random;
             PlayerName = "";
             ColorIndex = index; // Default: slot 0 = color 0, slot 1 = color 1, etc.
         }
