@@ -1,0 +1,14 @@
+{
+  "id": "task-deepdive-backlog-2026-062",
+  "stage": "implementation",
+  "phase": 1,
+  "total_phases": 4,
+  "status": "active",
+  "events": [
+    {
+      "ts": "2026-05-03",
+      "type": "consolidation",
+      "note": "Consolidated remaining backlog from tasks 052-061 after PR #245 merged. Removed per-task files that have been folded in here."
+    }
+  ]
+}
