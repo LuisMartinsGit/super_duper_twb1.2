@@ -74,6 +74,12 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Support });
 
+            // MovementSystem's query requires DesiredDestination. AIMilitaryManager
+            // issues movement via ecb.SetComponent<DesiredDestination>; without
+            // this baked in, AI-trained Litharchs sat at the spawn point as
+            // paperweights. Mirrors Miner.cs:54-58. (task-062 G-3)
+            ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
             // Litharch-specific tag
             ecb.AddComponent<LitharchTag>(entity);
 
@@ -115,13 +121,85 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// Create a Litharch entity using EntityManager (immediate).
+        /// Mirrors the ECB overload but calls EntityManager directly so the
+        /// returned Entity is a real (non-deferred) handle. The earlier
+        /// "build via ECB then Playback" version returned the deferred handle
+        /// (Index=-1), which crashed any caller that subsequently asked
+        /// EntityManager about it (TrainingSystem.SpawnUnit's rally-point
+        /// lookup tripped this for AI-trained Litharchs).
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
-            var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
-            var entity = Create(ecb, position, faction);
-            ecb.Playback(em);
-            ecb.Dispose();
+            // Load stats from TechTreeDB (same source as the ECB overload).
+            float hp = DefaultHP;
+            float speed = DefaultSpeed;
+            float damage = DefaultDamage;
+            float los = DefaultLoS;
+            float healRate = DefaultHealRate;
+            float healRange = DefaultHealRange;
+            float cooldown = DefaultCooldown;
+
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Litharch", out var def))
+            {
+                if (def.hp > 0) hp = def.hp;
+                if (def.speed > 0) speed = def.speed;
+                if (def.damage > 0) damage = def.damage;
+                if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.healsPerSecond > 0) healRate = def.healsPerSecond;
+                if (def.attackRange > 0) healRange = def.attackRange;
+                if (def.attackCooldown > 0) cooldown = def.attackCooldown;
+            }
+
+            var entity = em.CreateEntity();
+
+            // Core identity
+            em.AddComponentData(entity, new PresentationId { Id = PresentationID });
+            em.AddComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.AddComponentData(entity, new FactionTag { Value = faction });
+            em.AddComponentData(entity, new UnitTag { Class = UnitClass.Support });
+
+            // MovementSystem's query requires DesiredDestination. AIMilitaryManager
+            // issues movement via SetComponent<DesiredDestination>; without this
+            // baked in, AI-trained Litharchs sat at the spawn point as
+            // paperweights. Mirrors Miner.cs:54-58. (task-062 G-3)
+            em.AddComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
+            // Litharch-specific tag
+            em.AddComponent<LitharchTag>(entity);
+
+            // Stats
+            em.AddComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
+            em.AddComponentData(entity, new MoveSpeed { Value = speed });
+            em.AddComponentData(entity, new Damage { Value = (int)damage });
+            em.AddComponentData(entity, new LineOfSight { Radius = los });
+            em.AddComponentData(entity, new Radius { Value = 0.5f });
+            em.AddComponentData(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
+            em.AddComponentData(entity, new PopulationCost { Amount = 1 });
+
+            // Targeting
+            em.AddComponentData(entity, new Target { Value = Entity.Null });
+
+            // Healer capability
+            em.AddComponentData(entity, new CanHeal
+            {
+                HealRate = healRate,
+                HealRange = healRange
+            });
+
+            // Healer-specific state
+            em.AddComponentData(entity, new LitharchState
+            {
+                HealTarget = Entity.Null,
+                HealTimer = 0f,
+                IsHealing = 0,
+                SearchTimer = 0f
+            });
+
+            // Combat type tags
+            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });
+
             return entity;
         }
     }

@@ -153,6 +153,12 @@ namespace TheWaningBorder.Systems.Combat
                             defenseValue += (int)fort.ArmorBonus;
                         }
 
+                        // SpellBuff armor bonus on target (Aegis-style timed buff,
+                        // StoneheartBastion +3 aura, etc.). Adds to defense BEFORE
+                        // the matrix calc so it actually reduces incoming damage.
+                        // Was previously written but never read. (task-062 C-1)
+                        defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value);
+
                         bool targetHasDebuff = em.HasComponent<CrystalDebuff>(tgt.Value);
                         CrystalDebuff targetDebuff = targetHasDebuff
                             ? em.GetComponentData<CrystalDebuff>(tgt.Value)

@@ -53,6 +53,11 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = 0.5f });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            // MovementSystem requires DesiredDestination; AI build dispatch
+            // calls SetComponent on it. Bake here so newly trained Builders
+            // can move without a structural-change side-effect at first
+            // dispatch. Mirrors Miner.cs:54-58. (task-062 G-3)
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

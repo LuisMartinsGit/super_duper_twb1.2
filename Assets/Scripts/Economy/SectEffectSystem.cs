@@ -153,8 +153,12 @@ namespace TheWaningBorder.Economy
             if (!Mathf.Approximately(oldM.RangedDamage, newM.RangedDamage))
                 ApplyRangedDamageDelta(em, faction, oldM.RangedDamage, newM.RangedDamage);
 
-            if (!Mathf.Approximately(oldM.VaultInterest, newM.VaultInterest))
-                ApplyVaultInterestDelta(em, faction, oldM.VaultInterest, newM.VaultInterest);
+            // VaultInterest is intentionally NOT delta-applied here. VaultInterestSystem
+            // already reads `mults.VaultInterest` live every tick (per-faction) and
+            // multiplies the stored vault rate by it. Applying a delta here as well
+            // would compound the multiplier (sect adopt: rate * mult, then per-tick:
+            // rate * mult again, yielding rate * mult^2). Single source of truth
+            // is the per-tick read in VaultInterestSystem. (task-062 G-6)
 
             if (!Mathf.Approximately(oldM.BuildingHP, newM.BuildingHP))
                 ApplyBuildingHpDelta(em, faction, oldM.BuildingHP, newM.BuildingHP);
@@ -231,32 +235,9 @@ namespace TheWaningBorder.Economy
 
         }
 
-        // Vault interest: delta factor = new / old
-        private static void ApplyVaultInterestDelta(EntityManager em, Faction faction, float oldMult, float newMult)
-        {
-            float delta = newMult / oldMult;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<VaultTag>(),
-                ComponentType.ReadWrite<VaultStorage>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var vaults = query.ToComponentDataArray<VaultStorage>(Allocator.Temp);
-
-            int count = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                var vault = vaults[i];
-                vault.InterestRate *= delta;
-                em.SetComponentData(entities[i], vault);
-                count++;
-            }
-
-        }
+        // ApplyVaultInterestDelta REMOVED — see ApplyMultiplierDelta comment.
+        // VaultInterestSystem reads `mults.VaultInterest` live each tick, so any
+        // delta-tracking here doubled the multiplier. (task-062 G-6)
 
         // Ranged accuracy is additive bonus that multiplies cooldown by (1 - bonus).
         // Stored cooldown = base * (1 - bonus). Delta factor = (1 - new) / (1 - old).

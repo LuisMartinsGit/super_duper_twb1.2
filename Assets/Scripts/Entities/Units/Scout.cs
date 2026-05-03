@@ -53,6 +53,12 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = 0.5f });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            // MovementSystem's query requires DesiredDestination. AIScoutingBehavior
+            // sets it via ecb.SetComponent<DesiredDestination> — that path NREs
+            // without the component baked in. AIScoutingBehavior is currently
+            // [DisableAutoCreation] so the trap is dormant; baking the component
+            // here defangs it. Mirrors Miner.cs:54-58. (task-062 G-3)
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

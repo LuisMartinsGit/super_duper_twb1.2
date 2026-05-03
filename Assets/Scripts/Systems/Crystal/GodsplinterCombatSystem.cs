@@ -103,6 +103,10 @@ namespace TheWaningBorder.Systems.Crystal
                 // =============================================================================
                 if (dist <= gs.SiegeRange && gs.SiegeCooldownTimer <= 0)
                 {
+                    // Skip Invulnerable target — Godsplinter siege damage previously
+                    // bypassed LockdownVault. (task-062 C-4)
+                    if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
+
                     gs.IsSieging = 1;
 
                     // Stop moving
