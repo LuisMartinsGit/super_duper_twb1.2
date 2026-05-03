@@ -56,11 +56,14 @@ The build-order step is marked done even when no builder was actually dispatched
 Walls are placed via a direct path that doesn't go through `LockstepManager` and `Alanthor_Wall` lacks `NetworkedEntity`. Wall placement desyncs in multiplayer; placement validity isn't checked the same way as other buildings.
 **Fix:** Route through `CommandRouter.IssuePlaceBuildingDirect`/lockstep `Build` command; add `NetworkedEntity` to wall creation; verify `BuildingFactory.Create(EntityCommandBuffer, ...)` switch covers `"Alanthor_Wall"` (task-061 B-3 — also currently missing).
 
-### G-5 — Wall enclosure income never deposits
-**Source:** task-056 F-3
-**File:** `Assets/Scripts/Systems/Economy/WallEnclosureIncomeSystem.cs`
-The system computes income from enclosed area but the deposit path is missing — value is computed and discarded. Walls advertised as economy multiplier do nothing.
-**Fix:** Add `FactionEconomy.Add(...)` call at the computed accrual interval. Verify against the multiplier from `mults.WallIncome` and (per task-057 F-3) eventually `mults.WallIncomeFromTech` once the dead field is wired or removed.
+> **DEFERRED to Phase 3** — this is a multiplayer-determinism item; per the user's earlier "do MP after the rest of the systems" call, lockstep routing for walls + segments lives with the M-* items.
+
+### G-5 — Wall enclosure income — VERIFIED FINE (audit was wrong)
+**Source:** task-056 F-3 (refuted on re-read)
+**File:** `Assets/Scripts/Economy/WallEnclosureIncomeSystem.cs`
+The audit claimed the deposit path was missing. Re-reading the code: `WallEnclosureIncomeSystem` creates a synthetic entity with `WallEnclosureIncomeTag + FactionTag + SuppliesIncome` per detected enclosure cycle, with `mults.WallIncome` already folded in. `ResourceTickSystem.OnUpdate` ticks every `SuppliesIncome` (filtered `WithNone<UnderConstruction>` — the synthetic entity has no UnderConstruction so it ticks) and applies to the faction bank. The deposit path works.
+
+The remaining concern is that `mults.WallIncomeFromTech` is dead (task-057 F-3, see Q-15) — the +20% TerracePlanning bonus written by sect-tech application paths isn't read here. That's tracked under Q-15 (dead `SectMultipliers` fields), not G-5.
 
 ### G-6 — Vault interest sect multiplier applied twice
 **Source:** task-056 F-4
@@ -96,11 +99,12 @@ Both use `ecb.AddComponent<SpellBuff>(unit, new SpellBuff { ... })` which overwr
 Direct `Health.Value -=` writes happen without checking `HasComponent<Invulnerable>`. Invulnerability mechanic is partially honored.
 **Fix:** Funnel all health-mutating writes through `CombatDamageHelper.ApplyDamage` (or add the Invulnerable guard at each call site).
 
-### C-5 — `BattalionLeader` can become zombie at HP=0 from AOE
-**Source:** task-055 F-10
-**File:** AOE damage paths + `BattalionSyncSystem`
-AOE writes Health below 0 without going through the death pipeline that detaches members. Members keep following a leader entity that's about to be destroyed; on the same frame the destruction ECB plays back, members briefly target a non-existent leader.
-**Fix:** AOE damage path should clamp at 0 and rely on `DeathSystem` to drive the destruction; alternately mark the leader as dead before destroying.
+### C-5 — BattalionLeader zombie at HP=0 from AOE — VERIFIED FINE (audit refuted)
+**Source:** task-055 F-10 (refuted on re-read)
+**File:** AOE damage paths in `ProjectileSystem`, `UnitAbilitySystem`, `BurningGroundSystem`, `CursedGroundDamageSystem`
+The audit claimed AOE writes Health below 0 without clamping, leaving zombie leaders. Re-reading the live code: every AOE/DoT damage path already clamps via `math.max(0, hp.Value - dmg)` or an equivalent `if (health.Value < 0) health.Value = 0;` post-write. `DeathSystem` then drives the destruction and battalion-member detach. The transient `HP=0 → DeathSystem fires next frame` window is by design (~2s death animation gives the kill credit / sect-on-kill systems time to run), not a zombie bug.
+
+Reflect-damage path in `CombatDamageHelper.ApplyDamageReflect` does not clamp at 0 (line 148), but `Health.Value` going negative is harmless because the same `<=0` check downstream handles it. Left unchanged.
 
 ---
 

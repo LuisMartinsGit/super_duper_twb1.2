@@ -289,9 +289,28 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = math.max(1, finalDamage - fortReduction);
                         }
 
-                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) + DamageReflect routed through shared helper
+                        // SpellBuff armor bonus on target (Aegis-style timed buff,
+                        // StoneheartBastion +3 aura, etc.). Mirrors the Fortified
+                        // path — flat reduction on the already-computed damage.
+                        // Was previously written but never read. (task-062 C-1)
+                        int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value);
+                        if (spellArmor > 0)
+                            finalDamage = math.max(1, finalDamage - spellArmor);
+
+                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike +
+                        // SpellBuff.DamageMultiplier) routed through shared helper.
+                        // These ARE applied at fire time because they are attacker-side
+                        // buff consumption (charges decrement once per attack, not once
+                        // per hit), and Condemned snapshot at fire time matches "the
+                        // attack was launched against a marked target".
                         finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
-                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
+
+                        // DamageReflect intentionally NOT applied here. Reflect must
+                        // fire at impact, otherwise dodged/missed shots punish the
+                        // attacker and shots that re-target mid-flight reflect from
+                        // the original target. ProjectileSystem.ApplyDamage handles
+                        // the impact-time reflect call. (task-062 C-2)
+
                         finalDamage = math.max(1, finalDamage);
 
                         // Get shooter's damage type (default Ranged for archers)

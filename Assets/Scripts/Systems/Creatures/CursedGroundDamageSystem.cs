@@ -55,7 +55,7 @@ namespace TheWaningBorder.Systems.Creatures
             foreach (var (health, unitTransform, entity) in SystemAPI
                 .Query<RefRW<Health>, RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
-                .WithNone<CrystalTag>()
+                .WithNone<CrystalTag, Invulnerable>() // (task-062 C-4) — DoT honors LockdownVault
                 .WithEntityAccess())
             {
                 float3 unitPos = unitTransform.ValueRO.Position;
