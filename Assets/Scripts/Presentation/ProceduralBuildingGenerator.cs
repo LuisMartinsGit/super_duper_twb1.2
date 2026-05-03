@@ -115,9 +115,21 @@ namespace TheWaningBorder.Presentation
         /// </summary>
         public static GameObject Create355(Vector3 pos, Entity entity, bool isAlanthor)
         {
-            return isAlanthor
+            var result = isAlanthor
                 ? CreateAlanthorGarrison(pos, entity)
                 : CreateRunaiTradingPost(pos, entity);
+
+            // PID 355 is intercepted in PresentationSpawnSystem before TryCreate
+            // runs, so the auto-decorate pass at TryCreate's tail (line 83) is
+            // skipped. Apply it here so the Garrison/TradingPost get the same
+            // foundation + culture lighting as their PID-350-353/365-366
+            // siblings. (task-062 Q-44)
+            if (result != null)
+            {
+                byte tint = isAlanthor ? Cultures.Alanthor : Cultures.Runai;
+                AutoDecorateExisting(result, tint);
+            }
+            return result;
         }
 
         // ═══════════════════════════════════════════════════════════════════════

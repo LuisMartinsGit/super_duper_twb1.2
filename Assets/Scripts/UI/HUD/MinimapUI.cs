@@ -404,8 +404,13 @@ namespace TheWaningBorder.UI.HUD
 
             var targetPos = new Vector3(targetX, 0f, targetZ);
 
+            // Earlier this was a missing-brace bug: the `_cameraController` call
+            // ran unconditionally after the if, NRE'ing whenever cameraRig was
+            // the active controller (since _cameraController stays null in that
+            // path). The audit (task-062 Q-53) misread the path as dead code.
             if (cameraRig != null)
                 cameraRig.MoveToPosition(targetPos, instant: false);
+            else
                 _cameraController.MoveToPositionSmooth(targetPos, 0.5f);
         }
 

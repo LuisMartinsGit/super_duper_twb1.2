@@ -109,10 +109,8 @@ Field exists but never set; reproducibility tooling is half-built.
 Loops trying to find a trainer that no longer exists.
 **Fix:** Early-out when faction has no trainer of the required class.
 
-### Q-2 — `GatherCommand` double-processed by MiningSystem AND GatheringSystem same frame
-**Source:** task-052 F-4
-Two systems both interpret the command. Right now they happen to produce the same result, but it's a latent bug.
-**Fix:** One owner — recommend `GatheringSystem`.
+### Q-2 — DONE in PR #248
+~~`MiningSystem` now declares `[UpdateAfter(typeof(GatheringSystem))]` so the player-command path runs first; ProcessIdleState only fires after GatheringSystem has consumed the command.~~
 
 ### Q-3 — `_rngState` shared across all factions (subtle determinism quirk)
 **Source:** task-052 F-9
@@ -143,9 +141,8 @@ Field is set but no system queries it.
 **Source:** task-053 F-9
 **Fix:** Pool the work buffers across generator runs.
 
-### Q-9 — `FlowFieldGenerator.Generate` (sync path) is dead code
-**Source:** task-053 F-10
-**Fix:** Delete sync path; jobified path is the only caller.
+### Q-9 — DONE in PR #248
+~~Synchronous `FlowFieldGenerator.Generate` removed — async ScheduleAsync/CompleteAsync is the only caller.~~
 
 ### Q-10 — `SpawnPlacementHelper.IsPositionClear` per-call EntityQuery alloc
 **Source:** task-057 F-6 (T-3 confirmed)
@@ -156,13 +153,11 @@ Up to 17 calls per spawn; entire-world `ToComponentDataArray` each time.
 **Source:** task-055 F-8
 **Fix:** Update existing cadaver entity in place.
 
-### Q-12 — `TargetingSystem.CleanupLastAttacker` removes/re-adds component every frame
-**Source:** task-055 F-9
-**Fix:** Conditional add — only remove when the attacker is genuinely stale.
+### Q-12 — DONE in PR #248
+~~`CleanupLastAttacker` only removes when the attacker entity no longer exists; combat systems still overwrite the value when a new hit lands.~~
 
-### Q-13 — `UnitAbilitySystem.HealOverTime` overheals (int truncation + 1HP/frame floor)
-**Source:** task-055 F-6
-**Fix:** Track fractional health debt; only commit when it crosses 1 HP.
+### Q-13 — DONE in PR #248
+~~`HealOverTime` accumulates fractional HP and only commits whole HP when the accumulator crosses 1 (no more 1-HP/frame floor overheal). Final flush at duration end.~~
 
 ### Q-14 — `Reflect` damage uses pre-armor-pre-defense damage
 **Source:** task-055 F-5
@@ -203,20 +198,14 @@ Cost paid at queue time; if already-researched/already-trained, item is silently
 If respawn fails (no valid spawn), it waits a full crystal-extinction cycle.
 **Fix:** Short retry (5–10s) on respawn failure.
 
-### Q-22 — Unmined cadavers persist forever
-**Source:** task-058 F-4
-**File:** `CadaverDecaySystem` (or similar) — no decay timer for cadavers that no miner has touched.
-**Fix:** Decay-timer countdown for cadavers older than N minutes.
+### Q-22 — DONE in PR #248
+~~`CadaverDecaySystem` ticks `CadaverState.DecayTimer`; CrystalMiningSystem resets the timer per gather. Default lifetime 240s for unmined cadavers.~~
 
-### Q-23 — Construction tick erases combat damage to half-built structures
-**Source:** task-058 F-5
-**File:** `BuildingConstructionSystem.cs`
-`Health.Value = Mathf.Lerp(0, MaxHealth, Progress)` overwrites combat damage.
-**Fix:** Track construction-progress and combat-damage separately; render Health = constructionPct * MaxHealth - combatDamage.
+### Q-23 — DONE in PR #248
+~~Construction tick now applies HP as a delta from the previous tick (`UnderConstruction.LastProgressHp`) so combat damage taken between ticks survives.~~
 
-### Q-24 — Dead `CrystalAIState.HarassTimer` / `UnitSpawnTimer`
-**Source:** task-058 F-6
-**Fix:** Delete unused fields.
+### Q-24 — DONE in PR #248
+~~`HarassTimer` and `UnitSpawnTimer` removed from `CrystalAIState`; the unused `MainNodeHarassTimer` constant also dropped.~~
 
 ### Q-25 — DONE in PR #247
 ~~`AICrystalHuntBehavior` deleted (was `[DisableAutoCreation]` / superseded by `SimpleAISystem`).~~
@@ -224,10 +213,8 @@ If respawn fails (no valid spawn), it waits a full crystal-extinction cycle.
 ### Q-26 — DONE in PR #247
 ~~`WallGatePassabilitySystem` caches query via `state.GetEntityQuery` in `OnCreate`.~~
 
-### Q-27 — Texture2D + Mesh leaks in `DayNightCycle.CreateCloudProjector`
-**Source:** task-059 F-4
-Both objects allocated each call to `CreateCloudProjector`; never released on Disable/Destroy.
-**Fix:** Cache and release in OnDestroy.
+### Q-27 — DONE in PR #248
+~~`DayNightCycle` caches `_cloudMesh`, `_cloudTexture`, `_cloudMaterial` fields and Destroys them in OnDestroy.~~
 
 ### Q-28 — DONE in PR #247
 ~~`Camera.main` cached in `Awake` into `_mainCamera` (re-resolves on null).~~
@@ -244,9 +231,8 @@ Minimap shows enemies that fog-of-war is hiding (or vice versa).
 **Source:** task-060 F-7, F-8
 **Fix:** Cache styles statically; use `GUI.skin.GetStyle("name")` once.
 
-### Q-32 — `EntityActionPanel` swallows `ArgumentException` silently
-**Source:** task-060 F-9
-**Fix:** Log the exception or handle the specific case that throws.
+### Q-32 — DONE in PR #248
+~~`EntityActionPanel` ArgumentException catch now logs the message in debug builds (with the offending action type) instead of bare-swallow.~~
 
 ### Q-33 — DONE in PR #247
 ~~`OptionsMenuUI` slider applies `AudioListener.volume` on each value change; persistence still happens at Apply.~~
@@ -284,38 +270,30 @@ Some building IDs missing from `GetBuildTime`. Player path falls through to defa
 Sect-specific buildings (Sanctum, Forge, etc.) created as plain `BuildingTag` entities without their gameplay components.
 **Fix:** Add the matching component (e.g. `SanctumTag`, `ForgeTag`) at creation.
 
-### Q-41 — `BuildCommandHelper.IsValidBuildPosition(float radius)` overload + `GetBuildingRadius` are dead
-**Source:** task-061 B-12
-**Fix:** Delete both.
+### Q-41 — DONE in PR #248
+~~`IsValidBuildPosition(float radius)` overload and `GetBuildingRadius` removed — every caller goes through the int2-size AABB overload.~~
 
-### Q-42 — System queries not disposed in `BuildingConstructionSystem` / wall systems
-**Source:** task-061 B-13
-**Fix:** Use `state.GetEntityQuery` (cached, owned by SystemState) or call `Dispose` in OnDestroy.
+### Q-42 — DONE in PR #248
+~~`BuildingConstructionSystem` and `BuildCommandSystem` now use `state.GetEntityQuery` so SystemState owns the lifetime (auto-dispose). PR #247 already covered `WallGatePassabilitySystem` (Q-26).~~
 
 ### Q-43 — Indentation traps in three places (valid C# but reads as bug)
 **Source:** task-061 B-14
 **Fix:** Add explicit braces to make intent unambiguous.
 
-### Q-44 — `AutoDecorateExisting` skips PID 355 in auto-decorate path
-**Source:** task-061 B-15
-**Fix:** Either include PID 355 or document why it's excluded.
+### Q-44 — DONE in PR #248
+~~`Create355` now applies `AutoDecorateExisting` with the matching culture tint (Alanthor for Garrison, Runai for TradingPost) so PID 355 buildings get the same plinth + culture lighting as their PID-350-353/365-366 siblings.~~
 
-### Q-45 — Hub `Radius` undersized vs visual
-**Source:** task-061 B-16
-Selection / interaction radius is smaller than the hub mesh.
-**Fix:** Bump `Radius` to match visible footprint.
+### Q-45 — VERIFIED FINE (audit refuted)
+The audit said hub `Radius` was undersized vs the visual mesh. Re-checking: the AlanthorWall hub plinth uses Unity-primitive scale 1.55 (so half-extent ≈0.775), and the existing collision Radius is 0.8 — they match. The audit confused mesh-scale with mesh-extent. No change.
 
 ### Q-46 — DONE in PR #247
 ~~Unreachable `Sect_*` wildcard branch removed from `BuildingSizeConfig`.~~
 
-### Q-47 — `TempleChapelBuildSystem` namespace inconsistency
-**Source:** task-061 B-18
-Lives in a different namespace from neighboring systems.
-**Fix:** Move to `TheWaningBorder.Systems.Buildings`.
+### Q-47 — DONE in PR #248
+~~Moved from `TheWaningBorder.Systems.Building` to `TheWaningBorder.Systems.Buildings` (matches neighbouring systems).~~
 
-### Q-48 — `GrantTempleConstructionRP` granted on Shrine, not Temple
-**Source:** task-061 B-19
-**Fix:** Move grant call to temple-completion handler.
+### Q-48 — DONE in PR #248
+~~`GrantTempleConstructionRP` now fires on `TempleTag` completion (was on `ShrineTag`, despite the helper name).~~
 
 ### Q-49 — Chapels with PIDs 400 and 401 render as Forest/Rock obstacles (DORMANT)
 **Source:** task-061 B-2
@@ -326,22 +304,18 @@ These chapels currently never spawn from any code path, but the PID→mesh table
 **Source:** task-060 F-6
 **Fix:** Distinguish the two layouts or drop one.
 
-### Q-51 — `MinimapUI.OnPointerClick` discards button info
-**Source:** task-059 F-9
-Right-click and left-click handled identically.
-**Fix:** Pass the `PointerEventData.button` through.
+### Q-51 — DONE in PR #248
+~~Fixed in `MinimapClickProxy.OnPointerClick` (`MinimapRenderer.cs`) — right-click → `HandleRightClick`, else `HandleLeftClick`. The earlier "fix" comment claimed PR #245 had landed it but a subsequent merge re-introduced the missing braces; properly closed now with explicit if/else.~~
 
 ### Q-52 — `Right-click camera-snap` interrupts user's drag
 **Source:** task-059 F-10
 **Fix:** Suppress camera-snap while a drag is in progress.
 
-### Q-53 — `MinimapUI.HandleClick` NRE in dead-code path
-**Source:** task-059 F-3
-**Fix:** Delete the dead method.
+### Q-53 — DONE in PR #248 (audit was wrong about cause)
+~~`MinimapUI.HandleClick` was NOT dead code — it's the live click handler called via `MinimapClickProxy.OnPointerClick`. The NRE was a missing-brace bug: when `cameraRig` was the active controller, `_cameraController.MoveToPositionSmooth(...)` ran unconditionally on a null `_cameraController`. Patched with explicit if/else.~~
 
-### Q-54 — `InfluenceManager.Awake` empty `else { }`
-**Source:** task-059 F-7 (W-10 confirmed)
-**Fix:** Cosmetic — drop the empty else.
+### Q-54 — DONE in PR #248
+~~Empty `else { }` blocks removed from `InfluenceManager.Awake`.~~
 
 ### Q-55 — Per-frame allocations across many UI panels
 **Source:** task-060 F-12

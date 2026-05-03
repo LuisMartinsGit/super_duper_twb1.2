@@ -55,9 +55,13 @@ namespace TheWaningBorder.World
         private static readonly Color AmbientSunrise = new(0.30f, 0.25f, 0.25f);
         private static readonly Color AmbientNight   = new(0.05f, 0.06f, 0.12f);
 
-        // Cloud projector state
+        // Cloud projector state. Mesh + Texture2D refs cached so OnDestroy can
+        // release them — destroying the GameObject doesn't auto-destroy assigned
+        // assets, so without this they leaked on every scene reload. (task-062 Q-27)
         private GameObject _cloudProjector;
         private Material _cloudMaterial;
+        private Mesh _cloudMesh;
+        private Texture2D _cloudTexture;
         private float _cloudOffsetX;
         private float _cloudOffsetZ;
 
@@ -248,24 +252,24 @@ namespace TheWaningBorder.World
             var mf = _cloudProjector.AddComponent<MeshFilter>();
             var mr = _cloudProjector.AddComponent<MeshRenderer>();
 
-            var mesh = new Mesh();
+            _cloudMesh = new Mesh();
             float half = cloudProjectorSize;
-            mesh.vertices = new Vector3[]
+            _cloudMesh.vertices = new Vector3[]
             {
                 new(-half, 0, -half), new(half, 0, -half),
                 new(half, 0, half), new(-half, 0, half)
             };
-            mesh.uv = new Vector2[]
+            _cloudMesh.uv = new Vector2[]
             {
                 new(0, 0), new(1, 0), new(1, 1), new(0, 1)
             };
-            mesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
-            mesh.RecalculateNormals();
-            mf.mesh = mesh;
+            _cloudMesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
+            _cloudMesh.RecalculateNormals();
+            mf.mesh = _cloudMesh;
 
             // Generate 3-octave Perlin noise cloud texture
             int res = 512;
-            var cloudTex = new Texture2D(res, res, TextureFormat.RGBA32, true);
+            _cloudTexture = new Texture2D(res, res, TextureFormat.RGBA32, true);
             for (int y = 0; y < res; y++)
             {
                 for (int x = 0; x < res; x++)
@@ -278,17 +282,17 @@ namespace TheWaningBorder.World
                             + Mathf.PerlinNoise(u * 32f + 200f, v * 32f + 200f) * 0.2f;
 
                     float shadow = Mathf.SmoothStep(0f, 1f, (n - 0.4f) * 3f);
-                    cloudTex.SetPixel(x, y, new Color(0f, 0f, 0f, shadow));
+                    _cloudTexture.SetPixel(x, y, new Color(0f, 0f, 0f, shadow));
                 }
             }
-            cloudTex.Apply();
-            cloudTex.wrapMode = TextureWrapMode.Repeat;
-            cloudTex.filterMode = FilterMode.Bilinear;
+            _cloudTexture.Apply();
+            _cloudTexture.wrapMode = TextureWrapMode.Repeat;
+            _cloudTexture.filterMode = FilterMode.Bilinear;
 
             var shader = Shader.Find("Universal Render Pipeline/Unlit")
                       ?? Shader.Find("Unlit/Transparent");
             _cloudMaterial = new Material(shader);
-            _cloudMaterial.mainTexture = cloudTex;
+            _cloudMaterial.mainTexture = _cloudTexture;
             _cloudMaterial.color = new Color(0f, 0f, 0f, cloudOpacity);
 
             // Multiply blend — darkens terrain where cloud texture is opaque
@@ -312,6 +316,11 @@ namespace TheWaningBorder.World
         void OnDestroy()
         {
             if (_cloudProjector != null) Destroy(_cloudProjector);
+            // GameObject destruction doesn't release the assigned Mesh / Texture2D
+            // / Material assets — they leak unless explicitly destroyed. (Q-27)
+            if (_cloudMesh != null) Destroy(_cloudMesh);
+            if (_cloudTexture != null) Destroy(_cloudTexture);
+            if (_cloudMaterial != null) Destroy(_cloudMaterial);
         }
 
         /// <summary>Current time of day (0=midnight, 0.5=noon).</summary>

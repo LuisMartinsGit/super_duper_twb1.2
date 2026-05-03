@@ -77,13 +77,14 @@ public struct CrystalNodeLevel : IComponentData
 
 /// <summary>
 /// Tracks the Crystal faction AI state for a main node.
-/// Controls harassment timing, building, and unit spawning phases.
+/// Currently drives BuildTimer (next-build cooldown) and ExpansionTimer
+/// (post-build cooldown before another expansion attempt). HarassTimer and
+/// UnitSpawnTimer were removed in task-062 Q-24 — they were written but
+/// never read. Phase is legacy but kept for backwards compat.
 /// </summary>
 public struct CrystalAIState : IComponentData
 {
-    public float HarassTimer;
     public float BuildTimer;
-    public float UnitSpawnTimer;
     public float ExpansionTimer;
     public byte Phase; // Kept for backwards compat but driven by CrystalNodeLevel
 }
@@ -131,6 +132,9 @@ public struct CadaverTag : IComponentData { }
 /// <summary>
 /// Crystal resource state for a cadaver entity.
 /// Miners extract crystal from cadavers similar to iron from deposits.
+/// <c>DecayTimer</c> counts down on cadavers no miner has touched; expired
+/// cadavers are removed by CadaverDecaySystem so unmined kills don't pile
+/// up forever. (task-062 Q-22)
 /// </summary>
 public struct CadaverState : IComponentData
 {
@@ -142,6 +146,9 @@ public struct CadaverState : IComponentData
 
     /// <summary>1 = fully harvested, 0 = still has crystal.</summary>
     public byte Depleted;
+
+    /// <summary>Seconds remaining before an unmined cadaver decays (Q-22).</summary>
+    public float DecayTimer;
 }
 
 // ==================== Crystal Unit States ====================

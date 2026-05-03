@@ -37,14 +37,18 @@ namespace TheWaningBorder.Systems.Work
         {
             state.RequireForUpdate<BuildOrder>();
 
-            _unfinishedBuildingQuery = state.EntityManager.CreateEntityQuery(
+            // Use state.GetEntityQuery so the SystemState owns the query lifetime
+            // and disposes on system teardown. Earlier this called
+            // EntityManager.CreateEntityQuery which leaks the query handle on
+            // world reload. (task-062 Q-42)
+            _unfinishedBuildingQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),
                 ComponentType.ReadOnly<UnderConstruction>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>()
             );
 
-            _templeQuery = state.EntityManager.CreateEntityQuery(
+            _templeQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<TempleTag>(),
                 ComponentType.ReadOnly<FactionTag>()
             );
@@ -173,16 +177,25 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        em.SetComponentData(site, uc);
-
-                        // Scale HP proportionally with construction progress
+                        // Apply HP as a DELTA from the previous construction tick so
+                        // any combat damage taken between ticks survives. Earlier
+                        // this overwrote hp.Value with `hp.Max * ratio`, erasing
+                        // damage every tick. (task-062 Q-23)
                         if (em.HasComponent<Health>(site))
                         {
                             var hp = em.GetComponentData<Health>(site);
                             float ratio = math.clamp(uc.Progress / uc.Total, 0f, 1f);
-                            hp.Value = math.max(1, (int)math.round(hp.Max * ratio));
-                            em.SetComponentData(site, hp);
+                            int newProgressHp = math.max(1, (int)math.round(hp.Max * ratio));
+                            int delta = newProgressHp - uc.LastProgressHp;
+                            if (delta != 0)
+                            {
+                                hp.Value = math.clamp(hp.Value + delta, 1, hp.Max);
+                                em.SetComponentData(site, hp);
+                            }
+                            uc.LastProgressHp = newProgressHp;
                         }
+
+                        em.SetComponentData(site, uc);
                     }
                 }
             }
@@ -275,8 +288,13 @@ namespace TheWaningBorder.Systems.Work
                 GrantShrineRPBonus(em, faction);
             }
 
-            // Shrine RP bonus: grant +1 RP when a Shrine of Ahridan completes construction
-            if (em.HasComponent<ShrineTag>(building) && em.HasComponent<FactionTag>(building))
+            // Temple completion RP bonus: grant +1 RP when the Temple of Ridan
+            // (the upgrade target) completes construction. Earlier this fired
+            // on ShrineTag — i.e. when the *Shrine of Ahridan* finished — even
+            // though the helper was named GrantTempleConstructionRP. The actual
+            // intent (per the helper name + tasks-061 B-19) is to grant on the
+            // Temple. (task-062 Q-48)
+            if (em.HasComponent<TempleTag>(building) && em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
                 GrantTempleConstructionRP(em, faction);
@@ -392,7 +410,9 @@ namespace TheWaningBorder.Systems.Work
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
-            _underConstructionQuery = state.EntityManager.CreateEntityQuery(
+            // state.GetEntityQuery → SystemState owns lifetime, auto-disposes
+            // on system teardown. (task-062 Q-42)
+            _underConstructionQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),
                 ComponentType.ReadOnly<UnderConstruction>(),
                 ComponentType.ReadOnly<LocalTransform>()

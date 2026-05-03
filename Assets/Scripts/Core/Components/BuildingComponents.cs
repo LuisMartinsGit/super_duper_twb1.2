@@ -316,12 +316,16 @@ public struct Buildable : IComponentData
 }
 
 /// <summary>
-/// Active construction progress tracking.
+/// Active construction progress tracking. <c>LastProgressHp</c> snapshots the
+/// HP the construction tick raised the building to last frame; the next tick
+/// applies the *delta* to <c>Health.Value</c> so combat damage taken between
+/// ticks isn't erased by the construction-set. (task-062 Q-23)
 /// </summary>
 public struct UnderConstruction : IComponentData
 {
     public float Progress; // Current progress (0 to Total)
     public float Total;    // Total required construction work
+    public int LastProgressHp; // HP value last assigned by the construction tick (Q-23)
 }
 
 /// <summary>
