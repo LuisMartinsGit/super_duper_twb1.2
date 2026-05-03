@@ -198,8 +198,10 @@ Cost paid at queue time; if already-researched/already-trained, item is silently
 If respawn fails (no valid spawn), it waits a full crystal-extinction cycle.
 **Fix:** Short retry (5–10s) on respawn failure.
 
-### Q-22 — DONE in PR #248
-~~`CadaverDecaySystem` ticks `CadaverState.DecayTimer`; CrystalMiningSystem resets the timer per gather. Default lifetime 240s for unmined cadavers.~~
+### Q-22 — REVERTED in PR #249 (audit was wrong)
+The audit assumed cadavers should decay. **Design clarification:** there are no "crystal cadavers" — crystal-curse creatures die and become harvestable crystal nodes. Nodes do NOT disappear over time; they persist until fully mined. Adjacent nodes already merge via `Cadaver.CreateOrMerge` to keep entity count low.
+
+The decay system (`CadaverDecaySystem`), the `DecayTimer` field on `CadaverState`, the `DecayLifetimeSeconds` constant, and the per-gather timer reset in `CrystalMiningSystem` were all reverted in PR #249. Persistence-until-depleted is the intended behaviour.
 
 ### Q-23 — DONE in PR #248
 ~~Construction tick now applies HP as a delta from the previous tick (`UnderConstruction.LastProgressHp`) so combat damage taken between ticks survives.~~

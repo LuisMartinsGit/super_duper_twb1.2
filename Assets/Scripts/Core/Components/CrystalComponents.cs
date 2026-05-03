@@ -130,15 +130,15 @@ public struct OwnerNode : IComponentData
 public struct CadaverTag : IComponentData { }
 
 /// <summary>
-/// Crystal resource state for a cadaver entity.
-/// Miners extract crystal from cadavers similar to iron from deposits.
-/// <c>DecayTimer</c> counts down on cadavers no miner has touched; expired
-/// cadavers are removed by CadaverDecaySystem so unmined kills don't pile
-/// up forever. (task-062 Q-22)
+/// Crystal resource state for a crystal-node entity (legacy "Cadaver" name —
+/// the type is named after creature deaths but the entity is a static crystal
+/// node that exists until fully mined). Nodes do NOT decay; they persist
+/// until depletion. Adjacent nodes merge on creation via
+/// <see cref="TheWaningBorder.Entities.Cadaver.CreateOrMerge"/>.
 /// </summary>
 public struct CadaverState : IComponentData
 {
-    /// <summary>Crystal remaining in this cadaver.</summary>
+    /// <summary>Crystal remaining in this node.</summary>
     public int RemainingCrystal;
 
     /// <summary>Initial crystal amount (for UI display).</summary>
@@ -146,9 +146,6 @@ public struct CadaverState : IComponentData
 
     /// <summary>1 = fully harvested, 0 = still has crystal.</summary>
     public byte Depleted;
-
-    /// <summary>Seconds remaining before an unmined cadaver decays (Q-22).</summary>
-    public float DecayTimer;
 }
 
 // ==================== Crystal Unit States ====================

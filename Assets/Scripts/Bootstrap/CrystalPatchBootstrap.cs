@@ -26,12 +26,19 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class CrystalPatchBootstrap
     {
-        // Crystal amount per cadaver. 200 = ~10s of mining at 1 crystal/1.5s
-        // for one miner. With 3 cadavers per patch (DefaultCadaversPerPatch),
-        // a patch yields ~600 crystal — enough to cover an age-up's crystal
-        // cost from a single near-patch even before scattered patches kick in.
+        // Crystal amount per node. 200 = ~10s of mining at 1 crystal/1.5s
+        // for one miner. NEAR patch totals 800 (per design — see
+        // SpawnNearPatch); scattered patches use the default outcrop count.
         private const int CrystalPerOutcrop = 200;
         private const int DefaultOutcropsPerPatch = 3;
+
+        /// <summary>
+        /// Total crystal the NEAR patch (one per player, close to the Hall)
+        /// must yield. Specified by design: starting nodes near player bases
+        /// sum to 800 crystal. Distributed across NearPatchOutcrops nodes.
+        /// </summary>
+        private const int NearPatchTotalCrystal = 800;
+        private const int NearPatchOutcrops = 4; // 4 × 200 = 800
 
         // Cluster geometry: cadavers within PatchSpread units of patch center.
         // Larger than iron's 4u because cadavers are bigger visually.
@@ -67,11 +74,11 @@ namespace TheWaningBorder.Bootstrap
                 playerPositions.Length * (1 + ScatteredPatchesPerPlayer),
                 Unity.Collections.Allocator.Temp);
 
-            // 1. NEAR patches — one per player.
+            // 1. NEAR patches — one per player. Sum to NearPatchTotalCrystal (800).
             for (int p = 0; p < playerPositions.Length; p++)
             {
                 float3 center = PickNearPatchCenter(playerPositions[p], ref random);
-                SpawnCrystalPatch(em, center, ref random);
+                SpawnNearPatch(em, center, ref random);
                 patchCenters.Add(center);
             }
 
@@ -82,7 +89,7 @@ namespace TheWaningBorder.Bootstrap
                 if (TryFindScatteredPatchCenter(ref random, spawnRange,
                         playerPositions, patchCenters, out float3 center))
                 {
-                    SpawnCrystalPatch(em, center, ref random);
+                    SpawnScatteredPatch(em, center, ref random);
                     patchCenters.Add(center);
                 }
             }
@@ -90,7 +97,31 @@ namespace TheWaningBorder.Bootstrap
             patchCenters.Dispose();
         }
 
-        private static void SpawnCrystalPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
+        /// <summary>
+        /// Near-patch spawn — uses NearPatchOutcrops × CrystalPerOutcrop so the
+        /// per-patch total matches NearPatchTotalCrystal (800 by design).
+        /// </summary>
+        private static void SpawnNearPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
+        {
+            for (int i = 0; i < NearPatchOutcrops; i++)
+            {
+                float angle = random.NextFloat(0f, math.PI * 2f);
+                float dist  = random.NextFloat(0f, PatchSpread);
+                float x = center.x + math.cos(angle) * dist;
+                float z = center.z + math.sin(angle) * dist;
+                float y = TerrainUtility.GetHeight(x, z);
+                // CreateOrMerge so adjacent placements coalesce into a single
+                // node carrying the summed crystal value — patch total stays
+                // at NearPatchTotalCrystal regardless of how many merges occur.
+                Cadaver.CreateOrMerge(em, new float3(x, y, z), CrystalPerOutcrop);
+            }
+        }
+
+        /// <summary>
+        /// Scattered-patch spawn — uses DefaultOutcropsPerPatch (currently 3).
+        /// Total per scattered patch = DefaultOutcropsPerPatch × CrystalPerOutcrop.
+        /// </summary>
+        private static void SpawnScatteredPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
         {
             for (int i = 0; i < DefaultOutcropsPerPatch; i++)
             {
@@ -99,7 +130,7 @@ namespace TheWaningBorder.Bootstrap
                 float x = center.x + math.cos(angle) * dist;
                 float z = center.z + math.sin(angle) * dist;
                 float y = TerrainUtility.GetHeight(x, z);
-                Cadaver.Create(em, new float3(x, y, z), CrystalPerOutcrop);
+                Cadaver.CreateOrMerge(em, new float3(x, y, z), CrystalPerOutcrop);
             }
         }
 

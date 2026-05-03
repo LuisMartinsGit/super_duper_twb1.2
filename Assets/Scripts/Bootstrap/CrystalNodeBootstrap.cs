@@ -144,50 +144,11 @@ namespace TheWaningBorder.Bootstrap
                 });
             }
 
-            // Spawn a small crystal resource patch near each player's starting position
-            SpawnStartingCrystalPatches(em, playerPositions, ref random);
-
+            // Starter near-patch is spawned by CrystalPatchBootstrap (which always
+            // runs, with or without the curse). This file used to spawn its own
+            // 5×320=1600-crystal starter patch, doubling up with CrystalPatchBootstrap
+            // when CrystalCurseEnabled. Removed — single source of truth.
             return nodesSpawned;
-        }
-
-        /// <summary>
-        /// Spawn a cluster of crystal cadavers near each player's Hall.
-        /// Gives players early access to crystal for economy/research.
-        /// </summary>
-        private static void SpawnStartingCrystalPatches(EntityManager em, float3[] playerPositions, ref Unity.Mathematics.Random random)
-        {
-            const int CadaversPerPlayer = 5;
-            const int CrystalPerCadaver = 320; // 5 × 320 = 1600 crystal per player's starter patch
-            const float PatchDistance = 12f;   // Distance from Hall
-            const float PatchSpread = 4f;      // Spread between cadavers
-
-            for (int p = 0; p < playerPositions.Length; p++)
-            {
-                // Place patch in a random direction from the Hall
-                float angle = random.NextFloat(0f, math.PI * 2f);
-                float3 patchCenter = playerPositions[p] + new float3(
-                    math.cos(angle) * PatchDistance,
-                    0f,
-                    math.sin(angle) * PatchDistance
-                );
-
-                for (int c = 0; c < CadaversPerPlayer; c++)
-                {
-                    float3 offset = new float3(
-                        random.NextFloat(-PatchSpread, PatchSpread),
-                        0f,
-                        random.NextFloat(-PatchSpread, PatchSpread)
-                    );
-                    float3 pos = patchCenter + offset;
-                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-
-                    // CreateOrMerge: adjacent placements within Cadaver.MergeRadius
-                    // coalesce into a single node carrying the summed crystal value.
-                    // Per-player total stays at 1600 regardless of how many merges occur.
-                    Cadaver.CreateOrMerge(em, pos, CrystalPerCadaver);
-                }
-            }
-
         }
 
         /// <summary>
