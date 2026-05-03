@@ -169,8 +169,13 @@ namespace TheWaningBorder.UI
             var tex = Get(resourceName);
             if (tex == null) return;
 
+            // Pick the constrained or default horizontal layout — earlier this
+            // was a missing-brace bug where both BeginHorizontal calls ran when
+            // totalWidth > 0, leaking one BeginHorizontal per draw and tripping
+            // "Invalid GUILayout state" the next frame. (task-062 follow-up)
             if (totalWidth > 0f)
                 GUILayout.BeginHorizontal(GUILayout.Width(totalWidth));
+            else
                 GUILayout.BeginHorizontal();
 
             float size = fontSize + 2f;

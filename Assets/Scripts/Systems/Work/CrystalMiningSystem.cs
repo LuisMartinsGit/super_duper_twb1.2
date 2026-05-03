@@ -230,9 +230,12 @@ namespace TheWaningBorder.Systems.Work
 
                 var cadaverState = em.GetComponentData<CadaverState>(miner.AssignedDeposit);
 
-                // Extract crystal from node (1 crystal per gather action)
+                // Extract crystal from node (1 crystal per gather action).
+                // Reset DecayTimer — actively-mined cadavers shouldn't decay.
+                // (task-062 Q-22)
                 int toGather = math.min(CrystalPerGather, cadaverState.RemainingCrystal);
                 cadaverState.RemainingCrystal -= toGather;
+                cadaverState.DecayTimer = TheWaningBorder.Entities.Cadaver.DecayLifetimeSeconds;
                 miner.CurrentLoad += toGather;
 
                 bool justDepleted = false;

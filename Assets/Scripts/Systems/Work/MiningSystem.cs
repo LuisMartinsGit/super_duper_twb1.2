@@ -25,8 +25,15 @@ namespace TheWaningBorder.Systems.Work
     /// - UserMoveOrder: stops mining, keeps current load, goes idle
     /// - GatherCommand for different resource type: clears load, reassigns
     /// </summary>
+    // GatheringSystem owns the player-command path: it sets the destination,
+    // transitions the miner from Idle → MovingToDeposit / Gathering, and
+    // removes the GatherCommand once the miner arrives. Running MiningSystem
+    // AFTER guarantees that when ProcessIdleState fires on a still-Idle miner,
+    // the command has either been consumed (race-free) or the destination is
+    // already set (no double-write to MinerState). (task-062 Q-2)
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(GatheringSystem))]
     public partial struct MiningSystem : ISystem
     {
         private const float GatherInterval = 2f;       // Seconds to gather one unit

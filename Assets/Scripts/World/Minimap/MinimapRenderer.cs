@@ -756,12 +756,15 @@ namespace TheWaningBorder.World.Minimap
         {
             if (minimap == null) return;
 
-            // Earlier missing braces meant HandleLeftClick ran on EVERY click —
-            // every right-click move order also yanked the camera to the click
-            // point with `instant: true`, jerking the user away from where they
-            // were looking. (task-059 F-1)
+            // Right-click → move-order; left-click → camera snap. Earlier
+            // missing braces here meant HandleLeftClick ran on EVERY click,
+            // so every right-click move order also yanked the camera to the
+            // click point. PR #245's task-059 F-1 fix landed but a later merge
+            // re-introduced the missing braces — properly fixed now with the
+            // explicit if/else. (task-062 Q-51)
             if (eventData.button == PointerEventData.InputButton.Right)
                 minimap.HandleRightClick(eventData);
+            else
                 minimap.HandleLeftClick(eventData);
         }
     }

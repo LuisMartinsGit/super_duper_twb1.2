@@ -125,6 +125,13 @@ public struct HealOverTime : IComponentData
 
     /// <summary>Seconds elapsed so far</summary>
     public float Elapsed;
+
+    /// <summary>Fractional HP accumulator. Earlier the system used a 1HP/frame
+    /// floor when (rate * dt) truncated to 0, which over hundreds of frames
+    /// massively overhealed (e.g. 10HP-over-5s actually delivered ~300HP at
+    /// 60fps). Now we accumulate the float remainder and only commit whole
+    /// HP when it crosses 1. (task-062 Q-13)</summary>
+    public float FractionalAccumulator;
 }
 
 // ==================== Spell Effect Components ====================

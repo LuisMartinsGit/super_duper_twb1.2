@@ -752,12 +752,19 @@ namespace TheWaningBorder.Systems.Combat
         [BurstCompile]
         private void CleanupLastAttacker(ref SystemState state, ref EntityCommandBuffer ecb)
         {
-            // Remove LastAttackerEntity from all entities to prevent stale references accumulating.
-            // Combat systems re-add it each frame when dealing damage.
-            foreach (var (_, entity) in SystemAPI.Query<RefRO<LastAttackerEntity>>()
+            // Remove LastAttackerEntity ONLY when the attacker no longer exists,
+            // not unconditionally. Earlier this stripped the component from every
+            // entity each frame so combat systems had to re-add it on every hit
+            // (4 archetype mutations per attacker per attack — measurable on a
+            // 200-unit fight). Now the component sticks around as long as the
+            // attacker entity is alive; combat systems still overwrite the value
+            // when a new hit lands. (task-062 Q-12)
+            var em = state.EntityManager;
+            foreach (var (lastAttacker, entity) in SystemAPI.Query<RefRO<LastAttackerEntity>>()
                 .WithEntityAccess())
             {
-                ecb.RemoveComponent<LastAttackerEntity>(entity);
+                if (!em.Exists(lastAttacker.ValueRO.Value))
+                    ecb.RemoveComponent<LastAttackerEntity>(entity);
             }
         }
 

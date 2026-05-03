@@ -12,7 +12,6 @@ namespace TheWaningBorder.Core.Config
         public const float MainNodeSpreadRadius = 15f;
         public const float MainNodeSpreadPerTick = 1f;
         public const float MainNodeTickInterval = 45f;
-        public const float MainNodeHarassTimer = 60f;
         public const int MainNodeBuildCost = 2000;
         public const int MainNodePresentationID = 310;
         public const float MainNodeAttackRange = 18f;

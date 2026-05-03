@@ -7,7 +7,7 @@ using Unity.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 
-namespace TheWaningBorder.Systems.Building
+namespace TheWaningBorder.Systems.Buildings // (task-062 Q-47 — was singular)
 {
     /// <summary>
     /// Processes chapel build timers on Temple of Ridan entities.

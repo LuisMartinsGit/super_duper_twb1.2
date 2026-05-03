@@ -23,6 +23,10 @@ namespace TheWaningBorder.Entities
         public const int DefaultCrystal = 300;
         public const float MergeRadius = 1f;
 
+        /// <summary>Seconds an unmined cadaver lasts before decay (Q-22).
+        /// Reset to this value whenever a miner extracts crystal.</summary>
+        public const float DecayLifetimeSeconds = 240f;
+
         private const int PresentationID = 301;
 
         // Reference: 80 crystal → scale 1.0 / radius 0.6 (matches starter patch).
@@ -102,7 +106,8 @@ namespace TheWaningBorder.Entities
             {
                 RemainingCrystal = crystalAmount,
                 MaxCrystal = crystalAmount,
-                Depleted = 0
+                Depleted = 0,
+                DecayTimer = DecayLifetimeSeconds
             });
             em.SetComponentData(entity, new Radius { Value = radius });
 
@@ -129,7 +134,8 @@ namespace TheWaningBorder.Entities
             {
                 RemainingCrystal = crystalAmount,
                 MaxCrystal = crystalAmount,
-                Depleted = 0
+                Depleted = 0,
+                DecayTimer = DecayLifetimeSeconds
             });
             ecb.AddComponent(entity, new Radius { Value = radius });
 

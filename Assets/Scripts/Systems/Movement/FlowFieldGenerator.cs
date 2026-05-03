@@ -1,7 +1,8 @@
 // FlowFieldGenerator.cs
 // Static utility class containing Burst-compiled BFS integration field generation
 // and direction field derivation for flow field pathfinding.
-// Provides both synchronous (Generate) and async (ScheduleAsync/CompleteAsync) APIs.
+// Async-only: ScheduleAsync()/CompleteAsync(). The synchronous Generate() entry
+// point existed but had zero callers and was removed (task-062 Q-9).
 // Location: Assets/Scripts/Systems/Movement/FlowFieldGenerator.cs
 
 using Unity.Burst;
@@ -17,10 +18,10 @@ namespace TheWaningBorder.Systems.Movement
     /// - IntegrationFieldJob: BFS outward from destination, computing cost-to-goal per cell.
     /// - DirectionFieldJob: derives a unit direction vector per cell pointing toward lowest cost neighbor.
     ///
-    /// Two generation paths:
-    /// - Generate(): synchronous via .Run() for immediate results on the main thread.
-    /// - ScheduleAsync()/CompleteAsync(): async 2-frame path — BFS runs on worker thread
-    ///   via .Schedule(), completed next frame. Direction derivation runs via .Run() on completion.
+    /// Async 2-frame generation path: ScheduleAsync()/CompleteAsync() — BFS runs on worker
+    /// thread via .Schedule(), completed next frame. Direction derivation runs via .Run() on
+    /// completion. (The synchronous Generate() entry point used to exist but had no callers
+    /// — see task-062 Q-9.)
     /// </summary>
     public static class FlowFieldGenerator
     {
@@ -47,60 +48,10 @@ namespace TheWaningBorder.Systems.Movement
         /// Uses FlowFieldArrayPool for array allocation to reduce churn.
         /// </summary>
         /// <param name="passabilityCells">Raw cell data from PassabilityGrid (0=passable, 1=terrain-blocked, 2=building-blocked).</param>
-        /// <param name="gridWidth">Grid width in cells.</param>
-        /// <param name="gridHeight">Grid height in cells.</param>
-        /// <param name="destinationIndex">Flat index (y * width + x) of the destination cell.</param>
-        /// <param name="gridVersion">Current grid version for staleness detection.</param>
-        /// <returns>A FlowField with pooled NativeArrays. Caller must Dispose() when done.</returns>
-        public static FlowField Generate(
-            NativeArray<byte> passabilityCells,
-            int gridWidth,
-            int gridHeight,
-            int destinationIndex,
-            int gridVersion = 0)
-        {
-            // Rent arrays from pool instead of allocating
-            var integrationField = FlowFieldArrayPool.RentIntegration();
-            var directionField = FlowFieldArrayPool.RentDirection();
-
-            // Allocate BFS queue (TempJob allocator — freed after job completes)
-            var bfsQueue = new NativeQueue<int>(Allocator.TempJob);
-
-            // Step 1: BFS integration field
-            var integrationJob = new IntegrationFieldJob
-            {
-                Cells = passabilityCells,
-                Width = gridWidth,
-                Height = gridHeight,
-                DestinationIndex = destinationIndex,
-                IntegrationField = integrationField,
-                BfsQueue = bfsQueue,
-            };
-            integrationJob.Run();
-
-            bfsQueue.Dispose();
-
-            // Step 2: Direction field derivation
-            var directionJob = new DirectionFieldJob
-            {
-                IntegrationField = integrationField,
-                Cells = passabilityCells,
-                Width = gridWidth,
-                Height = gridHeight,
-                DirectionField = directionField,
-            };
-            directionJob.Run();
-
-            return new FlowField
-            {
-                IntegrationField = integrationField,
-                DirectionField = directionField,
-                DestinationIndex = destinationIndex,
-                Width = gridWidth,
-                Height = gridHeight,
-                GridVersion = gridVersion,
-            };
-        }
+        // The synchronous Generate() entry point was removed in task-062 Q-9 —
+        // it had zero callers; every consumer goes through ScheduleAsync /
+        // CompleteAsync. The two job types it used (IntegrationFieldJob,
+        // DirectionFieldJob) are still scheduled by the async path below.
 
         // =====================================================================
         // ASYNC GENERATION API

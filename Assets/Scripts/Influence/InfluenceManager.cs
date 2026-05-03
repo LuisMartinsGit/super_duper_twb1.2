@@ -114,12 +114,7 @@ public class InfluenceManager : MonoBehaviour
                 mat.SetTexture("_BloodMap",     BloodMap);
                 mat.SetVector("_TerrainSize",   new Vector4(TerrainSize.x, TerrainSize.y, 0, 0));
             }
-            else
-            {
-            }
-        }
-        else
-        {
+            // (Empty else branches removed — task-062 Q-54.)
         }
 
         // Tell each faction sub-component about us and trigger their first bake

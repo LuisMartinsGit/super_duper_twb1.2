@@ -133,10 +133,13 @@ namespace TheWaningBorder.UI.Panels
             }
 
             } // end try
-            catch (System.ArgumentException)
+            catch (System.ArgumentException ex)
             {
-                // Layout/Repaint control count mismatch — entity state changed between passes.
-                // Silently skip this frame; next frame will re-sync.
+                // Layout/Repaint control count mismatch — entity state changed
+                // between passes. Skip this frame; next frame will re-sync.
+                // Was previously a bare swallow with no breadcrumb. (task-062 Q-32)
+                if (Debug.isDebugBuild)
+                    Debug.LogWarning($"[EntityActionPanel] Skipped frame on {actionInfo.Type}: {ex.Message}");
             }
 
             // Draw floating tooltip above the panel (outside any BeginArea)

@@ -199,23 +199,37 @@ namespace TheWaningBorder.Systems.Combat
             // ══════════════════════════════════════════════════════════
 
             // ── HealOverTime ──
+            // Accumulate the fractional HP each tick and only commit whole HP
+            // when the accumulator crosses 1. The earlier 1-HP-per-frame floor
+            // overhealed by ~30× at 60fps when the per-second rate was small.
+            // (task-062 Q-13)
             foreach (var (hot, health, entity) in SystemAPI
                 .Query<RefRW<HealOverTime>, RefRW<Health>>()
                 .WithEntityAccess())
             {
-                float prevElapsed = hot.ValueRO.Elapsed;
                 hot.ValueRW.Elapsed += dt;
 
                 // Calculate healing this frame based on proportion of duration elapsed
                 float healRate = hot.ValueRO.TotalHealing / hot.ValueRO.Duration;
-                int healAmount = (int)(healRate * dt);
-                if (healAmount < 1 && hot.ValueRO.Elapsed > prevElapsed) healAmount = 1;
+                hot.ValueRW.FractionalAccumulator += healRate * dt;
 
-                ref var hp = ref health.ValueRW;
-                hp.Value = math.min(hp.Value + healAmount, hp.Max);
+                int wholeHeal = (int)hot.ValueRO.FractionalAccumulator;
+                if (wholeHeal > 0)
+                {
+                    hot.ValueRW.FractionalAccumulator -= wholeHeal;
+                    ref var hp = ref health.ValueRW;
+                    hp.Value = math.min(hp.Value + wholeHeal, hp.Max);
+                }
 
                 if (hot.ValueRO.Elapsed >= hot.ValueRO.Duration)
                 {
+                    // Final flush — deliver any leftover sub-HP rounded up so
+                    // the player gets the headline number they expect.
+                    if (hot.ValueRO.FractionalAccumulator > 0f)
+                    {
+                        ref var hp = ref health.ValueRW;
+                        hp.Value = math.min(hp.Value + 1, hp.Max);
+                    }
                     ecb.RemoveComponent<HealOverTime>(entity);
                 }
             }

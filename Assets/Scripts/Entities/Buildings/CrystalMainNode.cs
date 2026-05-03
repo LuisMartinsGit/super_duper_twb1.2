@@ -54,9 +54,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new CrystalNodeLevel { Value = 1 });
             em.SetComponentData(entity, new CrystalAIState
             {
-                HarassTimer = MainNodeHarassTimer,
                 BuildTimer = 0f,
-                UnitSpawnTimer = 0f,
                 Phase = 0
             });
             em.SetComponentData(entity, new CrystalResourceValue
@@ -113,9 +111,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new CrystalNodeLevel { Value = 1 });
             ecb.AddComponent(entity, new CrystalAIState
             {
-                HarassTimer = MainNodeHarassTimer,
                 BuildTimer = 0f,
-                UnitSpawnTimer = 0f,
                 Phase = 0
             });
             ecb.AddComponent(entity, new CrystalTrainingState
