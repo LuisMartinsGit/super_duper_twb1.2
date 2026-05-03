@@ -218,7 +218,7 @@ namespace TheWaningBorder.Systems.Training
                 // Apply sect bonuses to newly trained units. Earlier never
                 // called, so units trained after sect adoption silently
                 // started at base damage. (task-057 F-2)
-                SectEffectSystem.Instance?.ApplySectEffectsToUnit(em, unit, faction);
+                SectEffectSystem.ApplySectEffectsToUnit(em, unit, faction);
 
                 // Issue move to rally point
                 if (hasRally)

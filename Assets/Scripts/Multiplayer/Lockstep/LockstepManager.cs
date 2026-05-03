@@ -525,11 +525,13 @@ namespace TheWaningBorder.Multiplayer
                     {
                         // EntityNetworkId is the ability *target* (or 0 for self/none).
                         // The actor was already resolved into `entity` above via the
-                        // command's source-entity mapping.
-                        Entity targetEntity = cmd.EntityNetworkId != 0
+                        // command's source-entity mapping. Renamed to avoid shadowing
+                        // the enclosing `targetEntity` declared earlier in this method
+                        // for the AttackCommand path.
+                        Entity abilityTarget = cmd.EntityNetworkId != 0
                             ? FindEntityByNetworkId(cmd.EntityNetworkId)
                             : Entity.Null;
-                        CommandRouter.IssueAbilityDirect(em, entity, targetEntity);
+                        CommandRouter.IssueAbilityDirect(em, entity, abilityTarget);
                         if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
                     }
                     break;
