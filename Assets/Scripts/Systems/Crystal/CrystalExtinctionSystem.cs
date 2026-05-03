@@ -85,7 +85,6 @@ namespace TheWaningBorder.Systems.Crystal
                 // Just went extinct — start timer
                 ext.IsExtinct = 1;
                 ext.RespawnTimer = RespawnDelay;
-                Debug.Log("[CrystalExtinction] All crystal nodes destroyed. Respawn in 3 minutes.");
             }
             else
             {
@@ -104,7 +103,11 @@ namespace TheWaningBorder.Systems.Crystal
 
         private void TryRespawn(EntityManager em)
         {
-            // Deterministic random seed for multiplayer
+            // Deterministic random seed for multiplayer. Earlier missing
+            // braces meant the World.Time.ElapsedTime branch always ran
+            // and clobbered the lockstep-tick seed, so host and client
+            // computed different respawn positions and desynced state at
+            // the moment Crystal extinction triggered. (task-058 F-2 / MB-21)
             uint seed;
             if (GameSettings.IsMultiplayer && LockstepServiceLocator.IsActive)
                 seed = (uint)(LockstepServiceLocator.Instance.CurrentTick * 4217 + GameSettings.SpawnSeed + 99);
@@ -160,14 +163,12 @@ namespace TheWaningBorder.Systems.Crystal
                 // Give small crystal bank boost
                 FactionEconomy.Add(em, Faction.White, Cost.Of(crystal: 100));
 
-                Debug.Log($"[CrystalExtinction] New crystal node respawned at {candidate}");
                 playerPositions.Dispose();
                 return;
             }
 
             // Failed to find valid position — OnUpdate will retry next frame
             // since RespawnTimer is still <= 0
-            Debug.LogWarning("[CrystalExtinction] Failed to find respawn position, retrying next frame.");
             playerPositions.Dispose();
         }
     }

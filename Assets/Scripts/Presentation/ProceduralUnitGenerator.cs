@@ -140,43 +140,29 @@ namespace TheWaningBorder.Presentation
         //  MATERIAL / PRIMITIVE HELPERS
         // ===============================================================
 
-        private static Material MakeMat(Color color, float metallic = 0f, float smoothness = 0.3f)
-        {
-            var mat = new Material(LitShader);
-            mat.color = color;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
-            return mat;
-        }
-
-        private static Material MakeEmissiveMat(Color color, Color emissiveColor, float intensity = 2f)
-        {
-            var mat = MakeMat(color);
-            if (mat.HasProperty("_EmissionColor"))
-            {
-                mat.EnableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", emissiveColor * intensity);
-            }
-            return mat;
-        }
+        // Fix #203: MakeMat / MakeEmissiveMat used to allocate a new Material per
+        // call. Every procedural unit (30+ types, each with 3-8 primitives) created
+        // its own material instances, totalling thousands of unique materials on a
+        // populated map. Now delegates to ProceduralMaterialHelper, which uses
+        // two shared base materials + MaterialPropertyBlock per renderer. Same visual
+        // result, dramatically fewer draw calls.
 
         private static void SetMat(GameObject go, Color color, float metallic = 0f, float smoothness = 0.3f)
         {
             var r = go.GetComponent<Renderer>();
-            if (r != null) r.material = MakeMat(color, metallic, smoothness);
+            ProceduralMaterialHelper.SetProperties(r, color, metallic, smoothness);
         }
 
         private static void SetEmissiveMat(GameObject go, Color color, Color emissiveColor, float intensity = 2f)
         {
             var r = go.GetComponent<Renderer>();
-            if (r != null) r.material = MakeEmissiveMat(color, emissiveColor, intensity);
+            ProceduralMaterialHelper.SetEmissive(r, color, emissiveColor, intensity);
         }
 
         private static void DestroyCollider(GameObject go)
         {
             var col = go.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
+            if (col != null) Object.DestroyImmediate(col);
         }
 
         private static GameObject Prim(PrimitiveType type, string name, Transform parent,

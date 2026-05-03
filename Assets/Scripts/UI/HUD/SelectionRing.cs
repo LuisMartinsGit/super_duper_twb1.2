@@ -62,12 +62,11 @@ namespace TheWaningBorder.UI.HUD
             var testMat = DecalHelper.GetCircleSelectionMaterial();
             if (testMat == null)
             {
-                Debug.LogWarning("[SelectionRings] Decal shader not found, falling back to legacy cylinders");
                 _useDecals = false;
                 _ringMat = MakeLegacyRingMaterial();
             }
 
-            _fow = FindObjectOfType<FogOfWarManager>();
+            _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null) _humanFaction = _fow.HumanFaction;
         }
 
@@ -80,7 +79,7 @@ namespace TheWaningBorder.UI.HUD
             }
             if (_world == null || !_world.IsCreated) return;
 
-            if (_fow == null) _fow = FindObjectOfType<FogOfWarManager>();
+            if (_fow == null) _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null) _humanFaction = _fow.HumanFaction;
 
             UpdateSelectionRings();

@@ -53,7 +53,6 @@ namespace TheWaningBorder.Economy
             Unity.Entities.World world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[EconomyBootstrap] No valid World exists!");
                 return;
             }
 
@@ -71,7 +70,6 @@ namespace TheWaningBorder.Economy
                 CreateFactionBank(em, faction, world);
             }
 
-            Debug.Log($"[EconomyBootstrap] Ensured economy banks for {totalPlayers} factions");
         }
 
         /// <summary>
@@ -189,17 +187,16 @@ namespace TheWaningBorder.Economy
                     // Reset era and religion points
                     if (em.HasComponent<FactionEra>(bank))
                         em.SetComponentData(bank, new FactionEra { Value = 1 });
-                    else
-                        em.AddComponentData(bank, new FactionEra { Value = 1 });
+                        else
+                            em.AddComponentData(bank, new FactionEra { Value = 1 });
 
                     if (em.HasComponent<ReligionPoints>(bank))
                         em.SetComponentData(bank, new ReligionPoints { Value = 0 });
-                    else
-                        em.AddComponentData(bank, new ReligionPoints { Value = 0 });
+                        else
+                            em.AddComponentData(bank, new ReligionPoints { Value = 0 });
                 }
             }
 
-            Debug.Log($"[EconomyBootstrap] Reset economy for {totalPlayers} factions");
         }
 
         // ═══════════════════════════════════════════════════════════════

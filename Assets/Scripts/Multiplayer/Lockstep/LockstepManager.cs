@@ -120,7 +120,6 @@ namespace TheWaningBorder.Multiplayer
         {
             if (!_isSimulationRunning)
             {
-                Debug.LogWarning($"[Lockstep] QueueCommand called but simulation not running! Type={cmd.Type}");
                 return;
             }
 
@@ -131,7 +130,6 @@ namespace TheWaningBorder.Multiplayer
             _localCommandBuffer.Add(cmd);
 
             // Always log commands during debugging
-            Debug.Log($"[Lockstep] QUEUED cmd={cmd.Type} entity={cmd.EntityNetworkId} for tick={cmd.Tick} (current={_currentTick})");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -182,7 +180,6 @@ namespace TheWaningBorder.Multiplayer
                     sb.Append($", P{player.PlayerIndex}confirmed={confirmed}");
                 }
                 sb.Append($", CanAdvance={CanAdvanceTick()}");
-                Debug.Log(sb.ToString());
             }
 
             while (_tickAccumulator >= TICK_DURATION)
@@ -235,7 +232,6 @@ namespace TheWaningBorder.Multiplayer
             SetupRemotePlayers(players);
             StartNetwork();
             
-            Debug.Log($"[Lockstep] Initialized as HOST on port {port} with {players.Count} remote players");
         }
 
         /// <summary>
@@ -257,7 +253,6 @@ namespace TheWaningBorder.Multiplayer
             
             StartNetwork();
             
-            Debug.Log($"[Lockstep] Initialized as CLIENT (player {playerIndex}) connecting to {hostIP}:{hostPort}");
         }
 
         /// <summary>
@@ -282,7 +277,6 @@ namespace TheWaningBorder.Multiplayer
                 _confirmedTicks[player.PlayerIndex] = INPUT_DELAY_TICKS;
             }
             
-            Debug.Log("[Lockstep] Simulation started");
         }
 
         /// <summary>
@@ -291,7 +285,6 @@ namespace TheWaningBorder.Multiplayer
         public void StopSimulation()
         {
             _isSimulationRunning = false;
-            Debug.Log($"[Lockstep] Simulation stopped at tick {_currentTick}");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -322,11 +315,9 @@ namespace TheWaningBorder.Multiplayer
             {
                 _udpClient = new UdpClient(_localPort);
                 _udpClient.Client.Blocking = false;
-                Debug.Log($"[Lockstep] Network started on port {_localPort}");
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogError($"[Lockstep] Failed to start network: {e.Message}");
             }
         }
 
@@ -356,6 +347,12 @@ namespace TheWaningBorder.Multiplayer
 
         private void ProcessTick(int tick)
         {
+            // Fix #199: partition the NetworkId space per-tick so any entity
+            // spawned during this tick on either peer falls into a deterministic
+            // slot range. Order divergence inside a tick then manifests as a
+            // checksum desync rather than silent ID drift.
+            TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.BeginTick(tick);
+
             // Gather all commands for this tick
             var allCommands = new List<LockstepCommand>();
 
@@ -368,18 +365,15 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
 
-            if (allCommands.Count > 0)
-                Debug.Log($"[Lockstep] ProcessTick({tick}) executing {allCommands.Count} commands");
-
             // Sort for determinism (by player index, then command index)
-            allCommands.Sort((a, b) =>
+            if (allCommands.Count > 0)
             {
-                int cmp = a.PlayerIndex.CompareTo(b.PlayerIndex);
-                return cmp != 0 ? cmp : a.CommandIndex.CompareTo(b.CommandIndex);
-            });
-
-            if (LogTicks && allCommands.Count > 0)
-                Debug.Log($"[Lockstep] Tick {tick} executing {allCommands.Count} commands");
+                allCommands.Sort((a, b) =>
+                {
+                    int cmp = a.PlayerIndex.CompareTo(b.PlayerIndex);
+                    return cmp != 0 ? cmp : a.CommandIndex.CompareTo(b.CommandIndex);
+                });
+            }
 
             foreach (var cmd in allCommands)
             {
@@ -416,7 +410,6 @@ namespace TheWaningBorder.Multiplayer
                 entity = FindEntityByNetworkId(cmd.EntityNetworkId);
                 if (entity == Entity.Null)
                 {
-                    Debug.LogWarning($"[Lockstep] Entity not found for network ID {cmd.EntityNetworkId}, cmd={cmd.Type}");
                     return;
                 }
             }
@@ -518,7 +511,6 @@ namespace TheWaningBorder.Multiplayer
                         string unitId = cmd.BuildingId;
                         var queue = em.GetBuffer<TrainQueueItem>(entity);
                         queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
-                        Debug.Log($"[Lockstep] Executed Train '{unitId}' from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -526,7 +518,22 @@ namespace TheWaningBorder.Multiplayer
                     {
                         Faction buildFaction = (Faction)cmd.EntityNetworkId;
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
-                        Debug.Log($"[Lockstep] Executed PlaceBuilding '{cmd.BuildingId}' at {cmd.TargetPosition} faction={buildFaction} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Ability:
+                    // Earlier this case was missing entirely; CommandRouter still
+                    // queued ability commands for lockstep, so on every peer
+                    // (including the issuer in MP) the command was silently
+                    // dropped. Litharch heal, Cadaver crystal cast, and every
+                    // other UnitAbility were dead in MP. Wire it up to mirror
+                    // the post-lockstep helpers other cases use.
+                    {
+                        Entity targetEntity = cmd.TargetEntityId > 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId)
+                            : Entity.Null;
+                        CommandRouter.IssueAbilityDirect(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
                     }
                     break;
             }
@@ -579,9 +586,8 @@ namespace TheWaningBorder.Multiplayer
                 {
                     _udpClient?.Send(data, data.Length, player.EndPoint);
                 }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[Lockstep] Failed to send to player {player.PlayerIndex}: {e.Message}");
+                catch (Exception)
+            {
                 }
             }
         }
@@ -637,9 +643,8 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
             catch (SocketException) { }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogWarning($"[Lockstep] Network receive error: {e.Message}");
             }
         }
 
@@ -693,7 +698,6 @@ namespace TheWaningBorder.Multiplayer
             _confirmedTicks[playerIndex] = Math.Max(_confirmedTicks.GetValueOrDefault(playerIndex, -1), tick);
 
             // Always log received ticks during debugging
-            Debug.Log($"[Lockstep] RECEIVED tick={tick} from player={playerIndex} cmds={cmdCount}");
 
             // Host relays to other clients
             if (_isHost)
@@ -714,7 +718,6 @@ namespace TheWaningBorder.Multiplayer
             {
                 if (localChecksum != remoteChecksum)
                 {
-                    Debug.LogError($"[Lockstep] DESYNC DETECTED at tick {tick}! Local: {localChecksum}, Remote: {remoteChecksum}");
                 }
             }
         }

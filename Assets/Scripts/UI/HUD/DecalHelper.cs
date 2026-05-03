@@ -221,8 +221,6 @@ namespace TheWaningBorder.UI.HUD
                 shader = Shader.Find("Universal Render Pipeline/Decal");
             if (shader == null)
             {
-                Debug.LogWarning("[DecalHelper] Could not find URP Decal shader. " +
-                    "Ensure Decal Renderer Feature is enabled in URP settings.");
             }
             return shader;
         }

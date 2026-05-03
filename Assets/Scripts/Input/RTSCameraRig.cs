@@ -30,7 +30,7 @@ namespace TheWaningBorder.Input
             if (_controller == null)
                 _controller = GetComponentInParent<CameraController>();
             if (_controller == null)
-                _controller = FindObjectOfType<CameraController>();
+                _controller = FindFirstObjectByType<CameraController>();
 
             // Sync bounds from controller if found
             if (_controller != null)
@@ -52,7 +52,7 @@ namespace TheWaningBorder.Input
             else
             {
                 // Fallback: find controller dynamically
-                _controller = FindObjectOfType<CameraController>();
+                _controller = FindFirstObjectByType<CameraController>();
                 if (_controller != null)
                     _controller.MoveToPosition(worldPos, instant);
             }

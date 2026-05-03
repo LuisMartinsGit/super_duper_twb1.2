@@ -99,6 +99,15 @@ namespace TheWaningBorder.Systems.Creatures
                 float newRadius = math.min(prevRadius + ringStep, crystalNode.ValueRO.SpreadRadius);
                 spread.CurrentRingRadius = newRadius;
 
+                // Paint one organic blob at the node center sized to newRadius.
+                // Non-uniform domain-warped noise makes the edge irregular (no circle).
+                if (TheWaningBorder.World.Terrain.ProceduralTerrain.Instance != null)
+                {
+                    var p = transform.ValueRO.Position;
+                    TheWaningBorder.World.Terrain.ProceduralTerrain.Instance
+                        .PaintCursedGround(p.x, p.z, newRadius);
+                }
+
                 // Per-node budget check
                 int perNodeBudget = MaxTilesPerNode - (existingGroundTotal / math.max(1, nodeCount));
                 if (perNodeBudget <= 0) continue;
@@ -136,6 +145,14 @@ namespace TheWaningBorder.Systems.Creatures
                 float prevRadius = spread.CurrentRingRadius;
                 float newRadius = math.min(prevRadius + ringStep, crystalNode.ValueRO.SpreadRadius);
                 spread.CurrentRingRadius = newRadius;
+
+                // Paint sub-node's organic curse blob at its current radius
+                if (TheWaningBorder.World.Terrain.ProceduralTerrain.Instance != null)
+                {
+                    var p = transform.ValueRO.Position;
+                    TheWaningBorder.World.Terrain.ProceduralTerrain.Instance
+                        .PaintCursedGround(p.x, p.z, newRadius);
+                }
 
                 int perNodeBudget = MaxTilesPerNode - (existingGroundTotal / math.max(1, nodeCount));
                 if (perNodeBudget <= 0) continue;

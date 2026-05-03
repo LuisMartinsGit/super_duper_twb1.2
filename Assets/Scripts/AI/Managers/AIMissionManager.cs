@@ -35,12 +35,17 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (brain, missionState, sightings, sharedKnowledge, entity)
-                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIMissionState>,
+            foreach (var (brain, missionState, stratState, sightings, sharedKnowledge, entity)
+                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIMissionState>, RefRO<AIStrategyState>,
                     DynamicBuffer<EnemySighting>, RefRW<AISharedKnowledge>>()
                 .WithEntityAccess())
             {
@@ -52,8 +57,9 @@ namespace TheWaningBorder.AI
                 {
                     state_val.LastMissionUpdate = time;
 
-                    EvaluateStrategicSituation(ref state, brain.ValueRO, sightings, sharedKnowledge.ValueRO);
-                    CreateMissions(ref state, brain.ValueRO, sightings, sharedKnowledge.ValueRO, ecb);
+                    // Fix #237: EvaluateStrategicSituation was removed — it had no
+                    // implementation (computed a strengthRatio and discarded it).
+                    CreateMissions(ref state, brain.ValueRO, stratState.ValueRO.Current, sightings, sharedKnowledge.ValueRO, ecb);
                 }
 
                 // CRITICAL: Write back the modified mission state
@@ -65,19 +71,13 @@ namespace TheWaningBorder.AI
             ecb.Dispose();
         }
 
-        private void EvaluateStrategicSituation(ref SystemState state, AIBrain brain,
-            DynamicBuffer<EnemySighting> sightings, AISharedKnowledge knowledge)
-        {
-            int enemyStrength = knowledge.EnemyEstimatedStrength;
-            int ownStrength = knowledge.OwnMilitaryStrength;
+        // Fix #237: EvaluateStrategicSituation had no implementation — it
+        // computed a strengthRatio and immediately discarded it. Removed
+        // entirely rather than leaving dead scaffolding that implies a
+        // behaviour that doesn't exist. When strategic evaluation is needed,
+        // implement it fresh rather than resurrecting the stub.
 
-            if (sightings.Length > 0)
-            {
-                float strengthRatio = ownStrength > 0 ? (float)enemyStrength / ownStrength : 1f;
-            }
-        }
-
-        private void CreateMissions(ref SystemState state, AIBrain brain,
+        private void CreateMissions(ref SystemState state, AIBrain brain, AIStrategy strategy,
             DynamicBuffer<EnemySighting> sightings, AISharedKnowledge knowledge,
             EntityCommandBuffer ecb)
         {
@@ -99,43 +99,53 @@ namespace TheWaningBorder.AI
             }
 
             AILogger.Log(brain.Owner, "MISSION",
-                $"Armies:{armyCount} strength:{availableStrength}, sightings:{sightings.Length}, activeMissions:{activeMissions}, personality:{brain.Personality}");
+                $"Strategy:{strategy} armies:{armyCount} strength:{availableStrength}, sightings:{sightings.Length}, active:{activeMissions}");
 
             CreateDefenseMission(ref state, brain, availableStrength, ecb);
 
-            // Attack when we have enough strength — lower threshold for aggressive AI
-            int attackThreshold = MIN_ATTACK_STRENGTH;
-            if (brain.Personality == AIPersonality.Balanced || brain.Personality == AIPersonality.Defensive)
-                attackThreshold = MIN_ATTACK_STRENGTH * 2;
+            // Strategy-aware attack thresholds
+            int attackThreshold = strategy switch
+            {
+                AIStrategy.Rush => 3,                        // Attack with minimal force
+                AIStrategy.Aggressive => MIN_ATTACK_STRENGTH,// Standard threshold
+                AIStrategy.EcoBoom => MIN_ATTACK_STRENGTH * 3,// Wait for strong army
+                AIStrategy.TechRush => MIN_ATTACK_STRENGTH * 2,// Wait for tech advantage
+                AIStrategy.Defensive => MIN_ATTACK_STRENGTH * 2,// Only counter-attack
+                _ => MIN_ATTACK_STRENGTH
+            };
 
-            if (availableStrength >= attackThreshold && sightings.Length > 0)
+            // Strategy-aware blind attack delay
+            double blindDelay = strategy switch
+            {
+                AIStrategy.Rush => 60.0,       // Rush attacks early even without sighting
+                AIStrategy.Aggressive => 120.0,
+                AIStrategy.EcoBoom => 300.0,   // Patient
+                AIStrategy.TechRush => 240.0,
+                AIStrategy.Defensive => 360.0, // Very patient
+                _ => BLIND_ATTACK_DELAY
+            };
+
+            // Defensive strategy: only attack if sightings are near base (counter-attack)
+            bool shouldAttack = strategy != AIStrategy.Defensive || knowledge.EnemyEstimatedStrength > 0;
+
+            if (shouldAttack && availableStrength >= attackThreshold && sightings.Length > 0)
             {
                 AILogger.Log(brain.Owner, "MISSION",
-                    $"Creating attack mission — strength:{availableStrength} >= threshold:{attackThreshold}, sightings:{sightings.Length}");
+                    $"Creating attack — strength:{availableStrength} >= threshold:{attackThreshold} [{strategy}]");
                 CreateAttackMission(ref state, brain, sightings, availableStrength, ecb);
             }
             else if (sightings.Length == 0 && availableStrength >= attackThreshold)
             {
-                // No sightings — after enough time, attack toward nearest enemy base
                 double elapsed = SystemAPI.Time.ElapsedTime;
-                if (elapsed >= BLIND_ATTACK_DELAY)
+                if (elapsed >= blindDelay)
                 {
-                    AILogger.Log(brain.Owner, "MISSION", "No sightings — creating blind attack toward enemy base");
+                    AILogger.Log(brain.Owner, "MISSION", $"Blind attack after {blindDelay}s [{strategy}]");
                     CreateBlindAttackMission(ref state, brain, availableStrength, ecb);
                 }
-                else
-                {
-                    AILogger.Log(brain.Owner, "MISSION",
-                        $"Attack blocked — no sightings, waiting {BLIND_ATTACK_DELAY - elapsed:F0}s more");
-                }
-            }
-            else if (availableStrength < attackThreshold)
-            {
-                AILogger.Log(brain.Owner, "MISSION",
-                    $"Attack blocked — strength:{availableStrength} < threshold:{attackThreshold}");
             }
 
-            if (brain.Personality == AIPersonality.Aggressive || brain.Personality == AIPersonality.Rush)
+            // Raids: Rush and Aggressive strategies enable raids
+            if (strategy == AIStrategy.Rush || strategy == AIStrategy.Aggressive)
             {
                 CreateRaidMissions(ref state, brain, sightings, availableStrength, ecb);
             }

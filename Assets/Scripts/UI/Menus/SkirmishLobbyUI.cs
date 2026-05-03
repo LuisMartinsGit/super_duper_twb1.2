@@ -585,7 +585,6 @@ namespace TheWaningBorder.UI.Menus
             var slot = LobbyConfig.Slots[slotIndex];
             int current = slot.ColorIndex;
 
-            Debug.Log($"[SkirmishLobby] CycleSlotColor({slotIndex}) current={current} ({slot.GetColorName()})");
 
             // Find the next color not already used by another active slot
             for (int attempt = 0; attempt < FactionColors.ColorCount; attempt++)
@@ -594,14 +593,12 @@ namespace TheWaningBorder.UI.Menus
                 if (!IsColorInUse(next, slotIndex))
                 {
                     slot.ColorIndex = next;
-                    Debug.Log($"[SkirmishLobby] -> Changed to color {next} ({slot.GetColorName()})");
                     return;
                 }
             }
 
             // All colors in use (shouldn't happen with 12 colors and 8 slots) - just cycle
             slot.ColorIndex = (current + 1) % FactionColors.ColorCount;
-            Debug.Log($"[SkirmishLobby] -> Fallback to color {slot.ColorIndex} ({slot.GetColorName()})");
         }
 
         /// <summary>
@@ -680,7 +677,6 @@ namespace TheWaningBorder.UI.Menus
 
             if (_sandbox)
                 GameSettings.Mode = GameMode.Sandbox;
-            else
                 GameSettings.Mode = GameMode.FreeForAll;
 
             // Apply color selections to FactionColors runtime system
@@ -728,8 +724,6 @@ namespace TheWaningBorder.UI.Menus
 
             _error = null;
 
-            Debug.Log($"[SkirmishLobby] Starting game with {GameSettings.TotalPlayers} players " +
-                      $"(Observer={_isObserver}, Sandbox={_sandbox}, colors: {GetColorSummary()})");
             LoadingScreen.Show(GameSceneName);
         }
 

@@ -154,8 +154,8 @@ namespace TheWaningBorder.Core.Commands.Types
 
             if (!em.HasComponent<HealCommand>(healer))
                 em.AddComponentData(healer, cmd);
-            else
-                em.SetComponentData(healer, cmd);
+                else
+                    em.SetComponentData(healer, cmd);
 
             // Move toward target if needed
             if (em.HasComponent<LocalTransform>(target))
@@ -182,8 +182,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 // Update guard point so healer doesn't snap back to spawn
                 if (em.HasComponent<GuardPoint>(healer))
                     em.SetComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
-                else
-                    em.AddComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
+                    else
+                        em.AddComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
             }
         }
     }

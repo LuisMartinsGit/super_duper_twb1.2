@@ -27,13 +27,16 @@ namespace TheWaningBorder.Systems.Combat
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<LitharchState>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            // Fix #225: Singleton ECB.
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             // Phase 1: Process explicit HealCommands
             foreach (var (healCmd, lithState, transform, entity) in SystemAPI
@@ -182,7 +185,12 @@ namespace TheWaningBorder.Systems.Combat
                             if (healAmount < 1) healAmount = 1;
 
                             targetHealth.Value = math.min(targetHealth.Value + healAmount, targetHealth.Max);
-                            ecb.SetComponent(healTarget, targetHealth);
+                            // Fix #228: write health immediately via EntityManager
+                            // to match how combat systems apply damage. ECB playback
+                            // happens AFTER Melee/RangedCombatSystem in the same
+                            // frame, so an ECB heal write would overwrite damage
+                            // dealt this frame — effectively nullifying it.
+                            em.SetComponentData(healTarget, targetHealth);
 
                             // If fully healed, clear target
                             if (targetHealth.Value >= targetHealth.Max)
@@ -195,8 +203,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
-            ecb.Playback(em);
-            ecb.Dispose();
+            // ECB plays back automatically at EndSimulation.
         }
 
         private static float DistXZ(float3 a, float3 b)

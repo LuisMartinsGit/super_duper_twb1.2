@@ -256,7 +256,12 @@ namespace TheWaningBorder.Systems.Movement
 
                             if (math.abs(dx) < halfW && math.abs(dz) < halfH)
                             {
-                                // Push to nearest edge
+                                // Push along the shorter axis. Earlier missing
+                                // braces meant Z was always assigned regardless
+                                // of pushX/pushZ — units always got popped to a
+                                // building corner (Z-dominant) instead of the
+                                // nearest edge, scraping along the side.
+                                // (task-053 F-3 / MB-3)
                                 float pushX = halfW - math.abs(dx);
                                 float pushZ = halfH - math.abs(dz);
                                 if (pushX < pushZ)

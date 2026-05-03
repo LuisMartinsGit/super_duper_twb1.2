@@ -24,7 +24,7 @@ namespace TheWaningBorder.Systems.Crystal
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct CrystalDeathDropSystem : ISystem
     {
-        private const int MaxCrystalNodes = 32;
+        private const int MaxCrystalNodes = 128;
 
         /// <summary>Radius for cadavers dropped by main curse nodes (large).</summary>
         private const float MainNodeCadaverRadius = 2.0f;

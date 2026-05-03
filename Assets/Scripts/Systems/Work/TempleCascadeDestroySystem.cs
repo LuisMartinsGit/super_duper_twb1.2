@@ -75,7 +75,6 @@ namespace TheWaningBorder.Systems.Building
                     slots[i] = slot;
                 }
 
-                UnityEngine.Debug.Log($"[TempleCascade] Temple {entity.Index} dying — cascade destroyed all chapels");
             }
 
             // ========== Part 2: Chapel dies → clear parent temple slot ==========
@@ -106,8 +105,6 @@ namespace TheWaningBorder.Systems.Building
                     slot.BuildTime = 0f;
                     slots[slotIdx] = slot;
 
-                    UnityEngine.Debug.Log(
-                        $"[TempleCascade] Chapel {entity.Index} dying — cleared slot {slotIdx} in temple {temple.Index}");
                 }
             }
         }

@@ -163,12 +163,20 @@ namespace TheWaningBorder.Systems.Movement
             var directionField = FlowFieldArrayPool.RentDirection();
 
             // Copy passability data — the source lives on a managed MonoBehaviour
-            // and may change between schedule and complete frames
-            var passabilityCopy = new NativeArray<byte>(passabilityCells.Length, Allocator.TempJob);
+            // and may change between schedule and complete frames.
+            //
+            // Fix #210: these allocations outlive a single frame (the job is
+            // scheduled now and completed next frame, or later if the
+            // MaxFieldsPerFrame throttle delays CompleteAsync). Unity's
+            // Allocator.TempJob enforces a 4-frame lifetime and will trigger
+            // native-memory warnings if the job system is backed up. Use
+            // Allocator.Persistent and rely on CompleteAsync/CancelAsync to
+            // dispose (existing code already does this).
+            var passabilityCopy = new NativeArray<byte>(passabilityCells.Length, Allocator.Persistent);
             passabilityCopy.CopyFrom(passabilityCells);
 
             // Allocate BFS queue
-            var bfsQueue = new NativeQueue<int>(Allocator.TempJob);
+            var bfsQueue = new NativeQueue<int>(Allocator.Persistent);
 
             // Schedule BFS on worker thread
             var integrationJob = new IntegrationFieldJob
@@ -444,6 +452,11 @@ namespace TheWaningBorder.Systems.Movement
                     return;
 
                 int neighborIndex = ny * Width + nx;
+
+                // Skip impassable cells (buildings, terrain, obstacles)
+                if (Cells[neighborIndex] != 0)
+                    return;
+
                 ushort neighborCost = IntegrationField[neighborIndex];
 
                 if (neighborCost < bestCost)

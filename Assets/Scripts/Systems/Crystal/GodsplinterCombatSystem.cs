@@ -156,8 +156,8 @@ namespace TheWaningBorder.Systems.Crystal
                         };
                         if (em.HasComponent<LastDamagedByFaction>(tgt.Value))
                             em.SetComponentData(tgt.Value, lastDamaged);
-                        else
-                            ecb.AddComponent(tgt.Value, lastDamaged);
+                            else
+                                ecb.AddComponent(tgt.Value, lastDamaged);
                     }
 
                     // Reset siege cooldown

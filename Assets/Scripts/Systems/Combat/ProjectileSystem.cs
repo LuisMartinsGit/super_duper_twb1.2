@@ -23,6 +23,8 @@ namespace TheWaningBorder.Systems.Combat
     {
         // Flight parameters
         private const float FlightDuration = 0.8f;     // How long arrows take to reach target
+        private const float ArrowSpeed = 30f;            // Projectile speed (matches RangedCombatSystem)
+        private const float BoltSpeed = 55f;             // Siege bolt speed (matches RangedCombatSystem)
         private const float ArcHeight = 3f;            // Height of arc above midpoint
         private const float HitRadius = 0.8f;          // Distance to register a hit
 
@@ -53,6 +55,19 @@ namespace TheWaningBorder.Systems.Combat
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var time = SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
+
+            // Fix #213: snapshot the piercing-target arrays ONCE per frame
+            // instead of once per projectile. The previous code called
+            // _aoeTargetQuery.ToEntityArray / ToComponentDataArray inside the
+            // per-projectile loop, copying the entire enemy list for every
+            // piercing bolt in flight. With 20 siege units each firing 3 bolts
+            // that was 60 full entity-list copies per frame. Now we copy once
+            // at the top of OnUpdate and every piercing bolt shares the
+            // snapshots.
+            using var pierceEntities   = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var pierceFactions   = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var pierceHealth     = _aoeTargetQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
 
             foreach (var (transform, arrow, projectile, entity)
                      in SystemAPI.Query<RefRW<LocalTransform>, RefRW<ArrowProjectile>, RefRW<Projectile>>()
@@ -169,12 +184,47 @@ namespace TheWaningBorder.Systems.Combat
 
                         float distToTarget = math.length(targetPos - arrowPos);
 
-                        if (t >= 0.95f || distToTarget < HitRadius)
+                        bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
+
+                        // Piercing bolts: scan the shared per-frame enemy snapshot
+                        // (see Fix #213 at the top of OnUpdate). No per-bolt query.
+                        if (isPiercing && !shouldDestroy)
+                        {
+                            var pierce = em.GetComponentData<PiercingProjectile>(entity);
+                            for (int pi = 0; pi < pierceEntities.Length; pi++)
+                            {
+                                if (pierceFactions[pi].Value == proj.Faction) continue;
+                                if (pierceHealth[pi].Value <= 0) continue; // skip dead
+                                // Use XZ distance — bolts fly with upward pitch and no gravity,
+                                // so 3D distance would cause them to fly over targets
+                                float3 diff = pierceTransforms[pi].Position - arrowPos;
+                                float d = math.length(new float2(diff.x, diff.z));
+                                if (d < 2.5f)
+                                {
+                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter);
+                                    pierce.RemainingPierces--;
+                                    if (pierce.RemainingPierces <= 0) { shouldDestroy = true; break; }
+                                }
+                            }
+                            if (!shouldDestroy) em.SetComponentData(entity, pierce);
+
+                            // Move bolt straight through (ignore Bezier homing)
+                            if (!shouldDestroy)
+                            {
+                                float boltDt = SystemAPI.Time.DeltaTime;
+                                float3 newPos = arrowPos + math.normalizesafe(arr.Velocity) * BoltSpeed * boltDt;
+                                newPos.y = math.max(newPos.y, TerrainUtility.GetHeight(newPos.x, newPos.z) + 0.5f);
+                                trans.Position = newPos;
+                                // Destroy if past max flight time
+                                if (t > 1.5f) shouldDestroy = true;
+                            }
+                        }
+                        else if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
                         {
                             ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
                             shouldDestroy = true;
                         }
-                        else
+                        else if (!shouldDestroy)
                         {
                             // Use terrain-sampled heights for slope-accurate start/end
                             float3 startPos = proj.Start; // Already offset +1.5f at creation
@@ -239,6 +289,9 @@ namespace TheWaningBorder.Systems.Combat
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
 
+            // Fix #211: skip damage application if the target is Invulnerable.
+            if (em.HasComponent<Invulnerable>(targetEntity)) return;
+
             int baseDamage = proj.Damage;
             DamageType dmgType = proj.DmgType;
 
@@ -274,16 +327,16 @@ namespace TheWaningBorder.Systems.Combat
             // Use ECB for AddComponent to avoid structural changes during iteration
             if (em.HasComponent<LastDamagedByFaction>(targetEntity))
                 em.SetComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
-            else
-                ecb.AddComponent(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
+                else
+                    ecb.AddComponent(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
 
             // Track attacker entity for defensive stance return-fire
             if (shooter != Entity.Null && em.Exists(shooter))
             {
                 if (em.HasComponent<LastAttackerEntity>(targetEntity))
                     em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
-                else
-                    ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
+                    else
+                        ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
             }
         }
 
@@ -336,15 +389,15 @@ namespace TheWaningBorder.Systems.Combat
                 // Track last damager for kill credit
                 if (em.HasComponent<LastDamagedByFaction>(entities[i]))
                     em.SetComponentData(entities[i], new LastDamagedByFaction { Value = proj.Faction });
-                else
-                    ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
+                    else
+                        ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
 
                 if (shooter != Entity.Null && em.Exists(shooter))
                 {
                     if (em.HasComponent<LastAttackerEntity>(entities[i]))
                         em.SetComponentData(entities[i], new LastAttackerEntity { Value = shooter });
-                    else
-                        ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
+                        else
+                            ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
                 }
             }
         }

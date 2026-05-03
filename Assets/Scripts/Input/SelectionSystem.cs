@@ -227,15 +227,19 @@ namespace TheWaningBorder.Input
             var e = RaycastPickEntity();
             float now = Time.time;
 
-            // Battalion resolution: if clicked entity is a member, resolve to leader
+            // Battalion resolution: if clicked entity is a member, check selectability
+            // at the MEMBER position (visible on screen), then resolve to leader
+            Entity clickedMember = Entity.Null;
             if (e != Entity.Null && _em.Exists(e) && _em.HasComponent<BattalionMemberData>(e))
             {
+                clickedMember = e;
                 e = _em.GetComponentData<BattalionMemberData>(e).Leader;
             }
 
             // Check for double-click on a unit of the same type
-            if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e)
-                && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
+            bool dblClickSelectable = (e != Entity.Null && _em.Exists(e))
+                && (clickedMember != Entity.Null ? IsSelectableByPlayer(clickedMember) : IsSelectableByPlayer(e));
+            if (dblClickSelectable && _em.HasComponent<UnitTag>(e) && IsOwnedByPlayer(e))
             {
                 var clickedClass = _em.GetComponentData<UnitTag>(e).Class;
 
@@ -269,7 +273,11 @@ namespace TheWaningBorder.Input
             // Normal single-click selection
             _selection.Clear();
 
-            if (e != Entity.Null && _em.Exists(e) && IsSelectableByPlayer(e))
+            // Use member position for visibility check (member is the entity the user clicked)
+            bool selectable = (e != Entity.Null && _em.Exists(e))
+                && (clickedMember != Entity.Null ? IsSelectableByPlayer(clickedMember) : IsSelectableByPlayer(e));
+
+            if (selectable)
             {
                 // If selecting a battalion leader, add leader + all members
                 if (_em.HasComponent<BattalionLeader>(e) && _em.HasBuffer<BattalionMember>(e))
@@ -452,6 +460,12 @@ namespace TheWaningBorder.Input
                 {
                     if (!_em.HasComponent<UnitTag>(e)) continue;
                     var cls = _em.GetComponentData<UnitTag>(e).Class;
+                    // Earlier missing braces put EVERY unit into `military`, so
+                    // the post-filter that should drop economic units when
+                    // soldiers are present (lines below) replaced _selection
+                    // with itself. Box-selecting 5 builders + 5 swordsmen
+                    // returned all 10 instead of just the 5 swordsmen.
+                    // (task-053 F-4 / task-060 F-1)
                     if (cls == UnitClass.Economy || cls == UnitClass.Miner)
                         economic.Add(e);
                     else
@@ -472,16 +486,11 @@ namespace TheWaningBorder.Input
         
         private bool IsSelectableByPlayer(Entity e)
         {
-            // Resource deposits (iron mines, crystal cadavers) are always selectable if visible
+            if (!_em.Exists(e)) return false;
+
+            // Resource deposits are always selectable
             if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<CadaverTag>(e))
-            {
-                if (_em.HasComponent<LocalTransform>(e))
-                {
-                    var pos = _em.GetComponentData<LocalTransform>(e).Position;
-                    return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
-                }
-                return false;
-            }
+                return true;
 
             // Must have faction tag
             if (!_em.HasComponent<FactionTag>(e))
@@ -491,18 +500,11 @@ namespace TheWaningBorder.Input
             if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
                 return false;
 
-            // Own units are always selectable
-            if (_em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction)
-                return true;
-
-            // Enemy units/buildings are selectable if visible through fog of war
-            if (_em.HasComponent<LocalTransform>(e))
-            {
-                var pos = _em.GetComponentData<LocalTransform>(e).Position;
-                return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
-            }
-
-            return false;
+            // If the raycast hit the entity's GameObject, it is visible on screen
+            // (FogVisibilitySyncSystem already hides invisible entities by deactivating GOs).
+            // No need for a redundant fog check here — the raycast itself is the visibility proof.
+            // Fix #237: removed unreachable `return false` that followed this line.
+            return true;
         }
         
         private bool IsOwnedByPlayer(Entity e)
@@ -600,19 +602,19 @@ namespace TheWaningBorder.Input
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, clickMask))
             {
-                var go = hit.collider.gameObject;
-                
-                // Check for EntityReference component
-                var link = go.GetComponent<EntityReference>();
-                if (link != null && _em.Exists(link.Entity))
-                    return link.Entity;
-                
-                // Check parent
-                if (go.transform.parent != null)
+                // Walk the full hierarchy from the hit GameObject up to the root
+                // looking for an EntityReference. Procedural buildings put it on
+                // the root, but prefabs may have nested mesh hierarchies (mesh →
+                // group → root) where the collider lives on a deep child. The
+                // earlier "root or one parent" lookup missed those, which made
+                // the click look like a terrain hit and triggered deselection.
+                var t = hit.collider.transform;
+                while (t != null)
                 {
-                    link = go.transform.parent.GetComponent<EntityReference>();
+                    var link = t.GetComponent<EntityReference>();
                     if (link != null && _em.Exists(link.Entity))
                         return link.Entity;
+                    t = t.parent;
                 }
             }
             return Entity.Null;

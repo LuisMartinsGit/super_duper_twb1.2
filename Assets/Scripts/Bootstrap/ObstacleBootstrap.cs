@@ -62,7 +62,6 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[ObstacleBootstrap] No ECS World available!");
                 return;
             }
 
@@ -118,7 +117,6 @@ namespace TheWaningBorder.Bootstrap
             var ffm = TheWaningBorder.Systems.Movement.FlowFieldManager.Instance;
             if (ffm != null) ffm.InvalidateAll();
 
-            Debug.Log($"[ObstacleBootstrap] Spawned {forestsSpawned} forests + {rocksSpawned} rock formations (passability grid updated)");
         }
 
         /// <summary>

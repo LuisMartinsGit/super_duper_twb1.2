@@ -102,7 +102,6 @@ namespace TheWaningBorder.UI.HUD
             if (shader == null) shader = Shader.Find("Universal Render Pipeline/Decal");
             if (shader == null)
             {
-                Debug.LogWarning("[PlacementGridOverlay] Decal shader not found");
                 return;
             }
 

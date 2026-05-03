@@ -12,7 +12,10 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Entities;
 
-public class PresentationSpawnSystem : MonoBehaviour
+// Fix #204: marked partial. The obstacle and wall procedural generators
+// have been extracted to PresentationSpawnSystem.Obstacles.cs and
+// PresentationSpawnSystem.Walls.cs to reduce this file's line count.
+public partial class PresentationSpawnSystem : MonoBehaviour
 {
     public static PresentationSpawnSystem Instance { get; private set; }
 
@@ -27,10 +30,8 @@ public class PresentationSpawnSystem : MonoBehaviour
         { 510, "Procedural/Barracks" },                    // Barracks.PresentationID = 510 (procedural Age 1)
 
         // Buildings - Era 1 Advanced
-        { 520, "Prefabs/Buildings/TempleOfRidan" },      // ShrineOfAhridan.PresentationID = 520 (reuses temple prefab)
-        { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521 (new temple)
-        { 530, "Prefabs/Buildings/VaultOfAlmierra" },    // VaultOfAlmierra.PresentationID = 530
-        { 520, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 520
+        { 520, "Procedural/ShrineOfAhridan" },           // ShrineOfAhridan.PresentationID = 520
+        { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521
         { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 (procedural)
         { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540
 
@@ -55,7 +56,10 @@ public class PresentationSpawnSystem : MonoBehaviour
 
         // Alanthor Walls (procedurally generated)
         { 550, "Procedural/WallHub" },                      // Alanthor Wall Hub (generated at runtime)
-        { 551, "Procedural/WallSegment" },                   // Alanthor Wall Segment (generated at runtime)
+        { 551, "Procedural/WallSegment" },                   // Alanthor Wall Segment (legacy, no longer spawned)
+        { 552, "Procedural/WallInstance" },                  // Alanthor Wall Instance (small wall piece)
+        { 553, "Procedural/WallTower" },                     // Alanthor Wall Tower (upgraded instance)
+        { 554, "Procedural/WallGate" },                      // Alanthor Wall Gate (upgraded instance)
 
         // Alanthor Buildings (procedurally generated)
         { 560, "Procedural/Smelter" },                       // Alanthor Smelter/Forge (generated at runtime)
@@ -233,7 +237,6 @@ public class PresentationSpawnSystem : MonoBehaviour
 
                 _spawnedEntities.Add(entity);
 
-                Debug.Log($"[PresentationSpawnSystem] Spawned visual for entity {entity.Index} (PresentationId: {presentationId})");
             }
         }
 
@@ -267,15 +270,30 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === ALANTHOR WALLS: procedural hub (cylinder) and segment (elongated cube) ===
+        // === ALANTHOR WALLS: procedural hub, instances, towers, gates ===
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.HubPresentationID)
         {
             var go = CreateProceduralWallHub(pos, entity);
             return go;
         }
-        if (presentationId == TheWaningBorder.Entities.AlanthorWall.SegmentPresentationID)
+        if (presentationId == 551) // Legacy segment — kept for backward compat
         {
             var go = CreateProceduralWallSegment(pos, entity);
+            return go;
+        }
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.InstancePresentationID)
+        {
+            var go = CreateProceduralWallInstance(pos, entity);
+            return go;
+        }
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.TowerPresentationID)
+        {
+            var go = CreateProceduralWallTower(pos, entity);
+            return go;
+        }
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.GatePresentationID)
+        {
+            var go = CreateProceduralWallGate(pos, entity);
             return go;
         }
 
@@ -317,14 +335,10 @@ public class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === CRYSTAL CURSE: paint terrain splatmap instead of spawning visible plane ===
+        // === CRYSTAL CURSE: tiles are DPS markers only — visual is painted
+        // once per node by CrystalSpreadSystem as an organic growing blob ===
         if (presentationId == CursedGroundPresentationId)
         {
-            float radius = _em.HasComponent<Radius>(entity) ? _em.GetComponentData<Radius>(entity).Value : 2f;
-            if (ProceduralTerrain.Instance != null)
-            {
-                ProceduralTerrain.Instance.PaintCursedGround(pos.x, pos.z, radius);
-            }
             // Return a minimal hidden root so PresentationSpawnSystem tracks this entity
             // (needed for cleanup when entity is destroyed, e.g. crystal node killed)
             var go = new GameObject($"CursedGround_{entity.Index}");
@@ -400,10 +414,8 @@ public class PresentationSpawnSystem : MonoBehaviour
         {
             if (presentationId >= 200 && presentationId < 500)
                 prefab = _fallbackUnitPrefab;
-            else
                 prefab = _fallbackBuildingPrefab;
 
-            Debug.LogWarning($"[PresentationSpawnSystem] No prefab for PresentationId {presentationId}, using fallback");
         }
 
         if (prefab == null) return null;
@@ -790,7 +802,6 @@ public class PresentationSpawnSystem : MonoBehaviour
         presentations.Dispose();
         transforms.Dispose();
 
-        Debug.Log($"[PresentationSpawnSystem] Rebuilt visuals for {faction} with culture {CultureConfig.GetName(culture)}");
     }
 
     private void SyncTransforms()
@@ -858,388 +869,6 @@ public class PresentationSpawnSystem : MonoBehaviour
             Faction.White => new Color(0.9f, 0.9f, 0.9f),
             _ => Color.gray
         };
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PROCEDURAL OBSTACLE GENERATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Create a forest cluster: several procedural trees (trunk + canopy) scattered within radius.
-    /// </summary>
-    private GameObject CreateProceduralForest(Vector3 center, float radius, Entity entity)
-    {
-        var root = new GameObject($"Forest_{entity.Index}");
-        root.transform.position = center;
-
-        var rng = new System.Random(entity.Index + 12345);
-        int treeCount = rng.Next(20, 31); // Dense forest: 20-30 trees
-
-        // Colors
-        var trunkBrown = new Color(0.35f, 0.22f, 0.10f);
-        var canopyDarkGreen = new Color(0.15f, 0.35f, 0.10f);
-        var canopyLightGreen = new Color(0.25f, 0.50f, 0.15f);
-
-        // Ground foliage colors (fallen leaves / forest floor)
-        var foliageDark = new Color(0.20f, 0.28f, 0.08f);
-        var foliageLight = new Color(0.30f, 0.22f, 0.10f);
-
-        // Shared materials
-        var litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-
-        // Forest floor: scattered ground cover patches (uses separate RNG to not desync tree positions)
-        var groundRng = new System.Random(entity.Index + 99999);
-        int patchCount = groundRng.Next(8, 15);
-        for (int p = 0; p < patchCount; p++)
-        {
-            float pAngle = (float)(groundRng.NextDouble() * Mathf.PI * 2f);
-            float pDist = (float)(groundRng.NextDouble() * radius * 0.75f);
-            float px = Mathf.Cos(pAngle) * pDist;
-            float pz = Mathf.Sin(pAngle) * pDist;
-            float py = TerrainUtility.GetHeight(center.x + px, center.z + pz) - center.y;
-
-            float patchSize = 1.5f + (float)groundRng.NextDouble() * 2.5f;
-            float patchRot = (float)groundRng.NextDouble() * 360f;
-            float colorT = (float)groundRng.NextDouble();
-
-            var patch = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            patch.name = $"GroundPatch_{p}";
-            patch.transform.SetParent(root.transform, false);
-            patch.transform.localPosition = new Vector3(px, py + 0.05f, pz);
-            patch.transform.localRotation = Quaternion.Euler(90f, patchRot, 0f);
-            patch.transform.localScale = new Vector3(patchSize, patchSize, 1f);
-
-            var patchRenderer = patch.GetComponent<Renderer>();
-            if (patchRenderer != null)
-            {
-                patchRenderer.material = new Material(litShader);
-                patchRenderer.material.color = Color.Lerp(foliageDark, foliageLight, colorT);
-                patchRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
-            var patchCol = patch.GetComponent<Collider>();
-            if (patchCol != null) Destroy(patchCol);
-        }
-
-        for (int i = 0; i < treeCount; i++)
-        {
-            // Random position tightly packed within radius
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = (float)(rng.NextDouble() * radius * 0.65f); // Tighter packing
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-
-            float treeHeight = 2.5f + (float)rng.NextDouble() * 3f;
-            float trunkRadius = 0.12f + (float)rng.NextDouble() * 0.08f;
-            float canopyRadius = 0.7f + (float)rng.NextDouble() * 0.5f;
-
-            // Get terrain height at tree position
-            float treeY = TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ);
-            Vector3 treeBase = new Vector3(offsetX, treeY - center.y, offsetZ);
-
-            // Trunk (cylinder)
-            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunk.name = $"Trunk_{i}";
-            trunk.transform.SetParent(root.transform, false);
-            trunk.transform.localPosition = treeBase + Vector3.up * (treeHeight * 0.35f);
-            trunk.transform.localScale = new Vector3(trunkRadius * 2f, treeHeight * 0.4f, trunkRadius * 2f);
-            var trunkRenderer = trunk.GetComponent<Renderer>();
-            if (trunkRenderer != null)
-            {
-                trunkRenderer.material = new Material(litShader);
-                trunkRenderer.material.color = trunkBrown;
-            }
-            // Remove trunk collider (individual tree ECS entities handle collision)
-            var trunkCol = trunk.GetComponent<Collider>();
-            if (trunkCol != null) Destroy(trunkCol);
-
-            // Canopy (sphere)
-            var canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            canopy.name = $"Canopy_{i}";
-            canopy.transform.SetParent(root.transform, false);
-            canopy.transform.localPosition = treeBase + Vector3.up * (treeHeight * 0.65f);
-            canopy.transform.localScale = Vector3.one * canopyRadius * 2f;
-            var canopyRenderer = canopy.GetComponent<Renderer>();
-            if (canopyRenderer != null)
-            {
-                canopyRenderer.material = new Material(litShader);
-                float greenVariation = (float)rng.NextDouble();
-                canopyRenderer.material.color = Color.Lerp(canopyDarkGreen, canopyLightGreen, greenVariation);
-            }
-            // Remove canopy collider
-            var canopyCol = canopy.GetComponent<Collider>();
-            if (canopyCol != null) Destroy(canopyCol);
-        }
-
-        // Add a single large collider for the whole forest (selection/raycasting)
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(radius * 2f, 6f, radius * 2f);
-        boxCol.center = Vector3.up * 3f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
-        return root;
-    }
-
-    /// <summary>
-    /// Create a rock formation: several randomly rotated boulders scattered within radius.
-    /// </summary>
-    private GameObject CreateProceduralRockFormation(Vector3 center, float radius, Entity entity)
-    {
-        var root = new GameObject($"Rocks_{entity.Index}");
-        root.transform.position = center;
-
-        var rng = new System.Random(entity.Index + 67890);
-        int rockCount = rng.Next(3, 6);
-
-        // Colors
-        var darkGrey = new Color(0.30f, 0.28f, 0.26f);
-        var lightGrey = new Color(0.50f, 0.48f, 0.44f);
-        var warmGrey = new Color(0.42f, 0.38f, 0.34f);
-
-        for (int i = 0; i < rockCount; i++)
-        {
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = (float)(rng.NextDouble() * radius * 0.7f);
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-
-            float rockSize = 1f + (float)rng.NextDouble() * 1.5f;
-
-            // Get terrain height at rock position
-            float rockY = TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ);
-            Vector3 rockBase = new Vector3(offsetX, rockY - center.y, offsetZ);
-
-            // Boulder (stretched cube for angular look)
-            var boulder = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            boulder.name = $"Boulder_{i}";
-            boulder.transform.SetParent(root.transform, false);
-            boulder.transform.localPosition = rockBase + Vector3.up * (rockSize * 0.3f);
-
-            // Random squash/stretch for natural boulder shapes
-            float sx = rockSize * (0.6f + (float)rng.NextDouble() * 0.8f);
-            float sy = rockSize * (0.4f + (float)rng.NextDouble() * 0.6f);
-            float sz = rockSize * (0.6f + (float)rng.NextDouble() * 0.8f);
-            boulder.transform.localScale = new Vector3(sx, sy, sz);
-
-            // Random rotation
-            boulder.transform.localRotation = Quaternion.Euler(
-                (float)rng.NextDouble() * 20f - 10f,
-                (float)rng.NextDouble() * 360f,
-                (float)rng.NextDouble() * 15f - 7.5f
-            );
-
-            var boulderRenderer = boulder.GetComponent<Renderer>();
-            if (boulderRenderer != null)
-            {
-                boulderRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                float greyVariation = (float)rng.NextDouble();
-                Color baseColor = Color.Lerp(darkGrey, lightGrey, greyVariation);
-                baseColor = Color.Lerp(baseColor, warmGrey, (float)rng.NextDouble() * 0.3f);
-                boulderRenderer.material.color = baseColor;
-            }
-
-            // Remove individual boulder colliders
-            var boulderCol = boulder.GetComponent<Collider>();
-            if (boulderCol != null) Destroy(boulderCol);
-        }
-
-        // Add a single collider for the whole formation
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(radius * 2f, 4f, radius * 2f);
-        boxCol.center = Vector3.up * 2f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
-        return root;
-    }
-
-    /// <summary>
-    /// Create an iron deposit: a cluster of dark metallic rocks with reddish-brown iron ore veins.
-    /// </summary>
-    private GameObject CreateProceduralIronDeposit(Vector3 center, Entity entity)
-    {
-        var root = new GameObject($"IronDeposit_{entity.Index}");
-        root.transform.position = center;
-
-        var rng = new System.Random(entity.Index + 54321);
-        int rockCount = rng.Next(3, 6);
-
-        // Iron ore colors — dark grey with rusty orange veins
-        var ironDark = new Color(0.25f, 0.22f, 0.20f);
-        var ironRusty = new Color(0.55f, 0.30f, 0.15f);
-        var ironLight = new Color(0.40f, 0.35f, 0.30f);
-
-        for (int i = 0; i < rockCount; i++)
-        {
-            float angle = (float)(rng.NextDouble() * Mathf.PI * 2f);
-            float dist = (float)(rng.NextDouble() * 1.2f);
-            float offsetX = Mathf.Cos(angle) * dist;
-            float offsetZ = Mathf.Sin(angle) * dist;
-
-            float rockSize = 0.6f + (float)rng.NextDouble() * 1.0f;
-
-            float rockY = TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ);
-            Vector3 rockBase = new Vector3(offsetX, rockY - center.y, offsetZ);
-
-            // Iron rock (sphere for smoother ore look)
-            var ore = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            ore.name = $"IronOre_{i}";
-            ore.transform.SetParent(root.transform, false);
-            ore.transform.localPosition = rockBase + Vector3.up * (rockSize * 0.25f);
-
-            // Squash slightly for natural boulder shape
-            float sx = rockSize * (0.7f + (float)rng.NextDouble() * 0.6f);
-            float sy = rockSize * (0.5f + (float)rng.NextDouble() * 0.4f);
-            float sz = rockSize * (0.7f + (float)rng.NextDouble() * 0.6f);
-            ore.transform.localScale = new Vector3(sx, sy, sz);
-
-            ore.transform.localRotation = Quaternion.Euler(
-                (float)rng.NextDouble() * 15f - 7.5f,
-                (float)rng.NextDouble() * 360f,
-                (float)rng.NextDouble() * 10f - 5f
-            );
-
-            var oreRenderer = ore.GetComponent<Renderer>();
-            if (oreRenderer != null)
-            {
-                oreRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                float variation = (float)rng.NextDouble();
-                Color baseColor = Color.Lerp(ironDark, ironLight, variation * 0.5f);
-                // Mix in rusty tint for ore vein appearance
-                baseColor = Color.Lerp(baseColor, ironRusty, (float)rng.NextDouble() * 0.45f);
-                oreRenderer.material.color = baseColor;
-                // Slight metallic sheen
-                if (oreRenderer.material.HasProperty("_Metallic"))
-                    oreRenderer.material.SetFloat("_Metallic", 0.4f);
-                if (oreRenderer.material.HasProperty("_Smoothness"))
-                    oreRenderer.material.SetFloat("_Smoothness", 0.3f);
-            }
-
-            // Remove individual colliders
-            var oreCol = ore.GetComponent<Collider>();
-            if (oreCol != null) Destroy(oreCol);
-        }
-
-        // Add a single collider for the deposit
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(3f, 2f, 3f);
-        boxCol.center = Vector3.up * 1f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
-        return root;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ALANTHOR WALL PROCEDURAL GENERATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Create a wall hub: a cylinder tower representing a wall connection point.
-    /// </summary>
-    private GameObject CreateProceduralWallHub(Vector3 center, Entity entity)
-    {
-        var root = new GameObject($"WallHub_{entity.Index}");
-        root.transform.position = center;
-
-        // Main cylinder tower
-        var cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cylinder.name = "HubCylinder";
-        cylinder.transform.SetParent(root.transform, false);
-        cylinder.transform.localPosition = Vector3.up * 1.5f;
-        cylinder.transform.localScale = new Vector3(1.2f, 1.5f, 1.2f); // Diameter 1.2, height 3 (cylinder is 2 tall * 1.5 scale)
-
-        var renderer = cylinder.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            renderer.material.color = new Color(0.55f, 0.50f, 0.42f); // Stone grey-brown
-        }
-
-        // Remove individual collider
-        var col = cylinder.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-
-        // Single collider on root
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(1.5f, 3f, 1.5f);
-        boxCol.center = Vector3.up * 1.5f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
-        return root;
-    }
-
-    /// <summary>
-    /// Create a wall segment: an elongated tall cube connecting two hubs.
-    /// Reads WallConnection to determine length and orientation.
-    /// </summary>
-    private GameObject CreateProceduralWallSegment(Vector3 center, Entity entity)
-    {
-        var root = new GameObject($"WallSegment_{entity.Index}");
-        root.transform.position = center;
-
-        // Calculate segment length from WallConnection
-        float length = 5f; // default fallback
-        if (_em.HasComponent<WallConnection>(entity))
-        {
-            var conn = _em.GetComponentData<WallConnection>(entity);
-            if (_em.Exists(conn.HubA) && _em.Exists(conn.HubB) &&
-                _em.HasComponent<Unity.Transforms.LocalTransform>(conn.HubA) &&
-                _em.HasComponent<Unity.Transforms.LocalTransform>(conn.HubB))
-            {
-                var posA = _em.GetComponentData<Unity.Transforms.LocalTransform>(conn.HubA).Position;
-                var posB = _em.GetComponentData<Unity.Transforms.LocalTransform>(conn.HubB).Position;
-                length = Unity.Mathematics.math.distance(
-                    new Unity.Mathematics.float2(posA.x, posA.z),
-                    new Unity.Mathematics.float2(posB.x, posB.z));
-            }
-        }
-
-        // Wall cube: thin, tall, stretched along local Z
-        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wall.name = "WallCube";
-        wall.transform.SetParent(root.transform, false);
-        wall.transform.localPosition = Vector3.up * 1.5f;
-        wall.transform.localScale = new Vector3(0.6f, 3f, length); // Thin, 3 units tall, spans the distance
-
-        var renderer = wall.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            renderer.material.color = new Color(0.50f, 0.45f, 0.38f); // Slightly darker stone
-        }
-
-        // Remove individual collider
-        var col = wall.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-
-        // Single collider on root
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(0.8f, 3f, length);
-        boxCol.center = Vector3.up * 1.5f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
-        // Apply rotation from ECS entity (segment is rotated to face hub A → hub B)
-        if (_em.HasComponent<Unity.Transforms.LocalTransform>(entity))
-        {
-            root.transform.rotation = _em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Rotation;
-        }
-
-        return root;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2152,7 +1781,6 @@ public class PresentationSpawnSystem : MonoBehaviour
         // 6 posts: 4 corners + 2 mid-posts on the long sides for structural support
         // Layout: 4.0 x 3.2 post grid (±2.0 on X, ±1.6 on Z)
 
-        float postHeight = 1.45f;
         float[] postX = { 2.0f, -2.0f, 2.0f, -2.0f, 0f, 0f };
         float[] postZ = { 1.6f, 1.6f, -1.6f, -1.6f, 1.6f, -1.6f };
         float[] postThick = { 0.36f, 0.38f, 0.34f, 0.36f, 0.32f, 0.30f };
@@ -3097,10 +2725,10 @@ public class PresentationSpawnSystem : MonoBehaviour
     {
         float scale = presentationId == 310 ? 1.5f : 1f; // Main node is 50% larger
 
-        // --- Colour palette ---
-        var purpleBase  = new Color(0.40f, 0.08f, 0.55f, 0.70f); // translucent deep purple
-        var greenTip    = new Color(0.06f, 0.28f, 0.10f, 0.55f); // translucent dark green
-        var emissionPurple = new Color(0.35f, 0.05f, 0.50f);     // dim purple glow
+        // --- Per-function colour palette derived from coreColor ---
+        var purpleBase = new Color(coreColor.r * 0.7f, coreColor.g * 0.5f, coreColor.b * 0.8f, 0.70f);
+        var greenTip   = new Color(coreColor.r * 0.15f, coreColor.g * 0.6f, coreColor.b * 0.25f, 0.55f);
+        var emissionPurple = coreColor * 0.7f;
 
         var rng = new System.Random(entity.Index + presentationId);
 

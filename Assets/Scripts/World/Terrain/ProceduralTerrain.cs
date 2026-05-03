@@ -158,7 +158,6 @@ namespace TheWaningBorder.World.Terrain
             // Create terrain
             var size = new Vector3(worldMax.x - worldMin.x, maxHeight, worldMax.y - worldMin.y);
 
-            Debug.Log($"[ProceduralTerrain] Creating terrain: size={size}, heightmapRes={heightmapRes}");
 
             _data = new TerrainData();
             _data.heightmapResolution = heightmapRes;
@@ -172,7 +171,6 @@ namespace TheWaningBorder.World.Terrain
             _terrain = go.GetComponent<UnityEngine.Terrain>();
             _terrain.drawInstanced = true;
 
-            Debug.Log($"[ProceduralTerrain] Terrain created at {go.transform.position}, data.size={_data.size}");
 
             // Generate textures if not assigned
             GenerateTerrainLayers();
@@ -185,7 +183,16 @@ namespace TheWaningBorder.World.Terrain
             // Create water plane
             CreateWaterPlane();
 
-            Debug.Log($"[ProceduralTerrain] Generated continental map with {_islands.Count} player regions (seed: {seed})");
+            // Place realistic spruce trees via noise-based forest placement
+            // (deferred one frame so player spawn positions are ready)
+            StartCoroutine(PlaceTreesDeferred());
+        }
+
+        private System.Collections.IEnumerator PlaceTreesDeferred()
+        {
+            yield return null; // wait one frame for spawn system to resolve positions
+            var spawns = GetMultiplayerSpawnPositions(GameSettings.TotalPlayers);
+            PlaceTerrainTrees(spawns);
         }
 
         void OnDestroy()
@@ -234,7 +241,6 @@ namespace TheWaningBorder.World.Terrain
             // Initialize with world bounds
             water.Initialize(worldMin, worldMax, waterHeight);
 
-            Debug.Log($"[ProceduralTerrain] Water plane at {waterHeight} units");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -267,9 +273,12 @@ namespace TheWaningBorder.World.Terrain
                 snow = CreateTerrainLayer("Snow", GenerateSnowTexture(texOffsetX, texOffsetY), tileSize);
 
             if (curse == null)
+            {
                 curse = CreateTerrainLayer("Curse", GenerateCurseTexture(texOffsetX, texOffsetY), tileSize);
+                curse.metallic = 0.7f;    // Reflective crystalline surface
+                curse.smoothness = 0.85f; // Glassy sheen
+            }
 
-            Debug.Log("[ProceduralTerrain] Generated terrain layer textures");
         }
 
         TerrainLayer CreateTerrainLayer(string name, Texture2D diffuse, float tileSize)
@@ -639,12 +648,12 @@ namespace TheWaningBorder.World.Terrain
         {
             var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
 
-            // Dark purple corruption palette
-            var baseCorrupt = new Color(0.12f, 0.04f, 0.18f);
-            var deepViolet  = new Color(0.20f, 0.06f, 0.28f);
-            var glowPurple  = new Color(0.35f, 0.10f, 0.45f);
-            var darkVein    = new Color(0.06f, 0.02f, 0.10f);
-            var crystalBit  = new Color(0.50f, 0.15f, 0.60f);
+            // Bright purple, reflective — like a glassy crystalline veil
+            var baseViolet    = new Color(0.25f, 0.08f, 0.35f);
+            var brightPurple  = new Color(0.55f, 0.15f, 0.70f);
+            var hotPink       = new Color(0.70f, 0.20f, 0.55f);
+            var deepVoid      = new Color(0.10f, 0.03f, 0.18f);
+            var crystalGlint  = new Color(0.80f, 0.40f, 0.90f);
 
             for (int y = 0; y < textureResolution; y++)
             {
@@ -653,32 +662,27 @@ namespace TheWaningBorder.World.Terrain
                     float u = x / (float)textureResolution;
                     float v = y / (float)textureResolution;
 
-                    // Multi-octave corruption noise
-                    float noise = Mathf.PerlinNoise(u * 30 + offsetX, v * 30 + offsetY) * 0.4f;
-                    noise += Mathf.PerlinNoise(u * 60 + offsetX, v * 60 + offsetY) * 0.35f;
-                    noise += Mathf.PerlinNoise(u * 120 + offsetX, v * 120 + offsetY) * 0.25f;
+                    // Base swirl
+                    float n = Mathf.PerlinNoise(u * 25 + offsetX, v * 25 + offsetY) * 0.5f
+                            + Mathf.PerlinNoise(u * 50 + offsetX, v * 50 + offsetY) * 0.3f
+                            + Mathf.PerlinNoise(u * 100 + offsetX, v * 100 + offsetY) * 0.2f;
 
-                    Color c = Color.Lerp(baseCorrupt, deepViolet, noise);
+                    Color c = Color.Lerp(baseViolet, brightPurple, n);
 
-                    // Vein-like dark streaks
-                    float veins = Mathf.PerlinNoise(u * 80 + offsetY, v * 80 + offsetX);
-                    veins = Mathf.Pow(Mathf.Abs(veins * 2f - 1f), 3f);
-                    c = Color.Lerp(c, darkVein, veins * 0.5f);
+                    // Hot pink streaks (veins)
+                    float vein = Mathf.PerlinNoise(u * 60 + offsetY, v * 60 + offsetX);
+                    vein = Mathf.Pow(Mathf.Abs(vein * 2f - 1f), 4f);
+                    c = Color.Lerp(c, hotPink, vein * 0.4f);
 
-                    // Glowing patches
-                    float glow = Mathf.PerlinNoise(u * 15 + offsetX * 2, v * 15 + offsetY * 2);
-                    if (glow > 0.6f)
-                    {
-                        float glowAmount = (glow - 0.6f) * 2.5f;
-                        c = Color.Lerp(c, glowPurple, glowAmount * 0.5f);
-                    }
+                    // Deep void pools
+                    float voidN = Mathf.PerlinNoise(u * 15 + offsetX * 2, v * 15 + offsetY * 2);
+                    if (voidN < 0.35f)
+                        c = Color.Lerp(c, deepVoid, (0.35f - voidN) * 1.5f);
 
-                    // Small bright crystal specks
-                    float specks = Mathf.PerlinNoise(u * 250 + offsetY * 3, v * 250 + offsetX * 3);
-                    if (specks > 0.9f)
-                    {
-                        c = Color.Lerp(c, crystalBit, (specks - 0.9f) * 5f);
-                    }
+                    // Crystal glint specks (reflective highlights baked into albedo)
+                    float glint = Mathf.PerlinNoise(u * 300 + offsetY * 3, v * 300 + offsetX * 3);
+                    if (glint > 0.88f)
+                        c = Color.Lerp(c, crystalGlint, (glint - 0.88f) * 6f);
 
                     tex.SetPixel(x, y, c);
                 }
@@ -750,7 +754,11 @@ namespace TheWaningBorder.World.Terrain
             const float noiseStrength = 0.35f; // How much the radius varies (±35%)
 
             float basePixelRadius = (radius / terrainSizeX) * res;
+            float terrainCellSize = terrainSizeX / res;
 
+            // Paint area is oversized (1.3x) so noise tendrils extend beyond the ring.
+            // Extra world-space noise offsets make each node's shape unique but still
+            // tile across overlapping nodes (shared world-space noise field).
             for (int z = 0; z < height; z++)
             {
                 for (int x = 0; x < width; x++)
@@ -759,19 +767,32 @@ namespace TheWaningBorder.World.Terrain
                     float dz = (minZ + z) - centerPixelZ;
                     float dist = Mathf.Sqrt(dx * dx + dz * dz);
 
-                    // Use world-space pixel position for noise (shared across all patches)
-                    float worldPixelX = (minX + x) * (terrainSizeX / res) + terrainPosX;
-                    float worldPixelZ = (minZ + z) * (terrainSizeZ / res) + terrainPosZ;
+                    // World-space pixel position for noise sampling (shared field)
+                    float worldPixelX = (minX + x) * terrainCellSize + terrainPosX;
+                    float worldPixelZ = (minZ + z) * terrainCellSize + terrainPosZ;
 
-                    // Multi-octave Perlin noise for organic edge shape
-                    float noise = Mathf.PerlinNoise(worldPixelX * noiseScale1 + 100f, worldPixelZ * noiseScale1 + 100f) * 0.5f
-                                + Mathf.PerlinNoise(worldPixelX * noiseScale2 + 200f, worldPixelZ * noiseScale2 + 200f) * 0.3f
-                                + Mathf.PerlinNoise(worldPixelX * noiseScale3 + 300f, worldPixelZ * noiseScale3 + 300f) * 0.2f;
-                    // Remap noise from 0..1 to -1..1 range
+                    // ── DOMAIN WARPING: perturb the sample point with a low-frequency
+                    //    noise field. Creates swirling, non-circular bulges and tendrils.
+                    float warpScale = 0.08f;
+                    float warpStrength = radius * 0.5f; // warp grows with blob size
+                    float wx = Mathf.PerlinNoise(worldPixelX * warpScale + 55f, worldPixelZ * warpScale + 77f) - 0.5f;
+                    float wz = Mathf.PerlinNoise(worldPixelX * warpScale + 211f, worldPixelZ * warpScale + 13f) - 0.5f;
+                    float sampleX = worldPixelX + wx * warpStrength;
+                    float sampleZ = worldPixelZ + wz * warpStrength;
+
+                    // Multi-octave FBM on the warped coordinates (high contrast for
+                    // strong tendril shapes instead of round bulges)
+                    float noise = Mathf.PerlinNoise(sampleX * noiseScale1 + 100f, sampleZ * noiseScale1 + 100f) * 0.55f
+                                + Mathf.PerlinNoise(sampleX * noiseScale2 + 200f, sampleZ * noiseScale2 + 200f) * 0.3f
+                                + Mathf.PerlinNoise(sampleX * noiseScale3 + 300f, sampleZ * noiseScale3 + 300f) * 0.15f;
+                    noise = Mathf.Pow(noise, 1.4f); // sharpen — deeper indentations
                     float noiseOffset = (noise - 0.5f) * 2f * noiseStrength;
 
-                    // Distorted radius at this pixel
-                    float localRadius = basePixelRadius * (1f + noiseOffset);
+                    // Compute local distorted radius. We also add a secondary edge-biased
+                    // perturbation so lobes and pseudopods extend past the base radius.
+                    float tendril = Mathf.PerlinNoise(worldPixelX * 0.05f + 400f, worldPixelZ * 0.05f + 500f);
+                    tendril = Mathf.Pow(tendril, 3f); // rare but strong bulges
+                    float localRadius = basePixelRadius * (1f + noiseOffset + tendril * 0.4f);
                     if (localRadius < 1f) localRadius = 1f;
 
                     if (dist > localRadius) continue;
@@ -1039,7 +1060,6 @@ namespace TheWaningBorder.World.Terrain
             float angleStep = 360f / playerCount;
             float startAngle = _rng.Next(0, 360);
 
-            Debug.Log($"[ProceduralTerrain] Generating continental map for {playerCount} players");
 
             for (int i = 0; i < playerCount; i++)
             {
@@ -1058,7 +1078,6 @@ namespace TheWaningBorder.World.Terrain
                     PlayerIndex = i
                 });
 
-                Debug.Log($"[ProceduralTerrain] Player {i + 1} spawn region at {center}");
             }
         }
 
@@ -1078,7 +1097,6 @@ namespace TheWaningBorder.World.Terrain
             // Normalized height references
             float waterNorm = waterHeight / maxHeight;
 
-            Debug.Log($"[ProceduralTerrain] Generating continental heightmap with layered noise");
 
             for (int y = 0; y < res; y++)
             {
@@ -1226,7 +1244,6 @@ namespace TheWaningBorder.World.Terrain
             }
 
             _data.SetHeights(0, 0, heights);
-            Debug.Log($"[ProceduralTerrain] Continental heightmap complete (with {smoothPasses} smoothing passes)");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1407,7 +1424,6 @@ namespace TheWaningBorder.World.Terrain
             }
 
             _data.SetAlphamaps(0, 0, splat);
-            Debug.Log($"[ProceduralTerrain] Splatmap painted — continental style");
         }
 
         TerrainLayer[] BuildLayerArray()
@@ -1534,7 +1550,6 @@ namespace TheWaningBorder.World.Terrain
                     float y = TerrainUtility.GetHeight(region.Center.x, region.Center.y);
                     positions[i] = new Vector3(region.Center.x, y, region.Center.y);
 
-                    Debug.Log($"[ProceduralTerrain] Player {i + 1} spawns at {region.Center}");
                 }
                 else
                 {
@@ -1546,11 +1561,201 @@ namespace TheWaningBorder.World.Terrain
                     float y = TerrainUtility.GetHeight(x, z);
                     positions[i] = new Vector3(x, y, z);
 
-                    Debug.LogWarning($"[ProceduralTerrain] No region for player {i + 1}, using fallback position");
                 }
             }
 
             return positions;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TERRAIN TREE PLACEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        [Header("Trees")]
+        [Tooltip("Enable noise-based realistic tree placement across terrain")]
+        public bool placeTrees = true;
+        [Tooltip("Perlin noise scale for tree placement (lower = larger forest patches)")]
+        public float treeNoiseScale = 0.018f;
+        [Tooltip("Noise threshold above which trees spawn (0.45-0.55 dense, 0.6+ sparse)")]
+        public float treeDensityThreshold = 0.52f;
+        [Tooltip("Grid spacing in world units between tree candidate points")]
+        public float treeGridSpacing = 4.5f;
+
+        private GameObject _treeRoot;
+        private Transform _treesParent;
+
+        /// <summary>
+        /// Public entry point to place realistic trees across the terrain using
+        /// noise-based forest placement with the Spruce_008 prefab. Uses direct
+        /// Instantiate + StaticBatchingUtility (Unity Terrain Tree system does
+        /// not work with the URP/Lit shader the prefab uses).
+        /// </summary>
+        public void PlaceTerrainTrees(Vector3[] playerSpawnPositions)
+        {
+            if (!placeTrees) return;
+            if (_treeRoot != null) return; // already placed
+
+            // Load all tree prefabs for variety — dev/editor path first, then Resources fallback
+            var treePrefabs = LoadTreePrefabs();
+            if (treePrefabs == null || treePrefabs.Length == 0)
+            {
+                Debug.LogError("[ProceduralTerrain] No tree prefabs could be loaded — check path to Spruce_008.prefab or copy it to Assets/Resources/Trees/");
+                return;
+            }
+
+            _treeRoot = new GameObject("TerrainTrees");
+            _treesParent = _treeRoot.transform;
+
+            int worldSize = (int)_data.size.x;
+            float halfSize = worldSize * 0.5f;
+
+            // Player spawn exclusion: inner clear (no trees), outer fade (sparse)
+            const float innerClear = 30f;
+            const float outerFade = 70f;
+
+            int placed = 0;
+            var spawnList = new List<GameObject>();
+
+            for (float z = -halfSize; z < halfSize; z += treeGridSpacing)
+            {
+                for (float x = -halfSize; x < halfSize; x += treeGridSpacing)
+                {
+                    // Deterministic hash for jitter (same seed always produces same forest)
+                    uint hash = (uint)((int)(x * 7919) ^ (int)(z * 31) ^ GameSettings.SpawnSeed);
+                    hash ^= hash >> 13; hash *= 0x5bd1e995; hash ^= hash >> 15;
+                    float jitterX = ((hash & 0xFFFF) / 65535f - 0.5f) * treeGridSpacing * 0.7f;
+                    float jitterZ = (((hash >> 16) & 0xFFFF) / 65535f - 0.5f) * treeGridSpacing * 0.7f;
+                    float wx = x + jitterX;
+                    float wz = z + jitterZ;
+
+                    // 3-octave FBM noise for organic forest shapes
+                    float n = Mathf.PerlinNoise(wx * treeNoiseScale + 13.7f, wz * treeNoiseScale + 91.3f) * 0.5f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 2.1f + 217f, wz * treeNoiseScale * 2.1f + 301f) * 0.3f
+                            + Mathf.PerlinNoise(wx * treeNoiseScale * 4.7f + 41f, wz * treeNoiseScale * 4.7f + 173f) * 0.2f;
+
+                    // Raise threshold near player spawns (quadratic falloff)
+                    float threshold = treeDensityThreshold;
+                    if (playerSpawnPositions != null)
+                    {
+                        foreach (var spawn in playerSpawnPositions)
+                        {
+                            float d = Vector2.Distance(new Vector2(wx, wz), new Vector2(spawn.x, spawn.z));
+                            if (d < innerClear) { threshold = 10f; break; }  // impossible threshold = no trees
+                            if (d < innerClear + outerFade)
+                            {
+                                float t = (d - innerClear) / outerFade;
+                                threshold = Mathf.Lerp(10f, treeDensityThreshold, t * t);
+                            }
+                        }
+                    }
+
+                    if (n < threshold) continue;
+
+                    // Skip water + steep slopes (sample neighbor heights)
+                    float y = TerrainUtility.GetHeight(wx, wz);
+                    if (y < 2f) continue;
+                    float yN = TerrainUtility.GetHeight(wx, wz + 2f);
+                    float yE = TerrainUtility.GetHeight(wx + 2f, wz);
+                    float slope = Mathf.Max(Mathf.Abs(yN - y), Mathf.Abs(yE - y)) / 2f;
+                    if (slope > 0.35f) continue;
+
+                    // Pick a prefab variant from the loaded array
+                    var treePrefab = treePrefabs[(int)(hash >> 4) % treePrefabs.Length];
+
+                    // Instantiate tree with variation
+                    var tree = Object.Instantiate(treePrefab, new Vector3(wx, y, wz),
+                        Quaternion.Euler(0, ((hash >> 8) & 0xFFFF) / 65535f * 360f, 0),
+                        _treesParent);
+
+                    // Scale variation: 0.15 - 0.7 (smaller than prefab default)
+                    float scaleHash = (((hash >> 20) & 0xFFF) / 4095f);
+                    float scale = Mathf.Lerp(0.15f, 0.7f, scaleHash);
+                    tree.transform.localScale = Vector3.one * scale;
+
+                    // Tint variation via MaterialPropertyBlock (dark green to olive/brown)
+                    ApplyTreeTint(tree, scaleHash);
+
+                    tree.isStatic = true;
+                    spawnList.Add(tree);
+                    placed++;
+                }
+            }
+
+            // Batch all trees into fewer draw calls
+            if (spawnList.Count > 0)
+                StaticBatchingUtility.Combine(spawnList.ToArray(), _treeRoot);
+
+            Debug.Log($"[ProceduralTerrain] Placed {placed} trees across {worldSize}x{worldSize} terrain");
+        }
+
+        // Cache loaded prefabs so we don't reload every instantiation
+        private GameObject[] _treePrefabCache;
+
+        private GameObject[] LoadTreePrefabs()
+        {
+            if (_treePrefabCache != null && _treePrefabCache.Length > 0)
+                return _treePrefabCache;
+
+            var list = new List<GameObject>();
+            string[] paths = {
+                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/Spruce_008.prefab",
+                "Assets/Happy Little Trees - Free nature pack by Nebula/Prefabs/Trees/Spruce/SpruceClutter_009.prefab",
+            };
+
+            #if UNITY_EDITOR
+            foreach (var p in paths)
+            {
+                var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p);
+                if (prefab != null) list.Add(prefab);
+                else Debug.LogWarning($"[ProceduralTerrain] Could not load tree prefab at: {p}");
+            }
+            #endif
+
+            // Resources fallback (needs prefabs in Assets/Resources/Trees/)
+            if (list.Count == 0)
+            {
+                var r1 = Resources.Load<GameObject>("Trees/Spruce_008");
+                if (r1 != null) list.Add(r1);
+            }
+
+            _treePrefabCache = list.ToArray();
+            Debug.Log($"[ProceduralTerrain] Loaded {_treePrefabCache.Length} tree prefabs");
+            return _treePrefabCache;
+        }
+
+        private GameObject LoadTreePrefab()
+        {
+            var prefabs = LoadTreePrefabs();
+            return prefabs.Length > 0 ? prefabs[0] : null;
+        }
+
+        private static readonly MaterialPropertyBlock _treeMpb = new MaterialPropertyBlock();
+        private static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
+
+        private void ApplyTreeTint(GameObject tree, float variation)
+        {
+            // Palette: dark green -> olive -> brown
+            Color[] palette = {
+                new Color(0.15f, 0.30f, 0.12f), // dark green
+                new Color(0.22f, 0.35f, 0.15f), // mid green
+                new Color(0.30f, 0.32f, 0.14f), // olive
+                new Color(0.35f, 0.25f, 0.12f), // brown-green
+                new Color(0.20f, 0.28f, 0.10f), // forest green
+            };
+            Color tint = palette[Mathf.FloorToInt(variation * palette.Length) % palette.Length];
+
+            foreach (var r in tree.GetComponentsInChildren<Renderer>())
+            {
+                r.GetPropertyBlock(_treeMpb);
+                _treeMpb.SetColor(_baseColorId, tint);
+                r.SetPropertyBlock(_treeMpb);
+            }
+        }
+
+        public void ClearTerrainTrees()
+        {
+            if (_treeRoot != null) Destroy(_treeRoot);
+            _treeRoot = null;
         }
     }
 }

@@ -159,8 +159,8 @@ namespace TheWaningBorder.Systems.Work
                 var depositPos = em.GetComponentData<LocalTransform>(gatherCmd.ResourceNode).Position;
                 if (em.HasComponent<DesiredDestination>(entity))
                     em.SetComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
-                else
-                    em.AddComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
+                    else
+                        em.AddComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
                 return;
             }
 
@@ -197,8 +197,8 @@ namespace TheWaningBorder.Systems.Work
             var depPos = em.GetComponentData<LocalTransform>(target).Position;
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
-            else
-                em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
+                else
+                    em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
         }
 
         private void ProcessMovingState(ref MinerState miner, EntityManager em, Entity entity, float3 pos)
@@ -389,8 +389,8 @@ namespace TheWaningBorder.Systems.Work
 
                     if (em.HasComponent<DesiredDestination>(entity))
                         em.SetComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
-                    else
-                        em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
+                        else
+                            em.AddComponentData(entity, new DesiredDestination { Position = depPos, Has = 1 });
                 }
                 else
                 {
@@ -408,8 +408,8 @@ namespace TheWaningBorder.Systems.Work
                         var newPos = em.GetComponentData<LocalTransform>(nearbyDeposit).Position;
                         if (em.HasComponent<DesiredDestination>(entity))
                             em.SetComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
-                        else
-                            em.AddComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
+                            else
+                                em.AddComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
                     }
                     else
                     {
@@ -472,8 +472,8 @@ namespace TheWaningBorder.Systems.Work
                 var dropoffPos = em.GetComponentData<LocalTransform>(nearest).Position;
                 if (em.HasComponent<DesiredDestination>(minerEntity))
                     em.SetComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
-                else
-                    em.AddComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
+                    else
+                        em.AddComponentData(minerEntity, new DesiredDestination { Position = dropoffPos, Has = 1 });
             }
         }
 

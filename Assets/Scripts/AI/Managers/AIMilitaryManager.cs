@@ -19,9 +19,9 @@ namespace TheWaningBorder.AI
     {
         private const float RECRUITMENT_CHECK_INTERVAL = 5.0f;
         private const int MIN_ARMY_SIZE = 3;
-        private const int MAX_ARMY_SIZE = 12;
-        private const int TARGET_BARRACKS = 2;
-        private const int MAX_HUTS = 5;
+        private const int MAX_ARMY_SIZE = 16;
+        private const int TARGET_BARRACKS = 4;
+        private const int MAX_HUTS = 10;
         private const int POP_HEADROOM = 2; // Request hut when this close to cap
 
         private NativeHashMap<int, int> _nextArmyId;
@@ -42,23 +42,29 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (brain, militaryState, recruitReqs, resourceReqs, entity)
-                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIMilitaryState>,
+            foreach (var (brain, militaryState, stratState, recruitReqs, resourceReqs, entity)
+                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIMilitaryState>, RefRO<AIStrategyState>,
                     DynamicBuffer<RecruitmentRequest>, DynamicBuffer<ResourceRequest>>()
                 .WithEntityAccess())
             {
                 if (brain.ValueRO.IsActive == 0) continue;
 
                 var state_val = militaryState.ValueRW;
+                var strategy = stratState.ValueRO.Current;
 
                 if (time >= state_val.LastRecruitmentCheck + state_val.RecruitmentCheckInterval)
                 {
                     state_val.LastRecruitmentCheck = time;
-                    ManageMilitary(ref state, brain.ValueRO.Owner, ref state_val, recruitReqs, resourceReqs, ecb);
+                    ManageMilitary(ref state, brain.ValueRO.Owner, ref state_val, strategy, recruitReqs, resourceReqs, ecb);
                     ProcessRecruitmentRequests(ref state, brain.ValueRO.Owner, recruitReqs, ecb);
                     OrganizeArmies(ref state, brain.ValueRO.Owner, ref state_val, ecb);
                 }
@@ -73,7 +79,8 @@ namespace TheWaningBorder.AI
         }
 
         private void ManageMilitary(ref SystemState state, Faction faction,
-            ref AIMilitaryState militaryState, DynamicBuffer<RecruitmentRequest> recruitReqs,
+            ref AIMilitaryState militaryState, AIStrategy strategy,
+            DynamicBuffer<RecruitmentRequest> recruitReqs,
             DynamicBuffer<ResourceRequest> resourceReqs, EntityCommandBuffer ecb)
         {
             var em = state.EntityManager;
@@ -125,12 +132,14 @@ namespace TheWaningBorder.AI
                 if (fTag.ValueRO.Value == faction) { hasMiners = true; break; }
             }
 
-            if (barracksCount < TARGET_BARRACKS && hasMiners)
+            // Rush strategy: build barracks immediately, don't wait for miners
+            bool needsMinersFirst = strategy != AIStrategy.Rush;
+            if (barracksCount < TARGET_BARRACKS && (hasMiners || !needsMinersFirst))
             {
-                AILogger.Log(faction, "MILITARY", $"Need barracks ({barracksCount} < {TARGET_BARRACKS}), requesting build");
+                AILogger.Log(faction, "MILITARY", $"Need barracks ({barracksCount} < {TARGET_BARRACKS}), requesting build [strategy:{strategy}]");
                 RequestBarracks(ref state, faction);
             }
-            else if (barracksCount < TARGET_BARRACKS && !hasMiners)
+            else if (barracksCount < TARGET_BARRACKS && !hasMiners && needsMinersFirst)
             {
                 AILogger.Log(faction, "MILITARY", "Barracks request deferred — no miners yet");
             }
@@ -141,7 +150,7 @@ namespace TheWaningBorder.AI
             // Only request military units once at least 1 barracks is fully built
             if (completeBarracks > 0)
             {
-                DetermineMilitaryNeeds(ref state, faction, ref militaryState, recruitReqs);
+                DetermineMilitaryNeeds(ref state, faction, strategy, ref militaryState, recruitReqs);
             }
             else
             {
@@ -208,7 +217,7 @@ namespace TheWaningBorder.AI
         }
 
         private void DetermineMilitaryNeeds(ref SystemState state, Faction faction,
-            ref AIMilitaryState militaryState, DynamicBuffer<RecruitmentRequest> recruitReqs)
+            AIStrategy strategy, ref AIMilitaryState militaryState, DynamicBuffer<RecruitmentRequest> recruitReqs)
         {
             // Get AI personality for composition preferences
             AIPersonality personality = AIPersonality.Balanced;
@@ -235,34 +244,56 @@ namespace TheWaningBorder.AI
             int totalArchers = militaryState.TotalArchers + militaryState.QueuedArchers;
             int totalSiege = militaryState.TotalSiegeUnits + militaryState.QueuedSiegeUnits;
             int totalMilitary = totalSoldiers + totalArchers + totalSiege;
-            int targetSize = MIN_ARMY_SIZE * 2;
 
             AILogger.Log(faction, "MILITARY",
-                $"Military needs — live+queue:{totalMilitary} (soldiers:{totalSoldiers} archers:{totalArchers} siege:{totalSiege}) target:{targetSize}");
+                $"Military needs — live+queue:{totalMilitary} (soldiers:{totalSoldiers} archers:{totalArchers} siege:{totalSiege})");
 
-            if (totalMilitary < targetSize)
+            // Strategy-aware recruitment: Rush trains heavily early,
+            // Eco Boom delays, Defensive builds standing army, etc.
             {
-                int needed = targetSize - totalMilitary;
-                // Cap how many we request per cycle to avoid wasting money
-                needed = math.min(needed, 4);
-                AILogger.Log(faction, "MILITARY", $"Requesting {needed} more military units this cycle");
-
-                // Determine composition based on personality
-                int soldiers, archers, siege;
-                switch (personality)
+                // How many to request per cycle depends on strategy
+                int needed = strategy switch
                 {
-                    case AIPersonality.Aggressive:
-                    case AIPersonality.Rush:
-                        soldiers = (int)(needed * 0.6f);
-                        archers = (int)(needed * 0.3f);
-                        siege = needed - soldiers - archers;
+                    AIStrategy.Rush => 4,       // Fast production
+                    AIStrategy.EcoBoom => totalMilitary < 3 ? 1 : 2, // Minimal early, ramp later
+                    AIStrategy.TechRush => 2,   // Moderate — save resources for tech
+                    AIStrategy.Aggressive => 3, // Continuous pressure
+                    AIStrategy.Defensive => 2,  // Standing army, steady build
+                    _ => math.max(2, MIN_ARMY_SIZE)
+                };
+
+                AILogger.Log(faction, "MILITARY",
+                    $"Strategy:{strategy} — requesting {needed} units (total:{totalMilitary})");
+
+                // Determine composition based on strategy
+                int soldiers, archers, siege;
+                switch (strategy)
+                {
+                    case AIStrategy.Rush:
+                        // Rush: all swords early, mix later
+                        soldiers = (int)(needed * 0.8f);
+                        archers = needed - soldiers;
+                        siege = 0;
                         break;
-                    case AIPersonality.Defensive:
+                    case AIStrategy.Defensive:
+                        // Defensive: archer-heavy, some melee screen
                         soldiers = (int)(needed * 0.3f);
                         archers = (int)(needed * 0.5f);
                         siege = needed - soldiers - archers;
                         break;
-                    default: // Balanced, Economic
+                    case AIStrategy.Aggressive:
+                        // Aggressive: balanced with siege
+                        soldiers = (int)(needed * 0.5f);
+                        archers = (int)(needed * 0.3f);
+                        siege = needed - soldiers - archers;
+                        break;
+                    case AIStrategy.TechRush:
+                        // Tech: mostly archers (ranged advantage from upgrades)
+                        soldiers = (int)(needed * 0.3f);
+                        archers = (int)(needed * 0.5f);
+                        siege = needed - soldiers - archers;
+                        break;
+                    default: // EcoBoom, fallback
                         soldiers = (int)(needed * 0.4f);
                         archers = (int)(needed * 0.4f);
                         siege = needed - soldiers - archers;
@@ -619,7 +650,6 @@ namespace TheWaningBorder.AI
                     assigned++;
                 }
 
-                Debug.Log($"[AIMilitaryManager] {faction} created army {armyId} with {assigned} units");
             }
 
             unassigned.Dispose();
@@ -776,7 +806,12 @@ namespace TheWaningBorder.AI
             {
                 if (factionTag.ValueRO.Value == faction && buildingTag.ValueRO.IsBase == 1)
                 {
-                    var random = new Unity.Mathematics.Random((uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction));
+                    // Fix #230: Unity.Mathematics.Random with seed 0 produces
+                    // all zeros. At ElapsedTime==0 for Faction.Blue (index 0)
+                    // this expression was 0. Guard by forcing 1 on underflow.
+                    uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction);
+                    if (seed == 0) seed = 1;
+                    var random = new Unity.Mathematics.Random(seed);
                     float angle = random.NextFloat(0, math.PI * 2);
                     float distance = random.NextFloat(10, 20);
                     return transform.ValueRO.Position + new float3(

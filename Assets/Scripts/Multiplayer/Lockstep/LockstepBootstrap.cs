@@ -112,7 +112,6 @@ namespace TheWaningBorder.Multiplayer
             if (_initialized) return;
             if (!GameSettings.IsMultiplayer) return;
 
-            Debug.Log($"[LockstepBootstrap] Initializing synchronously - IsHost: {IsHost}, LocalPlayer: {LocalPlayerIndex}, Faction: {LocalFaction}");
 
             // Create LockstepManager
             var lockstep = LockstepManager.Instance;
@@ -136,7 +135,6 @@ namespace TheWaningBorder.Multiplayer
             lockstep.StartSimulation();
 
             _initialized = true;
-            Debug.Log("[LockstepBootstrap] Lockstep simulation started (synchronous)!");
         }
 
         private IEnumerator InitializeLockstepDeferred()
@@ -165,7 +163,6 @@ namespace TheWaningBorder.Multiplayer
             HostPort = port;
             RemotePlayers = remotePlayers ?? new List<RemotePlayerInfo>();
             
-            Debug.Log($"[LockstepBootstrap] Configured as HOST on port {port} with {RemotePlayers.Count} remote players");
         }
 
         /// <summary>
@@ -180,7 +177,6 @@ namespace TheWaningBorder.Multiplayer
             LocalPlayerIndex = playerIndex;
             LocalFaction = faction;
             
-            Debug.Log($"[LockstepBootstrap] Configured as CLIENT - Host: {hostIP}:{hostPort}, LocalPort: {localPort}, Player: {playerIndex}");
         }
 
         /// <summary>

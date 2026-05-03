@@ -18,9 +18,11 @@ namespace TheWaningBorder.AI
     [UpdateAfter(typeof(AIMilitaryManager))]
     public partial struct AICrystalHuntBehavior : ISystem
     {
-        private const float HUNT_CHECK_INTERVAL = 8.0f;
-        private const float HUNT_RANGE = 80f;
-        private const int MAX_HUNTERS_PER_TARGET = 3;
+        // Fix #231: constants moved to AITuning.CrystalHuntRange /
+        // MaxCrystalHuntersPerTarget. Kept a local alias for HUNT_RANGE
+        // because the field is read in a Burst-friendly hot path.
+        private static readonly float HUNT_RANGE = AITuning.CrystalHuntRange;
+        private static readonly int MAX_HUNTERS_PER_TARGET = AITuning.MaxCrystalHuntersPerTarget;
 
         private struct DeferredAttack
         {
@@ -36,6 +38,11 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
 
@@ -47,9 +54,11 @@ namespace TheWaningBorder.AI
             {
                 if (brain.ValueRO.IsActive == 0) continue;
 
-                var hunt = huntState.ValueRW;
-                if (time < hunt.LastHuntCheck + hunt.HuntCheckInterval) continue;
-                hunt.LastHuntCheck = time;
+                // Fix #201: write directly through ValueRW so LastHuntCheck persists.
+                // Previously the code copied into a local struct and never wrote it back,
+                // causing the throttle to be bypassed and the hunt to run every frame.
+                if (time < huntState.ValueRO.LastHuntCheck + huntState.ValueRO.HuntCheckInterval) continue;
+                huntState.ValueRW.LastHuntCheck = time;
 
                 AssignHunters(ref state, brain.ValueRO.Owner, ref deferredAttacks);
             }
@@ -93,7 +102,8 @@ namespace TheWaningBorder.AI
                 .WithAll<CrystalTag, UnitTag>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value != Faction.White) continue;
+                // CrystalTag already identifies crystal faction — no Faction.White check
+                // needed (Faction.White is a player color, not a crystal-only identifier)
 
                 float dist = math.distance(basePos, transform.ValueRO.Position);
                 if (dist <= HUNT_RANGE)
@@ -109,8 +119,6 @@ namespace TheWaningBorder.AI
                 .WithAll<CrystalTag, BuildingTag>()
                 .WithEntityAccess())
             {
-                if (factionTag.ValueRO.Value != Faction.White) continue;
-
                 float dist = math.distance(basePos, transform.ValueRO.Position);
                 if (dist <= HUNT_RANGE)
                 {
@@ -156,6 +164,9 @@ namespace TheWaningBorder.AI
 
                 idleHunters.Add(entity);
             }
+
+            AILogger.Log(faction, "CRYSTAL_DEFENSE",
+                $"Threats:{creatures.Length} near base, idle hunters:{idleHunters.Length}");
 
             // Assign hunters to creatures (round-robin, max per target)
             int hunterIdx = 0;

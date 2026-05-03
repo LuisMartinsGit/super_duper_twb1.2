@@ -34,6 +34,11 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             double elapsedTime = SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
@@ -103,7 +108,6 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            Debug.Log($"[AIScoutingBehavior] {faction} initialized {zones.Length} exploration zones");
         }
 
         private void UpdateScoutAssignments(ref SystemState state, Faction faction,
@@ -283,8 +287,6 @@ namespace TheWaningBorder.AI
                             Has = 1
                         });
 
-                        Debug.Log($"[AIScoutingBehavior] {faction} scout {i} assigned to zone {bestZoneIndex} " +
-                                  $"at {targetZone.CenterPosition} (Distance: {assignment.DistanceToTarget:F1})");
                     }
                 }
             }
@@ -319,8 +321,6 @@ namespace TheWaningBorder.AI
                         zone.VisitCount++;
                         zones[assignment.AssignedZoneIndex] = zone;
 
-                        Debug.Log($"[AIScoutingBehavior] {faction} scout reached zone {assignment.AssignedZoneIndex} " +
-                                  $"(Visit #{zone.VisitCount}) at {zone.CenterPosition}");
                     }
                 }
             }
@@ -408,6 +408,8 @@ namespace TheWaningBorder.AI
         private void ScanForEnemies(ref SystemState state, Faction faction,
             DynamicBuffer<EnemySighting> sightings, double elapsedTime)
         {
+            var em = state.EntityManager;
+
             for (int i = 0; i < sightings.Length; i++)
             {
                 var sighting = sightings[i];
@@ -431,13 +433,15 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            // Scan enemy units: estimate combat power from Health + Damage components
+            // Scan enemy PLAYER units only — crystal faction (identified by CrystalTag) is
+            // handled by AICrystalHuntBehavior as a defensive farm, not an attack mission target.
             foreach (var (enemyFaction, transform, health, entity) in
                      SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<Health>>()
                      .WithAll<UnitTag>()
                      .WithEntityAccess())
             {
                 if (enemyFaction.ValueRO.Value == faction) continue;
+                if (em.HasComponent<CrystalTag>(entity)) continue; // Skip crystal faction units
                 if (health.ValueRO.Value <= 0) continue;
 
                 bool canSee = false;
@@ -474,6 +478,7 @@ namespace TheWaningBorder.AI
                      .WithEntityAccess())
             {
                 if (enemyFaction.ValueRO.Value == faction) continue;
+                if (em.HasComponent<CrystalTag>(entity)) continue; // Skip crystal faction buildings
 
                 bool canSee = false;
                 for (int i = 0; i < observerPositions.Length; i++)
@@ -565,7 +570,6 @@ namespace TheWaningBorder.AI
                 {
                     if (sightings[i].IsBase == 1)
                         enemyBasesSpotted++;
-                    else
                         enemyArmiesSpotted++;
                 }
             }
@@ -595,10 +599,15 @@ namespace TheWaningBorder.AI
 
         private float3 GetBasePosition(ref SystemState state, Faction faction)
         {
+            // Fix #229: must filter by IsBase == 1 to match the Hall, not just
+            // any building owned by the faction. Previously this returned the
+            // first building (often a Hut or GathererHut) which meant scout
+            // exploration zones were centred on an arbitrary building instead
+            // of the actual base, causing scouts to cover the wrong area.
             foreach (var (factionTag, transform, building) in
                      SystemAPI.Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<BuildingTag>>())
             {
-                if (factionTag.ValueRO.Value == faction)
+                if (factionTag.ValueRO.Value == faction && building.ValueRO.IsBase == 1)
                     return transform.ValueRO.Position;
             }
             return float3.zero;

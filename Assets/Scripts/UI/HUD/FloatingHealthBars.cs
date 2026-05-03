@@ -27,6 +27,7 @@ namespace TheWaningBorder.UI.HUD
 
         private EntityWorld _world;
         private EntityManager _em;
+        private Camera _cachedCamera;  // Fix #222
 
         private static readonly Color BgColor = new Color(0.04f, 0.05f, 0.12f, 0.85f);
         private static readonly Color BorderColor = new Color(0f, 0f, 0f, 0.6f);
@@ -48,19 +49,20 @@ namespace TheWaningBorder.UI.HUD
             }
             if (_em.Equals(default(EntityManager))) return;
 
-            var cam = Camera.main;
+            // Fix #222: cache Camera.main (FindGameObjectWithTag on every call).
+            var cam = _cachedCamera != null ? _cachedCamera : (_cachedCamera = Camera.main);
             if (cam == null) return;
 
             // Track which entities already have bars drawn (avoid duplicates for hovered+selected)
             var drawn = new HashSet<Entity>();
 
-            // Draw bar for hovered entity
+            // Draw bar for hovered entity (any visible entity, including battalion members)
             var hovered = RTSInput.HoveredEntity;
             if (hovered != Entity.Null && _em.Exists(hovered) && _em.HasComponent<Health>(hovered))
             {
                 if (ShouldShowBar(hovered))
                 {
-                    DrawBarForEntity(cam, hovered);
+                    DrawBarForEntity(cam, hovered, isHovered: true);
                     drawn.Add(hovered);
                 }
             }
@@ -84,27 +86,21 @@ namespace TheWaningBorder.UI.HUD
 
         private bool ShouldShowBar(Entity e)
         {
-            if (!_em.HasComponent<FactionTag>(e)) return false;
-
-            var faction = _em.GetComponentData<FactionTag>(e).Value;
-            if (faction == GameSettings.LocalPlayerFaction)
-                return true;
-
-            // Enemy: only show if visible through fog of war
-            if (!_em.HasComponent<LocalTransform>(e)) return false;
-            var pos = _em.GetComponentData<LocalTransform>(e).Position;
-            return FogOfWarSystem.IsVisibleToFaction(GameSettings.LocalPlayerFaction, pos);
+            // If the entity exists and has Health, show the bar.
+            // FogVisibilitySyncSystem already hides invisible entities by deactivating
+            // their GameObjects, so if the hover raycast hit this entity, it is visible.
+            return _em.Exists(e);
         }
 
-        private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false)
+        private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false, bool isHovered = false)
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
 
             // Skip battalion leaders (invisible, dummy HP)
             if (_em.HasComponent<BattalionLeader>(e)) return;
 
-            // Skip unselected battalion members (only show when battalion is selected)
-            if (_em.HasComponent<BattalionMemberData>(e) && !isSelected) return;
+            // Battalion members: show when hovered OR when their battalion is selected
+            if (_em.HasComponent<BattalionMemberData>(e) && !isSelected && !isHovered) return;
 
             var hp = _em.GetComponentData<Health>(e);
 

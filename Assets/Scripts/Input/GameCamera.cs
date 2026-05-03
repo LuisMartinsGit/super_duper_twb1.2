@@ -33,7 +33,6 @@ namespace TheWaningBorder.Input
             // Already have a controller?
             if (_controller != null)
             {
-                Debug.Log("[GameCamera] Camera controller already exists");
                 return;
             }
 
@@ -41,12 +40,10 @@ namespace TheWaningBorder.Input
             _controller = Object.FindFirstObjectByType<CameraController>();
             if (_controller != null)
             {
-                Debug.Log("[GameCamera] Found existing camera controller");
                 return;
             }
 
             // Create new camera rig
-            Debug.Log("[GameCamera] Creating new camera rig...");
             
             var rigGO = new GameObject("CameraRig");
             _controller = rigGO.AddComponent<CameraController>();
@@ -57,7 +54,6 @@ namespace TheWaningBorder.Input
             // Make it persist through scene loads if needed
             // Object.DontDestroyOnLoad(rigGO); // Uncomment if camera should persist
 
-            Debug.Log("[GameCamera] Camera rig created successfully");
         }
 
         /// <summary>

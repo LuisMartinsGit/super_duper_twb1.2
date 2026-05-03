@@ -104,7 +104,6 @@ public sealed class TechTreeDB : MonoBehaviour
 
         if (humanTechJson == null || string.IsNullOrWhiteSpace(humanTechJson.text))
         {
-            Debug.LogError("[TechTreeDB] No JSON provided! Assign TechTree.json or place in Resources folder.");
             return;
         }
 
@@ -125,7 +124,6 @@ public sealed class TechTreeDB : MonoBehaviour
             var asset = UnityEngine.Resources.Load<TextAsset>(path);
             if (asset != null)
             {
-                Debug.Log($"[TechTreeDB] Auto-loaded from Resources/{path}");
                 return asset;
             }
         }
@@ -136,20 +134,42 @@ public sealed class TechTreeDB : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════
     // JSON PARSING
     // ═══════════════════════════════════════════════════════════════════════
-    
+    //
+    // Fix #220: the previous implementation was 600+ lines of hand-rolled
+    // substring parsing (ParseString / ParseFloat / ParseStringArray /
+    // ParseDefenseBlock / ParseCostBlock / ParseTechEffects). Every per-field
+    // read did IndexOf + Substring + TryParse, and every object boundary was
+    // found via LastIndexOf('{', ...) + FindMatchingBrace.
+    //
+    // The rewrite keeps the ID-indexed lookup approach (find an object whose
+    // "id" field matches a target ID, slice it, deserialize it) because it
+    // sidesteps the nested eras[] -> variants.{culture}.buildings[] tree the
+    // JSON is organized in. But field-level parsing now delegates to
+    // UnityEngine.JsonUtility via the intermediate *Json DTOs in
+    // TechTreeJsonDtos.cs, eliminating ~350 lines of per-field parser code.
+    //
+    // One pre-processing step remains: the JSON field "class" is a C#
+    // reserved word, so PreprocessSlice() renames it to "unitClass" on the
+    // sliced substring before deserialization.
+
     private void ParseJson(string json)
     {
         try
         {
-            Debug.Log("[TechTreeDB] Parsing tech tree...");
 
-            // Parse global data
-            _faction = ParseString(json, "faction", "unknown");
-            ParseResourcesArray(json);
-            ParseCombatProfile(json);
+            // Global fields via a minimal root DTO
+            var root = JsonUtility.FromJson<TechTreeRootJson>(json);
+            _faction = string.IsNullOrEmpty(root?.faction) ? "unknown" : root.faction;
+            _resources = root?.resources != null
+                ? new List<string>(root.resources)
+                : new List<string>();
+
+            _combatProfile = new CombatProfile
+            {
+                defenseFormulaHint = "",
+            };
 
             // Parse Era 1 - Human Core
-            Debug.Log("[TechTreeDB] Parsing Era 1 Human units and buildings...");
             ParseBuilding(json, "Hall");
             ParseBuilding(json, "Hut");
             ParseBuilding(json, "GatherersHut");
@@ -166,7 +186,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Litharch");
 
             // Parse Era 1 - Feraldis (if present)
-            Debug.Log("[TechTreeDB] Parsing Feraldis (Era 1 variant)...");
             ParseBuilding(json, "FiendstoneKeep");
             ParseBuilding(json, "Feraldis_BeastPen");
             ParseBuilding(json, "Feraldis_HuntingLodge");
@@ -182,7 +201,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Feraldis_SiegeRam");
 
             // Parse Era 2 - Alanthor
-            Debug.Log("[TechTreeDB] Parsing Alanthor (Era 2)...");
             ParseBuilding(json, "KingsCourt");
             ParseBuilding(json, "Alanthor_Wall");
             ParseBuilding(json, "Alanthor_Tower");
@@ -198,7 +216,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Alanthor_Ballista");
 
             // Parse Era 2 - Runai
-            Debug.Log("[TechTreeDB] Parsing Runai (Era 2)...");
             ParseBuilding(json, "ThessarasBazaar");
             ParseBuilding(json, "Runai_Outpost");
             ParseBuilding(json, "Runai_TradeHub");
@@ -219,7 +236,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseTechnology(json, "Runai_EscortedCaravans");
 
             // Parse Technologies (Era 1)
-            Debug.Log("[TechTreeDB] Parsing Technologies...");
             ParseTechnology(json, "Research_Era2");
             ParseTechnology(json, "ImprovedTools");
             ParseTechnology(json, "StorageCarts");
@@ -227,7 +243,6 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseTechnology(json, "WoodenArmor");
 
             // Parse Sects
-            Debug.Log("[TechTreeDB] Parsing Sects...");
             ParseAllSects(json);
 
             // Ensure Shrine and Temple entries exist with defaults if not in JSON
@@ -249,15 +264,12 @@ public sealed class TechTreeDB : MonoBehaviour
             }
 
             // Log summary
-            Debug.Log($"[TechTreeDB] ✓ Loaded {_buildingsById.Count} buildings, {_unitsById.Count} units, " +
-                     $"{_technologiesById.Count} technologies, {_sectsById.Count} sects");
 
             // Log sample units for verification
             LogSampleUnits();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Debug.LogError($"[TechTreeDB] Parse error: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -268,59 +280,14 @@ public sealed class TechTreeDB : MonoBehaviour
         {
             if (_unitsById.TryGetValue(unitId, out var unit))
             {
-                Debug.Log($"[TechTreeDB] {unit.id}: HP={unit.hp}, Speed={unit.speed}, " +
-                         $"Dmg={unit.damage}, Range={unit.attackRange}, LOS={unit.lineOfSight}");
             }
         }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PARSE RESOURCES ARRAY
+    // BUILDING DEFAULT (used when a required building is missing from JSON)
     // ═══════════════════════════════════════════════════════════════════════
-    
-    void ParseResourcesArray(string json)
-    {
-        int resourcesIndex = json.IndexOf("\"resources\":");
-        if (resourcesIndex == -1) return;
-        
-        int arrayStart = json.IndexOf("[", resourcesIndex);
-        int arrayEnd = json.IndexOf("]", arrayStart);
-        
-        if (arrayStart == -1 || arrayEnd == -1) return;
-        
-        string arrayContent = json.Substring(arrayStart + 1, arrayEnd - arrayStart - 1);
-        string[] parts = arrayContent.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-        
-        foreach (var part in parts)
-        {
-            string cleaned = part.Trim().Trim('"');
-            if (!string.IsNullOrEmpty(cleaned))
-                _resources.Add(cleaned);
-        }
-    }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PARSE COMBAT PROFILE
-    // ═══════════════════════════════════════════════════════════════════════
-    
-    void ParseCombatProfile(string json)
-    {
-        _combatProfile = new CombatProfile();
-        
-        int profileIndex = json.IndexOf("\"combatProfile\":");
-        if (profileIndex == -1) return;
-        
-        _combatProfile.defenseFormulaHint = ParseString(
-            json.Substring(profileIndex), 
-            "defenseFormulaHint", 
-            ""
-        );
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PARSE BUILDING
-    // ═══════════════════════════════════════════════════════════════════════
-    
     void EnsureBuildingDefault(string id, string name, string role, float hp, float los, float radius, int minEra, string[] trains)
     {
         if (_buildingsById.ContainsKey(id)) return;
@@ -335,173 +302,115 @@ public sealed class TechTreeDB : MonoBehaviour
         };
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PER-ID PARSERS (Fix #220 — now delegate to JsonUtility)
+    // ═══════════════════════════════════════════════════════════════════════
+
     void ParseBuilding(string json, string buildingId)
     {
-        string searchPattern = $"\"id\": \"{buildingId}\"";
-        int buildingIndex = json.IndexOf(searchPattern);
-        
-        if (buildingIndex == -1)
-        {
-            // Silently skip - not all buildings may be in every JSON
-            return;
-        }
-
-        int objStart = json.LastIndexOf('{', buildingIndex);
-        int objEnd = FindMatchingBrace(json, objStart);
-        
-        if (objStart == -1 || objEnd == -1) return;
-        
-        string buildingJson = json.Substring(objStart, objEnd - objStart + 1);
-
-        var building = new BuildingDef
-        {
-            id = buildingId,
-            name = ParseString(buildingJson, "name", buildingId),
-            role = ParseString(buildingJson, "role", ""),
-            hp = ParseFloat(buildingJson, "hp", 0, 1000),
-            armorType = ParseString(buildingJson, "armorType", "structure_human"),
-            lineOfSight = ParseFloat(buildingJson, "lineOfSight", 0, 20),
-            radius = ParseFloat(buildingJson, "radius", 0, 1.6f),
-            defense = ParseDefenseBlock(buildingJson),
-            trains = ParseStringArray(buildingJson, "trains"),
-            research = ParseStringArray(buildingJson, "research"),
-            cost = ParseCostBlock(buildingJson),
-            minEra = (int)ParseFloat(buildingJson, "minEra", 0, 0)
-        };
-
-        _buildingsById[buildingId] = building;
+        if (!TrySliceObjectById(json, buildingId, out string slice)) return;
+        var dto = JsonUtility.FromJson<BuildingJson>(slice);
+        if (dto == null) return;
+        _buildingsById[buildingId] = dto.ToDef(buildingId);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PARSE UNIT
-    // ═══════════════════════════════════════════════════════════════════════
-    
     void ParseUnit(string json, string unitId)
     {
-        string searchPattern = $"\"id\": \"{unitId}\"";
-        int unitIndex = json.IndexOf(searchPattern);
-        
-        if (unitIndex == -1)
-        {
-            // Silently skip - not all units may be in every JSON
-            return;
-        }
-
-        int objStart = json.LastIndexOf('{', unitIndex);
-        int objEnd = FindMatchingBrace(json, objStart);
-        
-        if (objStart == -1 || objEnd == -1) return;
-        
-        string unitJson = json.Substring(objStart, objEnd - objStart + 1);
-
-        var unit = new UnitDef
-        {
-            id = unitId,
-            unitClass = ParseString(unitJson, "class", ""),
-            name = ParseString(unitJson, "name", unitId),
-            hp = ParseFloat(unitJson, "hp", 0, 100),
-            speed = ParseFloat(unitJson, "speed", 0, 5),
-            trainingTime = ParseFloat(unitJson, "trainingTime", 0, 5),
-            damage = ParseFloat(unitJson, "damage", 0, 10),
-            attackRange = ParseFloat(unitJson, "attackRange", 0, 1.5f),
-            minAttackRange = ParseFloat(unitJson, "minAttackRange", 0, 0f),
-            lineOfSight = ParseFloat(unitJson, "lineOfSight", 0, 20),
-            armorType = ParseString(unitJson, "armorType", "infantry"),
-            damageType = ParseString(unitJson, "damageType", "melee"),
-            defense = ParseDefenseBlock(unitJson),
-            cost = ParseCostBlock(unitJson),
-            buildSpeed = ParseFloat(unitJson, "buildSpeed", 0, 0f),
-            gatheringSpeed = ParseFloat(unitJson, "gatheringSpeed", 0, 0f),
-            carryCapacity = (int)ParseFloat(unitJson, "carryCapacity", 0, 0f),
-            healsPerSecond = ParseFloat(unitJson, "healsPerSecond", 0, 0f)
-        };
-
-        _unitsById[unitId] = unit;
+        if (!TrySliceObjectById(json, unitId, out string slice)) return;
+        // JSON uses "class":; rename inside the slice because 'class' is a C# keyword
+        // and JsonUtility matches field names verbatim.
+        slice = PreprocessClassKeyword(slice);
+        var dto = JsonUtility.FromJson<UnitJson>(slice);
+        if (dto == null) return;
+        _unitsById[unitId] = dto.ToDef(unitId);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PARSE TECHNOLOGY
-    // ═══════════════════════════════════════════════════════════════════════
-    
     void ParseTechnology(string json, string techId)
     {
-        string searchPattern = $"\"id\": \"{techId}\"";
-        int techIndex = json.IndexOf(searchPattern);
-        
-        if (techIndex == -1)
+        if (!TrySliceObjectById(json, techId, out string slice))
         {
-            Debug.LogWarning($"[TechTreeDB] Technology not found: {techId}");
             return;
         }
+        var dto = JsonUtility.FromJson<TechnologyJson>(slice);
+        if (dto == null) return;
+        _technologiesById[techId] = dto.ToDef(techId);
+    }
 
-        int objStart = json.LastIndexOf('{', techIndex);
+    /// <summary>
+    /// Locate the object whose "id" field matches <paramref name="targetId"/>
+    /// and return its full brace-balanced slice.
+    /// Returns false if no matching object is found.
+    /// </summary>
+    bool TrySliceObjectById(string json, string targetId, out string slice)
+    {
+        slice = null;
+        string searchPattern = $"\"id\": \"{targetId}\"";
+        int idx = json.IndexOf(searchPattern, StringComparison.Ordinal);
+        if (idx == -1) return false;
+
+        int objStart = json.LastIndexOf('{', idx);
+        if (objStart == -1) return false;
+
         int objEnd = FindMatchingBrace(json, objStart);
-        
-        if (objStart == -1 || objEnd == -1) return;
-        
-        string techJson = json.Substring(objStart, objEnd - objStart + 1);
+        if (objEnd == -1) return false;
 
-        var tech = new TechnologyDef
-        {
-            id = techId,
-            name = ParseString(techJson, "name", techId),
-            effect = ParseString(techJson, "effect", ""),
-            desc = ParseString(techJson, "desc", ""),
-            role = ParseString(techJson, "role", ""),
-            researchTime = ParseFloat(techJson, "researchTime", 0, 30),
-            researchAt = ParseString(techJson, "researchAt", ""),
-            cost = ParseCostBlock(techJson),
-            prerequisites = ParseStringArray(techJson, "requires"),
-            effects = ParseTechEffects(techJson)
-        };
+        slice = json.Substring(objStart, objEnd - objStart + 1);
+        return true;
+    }
 
-        _technologiesById[techId] = tech;
+    /// <summary>
+    /// Rename JSON field "class" to "unitClass" in a slice so JsonUtility
+    /// can map it to a legal C# identifier. Only touches the field-name
+    /// position (`"class":`) which never appears inside string values in
+    /// this JSON.
+    /// </summary>
+    static string PreprocessClassKeyword(string slice)
+    {
+        // Two common serializations: `"class":` and `"class" :`
+        return slice
+            .Replace("\"class\":", "\"unitClass\":")
+            .Replace("\"class\" :", "\"unitClass\" :");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PARSE SECTS
+    // SECTS (Fix #220 — now delegate to JsonUtility per-sect)
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     void ParseAllSects(string json)
     {
-        int sectsIndex = json.IndexOf("\"sects\":");
+        int sectsIndex = json.IndexOf("\"sects\":", StringComparison.Ordinal);
         if (sectsIndex == -1) return;
 
-        int listIndex = json.IndexOf("\"list\":", sectsIndex);
+        int listIndex = json.IndexOf("\"list\":", sectsIndex, StringComparison.Ordinal);
         if (listIndex == -1) return;
 
-        int arrayStart = json.IndexOf("[", listIndex);
+        int arrayStart = json.IndexOf('[', listIndex);
         if (arrayStart == -1) return;
 
-        int searchPos = arrayStart;
-        int arrayEnd = json.IndexOf("]", arrayStart);
+        int arrayEnd = FindMatchingBracket(json, arrayStart);
+        if (arrayEnd == -1) return;
+
+        int searchPos = arrayStart + 1;
 
         while (true)
         {
-            int sectStart = json.IndexOf("{", searchPos);
+            int sectStart = json.IndexOf('{', searchPos);
             if (sectStart == -1 || sectStart > arrayEnd) break;
 
             int sectEnd = FindMatchingBrace(json, sectStart);
             if (sectEnd == -1) break;
 
-            string sectJson = json.Substring(sectStart, sectEnd - sectStart + 1);
+            string slice = json.Substring(sectStart, sectEnd - sectStart + 1);
+            // Sect units and techs can also use "class":; rewrite once at the
+            // sect level so embedded unit blocks deserialize cleanly.
+            slice = PreprocessClassKeyword(slice);
 
-            var sect = new SectDef
+            var dto = JsonUtility.FromJson<SectJson>(slice);
+            if (dto != null && !string.IsNullOrEmpty(dto.id))
             {
-                id = ParseString(sectJson, "id", ""),
-                order = ParseString(sectJson, "order", ""),
-                affinity = ParseString(sectJson, "affinity", "")
-            };
-
-            if (!string.IsNullOrEmpty(sect.id))
-            {
-                _sectsById[sect.id] = sect;
-
-                // Parse embedded unit definition (JSON id → "Sect_" + normalized id)
-                ParseSectUnit(sectJson, sect.id);
-
-                // Parse embedded tech definition (JSON id → "Tech_" + id)
-                ParseSectTech(sectJson, sect.id);
+                _sectsById[dto.id] = dto.ToDef();
+                RegisterSectEmbeddedUnit(dto);
+                RegisterSectEmbeddedTech(dto);
             }
 
             searchPos = sectEnd + 1;
@@ -509,195 +418,72 @@ public sealed class TechTreeDB : MonoBehaviour
     }
 
     /// <summary>
-    /// Parse the "unit" block embedded inside a sect JSON entry.
-    /// Normalizes the ID to "Sect_" + PascalCase (e.g., "Golem_Autark" → "Sect_GolemAutark").
-    /// Registers the unit in _unitsById so chapel training can look it up.
+    /// Register the unit block embedded inside a sect entry.
+    /// Normalizes the ID: "Golem_Autark" → "Sect_GolemAutark".
     /// </summary>
-    void ParseSectUnit(string sectJson, string sectId)
+    void RegisterSectEmbeddedUnit(SectJson sect)
     {
-        int unitIndex = sectJson.IndexOf("\"unit\":");
-        if (unitIndex == -1) return;
+        if (sect.unit == null || string.IsNullOrEmpty(sect.unit.id)) return;
 
-        int blockStart = sectJson.IndexOf("{", unitIndex);
-        if (blockStart == -1) return;
-
-        int blockEnd = FindMatchingBrace(sectJson, blockStart);
-        if (blockEnd == -1) return;
-
-        string unitJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
-        string rawId = ParseString(unitJson, "id", "");
-        if (string.IsNullOrEmpty(rawId)) return;
-
-        // Normalize: "Golem_Autark" → "GolemAutark", then prefix with "Sect_"
+        string rawId = sect.unit.id;
         string normalizedId = "Sect_" + rawId.Replace("_", "");
+        string displayName  = rawId.Replace("_", " ");
 
-        var unit = new UnitDef
-        {
-            id = normalizedId,
-            unitClass = ParseString(unitJson, "class", ""),
-            name = rawId.Replace("_", " "),  // "Golem_Autark" → "Golem Autark"
-            hp = ParseFloat(unitJson, "hp", 0, 100),
-            speed = ParseFloat(unitJson, "speed", 0, 5),
-            trainingTime = ParseFloat(unitJson, "trainingTime", 0, 15),  // Default 15s
-            damage = ParseFloat(unitJson, "damage", 0, 10),
-            attackRange = ParseFloat(unitJson, "attackRange", 0, 1.5f),
-            minAttackRange = ParseFloat(unitJson, "minAttackRange", 0, 0f),
-            lineOfSight = ParseFloat(unitJson, "lineOfSight", 0, 14),  // Default 14
-            armorType = ParseString(unitJson, "armorType", "infantry_heavy"),
-            damageType = ParseString(unitJson, "damageType", "melee"),
-            defense = ParseDefenseBlock(unitJson),
-            cost = ParseCostBlock(unitJson)
-        };
+        var unit = sect.unit.ToDef(
+            overrideId: normalizedId,
+            overrideName: displayName,
+            defaultHp: 100, defaultSpeed: 5, defaultDamage: 10,
+            defaultAttackRange: 1.5f, defaultMinRange: 0,
+            defaultLoS: 14, defaultTrainingTime: 15,
+            defaultArmorType: "infantry_heavy", defaultDamageType: "melee");
 
-        // Apply default cost if none specified in JSON
         if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Crystal == 0))
-        {
             unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
-        }
 
         _unitsById[normalizedId] = unit;
-        Debug.Log($"[TechTreeDB] Sect unit: {normalizedId} (from {sectId}) HP={unit.hp} Dmg={unit.damage}");
     }
 
     /// <summary>
-    /// Parse the "tech" block embedded inside a sect JSON entry.
-    /// Normalizes the ID to "Tech_" + raw id (e.g., "DietaryMandate" → "Tech_DietaryMandate").
-    /// Registers the tech in _technologiesById so chapel research can look it up.
+    /// Register the tech block embedded inside a sect entry.
+    /// Normalizes the ID: "DietaryMandate" → "Tech_DietaryMandate".
     /// </summary>
-    void ParseSectTech(string sectJson, string sectId)
+    void RegisterSectEmbeddedTech(SectJson sect)
     {
-        int techIndex = sectJson.IndexOf("\"tech\":");
-        if (techIndex == -1) return;
+        if (sect.tech == null || string.IsNullOrEmpty(sect.tech.id)) return;
 
-        int blockStart = sectJson.IndexOf("{", techIndex);
-        if (blockStart == -1) return;
-
-        int blockEnd = FindMatchingBrace(sectJson, blockStart);
-        if (blockEnd == -1) return;
-
-        string techJson = sectJson.Substring(blockStart, blockEnd - blockStart + 1);
-        string rawId = ParseString(techJson, "id", "");
-        if (string.IsNullOrEmpty(rawId)) return;
-
-        // Prefix with "Tech_"
+        string rawId = sect.tech.id;
         string normalizedId = "Tech_" + rawId;
 
-        var tech = new TechnologyDef
-        {
-            id = normalizedId,
-            name = rawId.Replace("_", " "),  // Already PascalCase in JSON, just clean underscores
-            effect = ParseString(techJson, "effect", ""),
-            desc = ParseString(techJson, "effect", ""),  // Use effect as desc
-            researchTime = ParseFloat(techJson, "researchTime", 0, 45),  // Default 45s
-            cost = ParseCostBlock(techJson)
-        };
+        var tech = sect.tech.ToDef(overrideId: normalizedId, defaultResearchTime: 45);
+        tech.name = rawId.Replace("_", " ");
+        // Sect tech stores the description in the same "effect" field
+        if (string.IsNullOrEmpty(tech.desc)) tech.desc = tech.effect;
 
-        // Apply default cost if none specified
         if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Crystal == 0))
-        {
             tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
-        }
 
         _technologiesById[normalizedId] = tech;
-        Debug.Log($"[TechTreeDB] Sect tech: {normalizedId} (from {sectId}) Time={tech.researchTime}s");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // HELPER PARSERS
+    // BRACE / BRACKET MATCHERS (only remaining hand-rolled helpers)
     // ═══════════════════════════════════════════════════════════════════════
-    
-    DefenseBlock ParseDefenseBlock(string json)
+
+    int FindMatchingBracket(string json, int openIndex)
     {
-        var defense = new DefenseBlock();
-        
-        int defIndex = json.IndexOf("\"defense\":");
-        if (defIndex == -1) return defense;
-        
-        int blockStart = json.IndexOf("{", defIndex);
-        int blockEnd = json.IndexOf("}", blockStart);
-        
-        if (blockStart == -1 || blockEnd == -1) return defense;
-        
-        string defBlock = json.Substring(blockStart, blockEnd - blockStart + 1);
-        
-        defense.melee = (int)ParseFloat(defBlock, "melee", 0, 0);
-        defense.ranged = (int)ParseFloat(defBlock, "ranged", 0, 0);
-        defense.siege = (int)ParseFloat(defBlock, "siege", 0, 0);
-        defense.magic = (int)ParseFloat(defBlock, "magic", 0, 0);
-        
-        return defense;
-    }
+        if (openIndex < 0 || openIndex >= json.Length || json[openIndex] != '[') return -1;
 
-    CostBlock ParseCostBlock(string json)
-    {
-        var cost = new CostBlock();
-        
-        int costIndex = json.IndexOf("\"cost\":");
-        if (costIndex == -1) return cost;
-        
-        int blockStart = json.IndexOf("{", costIndex);
-        int blockEnd = json.IndexOf("}", blockStart);
-        
-        if (blockStart == -1 || blockEnd == -1) return cost;
-        
-        string costBlock = json.Substring(blockStart, blockEnd - blockStart + 1);
-        
-        cost.Supplies = (int)ParseFloat(costBlock, "Supplies", 0, 0);
-        cost.Iron = (int)ParseFloat(costBlock, "Iron", 0, 0);
-        cost.Crystal = (int)ParseFloat(costBlock, "Crystal", 0, 0);
-        cost.Veilsteel = (int)ParseFloat(costBlock, "Veilsteel", 0, 0);
-        cost.Glow = (int)ParseFloat(costBlock, "Glow", 0, 0);
-        
-        return cost;
-    }
-
-    TechEffects ParseTechEffects(string json)
-    {
-        int effectsIndex = json.IndexOf("\"effects\":");
-        if (effectsIndex == -1) return null;
-
-        int blockStart = json.IndexOf("{", effectsIndex);
-        int blockEnd = json.IndexOf("}", blockStart);
-
-        if (blockStart == -1 || blockEnd == -1) return null;
-
-        string effectsBlock = json.Substring(blockStart, blockEnd - blockStart + 1);
-
-        var effects = new TechEffects
+        int depth = 1;
+        for (int i = openIndex + 1; i < json.Length; i++)
         {
-            gatherSpeedMult = ParseFloat(effectsBlock, "gatherSpeedMult", 0, 0),
-            carryCapacityBonus = (int)ParseFloat(effectsBlock, "carryCapacityBonus", 0, 0),
-            meleeAttackSpeedMult = ParseFloat(effectsBlock, "meleeAttackSpeedMult", 0, 0),
-            meleeDefenseAdd = (int)ParseFloat(effectsBlock, "meleeDefenseAdd", 0, 0)
-        };
-
-        return effects.HasAnyEffect ? effects : null;
-    }
-
-    string[] ParseStringArray(string json, string fieldName)
-    {
-        var result = new List<string>();
-        
-        string pattern = $"\"{fieldName}\":";
-        int index = json.IndexOf(pattern);
-        if (index == -1) return result.ToArray();
-        
-        int arrayStart = json.IndexOf("[", index);
-        int arrayEnd = json.IndexOf("]", arrayStart);
-        
-        if (arrayStart == -1 || arrayEnd == -1) return result.ToArray();
-        
-        string arrayContent = json.Substring(arrayStart + 1, arrayEnd - arrayStart - 1);
-        string[] parts = arrayContent.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-        
-        foreach (var part in parts)
-        {
-            string cleaned = part.Trim().Trim('"');
-            if (!string.IsNullOrEmpty(cleaned))
-                result.Add(cleaned);
+            if (json[i] == '[') depth++;
+            else if (json[i] == ']')
+            {
+                depth--;
+                if (depth == 0) return i;
+            }
         }
-        
-        return result.ToArray();
+        return -1;
     }
 
     int FindMatchingBrace(string json, int openIndex)
@@ -717,48 +503,13 @@ public sealed class TechTreeDB : MonoBehaviour
         return -1;
     }
 
-    float ParseFloat(string json, string fieldName, float notFoundValue, float defaultValue)
-    {
-        string pattern = $"\"{fieldName}\":";
-        int index = json.IndexOf(pattern);
-        
-        if (index == -1) return notFoundValue;
-        
-        int start = index + pattern.Length;
-        
-        // Skip whitespace
-        while (start < json.Length && char.IsWhiteSpace(json[start])) start++;
-        
-        // Find end of number
-        int end = start;
-        while (end < json.Length && (char.IsDigit(json[end]) || json[end] == '.' || json[end] == '-'))
-            end++;
-        
-        if (end == start) return defaultValue;
-        
-        string numStr = json.Substring(start, end - start);
-        if (float.TryParse(numStr, System.Globalization.NumberStyles.Float, 
-                          System.Globalization.CultureInfo.InvariantCulture, out float result))
-            return result;
-        
-        return defaultValue;
-    }
-
-    string ParseString(string json, string fieldName, string defaultValue)
-    {
-        string pattern = $"\"{fieldName}\":";
-        int index = json.IndexOf(pattern);
-        
-        if (index == -1) return defaultValue;
-        
-        int start = json.IndexOf('"', index + pattern.Length);
-        if (start == -1) return defaultValue;
-        
-        int end = json.IndexOf('"', start + 1);
-        if (end == -1) return defaultValue;
-        
-        return json.Substring(start + 1, end - start - 1);
-    }
+    // Fix #220: ParseFloat / ParseString / ParseDefenseBlock / ParseCostBlock
+    // / ParseTechEffects / ParseStringArray / ParseResourcesArray /
+    // ParseCombatProfile have all been removed. Field-level parsing is now
+    // handled by UnityEngine.JsonUtility via the *Json DTOs in
+    // TechTreeJsonDtos.cs. Only FindMatchingBrace / FindMatchingBracket
+    // remain, and they are used solely to locate object boundaries for the
+    // ID-indexed slice-and-deserialize approach.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

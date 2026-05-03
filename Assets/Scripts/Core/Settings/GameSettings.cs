@@ -22,7 +22,10 @@ public enum ScenarioType
     LargeRanged,
     LargeMixed,
     HealerTest,
-    FourWayCultures
+    FourWayCultures,
+    FullArmy,
+    WallSiege,
+    SectShowcase
 }
 
 public enum SpawnLayout
@@ -158,6 +161,9 @@ public static class GameSettings
     /// </summary>
     public static bool IsFactionHumanControlled(Faction faction)
     {
+        // Observer mode: no faction is human-controlled — AI plays all sides
+        if (IsObserver) return false;
+
         if (!IsMultiplayer)
         {
             return faction == Faction.Blue; // Single-player: only Blue is human

@@ -74,6 +74,7 @@ namespace TheWaningBorder.Systems.Work
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()
                          .WithAll<BuildingTag>()
                          .WithNone<UnderConstruction>()
+                         .WithNone<WallGateTag>() // Gates managed by WallGatePassabilitySystem
                          .WithEntityAccess())
             {
                 bool hasSize = em.HasComponent<BuildingSize>(entity);
@@ -100,7 +101,6 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.UnblockBuildingRect(kvp.Value.Position, kvp.Value.Size);
-                    else
                         grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     toRemove.Add(kvp.Key);
                 }
@@ -119,7 +119,6 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.BlockBuildingRect(kvp.Value.Position, kvp.Value.Size);
-                    else
                         grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     _knownBuildings.Add(kvp.Key, kvp.Value);
                     newBuildingsAdded = true;

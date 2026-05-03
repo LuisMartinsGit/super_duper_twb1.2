@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-combat-2026-055",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:02:13Z",
+  "updatedAt": "2026-05-03T13:02:13Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:02:13Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Combat deep-dive (companion to AI/Movement/Multiplayer). Combat is structurally cleaner than the other subsystems — earlier task fixes hold up. But 10 NEW behavioral bugs the surface scan missed: F1 (CRITICAL: SpellBuff.ArmorBonus is write-only — 3 sect abilities silent no-op), F2 (HIGH: ranged on-hit pipeline applies at fire time not impact), F3 (HIGH: Safeguard wipes pre-existing SpellBuff), F4 (HIGH: AOE/DoT bypasses Invulnerable). Also: ALL 11 surface-scan missing-brace claims in CombatDamageHelper/ProjectileSystem/TargetingSystem are REFUTED — they're correctly-binding else clauses. Drop them from task-051's MB list.",
+      "timestamp": "2026-05-03T13:02:13Z"
+    }
+  ]
+}

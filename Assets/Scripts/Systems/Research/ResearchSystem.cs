@@ -63,7 +63,6 @@ namespace TheWaningBorder.Systems.Research
                     {
                         // Unknown tech - remove from queue
                         queue.RemoveAt(0);
-                        UnityEngine.Debug.LogWarning($"[ResearchSystem] Unknown tech ID in queue: {techId}");
                         continue;
                     }
 
@@ -81,7 +80,6 @@ namespace TheWaningBorder.Systems.Research
                     rs.ValueRW.Busy = 1;
                     rs.ValueRW.Remaining = researchTime;
 
-                    UnityEngine.Debug.Log($"[ResearchSystem] {faction} started researching: {techDef.name} ({researchTime}s)");
                 }
                 else
                 {
@@ -105,7 +103,6 @@ namespace TheWaningBorder.Systems.Research
 
                         if (db.TryGetTechnology(techId, out var techDef))
                         {
-                            UnityEngine.Debug.Log($"[ResearchSystem] {faction} completed research: {techDef.name}");
                         }
                     }
                 }

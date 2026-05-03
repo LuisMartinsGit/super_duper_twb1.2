@@ -94,13 +94,13 @@ namespace TheWaningBorder.World.Minimap
         void Awake()
         {
             // Ensure EventSystem for click handling
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 es.hideFlags = HideFlags.DontSave;
             }
 
-            _fow = FindObjectOfType<FogOfWarManager>();
+            _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null)
             {
                 worldMin = _fow.WorldMin;
@@ -135,7 +135,30 @@ namespace TheWaningBorder.World.Minimap
             _bgBuffer = new Color[samples * samples];
             _frame = new Color[sizePixels * sizePixels];
 
-            _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            EnsureECSQueries();
+        }
+
+        /// <summary>
+        /// (Re)build the EntityQueries against the current ECS world. Safe to
+        /// call repeatedly. Required because this MonoBehaviour is
+        /// DontDestroyOnLoad: when the player returns to the main menu the ECS
+        /// world is disposed, the cached _world / _em / _unitsQ become invalid,
+        /// and the next game's Update() crashes inside ToEntityArray with NRE.
+        /// Update() calls this whenever it detects a stale or disposed world.
+        /// </summary>
+        private void EnsureECSQueries()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated)
+            {
+                _world = null;
+                return;
+            }
+
+            // Same world as last init — queries are still valid.
+            if (ReferenceEquals(_world, world)) return;
+
+            _world = world;
             _em = _world.EntityManager;
 
             _unitsQ = _em.CreateEntityQuery(
@@ -168,6 +191,12 @@ namespace TheWaningBorder.World.Minimap
             _timer += Time.unscaledDeltaTime;
             if (_timer < refreshInterval) return;
             _timer = 0f;
+
+            // ECS world may have been recreated since last frame (e.g., player
+            // bounced through the main menu). Re-init queries against the live
+            // world before touching them. Skip this frame entirely if no world.
+            EnsureECSQueries();
+            if (_world == null) return;
 
             // Build ground texture once (terrain doesn't change)
             if (!_bgBuilt)
@@ -376,17 +405,25 @@ namespace TheWaningBorder.World.Minimap
 
         /// <summary>
         /// Dim areas not visible or revealed by fog of war.
+        ///
+        /// Fix #236: sample the FoW at half resolution (stride=2) and reuse
+        /// each sample for the 2x2 pixel block it covers. Fog queries went
+        /// from sizePixels^2 (65,536 at 256px) to sizePixels^2/4 (16,384)
+        /// per refresh — a 75% reduction. Visual quality is unchanged at
+        /// minimap scale because fog dimming is already a coarse-grained
+        /// 3-state classification (visible / revealed / hidden).
         /// </summary>
         private void ApplyFogOfWarDimming()
         {
             float minX = worldMin.x, minZ = worldMin.y;
             float maxX = worldMax.x, maxZ = worldMax.y;
             int W = sizePixels;
+            const int stride = 2;
 
-            for (int y = 0; y < sizePixels; y++)
+            for (int y = 0; y < sizePixels; y += stride)
             {
                 float vz = Mathf.Lerp(minZ, maxZ, (y + 0.5f) / sizePixels);
-                for (int x = 0; x < sizePixels; x++)
+                for (int x = 0; x < sizePixels; x += stride)
                 {
                     float vx = Mathf.Lerp(minX, maxX, (x + 0.5f) / sizePixels);
                     float3 pos = new float3(vx, 0f, vz);
@@ -395,19 +432,21 @@ namespace TheWaningBorder.World.Minimap
                     if (vis) continue;
 
                     bool rev = FogOfWarSystem.IsRevealedToFaction(humanFaction, pos);
-                    int idx = y * W + x;
-                    Color c = _frame[idx];
+                    float mult = rev ? 0.5f : 0.15f;
 
-                    if (rev)
+                    // Apply the dimming multiplier to the 2x2 pixel block.
+                    int yEnd = math.min(y + stride, sizePixels);
+                    int xEnd = math.min(x + stride, sizePixels);
+                    for (int by = y; by < yEnd; by++)
                     {
-                        c.r *= 0.5f; c.g *= 0.5f; c.b *= 0.5f;
+                        for (int bx = x; bx < xEnd; bx++)
+                        {
+                            int idx = by * W + bx;
+                            Color c = _frame[idx];
+                            c.r *= mult; c.g *= mult; c.b *= mult;
+                            _frame[idx] = c;
+                        }
                     }
-                    else
-                    {
-                        c.r *= 0.15f; c.g *= 0.15f; c.b *= 0.15f;
-                    }
-
-                    _frame[idx] = c;
                 }
             }
         }
@@ -614,9 +653,6 @@ namespace TheWaningBorder.World.Minimap
         {
             if (!TryGetWorldPosition(eventData, out float worldX, out float worldZ)) return;
 
-            if (logClicks)
-                Debug.Log($"[Minimap] Left Click -> Camera({worldX:F1}, {worldZ:F1})");
-
             GameCamera.FocusOn(new Vector3(worldX, 0, worldZ), instant: true);
         }
 
@@ -626,9 +662,6 @@ namespace TheWaningBorder.World.Minimap
         internal void HandleRightClick(PointerEventData eventData)
         {
             if (!TryGetWorldPosition(eventData, out float worldX, out float worldZ)) return;
-
-            if (logClicks)
-                Debug.Log($"[Minimap] Right Click -> Move({worldX:F1}, {worldZ:F1})");
 
             var selection = SelectionSystem.CurrentSelection;
             if (selection == null || selection.Count == 0) return;
@@ -662,7 +695,7 @@ namespace TheWaningBorder.World.Minimap
 
         private void EnsureCanvasAndImage()
         {
-            var canvas = FindObjectOfType<Canvas>();
+            var canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
                 var cGo = new GameObject("MinimapCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -723,6 +756,10 @@ namespace TheWaningBorder.World.Minimap
         {
             if (minimap == null) return;
 
+            // Earlier missing braces meant HandleLeftClick ran on EVERY click —
+            // every right-click move order also yanked the camera to the click
+            // point with `instant: true`, jerking the user away from where they
+            // were looking. (task-059 F-1)
             if (eventData.button == PointerEventData.InputButton.Right)
                 minimap.HandleRightClick(eventData);
             else

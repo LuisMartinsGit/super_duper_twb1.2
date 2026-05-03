@@ -106,13 +106,13 @@ public class PlanningModeOverlay : MonoBehaviour
         switch (plan.Type)
         {
             case QueuedCommandType.Move:
-                CommandRouter.IssueMove(em, unit, plan.Position, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueMove(em, unit, plan.Position, CommandSource.LocalPlayer);
                 break;
             case QueuedCommandType.AttackMove:
-                CommandRouter.IssueAttackMove(em, unit, plan.Position, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssueAttackMove(em, unit, plan.Position, CommandSource.LocalPlayer);
                 break;
             case QueuedCommandType.Patrol:
-                CommandRouter.IssuePatrol(em, unit, plan.Position, CommandRouter.CommandSource.LocalPlayer);
+                CommandRouter.IssuePatrol(em, unit, plan.Position, CommandSource.LocalPlayer);
                 break;
         }
     }

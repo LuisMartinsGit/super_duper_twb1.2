@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-world-fog-2026-059",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T13:45:40Z",
+  "updatedAt": "2026-05-03T13:45:40Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T13:45:40Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "World/Fog/Minimap deep-dive. 2 critical bugs: F-1 MinimapClickProxy missing braces (right-click also snaps camera, live in production), F-2 MusicManager menu-music-in-game (CONFIRMS MB-30). Plus DayNightCycle Texture/Mesh leaks. Surface-scan verification: 5/9 confirmed (55% TPR), 4 refuted (PassabilityGrid race / FloatingHealthBars predicate / FogOfWarSystem NRE / FoW Reinitialize). Cumulative across 8 deep-dives: ~95 verified findings, ~30 critical/high.",
+      "timestamp": "2026-05-03T13:45:40Z"
+    }
+  ]
+}

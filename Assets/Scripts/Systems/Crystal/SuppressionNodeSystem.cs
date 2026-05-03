@@ -90,8 +90,8 @@ namespace TheWaningBorder.Systems.Crystal
 
                     if (hasDebuff)
                         ecb.SetComponent(entity, debuff);
-                    else
-                        ecb.AddComponent(entity, debuff);
+                        else
+                            ecb.AddComponent(entity, debuff);
                 }
                 else if (hasDebuff)
                 {

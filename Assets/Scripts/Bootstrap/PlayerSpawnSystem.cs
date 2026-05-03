@@ -24,7 +24,6 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
-                Debug.LogError("[PlayerSpawnSystem] No ECS World available!");
                 return;
             }
 
@@ -32,6 +31,16 @@ namespace TheWaningBorder.Bootstrap
 
             // Reset network ID generator so all clients assign IDs in the same deterministic order
             NetworkIdGenerator.Reset();
+
+            // Fix #200: clear the FactionEconomy static bank cache so any stale
+            // Entity handles from a previous world (e.g., returning to the main
+            // menu and starting a new game) don't leak into the fresh world.
+            FactionEconomy.ClearCache();
+
+            // Fix #206: also clear the per-helper query caches so stale
+            // EntityQuery handles from the previous world are not reused.
+            FactionResourcesHelper.ClearCache();
+            PopulationHelper.ClearCache();
 
             int playerCount = GameSettings.TotalPlayers;
             
@@ -47,7 +56,6 @@ namespace TheWaningBorder.Bootstrap
                 var spawnPos = positions[i];
 
                 SpawnFactionBase(em, faction, spawnPos);
-                Debug.Log($"[PlayerSpawnSystem] Spawned {faction} at {spawnPos}");
             }
         }
 
@@ -115,7 +123,6 @@ namespace TheWaningBorder.Bootstrap
                 {
                     result[i] = new float3(positions3D[i].x, positions3D[i].y, positions3D[i].z);
                 }
-                Debug.Log($"[PlayerSpawnSystem] Using island-aware spawn positions across {terrain.Islands.Count} landmasses");
                 return result;
             }
 

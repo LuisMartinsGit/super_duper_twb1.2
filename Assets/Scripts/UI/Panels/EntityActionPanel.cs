@@ -12,6 +12,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Commands;
+using TheWaningBorder.Data;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -33,21 +34,19 @@ namespace TheWaningBorder.UI.Panels
         private const float QueueSlotSize = 22f;
         private const float QueueSlotSpacing = 2f;
 
-        private GUIStyle _boxStyle;
-        private GUIStyle _headerStyle;
-        private GUIStyle _buttonStyle;
-        private GUIStyle _labelStyle;
-        private GUIStyle _smallStyle;
+        // Local cached styles (no clean Styles.cs counterpart):
+        // _ageUpStyle: large bold gold button. _requireStyle: small word-wrapped warning label.
+        // _tooltipStyle: bordered word-wrap rich-text tooltip box with custom padding.
+        // All standard panel/header/button/label/small/cost styles are sourced from Styles.cs.
         private GUIStyle _ageUpStyle;
         private GUIStyle _requireStyle;
         private RectOffset _padding;
         private GUIStyle _tooltipStyle;
-        private bool _stylesInit = false;
+        private bool _localStylesBuilt = false;
 
         /// <summary>Tooltip text set by DrawActionGrid, drawn as floating box in OnGUI.</summary>
         private string _hoveredTooltip;
         private Cost _hoveredCost;
-        private Cost _hoveredAvailable;
 
         /// <summary>Currently selected chapel slot index (-1 = none, shows sect picker).</summary>
         private int _selectedChapelSlot = -1;
@@ -65,7 +64,6 @@ namespace TheWaningBorder.UI.Panels
             PanelVisible = false;
             _hoveredTooltip = null;
             _hoveredCost = default;
-            _hoveredAvailable = default;
 
             // Observer cannot issue commands
             if (GameSettings.IsObserver) return;
@@ -83,7 +81,8 @@ namespace TheWaningBorder.UI.Panels
 
             if (actionInfo.Type == ActionType.None) return;
 
-            InitStyles();
+            Styles.Initialize();
+            BuildLocalStyles();
 
             // Guard against Layout/Repaint control count mismatches.
             // Entity state can change between IMGUI passes causing different
@@ -116,6 +115,14 @@ namespace TheWaningBorder.UI.Panels
                 case ActionType.BattalionStance:
                     DrawStancePanel(entity, em);
                     break;
+
+                case ActionType.WallInstanceUpgrade:
+                    DrawWallUpgradePanel(entity);
+                    break;
+
+                case ActionType.BazaarWagonUnpack:
+                    DrawBazaarWagonPanel(entity);
+                    break;
             }
 
             } // end try
@@ -132,47 +139,20 @@ namespace TheWaningBorder.UI.Panels
             ResourceIcons.DrawTooltip();
         }
 
-        private void InitStyles()
+        // Build the truly-unique cached locals that have no clean Styles.cs counterpart.
+        // Standard styles (PanelBox, Header, IconButton, Label, SmallLabel, CostStyleAffordable,
+        // CostStyleUnaffordable) come directly from Styles.cs. Cost/RP styles previously
+        // pre-cached locally (Fix #221) now come from Styles.CostStyleAffordable/Unaffordable
+        // which are also pre-cached in Styles.CreateMiscStyles().
+        private void BuildLocalStyles()
         {
-            if (_stylesInit) return;
-
-            _boxStyle = new GUIStyle(GUI.skin.box)
-            {
-                normal = { background = UIHelpers.MakeBorderedTexture(64, 64,
-                    new Color(0.06f, 0.08f, 0.18f, 0.95f),
-                    new Color(0.83f, 0.66f, 0.26f, 0.8f), 2) }
-            };
-
-            _headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            _buttonStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 11,
-                alignment = TextAnchor.MiddleCenter
-            };
-
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
-
-            _smallStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 11,
-                normal = { textColor = new Color(0.7f, 0.68f, 0.60f) }
-            };
+            if (_localStylesBuilt) return;
 
             _ageUpStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 14,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) },
+                normal = { textColor = Styles.HighlightColor },
                 hover = { textColor = Color.white }
             };
 
@@ -180,9 +160,12 @@ namespace TheWaningBorder.UI.Panels
             {
                 fontSize = 11,
                 wordWrap = true,
-                normal = { textColor = new Color(0.7f, 0.5f, 0.3f) }
+                normal = { textColor = new Color(0.7f, 0.5f, 0.3f) }  // dim warning amber
             };
 
+            // Bordered word-wrap rich-text tooltip box. Border color sourced from
+            // Styles.HighlightColor (with alpha 0.6 override). Background uses a slightly
+            // darker navy variant kept inline since no Styles member matches exactly.
             _tooltipStyle = new GUIStyle(GUI.skin.box)
             {
                 wordWrap = true,
@@ -192,13 +175,14 @@ namespace TheWaningBorder.UI.Panels
                     textColor = new Color(0.9f, 0.85f, 0.7f),
                     background = UIHelpers.MakeBorderedTexture(64, 64,
                         new Color(0.05f, 0.06f, 0.14f, 0.97f),
-                        new Color(0.83f, 0.66f, 0.26f, 0.6f), 1)
+                        new Color(Styles.HighlightColor.r, Styles.HighlightColor.g,
+                                  Styles.HighlightColor.b, 0.6f), 1)
                 },
                 alignment = TextAnchor.UpperLeft,
                 padding = new RectOffset(8, 8, 6, 6)
             };
 
-            _stylesInit = true;
+            _localStylesBuilt = true;
         }
 
         private void DrawBuildingPlacementPanel(Entity entity, EntityActionInfo actionInfo)
@@ -213,7 +197,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -224,10 +208,13 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.BeginArea(innerRect);
 
+            // Earlier missing braces stacked both labels during placement —
+            // "Left-click to place..." appeared, then "Build Structure"
+            // appeared below it as if it were a new heading. (task-060 F-4)
             if (BuilderCommandPanel.IsPlacingBuilding)
-                GUILayout.Label("Left-click to place, Right/Esc to cancel", _headerStyle);
+                GUILayout.Label("Left-click to place, Right/Esc to cancel", Styles.Header);
             else
-                GUILayout.Label("Build Structure", _headerStyle);
+                GUILayout.Label("Build Structure", Styles.Header);
 
             GUILayout.Space(8);
 
@@ -256,7 +243,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -267,13 +254,22 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.BeginArea(innerRect);
 
-            GUILayout.Label("Train Units", _headerStyle);
+            GUILayout.Label("Train Units", Styles.Header);
             GUILayout.Space(8);
 
             DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
             {
                 var em = UnifiedUIManager.GetEntityManager();
                 if (!em.Exists(entity)) return;
+
+                // Bazaar Pack button — add pack command instead of training
+                if (button.Id == "BazaarPack")
+                {
+                    if (!em.HasComponent<BazaarPackCommand>(entity))
+                        em.AddComponent<BazaarPackCommand>(entity);
+                    Event.current.Use();
+                    return;
+                }
 
                 Faction faction = GameSettings.LocalPlayerFaction;
                 if (em.HasComponent<FactionTag>(entity))
@@ -307,7 +303,6 @@ namespace TheWaningBorder.UI.Panels
 
                 // Add to training queue (via CommandRouter for multiplayer sync)
                 CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                Debug.Log($"Queued {button.Id} for training");
                 Event.current.Use();
             });
 
@@ -351,7 +346,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -366,7 +361,7 @@ namespace TheWaningBorder.UI.Panels
             // ── Training Section ──
             if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
             {
-                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Label("Train Units", Styles.Header);
                 GUILayout.Space(4);
 
                 DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
@@ -403,7 +398,6 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                    Debug.Log($"Queued {button.Id} for training");
                     Event.current.Use();
                 });
 
@@ -461,12 +455,12 @@ namespace TheWaningBorder.UI.Panels
             string levelText = templeLevel.Level >= TempleLevelConfig.MaxLevel
                 ? $"Temple Level {templeLevel.Level} (Maximum)"
                 : $"Temple Level {templeLevel.Level}";
-            GUILayout.Label(levelText, _labelStyle);
+            GUILayout.Label(levelText, Styles.Label);
 
             // Max level reached — no upgrade button
             if (templeLevel.Level >= TempleLevelConfig.MaxLevel)
             {
-                GUILayout.Label("All eras unlocked", _smallStyle);
+                GUILayout.Label("All eras unlocked", Styles.SmallLabel);
                 return;
             }
 
@@ -483,13 +477,13 @@ namespace TheWaningBorder.UI.Panels
                 var upgrade = em.GetComponentData<TempleUpgradeState>(entity);
                 float pct = 1f - (upgrade.Remaining / upgrade.Duration);
                 int secs = Mathf.CeilToInt(upgrade.Remaining);
-                GUILayout.Label($"Upgrading to Level {upgrade.TargetLevel}... {(int)(pct * 100)}% ({secs}s)", _labelStyle);
+                GUILayout.Label($"Upgrading to Level {upgrade.TargetLevel}... {(int)(pct * 100)}% ({secs}s)", Styles.Label);
 
                 // Progress bar
                 var barRect = GUILayoutUtility.GetRect(0, 12, GUILayout.ExpandWidth(true));
                 GUI.color = new Color(0.2f, 0.2f, 0.2f);
                 GUI.DrawTexture(barRect, Texture2D.whiteTexture);
-                GUI.color = new Color(0.83f, 0.66f, 0.26f);
+                GUI.color = Styles.HighlightColor;
                 GUI.DrawTexture(new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height), Texture2D.whiteTexture);
                 GUI.color = Color.white;
                 return;
@@ -536,27 +530,23 @@ namespace TheWaningBorder.UI.Panels
                         Remaining = duration
                     });
 
-                    Debug.Log($"[TempleUpgrade] {faction} started temple upgrade to Level {nextLevel} ({duration}s)");
                     PlayerNotificationSystem.Notify($"Temple upgrade started ({(int)duration}s)");
                 }
             }
 
             GUI.enabled = wasEnabled;
 
-            // Cost display
+            // Cost display — Fix #221: use pre-cached colour variants
             if (!upgradeCost.IsZero)
             {
-                var costStyle = new GUIStyle(_requireStyle)
-                {
-                    normal = { textColor = canAfford ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f) }
-                };
+                var costStyle = canAfford ? Styles.CostStyleAffordable : Styles.CostStyleUnaffordable;
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Cost: ", costStyle, GUILayout.Width(40));
                 ResourceIcons.DrawCostLayout(upgradeCost, 12f, costStyle);
                 GUILayout.EndHorizontal();
             }
 
-            GUILayout.Label($"Grants: +{rpGrant} Religion Points", _smallStyle);
+            GUILayout.Label($"Grants: +{rpGrant} Religion Points", Styles.SmallLabel);
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -595,7 +585,7 @@ namespace TheWaningBorder.UI.Panels
 
             // Show RP count in header
             int rp = EntityInfoExtractor.GetFactionReligionPoints(em, faction);
-            GUILayout.Label($"Expansion Slots  (RP: {rp})", _headerStyle);
+            GUILayout.Label($"Expansion Slots  (RP: {rp})", Styles.Header);
             GUILayout.Space(4);
 
             // ── 8 expansion slots ──
@@ -605,7 +595,7 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.BeginHorizontal();
 
                 // Slot number label
-                GUILayout.Label($"#{i + 1}", _smallStyle, GUILayout.Width(24));
+                GUILayout.Label($"#{i + 1}", Styles.SmallLabel, GUILayout.Width(24));
 
                 if (slot.State == 0)
                 {
@@ -623,7 +613,7 @@ namespace TheWaningBorder.UI.Panels
                     float pct = slot.BuildTime > 0 ? slot.BuildProgress / slot.BuildTime : 0f;
                     string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
                     GUI.color = new Color(0.9f, 0.6f, 0.1f);
-                    GUILayout.Label($"{sectName} — {(int)(pct * 100)}%", _smallStyle);
+                    GUILayout.Label($"{sectName} — {(int)(pct * 100)}%", Styles.SmallLabel);
                     GUI.color = Color.white;
                 }
                 else if (slot.State == 2)
@@ -631,7 +621,7 @@ namespace TheWaningBorder.UI.Panels
                     // Complete — green label (NOT selectable, chapel is part of temple)
                     string sectName = SectConfig.GetDisplayName(slot.SectId.ToString());
                     GUI.color = new Color(0.2f, 0.7f, 0.3f);
-                    GUILayout.Label(sectName, _labelStyle);
+                    GUILayout.Label(sectName, Styles.Label);
                     GUI.color = Color.white;
                 }
 
@@ -662,7 +652,7 @@ namespace TheWaningBorder.UI.Panels
             DynamicBuffer<TempleChapelSlot> slots)
         {
             GUILayout.Space(6);
-            GUILayout.Label($"Choose Sect for Slot #{_selectedChapelSlot + 1}", _labelStyle);
+            GUILayout.Label($"Choose Sect for Slot #{_selectedChapelSlot + 1}", Styles.Label);
 
             // Determine faction culture for RP cost calculation
             byte factionCulture = Cultures.None;
@@ -711,7 +701,7 @@ namespace TheWaningBorder.UI.Panels
                 if (cultureSects[c] == null) continue;
 
                 GUI.color = cultureColors[c];
-                GUILayout.Label(cultureNames[c], _labelStyle);
+                GUILayout.Label(cultureNames[c], Styles.Label);
                 GUI.color = Color.white;
 
                 foreach (var sectId in cultureSects[c])
@@ -727,11 +717,10 @@ namespace TheWaningBorder.UI.Panels
                     bool canAffordRP = currentRP >= rpCost;
 
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label($"  {displayName}", _labelStyle, GUILayout.Width(140));
+                    GUILayout.Label($"  {displayName}", Styles.Label, GUILayout.Width(140));
 
-                    // RP cost label
-                    var rpColor = canAffordRP ? new Color(0.3f, 0.9f, 0.3f) : new Color(1f, 0.3f, 0.3f);
-                    var rpStyle = new GUIStyle(_smallStyle) { normal = { textColor = rpColor } };
+                    // RP cost label — Fix #221: use pre-cached colour variants
+                    var rpStyle = canAffordRP ? Styles.CostStyleAffordable : Styles.CostStyleUnaffordable;
                     GUILayout.Label($"{rpCost} RP", rpStyle, GUILayout.Width(40));
 
                     bool wasEnabled = GUI.enabled;
@@ -755,7 +744,6 @@ namespace TheWaningBorder.UI.Panels
                                 slots[_selectedChapelSlot] = slot;
 
                                 _selectedChapelSlot = -1;
-                                Debug.Log($"[TempleUI] Adopted sect '{sectId}' and started chapel build");
                                 PlayerNotificationSystem.Notify($"Building {displayName} chapel...");
                             }
                             else
@@ -770,7 +758,7 @@ namespace TheWaningBorder.UI.Panels
 
                     if (!string.IsNullOrEmpty(passive))
                     {
-                        GUILayout.Label($"    {passive}", _smallStyle);
+                        GUILayout.Label($"    {passive}", Styles.SmallLabel);
                     }
                 }
             }
@@ -899,7 +887,7 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.Space(6);
 
             // Label
-            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {seconds}s", _labelStyle);
+            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {seconds}s", Styles.Label);
             GUILayout.Space(4);
 
             // Progress bar background
@@ -942,7 +930,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -956,7 +944,7 @@ namespace TheWaningBorder.UI.Panels
             // ── Training Section ──
             if (actionInfo.Actions != null && actionInfo.Actions.Count > 0)
             {
-                GUILayout.Label("Train Units", _headerStyle);
+                GUILayout.Label("Train Units", Styles.Header);
                 GUILayout.Space(4);
 
                 DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
@@ -993,7 +981,6 @@ namespace TheWaningBorder.UI.Panels
                     }
 
                     CommandRouter.IssueTrain(em, entity, button.Id.ToString());
-                    Debug.Log($"Queued {button.Id} for training");
                     Event.current.Use();
                 });
 
@@ -1029,7 +1016,7 @@ namespace TheWaningBorder.UI.Panels
                 GUI.color = Color.white;
 
                 GUILayout.Space(6);
-                GUILayout.Label("Research", _headerStyle);
+                GUILayout.Label("Research", Styles.Header);
                 GUILayout.Space(4);
 
                 // Research buttons
@@ -1057,7 +1044,6 @@ namespace TheWaningBorder.UI.Panels
                             {
                                 TechId = new Unity.Collections.FixedString64Bytes(button.Id)
                             });
-                            Debug.Log($"Queued research: {button.Id}");
                             Event.current.Use();
                         }
                     });
@@ -1089,7 +1075,7 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         private void DrawResearchProgressBar(ResearchInfo info)
         {
-            GUILayout.Label($"Researching: {info.CurrentTechName}", _labelStyle);
+            GUILayout.Label($"Researching: {info.CurrentTechName}", Styles.Label);
 
             var rect = GUILayoutUtility.GetRect(0, 18, GUILayout.ExpandWidth(true));
 
@@ -1103,7 +1089,7 @@ namespace TheWaningBorder.UI.Panels
 
             GUI.color = Color.white;
 
-            var timeStyle = new GUIStyle(_smallStyle)
+            var timeStyle = new GUIStyle(Styles.SmallLabel)
             {
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
@@ -1116,7 +1102,7 @@ namespace TheWaningBorder.UI.Panels
         {
             if (actions == null || actions.Length == 0)
             {
-                GUILayout.Label("No actions available", _smallStyle);
+                GUILayout.Label("No actions available", Styles.SmallLabel);
                 return;
             }
 
@@ -1138,7 +1124,7 @@ namespace TheWaningBorder.UI.Panels
                 // If icon available, show empty button + icon overlay; otherwise show text label
                 string label = button.Icon != null ? "" : button.Label;
 
-                if (GUILayout.Button(label, _buttonStyle,
+                if (GUILayout.Button(label, Styles.IconButton,
                     GUILayout.Width(btnSize), GUILayout.Height(btnSize)))
                 {
                     onClick?.Invoke(button);
@@ -1186,7 +1172,7 @@ namespace TheWaningBorder.UI.Panels
         private void DrawFloatingTooltip()
         {
             if (string.IsNullOrEmpty(_hoveredTooltip)) return;
-            if (!_stylesInit) return;
+            if (!_localStylesBuilt) return;
 
             // Split tooltip into lines — replace "Cost: ..." line with icon rendering
             string[] lines = _hoveredTooltip.Split('\n');
@@ -1297,7 +1283,7 @@ namespace TheWaningBorder.UI.Panels
 
         private void DrawProgressBar(TrainingInfo info)
         {
-            GUILayout.Label($"Training: {info.CurrentUnitId}", _labelStyle);
+            GUILayout.Label($"Training: {info.CurrentUnitId}", Styles.Label);
 
             var rect = GUILayoutUtility.GetRect(0, 18, GUILayout.ExpandWidth(true));
 
@@ -1306,13 +1292,13 @@ namespace TheWaningBorder.UI.Panels
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
 
             // Golden fill
-            GUI.color = new Color(0.83f, 0.66f, 0.26f, 1f);
+            GUI.color = Styles.HighlightColor;
             GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width * info.Progress, rect.height), Texture2D.whiteTexture);
 
             GUI.color = Color.white;
 
             // Time remaining
-            var timeStyle = new GUIStyle(_smallStyle)
+            var timeStyle = new GUIStyle(Styles.SmallLabel)
             {
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
@@ -1328,7 +1314,7 @@ namespace TheWaningBorder.UI.Panels
         private void DrawInteractiveQueue(Entity entity, TrainingInfo info)
         {
             int totalInQueue = info.QueueCapacity; // includes currently training item
-            GUILayout.Label($"Queue: {totalInQueue}/{MAX_TRAIN_QUEUE}", _smallStyle);
+            GUILayout.Label($"Queue: {totalInQueue}/{MAX_TRAIN_QUEUE}", Styles.SmallLabel);
 
             // Build the full slot list: currently training + pending queue
             // info.Queue excludes the currently training item, so reconstruct full list
@@ -1379,7 +1365,7 @@ namespace TheWaningBorder.UI.Panels
                     string abbrev = allSlots[slot].Length > 3
                         ? allSlots[slot].Substring(0, 3)
                         : allSlots[slot];
-                    var slotLabelStyle = new GUIStyle(_smallStyle)
+                    var slotLabelStyle = new GUIStyle(Styles.SmallLabel)
                     {
                         alignment = TextAnchor.MiddleCenter,
                         fontSize = 10,
@@ -1402,7 +1388,7 @@ namespace TheWaningBorder.UI.Panels
                             ? $"Training: {allSlots[slot]}"
                             : $"{allSlots[slot]} (right-click to cancel)";
                         GUI.Label(new Rect(Event.current.mousePosition.x + 12,
-                            Event.current.mousePosition.y - 16, 180, 20), tip, _smallStyle);
+                            Event.current.mousePosition.y - 16, 180, 20), tip, Styles.SmallLabel);
                     }
                 }
                 else
@@ -1452,11 +1438,9 @@ namespace TheWaningBorder.UI.Panels
             if (!cost.IsZero)
             {
                 FactionEconomy.Add(em, faction, cost);
-                Debug.Log($"Cancelled {unitId}, refunded {cost}");
             }
             else
             {
-                Debug.Log($"Cancelled {unitId} (no cost to refund)");
             }
 
             queue.RemoveAt(bufferIndex);
@@ -1484,15 +1468,15 @@ namespace TheWaningBorder.UI.Panels
         {
             if (queue.Length == 0) return;
 
-            GUILayout.Label($"Queue ({queue.Length}):", _smallStyle);
+            GUILayout.Label($"Queue ({queue.Length}):", Styles.SmallLabel);
 
             GUILayout.BeginHorizontal();
             for (int i = 0; i < Mathf.Min(queue.Length, 8); i++)
             {
-                GUILayout.Label(queue[i], _smallStyle, GUILayout.Width(60));
+                GUILayout.Label(queue[i], Styles.SmallLabel, GUILayout.Width(60));
             }
             if (queue.Length > 8)
-                GUILayout.Label($"+{queue.Length - 8}", _smallStyle);
+                GUILayout.Label($"+{queue.Length - 8}", Styles.SmallLabel);
             GUILayout.EndHorizontal();
         }
 
@@ -1513,7 +1497,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -1524,13 +1508,13 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.BeginArea(innerRect);
 
-            GUILayout.Label("Vault of Almiérra", _headerStyle);
+            GUILayout.Label("Vault of Almiérra", Styles.Header);
             GUILayout.Space(4);
 
             var em = UnifiedUIManager.GetEntityManager();
             if (!em.Exists(entity) || !em.HasComponent<VaultStorage>(entity))
             {
-                GUILayout.Label("Vault not available", _smallStyle);
+                GUILayout.Label("Vault not available", Styles.SmallLabel);
                 GUILayout.EndArea();
                 return;
             }
@@ -1541,7 +1525,7 @@ namespace TheWaningBorder.UI.Panels
                 : GameSettings.LocalPlayerFaction;
 
             // Interest rate display
-            GUILayout.Label($"Interest: {vault.InterestRate * 100f:F0}% per minute (compound)", _labelStyle);
+            GUILayout.Label($"Interest: {vault.InterestRate * 100f:F0}% per minute (compound)", Styles.Label);
             GUILayout.Space(2);
 
             // Current storage
@@ -1549,15 +1533,15 @@ namespace TheWaningBorder.UI.Panels
             {
                 string resName = VaultResourceNames[vault.ResourceType];
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Stored: ", _labelStyle, GUILayout.Width(50));
-                GUILayout.Label($"{(int)vault.StoredAmount}", _labelStyle, GUILayout.Width(50));
+                GUILayout.Label("Stored: ", Styles.Label, GUILayout.Width(50));
+                GUILayout.Label($"{(int)vault.StoredAmount}", Styles.Label, GUILayout.Width(50));
                 ResourceIcons.DrawLayoutIcon(resName, 13f);
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
             }
             else
             {
-                GUILayout.Label("Stored: Empty", _labelStyle);
+                GUILayout.Label("Stored: Empty", Styles.Label);
             }
 
             // Lock status
@@ -1566,7 +1550,7 @@ namespace TheWaningBorder.UI.Panels
             {
                 int lockMin = (int)(vault.LockTimer / 60f);
                 int lockSec = (int)(vault.LockTimer % 60f);
-                var lockStyle = new GUIStyle(_labelStyle)
+                var lockStyle = new GUIStyle(Styles.Label)
                 {
                     normal = { textColor = new Color(1f, 0.4f, 0.4f) }
                 };
@@ -1574,7 +1558,7 @@ namespace TheWaningBorder.UI.Panels
             }
             else
             {
-                var unlockStyle = new GUIStyle(_labelStyle)
+                var unlockStyle = new GUIStyle(Styles.Label)
                 {
                     normal = { textColor = new Color(0.4f, 1f, 0.4f) }
                 };
@@ -1594,15 +1578,15 @@ namespace TheWaningBorder.UI.Panels
             if (dropdownLocked) GUI.enabled = false;
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Resource:", _labelStyle, GUILayout.Width(80));
-            if (GUILayout.Button($"◄", _buttonStyle, GUILayout.Width(28), GUILayout.Height(26)))
+            GUILayout.Label("Resource:", Styles.Label, GUILayout.Width(80));
+            if (GUILayout.Button($"◄", Styles.IconButton, GUILayout.Width(28), GUILayout.Height(26)))
             {
                 _vaultSelectedResource--;
                 if (_vaultSelectedResource < 1) _vaultSelectedResource = 5;
             }
             ResourceIcons.DrawLayoutIconValue(VaultResourceNames[_vaultSelectedResource],
-                VaultResourceNames[_vaultSelectedResource], 13f, _labelStyle, 90f);
-            if (GUILayout.Button($"►", _buttonStyle, GUILayout.Width(28), GUILayout.Height(26)))
+                VaultResourceNames[_vaultSelectedResource], 13f, Styles.Label, 90f);
+            if (GUILayout.Button($"►", Styles.IconButton, GUILayout.Width(28), GUILayout.Height(26)))
             {
                 _vaultSelectedResource++;
                 if (_vaultSelectedResource > 5) _vaultSelectedResource = 1;
@@ -1614,7 +1598,7 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.Space(6);
 
             // Deposit buttons — 100, 200, 500
-            GUILayout.Label("Deposit:", _labelStyle);
+            GUILayout.Label("Deposit:", Styles.Label);
             GUILayout.BeginHorizontal();
             int[] amounts = { 100, 200, 500 };
             for (int i = 0; i < amounts.Length; i++)
@@ -1627,7 +1611,7 @@ namespace TheWaningBorder.UI.Panels
                 bool wasEnabled = GUI.enabled;
                 if (!canDeposit) GUI.enabled = false;
 
-                if (GUILayout.Button($"{amount}", _buttonStyle, GUILayout.Height(32)))
+                if (GUILayout.Button($"{amount}", Styles.IconButton, GUILayout.Height(32)))
                 {
                     VaultAction(em, entity, faction, _vaultSelectedResource, amount, true);
                 }
@@ -1641,7 +1625,7 @@ namespace TheWaningBorder.UI.Panels
             bool canWithdraw = !isLocked && vault.ResourceType > 0 && vault.StoredAmount > 0f;
             bool wasEnabledW = GUI.enabled;
             if (!canWithdraw) GUI.enabled = false;
-            if (GUILayout.Button($"Withdraw All ({(int)vault.StoredAmount})", _buttonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button($"Withdraw All ({(int)vault.StoredAmount})", Styles.IconButton, GUILayout.Height(32)))
             {
                 VaultAction(em, entity, faction, vault.ResourceType, (int)vault.StoredAmount, false);
             }
@@ -1707,6 +1691,150 @@ namespace TheWaningBorder.UI.Panels
         // BATTALION STANCE PANEL
         // ═══════════════════════════════════════════════════════════════════════
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // WALL INSTANCE UPGRADE PANEL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Panel for the Bazaar Wagon — shows an Unpack button to convert back to building.
+        /// </summary>
+        private void DrawBazaarWagonPanel(Entity entity)
+        {
+            PanelVisible = true;
+
+            float panelHeight = 100f;
+            var panelRect = new Rect(
+                Screen.width - PanelWidth - PanelPadding,
+                Screen.height * 0.5f - panelHeight * 0.5f,
+                PanelWidth,
+                panelHeight);
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", Styles.PanelBox);
+            GUILayout.BeginArea(new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical));
+
+            GUILayout.Label("Bazaar Wagon", Styles.Header);
+            GUILayout.Space(8);
+
+            if (GUILayout.Button("Unpack Bazaar", Styles.IconButton, GUILayout.Height(28)))
+            {
+                var em = UnifiedUIManager.GetEntityManager();
+                if (em.Exists(entity) && !em.HasComponent<BazaarUnpackCommand>(entity))
+                {
+                    em.AddComponent<BazaarUnpackCommand>(entity);
+                }
+                Event.current.Use();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawWallUpgradePanel(Entity entity)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", Styles.PanelBox);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            var em = UnifiedUIManager.GetEntityManager();
+            if (!em.Exists(entity) || !em.HasComponent<WallInstanceTag>(entity))
+            {
+                GUILayout.Label("Wall not available", Styles.SmallLabel);
+                GUILayout.EndArea();
+                return;
+            }
+
+            // Show upgrade progress if upgrading
+            if (em.HasComponent<WallUpgradeState>(entity))
+            {
+                var state = em.GetComponentData<WallUpgradeState>(entity);
+                string typeName = state.UpgradeType == 1 ? "Tower" : "Gate";
+                float progress = 1f - (state.Remaining / state.Duration);
+                GUILayout.Label($"Upgrading to {typeName}...", Styles.Header);
+                GUILayout.Space(4);
+
+                var barRect = GUILayoutUtility.GetRect(innerRect.width - 10, 16);
+                GUI.Box(barRect, "");
+                var fillRect = new Rect(barRect.x, barRect.y, barRect.width * progress, barRect.height);
+                GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+                GUILayout.Label($"{progress * 100f:F0}%", Styles.SmallLabel);
+
+                GUILayout.EndArea();
+                return;
+            }
+
+            GUILayout.Label("Upgrade Wall", Styles.Header);
+            GUILayout.Space(4);
+
+            var faction = em.HasComponent<FactionTag>(entity)
+                ? em.GetComponentData<FactionTag>(entity).Value
+                : GameSettings.LocalPlayerFaction;
+
+            // Upgrade to Tower button
+            BuildCosts.TryGet("Alanthor_WallTower", out var towerCost);
+            bool canAffordTower = FactionEconomy.CanAfford(em, faction, towerCost);
+            string towerLabel = $"Tower ({towerCost.Supplies}S {towerCost.Iron}I)";
+
+            GUI.enabled = canAffordTower;
+            if (GUILayout.Button(towerLabel, GUILayout.Height(28)))
+            {
+                if (FactionEconomy.Spend(em, faction, towerCost))
+                {
+                    em.AddComponentData(entity, new WallUpgradeState
+                    {
+                        UpgradeType = 1,
+                        Duration = 10f,
+                        Remaining = 10f
+                    });
+                }
+            }
+            GUI.enabled = true;
+
+            GUILayout.Space(2);
+
+            // Upgrade to Gate button
+            BuildCosts.TryGet("Alanthor_WallGate", out var gateCost);
+            bool canAffordGate = FactionEconomy.CanAfford(em, faction, gateCost);
+            string gateLabel = $"Gate ({gateCost.Supplies}S {gateCost.Iron}I)";
+
+            GUI.enabled = canAffordGate;
+            if (GUILayout.Button(gateLabel, GUILayout.Height(28)))
+            {
+                if (FactionEconomy.Spend(em, faction, gateCost))
+                {
+                    em.AddComponentData(entity, new WallUpgradeState
+                    {
+                        UpgradeType = 2,
+                        Duration = 8f,
+                        Remaining = 8f
+                    });
+                }
+            }
+            GUI.enabled = true;
+
+            GUILayout.EndArea();
+        }
+
         private void DrawStancePanel(Entity entity, EntityManager em)
         {
             // Resolve to leader entity
@@ -1735,7 +1863,7 @@ namespace TheWaningBorder.UI.Panels
             );
             PanelRect = panelRect;
 
-            GUI.Box(panelRect, "", _boxStyle);
+            GUI.Box(panelRect, "", Styles.PanelBox);
 
             var innerRect = new Rect(
                 panelRect.x + _padding.left,
@@ -1746,7 +1874,7 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.BeginArea(innerRect);
 
-            GUILayout.Label("Battalion Stance", _headerStyle);
+            GUILayout.Label("Battalion Stance", Styles.Header);
             GUILayout.Space(8);
 
             // Current stance display
@@ -1757,7 +1885,7 @@ namespace TheWaningBorder.UI.Panels
                 BattalionStance.Aggressive => "Aggressive",
                 _ => "Unknown"
             };
-            GUILayout.Label($"Current: {stanceLabel}", _labelStyle);
+            GUILayout.Label($"Current: {stanceLabel}", Styles.Label);
             GUILayout.Space(8);
 
             // 3 horizontal stance buttons
@@ -1786,7 +1914,7 @@ namespace TheWaningBorder.UI.Panels
                 BattalionStance.Aggressive => "Members pursue enemies without distance limits.",
                 _ => ""
             };
-            GUILayout.Label(desc, _smallStyle);
+            GUILayout.Label(desc, Styles.SmallLabel);
 
             GUILayout.EndArea();
         }
@@ -1799,9 +1927,9 @@ namespace TheWaningBorder.UI.Panels
             // Golden highlight for active stance
             var prevBg = GUI.backgroundColor;
             if (isActive)
-                GUI.backgroundColor = new Color(0.83f, 0.66f, 0.26f, 1f);
+                GUI.backgroundColor = Styles.HighlightColor;
 
-            if (GUILayout.Button(label, _buttonStyle, GUILayout.Width(width), GUILayout.Height(28f)))
+            if (GUILayout.Button(label, Styles.IconButton, GUILayout.Width(width), GUILayout.Height(28f)))
             {
                 CommandRouter.IssueStanceChange(em, leader, stance);
                 BuilderCommandPanel.SuppressClicksThisFrame = true;

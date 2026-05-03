@@ -40,11 +40,11 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _transparentWindow;
         private bool _stylesInitialized = false;
 
-        // Background panning
+        // Background
         private Texture2D _bgTexture;
-        private float _panTime;
-        private const float PanSpeed = 0.03f; // Perlin noise time scale (slow drift)
-        private const float PanOverscale = 1.10f; // 10% larger than screen for pan room
+
+        // Scenario scroll
+        private Vector2 _scenarioScrollPos;
 
         // Layout constants
         private const float ButtonWidth = 280f;
@@ -79,7 +79,7 @@ namespace TheWaningBorder.UI.Menus
 
         void Update()
         {
-            _panTime += PanSpeed * Time.deltaTime;
+            // (pan animation removed)
 
             if (_pendingScenario.HasValue)
             {
@@ -117,37 +117,9 @@ namespace TheWaningBorder.UI.Menus
 
             float screenW = Screen.width;
             float screenH = Screen.height;
-            float screenAspect = screenW / screenH;
-            float texAspect = (float)_bgTexture.width / _bgTexture.height;
 
-            // Fit-to-screen: cover the screen, then add 10% overscale for pan room
-            float drawW, drawH;
-            if (texAspect > screenAspect)
-            {
-                // Image is wider than screen — fit height, width overflows
-                drawH = screenH * PanOverscale;
-                drawW = drawH * texAspect;
-            }
-            else
-            {
-                // Image is taller than screen — fit width, height overflows
-                drawW = screenW * PanOverscale;
-                drawH = drawW / texAspect;
-            }
-
-            // Pan room = how much the image extends beyond the screen on each axis
-            float panRangeX = drawW - screenW;
-            float panRangeY = drawH - screenH;
-
-            // Smooth random-direction pan using Perlin noise (never jerks at edges)
-            // Use different noise seeds for X and Y so they move independently
-            float nx = Mathf.PerlinNoise(_panTime, 0.5f);        // 0..1
-            float ny = Mathf.PerlinNoise(0.5f, _panTime + 100f); // 0..1
-
-            float offsetX = -nx * panRangeX;
-            float offsetY = -ny * panRangeY;
-
-            GUI.DrawTexture(new Rect(offsetX, offsetY, drawW, drawH), _bgTexture, ScaleMode.StretchToFill);
+            // Static background — fit to screen, no pan or zoom
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), _bgTexture, ScaleMode.ScaleAndCrop);
 
             // Subtle dark overlay for text readability
             GUI.color = new Color(0f, 0f, 0.02f, 0.35f);
@@ -198,33 +170,50 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawScenarios()
         {
-            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * 7 + Padding * 2;
+            float maxVisibleButtons = 8;
+            float scrollAreaH = (ButtonHeight + ButtonSpacing) * maxVisibleButtons;
+            float totalH = TitleHeight + Padding + scrollAreaH + Padding + ButtonHeight + Padding;
             float startX = (Screen.width - ButtonWidth) * 0.5f;
             float startY = (Screen.height - totalH) * 0.5f;
 
+            // Title
             GUI.Label(new Rect(startX, startY, ButtonWidth, TitleHeight),
                 "SCENARIOS", _titleStyle);
 
-            float y = startY + TitleHeight + Padding;
+            // Scrollable area for scenario buttons
+            var scrollRect = new Rect(startX, startY + TitleHeight + Padding, ButtonWidth, scrollAreaH);
+            var scenarios = new (string label, ScenarioType type)[]
+            {
+                ("Large Melee Battle (6v6)", ScenarioType.LargeMelee),
+                ("Large Ranged Battle (6v6)", ScenarioType.LargeRanged),
+                ("Large Mixed Battle (6v6)", ScenarioType.LargeMixed),
+                ("Healer Test", ScenarioType.HealerTest),
+                ("Four-Way Cultures (4 armies)", ScenarioType.FourWayCultures),
+                ("Full Army (Archers + Swords + Siege)", ScenarioType.FullArmy),
+                ("Wall Siege (Walls vs Siege)", ScenarioType.WallSiege),
+                ("Sect Showcase (12 Sect Abilities)", ScenarioType.SectShowcase),
+            };
 
-            if (DrawMenuButton(startX, ref y, "Large Melee Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeMelee;
+            float contentH = (ButtonHeight + ButtonSpacing) * scenarios.Length;
+            var viewRect = new Rect(0, 0, ButtonWidth - 16, contentH);
 
-            if (DrawMenuButton(startX, ref y, "Large Ranged Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeRanged;
+            _scenarioScrollPos = GUI.BeginScrollView(scrollRect, _scenarioScrollPos, viewRect);
 
-            if (DrawMenuButton(startX, ref y, "Large Mixed Battle (6v6)"))
-                _pendingScenario = ScenarioType.LargeMixed;
+            float y = 0;
+            for (int i = 0; i < scenarios.Length; i++)
+            {
+                var btnRect = new Rect(0, y, ButtonWidth - 16, ButtonHeight);
+                if (GUI.Button(btnRect, scenarios[i].label, _buttonStyle))
+                    _pendingScenario = scenarios[i].type;
+                y += ButtonHeight + ButtonSpacing;
+            }
 
-            if (DrawMenuButton(startX, ref y, "Healer Test"))
-                _pendingScenario = ScenarioType.HealerTest;
+            GUI.EndScrollView();
 
-            if (DrawMenuButton(startX, ref y, "Four-Way Cultures (4 armies)"))
-                _pendingScenario = ScenarioType.FourWayCultures;
-
-            y += ButtonSpacing; // Extra gap before Back
-
-            if (DrawMenuButton(startX, ref y, "Back"))
+            // Back button below scroll area
+            float backY = scrollRect.yMax + Padding;
+            var backRect = new Rect(startX, backY, ButtonWidth, ButtonHeight);
+            if (GUI.Button(backRect, "Back", _buttonStyle))
                 _pendingState = MenuState.MainMenu;
         }
 

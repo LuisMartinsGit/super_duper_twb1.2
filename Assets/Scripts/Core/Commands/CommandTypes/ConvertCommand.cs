@@ -49,8 +49,8 @@ namespace TheWaningBorder.Core.Commands.Types
 
             if (!em.HasComponent<ConvertCommand>(miner))
                 em.AddComponentData(miner, cmd);
-            else
-                em.SetComponentData(miner, cmd);
+                else
+                    em.SetComponentData(miner, cmd);
 
             // Move toward keep
             if (em.HasComponent<LocalTransform>(keep))

@@ -20,13 +20,16 @@ public partial struct MindControlSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<MindControlled>();
+        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         float dt = SystemAPI.Time.DeltaTime;
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        // Fix #225: Singleton ECB instead of local Temp allocator.
+        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
         foreach (var (mc, factionTag, health, entity) in SystemAPI
             .Query<RefRW<MindControlled>, RefRW<FactionTag>, RefRO<Health>>()
@@ -52,7 +55,6 @@ public partial struct MindControlSystem : ISystem
             }
         }
 
-        ecb.Playback(state.EntityManager);
-        ecb.Dispose();
+        // ECB plays back automatically at EndSimulation.
     }
 }

@@ -25,6 +25,11 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -77,7 +82,6 @@ namespace TheWaningBorder.AI
             int queueSize = buildingState.QueuedConstructions;
             if (queueSize > 3)
                 buildingState.DesiredBuilders = math.min(AITuning.MaxBuilders, AITuning.TargetBuilders + 1);
-            else
                 buildingState.DesiredBuilders = AITuning.TargetBuilders;
 
             int queuedBuilders = CountQueuedBuilders(ref state, faction);
@@ -474,9 +478,11 @@ namespace TheWaningBorder.AI
                 if (!CanAffordBuilding(ref state, faction, buildingTypeFixed))
                     continue;
 
-                // Calculate build position: random offset 15-25 units from Hall
-                var random = new Unity.Mathematics.Random(
-                    (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + existingCount * 17));
+                // Calculate build position: random offset 15-25 units from Hall.
+                // Fix #230: guard against seed 0 (produces all-zero sequence).
+                uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + existingCount * 17);
+                if (seed == 0) seed = 1;
+                var random = new Unity.Mathematics.Random(seed);
                 float angle = random.NextFloat(0, math.PI * 2);
                 float distance = random.NextFloat(15f, 25f);
                 float3 buildPos = hallPos + new float3(

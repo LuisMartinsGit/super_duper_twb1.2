@@ -84,7 +84,6 @@ namespace TheWaningBorder.Systems.Work
                         em.SetComponentData(bankEntity, rp);
                     }
 
-                    UnityEngine.Debug.Log($"[TempleUpgrade] {faction} temple upgraded to Level {nextLevel}, Era {nextEra}, +{rpGrant} RP");
                 }
 
                 // 4. Recalculate sect passive scaling

@@ -155,8 +155,8 @@ namespace TheWaningBorder.Systems.Work
                         {
                             if (!em.HasComponent<BuildOrder>(builder))
                                 em.AddComponentData(builder, new BuildOrder { Site = nextSite });
-                            else
-                                em.SetComponentData(builder, new BuildOrder { Site = nextSite });
+                                else
+                                    em.SetComponentData(builder, new BuildOrder { Site = nextSite });
                         }
                         else
                         {
@@ -282,7 +282,6 @@ namespace TheWaningBorder.Systems.Work
                 GrantTempleConstructionRP(em, faction);
             }
 
-            UnityEngine.Debug.Log($"Building {building.Index} construction complete!");
         }
 
         /// <summary>
@@ -315,7 +314,6 @@ namespace TheWaningBorder.Systems.Work
                     var rp = em.GetComponentData<ReligionPoints>(bank);
                     rp.Value += TempleLevelConfig.ShrineBonus;
                     em.SetComponentData(bank, rp);
-                    UnityEngine.Debug.Log($"[ShrineBonus] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for shrine construction");
                 }
             }
         }
@@ -332,7 +330,6 @@ namespace TheWaningBorder.Systems.Work
                     var rp = em.GetComponentData<ReligionPoints>(bank);
                     rp.Value += TempleLevelConfig.ShrineBonus;
                     em.SetComponentData(bank, rp);
-                    UnityEngine.Debug.Log($"[TempleRP] {faction} granted +{TempleLevelConfig.ShrineBonus} RP for Temple of Ridan construction");
                 }
             }
         }
@@ -479,8 +476,8 @@ namespace TheWaningBorder.Systems.Work
                         {
                             if (!em.HasComponent<BuildOrder>(entity))
                                 ecb.AddComponent(entity, new BuildOrder { Site = nearest });
-                            else
-                                ecb.SetComponent(entity, new BuildOrder { Site = nearest });
+                                else
+                                    ecb.SetComponent(entity, new BuildOrder { Site = nearest });
                             ecb.RemoveComponent<BuildCommand>(entity);
                         }
                         // else: building not placed yet — keep waiting (don't clear command)

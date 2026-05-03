@@ -115,6 +115,52 @@ public struct WallEnclosureVertex : IBufferElementData
     public float2 Position;
 }
 
+// ==================== Wall Instance System ====================
+
+/// <summary>Marks a small wall piece entity (one cell of wall between hubs).</summary>
+public struct WallInstanceTag : IComponentData { }
+
+/// <summary>Links a wall instance back to its parent segment entity.</summary>
+public struct WallInstanceParent : IComponentData
+{
+    public Entity Segment;
+}
+
+/// <summary>Buffer on segment entities listing all child wall instance entities.</summary>
+public struct WallInstanceRef : IBufferElementData
+{
+    public Entity Instance;
+}
+
+/// <summary>Marks a wall instance that has been upgraded to a ranged tower.</summary>
+public struct WallTowerTag : IComponentData { }
+
+/// <summary>Marks a wall instance that has been upgraded to a gate (friendly-only passage).</summary>
+public struct WallGateTag : IComponentData { }
+
+/// <summary>
+/// Tracks gate open/close state. Gates auto-open when friendly units are nearby
+/// and close when no friendlies are in proximity.
+/// </summary>
+public struct WallGateState : IComponentData
+{
+    /// <summary>1 = open (passable for friendlies), 0 = closed (blocked for all).</summary>
+    public byte IsOpen;
+    /// <summary>Countdown timer for next proximity check.</summary>
+    public float RecheckTimer;
+}
+
+/// <summary>
+/// Active upgrade timer on a wall instance. Added when upgrade starts, removed on completion.
+/// UpgradeType: 1 = Tower, 2 = Gate.
+/// </summary>
+public struct WallUpgradeState : IComponentData
+{
+    public byte UpgradeType;  // 1 = Tower, 2 = Gate
+    public float Duration;
+    public float Remaining;
+}
+
 /// <summary>Resource vault building.</summary>
 public struct VaultTag : IComponentData { }
 
@@ -246,6 +292,15 @@ public struct TempleOwner : IComponentData
 /// After Timer expires, entity is destroyed.
 /// </summary>
 public struct DeathAnimationState : IComponentData
+{
+    public float Timer; // Seconds remaining before entity destruction
+}
+
+/// <summary>
+/// Added to buildings when health reaches 0 to delay destruction for collapse animation.
+/// BuildingEffectSystem handles the visual collapse; DeathSystem destroys when Timer expires.
+/// </summary>
+public struct BuildingCollapseState : IComponentData
 {
     public float Timer; // Seconds remaining before entity destruction
 }

@@ -74,7 +74,6 @@ namespace TheWaningBorder.World.Terrain
             // Create and apply material
             CreateWaterMaterial();
 
-            Debug.Log($"[WaterPlane] Created at height {waterLevel}");
         }
 
         void CreateWaterMesh(Vector2 worldMin, Vector2 worldMax)
@@ -154,7 +153,6 @@ namespace TheWaningBorder.World.Terrain
             if (shader == null)
             {
                 // Fallback to Standard shader
-                Debug.LogWarning("[WaterPlane] Custom/AnimatedWater shader not found. Using Standard shader fallback.");
                 shader = Shader.Find("Standard");
             }
 

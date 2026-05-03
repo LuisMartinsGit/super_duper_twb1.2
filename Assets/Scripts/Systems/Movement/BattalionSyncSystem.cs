@@ -1,5 +1,6 @@
 // BattalionSyncSystem.cs
-// Moves battalion members toward their formation slot positions each frame.
+// Orchestrates per-frame battalion updates: formation slot reassignment,
+// combat target state, and member movement toward slots or enemies.
 //
 // Slot assignments are STICKY — each member keeps its Column/Row between frames.
 // Greedy nearest-slot reassignment only runs when:
@@ -13,6 +14,16 @@
 // Obstacle handling: members whose slot is unreachable (blocked by passability)
 // path toward the leader using flow fields. They rejoin formation once close.
 //
+// Fix #218: the reassignment logic and combat state computation used to live
+// inline in OnUpdate, making this file 795 lines with 5+ concerns mixed together.
+// Both have been extracted to sibling helper files:
+//   - BattalionFormationHelpers.cs : slot reassignment (§ 3)
+//   - BattalionCombatHelpers.cs    : target cleanup, center-of-mass,
+//                                    encirclement check, per-member targets
+//                                    (§ 3a/3b/3c)
+// This file now owns: the persistent scratch caches, the outer per-leader
+// loop, the reassignment gating (§ 0-2), and the movement phases (§ 4/5a/5b).
+//
 // Location: Assets/Scripts/Systems/Movement/BattalionSyncSystem.cs
 
 using Unity.Collections;
@@ -20,6 +31,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.Systems.Movement
 {
@@ -203,7 +215,6 @@ namespace TheWaningBorder.Systems.Movement
                     leader.ValueRW.NeedsReassignment = 0;
                 }
                 // Check if formation direction changed significantly
-                else
                 {
                     float3 oldFwd = math.mul(lastAssignRot, new float3(0, 0, 1));
                     float3 newFwd = math.mul(formationRot, new float3(0, 0, 1));
@@ -238,75 +249,32 @@ namespace TheWaningBorder.Systems.Movement
                 }
 
                 // ── 3. Greedy nearest-slot assignment (only when needed) ──
+                // Delegated to BattalionFormationHelpers (Fix #218).
                 if (runReassignment && aliveCount > 0)
                 {
-                    // Compute slot world positions for assignment (reuse cached array)
-                    for (int row = 0; row < rows; row++)
-                    {
-                        for (int col = 0; col < cols; col++)
-                        {
-                            int idx = row * cols + col;
-                            float3 localOffset = BattalionFormation.ComputeSlotOffset(col, row, cols, rows, spacing);
-                            _slotWorldPositions[idx] = leaderPos + math.mul(formationRot, localOffset);
-                        }
-                    }
-
-                    for (int s = 0; s < slotCount; s++)
-                        _slotAssignment[s] = -1;
-                    for (int m = 0; m < memberCount; m++)
-                        _memberUsed[m] = false;
-
-                    // Greedy front-to-back: for each slot, find closest alive unassigned member
-                    for (int s = 0; s < slotCount; s++)
-                    {
-                        float3 slotPos = _slotWorldPositions[s];
-                        float bestDist = float.MaxValue;
-                        int bestMember = -1;
-
-                        for (int m = 0; m < memberCount; m++)
-                        {
-                            if (!_memberAlive[m] || _memberUsed[m]) continue;
-
-                            float3 diff = slotPos - _memberPos[m];
-                            diff.y = 0f;
-                            float d = math.lengthsq(diff);
-                            if (d < bestDist)
-                            {
-                                bestDist = d;
-                                bestMember = m;
-                            }
-                        }
-
-                        if (bestMember >= 0)
-                        {
-                            _slotAssignment[s] = bestMember;
-                            _memberUsed[bestMember] = true;
-                        }
-                    }
-
-                    // Write new assignments onto member components
-                    for (int s = 0; s < slotCount; s++)
-                    {
-                        int mi = _slotAssignment[s];
-                        if (mi < 0) continue;
-
-                        int newCol = s % cols;
-                        int newRow = s / cols;
-
-                        var md = em.GetComponentData<BattalionMemberData>(_members[mi]);
-                        if (md.Column != newCol || md.Row != newRow)
-                        {
-                            md.Column = newCol;
-                            md.Row = newRow;
-                            em.SetComponentData(_members[mi], md);
-                        }
-                    }
-
-                    // Record the rotation used for this assignment
+                    BattalionFormationHelpers.ReassignSlots(
+                        em, leaderPos, formationRot, cols, rows, spacing,
+                        memberCount, _members, _memberPos, _memberAlive,
+                        _slotWorldPositions, _slotAssignment, _memberUsed);
                     leader.ValueRW.LastAssignmentRot = formationRot;
                 }
 
-                // ── 4. Compute per-member target positions using sticky Column/Row ──
+                // ── 3a. Clear stale leader target + BattalionAttackTarget ──
+                // Delegated to BattalionCombatHelpers (Fix #218).
+                BattalionCombatHelpers.ClearStaleLeaderTarget(em, ecb, entity);
+
+                // ── 3b / 3c. Combat state: own center, encirclement check,
+                // per-member target assignment. Delegated to BattalionCombatHelpers.
+                var combatState = BattalionCombatHelpers.UpdateCombatState(
+                    em, entity, leaderPos,
+                    memberCount, _members, _memberPos, _memberAlive, aliveCount);
+
+                bool isRangedBattalion = combatState.IsRangedBattalion;
+                bool inEncircleRange   = combatState.InEncircleRange;
+                bool inFiringRange     = combatState.InFiringRange;
+                bool battalionInCombat = combatState.BattalionInCombat;
+
+                // ── 4. Compute per-member target positions ──
                 float maxDist = 0f;
 
                 for (int i = 0; i < memberCount; i++)
@@ -317,10 +285,29 @@ namespace TheWaningBorder.Systems.Movement
                         continue;
                     }
 
-                    // Use existing Column/Row from BattalionMemberData (sticky assignment)
-                    var md = em.GetComponentData<BattalionMemberData>(_members[i]);
-                    float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
-                    float3 target = leaderPos + math.mul(formationRot, localOffset);
+                    // Members with a combat target are released from formation when in engage range
+                    // Melee: released at encircle range (they pathfind to enemy)
+                    // Ranged: released at firing range (they stay put and shoot)
+                    bool memberInEngageRange = isRangedBattalion ? inFiringRange : inEncircleRange;
+                    if (memberInEngageRange && em.HasComponent<Target>(_members[i]))
+                    {
+                        var mt = em.GetComponentData<Target>(_members[i]);
+                        if (mt.Value != Entity.Null && em.Exists(mt.Value)
+                            && em.HasComponent<Health>(mt.Value)
+                            && em.GetComponentData<Health>(mt.Value).Value > 0)
+                        {
+                            _memberDistances[i] = -1f; // Released for combat movement in step 5a
+                            continue;
+                        }
+                    }
+
+                    // Formation mode: use existing Column/Row from BattalionMemberData
+                    float3 target;
+                    {
+                        var md = em.GetComponentData<BattalionMemberData>(_members[i]);
+                        float3 localOffset = BattalionFormation.ComputeSlotOffset(md.Column, md.Row, cols, rows, spacing);
+                        target = leaderPos + math.mul(formationRot, localOffset);
+                    }
 
                     // Check if the slot is reachable (passable terrain)
                     bool slotBlocked = passGrid != null && !passGrid.IsPassable(target);
@@ -384,17 +371,100 @@ namespace TheWaningBorder.Systems.Movement
                     if (s > 0f) leaderSpeed = s;
                 }
 
-                // ── 5. Move each member toward its target ──
+                // ── 5a. Move combat members toward their enemy targets ──
+                // These members were released from formation (distances set to -1).
+                // BattalionSyncSystem must move them since MovementSystem excludes battalion members.
+                // Ranged members do NOT chase — they stay at their position and RangedCombatSystem fires.
+                if (battalionInCombat && !isRangedBattalion)
+                {
+                    for (int i = 0; i < memberCount; i++)
+                    {
+                        if (!_memberAlive[i]) continue;
+                        if (_memberDistances[i] >= 0f) continue; // In formation, handled below
+
+                        var member = _members[i];
+                        if (!em.HasComponent<Target>(member)) continue;
+                        var mt = em.GetComponentData<Target>(member);
+                        if (mt.Value == Entity.Null || !em.Exists(mt.Value)) continue;
+                        if (!em.HasComponent<LocalTransform>(mt.Value)) continue;
+
+                        float3 enemyPos = em.GetComponentData<LocalTransform>(mt.Value).Position;
+                        var memberXf = em.GetComponentData<LocalTransform>(member);
+                        float3 toEnemy = enemyPos - memberXf.Position;
+                        toEnemy.y = 0;
+                        float distToEnemy = math.length(toEnemy);
+
+                        // Determine stop range: ranged units stop at firing range, melee at melee range
+                        float stopRange;
+                        bool isRanged = em.HasComponent<ArcherTag>(member);
+                        if (isRanged && em.HasComponent<ArcherState>(member))
+                        {
+                            var archerState = em.GetComponentData<ArcherState>(member);
+                            stopRange = archerState.MaxRange > 0 ? archerState.MaxRange - 2f : 23f;
+                        }
+                        else
+                        {
+                            stopRange = 1.5f;
+                            if (em.HasComponent<Radius>(mt.Value))
+                                stopRange += em.GetComponentData<Radius>(mt.Value).Value;
+                        }
+                        if (distToEnemy <= stopRange) continue;
+
+                        float memberSpeed = leaderSpeed;
+                        if (em.HasComponent<MoveSpeed>(member))
+                        {
+                            float ms = em.GetComponentData<MoveSpeed>(member).Value;
+                            if (ms > 0f) memberSpeed = ms;
+                        }
+
+                        float3 dir = math.normalizesafe(toEnemy);
+
+                        // Use flow field for pathfinding around obstacles and allies
+                        dir = FlowFieldMovementHelper.GetDirection(
+                            memberXf.Position, enemyPos, dir, distToEnemy);
+
+                        float step = math.min(memberSpeed * dt, distToEnemy);
+                        float3 newPos = memberXf.Position + dir * step;
+
+                        if (passGrid != null && !passGrid.IsPassable(newPos))
+                        {
+                            // Try alternate direction
+                            float3 altDir = FlowFieldMovementHelper.GetDirection(
+                                memberXf.Position, enemyPos, -dir, distToEnemy);
+                            float3 altPos = memberXf.Position + altDir * step;
+                            // Earlier this fell through to `newPos = memberXf.Position`
+                            // unconditionally because of missing braces — the alt-direction
+                            // probe was always discarded so combat members never used the
+                            // detour even when one existed. (task-053 F-1 / MB-1)
+                            if (passGrid.IsPassable(altPos))
+                                newPos = altPos;
+                            else
+                                newPos = memberXf.Position;
+                        }
+
+                        newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
+
+                        // Face toward enemy
+                        quaternion faceRot = math.lengthsq(toEnemy) > 0.01f
+                            ? quaternion.LookRotationSafe(math.normalizesafe(toEnemy), new float3(0, 1, 0))
+                            : memberXf.Rotation;
+
+                        em.SetComponentData(member, LocalTransform.FromPositionRotationScale(
+                            newPos, faceRot, memberXf.Scale));
+                    }
+                }
+
+                // ── 5b. Move formation members toward their slot positions ──
                 for (int i = 0; i < memberCount; i++)
                 {
-                    if (_memberDistances[i] < 0f) continue;
+                    if (_memberDistances[i] < 0f) continue; // Dead or in combat
 
                     var member = _members[i];
                     var memberXf = em.GetComponentData<LocalTransform>(member);
                     float3 target = _targetPositions[i];
                     float dist = _memberDistances[i];
 
-                    // Strip stale DesiredDestination
+                    // Strip stale DesiredDestination for formation members
                     if (em.HasComponent<DesiredDestination>(member))
                         ecb.RemoveComponent<DesiredDestination>(member);
 
@@ -446,6 +516,10 @@ namespace TheWaningBorder.Systems.Movement
                             float3 ffDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, leaderPos, dir, dist);
                             float3 altPos = memberXf.Position + ffDir * step;
+                            // Same missing-brace bug as the combat path above — the
+                            // flow-field detour was always discarded so formation members
+                            // blocked by terrain never made it around obstacles.
+                            // (task-053 F-2 / MB-2)
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
                             else

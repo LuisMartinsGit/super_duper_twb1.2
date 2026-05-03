@@ -33,7 +33,6 @@ namespace TheWaningBorder.Systems.Research
             {
                 researchState.OnTechCompleted += OnTechCompleted;
                 _subscribed = true;
-                Debug.Log("[TechEffectSystem] Subscribed to OnTechCompleted");
             }
         }
 
@@ -61,7 +60,6 @@ namespace TheWaningBorder.Systems.Research
             {
                 researchState.OnTechCompleted += OnTechCompleted;
                 _subscribed = true;
-                Debug.Log("[TechEffectSystem] Late-subscribed to OnTechCompleted");
             }
         }
 
@@ -73,14 +71,27 @@ namespace TheWaningBorder.Systems.Research
         {
             if (TechTreeDB.Instance == null) return;
 
+            // Sect-tech bridge: previously SetTechFlag had zero callers in the
+            // codebase, so all 12 sect technologies were silently inert —
+            // research completed and fired this event, but the sect-flag
+            // multipliers (RegenPerSecond, SpellCooldownReduction, MagicDamage,
+            // WallIncomeFromTech) never applied. Tech*Effects.HasAnyEffect on
+            // sect techs is false because sect bonuses live in FactionSectState
+            // multipliers, not the tech's effects block — so this gate has to
+            // run BEFORE the HasAnyEffect early-return below. (task-057 F-1)
+            if (SectConfig.IsSectTech(techId))
+            {
+                var sectId = SectConfig.GetSectIdForTechId(techId);
+                FactionSectState.Instance?.SetTechFlag(faction, sectId);
+                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
+            }
+
             var tech = TechTreeDB.Instance.GetTechnology(techId);
             if (tech == null || tech.effects == null || !tech.effects.HasAnyEffect)
             {
-                Debug.Log($"[TechEffectSystem] {faction} completed {techId} - no stat effects to apply");
                 return;
             }
 
-            Debug.Log($"[TechEffectSystem] Applying effects for {techId} to {faction} entities...");
 
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
@@ -143,8 +154,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied miner effects to {count} miners " +
-                      $"(gatherSpeed: x{effects.gatherSpeedMult}, carryBonus: +{effects.carryCapacityBonus})");
         }
 
         /// <summary>
@@ -176,7 +185,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied meleeAttackSpeedMult x{multiplier} to {count} melee units");
         }
 
         /// <summary>
@@ -207,7 +215,6 @@ namespace TheWaningBorder.Systems.Research
                 count++;
             }
 
-            Debug.Log($"[TechEffectSystem] Applied meleeDefenseAdd +{bonus} to {count} units");
         }
 
         // ═══════════════════════════════════════════════════════════════

@@ -84,7 +84,6 @@ namespace TheWaningBorder.World.Terrain
             var pt = ProceduralTerrain.Instance;
             if (pt == null)
             {
-                Debug.LogError("[PassabilityGrid] ProceduralTerrain.Instance is null. Cannot generate grid.");
                 return;
             }
 
@@ -104,7 +103,6 @@ namespace TheWaningBorder.World.Terrain
 
             GenerateFromTerrain();
 
-            Debug.Log($"[PassabilityGrid] Generated {_width}x{_height} grid ({totalCells} cells, cellSize={_cellSize})");
         }
 
         void OnDestroy()

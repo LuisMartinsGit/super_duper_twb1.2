@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-movement-2026-053",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T12:35:04Z",
+  "updatedAt": "2026-05-03T12:35:04Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T12:35:04Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Movement deep-dive companion to AI deep-dive (task-052). 10 verified findings: 3 confirm task-051's MB-1/2/3 with traces, 3 are NEW high-severity bugs the surface scan missed (SelectionSystem military filter no-op, CommandQueueSystem structural-changes-during-iteration, AIScoutingBehavior would crash if reactivated), 4 are perf/architectural. All recent flow-field/BlendRadius/cache fixes confirmed correct.",
+      "timestamp": "2026-05-03T12:35:04Z"
+    }
+  ]
+}

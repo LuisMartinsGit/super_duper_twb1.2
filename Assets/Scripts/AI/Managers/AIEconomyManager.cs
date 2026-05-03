@@ -24,20 +24,59 @@ namespace TheWaningBorder.AI
             state.RequireForUpdate<AIBrain>();
         }
 
+        // Fix #215: deferred gather assignments. GatherCommandHelper.Execute
+        // performs structural changes (ClearAllCommands + SetupGather), which
+        // is unsafe while the outer OnUpdate foreach is still iterating faction
+        // brains. We collect the assignments during iteration and drain them
+        // after the foreach completes.
+        private struct DeferredGather
+        {
+            public Entity Miner;
+            public Entity Target;
+            public Entity Dropoff;
+        }
+
         public void OnUpdate(ref SystemState state)
         {
+            // Fix #244: in multiplayer, only the host runs AI. Clients receive
+            // AI commands via lockstep replay. Without this gate, both peers
+            // run AI independently with different ElapsedTime clocks, causing
+            // immediate desync at tick 0.
+            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var deferredGathers = new NativeList<DeferredGather>(Allocator.Temp);
 
-            foreach (var (brain, economyState, resourceReqs, entity)
-                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIEconomyState>, DynamicBuffer<ResourceRequest>>()
+            foreach (var (brain, economyState, stratState, resourceReqs, entity)
+                in SystemAPI.Query<RefRO<AIBrain>, RefRW<AIEconomyState>, RefRO<AIStrategyState>, DynamicBuffer<ResourceRequest>>()
                 .WithEntityAccess())
             {
                 if (brain.ValueRO.IsActive == 0) continue;
 
                 var economy = economyState.ValueRW;
                 Faction faction = brain.ValueRO.Owner;
+                var strategy = stratState.ValueRO.Current;
+
+                // Strategy adjusts economy targets
+                economy.DesiredGatherersHuts = strategy switch
+                {
+                    AIStrategy.Rush => 2,       // Minimal economy
+                    AIStrategy.EcoBoom => 6,    // Heavy economy
+                    AIStrategy.TechRush => 3,   // Moderate
+                    AIStrategy.Aggressive => 4, // Balanced
+                    AIStrategy.Defensive => 4,  // Stable
+                    _ => AITuning.TargetGatherersHuts
+                };
+                economy.DesiredMiners = strategy switch
+                {
+                    AIStrategy.Rush => 2,
+                    AIStrategy.EcoBoom => math.min(8, AITuning.MaxMiners),
+                    AIStrategy.TechRush => 4,
+                    AIStrategy.Aggressive => 5,
+                    AIStrategy.Defensive => 5,
+                    _ => 4
+                };
 
                 CheckEconomyNeeds(ref state, faction, ref economy);
 
@@ -86,7 +125,7 @@ namespace TheWaningBorder.AI
                     }
 
                     // Crystal cadaver mining — send idle miners to harvest crystal from corpses
-                    AssignMinersToCadavers(ref state, faction);
+                    AssignMinersToCadavers(ref state, faction, deferredGathers);
                 }
 
                 // 4-7. Barracks, military, crystal hunting — handled by AIMilitaryManager + AICrystalHuntBehavior
@@ -95,7 +134,7 @@ namespace TheWaningBorder.AI
                 CheckChoiceBuildingNeeds(ref state, brain.ValueRO, ecb);
 
                 // 9. Age up (requires completed choice building + resources)
-                CheckAgeUp(ref state, brain.ValueRO, ecb);
+                CheckAgeUp(ref state, brain.ValueRO, strategy, ecb);
 
                 // 9b. Queue culture-specific buildings after age-up
                 QueueCultureBuildings(ref state, brain.ValueRO, ecb);
@@ -111,7 +150,7 @@ namespace TheWaningBorder.AI
                 if (time >= economy.LastSmelterCheck + AITuning.SmelterCheckInterval)
                 {
                     economy.LastSmelterCheck = time;
-                    ManageSmelters(ref state, faction);
+                    ManageSmelters(ref state, faction, ecb);
                 }
 
                 ProcessResourceRequests(ref state, faction, resourceReqs);
@@ -123,6 +162,16 @@ namespace TheWaningBorder.AI
 
             ecb.Playback(em);
             ecb.Dispose();
+
+            // Drain deferred gather assignments after the outer SystemAPI
+            // iteration has fully closed. GatherCommandHelper.Execute performs
+            // structural changes, so it must run post-iteration (see #215).
+            for (int i = 0; i < deferredGathers.Length; i++)
+            {
+                var g = deferredGathers[i];
+                GatherCommandHelper.Execute(em, g.Miner, g.Target, g.Dropoff);
+            }
+            deferredGathers.Dispose();
         }
 
         private void UpdateMineAssignments(ref SystemState state, Faction faction,
@@ -396,7 +445,6 @@ namespace TheWaningBorder.AI
                     AssignedBuilder = Entity.Null
                 });
 
-                UnityEngine.Debug.Log($"[AIEconomyManager] {faction} requesting choice building: {buildingId}");
                 break;
             }
         }
@@ -406,7 +454,7 @@ namespace TheWaningBorder.AI
         /// Requires: a completed choice building, enough resources, and not already aged-up.
         /// Uses ECB for structural changes to avoid invalidating iterators.
         /// </summary>
-        private void CheckAgeUp(ref SystemState state, AIBrain brain, EntityCommandBuffer ecb)
+        private void CheckAgeUp(ref SystemState state, AIBrain brain, AIStrategy strategy, EntityCommandBuffer ecb)
         {
             var em = state.EntityManager;
             Faction faction = brain.Owner;
@@ -460,15 +508,19 @@ namespace TheWaningBorder.AI
             // Spend resources
             if (!FactionEconomy.Spend(em, faction, CultureConfig.AgeUpCost)) return;
 
-            // Choose culture based on personality
-            byte culture = brain.Personality switch
+            // Choose culture based on current strategy (not personality)
+            byte culture = strategy switch
             {
-                AIPersonality.Aggressive => Cultures.Feraldis,
-                AIPersonality.Rush => Cultures.Feraldis,
-                AIPersonality.Defensive => Cultures.Runai,
-                AIPersonality.Economic => Cultures.Alanthor,
-                _ => Cultures.Runai // Balanced
+                AIStrategy.Rush => Cultures.Feraldis,        // Fast training, blood totems
+                AIStrategy.EcoBoom => Cultures.Runai,        // Trade routes, income scaling
+                AIStrategy.TechRush => Cultures.Alanthor,    // Smelters, walls protect tech
+                AIStrategy.Aggressive => Cultures.Feraldis,  // Totems buff army
+                AIStrategy.Defensive => Cultures.Alanthor,   // Walls, strong defense
+                _ => Cultures.Runai
             };
+
+            AILogger.Log(brain.Owner, "STRATEGY",
+                $"Age-up culture selection: {strategy} → culture {culture}");
 
             // Add AgeUpState timer to the Hall — completion handled by AgeUpSystem
             float duration = CultureConfig.AgeUpDuration;
@@ -483,7 +535,6 @@ namespace TheWaningBorder.AI
             FactionColors.SetFactionCulture(faction, culture);
 
             AILogger.Log(faction, "ECONOMY", $"=== STARTED AGE-UP to Era 2 — culture: {CultureConfig.GetName(culture)} ({duration}s) ===");
-            UnityEngine.Debug.Log($"[AIEconomyManager] {faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -491,25 +542,11 @@ namespace TheWaningBorder.AI
         // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Culture-specific build orders. Each entry is queued in order; the AI
-        /// skips buildings it already owns or has pending in the build queue.
-        /// </summary>
-        private static readonly string[] RunaiBuildOrder = {
-            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost",
-            "Runai_SiegeWorkshop", "Runai_TradingPost", "ThessarasBazaar"
-        };
-        private static readonly string[] AlanthorBuildOrder = {
-            "Alanthor_Smelter", "Alanthor_Tower", "Alanthor_Garrison",
-            "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Tower"
-        };
-        private static readonly string[] FeraldisBuildOrder = {
-            "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
-            "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_SiegeYard"
-        };
-
-        /// <summary>
-        /// After age-up, queue culture-specific buildings one at a time.
-        /// Only queues the next building if the previous one is built or building.
+        /// Alanthor-specific wall expansion, gated on era+culture. The generic
+        /// culture-building queuing used to live here too, but it was a verbatim
+        /// duplicate of AIBuildingManager.QueueCultureBuildings and the two
+        /// would fight over the build queue — see #214. The Alanthor wall
+        /// logic stays here because it is unique to this system.
         /// </summary>
         private void QueueCultureBuildings(ref SystemState state, AIBrain brain, EntityCommandBuffer ecb)
         {
@@ -528,7 +565,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            if (culture == Cultures.None) return; // Not aged up yet
+            if (culture != Cultures.Alanthor) return; // Only Alanthor builds walls here
 
             // Check era — must be era 2+
             int era = 1;
@@ -538,15 +575,6 @@ namespace TheWaningBorder.AI
                 era = em.GetComponentData<FactionEra>(bankEntity).Value;
             }
             if (era < 2) return;
-
-            string[] buildOrder = culture switch
-            {
-                Cultures.Runai => RunaiBuildOrder,
-                Cultures.Alanthor => AlanthorBuildOrder,
-                Cultures.Feraldis => FeraldisBuildOrder,
-                _ => null
-            };
-            if (buildOrder == null) return;
 
             // Find brain entity for build queue access
             DynamicBuffer<BuildRequest> buildReqs = default;
@@ -562,60 +590,7 @@ namespace TheWaningBorder.AI
             }
             if (!foundBrain) return;
 
-            // Count existing buildings and pending requests per building type
-            foreach (string buildingId in buildOrder)
-            {
-                // Check if already pending in build queue
-                bool alreadyPending = false;
-                for (int i = 0; i < buildReqs.Length; i++)
-                {
-                    if (buildReqs[i].BuildingType.Equals(buildingId) && buildReqs[i].Assigned == 0)
-                    {
-                        alreadyPending = true;
-                        break;
-                    }
-                }
-                if (alreadyPending) continue;
-
-                // Count existing instances of this building (built or under construction)
-                int existingCount = CountFactionBuildings(ref state, faction, buildingId);
-
-                // Allow duplicates for buildings in the build order that appear multiple times
-                int targetCount = 0;
-                foreach (string b in buildOrder)
-                {
-                    if (b == buildingId) targetCount++;
-                }
-
-                if (existingCount >= targetCount) continue;
-
-                // Check affordability
-                if (!BuildCosts.TryGet(buildingId, out var cost)) continue;
-                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
-
-                // Queue the build
-                float3 buildLocation = FindBuildLocation(ref state, faction, buildingId);
-                buildReqs.Add(new BuildRequest
-                {
-                    BuildingType = buildingId,
-                    DesiredPosition = buildLocation,
-                    Priority = 5,
-                    Assigned = 0,
-                    AssignedBuilder = Entity.Null
-                });
-
-                AILogger.Log(faction, "ECONOMY",
-                    $"Era 2: Queued {buildingId} ({existingCount}/{targetCount} existing)");
-
-                // Only queue one culture building per tick to avoid overwhelming builders
-                return;
-            }
-
-            // Alanthor: build walls around base after initial culture buildings are placed
-            if (culture == Cultures.Alanthor)
-            {
-                BuildAlanthorWalls(ref state, faction, buildReqs);
-            }
+            BuildAlanthorWalls(ref state, faction, buildReqs);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -906,7 +881,12 @@ namespace TheWaningBorder.AI
         /// Manages smelter supply for AI factions.
         /// Finds idle miners and assigns ForgeSupplyOrders to supply the faction's smelter.
         /// </summary>
-        private void ManageSmelters(ref SystemState state, Faction faction)
+        // Fix #215: takes an EntityCommandBuffer from the caller so structural
+        // changes (adding ForgeSupplyOrder to idle miners) are deferred to a
+        // safe playback point instead of mutating the archetype of an entity
+        // while the outer AIEconomyManager.OnUpdate foreach is still iterating
+        // faction brains via SystemAPI.Query.
+        private void ManageSmelters(ref SystemState state, Faction faction, EntityCommandBuffer ecb)
         {
             var em = state.EntityManager;
 
@@ -967,32 +947,29 @@ namespace TheWaningBorder.AI
             {
                 Entity miner = idleMiners[i];
 
-                // Reset miner state
+                // Reset miner state — pure data write on an existing component,
+                // no archetype change, so the direct EntityManager path is safe
+                // even during an outer SystemAPI iteration.
                 var ms = em.GetComponentData<MinerState>(miner);
                 ms.State = MinerWorkState.Idle;
                 ms.AssignedDeposit = Entity.Null;
                 ms.DropoffTarget = Entity.Null;
                 em.SetComponentData(miner, ms);
 
-                // Assign forge supply order (same pattern as RTSInputManager)
+                // Assign forge supply order via ECB — adding the component when
+                // the miner doesn't already have it is a structural change and
+                // must not be done inline against the EntityManager while
+                // queries are still iterating upstream.
+                var forgeOrder = new ForgeSupplyOrder
+                {
+                    Forge = smelterEntity,
+                    ResourceType = 0,
+                    Phase = 0
+                };
                 if (em.HasComponent<ForgeSupplyOrder>(miner))
-                {
-                    em.SetComponentData(miner, new ForgeSupplyOrder
-                    {
-                        Forge = smelterEntity,
-                        ResourceType = 0,
-                        Phase = 0
-                    });
-                }
-                else
-                {
-                    em.AddComponentData(miner, new ForgeSupplyOrder
-                    {
-                        Forge = smelterEntity,
-                        ResourceType = 0,
-                        Phase = 0
-                    });
-                }
+                    ecb.SetComponent(miner, forgeOrder);
+                    else
+                        ecb.AddComponent(miner, forgeOrder);
             }
 
             idleMiners.Dispose();
@@ -1009,7 +986,11 @@ namespace TheWaningBorder.AI
         /// MiningSystem auto-finds cadavers within SearchRadius (50f), but cadavers may be far away.
         /// This method searches the whole map for non-depleted cadavers and assigns idle miners.
         /// </summary>
-        private void AssignMinersToCadavers(ref SystemState state, Faction faction)
+        // Fix #215: accepts a deferredGathers list instead of calling
+        // GatherCommandHelper.Execute inline. The helper performs structural
+        // changes that would invalidate the enclosing SystemAPI query iterators.
+        private void AssignMinersToCadavers(ref SystemState state, Faction faction,
+            NativeList<DeferredGather> deferredGathers)
         {
             var em = state.EntityManager;
 
@@ -1105,7 +1086,12 @@ namespace TheWaningBorder.AI
 
                 if (bestIdx < 0) continue;
 
-                GatherCommandHelper.Execute(em, idleMiners[m], cadaverList[bestIdx], dropoff);
+                deferredGathers.Add(new DeferredGather
+                {
+                    Miner = idleMiners[m],
+                    Target = cadaverList[bestIdx],
+                    Dropoff = dropoff
+                });
                 assigned++;
 
                 AILogger.Log(faction, "ECONOMY",
@@ -1164,8 +1150,10 @@ namespace TheWaningBorder.AI
                 break;
             }
 
-            var random = new Unity.Mathematics.Random(
-                (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 137 + 7));
+            // Fix #230: guard against seed 0 (produces all-zero sequence).
+            uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 137 + 7);
+            if (seed == 0) seed = 1;
+            var random = new Unity.Mathematics.Random(seed);
 
             float3 bestPos = basePos + new float3(30, 0, 0); // fallback
             float bestMinDist = 0f;
@@ -1238,8 +1226,10 @@ namespace TheWaningBorder.AI
             if (!foundBase)
                 return new float3(10, 0, 10);
 
-            var random = new Unity.Mathematics.Random(
-                (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53));
+            // Fix #230: guard against seed 0 (produces all-zero sequence).
+            uint seedFbl = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53);
+            if (seedFbl == 0) seedFbl = 1;
+            var random = new Unity.Mathematics.Random(seedFbl);
             float angle = random.NextFloat(0, math.PI * 2);
             float distance = random.NextFloat(15, 25);
 

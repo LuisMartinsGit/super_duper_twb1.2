@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Multiplayer;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -110,7 +111,7 @@ namespace TheWaningBorder.UI.Menus
         private float _lobbySyncTimer;
         private string _error;
 
-        // Styles
+        // Specialty styles (no Styles.cs counterpart — rich-text bold headers + bare slot/list boxes)
         private GUIStyle _headerStyle;
         private GUIStyle _slotStyle;
         private GUIStyle _factionLabelStyle;
@@ -148,6 +149,7 @@ namespace TheWaningBorder.UI.Menus
 
         void OnGUI()
         {
+            Styles.Initialize();
             InitStyles();
             _windowRect = GUI.Window(10003, _windowRect, DrawWindow, "Multiplayer Lobby");
         }
@@ -156,6 +158,7 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInit) return;
 
+            // Bold rich-text label for "<b>...</b>" section headers (no Styles match — needs richText=true)
             _headerStyle = new GUIStyle(GUI.skin.label)
             {
                 fontStyle = FontStyle.Bold,
@@ -390,6 +393,13 @@ namespace TheWaningBorder.UI.Menus
             {
                 if (GUILayout.Button("■", GUILayout.Width(24), GUILayout.Height(20)))
                 {
+                    // Earlier missing braces meant SendColorChange ran for
+                    // host AND non-host. SendColorChange itself calls
+                    // CycleSlotColor on the host side, so the host effectively
+                    // cycled twice per click. Non-host worked by coincidence
+                    // because the unconditional SendColorChange was what the
+                    // surrounding canChangeColor permission expected.
+                    // (task-060 F-5)
                     if (isHost)
                         CycleSlotColor(index);
                     else
@@ -557,7 +567,6 @@ namespace TheWaningBorder.UI.Menus
             try
             {
                 _hostSocket = CreateBroadcastSocket(BROADCAST_PORT);
-                Debug.Log($"[MultiplayerLobby] Host listening on port {BROADCAST_PORT}");
             }
             catch (SocketException se)
             {
@@ -565,7 +574,6 @@ namespace TheWaningBorder.UI.Menus
                     ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
                     : $"Socket error ({se.SocketErrorCode}): {se.Message}";
                 _error = $"Network error: {hint}";
-                Debug.LogError($"[MultiplayerLobby] Host socket error: {hint}");
             }
             catch (Exception e)
             {
@@ -587,7 +595,6 @@ namespace TheWaningBorder.UI.Menus
                 _clientPrivateSocket = new UdpClient(0);
                 _clientPrivatePort = (ushort)((IPEndPoint)_clientPrivateSocket.Client.LocalEndPoint).Port;
 
-                Debug.Log($"[MultiplayerLobby] Client listening on broadcast:{BROADCAST_PORT}, private:{_clientPrivatePort}");
             }
             catch (SocketException se)
             {
@@ -595,7 +602,6 @@ namespace TheWaningBorder.UI.Menus
                     ? $"Port {BROADCAST_PORT} already in use. Close other game instances or restart Unity."
                     : $"Socket error ({se.SocketErrorCode}): {se.Message}";
                 _error = $"Network error: {hint}";
-                Debug.LogError($"[MultiplayerLobby] Client socket error: {hint}");
             }
             catch (Exception e)
             {
@@ -703,7 +709,6 @@ namespace TheWaningBorder.UI.Menus
                         byte[] data = Encoding.UTF8.GetBytes(accept);
                         _hostSocket.Send(data, data.Length, new IPEndPoint(remote.Address, clientPort));
 
-                        Debug.Log($"[Host] Player {playerName} joined slot {slot}");
                     }
                 }
             }
@@ -750,7 +755,6 @@ namespace TheWaningBorder.UI.Menus
                 _mySlotIndex = int.Parse(msg.Substring(MSG_ACCEPT.Length));
                 _hostEndpoint = remote;
                 _state = LobbyState.ClientLobby;
-                Debug.Log($"[Client] Accepted into slot {_mySlotIndex}");
             }
             else if (msg.StartsWith(MSG_LOBBY))
             {
@@ -874,17 +878,14 @@ namespace TheWaningBorder.UI.Menus
             for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = _networkSlots[i];
-                Debug.Log($"[MultiplayerLobby] Slot {i}: Type={slot.Type}, Endpoint={slot.Endpoint}, Faction={LobbyConfig.Slots[i].Faction}");
                 if (slot.Type == SlotType.Human && slot.Endpoint != null)
                 {
                     bootstrap.AddRemotePlayer(
                         slot.Endpoint.Address.ToString(),
                         lockstepPort + i,
                         LobbyConfig.Slots[i].Faction);
-                    Debug.Log($"[MultiplayerLobby] Added remote player {i} at {slot.Endpoint.Address}:{lockstepPort + i}");
                 }
             }
-            Debug.Log($"[MultiplayerLobby] Total remote players for lockstep: {bootstrap.RemotePlayers.Count}");
 
             // Apply color selections before scene load
             LobbyConfig.ApplyColorSelections();

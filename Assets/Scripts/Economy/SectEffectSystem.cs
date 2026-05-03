@@ -2,6 +2,7 @@
 // Applies sect passive effects to faction entities on adoption and temple level-up
 // Part of: Economy/
 
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
@@ -42,6 +43,34 @@ namespace TheWaningBorder.Economy
         }
 
         // ═══════════════════════════════════════════════════════════════════
+        // APPLIED MULTIPLIER TRACKING (Fix #198)
+        // ═══════════════════════════════════════════════════════════════════
+        //
+        // Tracks the multipliers last applied to each faction's population, so
+        // that subsequent adoptions / temple level-ups can apply only the DELTA
+        // between the previously-applied state and the new target state.
+        //
+        // Before this fix, OnSectAdopted and RecalculateAllPassives multiplied
+        // current component values by the full new multiplier, causing
+        // exponential stat compounding on every temple level-up.
+        //
+        // With delta logic: delta = new / old; apply that once. If old=1.0
+        // (first application) the delta equals the full new mult, matching the
+        // original behaviour. On subsequent calls (second sect adopted, temple
+        // level-up, etc.) only the incremental change is applied.
+        //
+        // Per-faction state lives only in this singleton — it is recomputed
+        // from scratch if the world is recreated, because the entity-side
+        // values are also reset at that point.
+        private readonly Dictionary<Faction, FactionSectState.SectMultipliers> _appliedMults
+            = new Dictionary<Faction, FactionSectState.SectMultipliers>();
+
+        private FactionSectState.SectMultipliers GetApplied(Faction f)
+            => _appliedMults.TryGetValue(f, out var m)
+                ? m
+                : FactionSectState.SectMultipliers.Default;
+
+        // ═══════════════════════════════════════════════════════════════════
         // LIFECYCLE
         // ═══════════════════════════════════════════════════════════════════
 
@@ -54,7 +83,6 @@ namespace TheWaningBorder.Economy
             {
                 sectState.OnSectAdopted += OnSectAdopted;
                 _subscribed = true;
-                Debug.Log("[SectEffectSystem] Subscribed to OnSectAdopted");
             }
         }
 
@@ -76,7 +104,6 @@ namespace TheWaningBorder.Economy
             {
                 sectState.OnSectAdopted += OnSectAdopted;
                 _subscribed = true;
-                Debug.Log("[SectEffectSystem] Late-subscribed to OnSectAdopted");
             }
         }
 
@@ -86,89 +113,71 @@ namespace TheWaningBorder.Economy
 
         private void OnSectAdopted(Faction faction, string sectId)
         {
-            Debug.Log($"[SectEffectSystem] Applying effects for {SectConfig.GetDisplayName(sectId)} to {faction}...");
 
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
 
             var em = world.EntityManager;
 
-            // Apply entity-level effects based on the adopted sect
             var sectState = FactionSectState.Instance;
             if (sectState == null) return;
 
-            var mults = sectState.GetMultipliers(faction);
+            // Delta application: compute the full new target multipliers (including
+            // any synergy bonuses activated by this adoption — FactionSectState.
+            // RecomputeMultipliers already folds synergy into the returned struct),
+            // then apply only the delta from what is currently on the population.
+            var oldMults = GetApplied(faction);
+            var newMults = sectState.GetMultipliers(faction);
 
-            // Apply effects that modify entity components directly
-            ApplyEntityEffects(em, faction, sectId, mults);
-
-            // Check for new synergy activations
-            foreach (var pair in SectConfig.SynergyPairs)
-            {
-                // Only apply synergy if both sects are adopted and the newly adopted sect is one of them
-                if ((sectId == pair.SectA || sectId == pair.SectB) &&
-                    sectState.HasAdopted(faction, pair.SectA) &&
-                    sectState.HasAdopted(faction, pair.SectB))
-                {
-                    ApplySynergyEntityEffects(em, faction, pair, mults);
-                }
-            }
+            ApplyMultiplierDelta(em, faction, oldMults, newMults);
+            _appliedMults[faction] = newMults;
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // ENTITY-LEVEL EFFECT APPLICATION
+        // ENTITY-LEVEL EFFECT APPLICATION (delta-based)
         // ═══════════════════════════════════════════════════════════════════
 
-        private void ApplyEntityEffects(EntityManager em, Faction faction, string sectId,
-            FactionSectState.SectMultipliers mults)
+        /// <summary>
+        /// Apply the field-level delta between two multiplier sets to all affected
+        /// faction entities. Only fields that actually changed are visited. This
+        /// replaces the previous "multiply by full current mult" approach, which
+        /// compounded stats on every temple level-up.
+        /// </summary>
+        private static void ApplyMultiplierDelta(EntityManager em, Faction faction,
+            FactionSectState.SectMultipliers oldM, FactionSectState.SectMultipliers newM)
         {
-            switch (sectId)
-            {
-                case SectConfig.EmberAsh:
-                    // Apply melee damage bonus to all faction melee units
-                    ApplyMeleeDamageToExisting(em, faction, mults.MeleeDamage);
-                    break;
+            // Multiplicative fields (default 1.0) — delta = new / old
+            if (!Mathf.Approximately(oldM.MeleeDamage, newM.MeleeDamage))
+                ApplyMeleeDamageDelta(em, faction, oldM.MeleeDamage, newM.MeleeDamage);
 
-                case SectConfig.VeiledMemory:
-                    // Apply fog vision bonus to all faction units
-                    ApplyLineOfSightToExisting(em, faction, mults.FogVisionBonus);
-                    break;
+            if (!Mathf.Approximately(oldM.RangedDamage, newM.RangedDamage))
+                ApplyRangedDamageDelta(em, faction, oldM.RangedDamage, newM.RangedDamage);
 
-                case SectConfig.QuietVault:
-                    // Apply vault interest bonus to faction vaults
-                    ApplyVaultInterestToExisting(em, faction, mults.VaultInterest);
-                    break;
+            if (!Mathf.Approximately(oldM.VaultInterest, newM.VaultInterest))
+                ApplyVaultInterestDelta(em, faction, oldM.VaultInterest, newM.VaultInterest);
 
-                case SectConfig.MirrorRite:
-                    // Apply ranged accuracy bonus to faction ranged units
-                    ApplyRangedAccuracyToExisting(em, faction, mults.RangedAccuracy);
-                    break;
-            }
-        }
+            if (!Mathf.Approximately(oldM.BuildingHP, newM.BuildingHP))
+                ApplyBuildingHpDelta(em, faction, oldM.BuildingHP, newM.BuildingHP);
 
-        private void ApplySynergyEntityEffects(EntityManager em, Faction faction,
-            SectConfig.SynergyPair pair, FactionSectState.SectMultipliers mults)
-        {
-            switch (pair.BonusType)
-            {
-                case "BuildingHP":
-                    ApplyBuildingHPToExisting(em, faction, mults.BuildingHP);
-                    break;
-                case "RangedDamage":
-                    ApplyRangedDamageToExisting(em, faction, mults.RangedDamage);
-                    break;
-                case "AttackSpeed":
-                    ApplyAttackSpeedToExisting(em, faction, mults.AttackSpeed);
-                    break;
-            }
+            if (!Mathf.Approximately(oldM.AttackSpeed, newM.AttackSpeed))
+                ApplyAttackSpeedDelta(em, faction, oldM.AttackSpeed, newM.AttackSpeed);
+
+            // Additive fields (default 0.0) — delta factor computed inside helper
+            if (!Mathf.Approximately(oldM.FogVisionBonus, newM.FogVisionBonus))
+                ApplyLosBonusDelta(em, faction, oldM.FogVisionBonus, newM.FogVisionBonus);
+
+            if (!Mathf.Approximately(oldM.RangedAccuracy, newM.RangedAccuracy))
+                ApplyRangedAccuracyDelta(em, faction, oldM.RangedAccuracy, newM.RangedAccuracy);
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // SPECIFIC EFFECT METHODS
         // ═══════════════════════════════════════════════════════════════════
 
-        private static void ApplyMeleeDamageToExisting(EntityManager em, Faction faction, float multiplier)
+        // Melee damage: delta factor = new / old
+        private static void ApplyMeleeDamageDelta(EntityManager em, Faction faction, float oldMult, float newMult)
         {
+            float delta = newMult / oldMult;
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<DamageTypeData>(),
@@ -187,16 +196,18 @@ namespace TheWaningBorder.Economy
                 if (damageTypes[i].Value != DamageType.Melee) continue;
 
                 var dmg = damages[i];
-                dmg.Value = (int)(dmg.Value * multiplier);
+                dmg.Value = (int)(dmg.Value * delta);
                 em.SetComponentData(entities[i], dmg);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied melee damage x{multiplier:F2} to {count} units");
         }
 
-        private static void ApplyLineOfSightToExisting(EntityManager em, Faction faction, float bonusPercent)
+        // LOS bonus is additive on top of base (stored value = base * (1 + bonus))
+        // delta factor = (1 + new) / (1 + old)
+        private static void ApplyLosBonusDelta(EntityManager em, Faction faction, float oldBonus, float newBonus)
         {
+            float delta = (1.0f + newBonus) / (1.0f + oldBonus);
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<UnitTag>(),
@@ -213,16 +224,17 @@ namespace TheWaningBorder.Economy
                 if (factions[i].Value != faction) continue;
 
                 var los = losData[i];
-                los.Radius *= (1.0f + bonusPercent);
+                los.Radius *= delta;
                 em.SetComponentData(entities[i], los);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied LOS bonus +{bonusPercent * 100:F0}% to {count} units");
         }
 
-        private static void ApplyVaultInterestToExisting(EntityManager em, Faction faction, float multiplier)
+        // Vault interest: delta factor = new / old
+        private static void ApplyVaultInterestDelta(EntityManager em, Faction faction, float oldMult, float newMult)
         {
+            float delta = newMult / oldMult;
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<VaultTag>(),
@@ -239,17 +251,18 @@ namespace TheWaningBorder.Economy
                 if (factions[i].Value != faction) continue;
 
                 var vault = vaults[i];
-                vault.InterestRate *= multiplier;
+                vault.InterestRate *= delta;
                 em.SetComponentData(entities[i], vault);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied vault interest x{multiplier:F2} to {count} vaults");
         }
 
-        private static void ApplyRangedAccuracyToExisting(EntityManager em, Faction faction, float bonusPercent)
+        // Ranged accuracy is additive bonus that multiplies cooldown by (1 - bonus).
+        // Stored cooldown = base * (1 - bonus). Delta factor = (1 - new) / (1 - old).
+        private static void ApplyRangedAccuracyDelta(EntityManager em, Faction faction, float oldBonus, float newBonus)
         {
-            // Ranged accuracy is implemented as reduced attack cooldown for ranged units
+            float delta = (1.0f - newBonus) / (1.0f - oldBonus);
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<DamageTypeData>(),
@@ -268,16 +281,17 @@ namespace TheWaningBorder.Economy
                 if (damageTypes[i].Value != DamageType.Ranged) continue;
 
                 var cd = cooldowns[i];
-                cd.Cooldown *= (1.0f - bonusPercent); // Reduce cooldown = faster attacks
+                cd.Cooldown *= delta;
                 em.SetComponentData(entities[i], cd);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied ranged accuracy -{bonusPercent * 100:F0}% cooldown to {count} ranged units");
         }
 
-        private static void ApplyBuildingHPToExisting(EntityManager em, Faction faction, float multiplier)
+        // Building HP: delta factor = new / old. Adjusts Max and Value proportionally.
+        private static void ApplyBuildingHpDelta(EntityManager em, Faction faction, float oldMult, float newMult)
         {
+            float delta = newMult / oldMult;
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<BuildingTag>(),
@@ -294,7 +308,7 @@ namespace TheWaningBorder.Economy
                 if (factions[i].Value != faction) continue;
 
                 var hp = healths[i];
-                int newMax = (int)(hp.Max * multiplier);
+                int newMax = (int)(hp.Max * delta);
                 int hpDiff = newMax - hp.Max;
                 hp.Max = newMax;
                 hp.Value += hpDiff; // Also increase current HP proportionally
@@ -302,11 +316,12 @@ namespace TheWaningBorder.Economy
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied building HP x{multiplier:F2} to {count} buildings");
         }
 
-        private static void ApplyRangedDamageToExisting(EntityManager em, Faction faction, float multiplier)
+        // Ranged damage: delta factor = new / old
+        private static void ApplyRangedDamageDelta(EntityManager em, Faction faction, float oldMult, float newMult)
         {
+            float delta = newMult / oldMult;
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<DamageTypeData>(),
@@ -325,16 +340,17 @@ namespace TheWaningBorder.Economy
                 if (damageTypes[i].Value != DamageType.Ranged) continue;
 
                 var dmg = damages[i];
-                dmg.Value = (int)(dmg.Value * multiplier);
+                dmg.Value = (int)(dmg.Value * delta);
                 em.SetComponentData(entities[i], dmg);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied ranged damage x{multiplier:F2} to {count} ranged units");
         }
 
-        private static void ApplyAttackSpeedToExisting(EntityManager em, Faction faction, float multiplier)
+        // Attack speed: cooldown = base / speed. Delta cooldown factor = old / new.
+        private static void ApplyAttackSpeedDelta(EntityManager em, Faction faction, float oldMult, float newMult)
         {
+            float delta = oldMult / newMult; // inverse — higher speed = shorter cooldown
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<UnitTag>(),
@@ -351,12 +367,11 @@ namespace TheWaningBorder.Economy
                 if (factions[i].Value != faction) continue;
 
                 var cd = cooldowns[i];
-                cd.Cooldown /= multiplier; // Higher multiplier = shorter cooldown = faster
+                cd.Cooldown *= delta;
                 em.SetComponentData(entities[i], cd);
                 count++;
             }
 
-            Debug.Log($"[SectEffectSystem] Applied attack speed x{multiplier:F2} to {count} units");
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -366,6 +381,13 @@ namespace TheWaningBorder.Economy
         /// <summary>
         /// Recalculate and re-apply all sect effects for a faction.
         /// Called when temple level changes (scaling multiplier updates).
+        ///
+        /// Uses the same delta-based application as OnSectAdopted: computes the
+        /// difference between the currently-applied multipliers and the new
+        /// target, then applies only that delta. This prevents the exponential
+        /// compounding that used to happen when the previous implementation
+        /// re-multiplied already-boosted stats by the full new multiplier on
+        /// every temple level-up (issue #198).
         /// </summary>
         public void RecalculateAllPassives(Faction faction)
         {
@@ -374,22 +396,17 @@ namespace TheWaningBorder.Economy
 
             // Recompute multipliers with new temple scaling
             sectState.RecomputeMultipliers(faction);
-            var mults = sectState.GetMultipliers(faction);
 
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
 
-            // Re-apply entity-level effects with updated scaling
-            // Note: We apply the full multiplier (not incremental) because
-            // entity values may have changed since original adoption
-            foreach (var sectId in sectState.GetAdoptedSects(faction))
-            {
-                ApplyEntityEffects(em, faction, sectId, mults);
-            }
+            var oldMults = GetApplied(faction);
+            var newMults = sectState.GetMultipliers(faction);
 
-            Debug.Log($"[SectEffectSystem] Recalculated all passives for {faction} " +
-                      $"(adopted: {sectState.GetAdoptedCount(faction)} sects)");
+            ApplyMultiplierDelta(em, faction, oldMults, newMults);
+            _appliedMults[faction] = newMults;
+
         }
 
         // ═══════════════════════════════════════════════════════════════════

@@ -51,13 +51,18 @@ namespace TheWaningBorder.Systems.Training
             }
 
             // Write results to FactionPopulation bank entities
-            foreach (var (pop, factionTag) in SystemAPI
-                .Query<RefRW<FactionPopulation>, RefRO<FactionTag>>())
+            foreach (var (pop, factionTag, entity) in SystemAPI
+                .Query<RefRW<FactionPopulation>, RefRO<FactionTag>>()
+                .WithEntityAccess())
             {
                 int fac = (int)factionTag.ValueRO.Value;
 
                 maxPop.TryGetValue(fac, out int totalMax);
                 curPop.TryGetValue(fac, out int totalCur);
+
+                // Runai override: pop max is always 200
+                if (em.HasComponent<RunaiPopOverride>(entity))
+                    totalMax = FactionPopulation.AbsoluteMax;
 
                 // Clamp max to absolute cap
                 if (totalMax > FactionPopulation.AbsoluteMax)

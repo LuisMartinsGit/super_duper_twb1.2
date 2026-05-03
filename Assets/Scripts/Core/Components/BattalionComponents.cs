@@ -84,6 +84,20 @@ public struct LastAttackerEntity : IComponentData
     public Entity Value;
 }
 
+// ==================== Battalion Attack Target ====================
+
+/// <summary>
+/// Attached to a battalion leader when the player orders an attack on an enemy battalion.
+/// Tracks which enemy battalion is being engaged so members can chain targets
+/// from the same battalion as enemies die.
+/// Cleared by BattalionSyncSystem when all enemies from the target battalion are dead.
+/// </summary>
+public struct BattalionAttackTarget : IComponentData
+{
+    /// <summary>The enemy battalion leader entity being attacked.</summary>
+    public Entity EnemyLeader;
+}
+
 // ==================== Battalion Formation Utility ====================
 
 /// <summary>

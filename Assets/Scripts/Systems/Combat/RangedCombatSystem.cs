@@ -33,6 +33,7 @@ namespace TheWaningBorder.Systems.Combat
         private const float DefaultMinRange = 10f;
         private const float DefaultMaxRange = 25f;
         private const float ArrowSpeed = 30f;
+        private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
 
         // Height damage modifier settings
         private const float HeightDamageScale = 0.04f;
@@ -77,6 +78,19 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
+                // Fix #212: defensively check HasComponent<Health> before reading.
+                // If DeathSystem removed Health via ECB playback, GetComponentData
+                // would throw.
+                if (!em.HasComponent<Health>(tgt.Value))
+                {
+                    tgt.Value = Entity.Null;
+                    if (em.HasComponent<AttackCommand>(entity))
+                    {
+                        ecb.RemoveComponent<AttackCommand>(entity);
+                    }
+                    continue;
+                }
+
                 // Validate target is alive
                 var targetHealth = em.GetComponentData<Health>(tgt.Value);
                 if (targetHealth.Value <= 0)
@@ -86,6 +100,34 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         ecb.RemoveComponent<AttackCommand>(entity);
                     }
+                    continue;
+                }
+
+                // Fix #211: skip targets that are currently Invulnerable.
+                if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
+
+                // Archers cannot fire while moving — enforce mutual exclusion.
+                // Individual archers: check own DesiredDestination.
+                // Battalion members: check leader's DesiredDestination (battalion is marching).
+                bool isMoving = false;
+                if (em.HasComponent<BattalionMemberData>(entity))
+                {
+                    var md = em.GetComponentData<BattalionMemberData>(entity);
+                    if (md.Leader != Entity.Null && em.Exists(md.Leader)
+                        && em.HasComponent<DesiredDestination>(md.Leader))
+                    {
+                        isMoving = em.GetComponentData<DesiredDestination>(md.Leader).Has != 0;
+                    }
+                }
+                else if (em.HasComponent<DesiredDestination>(entity))
+                {
+                    isMoving = em.GetComponentData<DesiredDestination>(entity).Has != 0;
+                }
+
+                if (isMoving)
+                {
+                    archer.AimTimer = 0;
+                    archer.IsFiring = 0;
                     continue;
                 }
 
@@ -140,13 +182,10 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     archer.IsRetreating = 0;
 
-                    // Stop moving when in range; remove stale DesiredDestination on battalion members
-                    if (em.HasComponent<DesiredDestination>(entity))
+                    // Stop moving when in range (skip battalion members — no DesiredDestination)
+                    if (!em.HasComponent<BattalionMemberData>(entity) && em.HasComponent<DesiredDestination>(entity))
                     {
-                        if (em.HasComponent<BattalionMemberData>(entity))
-                            ecb.RemoveComponent<DesiredDestination>(entity);
-                        else
-                            ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
+                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
 
                     // Use the unit's configured AimTimeRequired as-is
@@ -162,6 +201,56 @@ namespace TheWaningBorder.Systems.Combat
                         var aimMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
                         if (aimMults.RangedAccuracy > 0f)
                             effectiveAimRequired *= (1f - math.min(aimMults.RangedAccuracy, 0.9f));
+                    }
+
+                    // Siege units must face the center of the enemy battalion they are attacking
+                    bool isSiege = em.HasComponent<SiegeTag>(entity);
+                    float3 siegeAimPos = targetPos; // fallback to individual target
+                    if (isSiege)
+                    {
+                        // Find enemy battalion center to aim at
+                        if (em.HasComponent<BattalionMemberData>(tgt.Value))
+                        {
+                            var tgtLeader = em.GetComponentData<BattalionMemberData>(tgt.Value).Leader;
+                            if (em.Exists(tgtLeader) && em.HasBuffer<BattalionMember>(tgtLeader))
+                            {
+                                var eBuf = em.GetBuffer<BattalionMember>(tgtLeader);
+                                float3 sum = float3.zero;
+                                int cnt = 0;
+                                for (int bi = 0; bi < eBuf.Length; bi++)
+                                {
+                                    var bm = eBuf[bi].Value;
+                                    if (bm != Entity.Null && em.Exists(bm) && em.HasComponent<LocalTransform>(bm)
+                                        && em.HasComponent<Health>(bm) && em.GetComponentData<Health>(bm).Value > 0)
+                                    {
+                                        sum += em.GetComponentData<LocalTransform>(bm).Position;
+                                        cnt++;
+                                    }
+                                }
+                                if (cnt > 0) siegeAimPos = sum / cnt;
+                            }
+                        }
+
+                        float3 toTarget = siegeAimPos - myPos;
+                        toTarget.y = 0;
+                        float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
+                        forward.y = 0;
+                        if (math.lengthsq(toTarget) > 0.01f && math.lengthsq(forward) > 0.01f)
+                        {
+                            float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
+                            // Always rotate toward battalion center (LookAt)
+                            float3 dir = math.normalizesafe(toTarget);
+                            quaternion targetRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
+                            var xf = em.GetComponentData<LocalTransform>(entity);
+                            xf.Rotation = math.slerp(xf.Rotation, targetRot, math.min(1f, dt * 3f));
+                            em.SetComponentData(entity, xf);
+
+                            if (dot < 0.9f) // ~25° tolerance before firing
+                            {
+                                archer.AimTimer = 0;
+                                continue;
+                            }
+                        }
                     }
 
                     // Fire when aim is ready and cooldown is complete
@@ -200,50 +289,9 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = math.max(1, finalDamage - fortReduction);
                         }
 
-                        // Condemned mark: target takes bonus damage
-                        if (em.HasComponent<Condemned>(tgt.Value))
-                        {
-                            var condemned = em.GetComponentData<Condemned>(tgt.Value);
-                            finalDamage = (int)(finalDamage * condemned.DamageMultiplier);
-                        }
-
-                        // IgniteBuff: attacker's next attacks deal bonus fire damage
-                        if (em.HasComponent<IgniteBuff>(entity))
-                        {
-                            var ignite = em.GetComponentData<IgniteBuff>(entity);
-                            if (ignite.AttacksRemaining > 0)
-                            {
-                                finalDamage += (int)ignite.BonusDamage;
-                                ignite.AttacksRemaining--;
-                                if (ignite.AttacksRemaining <= 0)
-                                    ecb.RemoveComponent<IgniteBuff>(entity);
-                                else
-                                    em.SetComponentData(entity, ignite);
-                            }
-                        }
-
-                        // VoidStrikeBuff: attacker's next attack deals bonus damage
-                        if (em.HasComponent<VoidStrikeBuff>(entity))
-                        {
-                            var voidStrike = em.GetComponentData<VoidStrikeBuff>(entity);
-                            float bonus = em.HasComponent<CrystalTag>(tgt.Value) ? voidStrike.BonusVsCrystal : voidStrike.BonusDamage;
-                            finalDamage += (int)bonus;
-                            ecb.RemoveComponent<VoidStrikeBuff>(entity);
-                        }
-
-                        // DamageReflect: target reflects damage back to attacker
-                        if (em.HasComponent<SpellBuff>(tgt.Value))
-                        {
-                            var tgtBuff = em.GetComponentData<SpellBuff>(tgt.Value);
-                            if (tgtBuff.DamageReflect > 0f)
-                            {
-                                int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
-                                var attackerHealth = em.GetComponentData<Health>(entity);
-                                attackerHealth.Value -= reflected;
-                                em.SetComponentData(entity, attackerHealth);
-                            }
-                        }
-
+                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) + DamageReflect routed through shared helper
+                        finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
+                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
                         finalDamage = math.max(1, finalDamage);
 
                         // Get shooter's damage type (default Ranged for archers)
@@ -256,12 +304,21 @@ namespace TheWaningBorder.Systems.Combat
                             ? em.GetComponentData<Radius>(entity).Value + 0.5f
                             : 1.5f;
 
-                        // Create arrow projectile
+                        // Create projectile(s)
                         bool isAOE = em.HasComponent<AOEShooterData>(entity);
                         float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
-                        CreateArrow(ref ecb, myPos, targetPos, dist, entity,
-                            faction.ValueRO.Value, finalDamage, (float)time, tgt.Value, dmgType,
-                            isAOE, aoeRadius, spawnYOffset);
+
+                        // Siege units (ballistas): fire 3 bolts aimed at enemy battalion center
+                        int shotCount = isSiege ? 3 : 1;
+                        float3 aimPos = isSiege ? siegeAimPos : targetPos;
+                        float aimDist = isSiege ? math.distance(myPos, siegeAimPos) : dist;
+
+                        for (int shot = 0; shot < shotCount; shot++)
+                        {
+                            CreateArrow(ref ecb, myPos, aimPos, aimDist, entity,
+                                faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
+                                isAOE, aoeRadius, spawnYOffset);
+                        }
 
                         // Reset state — use unit's configured cooldown
                         float cooldownValue = 1.5f;
@@ -298,6 +355,10 @@ namespace TheWaningBorder.Systems.Combat
 
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
+
+                    // Battalion members: BattalionSyncSystem handles movement, skip DesiredDestination
+                    if (em.HasComponent<BattalionMemberData>(entity))
+                        continue;
 
                     // Move to a position just inside max range, not all the way to target
                     float3 toTarget = targetPos - myPos;
@@ -358,6 +419,20 @@ namespace TheWaningBorder.Systems.Combat
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
 
+            // Apply 15° uncertainty to projectile direction (spread fire)
+            const float UncertaintyDeg = 15f;
+            float halfRad = math.radians(UncertaintyDeg * 0.5f);
+            // Deterministic pseudo-random based on shooter + time
+            uint seed = (uint)(shooter.Index * 17 + (int)(time * 1000f));
+            seed = seed * 1103515245 + 12345;
+            float yawOffset = ((seed % 1000) / 1000f - 0.5f) * 2f * halfRad;
+            seed = seed * 1103515245 + 12345;
+            float pitchOffset = ((seed % 1000) / 1000f - 0.5f) * 2f * halfRad * 0.3f; // less vertical spread
+            quaternion yawRot = quaternion.AxisAngle(new float3(0, 1, 0), yawOffset);
+            quaternion pitchRot = quaternion.AxisAngle(math.normalizesafe(math.cross(direction, new float3(0, 1, 0))), pitchOffset);
+            direction = math.mul(yawRot, math.mul(pitchRot, direction));
+            direction = math.normalizesafe(direction);
+
             // Add slight upward arc for visual appeal
             float minPitch = math.radians(5f);
             float currentPitch = math.asin(direction.y);
@@ -368,8 +443,9 @@ namespace TheWaningBorder.Systems.Combat
                 direction = math.normalize(direction);
             }
 
-            var velocity = direction * ArrowSpeed;
-            var estimatedFlightTime = distance / ArrowSpeed;
+            float speed = (dmgType == DamageType.Siege) ? BoltSpeed : ArrowSpeed;
+            var velocity = direction * speed;
+            var estimatedFlightTime = distance / speed;
 
             // Create arrow entity
             var arrow = ecb.CreateEntity();
@@ -384,7 +460,7 @@ namespace TheWaningBorder.Systems.Combat
             ecb.AddComponent(arrow, new ArrowProjectile
             {
                 Velocity = velocity,
-                Gravity = 0f,  // No gravity for homing arrows
+                Gravity = 0f,
                 Shooter = shooter,
                 IsParabolic = false
             });
@@ -396,13 +472,17 @@ namespace TheWaningBorder.Systems.Combat
                 StartTime = time,
                 FlightTime = estimatedFlightTime,
                 Damage = damage,
-                Target = targetEntity,  // Store target entity for homing
+                Target = targetEntity,
                 Faction = faction,
                 DmgType = dmgType
             });
 
             if (isAOE)
                 ecb.AddComponent(arrow, new AOEProjectile { Radius = aoeRadius });
+
+            // Siege projectiles (Ballista bolts) pierce through multiple targets
+            if (dmgType == DamageType.Siege)
+                ecb.AddComponent(arrow, new PiercingProjectile { RemainingPierces = 5 });
         }
 
         private static float DistXZ(float3 a, float3 b)

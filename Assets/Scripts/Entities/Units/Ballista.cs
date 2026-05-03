@@ -20,7 +20,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultLoS = 26f;
         private const float DefaultMinRange = 10f;
         private const float DefaultMaxRange = 24f;
-        private const float DefaultCooldown = 4.0f;
+        private const float DefaultCooldown = 3.0f;
         private const float DefaultAimTime = 1.0f;
         private const float DefaultRadius = 0.8f;
         private const int PresentationID = 337;

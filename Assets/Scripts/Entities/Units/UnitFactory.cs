@@ -72,11 +72,15 @@ namespace TheWaningBorder.Entities
             };
 
             // Assign network ID for multiplayer lockstep synchronization
-            em.AddComponentData(entity, new NetworkedEntity
+            // Skip for deferred entities (created via ECB wrapper like Litharch)
+            if (entity.Index >= 0)
             {
-                NetworkId = NetworkIdGenerator.GetNextId(),
-                SpawnTick = 0
-            });
+                em.AddComponentData(entity, new NetworkedEntity
+                {
+                    NetworkId = NetworkIdGenerator.GetNextId(),
+                    SpawnTick = 0
+                });
+            }
 
             return entity;
         }
@@ -250,13 +254,11 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateDefault(EntityManager em, string unitId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[UnitFactory] Unknown unit type '{unitId}', creating default melee unit");
             return Swordsman.Create(em, position, faction);
         }
 
         private static Entity CreateDefault(EntityCommandBuffer ecb, string unitId, float3 position, Faction faction)
         {
-            UnityEngine.Debug.LogWarning($"[UnitFactory] Unknown unit type '{unitId}', creating default melee unit");
             return Swordsman.Create(ecb, position, faction);
         }
     }

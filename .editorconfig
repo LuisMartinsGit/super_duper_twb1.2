@@ -1,0 +1,36 @@
+root = true
+
+# Project-wide defaults
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# C# files (Unity 6 / Roslyn)
+[*.cs]
+indent_size = 4
+
+# Require braces on if/else/for/while bodies. Catches the missing-brace
+# pattern that surface scans flagged 30+ times across the codebase — when
+# the audit verified them, only ~12 were real bugs and the rest were
+# cosmetic `if X; else Y;` blocks where `else` correctly bound. Forcing
+# braces everywhere makes both classes mechanically obvious and prevents
+# new instances from sneaking in via copy-paste.
+csharp_prefer_braces = true:warning
+
+# Style preferences
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+
+# Unity / generated assets — leave alone
+[*.{asset,prefab,unity,mat,controller,anim,physicMaterial,physicsMaterial2D,playable,signal,asmdef,asmref}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false

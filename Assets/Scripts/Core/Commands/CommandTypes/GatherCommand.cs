@@ -206,8 +206,8 @@ namespace TheWaningBorder.Core.Commands.Types
 
             if (!em.HasComponent<GatherCommand>(miner))
                 em.AddComponentData(miner, cmd);
-            else
-                em.SetComponentData(miner, cmd);
+                else
+                    em.SetComponentData(miner, cmd);
 
             // Set destination to resource node position
             if (em.HasComponent<Unity.Transforms.LocalTransform>(resourceNode))

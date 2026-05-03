@@ -254,7 +254,6 @@ namespace TheWaningBorder.UI.Panels
             // 3. Register culture with FactionColors so UI/rendering picks it up immediately
             FactionColors.SetFactionCulture(_faction, culture);
 
-            Debug.Log($"[CultureChoicePopup] {_faction} started age-up to Era 2 — culture: {CultureConfig.GetName(culture)} ({CultureConfig.AgeUpDuration}s)");
 
             Close();
         }

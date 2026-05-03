@@ -36,7 +36,7 @@ namespace TheWaningBorder.AI
             if (!ShouldAIIssueCommands()) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
 
-            CommandRouter.IssueMove(em, unit, destination, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueMove(em, unit, destination, CommandSource.AI);
         }
 
         /// <summary>
@@ -71,7 +71,7 @@ namespace TheWaningBorder.AI
                 );
 
                 float3 targetPos = destination + offset;
-                CommandRouter.IssueMove(em, units[i], targetPos, CommandRouter.CommandSource.AI);
+                CommandRouter.IssueMove(em, units[i], targetPos, CommandSource.AI);
 
                 col++;
                 if (col >= cols)
@@ -115,7 +115,7 @@ namespace TheWaningBorder.AI
                 );
 
                 float3 targetPos = destination + offset;
-                CommandRouter.IssueMove(em, unit, targetPos, CommandRouter.CommandSource.AI);
+                CommandRouter.IssueMove(em, unit, targetPos, CommandSource.AI);
 
                 col++;
                 if (col >= cols)
@@ -137,7 +137,7 @@ namespace TheWaningBorder.AI
             if (unit == Entity.Null || target == Entity.Null) return;
             if (!em.Exists(unit) || !em.Exists(target)) return;
 
-            CommandRouter.IssueAttack(em, unit, target, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueAttack(em, unit, target, CommandSource.AI);
         }
 
         /// <summary>
@@ -148,7 +148,7 @@ namespace TheWaningBorder.AI
             if (!ShouldAIIssueCommands()) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
 
-            CommandRouter.IssueStop(em, unit, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueStop(em, unit, CommandSource.AI);
         }
 
         // ==================== Economy ====================
@@ -162,7 +162,7 @@ namespace TheWaningBorder.AI
             if (miner == Entity.Null || resourceNode == Entity.Null) return;
             if (!em.Exists(miner)) return;
 
-            CommandRouter.IssueGather(em, miner, resourceNode, depositLocation, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueGather(em, miner, resourceNode, depositLocation, CommandSource.AI);
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace TheWaningBorder.AI
             if (!ShouldAIIssueCommands()) return;
             if (builder == Entity.Null || !em.Exists(builder)) return;
 
-            CommandRouter.IssueBuild(em, builder, targetBuilding, buildingId, position, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueBuild(em, builder, targetBuilding, buildingId, position, CommandSource.AI);
         }
 
         // ==================== Support ====================
@@ -188,7 +188,7 @@ namespace TheWaningBorder.AI
             if (healer == Entity.Null || target == Entity.Null) return;
             if (!em.Exists(healer) || !em.Exists(target)) return;
 
-            CommandRouter.IssueHeal(em, healer, target, CommandRouter.CommandSource.AI);
+            CommandRouter.IssueHeal(em, healer, target, CommandSource.AI);
         }
 
         /// <summary>
@@ -199,7 +199,7 @@ namespace TheWaningBorder.AI
             if (!ShouldAIIssueCommands()) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
-            CommandRouter.SetRallyPoint(em, building, position, CommandRouter.CommandSource.AI);
+            CommandRouter.SetRallyPoint(em, building, position, CommandSource.AI);
         }
 
         // ==================== Batch Operations ====================
@@ -217,7 +217,7 @@ namespace TheWaningBorder.AI
                 var unit = armyUnits[i].Unit;
                 if (unit == Entity.Null || !em.Exists(unit)) continue;
 
-                CommandRouter.IssueAttack(em, unit, target, CommandRouter.CommandSource.AI);
+                CommandRouter.IssueAttack(em, unit, target, CommandSource.AI);
             }
         }
 
@@ -233,7 +233,7 @@ namespace TheWaningBorder.AI
                 var unit = armyUnits[i].Unit;
                 if (unit == Entity.Null || !em.Exists(unit)) continue;
 
-                CommandRouter.IssueStop(em, unit, CommandRouter.CommandSource.AI);
+                CommandRouter.IssueStop(em, unit, CommandSource.AI);
             }
         }
     }

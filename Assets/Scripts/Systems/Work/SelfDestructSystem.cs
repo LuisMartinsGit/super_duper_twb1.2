@@ -29,9 +29,10 @@ namespace TheWaningBorder.Systems.Work
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
-            // Snapshot entities with timers (can't destroy during iteration)
+            // Snapshot entities with timers (can't destroy during iteration).
+            // Fix #237: the old code also allocated a NativeList<float> named
+            // 'timers' that was never written to or read. Removed.
             var toProcess = new NativeList<Entity>(Allocator.Temp);
-            var timers = new NativeList<float>(Allocator.Temp);
 
             foreach (var (timer, entity) in SystemAPI
                 .Query<RefRW<SelfDestructTimer>>()
@@ -70,7 +71,6 @@ namespace TheWaningBorder.Systems.Work
                         );
 
                         FactionEconomy.Add(em, faction, refund);
-                        UnityEngine.Debug.Log($"[SelfDestruct] {buildingId} destroyed — refunded {refund.Supplies}S {refund.Iron}Fe to {faction}");
                     }
                 }
 
@@ -79,7 +79,6 @@ namespace TheWaningBorder.Systems.Work
             }
 
             toProcess.Dispose();
-            timers.Dispose();
         }
 
         /// <summary>

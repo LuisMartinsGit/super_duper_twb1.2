@@ -1,0 +1,22 @@
+{
+  "id": "task-deepdive-ai-2026-052",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-03T12:20:45Z",
+  "updatedAt": "2026-05-03T12:20:45Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-03T12:20:45Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "User rejected task-050/051 as superficial — too many surface scans, ~15% false-positive rate. This task is the do-over for AI subsystem only: deft-review agent invoked with explicit 'no Grep snippets, full Read' instruction; 18 files read in full, 6 end-to-end data flows traced, 10 verified findings produced (vs. 25+ noisy ones from the surface scan), plus 5 architectural smells, 9 confirmations of recent fixes, explicit out-of-scope list. F-1 is a regression I introduced this session: the 50/50 crystal floor silently neutralizes Rush's SetCrystalTarget(1).",
+      "timestamp": "2026-05-03T12:20:45Z"
+    }
+  ]
+}

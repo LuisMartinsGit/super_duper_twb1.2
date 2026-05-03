@@ -283,16 +283,16 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
             if (em.HasComponent<SmelterTag>(entity)) return "Smelter";
             if (em.HasComponent<WallHubTag>(entity)) return "Wall Hub";
-            if (em.HasComponent<WallSegmentTag>(entity)) return "Wall";
+            if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
+            if (em.HasComponent<WallGateTag>(entity)) return "Wall Gate";
+            if (em.HasComponent<WallInstanceTag>(entity)) return "Wall";
+            if (em.HasComponent<WallSegmentTag>(entity)) return "Wall Segment";
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
-            if (em.HasComponent<TradingPostTag>(entity))
-            {
-                int num = em.HasComponent<TradingPostData>(entity) ? em.GetComponentData<TradingPostData>(entity).PostNumber : 0;
-                return num > 0 ? $"Trading Post #{num}" : "Trading Post";
-            }
-            if (em.HasComponent<BazaarTag>(entity)) return "Bazaar";
+            if (em.HasComponent<TradingPostTag>(entity)) return "Trading Post";
+            if (em.HasComponent<BazaarTag>(entity)) return "Thessara's Bazaar";
+            if (em.HasComponent<BazaarWagonTag>(entity)) return "Bazaar Wagon";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
             // Alanthor culture buildings
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
@@ -305,17 +305,38 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<LonghouseTag>(entity)) return "Longhouse";
             if (em.HasComponent<TotemTowerTag>(entity)) return "Totem Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Siege Yard";
+            // Crystal faction buildings
+            if (em.HasComponent<CrystalMainNodeTag>(entity)) return "Crystal Hive";
+            if (em.HasComponent<CrystalSubNodeTag>(entity))
+            {
+                var subType = em.GetComponentData<CrystalSubNodeTag>(entity).Type;
+                return subType switch
+                {
+                    CrystalSubNodeType.Resource => "Crystal Wellspring",
+                    CrystalSubNodeType.Enforcement => "Enforcement Spire",
+                    CrystalSubNodeType.Suppression => "Suppression Spire",
+                    CrystalSubNodeType.Restoration => "Restoration Bloom",
+                    CrystalSubNodeType.Turret => "Crystal Turret",
+                    _ => "Crystal Node"
+                };
+            }
             return "Building";
         }
 
         private static string GetUnitName(Entity entity, EntityManager em)
         {
+            // Use PresentationId for precise unit identification
+            if (em.HasComponent<PresentationId>(entity))
+            {
+                int pid = em.GetComponentData<PresentationId>(entity).Id;
+                string name = GetUnitNameByPresentationId(pid);
+                if (name != null) return name;
+            }
+
+            // Legacy fallback for units without PresentationId
             if (em.HasComponent<CanBuild>(entity)) return "Builder";
             if (em.HasComponent<MinerTag>(entity)) return "Miner";
-            if (em.HasComponent<ArcherTag>(entity)) return "Archer";
-            if (em.HasComponent<BerserkerTag>(entity)) return "Berserker";
 
-            // Fall back to UnitTag.Class for units without specific tags
             if (em.HasComponent<UnitTag>(entity))
             {
                 var unitTag = em.GetComponentData<UnitTag>(entity);
@@ -336,6 +357,57 @@ namespace TheWaningBorder.UI
         }
 
         /// <summary>
+        /// Map PresentationId to display name for all unit types.
+        /// Returns null if the ID is not recognized.
+        /// </summary>
+        private static string GetUnitNameByPresentationId(int pid)
+        {
+            return pid switch
+            {
+                // Era 1 core units
+                200 => "Builder",
+                201 => "Swordsman",
+                202 => "Archer",
+                203 => "Miner",
+                206 => "Scout",
+                207 => "Litharch",
+                210 => "Berserker",
+                // Crystal units
+                320 => "Crystalling",
+                321 => "Veilstinger",
+                322 => "Godsplinter",
+                // Runai culture units
+                330 => "Spearman",
+                331 => "Skirmisher",
+                332 => "Raider",
+                333 => "Catapult",
+                // Alanthor culture units
+                334 => "Sentinel",
+                335 => "Crossbowman",
+                336 => "Cataphract",
+                337 => "Ballista",
+                // Feraldis culture units
+                338 => "Hunter",
+                339 => "Warboar Rider",
+                340 => "Siege Ram",
+                // Sect unique units
+                370 => "Scar Guard",
+                371 => "Golem Autark",
+                372 => "Stone Warden",
+                373 => "Archivist Adept",
+                374 => "Flame Warden",
+                375 => "Vault Keeper",
+                376 => "Glassmark Arcanist",
+                377 => "Judicator",
+                378 => "Ashblade",
+                379 => "Brandbreaker",
+                380 => "Chaincaster",
+                381 => "Nullblade",
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Get the current era for a faction from its bank entity.
         /// Returns 1 if not found.
         /// </summary>
@@ -346,14 +418,19 @@ namespace TheWaningBorder.UI
             if (em.Equals(default(EntityManager)))
                 return 1;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionEra>()
-            );
+            // Fix #206: cache query across OnGUI frames.
+            if (!_eraQueryOwner.Equals(em))
+            {
+                _eraQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionEra>()
+                );
+                _eraQueryOwner = em;
+            }
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var eras = query.ToComponentDataArray<FactionEra>(Allocator.Temp);
+            using var entities = _eraQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _eraQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var eras = _eraQuery.ToComponentDataArray<FactionEra>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
@@ -375,14 +452,19 @@ namespace TheWaningBorder.UI
             if (em.Equals(default(EntityManager)))
                 return 0;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<ReligionPoints>()
-            );
+            // Fix #206: cache query across OnGUI frames.
+            if (!_rpQueryOwner.Equals(em))
+            {
+                _rpQuery = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<ReligionPoints>()
+                );
+                _rpQueryOwner = em;
+            }
 
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var rps = query.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+            using var entities = _rpQuery.ToEntityArray(Allocator.Temp);
+            using var tags = _rpQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var rps = _rpQuery.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
@@ -392,6 +474,12 @@ namespace TheWaningBorder.UI
 
             return 0;
         }
+
+        // Fix #206: per-query caches, invalidated on world change.
+        private static EntityQuery _eraQuery;
+        private static EntityManager _eraQueryOwner;
+        private static EntityQuery _rpQuery;
+        private static EntityManager _rpQueryOwner;
     }
 
     /// <summary>
@@ -450,6 +538,32 @@ namespace TheWaningBorder.UI
                 }
             }
 
+            // Check if this is an upgradeable wall instance (not already tower or gate)
+            if (em.HasComponent<WallInstanceTag>(entity) &&
+                !em.HasComponent<WallTowerTag>(entity) &&
+                !em.HasComponent<WallGateTag>(entity) &&
+                !em.HasComponent<UnderConstruction>(entity))
+            {
+                info.Type = ActionType.WallInstanceUpgrade;
+                return info;
+            }
+
+            // Check if this is a Bazaar Wagon (packed Bazaar — show unpack button)
+            if (em.HasComponent<BazaarWagonTag>(entity))
+            {
+                info.Type = ActionType.BazaarWagonUnpack;
+                info.Actions = new List<ActionButton>
+                {
+                    new ActionButton
+                    {
+                        Id = "BazaarUnpack",
+                        Label = "Unpack",
+                        Tooltip = "Unpack wagon back into Thessara's Bazaar"
+                    }
+                };
+                return info;
+            }
+
             // Check if this is a builder (can place buildings)
             if (em.HasComponent<CanBuild>(entity))
             {
@@ -491,6 +605,17 @@ namespace TheWaningBorder.UI
             {
                 var trainingActions = GetTrainingActions(entity, em);
                 bool hasResearch = em.HasComponent<ResearchState>(entity);
+
+                // Bazaar: add Pack button to training actions
+                if (em.HasComponent<BazaarTag>(entity) && !em.HasComponent<UnderConstruction>(entity))
+                {
+                    trainingActions.Add(new ActionButton
+                    {
+                        Id = "BazaarPack",
+                        Label = "Pack",
+                        Tooltip = "Pack Bazaar into a mobile wagon"
+                    });
+                }
 
                 if (trainingActions.Count > 0)
                 {
@@ -631,6 +756,10 @@ namespace TheWaningBorder.UI
 
                     // Alanthor cannot build Gatherer's Huts (they use walls for income)
                     if (building.id == "GatherersHut" && factionCulture == Cultures.Alanthor)
+                        continue;
+
+                    // Runai cannot build Huts (population is set to 200 on age-up)
+                    if (building.id == "Hut" && factionCulture == Cultures.Runai)
                         continue;
 
                     var cost = building.cost != null ? new Cost

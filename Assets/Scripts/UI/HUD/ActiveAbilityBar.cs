@@ -77,7 +77,6 @@ namespace TheWaningBorder.UI.HUD
                 if (GUI.Button(btnRect, label, _buttonStyle))
                 {
                     // Ability activation — placeholder for future implementation
-                    Debug.Log($"[ActiveAbilityBar] Activated: {ability.Name}");
                 }
 
                 GUI.enabled = wasEnabled;

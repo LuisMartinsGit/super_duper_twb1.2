@@ -59,6 +59,9 @@ namespace TheWaningBorder.UI.HUD
         // Fallback: direct CameraController reference (in case RTSCameraRig not in scene)
         private CameraController _cameraController;
 
+        // Fix #222: cached Camera.main reference
+        private Camera _cachedCamera;
+
         // UI
         private RawImage _raw;
         private RectTransform _rawRect;
@@ -81,13 +84,13 @@ namespace TheWaningBorder.UI.HUD
 
         void Awake()
         {
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 es.hideFlags = HideFlags.DontSave;
             }
 
-            _fow = FindObjectOfType<FogOfWarManager>();
+            _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null)
             {
                 worldMin = _fow.WorldMin;
@@ -211,7 +214,7 @@ namespace TheWaningBorder.UI.HUD
         private void RenderFrame()
         {
             if (_world == null || !_world.IsCreated) return;
-            if (_fow == null) _fow = FindObjectOfType<FogOfWarManager>();
+            if (_fow == null) _fow = FindFirstObjectByType<FogOfWarManager>();
 
             // Fill background based on fog state
             for (int y = 0; y < samples; y++)
@@ -312,7 +315,8 @@ namespace TheWaningBorder.UI.HUD
         private void UpdateCameraViewRect()
         {
             if (_viewLines == null || _rawRect == null) return;
-            var main = Camera.main;
+            // Fix #222: cache Camera.main reference
+            var main = _cachedCamera != null ? _cachedCamera : (_cachedCamera = Camera.main);
             if (!main) return;
 
             Vector3 p00 = RayToGround(main, new Vector2(0f, 0f));
@@ -369,7 +373,7 @@ namespace TheWaningBorder.UI.HUD
             // Find camera controller (try RTSCameraRig first, fallback to CameraController)
             if (cameraRig == null && _cameraController == null)
             {
-                cameraRig = FindObjectOfType<RTSCameraRig>();
+                cameraRig = FindFirstObjectByType<RTSCameraRig>();
                 if (cameraRig != null)
                 {
                     worldMin = cameraRig.worldMin;
@@ -377,7 +381,7 @@ namespace TheWaningBorder.UI.HUD
                 }
                 else
                 {
-                    _cameraController = FindObjectOfType<CameraController>();
+                    _cameraController = FindFirstObjectByType<CameraController>();
                     if (_cameraController != null)
                     {
                         worldMin = _cameraController.worldMin;
@@ -402,7 +406,6 @@ namespace TheWaningBorder.UI.HUD
 
             if (cameraRig != null)
                 cameraRig.MoveToPosition(targetPos, instant: false);
-            else
                 _cameraController.MoveToPositionSmooth(targetPos, 0.5f);
         }
 

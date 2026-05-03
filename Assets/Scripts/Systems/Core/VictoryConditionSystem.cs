@@ -57,7 +57,6 @@ namespace TheWaningBorder.UI.HUD
             if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.BattalionTest)
             {
                 _initialized = false;
-                Debug.Log("[VictoryConditionSystem] Disabled (Sandbox/BattalionTest mode)");
                 return;
             }
 
@@ -73,7 +72,6 @@ namespace TheWaningBorder.UI.HUD
             }
 
             _initialized = true;
-            Debug.Log($"[VictoryConditionSystem] Initialized with {_aliveFactions.Count} active factions");
         }
 
         void Update()
@@ -141,7 +139,6 @@ namespace TheWaningBorder.UI.HUD
                     GameStatsTracker.Instance.RecordElimination(faction, gameTime);
                 }
 
-                Debug.Log($"[VictoryConditionSystem] {faction} eliminated at {gameTime:F1}s");
 
                 // If local player was eliminated, show defeat immediately
                 if (faction == GameSettings.LocalPlayerFaction)
@@ -179,10 +176,8 @@ namespace TheWaningBorder.UI.HUD
                 result = $"{winner} WINS";
             else if (localPlayerDefeated)
                 result = "DEFEAT";
-            else
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
 
-            Debug.Log($"[VictoryConditionSystem] Game over - {result} (Winner: {winner})");
 
             EndGameButton.GameEndedBySystem = true;
 
@@ -208,7 +203,6 @@ namespace TheWaningBorder.UI.HUD
                 GameStatsTracker.Instance.RecordElimination(GameSettings.LocalPlayerFaction, gameTime);
             }
 
-            Debug.Log($"[VictoryConditionSystem] Local player surrendered at {gameTime:F1}s");
 
             Faction winner = _aliveFactions.Count == 1
                 ? GetSingleFaction(_aliveFactions)

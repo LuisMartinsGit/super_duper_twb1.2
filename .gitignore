@@ -76,11 +76,10 @@ Assets/*.jpg.meta
 Assets/Resources/UI/
 Assets/Resources/UI.meta
 
-# Audio files
+# Audio binary assets (clips, banks). Audio C# source under
+# Assets/Scripts/Audio/ is tracked — only binary content is excluded.
 Assets/Resources/Audio/
 Assets/Resources/Audio.meta
-Assets/Scripts/Audio/
-Assets/Scripts/Audio.meta
 
 # Prefabs with 3D mesh data
 Assets/Resources/Prefabs/

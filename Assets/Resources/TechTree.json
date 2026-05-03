@@ -1211,6 +1211,42 @@
                             }
                         },
                         {
+                            "id": "Alanthor_WallTower",
+                            "name": "Wall Tower",
+                            "hp": 500,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 3,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 16,
+                            "role": "Wall instance upgraded to ranged tower",
+                            "cost": {
+                                "Supplies": 60,
+                                "Iron": 30
+                            }
+                        },
+                        {
+                            "id": "Alanthor_WallGate",
+                            "name": "Wall Gate",
+                            "hp": 200,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 1,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 8,
+                            "role": "Wall instance upgraded to gate - auto-opens for friendlies",
+                            "cost": {
+                                "Supplies": 40,
+                                "Iron": 15
+                            }
+                        },
+                        {
                             "id": "Alanthor_Tower",
                             "name": "Watch Tower",
                             "hp": 950,

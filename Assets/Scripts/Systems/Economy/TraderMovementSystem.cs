@@ -10,179 +10,157 @@ using Cost = TheWaningBorder.Core.Cost;
 namespace TheWaningBorder.Systems.Economy
 {
     /// <summary>
-    /// Handles trader chain traversal between numbered trading posts.
+    /// Handles Runai trader movement with distance-based resource generation.
     ///
-    /// On arrival at a post:
-    /// 1. Deposits cargo to faction bank
-    /// 2. Finds next post in chain (forward or backward)
-    /// 3. Loads new cargo and sets destination
-    /// 4. Reverses direction at chain endpoints
-    ///
-    /// If destination post is destroyed, skips to next valid post.
+    /// Each frame:
+    /// 1. Calculate distance traveled since last frame
+    /// 2. Accumulate supplies (1 per 2 distance) and crystal (1 per 15 distance)
+    /// 3. On arrival: deposit integer amounts, keep fractional remainder
+    /// 4. Pick new random destination and repeat
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(MovementSystem))]
     public partial struct TraderMovementSystem : ISystem
     {
-        private const float BaseIncome = 25f;
-        private const float RouteLengthDivisor = 30f;
+        private const float SuppliesPerDistance = 0.5f;   // 1 supply per 2 distance
+        private const float CrystalPerDistance = 1f / 15f; // 1 crystal per 15 distance
 
-        private EntityQuery _postQuery;
+        private uint _randomSeed;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
-
-            _postQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TradingPostTag>(),
-                ComponentType.ReadOnly<TradingPostData>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            _randomSeed = 7919;
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
-            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
-            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
             foreach (var (trader, dd, faction, transform, entity) in SystemAPI
-                .Query<RefRW<TraderState>, RefRW<DesiredDestination>, RefRO<FactionTag>, RefRO<LocalTransform>>()
+                .Query<RefRW<RunaiTraderState>, RefRW<DesiredDestination>, RefRO<FactionTag>, RefRO<LocalTransform>>()
                 .WithAll<CaravanTag>()
                 .WithEntityAccess())
             {
                 ref var ts = ref trader.ValueRW;
                 ref var dest = ref dd.ValueRW;
+                float3 currentPos = transform.ValueRO.Position;
 
-                // Validate destination post still exists
-                if (ts.CurrentDestPost != Entity.Null && !em.Exists(ts.CurrentDestPost))
+                // --- Validate destination still exists ---
+                if (ts.CurrentDest != Entity.Null && !em.Exists(ts.CurrentDest))
                 {
-                    // Destination destroyed — find next valid post in current direction
-                    if (!TryFindNextPost(em, faction.ValueRO.Value, ts.DestPostNumber, ts.IsForward == 1, out var nextPost, out var nextNum, out var nextPos))
+                    // Destination destroyed — find new one
+                    if (!TryPickRandomNode(em, faction.ValueRO.Value, Entity.Null, out var newDest, out var newPos))
                     {
-                        // Try reverse direction
-                        if (!TryFindNextPost(em, faction.ValueRO.Value, ts.DestPostNumber, ts.IsForward == 0, out nextPost, out nextNum, out nextPos))
-                        {
-                            // No posts left — kill trader
-                            var hp = em.GetComponentData<Health>(entity);
-                            hp.Value = 0;
-                            em.SetComponentData(entity, hp);
-                            continue;
-                        }
-                        ts.IsForward = ts.IsForward == 1 ? (byte)0 : (byte)1;
+                        // No destinations — kill trader
+                        var hp = em.GetComponentData<Health>(entity);
+                        hp.Value = 0;
+                        em.SetComponentData(entity, hp);
+                        continue;
                     }
 
-                    ts.CurrentDestPost = nextPost;
-                    ts.DestPostNumber = nextNum;
-                    dest.Position = nextPos;
+                    ts.CurrentDest = newDest;
+                    dest.Position = newPos;
                     dest.Has = 1;
+                    ts.PreviousPosition = currentPos;
+                    FlowFieldManager.Instance?.RequestFlowField(newPos);
                     continue;
                 }
 
-                // Only process arrival when movement system says we've arrived
+                // --- Accumulate resources based on distance traveled ---
+                float distMoved = math.distance(ts.PreviousPosition, currentPos);
+                if (distMoved > 0.01f) // Ignore tiny movements
+                {
+                    ts.AccumulatedSupplies += distMoved * SuppliesPerDistance;
+                    ts.AccumulatedCrystal += distMoved * CrystalPerDistance;
+                }
+                ts.PreviousPosition = currentPos;
+
+                // --- Check arrival (movement system clears Has when arrived) ---
                 if (dest.Has != 0) continue;
 
-                // === ARRIVED AT POST ===
-                // Deposit cargo
-                int suppliesDeposit = (int)ts.CurrentCargo;
-                if (suppliesDeposit > 0)
+                // === ARRIVED AT DESTINATION ===
+
+                // Deposit integer resources
+                int supDep = (int)ts.AccumulatedSupplies;
+                int cryDep = (int)ts.AccumulatedCrystal;
+
+                if (supDep > 0 || cryDep > 0)
                 {
-                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: suppliesDeposit));
+                    // Apply sect trade income multiplier
+                    float tradeMult = 1f;
+                    if (FactionSectState.Instance != null)
+                        tradeMult = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value).TradeIncome;
+
+                    int finalSup = (int)(supDep * tradeMult);
+                    int finalCry = (int)(cryDep * tradeMult);
+
+                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: finalSup, crystal: finalCry));
                 }
-                ts.CurrentCargo = 0f;
 
-                // Find next post in chain
-                int currentNum = ts.DestPostNumber;
-                bool forward = ts.IsForward == 1;
+                // Keep fractional remainder
+                ts.AccumulatedSupplies -= supDep;
+                ts.AccumulatedCrystal -= cryDep;
 
-                // Sect trade income multiplier
-                float tradeMult = 1f;
-                if (FactionSectState.Instance != null)
-                    tradeMult = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value).TradeIncome;
-
-                if (TryFindNextPost(em, faction.ValueRO.Value, currentNum, forward, out var next, out var nNum, out var nPos))
+                // --- Pick new random destination ---
+                if (TryPickRandomNode(em, faction.ValueRO.Value, ts.CurrentDest, out var next, out var nPos))
                 {
-                    // Continue in same direction
-                    float dist = math.distance(transform.ValueRO.Position, nPos);
-                    ts.CurrentDestPost = next;
-                    ts.DestPostNumber = nNum;
-                    ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor) * tradeMult;
-                    ts.MaxCargo = ts.CurrentCargo;
+                    ts.CurrentDest = next;
                     dest.Position = nPos;
                     dest.Has = 1;
+                    FlowFieldManager.Instance?.RequestFlowField(nPos);
                 }
                 else
                 {
-                    // Reached end of chain — reverse direction
-                    ts.IsForward = forward ? (byte)0 : (byte)1;
-
-                    if (TryFindNextPost(em, faction.ValueRO.Value, currentNum, !forward, out next, out nNum, out nPos))
-                    {
-                        float dist = math.distance(transform.ValueRO.Position, nPos);
-                        ts.CurrentDestPost = next;
-                        ts.DestPostNumber = nNum;
-                        ts.CurrentCargo = BaseIncome * (dist / RouteLengthDivisor) * tradeMult;
-                        ts.MaxCargo = ts.CurrentCargo;
-                        dest.Position = nPos;
-                        dest.Has = 1;
-                    }
-                    else
-                    {
-                        // Only one post exists — just wait (no movement)
-                        dest.Has = 0;
-                    }
+                    // Only one node left — wait
+                    dest.Has = 0;
                 }
-
-                FlowFieldManager.Instance?.RequestFlowField(dest.Position);
             }
         }
 
         /// <summary>
-        /// Find the next valid post in the chain from currentPostNumber in the given direction.
-        /// Forward = find smallest PostNumber > current. Backward = find largest PostNumber < current.
+        /// Pick a random TradeNodeTag entity of the same faction, excluding a specific entity.
         /// </summary>
-        private bool TryFindNextPost(EntityManager em, Faction faction, int currentPostNumber, bool forward,
-            out Entity nextPost, out int nextNum, out float3 nextPos)
+        private bool TryPickRandomNode(EntityManager em, Faction faction, Entity exclude,
+            out Entity node, out float3 position)
         {
-            nextPost = Entity.Null;
-            nextNum = 0;
-            nextPos = float3.zero;
+            node = Entity.Null;
+            position = float3.zero;
 
-            using var posts = _postQuery.ToEntityArray(Allocator.Temp);
-            using var postData = _postQuery.ToComponentDataArray<TradingPostData>(Allocator.Temp);
-            using var postFactions = _postQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var postTransforms = _postQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TradeNodeTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<UnderConstruction>()
+            );
 
-            int bestNum = forward ? int.MaxValue : int.MinValue;
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            for (int i = 0; i < posts.Length; i++)
+            var candidates = new NativeList<int>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
             {
-                if (postFactions[i].Value != faction) continue;
-                int num = postData[i].PostNumber;
-                if (num == 0) continue;
-
-                if (forward && num > currentPostNumber && num < bestNum)
-                {
-                    bestNum = num;
-                    nextPost = posts[i];
-                    nextPos = postTransforms[i].Position;
-                }
-                else if (!forward && num < currentPostNumber && num > bestNum)
-                {
-                    bestNum = num;
-                    nextPost = posts[i];
-                    nextPos = postTransforms[i].Position;
-                }
+                if (factions[i].Value != faction) continue;
+                if (entities[i] == exclude) continue;
+                candidates.Add(i);
             }
 
-            if (nextPost != Entity.Null)
+            if (candidates.Length == 0)
             {
-                nextNum = bestNum;
-                return true;
+                candidates.Dispose();
+                return false;
             }
-            return false;
+
+            _randomSeed = _randomSeed * 1103515245 + 12345;
+            int pick = (int)(_randomSeed % (uint)candidates.Length);
+            int idx = candidates[pick];
+
+            node = entities[idx];
+            position = transforms[idx].Position;
+
+            candidates.Dispose();
+            return true;
         }
     }
 }

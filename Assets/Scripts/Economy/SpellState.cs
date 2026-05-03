@@ -45,6 +45,13 @@ namespace TheWaningBorder.Economy
         /// </summary>
         private readonly Dictionary<int, Dictionary<string, float>> _cooldownsByFaction = new();
 
+        // Fix #202: reuse a single scratch list instead of allocating a new
+        // List<string> every Update() frame. With up to 8 factions holding
+        // cooldowns, the old code generated one allocation + one free per
+        // faction per frame (~480 allocs/sec at 60fps), churning the GC for
+        // no reason.
+        private readonly List<string> _keysToRemoveScratch = new();
+
         // ═══════════════════════════════════════════════════════════════════
         // UPDATE
         // ═══════════════════════════════════════════════════════════════════
@@ -55,7 +62,7 @@ namespace TheWaningBorder.Economy
             if (dt <= 0f) return;
 
             // Tick down all active cooldowns
-            var keysToRemove = new List<string>();
+            var keysToRemove = _keysToRemoveScratch;
 
             foreach (var factionKvp in _cooldownsByFaction)
             {
@@ -64,6 +71,11 @@ namespace TheWaningBorder.Economy
 
                 foreach (var spellKvp in cooldowns)
                 {
+                    // Earlier missing braces meant the dictionary write ran
+                    // even for entries about to be removed. Net behavior was
+                    // correct because keysToRemove cleans up at end of frame,
+                    // but the dead store is wasted work and the same shape
+                    // as the bugs we're fixing this pass. (task-055 F-7)
                     float remaining = spellKvp.Value - dt;
                     if (remaining <= 0f)
                         keysToRemove.Add(spellKvp.Key);

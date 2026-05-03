@@ -30,6 +30,12 @@ namespace TheWaningBorder.Systems.Combat
         private const float BattalionDefaultLeash = 25f;
         private const float DefaultMeleeRange = 1.5f;
 
+        // Fix #207: spatial-hash cell size for the enemy scan.
+        // Cell=20 means a unit with LOS<=20 only visits a 3x3 neighborhood
+        // (9 cells); LOS<=40 (aggressive-stance boost) visits 5x5 (25 cells).
+        // Keeps per-unit inner-loop work bounded regardless of total enemy count.
+        private const float TargetingCellSize = 20f;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -65,15 +71,29 @@ namespace TheWaningBorder.Systems.Combat
             using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
+            // Fix #207: build a spatial hash so per-unit enemy scans visit
+            // only nearby cells instead of every enemy in the world. Shared
+            // between AutoAcquireTargets and ProcessReturnToGuard.
+            using var spatialMap = new NativeParallelMultiHashMap<int2, int>(
+                math.max(16, allEnemies.Length * 2), Allocator.Temp);
+            for (int i = 0; i < allEnemies.Length; i++)
+            {
+                var pos = allEnemyTransforms[i].Position;
+                var cell = new int2(
+                    (int)math.floor(pos.x / TargetingCellSize),
+                    (int)math.floor(pos.z / TargetingCellSize));
+                spatialMap.Add(cell, i);
+            }
+
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
             // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
+            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
 
             // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
             // =============================================================================
-            ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth);
+            ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -146,8 +166,12 @@ namespace TheWaningBorder.Systems.Combat
 
                         if (!isReturningToGuard)
                         {
+                            // Only strip AttackCommand if BOTH Target component and
+                            // the AttackCommand's own target are null — prevents race
+                            // where Target hasn't been set from AttackCommand yet.
                             var currentTarget = em.GetComponentData<Target>(entity);
-                            if (currentTarget.Value == Entity.Null)
+                            if (currentTarget.Value == Entity.Null
+                                && attackCmd.ValueRO.Target == Entity.Null)
                             {
                                 ecb.RemoveComponent<AttackCommand>(entity);
                                 continue;
@@ -199,8 +223,9 @@ namespace TheWaningBorder.Systems.Combat
                 // Set target component (Target always present on combat units)
                 ecb.SetComponent(entity, new Target { Value = target });
 
-                // Clear destination when attacking
-                if (em.HasComponent<DesiredDestination>(entity))
+                // Clear destination when attacking — but NOT for battalion leaders,
+                // who need DesiredDestination to march the formation toward the enemy
+                if (em.HasComponent<DesiredDestination>(entity) && !em.HasComponent<BattalionLeader>(entity))
                 {
                     ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                 }
@@ -210,7 +235,8 @@ namespace TheWaningBorder.Systems.Combat
         [BurstCompile]
         private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
+            NativeParallelMultiHashMap<int2, int> spatialMap)
         {
             var em = state.EntityManager;
 
@@ -259,9 +285,16 @@ namespace TheWaningBorder.Systems.Combat
                 if (isBattalionMember)
                 {
                     var memberData = em.GetComponentData<BattalionMemberData>(entity);
-                    if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
+                    if (em.Exists(memberData.Leader))
                     {
-                        stance = em.GetComponentData<BattalionStanceData>(memberData.Leader).Value;
+                        // If the leader has an AttackCommand (player-issued), skip auto-acquire.
+                        // BattalionCombatHelpers.AssignPerMemberTargets will assign targets
+                        // based on the leader's commanded target — player intent takes priority.
+                        if (em.HasComponent<AttackCommand>(memberData.Leader))
+                            continue;
+
+                        if (em.HasComponent<BattalionStanceData>(memberData.Leader))
+                            stance = em.GetComponentData<BattalionStanceData>(memberData.Leader).Value;
                     }
                 }
 
@@ -364,31 +397,127 @@ namespace TheWaningBorder.Systems.Combat
                     // Aggressive: no guard distance check — fall through to enemy scan
                 }
 
-                // ── Single enemy scan shared by idle, attack-move, and patrol units ──
+                // ── Priority scan: prefer enemies from the same battalion we were ordered to attack ──
                 Entity bestTarget = Entity.Null;
                 float bestDist = float.MaxValue;
 
-                for (int i = 0; i < allEnemies.Length; i++)
+                if (isBattalionMember)
                 {
-                    if (allEnemyFactions[i].Value == myFaction) continue;
-                    if (allEnemyHealth[i].Value <= 0) continue;
-
-                    var enemyPos = allEnemyTransforms[i].Position;
-                    var dist = DistXZ(myPos, enemyPos);
-
-                    // Skip stealthed enemies unless within proximity reveal range (3u)
-                    if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
-                        continue;
-
-                    if (dist <= los && dist < bestDist)
+                    var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                    if (em.Exists(memberData.Leader) && em.HasComponent<BattalionAttackTarget>(memberData.Leader))
                     {
-                        bestTarget = allEnemies[i];
-                        bestDist = dist;
+                        var bat = em.GetComponentData<BattalionAttackTarget>(memberData.Leader);
+                        if (bat.EnemyLeader != Entity.Null && em.Exists(bat.EnemyLeader)
+                            && em.HasBuffer<BattalionMember>(bat.EnemyLeader))
+                        {
+                            var enemyBuf = em.GetBuffer<BattalionMember>(bat.EnemyLeader);
+                            for (int ei = 0; ei < enemyBuf.Length; ei++)
+                            {
+                                var enemy = enemyBuf[ei].Value;
+                                if (enemy == Entity.Null || !em.Exists(enemy)) continue;
+                                if (!em.HasComponent<Health>(enemy) || em.GetComponentData<Health>(enemy).Value <= 0) continue;
+                                if (!em.HasComponent<LocalTransform>(enemy)) continue;
+                                var enemyPos = em.GetComponentData<LocalTransform>(enemy).Position;
+                                var dist = DistXZ(myPos, enemyPos);
+                                if (dist <= los && dist < bestDist)
+                                {
+                                    bestTarget = enemy;
+                                    bestDist = dist;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Fallback: spatial-hash enemy scan (Fix #207) ──
+                // Visit only cells within LOS instead of iterating all enemies.
+                if (bestTarget == Entity.Null)
+                {
+                    int radius = (int)math.ceil(los / TargetingCellSize);
+                    var myCell = new int2(
+                        (int)math.floor(myPos.x / TargetingCellSize),
+                        (int)math.floor(myPos.z / TargetingCellSize));
+
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        for (int dy = -radius; dy <= radius; dy++)
+                        {
+                            var cell = new int2(myCell.x + dx, myCell.y + dy);
+                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
+                            do
+                            {
+                                if (allEnemyFactions[i].Value == myFaction) continue;
+                                if (allEnemyHealth[i].Value <= 0) continue;
+
+                                var enemyPos = allEnemyTransforms[i].Position;
+                                var dist = DistXZ(myPos, enemyPos);
+
+                                // Skip stealthed enemies unless within proximity reveal range (3u)
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                    continue;
+
+                                if (dist <= los && dist < bestDist)
+                                {
+                                    bestTarget = allEnemies[i];
+                                    bestDist = dist;
+                                }
+                            } while (spatialMap.TryGetNextValue(out i, ref it));
+                        }
                     }
                 }
 
                 if (bestTarget != Entity.Null && em.Exists(bestTarget))
                 {
+                    // Battalion members: propagate to leader as battalion-level reaction.
+                    // Leader moves in formation; BattalionSyncSystem assigns per-member targets at encircle range.
+                    // Use em.SetComponentData for Target (non-structural, instantly visible to prevent
+                    // duplicate adds). Use ECB for structural AddComponent calls.
+                    if (isBattalionMember)
+                    {
+                        var memberData = em.GetComponentData<BattalionMemberData>(entity);
+                        if (em.Exists(memberData.Leader) && em.HasComponent<Target>(memberData.Leader))
+                        {
+                            var leaderTgt = em.GetComponentData<Target>(memberData.Leader);
+                            if (leaderTgt.Value == Entity.Null)
+                            {
+                                // Set Target immediately (non-structural) — prevents other members
+                                // from entering this block in the same frame
+                                em.SetComponentData(memberData.Leader, new Target { Value = bestTarget });
+
+                                // Add/update AttackCommand — use em for existing (non-structural),
+                                // ECB for adding (structural, deferred)
+                                if (em.HasComponent<AttackCommand>(memberData.Leader))
+                                    em.SetComponentData(memberData.Leader, new AttackCommand { Target = bestTarget });
+                                    else
+                                        ecb.AddComponent(memberData.Leader, new AttackCommand { Target = bestTarget });
+
+                                // Track enemy battalion
+                                Entity enemyLeader = Entity.Null;
+                                if (em.HasComponent<BattalionMemberData>(bestTarget))
+                                    enemyLeader = em.GetComponentData<BattalionMemberData>(bestTarget).Leader;
+                                if (enemyLeader != Entity.Null)
+                                {
+                                    if (em.HasComponent<BattalionAttackTarget>(memberData.Leader))
+                                        em.SetComponentData(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                        else
+                                            ecb.AddComponent(memberData.Leader, new BattalionAttackTarget { EnemyLeader = enemyLeader });
+                                }
+
+                                // Move leader in formation toward enemy
+                                if (em.HasComponent<LocalTransform>(bestTarget))
+                                {
+                                    var targetPos = em.GetComponentData<LocalTransform>(bestTarget).Position;
+                                    if (em.HasComponent<DesiredDestination>(memberData.Leader))
+                                        em.SetComponentData(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                        else
+                                            ecb.AddComponent(memberData.Leader, new DesiredDestination { Position = targetPos, Has = 1 });
+                                }
+                            }
+                        }
+                        // Don't set target on the member — wait for encircle range
+                        continue;
+                    }
+
                     ecb.SetComponent(entity, new Target { Value = bestTarget });
 
                     // Attack-move and patrol units also issue an AttackCommand so combat systems chase
@@ -397,8 +526,8 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         if (!em.HasComponent<AttackCommand>(entity))
                             ecb.AddComponent(entity, new AttackCommand { Target = bestTarget });
-                        else
-                            ecb.SetComponent(entity, new AttackCommand { Target = bestTarget });
+                            else
+                                ecb.SetComponent(entity, new AttackCommand { Target = bestTarget });
                     }
                 }
             }
@@ -407,7 +536,8 @@ namespace TheWaningBorder.Systems.Combat
         [BurstCompile]
         private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth)
+            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
+            NativeParallelMultiHashMap<int2, int> spatialMap)
         {
             var em = state.EntityManager;
 
@@ -504,26 +634,39 @@ namespace TheWaningBorder.Systems.Combat
                 // Only consider returning if we're far from guard point
                 if (distToGuard > GuardReturnThreshold)
                 {
-                    // Check if there are any enemies in line of sight
+                    // Check if there are any enemies in line of sight (Fix #207: spatial hash).
                     Entity nearestEnemy = Entity.Null;
                     float nearestDist = float.MaxValue;
 
-                    for (int i = 0; i < allEnemies.Length; i++)
+                    int radius = (int)math.ceil(los / TargetingCellSize);
+                    var myCell = new int2(
+                        (int)math.floor(myPos.x / TargetingCellSize),
+                        (int)math.floor(myPos.z / TargetingCellSize));
+
+                    for (int dx = -radius; dx <= radius; dx++)
                     {
-                        if (allEnemyFactions[i].Value == myFaction) continue;
-                        if (allEnemyHealth[i].Value <= 0) continue;
-
-                        var enemyPos = allEnemyTransforms[i].Position;
-                        var dist = DistXZ(myPos, enemyPos);
-
-                        // Skip stealthed enemies unless within proximity reveal range (3u)
-                        if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
-                            continue;
-
-                        if (dist <= los && dist < nearestDist)
+                        for (int dy = -radius; dy <= radius; dy++)
                         {
-                            nearestEnemy = allEnemies[i];
-                            nearestDist = dist;
+                            var cell = new int2(myCell.x + dx, myCell.y + dy);
+                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
+                            do
+                            {
+                                if (allEnemyFactions[i].Value == myFaction) continue;
+                                if (allEnemyHealth[i].Value <= 0) continue;
+
+                                var enemyPos = allEnemyTransforms[i].Position;
+                                var dist = DistXZ(myPos, enemyPos);
+
+                                // Skip stealthed enemies unless within proximity reveal range (3u)
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                    continue;
+
+                                if (dist <= los && dist < nearestDist)
+                                {
+                                    nearestEnemy = allEnemies[i];
+                                    nearestDist = dist;
+                                }
+                            } while (spatialMap.TryGetNextValue(out i, ref it));
                         }
                     }
 

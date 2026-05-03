@@ -39,7 +39,6 @@ namespace TheWaningBorder.Bootstrap
             if (_menuCreated) return;
             if (Object.FindFirstObjectByType<MainMenuUI>() != null) return;
 
-            Debug.Log($"[MainMenuBootstrap] Creating MainMenuUI for scene: {scene.name}");
             
             var menuGO = new GameObject("MainMenuUI");
             menuGO.AddComponent<MainMenuUI>();

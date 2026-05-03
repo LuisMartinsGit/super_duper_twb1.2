@@ -78,12 +78,17 @@ namespace TheWaningBorder.Core.Multiplayer
         /// <summary>
         /// Serialize command to string for network transmission.
         /// Format: Type,EntityId,PosX,PosY,PosZ,TargetId,SecondaryId,BuildingId
+        ///
+        /// Floats use the round-trip ("R") format specifier to preserve full
+        /// IEEE 754 precision. The previous "F2" format truncated positions to
+        /// two decimal places, causing building placements to desync between
+        /// peers whose source float values differed in the third+ decimal.
         /// </summary>
         public string Serialize()
         {
             // Use InvariantCulture to ensure '.' decimal separator on all locales
             var c = CultureInfo.InvariantCulture;
-            return string.Format(c, "{0},{1},{2:F2},{3:F2},{4:F2},{5},{6},{7}",
+            return string.Format(c, "{0},{1},{2:R},{3:R},{4:R},{5},{6},{7}",
                 (int)Type, EntityNetworkId, TargetPosition.x, TargetPosition.y, TargetPosition.z,
                 TargetEntityId, SecondaryTargetId, BuildingId ?? "");
         }
@@ -113,9 +118,8 @@ namespace TheWaningBorder.Core.Multiplayer
                     BuildingId = parts.Length > 7 ? parts[7] : ""
                 };
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                UnityEngine.Debug.LogError($"[LockstepCommand] Deserialize failed: {e.Message}");
                 return null;
             }
         }
@@ -168,44 +172,117 @@ namespace TheWaningBorder.Core.Multiplayer
     }
 
     /// <summary>
-    /// Helper for generating unique network IDs.
+    /// Helper for generating unique, lockstep-deterministic network IDs.
+    ///
+    /// Determinism model:
+    ///   - Pre-lockstep (bootstrap) spawns use a sequential counter in the
+    ///     reserved range [1 .. BOOTSTRAP_RESERVE-1]. This range is for
+    ///     entities that exist before the first tick fires (initial player
+    ///     bases, iron deposits, crystal nodes, etc.). Both peers MUST run
+    ///     bootstrap in the same order — this is a pre-condition.
+    ///   - Each lockstep tick gets a reserved slot range of SLOTS_PER_TICK
+    ///     IDs, starting at BOOTSTRAP_RESERVE + tick * SLOTS_PER_TICK. Any
+    ///     entity spawned during ProcessTick(N) on either peer falls inside
+    ///     that tick's slot range.
+    ///   - Because each tick's slot range is disjoint, a minor difference in
+    ///     spawn order inside the same tick will cause a hard checksum desync
+    ///     (via LockstepManager.ComputeGameStateChecksum) rather than silent
+    ///     ID drift that persists for the rest of the match.
+    ///
+    /// Call sites (LockstepManager):
+    ///   - Reset() at game start
+    ///   - BeginTick(tick) at the top of each ProcessTick
+    ///
+    /// Call sites (bootstrap / factories):
+    ///   - GetNextId() for entity spawns — works in both modes
+    ///
+    /// THREAD SAFETY: main-thread only. The previous lock-based implementation
+    /// did NOT provide lockstep determinism (order still depends on scheduling)
+    /// and gave a false sense of safety. Removed deliberately — if this method
+    /// is ever called from a worker thread, we want the race to surface.
     /// </summary>
     public static class NetworkIdGenerator
     {
-        private static int _nextId = 1;
-        private static readonly object _lock = new object();
+        /// <summary>ID range reserved for pre-lockstep bootstrap spawns.</summary>
+        public const int BOOTSTRAP_RESERVE = 1_000_000;
+
+        /// <summary>Max entities that can be spawned in a single tick without ID collision.</summary>
+        public const int SLOTS_PER_TICK = 10_000;
+
+        private static int _bootstrapNextId = 1;
+        private static int _currentTickBase = -1; // -1 = bootstrap mode (pre-lockstep)
+        private static int _nextIdInTick;
 
         /// <summary>
         /// Get the next available network ID.
-        /// Thread-safe for burst-compiled systems.
+        /// Must be called on the main thread. Returns bootstrap-range IDs
+        /// before the first BeginTick() call, and tick-aligned IDs after.
         /// </summary>
         public static int GetNextId()
         {
-            lock (_lock)
+            if (_currentTickBase < 0)
             {
-                return _nextId++;
+                // Pre-lockstep bootstrap mode
+                if (_bootstrapNextId >= BOOTSTRAP_RESERVE)
+                {
+                }
+                return _bootstrapNextId++;
             }
+
+            // Tick-aligned mode
+            int id = _currentTickBase + _nextIdInTick;
+            _nextIdInTick++;
+            if (_nextIdInTick >= SLOTS_PER_TICK)
+            {
+            }
+            return id;
         }
 
         /// <summary>
-        /// Reset the ID counter (call when starting new game).
+        /// Begin a new lockstep tick. Called by LockstepManager.ProcessTick.
+        /// Subsequent GetNextId() calls will return IDs in the tick's reserved slot range.
+        /// </summary>
+        public static void BeginTick(int tick)
+        {
+            if (tick < 0)
+            {
+                tick = 0;
+            }
+            _currentTickBase = BOOTSTRAP_RESERVE + tick * SLOTS_PER_TICK;
+            _nextIdInTick = 0;
+        }
+
+        /// <summary>
+        /// Reset the ID counters to the initial bootstrap state.
+        /// Call when starting a new game — BOTH peers must call this at
+        /// the same logical moment to stay in sync.
         /// </summary>
         public static void Reset()
         {
-            lock (_lock)
-            {
-                _nextId = 1;
-            }
+            _bootstrapNextId = 1;
+            _currentTickBase = -1;
+            _nextIdInTick = 0;
         }
 
         /// <summary>
-        /// Synchronize the counter to a specific value (for clients).
+        /// Defensive sync: bump counters so the next generated ID exceeds `value`.
+        /// Kept as a safety net for legacy flows, but new code should rely on the
+        /// tick-aligned determinism model rather than mid-game re-syncing.
         /// </summary>
         public static void SyncTo(int value)
         {
-            lock (_lock)
+            if (_currentTickBase < 0)
             {
-                _nextId = Math.Max(_nextId, value + 1);
+                if (_bootstrapNextId <= value) _bootstrapNextId = value + 1;
+            }
+            else
+            {
+                int nextAbsolute = _currentTickBase + _nextIdInTick;
+                if (nextAbsolute <= value)
+                {
+                    // Only advance within the current tick's slot range
+                    _nextIdInTick = Math.Max(_nextIdInTick, value - _currentTickBase + 1);
+                }
             }
         }
     }

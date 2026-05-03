@@ -8,20 +8,20 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Crossbowman unit - Alanthor culture ranged infantry.
-    /// Slow but armored ranged unit with long range and high damage.
-    /// Uses ArcherState for ranged aim/retreat behavior.
+    /// Shorter range than archers but compensates with higher damage and faster fire rate.
+    /// Heavily armored. Uses ArcherState for ranged aim/retreat behavior.
     /// </summary>
     public static class Crossbowman
     {
         // Default stats (used if TechTreeDB unavailable)
         private const float DefaultHP = 100f;
         private const float DefaultSpeed = 3.5f;
-        private const float DefaultDamage = 16f;
-        private const float DefaultLoS = 25f;
-        private const float DefaultMinRange = 6f;
-        private const float DefaultMaxRange = 22f;
-        private const float DefaultCooldown = 2.0f;
-        private const float DefaultAimTime = 0.5f;
+        private const float DefaultDamage = 20f;
+        private const float DefaultLoS = 20f;
+        private const float DefaultMinRange = 4f;
+        private const float DefaultMaxRange = 18f;
+        private const float DefaultCooldown = 1.2f;
+        private const float DefaultAimTime = 0.35f;
         private const int PresentationID = 335;
 
         /// <summary>

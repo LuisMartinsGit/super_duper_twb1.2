@@ -77,7 +77,6 @@ namespace TheWaningBorder.Systems.Training
                     if (!db.TryGetUnit(unitId, out var udef))
                     {
                         queue.RemoveAt(0);
-                        UnityEngine.Debug.LogWarning($"[BatchTraining] Unknown unit ID: {unitId}");
                         continue;
                     }
 
@@ -186,48 +185,56 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
+            // Spawn outside the building's inflated blocked footprint (BuildingSize cells +
+            // 1 cell padding from PassabilityBuildingSync) with extra clearance for the unit.
+            float buildingHalf = 2f;
+            if (em.HasComponent<BuildingSize>(building))
+            {
+                var bs = em.GetComponentData<BuildingSize>(building);
+                buildingHalf = math.max(bs.Width, bs.Height) * 0.5f;
+            }
+            float exitOffset = buildingHalf + 4f;
+            float3 baseSpawn = transform.Position + new float3(exitOffset, 0, exitOffset);
+
             for (int i = 0; i < count; i++)
             {
                 // Offset spawn position slightly for each unit in the batch
                 float angle = (i / (float)count) * math.PI * 2f;
                 float3 offset = new float3(math.cos(angle) * 1.5f, 0, math.sin(angle) * 1.5f);
-                float3 spawnPos = transform.Position + new float3(1.6f, 0, 1.6f) + offset;
+                float3 spawnPos = baseSpawn + offset;
 
                 float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
                     spawnPos, 0.5f, em, maxAttempts: 16);
 
-                // Create unit via the same factory switch
+                // Create unit via the same factory switch. UnitFactory already
+                // applies the TechTreeDB stats at creation time (Fix #243: the
+                // redundant ecb.SetComponent overwrites previously done here
+                // raced against any factory-specific adjustments and dropped
+                // them, so they have been removed).
                 Entity unit = SpawnSingleUnit(em, unitId, finalPos, faction);
-
-                // Apply TechTreeDB stats
-                if (TechTreeDB.Instance != null &&
-                    TechTreeDB.Instance.TryGetUnit(unitId, out var udef))
-                {
-                    ecb.SetComponent(unit, new Health { Value = (int)udef.hp, Max = (int)udef.hp });
-                    ecb.SetComponent(unit, new MoveSpeed { Value = udef.speed });
-                    ecb.SetComponent(unit, new Damage { Value = (int)udef.damage });
-                    ecb.SetComponent(unit, new LineOfSight { Radius = udef.lineOfSight });
-                }
 
                 // Apply completed tech effects
                 TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
+                // Apply sect bonuses to newly trained units. Earlier never
+                // called, so units trained after sect adoption silently
+                // started at base damage. (task-057 F-2)
+                SectEffectSystem.Instance?.ApplySectEffectsToUnit(em, unit, faction);
 
                 // Issue move to rally point
                 if (hasRally)
                 {
                     if (!em.HasComponent<DesiredDestination>(unit))
                         em.AddComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
-                    else
-                        em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                        else
+                            em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
 
                     if (!em.HasComponent<GuardPoint>(unit))
                         em.AddComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
-                    else
-                        em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                        else
+                            em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
                 }
             }
 
-            UnityEngine.Debug.Log($"[BatchTraining] Spawned {count}x {unitId} for {faction}");
         }
 
         /// <summary>

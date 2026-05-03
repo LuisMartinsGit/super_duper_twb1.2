@@ -87,8 +87,8 @@ namespace TheWaningBorder.Systems.Crystal
 
                     if (hasBuff)
                         ecb.SetComponent(entity, buff);
-                    else
-                        ecb.AddComponent(entity, buff);
+                        else
+                            ecb.AddComponent(entity, buff);
                 }
                 else if (hasBuff)
                 {

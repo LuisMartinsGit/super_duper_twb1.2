@@ -29,7 +29,6 @@ namespace TheWaningBorder.Bootstrap
                     // Pathfinding test mode: spawn test scenario instead of normal factions
                     if (GameSettings.Mode == GameMode.PathfindingTest)
                     {
-                        Debug.Log("[SpawnDelayHelper] Terrain ready, spawning pathfinding test...");
                         PathfindingTestSetup.Bootstrap();
                         GameCamera.FocusOn(Vector3.zero, instant: true);
                         LoadingScreen.NotifyReady();
@@ -37,7 +36,6 @@ namespace TheWaningBorder.Bootstrap
                         yield break;
                     }
 
-                    Debug.Log("[SpawnDelayHelper] Terrain ready, spawning players...");
                     PlayerSpawnSystem.SpawnAllFactions();
                     ObstacleBootstrap.SpawnObstacles();
                     IronDepositBootstrap.SpawnIronDeposits();
@@ -53,7 +51,6 @@ namespace TheWaningBorder.Bootstrap
                 yield return null;
             }
 
-            Debug.LogError("[SpawnDelayHelper] Timeout waiting for terrain! Spawning anyway...");
             PlayerSpawnSystem.SpawnAllFactions();
             ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
@@ -90,12 +87,10 @@ namespace TheWaningBorder.Bootstrap
                 {
                     var pos = transforms[i].Position;
                     GameCamera.FocusOn(new Vector3(pos.x, pos.y, pos.z), instant: true);
-                    Debug.Log($"[SpawnDelayHelper] Camera focused on {faction} Hall at {pos}");
                     return;
                 }
             }
 
-            Debug.LogWarning("[SpawnDelayHelper] Could not find local player's Hall for camera focus");
         }
     }
 }

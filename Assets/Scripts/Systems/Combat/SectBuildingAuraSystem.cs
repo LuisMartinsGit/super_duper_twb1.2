@@ -36,6 +36,7 @@ namespace TheWaningBorder.Systems.Combat
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<SectUniqueBuildingTag>();
+            state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
             _sectBuildingQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<SectUniqueBuildingTag>(),
@@ -54,7 +55,9 @@ namespace TheWaningBorder.Systems.Combat
             if (_timer < TickInterval) return;
             _timer = 0f;
 
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            // Fix #225: Singleton ECB.
+            var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var em = state.EntityManager;
 
             var buildingPositions = _sectBuildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -93,8 +96,8 @@ namespace TheWaningBorder.Systems.Combat
                         ApplyDreadTotemDebuff(ref state, ecb, em, bPos, bFaction, 15f);
                         break;
 
-                    case 420: // BindingPillar — damage crystal entities within 12u
-                        ApplyBindingPillarDamage(ref state, ecb, em, bPos, 12f);
+                    case 420: // BindingPillar — damage enemy crystal entities within 12u
+                        ApplyBindingPillarDamage(ref state, ecb, em, bPos, bFaction, 12f);
                         break;
 
                     // 411, 414, 415, 418, 421 — passive only, no runtime aura
@@ -106,9 +109,7 @@ namespace TheWaningBorder.Systems.Combat
             buildingPositions.Dispose();
             buildingPids.Dispose();
             buildingFactions.Dispose();
-
-            ecb.Playback(em);
-            ecb.Dispose();
+            // ECB plays back automatically at EndSimulation.
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -301,15 +302,22 @@ namespace TheWaningBorder.Systems.Combat
             }
         }
 
-        /// <summary>BindingPillar: deal 5 damage to CrystalTag entities within radius.</summary>
+        /// <summary>
+        /// BindingPillar: deal 5 damage to ENEMY CrystalTag entities within radius.
+        /// Fix #227: the previous version damaged every crystal entity regardless
+        /// of faction, which meant a pillar would slowly destroy the owner's own
+        /// crystal buildings or units if any were nearby.
+        /// </summary>
         private void ApplyBindingPillarDamage(ref SystemState state, EntityCommandBuffer ecb,
-            EntityManager em, float3 center, float radius)
+            EntityManager em, float3 center, Faction ownerFaction, float radius)
         {
-            foreach (var (transform, health, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<Health>>()
+            foreach (var (transform, health, factionTag, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRW<Health>, RefRO<FactionTag>>()
                 .WithAll<CrystalTag>()
                 .WithEntityAccess())
             {
+                if (factionTag.ValueRO.Value == ownerFaction) continue; // skip own crystals
+
                 float dist = math.distance(center, transform.ValueRO.Position);
                 if (dist > radius) continue;
 

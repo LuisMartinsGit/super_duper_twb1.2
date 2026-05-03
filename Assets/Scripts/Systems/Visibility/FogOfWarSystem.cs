@@ -145,7 +145,37 @@ namespace TheWaningBorder.Systems.Visibility
             }
 
             var humanFaction = mgr.HumanFaction;
-            
+
+            // Cache player unit positions + LOS for direct distance fallback
+            var playerLosQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LineOfSight>());
+            var pAllTransforms = playerLosQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var pAllFactions = playerLosQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var pAllLOS = playerLosQuery.ToComponentDataArray<LineOfSight>(Allocator.Temp);
+
+            // Build compact arrays of only player units
+            int playerCount = 0;
+            for (int pi = 0; pi < pAllFactions.Length; pi++)
+                if (pAllFactions[pi].Value == humanFaction) playerCount++;
+
+            var playerPositions = new NativeArray<float3>(playerCount, Allocator.Temp);
+            var playerLOSRadii = new NativeArray<float>(playerCount, Allocator.Temp);
+            int idx = 0;
+            for (int pi = 0; pi < pAllFactions.Length; pi++)
+            {
+                if (pAllFactions[pi].Value == humanFaction)
+                {
+                    playerPositions[idx] = pAllTransforms[pi].Position;
+                    playerLOSRadii[idx] = pAllLOS[pi].Radius;
+                    idx++;
+                }
+            }
+            pAllTransforms.Dispose();
+            pAllFactions.Dispose();
+            pAllLOS.Dispose();
+
             // Query entities with presentation
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<PresentationId>(),
@@ -184,9 +214,26 @@ namespace TheWaningBorder.Systems.Visibility
                     continue;
                 }
 
-                // Enemy/neutral units - only show when currently visible
+                // Enemy/neutral units - show when visible through fog OR
+                // when any player unit is close enough to see them directly.
+                // The direct distance check catches fog grid resolution issues.
                 if (isUnit && !isBuilding)
                 {
+                    if (!isVisible)
+                    {
+                        for (int pi = 0; pi < playerCount; pi++)
+                        {
+                            float dx = position.x - playerPositions[pi].x;
+                            float dz = position.z - playerPositions[pi].z;
+                            float distSq = dx * dx + dz * dz;
+                            float los = playerLOSRadii[pi];
+                            if (distSq <= los * los)
+                            {
+                                isVisible = true;
+                                break;
+                            }
+                        }
+                    }
                     gameObject.SetActive(isVisible);
                     continue;
                 }
@@ -227,6 +274,8 @@ namespace TheWaningBorder.Systems.Visibility
 
             entities.Dispose();
             transforms.Dispose();
+            playerPositions.Dispose();
+            playerLOSRadii.Dispose();
         }
     }
 }

@@ -272,8 +272,8 @@ namespace TheWaningBorder.Systems.Work
         {
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = target, Has = 1 });
-            else
-                em.AddComponentData(entity, new DesiredDestination { Position = target, Has = 1 });
+                else
+                    em.AddComponentData(entity, new DesiredDestination { Position = target, Has = 1 });
         }
 
         private static void StopMoving(EntityManager em, Entity entity)

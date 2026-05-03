@@ -81,7 +81,6 @@ namespace TheWaningBorder.Economy
 
             if (set.Add(techId))
             {
-                Debug.Log($"[FactionResearchState] {faction} completed research: {techId}");
                 OnTechCompleted?.Invoke(faction, techId);
             }
         }
@@ -129,7 +128,6 @@ namespace TheWaningBorder.Economy
         public void ResetAll()
         {
             _completedByFaction.Clear();
-            Debug.Log("[FactionResearchState] Reset all research state");
         }
     }
 }

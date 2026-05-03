@@ -95,7 +95,6 @@ namespace TheWaningBorder.Systems.Work
                         var rp = em.GetComponentData<ReligionPoints>(bankEntity);
                         rp.Value += TempleLevelConfig.GetRPGranted(1);
                         em.SetComponentData(bankEntity, rp);
-                        UnityEngine.Debug.Log($"[AgeUpSystem] {faction} granted {TempleLevelConfig.GetRPGranted(1)} RP for temple");
                     }
                 }
 
@@ -103,6 +102,20 @@ namespace TheWaningBorder.Systems.Work
                 if (culture == Cultures.Alanthor)
                 {
                     StartGathererHutSelfDestruct(em, faction);
+                }
+
+                // 4b. Runai: set population to 200 + collapse all Huts
+                if (culture == Cultures.Runai)
+                {
+                    // Add RunaiPopOverride to faction bank
+                    if (FactionEconomy.TryGetBank(em, faction, out var runaiBank))
+                    {
+                        if (!em.HasComponent<RunaiPopOverride>(runaiBank))
+                            em.AddComponent<RunaiPopOverride>(runaiBank);
+                    }
+
+                    // Self-destruct all faction Huts (2-minute timer)
+                    StartHutSelfDestruct(em, faction);
                 }
 
                 // 5. Register culture with FactionColors (idempotent — may already be set by UI popup)
@@ -115,7 +128,6 @@ namespace TheWaningBorder.Systems.Work
                 // 7. Remove AgeUpState — age-up is complete
                 em.RemoveComponent<AgeUpState>(hallEntity);
 
-                UnityEngine.Debug.Log($"[AgeUpSystem] {faction} completed age-up to Era 2 — culture: {CultureConfig.GetName(culture)}");
             }
 
             completed.Dispose();
@@ -141,6 +153,37 @@ namespace TheWaningBorder.Systems.Work
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// When Runai is chosen, all existing Huts of this faction
+        /// receive a 2-minute self-destruct timer with 80% cost refund.
+        /// Runai don't use houses — population is set to 200 via RunaiPopOverride.
+        /// </summary>
+        private static void StartHutSelfDestruct(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HutTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<UnderConstruction>(),
+                ComponentType.Exclude<SelfDestructTimer>()
+            );
+
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            int count = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+
+                em.AddComponentData(entities[i], new SelfDestructTimer
+                {
+                    TimeRemaining = 120f, // 2 minutes
+                    RefundPaid = 0
+                });
+                count++;
+            }
         }
 
         /// <summary>
@@ -171,9 +214,6 @@ namespace TheWaningBorder.Systems.Work
                 });
                 count++;
             }
-
-            if (count > 0)
-                UnityEngine.Debug.Log($"[AgeUpSystem] {count} Gatherer's Hut(s) marked for self-destruct (2 min)");
         }
     }
 }
