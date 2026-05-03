@@ -46,6 +46,12 @@ namespace TheWaningBorder.UI.HUD
         private float _placementRatio;
         private GUIStyle _tooltipStyle;
 
+        // Cached PlacementPreview GameObject. GameObject.Find() was previously
+        // called every LateUpdate while placing — Find() walks the entire
+        // active scene each call. Cache once per placement, invalidate when
+        // the cached ref dies or placement ends. (task-062 Q-29)
+        private GameObject _cachedPreview;
+
         void Awake()
         {
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -103,10 +109,12 @@ namespace TheWaningBorder.UI.HUD
             // ============================================================
             if (BuilderCommandPanel.IsPlacingBuilding && IsPlacingGathererHutType)
             {
-                var previewObj = GameObject.Find("PlacementPreview");
-                if (previewObj != null)
+                // Cache lookup — see _cachedPreview field comment.
+                if (_cachedPreview == null)
+                    _cachedPreview = GameObject.Find("PlacementPreview");
+                if (_cachedPreview != null)
                 {
-                    var previewPos = previewObj.transform.position;
+                    var previewPos = _cachedPreview.transform.position;
                     if (_placementCircle == null)
                         _placementCircle = CreateCircleRenderer();
                     _placementCircle.gameObject.SetActive(true);
@@ -119,9 +127,13 @@ namespace TheWaningBorder.UI.HUD
 
                 ShowAllExistingHutCircles();
             }
-            else if (_placementCircle != null)
+            else
             {
-                _placementCircle.gameObject.SetActive(false);
+                // Drop the cache when placement ends so the next placement
+                // re-resolves cleanly. (task-062 Q-29)
+                _cachedPreview = null;
+                if (_placementCircle != null)
+                    _placementCircle.gameObject.SetActive(false);
             }
         }
 

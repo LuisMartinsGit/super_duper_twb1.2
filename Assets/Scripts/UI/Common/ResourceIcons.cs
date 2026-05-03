@@ -171,7 +171,6 @@ namespace TheWaningBorder.UI
 
             if (totalWidth > 0f)
                 GUILayout.BeginHorizontal(GUILayout.Width(totalWidth));
-            else
                 GUILayout.BeginHorizontal();
 
             float size = fontSize + 2f;

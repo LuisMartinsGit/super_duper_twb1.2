@@ -289,9 +289,24 @@ namespace TheWaningBorder.Systems.Combat
                             finalDamage = math.max(1, finalDamage - fortReduction);
                         }
 
-                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) + DamageReflect routed through shared helper
-                        finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
-                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
+                        // SpellBuff armor bonus on target (Aegis-style timed buff,
+                        // StoneheartBastion +3 aura, etc.). Mirrors the Fortified
+                        // path — flat reduction on the already-computed damage.
+                        // (task-062 C-1)
+                        int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value);
+                        if (spellArmor > 0)
+                            finalDamage = math.max(1, finalDamage - spellArmor);
+
+                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper.
+                        // ApplyDamageReflect is intentionally NOT called here — for
+                        // ranged attacks the reflect must trigger at impact, not at
+                        // fire time, so the shooter only loses HP if the projectile
+                        // actually lands (target alive, not blocked, etc). Calling
+                        // here would punish a missed shot or one whose target died
+                        // before impact, and would double-reflect against
+                        // the original target. ProjectileSystem.ApplyDamage handles
+                        // the impact-time reflect call. (task-062 C-2)
+
                         finalDamage = math.max(1, finalDamage);
 
                         // Get shooter's damage type (default Ranged for archers)

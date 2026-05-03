@@ -394,12 +394,18 @@ namespace TheWaningBorder.Core.Commands
             IssueAbilityDirect(em, unit, target);
         }
 
-        private static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
+        /// <summary>
+        /// Apply the ability immediately on this peer.
+        /// public to mirror PlaceBuildingDirect / TrainCommandDirect (post-lockstep
+        /// helpers).
+        /// </summary>
+        public static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
         {
-            if (!em.HasComponent<AbilityActivated>(unit))
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (em.HasComponent<AbilityActivated>(unit))
+                em.SetComponentData(unit, new AbilityActivated { Target = target });
+            else
                 em.AddComponentData(unit, new AbilityActivated { Target = target });
-                else
-                    em.SetComponentData(unit, new AbilityActivated { Target = target });
         }
 
         // ═══════════════════════════════════════════════════════════════

@@ -239,6 +239,12 @@ namespace TheWaningBorder.Systems.Crystal
                 // =============================================================================
                 // BEHAVIOR: Too far - CHASE (unless holding position)
                 // =============================================================================
+                // Earlier this was a bare `{` block with no `else if (dist > maxRange)`
+                // guard, so it ran after EVERY successful in-range shot — immediately
+                // overwriting DesiredDestination to walk into the target, exiting range
+                // (RETREAT branch fired next frame), and oscillating. HoldPosition was
+                // also clobbered (Target was zeroed every shot). (task-058 F-1)
+                else if (dist > maxRange)
                 {
                     // Hold position units do NOT chase
                     if (em.HasComponent<HoldPositionTag>(entity))

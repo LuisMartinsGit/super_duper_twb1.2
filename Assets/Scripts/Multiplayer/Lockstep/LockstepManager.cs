@@ -520,6 +520,19 @@ namespace TheWaningBorder.Multiplayer
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
                     }
                     break;
+
+                case LockstepCommandType.Ability:
+                    {
+                        // EntityNetworkId is the ability *target* (or 0 for self/none).
+                        // The actor was already resolved into `entity` above via the
+                        // command's source-entity mapping.
+                        Entity targetEntity = cmd.EntityNetworkId != 0
+                            ? FindEntityByNetworkId(cmd.EntityNetworkId)
+                            : Entity.Null;
+                        CommandRouter.IssueAbilityDirect(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                    }
+                    break;
             }
         }
 

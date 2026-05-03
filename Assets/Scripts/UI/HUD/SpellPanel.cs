@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TheWaningBorder.Economy;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -27,7 +28,9 @@ namespace TheWaningBorder.UI.HUD
         private const float ButtonSpacing = 3f;
         private const float Margin = 6f;
 
-        // Styles
+        // Local cached styles — all unique to spell panel layout (small icon-grid header,
+        // bordered button bg, dark cooldown overlay, dim tooltip, bold targeting indicator).
+        // Standard styles are sourced from Styles.cs; only specialty styles cached here.
         private GUIStyle _panelBg;
         private GUIStyle _headerStyle;
         private GUIStyle _buttonStyle;
@@ -39,11 +42,12 @@ namespace TheWaningBorder.UI.HUD
         private Texture2D _texCooldown;
         private bool _stylesBuilt;
 
-        // Colors
+        // Spell-panel-local color constants (no clean Styles.cs counterpart).
+        // Gold accents come from Styles.HighlightColor directly. Dim tooltip text uses an
+        // inline literal that is close to Styles.SmallLabel's (0.7,0.68,0.6) but darker.
         private static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.18f, 0.88f);
         private static readonly Color ButtonColor = new Color(0.12f, 0.14f, 0.25f, 0.95f);
         private static readonly Color CooldownColor = new Color(0.0f, 0.0f, 0.0f, 0.65f);
-        private static readonly Color GoldAccent = new Color(0.83f, 0.66f, 0.26f);
         private static readonly Color DimText = new Color(0.6f, 0.58f, 0.50f);
 
         // Cached spell list
@@ -55,7 +59,8 @@ namespace TheWaningBorder.UI.HUD
 
         void OnGUI()
         {
-            BuildStyles();
+            Styles.Initialize();
+            BuildLocalStyles();
 
             var sectState = FactionSectState.Instance;
             var spellState = SpellState.Instance;
@@ -134,7 +139,7 @@ namespace TheWaningBorder.UI.HUD
 
             // Draw button background
             Color oldColor = GUI.color;
-            GUI.color = isActive ? GoldAccent : Color.white;
+            GUI.color = isActive ? Styles.HighlightColor : Color.white;
             GUI.Box(btnRect, GUIContent.none, _buttonStyle);
             GUI.color = oldColor;
 
@@ -160,7 +165,11 @@ namespace TheWaningBorder.UI.HUD
                     $"{spell.Name}\n{spell.Description}", _tooltipStyle);
             }
 
-            // Click handler
+            // Click handler. Earlier missing braces meant BeginTargeting ran
+            // unconditionally — clicking an active spell to cancel called
+            // CancelTargeting then immediately re-entered targeting. The
+            // user's mental model ("click again to cancel") didn't work; they
+            // had to right-click in the world to cancel. (task-060 F-3)
             if (!onCooldown && GUI.Button(btnRect, GUIContent.none, GUIStyle.none))
             {
                 if (castSystem != null)
@@ -185,14 +194,16 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
-        private void BuildStyles()
+        // Build the truly-unique cached locals (panel/button/cooldown/tooltip/header/targeting).
+        // All textures use Styles.MakeSolid() instead of a local MakeTex helper.
+        private void BuildLocalStyles()
         {
             if (_stylesBuilt) return;
             _stylesBuilt = true;
 
-            _texPanel = MakeTex(2, 2, PanelColor);
-            _texButton = MakeTex(2, 2, ButtonColor);
-            _texCooldown = MakeTex(2, 2, CooldownColor);
+            _texPanel = Styles.MakeSolid(PanelColor);
+            _texButton = Styles.MakeSolid(ButtonColor);
+            _texCooldown = Styles.MakeSolid(CooldownColor);
 
             _panelBg = new GUIStyle(GUI.skin.box)
             {
@@ -204,7 +215,7 @@ namespace TheWaningBorder.UI.HUD
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = GoldAccent }
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _buttonStyle = new GUIStyle(GUI.skin.box)
@@ -235,16 +246,6 @@ namespace TheWaningBorder.UI.HUD
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = new Color(1f, 0.8f, 0.2f) }
             };
-        }
-
-        private static Texture2D MakeTex(int w, int h, Color col)
-        {
-            var pix = new Color[w * h];
-            for (int i = 0; i < pix.Length; i++) pix[i] = col;
-            var tex = new Texture2D(w, h);
-            tex.SetPixels(pix);
-            tex.Apply();
-            return tex;
         }
     }
 }

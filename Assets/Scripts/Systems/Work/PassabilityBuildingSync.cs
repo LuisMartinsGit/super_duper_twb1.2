@@ -111,7 +111,6 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.UnblockBuildingRect(kvp.Value.Position, kvp.Value.Size);
-                    else
                         grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     toRemove.Add(kvp.Key);
                 }
@@ -130,7 +129,6 @@ namespace TheWaningBorder.Systems.Work
                 {
                     if (kvp.Value.HasSize == 1)
                         grid.BlockBuildingRect(kvp.Value.Position, kvp.Value.Size);
-                    else
                         grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
                     _knownBuildings.Add(kvp.Key, kvp.Value);
                     newBuildingsAdded = true;

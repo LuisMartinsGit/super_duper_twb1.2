@@ -71,6 +71,11 @@ namespace TheWaningBorder.Economy
 
                 foreach (var spellKvp in cooldowns)
                 {
+                    // Earlier missing braces meant the dictionary write ran
+                    // even for entries about to be removed. Net behavior was
+                    // correct because keysToRemove cleans up at end of frame,
+                    // but the dead store is wasted work and the same shape
+                    // as the bugs we're fixing this pass. (task-055 F-7)
                     float remaining = spellKvp.Value - dt;
                     if (remaining <= 0f)
                         keysToRemove.Add(spellKvp.Key);

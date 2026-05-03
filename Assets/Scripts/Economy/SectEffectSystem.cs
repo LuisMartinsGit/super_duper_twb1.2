@@ -153,8 +153,9 @@ namespace TheWaningBorder.Economy
             if (!Mathf.Approximately(oldM.RangedDamage, newM.RangedDamage))
                 ApplyRangedDamageDelta(em, faction, oldM.RangedDamage, newM.RangedDamage);
 
-            if (!Mathf.Approximately(oldM.VaultInterest, newM.VaultInterest))
-                ApplyVaultInterestDelta(em, faction, oldM.VaultInterest, newM.VaultInterest);
+            // Vault interest is read live from sect modifiers in the income loop;
+            // there is no per-vault stored field to delta-track. (Removed in deep
+            // dive G-6 to avoid divide-by-zero / drift.)
 
             if (!Mathf.Approximately(oldM.BuildingHP, newM.BuildingHP))
                 ApplyBuildingHpDelta(em, faction, oldM.BuildingHP, newM.BuildingHP);
@@ -226,33 +227,6 @@ namespace TheWaningBorder.Economy
                 var los = losData[i];
                 los.Radius *= delta;
                 em.SetComponentData(entities[i], los);
-                count++;
-            }
-
-        }
-
-        // Vault interest: delta factor = new / old
-        private static void ApplyVaultInterestDelta(EntityManager em, Faction faction, float oldMult, float newMult)
-        {
-            float delta = newMult / oldMult;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<VaultTag>(),
-                ComponentType.ReadWrite<VaultStorage>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var vaults = query.ToComponentDataArray<VaultStorage>(Allocator.Temp);
-
-            int count = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                var vault = vaults[i];
-                vault.InterestRate *= delta;
-                em.SetComponentData(entities[i], vault);
                 count++;
             }
 

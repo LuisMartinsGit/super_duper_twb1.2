@@ -652,7 +652,6 @@ namespace TheWaningBorder.UI.Menus
 
             if (_sandbox)
                 GameSettings.Mode = GameMode.Sandbox;
-            else
                 GameSettings.Mode = GameMode.FreeForAll;
 
             // Apply color selections to FactionColors runtime system

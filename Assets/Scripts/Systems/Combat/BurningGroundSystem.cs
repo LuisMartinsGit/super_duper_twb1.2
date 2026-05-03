@@ -83,6 +83,7 @@ public partial struct BurningGroundSystem : ISystem
                 foreach (var (health, unitTransform, unitFaction, entity) in SystemAPI
                     .Query<RefRW<Health>, RefRO<LocalTransform>, RefRO<FactionTag>>()
                     .WithAll<UnitTag>()
+                    .WithNone<Invulnerable>() // (task-062 C-4) — DoT honors LockdownVault
                     .WithEntityAccess())
                 {
                     float3 unitPos = unitTransform.ValueRO.Position;

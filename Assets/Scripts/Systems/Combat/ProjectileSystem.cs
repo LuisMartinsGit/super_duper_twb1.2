@@ -323,6 +323,14 @@ namespace TheWaningBorder.Systems.Combat
             if (targetHealth.Value <= 0) targetHealth.Value = 0;
             em.SetComponentData(targetEntity, targetHealth);
 
+            // DamageReflect: target's SpellBuff bounces a fraction of the dealt
+            // damage back at the attacker. Moved here from RangedCombatSystem
+            // (was at fire time) so missed/dodged shots no longer punish the
+            // attacker and re-targeted shots reflect from the actual victim
+            // rather than the original target. (task-062 C-2)
+            if (shooter != Entity.Null && em.Exists(shooter))
+                CombatDamageHelper.ApplyDamageReflect(em, shooter, targetEntity, impactDamage);
+
             // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
             // Use ECB for AddComponent to avoid structural changes during iteration
             if (em.HasComponent<LastDamagedByFaction>(targetEntity))
@@ -362,6 +370,12 @@ namespace TheWaningBorder.Systems.Combat
 
                 float distSq = math.distancesq(impactPos, transforms[i].Position);
                 if (distSq > radiusSq) continue;
+
+                // Skip Invulnerable secondary targets — primary-target check at
+                // line 293 is honored, AOE splash had no equivalent guard so a
+                // LockdownVault target inside the splash radius still took damage.
+                // (task-062 C-4)
+                if (em.HasComponent<Invulnerable>(entities[i])) continue;
 
                 // Check health > 0
                 var hp = em.GetComponentData<Health>(entities[i]);

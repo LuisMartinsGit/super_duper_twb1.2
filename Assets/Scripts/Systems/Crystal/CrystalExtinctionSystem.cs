@@ -103,7 +103,11 @@ namespace TheWaningBorder.Systems.Crystal
 
         private void TryRespawn(EntityManager em)
         {
-            // Deterministic random seed for multiplayer
+            // Deterministic random seed for multiplayer. Earlier missing
+            // braces meant the World.Time.ElapsedTime branch always ran
+            // and clobbered the lockstep-tick seed, so host and client
+            // computed different respawn positions and desynced state at
+            // the moment Crystal extinction triggered. (task-058 F-2 / MB-21)
             uint seed;
             if (GameSettings.IsMultiplayer && LockstepServiceLocator.IsActive)
                 seed = (uint)(LockstepServiceLocator.Instance.CurrentTick * 4217 + GameSettings.SpawnSeed + 99);

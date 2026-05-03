@@ -259,6 +259,7 @@ namespace TheWaningBorder.UI.Panels
 
             if (BuilderCommandPanel.IsPlacingBuilding)
                 GUILayout.Label("Left-click to place, Right/Esc to cancel", _headerStyle);
+            else
                 GUILayout.Label("Build Structure", _headerStyle);
 
             GUILayout.Space(8);

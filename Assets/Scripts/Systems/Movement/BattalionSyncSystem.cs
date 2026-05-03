@@ -428,12 +428,17 @@ namespace TheWaningBorder.Systems.Movement
 
                         if (passGrid != null && !passGrid.IsPassable(newPos))
                         {
-                            // Try alternate direction
+                            // Try alternate direction.
+                            // Earlier this fell through to `newPos = memberXf.Position`
+                            // unconditionally because of missing braces — the alt-direction
+                            // probe was always discarded so combat members never used the
+                            // passability fallback. (task-053 F-2 / MB-2)
                             float3 altDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, enemyPos, -dir, distToEnemy);
                             float3 altPos = memberXf.Position + altDir * step;
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
+                            else
                                 newPos = memberXf.Position;
                         }
 
@@ -507,12 +512,17 @@ namespace TheWaningBorder.Systems.Movement
                         // Passability check: don't walk into impassable cells
                         if (passGrid != null && !passGrid.IsPassable(newPos))
                         {
-                            // Blocked — try to path toward leader using flow field instead
+                            // Blocked — try to path toward leader using flow field instead.
+                            // Earlier missing braces (line ~516) made this fall through to
+                            // `newPos = memberXf.Position` unconditionally, so the
+                            // alt-direction probe was always discarded and stuck members
+                            // never used the formation-member fallback. (task-053 F-2 / MB-2)
                             float3 ffDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, leaderPos, dir, dist);
                             float3 altPos = memberXf.Position + ffDir * step;
                             if (passGrid.IsPassable(altPos))
                                 newPos = altPos;
+                            else
                                 newPos = memberXf.Position; // truly stuck, don't move
                         }
                     }

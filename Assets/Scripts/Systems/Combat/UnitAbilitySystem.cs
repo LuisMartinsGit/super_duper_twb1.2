@@ -126,7 +126,9 @@ namespace TheWaningBorder.Systems.Combat
 
                     // ── 7. MirrorShield (GlassmarkArcanist): damage reflect on self ──
                     case AbilityId.MirrorShield:
-                        ecb.AddComponent(entity, new SpellBuff
+                        // Merge instead of AddComponent so MirrorShield doesn't wipe
+                        // any pre-existing aura buff. (task-062 C-3)
+                        CombatDamageHelper.MergeSpellBuff(em, ecb, entity, new SpellBuff
                         {
                             ArmorBonus = 0f,
                             DamageMultiplier = 0f,
@@ -271,6 +273,8 @@ namespace TheWaningBorder.Systems.Combat
                 // Skip self and friendlies
                 if (entities[i] == caster) continue;
                 if (factions[i].Value == casterFaction) continue;
+                // Skip Invulnerable (task-062 C-4)
+                if (em.HasComponent<Invulnerable>(entities[i])) continue;
 
                 float3 pos = transforms[i].Position;
                 float distSq = math.distancesq(
@@ -321,7 +325,9 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (distSq <= radiusSq)
                 {
-                    ecb.AddComponent(entities[i], new SpellBuff
+                    // Merge instead of AddComponent so Safeguard doesn't wipe
+                    // a unit's existing aura buff. (task-062 C-3)
+                    CombatDamageHelper.MergeSpellBuff(em, ecb, entities[i], new SpellBuff
                     {
                         ArmorBonus = 3f,
                         DamageMultiplier = 0f,

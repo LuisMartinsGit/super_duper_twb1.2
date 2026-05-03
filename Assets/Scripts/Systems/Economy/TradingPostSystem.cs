@@ -541,12 +541,17 @@ namespace TheWaningBorder.Systems.Economy
             node = entities[idx];
             float3 buildingPos = transforms[idx].Position;
 
-            // Offset 3 units from building center in the direction the unit is approaching from
+            // Offset 3 units from building center in the direction the unit is
+            // approaching from. Earlier missing braces meant the +X fallback ran
+            // unconditionally, so traders/patrols always approached every
+            // building from the +X side regardless of their actual route —
+            // visible as clustering on one face of trade hubs. (task-056 / MB-5)
             float3 dir = fromPos - buildingPos;
             dir.y = 0f;
             float len = math.length(dir);
             if (len > 0.01f)
                 position = buildingPos + (dir / len) * 3f;
+            else
                 position = buildingPos + new float3(3f, 0f, 0f);
 
             candidates.Dispose();

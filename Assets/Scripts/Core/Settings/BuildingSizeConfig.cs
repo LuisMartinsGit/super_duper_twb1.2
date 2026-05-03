@@ -46,6 +46,7 @@ public static class BuildingSizeConfig
             // Runai culture
             "Runai_Outpost"     => new int2(3, 3),
             "Runai_TradeHub"    => new int2(3, 4),
+            "Runai_TradingPost" => new int2(2, 2),
             "ThessarasBazaar"   => new int2(5, 5),
             "Runai_SiegeWorkshop" => new int2(3, 3),
             "Runai_Vault"       => new int2(4, 4),
@@ -75,7 +76,8 @@ public static class BuildingSizeConfig
             "Sect_DreadTotem"         => new int2(2, 2),
             "Sect_BindingPillar"      => new int2(2, 2),
             "Sect_PurgeAltar"         => new int2(2, 2),
-            _ when buildingId != null && buildingId.StartsWith("Sect_") => new int2(2, 2),
+            // (No `Sect_*` wildcard — every sect building is explicitly cased
+            // above. The wildcard branch was unreachable. task-062 Q-46)
 
             // Crystal nodes (natural, not player-built)
             "CrystalMainNode"         => new int2(5, 5),

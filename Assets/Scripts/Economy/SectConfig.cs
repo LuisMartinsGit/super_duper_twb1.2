@@ -252,6 +252,33 @@ namespace TheWaningBorder.Economy
             _ => ""
         };
 
+        /// <summary>
+        /// Inverse of <see cref="GetTechId"/>. Returns the sect ID whose tech matches
+        /// <paramref name="techId"/>, or empty string if it isn't a sect tech. Used by
+        /// TechEffectSystem on tech-completion to call FactionSectState.SetTechFlag,
+        /// which was previously never invoked — all 12 sect techs were silently inert
+        /// until the bridge was wired up. (task-057 F-1)
+        /// </summary>
+        public static string GetSectIdForTechId(string techId) => techId switch
+        {
+            "Tech_DietaryMandate"      => Renewal,
+            "Tech_ClockworkArchives"   => Antiquity,
+            "Tech_TerracePlanning"     => LivingStone,
+            "Tech_HiddenRecords"       => VeiledMemory,
+            "Tech_SanctifiedRoutes"    => StillFlame,
+            "Tech_HiddenLedgers"       => QuietVault,
+            "Tech_RefinedSilverInlays" => MirrorRite,
+            "Tech_IronDecrees"         => ShardJudgment,
+            "Tech_WarTithe"            => EmberAsh,
+            "Tech_DesecrateStandards"  => HollowBrand,
+            "Tech_VeilsteelLinks"      => FlamewroughtChains,
+            "Tech_ErasureRites"        => UnmakersGrasp,
+            _ => string.Empty
+        };
+
+        /// <summary>True if <paramref name="techId"/> is a sect-research tech.</summary>
+        public static bool IsSectTech(string techId) => GetSectIdForTechId(techId).Length > 0;
+
         /// <summary>Get the display name for a sect technology.</summary>
         public static string GetTechDisplayName(string sectId) => sectId switch
         {

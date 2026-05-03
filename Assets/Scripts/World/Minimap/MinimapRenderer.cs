@@ -135,7 +135,30 @@ namespace TheWaningBorder.World.Minimap
             _bgBuffer = new Color[samples * samples];
             _frame = new Color[sizePixels * sizePixels];
 
-            _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            EnsureECSQueries();
+        }
+
+        /// <summary>
+        /// (Re)build the EntityQueries against the current ECS world. Safe to
+        /// call repeatedly. Required because this MonoBehaviour is
+        /// DontDestroyOnLoad: when the player returns to the main menu the ECS
+        /// world is disposed, the cached _world / _em / _unitsQ become invalid,
+        /// and the next game's Update() crashes inside ToEntityArray with NRE.
+        /// Update() calls this whenever it detects a stale or disposed world.
+        /// </summary>
+        private void EnsureECSQueries()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated)
+            {
+                _world = null;
+                return;
+            }
+
+            // Same world as last init — queries are still valid.
+            if (ReferenceEquals(_world, world)) return;
+
+            _world = world;
             _em = _world.EntityManager;
 
             _unitsQ = _em.CreateEntityQuery(
@@ -168,6 +191,12 @@ namespace TheWaningBorder.World.Minimap
             _timer += Time.unscaledDeltaTime;
             if (_timer < refreshInterval) return;
             _timer = 0f;
+
+            // ECS world may have been recreated since last frame (e.g., player
+            // bounced through the main menu). Re-init queries against the live
+            // world before touching them. Skip this frame entirely if no world.
+            EnsureECSQueries();
+            if (_world == null) return;
 
             // Build ground texture once (terrain doesn't change)
             if (!_bgBuilt)
@@ -727,6 +756,10 @@ namespace TheWaningBorder.World.Minimap
         {
             if (minimap == null) return;
 
+            // Earlier missing braces meant HandleLeftClick ran on EVERY click —
+            // every right-click move order also yanked the camera to the click
+            // point with `instant: true`, jerking the user away from where they
+            // were looking. (task-059 F-1)
             if (eventData.button == PointerEventData.InputButton.Right)
                 minimap.HandleRightClick(eventData);
                 minimap.HandleLeftClick(eventData);

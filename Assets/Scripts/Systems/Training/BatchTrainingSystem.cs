@@ -185,12 +185,23 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
+            // Spawn outside the building's inflated blocked footprint (BuildingSize cells +
+            // 1 cell padding from PassabilityBuildingSync) with extra clearance for the unit.
+            float buildingHalf = 2f;
+            if (em.HasComponent<BuildingSize>(building))
+            {
+                var bs = em.GetComponentData<BuildingSize>(building);
+                buildingHalf = math.max(bs.Width, bs.Height) * 0.5f;
+            }
+            float exitOffset = buildingHalf + 4f;
+            float3 baseSpawn = transform.Position + new float3(exitOffset, 0, exitOffset);
+
             for (int i = 0; i < count; i++)
             {
                 // Offset spawn position slightly for each unit in the batch
                 float angle = (i / (float)count) * math.PI * 2f;
                 float3 offset = new float3(math.cos(angle) * 1.5f, 0, math.sin(angle) * 1.5f);
-                float3 spawnPos = transform.Position + new float3(1.6f, 0, 1.6f) + offset;
+                float3 spawnPos = baseSpawn + offset;
 
                 float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
                     spawnPos, 0.5f, em, maxAttempts: 16);
@@ -204,6 +215,10 @@ namespace TheWaningBorder.Systems.Training
 
                 // Apply completed tech effects
                 TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
+                // Apply sect bonuses to newly trained units. Earlier never
+                // called, so units trained after sect adoption silently
+                // started at base damage. (task-057 F-2)
+                SectEffectSystem.Instance?.ApplySectEffectsToUnit(em, unit, faction);
 
                 // Issue move to rally point
                 if (hasRally)

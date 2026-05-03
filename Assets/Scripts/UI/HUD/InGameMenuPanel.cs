@@ -5,6 +5,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheWaningBorder.Bootstrap;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.HUD
 {
@@ -30,15 +31,18 @@ namespace TheWaningBorder.UI.HUD
         private SubView _currentView = SubView.Main;
         private bool _showSurrenderConfirm;
 
-        // Styles
-        private GUIStyle _overlayBg;
+        // Local cached styles. The screen-dim overlay is drawn via Styles.DrawDimOverlay()
+        // (AD-1 in task-048 state.json — accepts a +0.05 alpha shift 0.65 -> 0.7), so
+        // _overlayBg / _texOverlay are deleted. _panelBg, _titleStyle, _buttonStyle,
+        // _keybindLabelStyle, _keybindKeyStyle, _keybindHeaderStyle are kept cached because
+        // their specific layouts (no border on panel, custom padded button hover textures,
+        // keybind two-column layout) don't map cleanly to Styles.cs members.
         private GUIStyle _panelBg;
         private GUIStyle _titleStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _keybindLabelStyle;
         private GUIStyle _keybindKeyStyle;
         private GUIStyle _keybindHeaderStyle;
-        private Texture2D _texOverlay;
         private Texture2D _texPanel;
         private Texture2D _texButton;
         private Texture2D _texButtonHover;
@@ -62,6 +66,12 @@ namespace TheWaningBorder.UI.HUD
         /// <summary>Toggle menu open/closed.</summary>
         public static void Toggle()
         {
+            // Earlier missing braces meant Open() ran unconditionally — when
+            // called with IsOpen=true, Close() set IsOpen=false then Open()
+            // immediately re-opened. Toggle was effectively one-way. The
+            // ResourceHUD "Menu" button (the only path that called Toggle
+            // when the menu was open) couldn't actually close the menu.
+            // (task-060 F-2)
             if (IsOpen)
                 Close();
                 Open();
@@ -130,11 +140,15 @@ namespace TheWaningBorder.UI.HUD
         void OnGUI()
         {
             if (!IsOpen) return;
-            if (!_stylesBuilt) BuildStyles();
+            Styles.Initialize();
+            if (!_stylesBuilt) BuildLocalStyles();
 
-            // Semi-transparent dark overlay covering the whole screen
+            // Semi-transparent dark overlay covering the whole screen.
+            // Per AD-1 (task-048 state.json): migrated from inline (0,0,0,0.65) to
+            // Styles.DrawDimOverlay() which uses DimOverlayColor (0,0,0,0.7) — the +0.05
+            // alpha shift on a black overlay is imperceptible in playtest.
             GUI.color = Color.white;
-            GUI.Box(new Rect(0, 0, Screen.width, Screen.height), "", _overlayBg);
+            Styles.DrawDimOverlay(new Rect(0, 0, Screen.width, Screen.height));
 
             // Draw the appropriate view
             switch (_currentView)
@@ -386,53 +400,54 @@ namespace TheWaningBorder.UI.HUD
         // STYLES
         // ================================================================
 
-        private void BuildStyles()
+        // Build local cached styles. Overlay drawn via Styles.DrawDimOverlay (AD-1) —
+        // _overlayBg / _texOverlay / MakeTex deleted. All textures use Styles.MakeSolid.
+        private void BuildLocalStyles()
         {
-            // Semi-transparent dark overlay
-            _texOverlay = MakeTex(2, 2, new Color(0f, 0f, 0f, 0.65f));
-            _overlayBg = new GUIStyle { normal = { background = _texOverlay } };
-
-            // Dark navy panel background (matches resource bar theme)
-            _texPanel = MakeTex(2, 2, new Color(0.06f, 0.08f, 0.18f, 0.96f));
+            // Dark navy panel background (matches resource bar theme). No clean Styles match
+            // because Styles.PanelBox includes a baked-in golden border which would conflict
+            // with the modal's borderless design.
+            _texPanel = Styles.MakeSolid(new Color(Styles.PanelBgColor.r, Styles.PanelBgColor.g,
+                                                    Styles.PanelBgColor.b, 0.96f));
             _panelBg = new GUIStyle
             {
                 normal = { background = _texPanel },
                 border = new RectOffset(4, 4, 4, 4)
             };
 
-            // Button textures
-            _texButton = MakeTex(2, 2, new Color(0.10f, 0.12f, 0.28f, 0.9f));
-            _texButtonHover = MakeTex(2, 2, new Color(0.15f, 0.18f, 0.38f, 0.95f));
+            // Button textures (idle / hover variants).
+            _texButton = Styles.MakeSolid(new Color(0.10f, 0.12f, 0.28f, 0.9f));
+            _texButtonHover = Styles.MakeSolid(new Color(0.15f, 0.18f, 0.38f, 0.95f));
 
-            // Title style (golden, centered)
+            // Title style (golden, centered).
             _titleStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = 20,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
+                normal = { textColor = Styles.HighlightColor }
             };
 
-            // Button style (golden text on dark background)
+            // Button style (golden text on dark background).
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = 14,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f), background = _texButton },
+                normal = { textColor = Styles.HighlightColor, background = _texButton },
                 hover = { textColor = new Color(1f, 0.85f, 0.4f), background = _texButtonHover },
                 active = { textColor = Color.white, background = _texButtonHover },
                 border = new RectOffset(2, 2, 2, 2),
                 padding = new RectOffset(8, 8, 6, 6)
             };
 
-            // Keybind styles
+            // Keybind styles.
             _keybindKeyStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleLeft,
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
+                normal = { textColor = Styles.HighlightColor }
             };
 
             _keybindLabelStyle = new GUIStyle(GUI.skin.label)
@@ -451,16 +466,6 @@ namespace TheWaningBorder.UI.HUD
             };
 
             _stylesBuilt = true;
-        }
-
-        private static Texture2D MakeTex(int w, int h, Color c)
-        {
-            var pix = new Color[w * h];
-            for (int i = 0; i < pix.Length; i++) pix[i] = c;
-            var t = new Texture2D(w, h);
-            t.SetPixels(pix);
-            t.Apply();
-            return t;
         }
     }
 }

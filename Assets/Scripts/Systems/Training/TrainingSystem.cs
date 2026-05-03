@@ -197,7 +197,16 @@ namespace TheWaningBorder.Systems.Training
             var faction = em.GetComponentData<FactionTag>(building).Value;
 
             // Always spawn near the building, then move to rally point
-            float3 spawnPos = transform.Position + new float3(1.6f, 0, 1.6f);
+            // Spawn outside the building's inflated blocked footprint (BuildingSize cells +
+            // 1 cell padding from PassabilityBuildingSync) with extra clearance for the unit.
+            float buildingHalf = 2f;
+            if (em.HasComponent<BuildingSize>(building))
+            {
+                var bs = em.GetComponentData<BuildingSize>(building);
+                buildingHalf = math.max(bs.Width, bs.Height) * 0.5f;
+            }
+            float exitOffset = buildingHalf + 4f;
+            float3 spawnPos = transform.Position + new float3(exitOffset, 0, exitOffset);
 
             // Find empty position near the building to avoid overlap
             float spawnRadius = 0.5f;
@@ -229,6 +238,13 @@ namespace TheWaningBorder.Systems.Training
             {
                 Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
                 TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
+                // Sect adoption only boosted units alive at adoption time via the
+                // delta system; newly trained units silently started at base
+                // damage forever because ApplySectEffectsToUnit was defined but
+                // never called. Wire it up here, alongside the tech-effects
+                // application that has been correctly wired all along.
+                // (task-057 F-2)
+                SectEffectSystem.Instance?.ApplySectEffectsToUnit(em, leader, faction);
 
                 // Rally point handling for leader
                 if (hasRally)
@@ -245,6 +261,8 @@ namespace TheWaningBorder.Systems.Training
 
             // Apply all completed tech effects to the newly spawned unit
             TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
+            // Apply sect bonuses (mirror battalion path above). (task-057 F-2)
+            SectEffectSystem.Instance?.ApplySectEffectsToUnit(em, unit, faction);
 
             // Issue move command to rally point if one is set
             if (hasRally)
