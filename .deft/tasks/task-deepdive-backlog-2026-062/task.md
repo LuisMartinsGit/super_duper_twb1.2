@@ -18,97 +18,37 @@ deft:
 
 ## Context
 
-PR #245 (`fix(audit): deep-dive phase 1-4`) landed the highest-impact items from the May 2026 system-wide deep-dive (formerly tasks 050–061). This task tracks every verified finding that did **not** make it into that PR. Methodology and verification table are in PR #245's commit message and the closed PR description.
+The May 2026 system-wide deep-dive (formerly tasks 050–061) was rolled into three PRs:
+- **PR #245** — phase 1–4 from the original audit: brace sweep, sect tech bridge, ApplySectEffectsToUnit wiring, lockstep Ability case, Pillage/Caravan loot frame-multiplication.
+- **PR #246** — gameplay-critical (G-1..G-3, G-6) + combat correctness (C-1..C-4). Two findings refuted on re-read (G-5 wall enclosure income, C-5 BattalionLeader zombie) and documented as verified-fine.
+- **(this task)** tracks the remaining work: Phase 3 multiplayer determinism (M-1..M-10, plus the originally-tagged G-4 walls), Phase 4 quality/perf (Q-1..Q-55), and the architectural smells.
 
-What shipped in PR #245:
-- All 12 confirmed missing-brace bugs (BattalionSync ×2, UnitSeparation, TradingPost, CrystalExtinction, Veilstinger, MinimapRenderer, SelectionSystem, InGameMenuPanel, SpellPanel, EntityActionPanel, MultiplayerLobbyUI, SpellState).
-- Sect tech bridge: `TechEffectSystem.OnTechCompleted` → `FactionSectState.SetTechFlag` + `RecalculateAllPassives`.
-- `SectEffectSystem.ApplySectEffectsToUnit` wired into `TrainingSystem`, `BatchTrainingSystem`, and the battalion-leader path.
-- `LockstepManager.ExecuteCommand` now handles `Ability`; `CommandRouter.IssueAbilityDirect` made public.
-- Pillage / Caravan loot frame-multiplication (~120× per kill) closed via `WithNone<DeathAnimationState, BuildingCollapseState>` on the loot loops.
-- `.editorconfig` with `csharp_prefer_braces = true:warning` so the brace pattern can't recur silently.
-- `chore(gitignore)`: tracks Audio C# source; brings `MusicManager.cs` into the tree (carries the menu-music brace fix).
+Methodology and the verification table for refuted surface-scan claims are in PR #245's commit message and closed PR description.
 
----
-
-## Phase 1 — Critical gameplay bugs
-
-### G-1 — `Rush` strategy cannot opt out of the 50/50 crystal floor (regression)
-**Source:** task-052 F-1
-**File:** `Assets/Scripts/AI/Core/AIStrategyEvaluator.cs` — earlier "they are still undervaluing crystal" fix added a hard 50/50 supplies/crystal floor that overrides `Rush.SetCrystalTarget(1)`. Rush is now indistinguishable from Balanced for crystal-priority purposes.
-**Fix:** Apply the floor only when the strategy hasn't explicitly set its own crystal target (sentinel value or per-strategy flag).
-
-### G-2 — `TryBuildBuilding` advances step on zero builders dispatched (orphan sites)
-**Source:** task-052 F-2
-**File:** `Assets/Scripts/AI/Managers/AIBuildingManager.cs` (TryBuildBuilding step-advance path)
-The build-order step is marked done even when no builder was actually dispatched (dispatch returned 0 because all builders busy/dead). Resulting half-built orphan blocks the build queue and the AI sits idle.
-**Fix:** Only advance the step when ≥1 builder was dispatched. Re-queue otherwise with a backoff counter so we don't spin.
-
-### G-3 — `Litharch` factory never bakes `DesiredDestination` (AI Litharchs are paperweights)
-**Source:** task-052 F-7
-**File:** `Assets/Scripts/Entities/Units/Litharch.cs` (factory)
-`AIMilitaryManager` issues movement via `ecb.SetComponent<DesiredDestination>`, but the component was never added at creation. Set silently fails on the ECB path or NREs depending on Entities version. AI-trained Litharchs sit at the spawn point.
-**Fix:** Mirror `Miner.cs:54-58` — `em.AddComponentData(unit, new DesiredDestination { Has = 0 })` at unit creation. Same fix needed for **Scout** (task-053 F-6 — currently dead-code-with-trap because `AIScoutingBehavior` is `[DisableAutoCreation]`).
-
-### G-4 — Walls bypass lockstep entirely (multiplayer-critical)
-**Source:** task-061 B-1
-**File:** `Assets/Scripts/Entities/Buildings/AlanthorWall.cs` + `BuildingFactory.cs`
-Walls are placed via a direct path that doesn't go through `LockstepManager` and `Alanthor_Wall` lacks `NetworkedEntity`. Wall placement desyncs in multiplayer; placement validity isn't checked the same way as other buildings.
-**Fix:** Route through `CommandRouter.IssuePlaceBuildingDirect`/lockstep `Build` command; add `NetworkedEntity` to wall creation; verify `BuildingFactory.Create(EntityCommandBuffer, ...)` switch covers `"Alanthor_Wall"` (task-061 B-3 — also currently missing).
-
-> **DEFERRED to Phase 3** — this is a multiplayer-determinism item; per the user's earlier "do MP after the rest of the systems" call, lockstep routing for walls + segments lives with the M-* items.
-
-### G-5 — Wall enclosure income — VERIFIED FINE (audit was wrong)
-**Source:** task-056 F-3 (refuted on re-read)
-**File:** `Assets/Scripts/Economy/WallEnclosureIncomeSystem.cs`
-The audit claimed the deposit path was missing. Re-reading the code: `WallEnclosureIncomeSystem` creates a synthetic entity with `WallEnclosureIncomeTag + FactionTag + SuppliesIncome` per detected enclosure cycle, with `mults.WallIncome` already folded in. `ResourceTickSystem.OnUpdate` ticks every `SuppliesIncome` (filtered `WithNone<UnderConstruction>` — the synthetic entity has no UnderConstruction so it ticks) and applies to the faction bank. The deposit path works.
-
-The remaining concern is that `mults.WallIncomeFromTech` is dead (task-057 F-3, see Q-15) — the +20% TerracePlanning bonus written by sect-tech application paths isn't read here. That's tracked under Q-15 (dead `SectMultipliers` fields), not G-5.
-
-### G-6 — Vault interest sect multiplier applied twice
-**Source:** task-056 F-4
-**File:** `Assets/Scripts/Systems/Economy/VaultInterestSystem.cs` + `SectEffectSystem`
-Vault interest reads `mults.VaultInterest` directly AND `SectEffectSystem.ApplyMultiplierDelta` also adjusts the stored interest rate when a vault-bonus sect is adopted, so adoption applies the multiplier on top of an already-multiplied base.
-**Fix:** Pick one source of truth — recommend live-query each tick and remove the delta-tracking for `VaultInterest` from `ApplyMultiplierDelta`.
+PR #245 + PR #246 together shipped:
+- All 12 confirmed missing-brace bugs.
+- Sect tech bridge + ApplySectEffectsToUnit wiring + DeathAnimationState/BuildingCollapseState exclusion on loot.
+- `LockstepManager` `Ability` case + `IssueAbilityDirect` public.
+- `.editorconfig` `csharp_prefer_braces = true:warning` so missing braces can't recur silently.
+- `chore(gitignore)`: tracks Audio C# source.
+- G-1 Rush crystal floor, G-2 orphan UnderConstruction sites, G-3 Litharch/Scout/Builder DesiredDestination, G-6 vault-interest double-multiply.
+- C-1 SpellBuff.ArmorBonus + DamageMultiplier read sites, C-2 Reflect at impact, C-3 SpellBuff merge, C-4 AOE/DoT honor Invulnerable.
 
 ---
 
-## Phase 2 — Combat correctness
+## Phase 1 + 2 — DONE (PR #246)
 
-### C-1 — `SpellBuff.ArmorBonus` and `SpellBuff.DamageMultiplier` are write-only (3 sect abilities silent no-ops)
-**Source:** task-055 F-1
-**Files:** `Assets/Scripts/Core/Components/SpellBuff` definition + every read site
-The fields are written by Aura/Safeguard/Empower paths but no combat system reads them. Sect abilities advertised as armor/damage buffs do nothing in fights.
-**Fix:** Make `MeleeCombatSystem` and `RangedCombatSystem` honor `SpellBuff.ArmorBonus` (added to defender's `Defense.Melee/.Ranged`) and `SpellBuff.DamageMultiplier` (multiplied into final damage).
-
-### C-2 — Ranged on-hit (Reflect / Ignite / VoidStrike) applied at fire time, not at impact
-**Source:** task-055 F-2
-**File:** `Assets/Scripts/Systems/Combat/RangedCombatSystem.cs`
-The on-hit pipeline runs when the projectile is fired, so dodged/missed shots still apply effects, and shots fired at one target that re-target mid-flight apply effects to the original.
-**Fix:** Move on-hit handling to `ProjectileSystem` impact resolution, behind the same guard that confirms a hit landed.
-
-### C-3 — Safeguard / Aura `SpellBuff` add wipes pre-existing buff
-**Source:** task-055 F-3
-**Files:** `Assets/Scripts/Systems/Spells/AuraSystem.cs`, `SafeguardSystem.cs`
-Both use `ecb.AddComponent<SpellBuff>(unit, new SpellBuff { ... })` which overwrites if already present. Stacking Safeguard onto a unit already inside a friendly Aura discards the Aura's buff.
-**Fix:** Read existing SpellBuff (if any), merge fields, then `SetComponent`/`AddComponent` (use HasComponent to choose).
-
-### C-4 — Multiple AOE/DoT damage paths bypass `Invulnerable`
-**Source:** task-055 F-4
-**Files:** crystal-aura damage, ignite tick, void DOT, possibly LitharchHealing damage path
-Direct `Health.Value -=` writes happen without checking `HasComponent<Invulnerable>`. Invulnerability mechanic is partially honored.
-**Fix:** Funnel all health-mutating writes through `CombatDamageHelper.ApplyDamage` (or add the Invulnerable guard at each call site).
-
-### C-5 — BattalionLeader zombie at HP=0 from AOE — VERIFIED FINE (audit refuted)
-**Source:** task-055 F-10 (refuted on re-read)
-**File:** AOE damage paths in `ProjectileSystem`, `UnitAbilitySystem`, `BurningGroundSystem`, `CursedGroundDamageSystem`
-The audit claimed AOE writes Health below 0 without clamping, leaving zombie leaders. Re-reading the live code: every AOE/DoT damage path already clamps via `math.max(0, hp.Value - dmg)` or an equivalent `if (health.Value < 0) health.Value = 0;` post-write. `DeathSystem` then drives the destruction and battalion-member detach. The transient `HP=0 → DeathSystem fires next frame` window is by design (~2s death animation gives the kill credit / sect-on-kill systems time to run), not a zombie bug.
-
-Reflect-damage path in `CombatDamageHelper.ApplyDamageReflect` does not clamp at 0 (line 148), but `Health.Value` going negative is harmless because the same `<=0` check downstream handles it. Left unchanged.
+G-1..G-3 + G-6 (gameplay-critical) and C-1..C-4 (combat correctness) all landed in PR #246. G-5 (wall enclosure income) and C-5 (BattalionLeader zombie) were refuted on re-read — see PR #246 commit message for the verification notes. G-4 (walls bypass lockstep) is multiplayer determinism work and lives with the M-* items below.
 
 ---
 
 ## Phase 3 — Multiplayer determinism (all flagged DEFERRED per user; pick up after rest of systems)
+
+### M-0 — Walls bypass lockstep entirely (was G-4, multiplayer-critical)
+**Source:** task-061 B-1
+**File:** `Assets/Scripts/Entities/Buildings/AlanthorWall.cs` + `BuildingFactory.cs` + `UI/Panels/BuildCommandPannel.cs:588`
+Walls are placed via a direct path that doesn't go through `LockstepManager`. `BuildCommandPannel.SpawnWallHub` calls `AlanthorWall.CreateHub` directly instead of `CommandRouter.PlaceBuildingDirect`, segments are likewise not lockstep-driven. `Alanthor_Wall` is also missing from `BuildingFactory.Create(EntityCommandBuffer, ...)` switch (latent — no caller hits the ECB path today).
+**Fix:** Route hub placement through `CommandRouter.PlaceBuildingDirect("Alanthor_Wall", ...)`; introduce a lockstep `BuildWallSegment` command for segment+instances spawn so all peers create identical entities; add `NetworkedEntity` to wall pieces (BuildingFactory will already do this once the EM path is used); patch the ECB switch.
 
 ### M-1 — Lockstep tick accumulator uses non-deterministic frame time (architectural)
 **Source:** task-054 F-2

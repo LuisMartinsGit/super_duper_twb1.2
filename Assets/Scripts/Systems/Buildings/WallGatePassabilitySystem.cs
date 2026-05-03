@@ -20,10 +20,17 @@ namespace TheWaningBorder.Systems.Buildings
         private const float FriendlyDetectRadius = 3.0f;
 
         private float _timer;
+        private EntityQuery _unitQuery;
 
         public void OnCreate(ref SystemState state)
         {
             _timer = 0f;
+            // Cache the unit query — was previously rebuilt every poll
+            // (~3.3 Hz) and not disposed, leaking query handles. (task-062 Q-26)
+            _unitQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>());
         }
 
         public void OnUpdate(ref SystemState state)
@@ -35,17 +42,11 @@ namespace TheWaningBorder.Systems.Buildings
             if (_timer > 0f) return;
             _timer = PollInterval;
 
-            var em = state.EntityManager;
             bool anyChanged = false;
 
             // Collect all unit positions + factions for proximity checks
-            var unitQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
-            var unitTransforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var unitFactions = unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var unitTransforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var unitFactions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             // Iterate all gates
             foreach (var (gateState, transform, factionTag, buildingSize, entity) in SystemAPI
@@ -81,8 +82,12 @@ namespace TheWaningBorder.Systems.Buildings
                     gateState.ValueRW.IsOpen = nowOpen;
                     var size = new int2(buildingSize.ValueRO.Width, buildingSize.ValueRO.Height);
 
+                    // Missing braces previously made the unblock-then-block run
+                    // every transition, so an "open" gate was instantly re-blocked
+                    // and units could never path through.
                     if (nowOpen == 1)
                         grid.UnblockBuildingRect(gatePos, size);
+                    else
                         grid.BlockBuildingRect(gatePos, size);
 
                     anyChanged = true;

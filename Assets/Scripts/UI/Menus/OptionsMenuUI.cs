@@ -5,6 +5,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
 {
@@ -57,11 +58,10 @@ namespace TheWaningBorder.UI.Menus
         private const float PanelWidth = 400f;
         private const float PanelHeight = 500f;
 
-        // Styles
-        private GUIStyle _panelBg;
+        // Specialty cached styles (no Styles.cs counterpart — custom hover/active textures,
+        // light-blue section headers, green-gold apply button, slider-specific styles).
         private GUIStyle _titleStyle;
         private GUIStyle _sectionHeaderStyle;
-        private GUIStyle _labelStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _activeButtonStyle;
         private GUIStyle _dropdownButtonStyle;
@@ -71,14 +71,6 @@ namespace TheWaningBorder.UI.Menus
         private GUIStyle _sliderStyle;
         private GUIStyle _sliderThumbStyle;
         private GUIStyle _statusStyle;
-        private Texture2D _texPanel;
-        private Texture2D _texButton;
-        private Texture2D _texButtonHover;
-        private Texture2D _texButtonActive;
-        private Texture2D _texDropdownItem;
-        private Texture2D _texDropdownItemHover;
-        private Texture2D _texApply;
-        private Texture2D _texApplyHover;
         private bool _stylesBuilt;
 
         // Status message
@@ -153,25 +145,9 @@ namespace TheWaningBorder.UI.Menus
             }
         }
 
-        void OnDestroy()
-        {
-            DestroyTexture(_texPanel);
-            DestroyTexture(_texButton);
-            DestroyTexture(_texButtonHover);
-            DestroyTexture(_texButtonActive);
-            DestroyTexture(_texDropdownItem);
-            DestroyTexture(_texDropdownItemHover);
-            DestroyTexture(_texApply);
-            DestroyTexture(_texApplyHover);
-        }
-
-        private static void DestroyTexture(Texture2D tex)
-        {
-            if (tex != null) Destroy(tex);
-        }
-
         void OnGUI()
         {
+            Styles.Initialize();
             if (!_stylesBuilt) BuildStyles();
 
             // Center the window
@@ -179,7 +155,7 @@ namespace TheWaningBorder.UI.Menus
             float y = (Screen.height - PanelHeight) * 0.5f;
             _windowRect = new Rect(x, y, PanelWidth, PanelHeight);
 
-            _windowRect = GUI.Window(10005, _windowRect, DrawOptionsWindow, "", _panelBg);
+            _windowRect = GUI.Window(10005, _windowRect, DrawOptionsWindow, "", Styles.PanelBox);
         }
 
         // ================================================================
@@ -278,11 +254,18 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.Space(4f);
 
             GUILayout.BeginHorizontal();
+            float prevVolume = _masterVolume;
             _masterVolume = GUILayout.HorizontalSlider(
                 _masterVolume, 0f, 100f, _sliderStyle, _sliderThumbStyle,
                 GUILayout.Height(20f));
+            // Apply volume immediately so the user can hear what they're setting.
+            // Was previously only applied on Apply, leaving the slider feeling
+            // disconnected. Persistence still happens at Apply via PlayerPrefs.
+            // (task-062 Q-33)
+            if (!Mathf.Approximately(prevVolume, _masterVolume))
+                AudioListener.volume = Mathf.Clamp01(_masterVolume / 100f);
             GUILayout.Space(8f);
-            GUILayout.Label($"{Mathf.RoundToInt(_masterVolume)}%", _labelStyle, GUILayout.Width(40f));
+            GUILayout.Label($"{Mathf.RoundToInt(_masterVolume)}%", Styles.Label, GUILayout.Width(40f));
             GUILayout.EndHorizontal();
 
             GUILayout.FlexibleSpace();
@@ -325,7 +308,9 @@ namespace TheWaningBorder.UI.Menus
         {
             var rect = GUILayoutUtility.GetRect(width, 2f);
             var oldColor = GUI.color;
-            GUI.color = new Color(0.83f, 0.66f, 0.26f, 0.5f);
+            // Golden separator with custom 0.5 alpha (Styles.HighlightColor is alpha=1)
+            var c = Styles.HighlightColor; c.a = 0.5f;
+            GUI.color = c;
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = oldColor;
         }
@@ -438,27 +423,13 @@ namespace TheWaningBorder.UI.Menus
 
         private void BuildStyles()
         {
-            // Panel background - dark navy with golden border
-            _texPanel = MakeBorderedTex(64, 64,
-                new Color(0.06f, 0.08f, 0.18f, 0.96f),
-                new Color(0.83f, 0.66f, 0.26f, 0.8f), 2);
-
-            _panelBg = new GUIStyle
+            // Title: 20pt bold gold, centered — derived from Styles.Header (which is 20pt gold).
+            _titleStyle = new GUIStyle(Styles.Header)
             {
-                normal = { background = _texPanel },
-                border = new RectOffset(4, 4, 4, 4)
+                alignment = TextAnchor.MiddleCenter
             };
 
-            // Title style (golden, centered)
-            _titleStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 20,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f) }
-            };
-
-            // Section headers (light blue)
+            // Section headers (light blue) — unique to options menu, no Styles match.
             _sectionHeaderStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
@@ -466,27 +437,20 @@ namespace TheWaningBorder.UI.Menus
                 normal = { textColor = new Color(0.6f, 0.8f, 1f) }
             };
 
-            // Regular label
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f) }
-            };
+            // Button textures — specialty hover/active behavior, unique to options menu.
+            var texButton = Styles.MakeSolid(new Color(0.10f, 0.12f, 0.28f, 0.9f));
+            var texButtonHover = Styles.MakeSolid(new Color(0.15f, 0.18f, 0.38f, 0.95f));
+            var texButtonActive = Styles.MakeSolid(new Color(0.20f, 0.24f, 0.50f, 0.95f));
 
-            // Button textures
-            _texButton = MakeTex(2, 2, new Color(0.10f, 0.12f, 0.28f, 0.9f));
-            _texButtonHover = MakeTex(2, 2, new Color(0.15f, 0.18f, 0.38f, 0.95f));
-            _texButtonActive = MakeTex(2, 2, new Color(0.20f, 0.24f, 0.50f, 0.95f));
-
-            // Normal button
+            // Normal button — gold-on-navy with hover lighten, sourced from Styles.HighlightColor.
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.83f, 0.66f, 0.26f), background = _texButton },
-                hover = { textColor = new Color(1f, 0.85f, 0.4f), background = _texButtonHover },
-                active = { textColor = Color.white, background = _texButtonHover },
+                normal = { textColor = Styles.HighlightColor, background = texButton },
+                hover = { textColor = new Color(1f, 0.85f, 0.4f), background = texButtonHover },
+                active = { textColor = Color.white, background = texButtonHover },
                 border = new RectOffset(2, 2, 2, 2),
                 padding = new RectOffset(8, 8, 6, 6)
             };
@@ -494,8 +458,8 @@ namespace TheWaningBorder.UI.Menus
             // Active/selected button (highlighted)
             _activeButtonStyle = new GUIStyle(_buttonStyle)
             {
-                normal = { textColor = Color.white, background = _texButtonActive },
-                hover = { textColor = Color.white, background = _texButtonActive }
+                normal = { textColor = Color.white, background = texButtonActive },
+                hover = { textColor = Color.white, background = texButtonActive }
             };
 
             // Dropdown button
@@ -505,38 +469,38 @@ namespace TheWaningBorder.UI.Menus
                 padding = new RectOffset(12, 8, 6, 6)
             };
 
-            // Dropdown items
-            _texDropdownItem = MakeTex(2, 2, new Color(0.08f, 0.10f, 0.22f, 0.95f));
-            _texDropdownItemHover = MakeTex(2, 2, new Color(0.15f, 0.18f, 0.38f, 0.95f));
+            // Dropdown items — separate hover textures (no Styles match for this list pattern).
+            var texDropdownItem = Styles.MakeSolid(new Color(0.08f, 0.10f, 0.22f, 0.95f));
+            var texDropdownItemHover = Styles.MakeSolid(new Color(0.15f, 0.18f, 0.38f, 0.95f));
 
             _dropdownItemStyle = new GUIStyle(GUI.skin.button)
             {
                 alignment = TextAnchor.MiddleLeft,
                 fontSize = 12,
-                normal = { textColor = new Color(0.9f, 0.88f, 0.82f), background = _texDropdownItem },
-                hover = { textColor = new Color(1f, 0.85f, 0.4f), background = _texDropdownItemHover },
-                active = { textColor = Color.white, background = _texDropdownItemHover },
+                normal = { textColor = new Color(0.9f, 0.88f, 0.82f), background = texDropdownItem },
+                hover = { textColor = new Color(1f, 0.85f, 0.4f), background = texDropdownItemHover },
+                active = { textColor = Color.white, background = texDropdownItemHover },
                 padding = new RectOffset(10, 6, 3, 3),
                 margin = new RectOffset(0, 0, 0, 0)
             };
 
             _dropdownItemHoverStyle = new GUIStyle(_dropdownItemStyle)
             {
-                normal = { textColor = Color.white, background = _texDropdownItemHover }
+                normal = { textColor = Color.white, background = texDropdownItemHover }
             };
 
-            // Apply button (slightly different - green-gold)
-            _texApply = MakeTex(2, 2, new Color(0.12f, 0.18f, 0.10f, 0.9f));
-            _texApplyHover = MakeTex(2, 2, new Color(0.18f, 0.26f, 0.14f, 0.95f));
+            // Apply button — green-gold variant, no Styles match.
+            var texApply = Styles.MakeSolid(new Color(0.12f, 0.18f, 0.10f, 0.9f));
+            var texApplyHover = Styles.MakeSolid(new Color(0.18f, 0.26f, 0.14f, 0.95f));
 
             _applyButtonStyle = new GUIStyle(_buttonStyle)
             {
-                normal = { textColor = new Color(0.4f, 1f, 0.4f), background = _texApply },
-                hover = { textColor = new Color(0.5f, 1f, 0.5f), background = _texApplyHover },
-                active = { textColor = Color.white, background = _texApplyHover }
+                normal = { textColor = new Color(0.4f, 1f, 0.4f), background = texApply },
+                hover = { textColor = new Color(0.5f, 1f, 0.5f), background = texApplyHover },
+                active = { textColor = Color.white, background = texApplyHover }
             };
 
-            // Slider styles
+            // Slider styles — Unity defaults with size overrides.
             _sliderStyle = new GUIStyle(GUI.skin.horizontalSlider)
             {
                 fixedHeight = 12f
@@ -547,40 +511,14 @@ namespace TheWaningBorder.UI.Menus
                 fixedHeight = 16f
             };
 
-            // Status message style (green, centered)
-            _statusStyle = new GUIStyle(_labelStyle)
+            // Status message style (green, centered) — derived from Styles.Label.
+            _statusStyle = new GUIStyle(Styles.Label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.3f, 1f, 0.3f) }
+                normal = { textColor = Styles.SuccessColor }
             };
 
             _stylesBuilt = true;
-        }
-
-        private static Texture2D MakeTex(int w, int h, Color c)
-        {
-            var pix = new Color[w * h];
-            for (int i = 0; i < pix.Length; i++) pix[i] = c;
-            var t = new Texture2D(w, h);
-            t.SetPixels(pix);
-            t.Apply();
-            return t;
-        }
-
-        private static Texture2D MakeBorderedTex(int w, int h, Color fill, Color border, int borderWidth)
-        {
-            var tex = new Texture2D(w, h);
-            for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    bool isBorder = x < borderWidth || x >= w - borderWidth ||
-                                    y < borderWidth || y >= h - borderWidth;
-                    tex.SetPixel(x, y, isBorder ? border : fill);
-                }
-            }
-            tex.Apply();
-            return tex;
         }
     }
 }
