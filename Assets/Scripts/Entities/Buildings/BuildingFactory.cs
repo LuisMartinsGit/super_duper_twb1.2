@@ -203,6 +203,9 @@ namespace TheWaningBorder.Entities
                 "Runai_TradeHub" => 351,
                 "ThessarasBazaar" => 352,
                 "Runai_SiegeWorkshop" => 353,
+                // Runai_TradingPost shares mesh 355 with Alanthor_Garrison.
+                // (task-062 Q-39 — was missing, falling through to 100/default.)
+                "Runai_TradingPost" => 355,
                 // Alanthor culture buildings
                 "Alanthor_Tower" => 354,
                 "Alanthor_Garrison" => 355,
@@ -523,6 +526,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
+                typeof(BuildingSize),
                 typeof(TrainingState)
             );
 
@@ -532,7 +536,12 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            // Use BuildingSizeConfig so PassabilityBuildingSync blocks the full
+            // 4x4 footprint instead of falling back to the legacy circular Radius
+            // (which left walkable corners around the Temple).
+            var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             em.AddComponent<TempleOfRidanTag>(entity);
@@ -679,19 +688,23 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateRunaiTradingPost(EntityManager em, float3 position, Faction faction)
         {
-            float hp = 800f, los = 16f, radius = 1.0f;
+            float hp = 800f, los = 16f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(BuildingSize));
             em.SetComponentData(entity, new PresentationId { Id = 355 });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Radius { Value = radius });
+            // Use BuildingSizeConfig footprint (was previously a 1m circular
+            // Radius which left huge walkable corners around the building).
+            var gridSize = BuildingSizeConfig.GetSize("Runai_TradingPost");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<TradingPostTag>(entity);
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
@@ -1482,7 +1495,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            // BuildingSize so PassabilityBuildingSync blocks the full footprint.
+            var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             ecb.AddComponent<TempleOfRidanTag>(entity);
@@ -1650,9 +1666,9 @@ namespace TheWaningBorder.Entities
 
         private static Entity CreateRunaiTradingPostECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = 800f, los = 16f, radius = 1.0f;
+            float hp = 800f, los = 16f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
+            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
 
             var entity = ecb.CreateEntity();
             ecb.AddComponent(entity, new PresentationId { Id = 355 });
@@ -1661,7 +1677,11 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Radius { Value = radius });
+            // Match the EM variant: use the BuildingSizeConfig footprint so
+            // PassabilityBuildingSync blocks the rectangular footprint.
+            var gridSize = BuildingSizeConfig.GetSize("Runai_TradingPost");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<TradingPostTag>(entity);
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;

@@ -18,7 +18,7 @@ namespace TheWaningBorder.World
         public float cycleDuration = 15f;
 
         [Tooltip("Starting time of day (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)")]
-        public float startTime = 0.3f;
+        public float startTime = 0.5f;
 
         [Header("Sun")]
         [Tooltip("Sun rotation axis latitude (angle from horizon at noon)")]
@@ -61,11 +61,16 @@ namespace TheWaningBorder.World
         private float _cloudOffsetX;
         private float _cloudOffsetZ;
 
+        // Cached references (Camera.main was previously called every Update,
+        // which scans all cameras tagged MainCamera each call). (task-062 Q-28)
+        private Camera _mainCamera;
+
         void Awake()
         {
             _timeOfDay = startTime;
             CreateOrFindSun();
             ConfigureShadows();
+            _mainCamera = Camera.main;
         }
 
         void Update()
@@ -225,9 +230,12 @@ namespace TheWaningBorder.World
                 _cloudMaterial.SetFloat("_Opacity", cloudOpacity * dayFactor);
             }
 
-            if (Camera.main != null)
+            // Re-resolve if cached camera was destroyed mid-session (e.g. scene
+            // change). Cheap fallback that costs nothing in the common case.
+            if (_mainCamera == null) _mainCamera = Camera.main;
+            if (_mainCamera != null)
             {
-                var camPos = Camera.main.transform.position;
+                var camPos = _mainCamera.transform.position;
                 _cloudProjector.transform.position = new Vector3(camPos.x, 200f, camPos.z);
             }
         }
