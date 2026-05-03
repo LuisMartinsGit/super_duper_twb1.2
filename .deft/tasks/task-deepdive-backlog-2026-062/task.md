@@ -218,26 +218,22 @@ If respawn fails (no valid spawn), it waits a full crystal-extinction cycle.
 **Source:** task-058 F-6
 **Fix:** Delete unused fields.
 
-### Q-25 — `AICrystalHuntBehavior` is dead code
-**Source:** task-058 F-8
-**Fix:** Delete the class (functionality moved into `AIMilitaryManager`).
+### Q-25 — DONE in PR #247
+~~`AICrystalHuntBehavior` deleted (was `[DisableAutoCreation]` / superseded by `SimpleAISystem`).~~
 
-### Q-26 — `WallGatePassabilitySystem` re-creates EntityQuery every poll
-**Source:** task-058 F-9 / task-061 B-10
-**Fix:** Cache query in `OnCreate`.
+### Q-26 — DONE in PR #247
+~~`WallGatePassabilitySystem` caches query via `state.GetEntityQuery` in `OnCreate`.~~
 
 ### Q-27 — Texture2D + Mesh leaks in `DayNightCycle.CreateCloudProjector`
 **Source:** task-059 F-4
 Both objects allocated each call to `CreateCloudProjector`; never released on Disable/Destroy.
 **Fix:** Cache and release in OnDestroy.
 
-### Q-28 — `Camera.main` per-frame in DayNightCycle
-**Source:** task-059 F-5 (W-2 confirmed)
-**Fix:** Cache reference in `Awake`.
+### Q-28 — DONE in PR #247
+~~`Camera.main` cached in `Awake` into `_mainCamera` (re-resolves on null).~~
 
-### Q-29 — `GameObject.Find("PlacementPreview")` per LateUpdate during placement
-**Source:** task-059 F-6
-**Fix:** Cache the GameObject reference when placement starts.
+### Q-29 — DONE in PR #247
+~~`GameObject.Find("PlacementPreview")` cached in `_cachedPreview`, cleared on placement-end.~~
 
 ### Q-30 — Minimap and `FogVisibilitySync` use different visibility predicates
 **Source:** task-059 F-8
@@ -252,10 +248,8 @@ Minimap shows enemies that fog-of-war is hiding (or vice versa).
 **Source:** task-060 F-9
 **Fix:** Log the exception or handle the specific case that throws.
 
-### Q-33 — `OptionsMenuUI` master volume doesn't apply in-session
-**Source:** task-060 F-10
-Slider writes to PlayerPrefs but doesn't update `AudioListener.volume` until next launch.
-**Fix:** Set `AudioListener.volume` immediately on slider change.
+### Q-33 — DONE in PR #247
+~~`OptionsMenuUI` slider applies `AudioListener.volume` on each value change; persistence still happens at Apply.~~
 
 ### Q-34 — `InGameMenuPanel.DoQuitToMenu` cleanup is incomplete
 **Source:** task-060 F-11
@@ -282,10 +276,8 @@ Placement-panel footprint and built footprint differ; placement validation passe
 Some building IDs missing from `GetBuildTime`. Player path falls through to default (10s); AI path uses TechTreeDB. Same building has different build times depending on who builds it.
 **Fix:** Single source of truth — read from TechTreeDB on both paths.
 
-### Q-39 — `BuildingFactory.GetPresentationId` missing `Runai_TradingPost`
-**Source:** task-061 B-9
-Falls back to default mesh.
-**Fix:** Add the case.
+### Q-39 — DONE in PR #247
+~~`BuildingFactory.GetPresentationId` returns 355 for `Runai_TradingPost` (shares mesh with Alanthor_Garrison).~~
 
 ### Q-40 — Sect unique buildings have no special components
 **Source:** task-061 B-11
@@ -313,10 +305,8 @@ Sect-specific buildings (Sanctum, Forge, etc.) created as plain `BuildingTag` en
 Selection / interaction radius is smaller than the hub mesh.
 **Fix:** Bump `Radius` to match visible footprint.
 
-### Q-46 — `BuildingSizeConfig` Sect wildcard after explicit cases is dead
-**Source:** task-061 B-17
-The wildcard `Sect_*` branch is unreachable because explicit cases cover all sect buildings.
-**Fix:** Delete the wildcard or move it before explicit cases.
+### Q-46 — DONE in PR #247
+~~Unreachable `Sect_*` wildcard branch removed from `BuildingSizeConfig`.~~
 
 ### Q-47 — `TempleChapelBuildSystem` namespace inconsistency
 **Source:** task-061 B-18
