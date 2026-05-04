@@ -122,11 +122,8 @@ RNG state in some AI subsystems is shared, so AI A's roll affects AI B's next ro
 Allocates ~6 NativeArrays + a managed `bool[]` per call.
 **Fix:** Pool the buffers or cache the query.
 
-### Q-5 — `CommandQueueSystem` structural changes during iteration
-**Source:** task-053 F-5
-**File:** `Assets/Scripts/Systems/Commands/CommandQueueSystem.cs`
-Iterator-invalidation pattern (mining/gathering systems already had this fixed). Shift-queue feature breaks once a queued command activates.
-**Fix:** Collect into a `NativeList`, mutate after iteration.
+### Q-5 — DONE in PR #250
+~~`CommandQueueSystem` now runs in two phases: phase 1 snapshots `(Entity, DispatchKind, TargetPosition)` decisions into a `NativeList<PendingDispatch>`; phase 2 applies structural changes (helper calls + `CommandQueueActive` removal) after the foreach has finished. Buffer pops still happen in phase 1 (buffer mutation, not archetype change). Defensive `em.Exists` + `HasComponent` guards in phase 2.~~
 
 ### Q-6 — `MovementSystem` `BlendRadius=2f` lets units clip walls within 2m of goal
 **Source:** task-053 F-7
