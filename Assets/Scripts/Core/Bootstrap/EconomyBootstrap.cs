@@ -88,7 +88,8 @@ namespace TheWaningBorder.Economy
                 typeof(ResourceTickState),
                 typeof(FactionPopulation),
                 typeof(FactionEra),
-                typeof(ReligionPoints)
+                typeof(FactionReligionPoints),  // task-063: RP balance + Shrine-bonus latch + CurrentAge
+                typeof(SectAdoptionState)       // task-063: per-sect adoption + lever-level state
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -116,7 +117,8 @@ namespace TheWaningBorder.Economy
             });
 
             em.SetComponentData(bank, new FactionEra { Value = 1 });
-            em.SetComponentData(bank, new ReligionPoints { Value = 0 });
+            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+            em.SetComponentData(bank, default(SectAdoptionState));
 
             return bank;
         }
@@ -190,10 +192,16 @@ namespace TheWaningBorder.Economy
                         else
                             em.AddComponentData(bank, new FactionEra { Value = 1 });
 
-                    if (em.HasComponent<ReligionPoints>(bank))
-                        em.SetComponentData(bank, new ReligionPoints { Value = 0 });
-                        else
-                            em.AddComponentData(bank, new ReligionPoints { Value = 0 });
+                    // task-063: reset RP balance + Shrine-bonus latch + per-sect adoption state.
+                    if (em.HasComponent<FactionReligionPoints>(bank))
+                        em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+                    else
+                        em.AddComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+
+                    if (em.HasComponent<SectAdoptionState>(bank))
+                        em.SetComponentData(bank, default(SectAdoptionState));
+                    else
+                        em.AddComponentData(bank, default(SectAdoptionState));
                 }
             }
 
@@ -229,7 +237,8 @@ namespace TheWaningBorder.Economy
                 typeof(ResourceTickState),
                 typeof(FactionPopulation),
                 typeof(FactionEra),
-                typeof(ReligionPoints)
+                typeof(FactionReligionPoints),  // task-063
+                typeof(SectAdoptionState)       // task-063
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -258,7 +267,8 @@ namespace TheWaningBorder.Economy
             });
 
             em.SetComponentData(bank, new FactionEra { Value = 1 });
-            em.SetComponentData(bank, new ReligionPoints { Value = 0 });
+            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+            em.SetComponentData(bank, default(SectAdoptionState));
 
             return bank;
         }

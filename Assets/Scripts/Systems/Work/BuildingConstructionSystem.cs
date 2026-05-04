@@ -31,7 +31,6 @@ namespace TheWaningBorder.Systems.Work
 
         // Cached EntityQueries — initialized in OnCreate()
         private EntityQuery _unfinishedBuildingQuery;
-        private EntityQuery _templeQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -48,10 +47,10 @@ namespace TheWaningBorder.Systems.Work
                 ComponentType.ReadOnly<LocalTransform>()
             );
 
-            _templeQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TempleTag>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
+            // task-063 phase 1: _templeQuery removed — was only used by the old
+            // GrantShrineRPBonus path that required an existing Temple to award the
+            // shrine bonus. The new design grants the +1 RP unconditionally on
+            // Shrine completion (latched once per faction).
         }
 
         public void OnUpdate(ref SystemState state)
@@ -137,13 +136,8 @@ namespace TheWaningBorder.Systems.Work
                     var uc = em.GetComponentData<UnderConstruction>(site);
                     float buildRate = BuildRatePerBuilder;
 
-                    // Apply sect build speed multiplier
-                    if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(site))
-                    {
-                        var siteFaction = em.GetComponentData<FactionTag>(site).Value;
-                        var mults = FactionSectState.Instance.GetMultipliers(siteFaction);
-                        buildRate *= mults.BuildSpeed;
-                    }
+                    // task-063 phase 1: sect BuildSpeed multiplier removed with the
+                    // FactionSectState bridge. Phase 2 reintroduces build-speed levers.
 
                     uc.Progress += buildRate * dt;
 
@@ -219,21 +213,11 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<Buildable>(building))
                 em.RemoveComponent<Buildable>(building);
 
-            // Set health to max (with sect BuildingHP bonus)
+            // Set health to max (sect BuildingHP multiplier removed in task-063
+            // phase 1; Phase 2's Fortitude/Oath-Stone levers reintroduce this).
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
-
-                if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(building))
-                {
-                    var bFaction = em.GetComponentData<FactionTag>(building).Value;
-                    var mults = FactionSectState.Instance.GetMultipliers(bFaction);
-                    if (mults.BuildingHP > 1f)
-                    {
-                        hp.Max = (int)(hp.Max * mults.BuildingHP);
-                    }
-                }
-
                 hp.Value = hp.Max;
                 em.SetComponentData(building, hp);
             }
@@ -281,75 +265,23 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<DeferredDefense>(building);
             }
 
-            // Shrine RP bonus: grant +1 RP when a ChapelSmall completes if faction has a temple
+            // Shrine RP bonus: grant +1 RP (latched, one-time) when the Shrine of
+            // Ahridan completes. The new design (task-063) routes this through
+            // FactionReligionPointsHelper rather than the legacy
+            // ReligionPoints { Value } singleton path.
+            //
+            // ChapelSmallTag is the existing ECS marker on the Shrine. Phase 2
+            // will introduce 12 distinct chapel buildings for the actual sect
+            // adoption mechanism — those are NOT this code path.
             if (em.HasComponent<ChapelSmallTag>(building) && em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
-                GrantShrineRPBonus(em, faction);
+                FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
             }
 
-            // Temple completion RP bonus: grant +1 RP when the Temple of Ridan
-            // (the upgrade target) completes construction. Earlier this fired
-            // on ShrineTag — i.e. when the *Shrine of Ahridan* finished — even
-            // though the helper was named GrantTempleConstructionRP. The actual
-            // intent (per the helper name + tasks-061 B-19) is to grant on the
-            // Temple. (task-062 Q-48)
-            if (em.HasComponent<TempleTag>(building) && em.HasComponent<FactionTag>(building))
-            {
-                var faction = em.GetComponentData<FactionTag>(building).Value;
-                GrantTempleConstructionRP(em, faction);
-            }
-
-        }
-
-        /// <summary>
-        /// Grant +1 Religion Point when a Shrine (ChapelSmall) completes construction,
-        /// if the faction has a Temple of Ridan.
-        /// </summary>
-        private void GrantShrineRPBonus(EntityManager em, Faction faction)
-        {
-            // Check if faction has a temple
-            using var temples = _templeQuery.ToEntityArray(Allocator.Temp);
-            using var templeFactions = _templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            bool hasTemple = false;
-            for (int i = 0; i < temples.Length; i++)
-            {
-                if (templeFactions[i].Value == faction)
-                {
-                    hasTemple = true;
-                    break;
-                }
-            }
-
-            if (!hasTemple) return;
-
-            // Grant RP to faction bank
-            if (FactionEconomy.TryGetBank(em, faction, out var bank))
-            {
-                if (em.HasComponent<ReligionPoints>(bank))
-                {
-                    var rp = em.GetComponentData<ReligionPoints>(bank);
-                    rp.Value += TempleLevelConfig.ShrineBonus;
-                    em.SetComponentData(bank, rp);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Grant +1 Religion Point when the Temple of Ridan completes construction.
-        /// </summary>
-        private void GrantTempleConstructionRP(EntityManager em, Faction faction)
-        {
-            if (FactionEconomy.TryGetBank(em, faction, out var bank))
-            {
-                if (em.HasComponent<ReligionPoints>(bank))
-                {
-                    var rp = em.GetComponentData<ReligionPoints>(bank);
-                    rp.Value += TempleLevelConfig.ShrineBonus;
-                    em.SetComponentData(bank, rp);
-                }
-            }
+            // task-063 phase 1: GrantTempleConstructionRP removed. The new design
+            // grants RP only on age-up + Shrine completion + chapel completion.
+            // Temple of Ridan finishing construction is no longer an RP source.
         }
 
         /// <summary>

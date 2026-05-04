@@ -105,33 +105,16 @@ namespace TheWaningBorder.UI.HUD
         private void RefreshAbilities()
         {
             _cachedAbilities.Clear();
-            var sectState = FactionSectState.Instance;
-            if (sectState == null) return;
 
-            var adopted = sectState.GetAdoptedSects(GameSettings.LocalPlayerFaction);
-            if (adopted == null) return;
-
-            foreach (var sectId in adopted)
-            {
-                string techId = SectConfig.GetTechId(sectId);
-                if (string.IsNullOrEmpty(techId)) continue;
-
-                // Only show techs that have been researched
-                var researchState = FactionResearchState.Instance;
-                if (researchState == null || !researchState.HasResearched(GameSettings.LocalPlayerFaction, techId))
-                    continue;
-
-                string techName = SectConfig.GetTechDisplayName(sectId);
-                string techDesc = SectConfig.GetTechDescription(sectId);
-
-                _cachedAbilities.Add(new ActiveAbility
-                {
-                    Name = techName,
-                    Description = techDesc,
-                    SectId = sectId,
-                    CooldownRemaining = 0f
-                });
-            }
+            // task-063 phase 1: this bar previously showed one entry per
+            // sect-tech the player had researched, via the deleted
+            // FactionSectState + SectConfig.GetTechId / GetTechDisplayName /
+            // GetTechDescription bridge. Sect tech research is no longer a
+            // thing in the redesign (chapels drive adoption, not research).
+            //
+            // Phase 2 will repopulate this bar with the new "Active Power"
+            // lever per adopted sect — read from SectAdoptionState on the
+            // faction bank entity.
         }
 
         // Build the truly-unique cached locals (bar/button/tooltip — all bordered with golden

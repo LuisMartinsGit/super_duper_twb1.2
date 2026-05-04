@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
 
@@ -62,16 +63,15 @@ namespace TheWaningBorder.UI.HUD
             Styles.Initialize();
             BuildLocalStyles();
 
-            var sectState = FactionSectState.Instance;
             var spellState = SpellState.Instance;
             var castSystem = SpellCastSystem.Instance;
-            if (sectState == null || spellState == null) return;
+            if (spellState == null) return;
 
             // Refresh available spells periodically
             _refreshTimer -= Time.deltaTime;
             if (_refreshTimer <= 0f)
             {
-                RefreshAvailableSpells(sectState);
+                RefreshAvailableSpells();
                 _refreshTimer = 1.0f;
             }
 
@@ -181,16 +181,28 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
-        private void RefreshAvailableSpells(FactionSectState sectState)
+        private void RefreshAvailableSpells()
         {
             _availableSpells.Clear();
 
-            var adopted = sectState.GetAdoptedSects(humanFaction);
-            foreach (var sectId in adopted)
+            // task-063 phase 1: read adopted sects from SectAdoptionState on the
+            // faction bank entity (the new ECS-side source of truth) instead of
+            // the deleted FactionSectState managed singleton.
+            // Phase 1 returns no spells because SpellDatabase is empty —
+            // Phase 2 will register one Active Power per new-roster sect.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+
+            var em = world.EntityManager;
+            if (!FactionEconomy.TryGetBank(em, humanFaction, out var bank)) return;
+            if (!em.HasComponent<SectAdoptionState>(bank)) return;
+
+            var state = em.GetComponentData<SectAdoptionState>(bank);
+            for (int i = 0; i < SectConfig.SectCount; i++)
             {
-                var spell = SpellDatabase.GetSpellForSect(sectId);
-                if (spell != null)
-                    _availableSpells.Add(spell);
+                if (!state.Get(i).IsAdopted) continue;
+                var spell = SpellDatabase.GetSpellForSect(SectConfig.IdAt(i));
+                if (spell != null) _availableSpells.Add(spell);
             }
         }
 

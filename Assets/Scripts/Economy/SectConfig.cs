@@ -1,351 +1,235 @@
 // SectConfig.cs
-// Static configuration for sect adoption costs, passive effects, synergy pairs, and temple scaling
+// Static identity table for the 12 sects of the redesigned religion system.
+// Every sect string ID, cluster mapping, index, and cost-rule lives here;
+// effect data lives on SectDefinition ScriptableObjects loaded by SectDatabase.
+//
+// Phase 1 (task-063): only the data layer + index/cluster lookups are wired.
+// Effect bodies are added per-lever in Phase 2.
+//
 // Location: Assets/Scripts/Economy/SectConfig.cs
 
 namespace TheWaningBorder.Economy
 {
     /// <summary>
-    /// Static configuration for the sect adoption system.
-    /// Contains affinity costs, passive effect values, synergy pair definitions,
-    /// and temple scaling multipliers.
-    ///
-    /// Sect adoption costs:
-    ///   Affinity (culture matches): 1 RP
-    ///   Non-affinity (different culture): 3 RP
-    ///
-    /// Temple scaling amplifies passives:
-    ///   Level 1: 1.0x
-    ///   Level 2: 1.5x
-    ///   Level 3+: 2.0x
+    /// Cultural cluster a sect belongs to. Drives same-culture vs cross-culture
+    /// adoption-cost rules (2 vs 3 RP) and visual / lore grouping in the
+    /// adoption UI. The faction's *current* culture is read from
+    /// <c>FactionProgress.Culture</c> (a separate axis — a Runaii faction can
+    /// adopt Feraldis sects, just at higher RP cost).
+    /// </summary>
+    public enum SectCluster : byte
+    {
+        Alanthor = 0,
+        Runaii   = 1,
+        Feraldis = 2,
+    }
+
+    /// <summary>
+    /// Which of the four levers a sect's effect lives on. Each lever has its
+    /// own independent upgrade level (0 = not yet purchased, 1/2/3 = Lv I/II/III).
+    /// Adoption grants Lv I on every lever automatically — see SectAdoption.
+    /// </summary>
+    public enum SectLeverKind : byte
+    {
+        Passive     = 0,
+        Building    = 1,
+        Unit        = 2,
+        ActivePower = 3,
+    }
+
+    /// <summary>
+    /// Static metadata + cost-schedule constants for the 12-sect religion system.
+    /// All sect-string lookups go through here so renames stay greppable.
     /// </summary>
     public static class SectConfig
     {
         // ═══════════════════════════════════════════════════════════════════
-        // ADOPTION COSTS
+        // SECT IDS — the 12-sect roster (3 clusters × 4 sects)
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>RP cost to adopt a sect whose affinity matches the player's culture</summary>
-        public const int AffinityCost = 1;
+        // Alanthor — Recovery / Fortification / Craftsman knowledge
+        public const string Antiquity   = "Sect_Antiquity";
+        public const string Renewal     = "Sect_Renewal";
+        public const string Fortitude   = "Sect_Fortitude";
+        public const string Reclamation = "Sect_Reclamation";
 
-        /// <summary>RP cost to adopt a sect whose affinity does NOT match the player's culture</summary>
-        public const int NonAffinityCost = 3;
+        // Runaii — Doctrine / Secrecy / Crystal veneration
+        public const string Silence     = "Sect_Silence";
+        public const string Justice     = "Sect_Justice";
+        public const string Veneration  = "Sect_Veneration";
+        public const string Witness     = "Sect_Witness";
 
-        // ═══════════════════════════════════════════════════════════════════
-        // TEMPLE SCALING
-        // ═══════════════════════════════════════════════════════════════════
+        // Feraldis — Industry / Profanity / Vengeance
+        public const string War   = "Sect_War";
+        public const string Ash   = "Sect_Ash";
+        public const string Ruin  = "Sect_Ruin";
+        public const string Wrath = "Sect_Wrath";
 
-        /// <summary>
-        /// Get the passive multiplier for a given temple level.
-        /// Level 1 = 1.0x, Level 2 = 1.5x, Level 3+ = 2.0x.
-        /// </summary>
-        public static float GetTempleScaling(int templeLevel) => templeLevel switch
+        /// <summary>Total number of sects (constant — design rule).</summary>
+        public const int SectCount = 12;
+
+        // ─── Chapel building IDs ────────────────────────────────────────────
+        // Adoption mechanism: building a chapel inside the Temple's 6-slot
+        // system grants the matching sect. One chapel id per sect.
+        // BuildingFactory registers each as "Chapel_<SectId>".
+
+        public static string ChapelIdFor(string sectId) => "Chapel_" + sectId;
+
+        /// <summary>True if the building id is one of the 12 sect chapels.</summary>
+        public static bool IsChapelId(string buildingId)
         {
-            1 => 1.0f,
-            2 => 1.5f,
-            _ => templeLevel >= 3 ? 2.0f : 1.0f
-        };
-
-        // ═══════════════════════════════════════════════════════════════════
-        // SECT IDS
-        // ═══════════════════════════════════════════════════════════════════
-
-        // Alanthor sects
-        public const string Renewal = "Sect_Renewal";
-        public const string Antiquity = "Sect_Antiquity";
-        public const string LivingStone = "Sect_LivingStone";
-        public const string VeiledMemory = "Sect_VeiledMemory";
-
-        // Runai sects
-        public const string StillFlame = "Sect_StillFlame";
-        public const string QuietVault = "Sect_QuietVault";
-        public const string MirrorRite = "Sect_MirrorRite";
-        public const string ShardJudgment = "Sect_ShardJudgment";
-
-        // Feraldis sects
-        public const string EmberAsh = "Sect_EmberAsh";
-        public const string HollowBrand = "Sect_HollowBrand";
-        public const string FlamewroughtChains = "Sect_FlamewroughtChains";
-        public const string UnmakersGrasp = "Sect_UnmakersGrasp";
-
-        /// <summary>All 12 sect IDs in display order (Alanthor, Runai, Feraldis).</summary>
-        public static readonly string[] AllSectIds =
-        {
-            Renewal, Antiquity, LivingStone, VeiledMemory,
-            StillFlame, QuietVault, MirrorRite, ShardJudgment,
-            EmberAsh, HollowBrand, FlamewroughtChains, UnmakersGrasp
-        };
-
-        /// <summary>Alanthor culture sects.</summary>
-        public static readonly string[] AlanthorSects = { Renewal, Antiquity, LivingStone, VeiledMemory };
-        /// <summary>Runai culture sects.</summary>
-        public static readonly string[] RunaiSects = { StillFlame, QuietVault, MirrorRite, ShardJudgment };
-        /// <summary>Feraldis culture sects.</summary>
-        public static readonly string[] FeraldisSects = { EmberAsh, HollowBrand, FlamewroughtChains, UnmakersGrasp };
-
-        // ═══════════════════════════════════════════════════════════════════
-        // DISPLAY NAMES
-        // ═══════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Get a human-readable display name for a sect ID.
-        /// </summary>
-        public static string GetDisplayName(string sectId) => sectId switch
-        {
-            Renewal => "Renewal",
-            Antiquity => "Antiquity",
-            LivingStone => "Living Stone",
-            VeiledMemory => "Veiled Memory",
-            StillFlame => "Still Flame",
-            QuietVault => "Quiet Vault",
-            MirrorRite => "Mirror Rite",
-            ShardJudgment => "Shard Judgment",
-            EmberAsh => "Ember Ash",
-            HollowBrand => "Hollow Brand",
-            FlamewroughtChains => "Flamewrought Chains",
-            UnmakersGrasp => "Unmaker's Grasp",
-            _ => sectId
-        };
-
-        /// <summary>
-        /// Get a short description of the sect's passive effect.
-        /// </summary>
-        public static string GetPassiveDescription(string sectId) => sectId switch
-        {
-            Renewal => "+20% income if all walls full HP",
-            Antiquity => "+20% research speed",
-            LivingStone => "+20% wall income, +10% build speed",
-            VeiledMemory => "+15% fog vision range",
-            StillFlame => "+15% trade income",
-            QuietVault => "+30% banking interest",
-            MirrorRite => "+10% ranged accuracy",
-            ShardJudgment => "+10% income",
-            EmberAsh => "+12% melee damage",
-            HollowBrand => "5% panic chance on hit",
-            FlamewroughtChains => "3% control chance on hit",
-            UnmakersGrasp => "+20% damage vs Crystal",
-            _ => ""
-        };
-
-        // ═══════════════════════════════════════════════════════════════════
-        // PASSIVE BASE VALUES (before temple scaling)
-        // ═══════════════════════════════════════════════════════════════════
-
-        // Alanthor passives
-        public const float RenewalIncomeBonus = 0.20f;         // +20% income if walls full HP
-        public const float AntiquityResearchSpeed = 0.20f;     // +20% research speed
-        public const float LivingStoneWallIncome = 0.20f;      // +20% wall income
-        public const float LivingStoneBuildSpeed = 0.10f;      // +10% build speed
-        public const float VeiledMemoryFogVision = 0.15f;      // +15% LOS range
-
-        // Runai passives
-        public const float StillFlameTradeIncome = 0.15f;      // +15% trade income
-        public const float QuietVaultInterest = 0.30f;         // +30% vault interest
-        public const float MirrorRiteAccuracy = 0.10f;         // +10% ranged accuracy
-        public const float ShardJudgmentIncome = 0.10f;        // +10% all income
-
-        // Feraldis passives
-        public const float EmberAshMeleeDamage = 0.12f;        // +12% melee damage
-        public const float HollowBrandPanic = 0.05f;           // 5% panic chance
-        public const float FlamewroughtChainsControl = 0.03f;  // 3% control chance
-        public const float UnmakersGraspVsCrystal = 0.20f;     // +20% vs Crystal
-
-        // ═══════════════════════════════════════════════════════════════════
-        // SYNERGY PAIRS
-        // ═══════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Synergy pair definition: two sects that grant a bonus when both are adopted.
-        /// </summary>
-        public struct SynergyPair
-        {
-            public string SectA;
-            public string SectB;
-            public string Name;
-            public string BonusType;
-            public float BonusValue;
-            public string Description;
+            if (string.IsNullOrEmpty(buildingId)) return false;
+            if (!buildingId.StartsWith("Chapel_")) return false;
+            return IsKnownSect(buildingId.Substring("Chapel_".Length));
         }
 
-        /// <summary>6 synergy pairs. Checked when a sect is adopted.</summary>
-        public static readonly SynergyPair[] SynergyPairs =
+        /// <summary>Inverse — extracts the sect id from a chapel building id, or null.</summary>
+        public static string SectIdFromChapelId(string chapelBuildingId)
         {
-            new SynergyPair
-            {
-                SectA = Renewal, SectB = LivingStone,
-                Name = "The Fortress",
-                BonusType = "BuildingHP",
-                BonusValue = 0.10f,
-                Description = "+10% building HP"
-            },
-            new SynergyPair
-            {
-                SectA = Antiquity, SectB = VeiledMemory,
-                Name = "The Archive",
-                BonusType = "ResearchSpeed",
-                BonusValue = 0.15f,
-                Description = "+15% research speed"
-            },
-            new SynergyPair
-            {
-                SectA = StillFlame, SectB = QuietVault,
-                Name = "The Merchant",
-                BonusType = "AllIncome",
-                BonusValue = 0.10f,
-                Description = "+10% all income"
-            },
-            new SynergyPair
-            {
-                SectA = MirrorRite, SectB = ShardJudgment,
-                Name = "The Inquisitor",
-                BonusType = "RangedDamage",
-                BonusValue = 0.15f,
-                Description = "+15% ranged damage"
-            },
-            new SynergyPair
-            {
-                SectA = EmberAsh, SectB = HollowBrand,
-                Name = "The Warband",
-                BonusType = "AttackSpeed",
-                BonusValue = 0.10f,
-                Description = "+10% attack speed"
-            },
-            new SynergyPair
-            {
-                SectA = FlamewroughtChains, SectB = UnmakersGrasp,
-                Name = "The Purifier",
-                BonusType = "DamageVsCrystal",
-                BonusValue = 0.30f,
-                Description = "+30% damage vs Crystal"
-            }
-        };
+            if (!IsChapelId(chapelBuildingId)) return null;
+            return chapelBuildingId.Substring("Chapel_".Length);
+        }
 
         /// <summary>
-        /// Get the culture affinity string for a sect ID.
+        /// Stable index → string-id table. Sizes <c>SectAdoptionState</c> arrays.
+        /// Order is locked: Alanthor first, then Runaii, then Feraldis,
+        /// each cluster in design-doc order.
         /// </summary>
-        public static string GetAffinity(string sectId) => sectId switch
+        public static readonly string[] AllSectIds =
         {
-            Renewal or Antiquity or LivingStone or VeiledMemory => "Alanthor",
-            StillFlame or QuietVault or MirrorRite or ShardJudgment => "Runai",
-            EmberAsh or HollowBrand or FlamewroughtChains or UnmakersGrasp => "Feraldis",
-            _ => ""
+            Antiquity, Renewal, Fortitude, Reclamation,   // 0..3   Alanthor
+            Silence,   Justice, Veneration, Witness,      // 4..7   Runaii
+            War,       Ash,     Ruin,       Wrath,        // 8..11  Feraldis
+        };
+
+        /// <summary>Cluster of each sect, indexed by sect-id-to-index.</summary>
+        public static readonly SectCluster[] ClusterByIndex =
+        {
+            SectCluster.Alanthor, SectCluster.Alanthor, SectCluster.Alanthor, SectCluster.Alanthor,
+            SectCluster.Runaii,   SectCluster.Runaii,   SectCluster.Runaii,   SectCluster.Runaii,
+            SectCluster.Feraldis, SectCluster.Feraldis, SectCluster.Feraldis, SectCluster.Feraldis,
         };
 
         // ═══════════════════════════════════════════════════════════════════
-        // SECT TECHNOLOGIES
+        // ECONOMY CONSTANTS — design spec §2 Adoption Economy
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>Get the tech ID for a sect's researchable technology.</summary>
-        public static string GetTechId(string sectId) => sectId switch
-        {
-            Renewal => "Tech_DietaryMandate",
-            Antiquity => "Tech_ClockworkArchives",
-            LivingStone => "Tech_TerracePlanning",
-            VeiledMemory => "Tech_HiddenRecords",
-            StillFlame => "Tech_SanctifiedRoutes",
-            QuietVault => "Tech_HiddenLedgers",
-            MirrorRite => "Tech_RefinedSilverInlays",
-            ShardJudgment => "Tech_IronDecrees",
-            EmberAsh => "Tech_WarTithe",
-            HollowBrand => "Tech_DesecrateStandards",
-            FlamewroughtChains => "Tech_VeilsteelLinks",
-            UnmakersGrasp => "Tech_ErasureRites",
-            _ => ""
-        };
+        /// <summary>One-time RP award when the Age-1 Shrine completes.</summary>
+        public const int RpAwardShrine = 1;
+
+        /// <summary>RP awarded on Age II / III / IV up. Plus the Shrine bonus,
+        /// sum across the campaign = 25.</summary>
+        public const int RpAwardAge2 = 6;
+        public const int RpAwardAge3 = 8;
+        public const int RpAwardAge4 = 10;
+
+        /// <summary>Adoption cost — same cluster as faction's current culture.</summary>
+        public const int AdoptCostSameCulture = 2;
+        /// <summary>Adoption cost — different cluster.</summary>
+        public const int AdoptCostCrossCulture = 3;
+
+        /// <summary>Lv I → Lv II upgrade cost (per lever).</summary>
+        public const int UpgradeCostLv1ToLv2 = 2;
+        /// <summary>Lv II → Lv III upgrade cost (per lever).</summary>
+        public const int UpgradeCostLv2ToLv3 = 3;
 
         /// <summary>
-        /// Inverse of <see cref="GetTechId"/>. Returns the sect ID whose tech matches
-        /// <paramref name="techId"/>, or empty string if it isn't a sect tech. Used by
-        /// TechEffectSystem on tech-completion to call FactionSectState.SetTechFlag,
-        /// which was previously never invoked — all 12 sect techs were silently inert
-        /// until the bridge was wired up. (task-057 F-1)
+        /// Hard cap on adopted sects per faction. Enforced naturally by the
+        /// Temple's 6 chapel slots — each chapel = one adopted sect.
         /// </summary>
-        public static string GetSectIdForTechId(string techId) => techId switch
-        {
-            "Tech_DietaryMandate"      => Renewal,
-            "Tech_ClockworkArchives"   => Antiquity,
-            "Tech_TerracePlanning"     => LivingStone,
-            "Tech_HiddenRecords"       => VeiledMemory,
-            "Tech_SanctifiedRoutes"    => StillFlame,
-            "Tech_HiddenLedgers"       => QuietVault,
-            "Tech_RefinedSilverInlays" => MirrorRite,
-            "Tech_IronDecrees"         => ShardJudgment,
-            "Tech_WarTithe"            => EmberAsh,
-            "Tech_DesecrateStandards"  => HollowBrand,
-            "Tech_VeilsteelLinks"      => FlamewroughtChains,
-            "Tech_ErasureRites"        => UnmakersGrasp,
-            _ => string.Empty
-        };
-
-        /// <summary>True if <paramref name="techId"/> is a sect-research tech.</summary>
-        public static bool IsSectTech(string techId) => GetSectIdForTechId(techId).Length > 0;
-
-        /// <summary>Get the display name for a sect technology.</summary>
-        public static string GetTechDisplayName(string sectId) => sectId switch
-        {
-            Renewal => "Dietary Mandate",
-            Antiquity => "Clockwork Archives",
-            LivingStone => "Terrace Planning",
-            VeiledMemory => "Hidden Records",
-            StillFlame => "Sanctified Routes",
-            QuietVault => "Hidden Ledgers",
-            MirrorRite => "Refined Silver Inlays",
-            ShardJudgment => "Iron Decrees",
-            EmberAsh => "War Tithe",
-            HollowBrand => "Desecrate Standards",
-            FlamewroughtChains => "Veilsteel Links",
-            UnmakersGrasp => "Erasure Rites",
-            _ => ""
-        };
-
-        /// <summary>Get the description for a sect technology.</summary>
-        public static string GetTechDescription(string sectId) => sectId switch
-        {
-            Renewal => "All units gain +2 HP/s out-of-combat regen",
-            Antiquity => "-15% research time, -5% spell cooldowns",
-            LivingStone => "+20% Supplies from wall compartment area",
-            VeiledMemory => "-25% Crystal retaliation from curse ground",
-            StillFlame => "Trade routes grant +5 armor to nearby units",
-            QuietVault => "Retain 50% Crystal+Iron on depot destroyed",
-            MirrorRite => "+10% magic attack, -10% spell cooldown",
-            ShardJudgment => "Enemy buildings near trade routes build 20% slower",
-            EmberAsh => "Enemy civilian kills refund +5 extra Supplies",
-            HollowBrand => "Enemy morale auras -20% effectiveness",
-            FlamewroughtChains => "+1% damage reduction per Veilsteel stored",
-            UnmakersGrasp => "Crystal death drops yield +20% more crystal",
-            _ => ""
-        };
-
-        /// <summary>Get the unique unit ID trainable at a sect's chapel.</summary>
-        public static string GetSectUnitId(string sectId) => sectId switch
-        {
-            Renewal => "Sect_ScarGuard",
-            Antiquity => "Sect_GolemAutark",
-            LivingStone => "Sect_StoneWarden",
-            VeiledMemory => "Sect_ArchivistAdept",
-            StillFlame => "Sect_FlameWarden",
-            QuietVault => "Sect_VaultKeeper",
-            MirrorRite => "Sect_GlassmarkArcanist",
-            ShardJudgment => "Sect_Judicator",
-            EmberAsh => "Sect_Ashblade",
-            HollowBrand => "Sect_Brandbreaker",
-            FlamewroughtChains => "Sect_Chaincaster",
-            UnmakersGrasp => "Sect_Nullblade",
-            _ => ""
-        };
-
-        // ═══════════════════════════════════════════════════════════════════
-        // CULTURE AFFINITY
-        // ═══════════════════════════════════════════════════════════════════
+        public const int MaxAdoptedSects = 6;
 
         /// <summary>
-        /// Get the culture byte constant for a sect's affinity.
+        /// Carryover divisor: unspent points entering the next age are halved
+        /// (rounded down). Spec §2: "4 unspent → 2 next age".
         /// </summary>
-        public static byte GetAffinityCulture(string sectId) => sectId switch
+        public const int CarryoverDivisor = 2;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // LOOKUPS
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>Returns the [0..11] index for a sect id, or -1 if unknown.</summary>
+        public static int IndexOf(string sectId)
         {
-            Renewal or Antiquity or LivingStone or VeiledMemory => Cultures.Alanthor,
-            StillFlame or QuietVault or MirrorRite or ShardJudgment => Cultures.Runai,
-            EmberAsh or HollowBrand or FlamewroughtChains or UnmakersGrasp => Cultures.Feraldis,
-            _ => Cultures.None
-        };
+            if (string.IsNullOrEmpty(sectId)) return -1;
+            for (int i = 0; i < AllSectIds.Length; i++)
+                if (AllSectIds[i] == sectId) return i;
+            return -1;
+        }
+
+        /// <summary>Returns the string id for an index, or null if out of range.</summary>
+        public static string IdAt(int index)
+        {
+            if (index < 0 || index >= AllSectIds.Length) return null;
+            return AllSectIds[index];
+        }
+
+        /// <summary>Returns the cluster of a sect, or Alanthor if unknown.</summary>
+        public static SectCluster ClusterOf(string sectId)
+        {
+            int idx = IndexOf(sectId);
+            return idx < 0 ? SectCluster.Alanthor : ClusterByIndex[idx];
+        }
+
+        /// <summary>True if the sect id is one of the 12 known sects.</summary>
+        public static bool IsKnownSect(string sectId) => IndexOf(sectId) >= 0;
+
+        /// <summary>
+        /// RP awarded on entering the given age (2/3/4). 0 otherwise.
+        /// The Age-1 Shrine bonus is a separate one-time award handled by
+        /// BuildingConstructionSystem.GrantShrineRPBonus → see RpAwardShrine.
+        /// </summary>
+        public static int RpAwardForAge(int age)
+        {
+            return age switch
+            {
+                2 => RpAwardAge2,
+                3 => RpAwardAge3,
+                4 => RpAwardAge4,
+                _ => 0,
+            };
+        }
+
+        /// <summary>
+        /// Adoption cost for a faction with culture <paramref name="factionCulture"/>
+        /// adopting <paramref name="sectId"/>. Same cluster → 2, cross → 3.
+        /// Unknown sect → -1.
+        /// </summary>
+        public static int AdoptionCost(string sectId, byte factionCulture)
+        {
+            int idx = IndexOf(sectId);
+            if (idx < 0) return -1;
+            var sectCluster = ClusterByIndex[idx];
+            var factionCluster = ClusterFromCulture(factionCulture);
+            return sectCluster == factionCluster ? AdoptCostSameCulture : AdoptCostCrossCulture;
+        }
+
+        /// <summary>Cost for a lever upgrade at a given current level. -1 if not upgradeable.</summary>
+        public static int UpgradeCost(int currentLevel)
+        {
+            return currentLevel switch
+            {
+                1 => UpgradeCostLv1ToLv2,
+                2 => UpgradeCostLv2ToLv3,
+                _ => -1, // 0 = not adopted yet, 3 = already maxed
+            };
+        }
+
+        /// <summary>
+        /// Map a <see cref="Cultures"/> byte to its <see cref="SectCluster"/>.
+        /// <c>Cultures.None</c> (e.g. pre-age-up) maps to Alanthor for cost-math
+        /// purposes; faction can't adopt yet anyway since RP is age-gated.
+        /// </summary>
+        public static SectCluster ClusterFromCulture(byte culture)
+        {
+            return culture switch
+            {
+                Cultures.Alanthor => SectCluster.Alanthor,
+                Cultures.Runai    => SectCluster.Runaii,
+                Cultures.Feraldis => SectCluster.Feraldis,
+                _                 => SectCluster.Alanthor,
+            };
+        }
     }
 }

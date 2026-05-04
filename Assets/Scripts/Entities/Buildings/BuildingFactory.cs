@@ -65,32 +65,10 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Tower" => CreateFeraldisTotemTower(em, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
                 "Feraldis_Foundry" => CreateFeraldisFoundry(em, position, faction),
-                // Sect chapel buildings
-                "Chapel_Sect_Renewal" => CreateChapel(em, SectConfig.Renewal, position, faction),
-                "Chapel_Sect_Antiquity" => CreateChapel(em, SectConfig.Antiquity, position, faction),
-                "Chapel_Sect_LivingStone" => CreateChapel(em, SectConfig.LivingStone, position, faction),
-                "Chapel_Sect_VeiledMemory" => CreateChapel(em, SectConfig.VeiledMemory, position, faction),
-                "Chapel_Sect_StillFlame" => CreateChapel(em, SectConfig.StillFlame, position, faction),
-                "Chapel_Sect_QuietVault" => CreateChapel(em, SectConfig.QuietVault, position, faction),
-                "Chapel_Sect_MirrorRite" => CreateChapel(em, SectConfig.MirrorRite, position, faction),
-                "Chapel_Sect_ShardJudgment" => CreateChapel(em, SectConfig.ShardJudgment, position, faction),
-                "Chapel_Sect_EmberAsh" => CreateChapel(em, SectConfig.EmberAsh, position, faction),
-                "Chapel_Sect_HollowBrand" => CreateChapel(em, SectConfig.HollowBrand, position, faction),
-                "Chapel_Sect_FlamewroughtChains" => CreateChapel(em, SectConfig.FlamewroughtChains, position, faction),
-                "Chapel_Sect_UnmakersGrasp" => CreateChapel(em, SectConfig.UnmakersGrasp, position, faction),
-                // Sect unique buildings
-                "Sect_Sanctuary" => CreateSectSanctuary(em, position, faction),
-                "Sect_ArchiveTower" => CreateSectArchiveTower(em, position, faction),
-                "Sect_StoneheartBastion" => CreateSectStoneheartBastion(em, position, faction),
-                "Sect_VeilSpire" => CreateSectVeilSpire(em, position, faction),
-                "Sect_FlameBeacon" => CreateSectFlameBeacon(em, position, faction),
-                "Sect_Strongbox" => CreateSectStrongbox(em, position, faction),
-                "Sect_GlassSanctum" => CreateSectGlassSanctum(em, position, faction),
-                "Sect_Tribunal" => CreateSectTribunal(em, position, faction),
-                "Sect_WarPyre" => CreateSectWarPyre(em, position, faction),
-                "Sect_DreadTotem" => CreateSectDreadTotem(em, position, faction),
-                "Sect_BindingPillar" => CreateSectBindingPillar(em, position, faction),
-                "Sect_PurgeAltar" => CreateSectPurgeAltar(em, position, faction),
+                // task-063 phase 1: the 12 old Chapel_Sect_<OldSectId> entries
+                // and the 12 old Sect_<UniqueBuilding> creators have been
+                // removed with the old sect roster. The new 12 Chapel_<NewSectId>
+                // entries land in a separate task — explicitly out of scope here.
                 _ => CreateDefault(em, buildingId, position, faction)
             };
 
@@ -142,32 +120,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Tower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
                 "Feraldis_Foundry" => CreateFeraldisFoundryECB(ecb, position, faction),
-                // Sect chapel buildings
-                "Chapel_Sect_Renewal" => CreateChapelECB(ecb, SectConfig.Renewal, position, faction),
-                "Chapel_Sect_Antiquity" => CreateChapelECB(ecb, SectConfig.Antiquity, position, faction),
-                "Chapel_Sect_LivingStone" => CreateChapelECB(ecb, SectConfig.LivingStone, position, faction),
-                "Chapel_Sect_VeiledMemory" => CreateChapelECB(ecb, SectConfig.VeiledMemory, position, faction),
-                "Chapel_Sect_StillFlame" => CreateChapelECB(ecb, SectConfig.StillFlame, position, faction),
-                "Chapel_Sect_QuietVault" => CreateChapelECB(ecb, SectConfig.QuietVault, position, faction),
-                "Chapel_Sect_MirrorRite" => CreateChapelECB(ecb, SectConfig.MirrorRite, position, faction),
-                "Chapel_Sect_ShardJudgment" => CreateChapelECB(ecb, SectConfig.ShardJudgment, position, faction),
-                "Chapel_Sect_EmberAsh" => CreateChapelECB(ecb, SectConfig.EmberAsh, position, faction),
-                "Chapel_Sect_HollowBrand" => CreateChapelECB(ecb, SectConfig.HollowBrand, position, faction),
-                "Chapel_Sect_FlamewroughtChains" => CreateChapelECB(ecb, SectConfig.FlamewroughtChains, position, faction),
-                "Chapel_Sect_UnmakersGrasp" => CreateChapelECB(ecb, SectConfig.UnmakersGrasp, position, faction),
-                // Sect unique buildings
-                "Sect_Sanctuary" => CreateSectSanctuaryECB(ecb, position, faction),
-                "Sect_ArchiveTower" => CreateSectArchiveTowerECB(ecb, position, faction),
-                "Sect_StoneheartBastion" => CreateSectStoneheartBastionECB(ecb, position, faction),
-                "Sect_VeilSpire" => CreateSectVeilSpireECB(ecb, position, faction),
-                "Sect_FlameBeacon" => CreateSectFlameBeaconECB(ecb, position, faction),
-                "Sect_Strongbox" => CreateSectStrongboxECB(ecb, position, faction),
-                "Sect_GlassSanctum" => CreateSectGlassSanctumECB(ecb, position, faction),
-                "Sect_Tribunal" => CreateSectTribunalECB(ecb, position, faction),
-                "Sect_WarPyre" => CreateSectWarPyreECB(ecb, position, faction),
-                "Sect_DreadTotem" => CreateSectDreadTotemECB(ecb, position, faction),
-                "Sect_BindingPillar" => CreateSectBindingPillarECB(ecb, position, faction),
-                "Sect_PurgeAltar" => CreateSectPurgeAltarECB(ecb, position, faction),
+                // task-063 phase 1: old chapel + sect-unique-building IDs removed.
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
 
@@ -222,24 +175,8 @@ namespace TheWaningBorder.Entities
                 "Runai_Vault" => 365,
                 "Runai_VeilsteelFoundry" => 366,
                 "Feraldis_Foundry" => 367,
-                // Sect chapel buildings
-                "Chapel_Sect_Renewal" => 390,
-                "Chapel_Sect_Antiquity" => 391,
-                "Chapel_Sect_LivingStone" => 392,
-                "Chapel_Sect_VeiledMemory" => 393,
-                "Chapel_Sect_StillFlame" => 394,
-                "Chapel_Sect_QuietVault" => 395,
-                "Chapel_Sect_MirrorRite" => 396,
-                "Chapel_Sect_ShardJudgment" => 397,
-                "Chapel_Sect_EmberAsh" => 398,
-                "Chapel_Sect_HollowBrand" => 399,
-                "Chapel_Sect_FlamewroughtChains" => 400,
-                "Chapel_Sect_UnmakersGrasp" => 401,
-                // Sect unique buildings
-                "Sect_Sanctuary" => 410, "Sect_ArchiveTower" => 411, "Sect_StoneheartBastion" => 412,
-                "Sect_VeilSpire" => 413, "Sect_FlameBeacon" => 414, "Sect_Strongbox" => 415,
-                "Sect_GlassSanctum" => 416, "Sect_Tribunal" => 417, "Sect_WarPyre" => 418,
-                "Sect_DreadTotem" => 419, "Sect_BindingPillar" => 420, "Sect_PurgeAltar" => 421,
+                // task-063 phase 1: old Chapel_Sect_<OldSectId> + Sect_<UniqueBuilding>
+                // PIDs (390-401, 410-421) removed. New chapel PIDs land in a follow-up.
                 _ => 100
             };
         }
@@ -281,13 +218,8 @@ namespace TheWaningBorder.Entities
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
-                // Sect chapels can train their unique unit
-                "Chapel_Sect_Renewal" or "Chapel_Sect_Antiquity" or
-                "Chapel_Sect_LivingStone" or "Chapel_Sect_VeiledMemory" or
-                "Chapel_Sect_StillFlame" or "Chapel_Sect_QuietVault" or
-                "Chapel_Sect_MirrorRite" or "Chapel_Sect_ShardJudgment" or
-                "Chapel_Sect_EmberAsh" or "Chapel_Sect_HollowBrand" or
-                "Chapel_Sect_FlamewroughtChains" or "Chapel_Sect_UnmakersGrasp" => true,
+                // task-063 phase 1: old Chapel_Sect_<OldSectId> entries removed.
+                // Phase 2 reintroduces chapel-trains-unique-unit per new sect.
                 _ => false
             };
         }
@@ -1030,102 +962,19 @@ namespace TheWaningBorder.Entities
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // SECT CHAPEL BUILDINGS
+        // SECT CHAPEL BUILDINGS — task-063 phase 1
         // ═══════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Get the chapel presentation ID for a sect.
-        /// Maps sect index in AllSectIds to PID 390-401.
-        /// </summary>
-        private static int GetChapelPresentationId(string sectId)
-        {
-            for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
-            {
-                if (SectConfig.AllSectIds[i] == sectId) return 390 + i;
-            }
-            return 390;
-        }
-
-        /// <summary>
-        /// Create a sect chapel building. All chapels share the same base stats.
-        /// 600 HP, Radius 1.0, LOS 12, ArmorType StructureHuman.
-        /// Trains the sect's unique unit and researches the sect's tech.
-        /// </summary>
-        private static Entity CreateChapel(EntityManager em, string sectId, float3 position, Faction faction)
-        {
-            float hp = 600f;
-            float los = 12f;
-            int pid = GetChapelPresentationId(sectId);
-
-            var entity = em.CreateEntity(
-                typeof(PresentationId),
-                typeof(LocalTransform),
-                typeof(FactionTag),
-                typeof(BuildingTag),
-                typeof(Health),
-                typeof(LineOfSight),
-                typeof(Radius),
-                typeof(TrainingState)
-            );
-
-            em.SetComponentData(entity, new PresentationId { Id = pid });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Chapel_Small");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-
-            em.AddComponentData(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
-            em.AddBuffer<TrainQueueItem>(entity);
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-
-            // Combat type tags
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
-
-            return entity;
-        }
-
-        /// <summary>
-        /// Create a sect chapel building using EntityCommandBuffer.
-        /// </summary>
-        private static Entity CreateChapelECB(EntityCommandBuffer ecb, string sectId, float3 position, Faction faction)
-        {
-            float hp = 600f;
-            float los = 12f;
-            int pid = GetChapelPresentationId(sectId);
-
-            var entity = ecb.CreateEntity();
-
-            ecb.AddComponent(entity, new PresentationId { Id = pid });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Chapel_Small");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-
-            ecb.AddComponent(entity, new ChapelTag { SectId = new Unity.Collections.FixedString64Bytes(sectId) });
-            ecb.AddBuffer<TrainQueueItem>(entity);
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-
-            // Combat type tags
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
-
-            return entity;
-        }
+        // The 12 old Chapel_Sect_<OldSectId> creators (Renewal, Antiquity,
+        // LivingStone, VeiledMemory, StillFlame, QuietVault, MirrorRite,
+        // ShardJudgment, EmberAsh, HollowBrand, FlamewroughtChains,
+        // UnmakersGrasp) lived here. They've been deleted along with their
+        // shared CreateChapel / CreateChapelECB / GetChapelPresentationId
+        // helpers. The 12 new chapel creators (Chapel_Sect_Antiquity,
+        // Chapel_Sect_Renewal, Chapel_Sect_Fortitude, Chapel_Sect_Reclamation,
+        // Chapel_Sect_Silence, Chapel_Sect_Justice, Chapel_Sect_Veneration,
+        // Chapel_Sect_Witness, Chapel_Sect_War, Chapel_Sect_Ash,
+        // Chapel_Sect_Ruin, Chapel_Sect_Wrath) are deferred to a follow-up
+        // task per the user's instructions on this PR.
 
         // ═══════════════════════════════════════════════════════════════════
         // NEW CULTURE BUILDINGS (EntityManager)
@@ -1979,598 +1828,30 @@ namespace TheWaningBorder.Entities
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // TEMPLE CHAPEL SLOT HELPERS
+        // TEMPLE CHAPEL SLOT HELPERS — task-063 phase 1
         // ═══════════════════════════════════════════════════════════════════
-
-        /// <summary>Number of chapel build slots around a temple.</summary>
-        public const int ChapelSlotCount = 7;
-
-        /// <summary>Radius of the chapel slot ring around the temple center.</summary>
-        private const float ChapelSlotRadius = 4.0f;
-
-        /// <summary>
-        /// Get the offset position for a chapel slot relative to the temple center.
-        /// Slot 0 is at the top (north), arranged clockwise.
-        /// </summary>
-        public static float3 GetChapelSlotOffset(int slotIndex)
-        {
-            float angle = slotIndex * (2f * math.PI / ChapelSlotCount) - (math.PI / 2f);
-            return new float3(math.cos(angle) * ChapelSlotRadius, 0, math.sin(angle) * ChapelSlotRadius);
-        }
-
-        /// <summary>
-        /// Creates a chapel entity at a specific temple slot position.
-        /// Does NOT add UnderConstruction — the temple handles the build timer internally via TempleChapelSlot.
-        /// Adds TempleOwner to link the chapel back to its parent temple.
-        /// </summary>
-        /// <param name="em">EntityManager</param>
-        /// <param name="sectId">Sect identifier (e.g., "Sect_Renewal")</param>
-        /// <param name="temple">The parent temple entity</param>
-        /// <param name="slotIndex">Slot index (0-6)</param>
-        /// <param name="faction">Owning faction</param>
-        /// <returns>Created chapel entity</returns>
-        public static Entity CreateChapelAtSlot(EntityManager em, string sectId, Entity temple, int slotIndex, Faction faction)
-        {
-            var templeTransform = em.GetComponentData<LocalTransform>(temple);
-            float3 offset = GetChapelSlotOffset(slotIndex);
-            float3 chapelPos = templeTransform.Position + offset;
-
-            // Create the chapel via the existing factory method
-            Entity chapel = CreateChapel(em, sectId, chapelPos, faction);
-
-            // Add ChapelSmallTag (needed for RP bonus calculation in BuildingConstructionSystem)
-            em.AddComponent<ChapelSmallTag>(chapel);
-
-            // Link chapel to parent temple
-            em.AddComponentData(chapel, new TempleOwner
-            {
-                Temple = temple,
-                SlotIndex = slotIndex
-            });
-
-            return chapel;
-        }
-        // ═══════════════════════════════════════════════════════════════════════
-        // SECT UNIQUE BUILDINGS — EntityManager versions
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private static Entity CreateSectSanctuary(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Sanctuary", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 410 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Sanctuary");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectArchiveTower(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 18f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_ArchiveTower", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 411 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_ArchiveTower");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectStoneheartBastion(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 1200f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_StoneheartBastion", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 412 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_StoneheartBastion");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectVeilSpire(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 600f, los = 30f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_VeilSpire", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 413 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_VeilSpire");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectFlameBeacon(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_FlameBeacon", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 414 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_FlameBeacon");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectStrongbox(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 1000f, los = 12f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Strongbox", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 415 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Strongbox");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponent<VaultTag>(entity);
-            em.AddComponentData(entity, new VaultStorage
-            {
-                StoredAmount = 0f,
-                InterestRate = 0.05f,
-                ResourceType = 0,
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectGlassSanctum(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_GlassSanctum", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 416 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_GlassSanctum");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectTribunal(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Tribunal", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 417 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Tribunal");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectWarPyre(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_WarPyre", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 418 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_WarPyre");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectDreadTotem(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 15f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_DreadTotem", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 419 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_DreadTotem");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectBindingPillar(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_BindingPillar", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 420 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_BindingPillar");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectPurgeAltar(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_PurgeAltar", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 421 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_PurgeAltar");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<SectUniqueBuildingTag>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
+        // GetChapelSlotOffset / CreateChapelAtSlot / ChapelSlotCount /
+        // ChapelSlotRadius were tied to the old chapel creators (which
+        // themselves referenced removed sect IDs). They've been deleted along
+        // with CreateChapel / CreateChapelECB / GetChapelPresentationId. The
+        // TempleChapelSlot dynamic buffer + 6-slot UI mechanic stay; new
+        // chapel-creation helpers will land alongside the new chapel building
+        // IDs in a follow-up task.
 
         // ═══════════════════════════════════════════════════════════════════════
-        // SECT UNIQUE BUILDINGS — ECB versions
+        // SECT UNIQUE BUILDINGS — task-063 phase 1
         // ═══════════════════════════════════════════════════════════════════════
+        // The 24 old creators (12 EM + 12 ECB) for the old sect-unique
+        // buildings (Sect_Sanctuary / Sect_ArchiveTower / Sect_StoneheartBastion
+        // / Sect_VeilSpire / Sect_FlameBeacon / Sect_Strongbox /
+        // Sect_GlassSanctum / Sect_Tribunal / Sect_WarPyre / Sect_DreadTotem
+        // / Sect_BindingPillar / Sect_PurgeAltar) are deleted. Phase 2 will
+        // reintroduce the new sect-unique buildings (Reliquary / Workshop
+        // Eternal / Oath-Stone / Crucible / Sepulchre / Tribunal /
+        // Sanctified Pyre / Spire of Witness / War Forge / Furnace /
+        // Desecrator / Hollow Altar) — one per new-roster sect.
+        // SectUniqueBuildingTag is preserved for Phase 2 reuse.
 
-        private static Entity CreateSectSanctuaryECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Sanctuary", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 410 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Sanctuary");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectArchiveTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 18f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_ArchiveTower", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 411 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_ArchiveTower");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectStoneheartBastionECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 1200f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_StoneheartBastion", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 412 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_StoneheartBastion");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectVeilSpireECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 600f, los = 30f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_VeilSpire", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 413 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_VeilSpire");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectFlameBeaconECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_FlameBeacon", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 414 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_FlameBeacon");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectStrongboxECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 1000f, los = 12f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Strongbox", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 415 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Strongbox");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent<VaultTag>(entity);
-            ecb.AddComponent(entity, new VaultStorage
-            {
-                StoredAmount = 0f,
-                InterestRate = 0.05f,
-                ResourceType = 0,
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectGlassSanctumECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_GlassSanctum", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 416 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_GlassSanctum");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectTribunalECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_Tribunal", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 417 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_Tribunal");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectWarPyreECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_WarPyre", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 418 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_WarPyre");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectDreadTotemECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 700f, los = 15f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_DreadTotem", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 419 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_DreadTotem");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectBindingPillarECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 800f, los = 14f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_BindingPillar", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 420 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_BindingPillar");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateSectPurgeAltarECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 900f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Sect_PurgeAltar", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 421 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Sect_PurgeAltar");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<SectUniqueBuildingTag>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
     }
     // TempleTag and VaultTag are defined in BuildingComponents.cs (global namespace)
 }

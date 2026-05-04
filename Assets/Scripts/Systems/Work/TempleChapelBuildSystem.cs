@@ -82,43 +82,29 @@ namespace TheWaningBorder.Systems.Buildings // (task-062 Q-47 — was singular)
                 }
             }
 
-            // Process completed slots — chapels are NOT standalone entities anymore,
-            // they are part of the temple. Just log and grant RP.
+            // Process completed slots. task-063 phase 1: this slot system stays
+            // structurally (TempleChapelSlot buffer is the right shape for the
+            // 6-slot chapel cap), but the actual chapel-building IDs and the
+            // SectAdoption.OnChapelCompleted hook are wired in a follow-up
+            // (the user's separate "add 12 new chapel building IDs" task).
+            //
+            // For now, slot-completion is a no-op beyond marking State=2 above —
+            // no RP grant, no sect adoption, no SectEffectSystem recalculation
+            // (that singleton is gone). This keeps the simulation compiling
+            // until the new chapel IDs land.
+            //
+            // TODO(task-063 follow-up): when the 12 Chapel_Sect_<NewSectId>
+            // IDs are added to BuildingFactory, replace this loop with:
+            //     SectAdoption.OnChapelCompleted(em, faction, "Chapel_" + slot.SectId)
             for (int i = 0; i < deferredSpawns.Length; i++)
             {
                 var spawn = deferredSpawns[i];
-
                 if (!em.Exists(spawn.Temple)) continue;
                 if (!em.HasBuffer<TempleChapelSlot>(spawn.Temple)) continue;
-
-                var faction = em.GetComponentData<FactionTag>(spawn.Temple).Value;
-
-                // Grant +1 RP bonus for chapel construction
-                GrantShrineRPBonus(em, faction);
-
-                // Recalculate sect passives since a new chapel is complete
-                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
-
+                // Intentional no-op until new chapel IDs land.
             }
 
             deferredSpawns.Dispose();
-        }
-
-        /// <summary>
-        /// Grant +1 Religion Point when a chapel completes construction.
-        /// Mirrors the logic in BuildingConstructionSystem.GrantShrineRPBonus.
-        /// </summary>
-        private void GrantShrineRPBonus(EntityManager em, Faction faction)
-        {
-            if (FactionEconomy.TryGetBank(em, faction, out var bank))
-            {
-                if (em.HasComponent<ReligionPoints>(bank))
-                {
-                    var rp = em.GetComponentData<ReligionPoints>(bank);
-                    rp.Value += TempleLevelConfig.ShrineBonus;
-                    em.SetComponentData(bank, rp);
-                }
-            }
         }
     }
 }

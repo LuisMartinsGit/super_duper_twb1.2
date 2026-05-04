@@ -215,10 +215,8 @@ namespace TheWaningBorder.Systems.Training
 
                 // Apply completed tech effects
                 TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
-                // Apply sect bonuses to newly trained units. Earlier never
-                // called, so units trained after sect adoption silently
-                // started at base damage. (task-057 F-2)
-                SectEffectSystem.ApplySectEffectsToUnit(em, unit, faction);
+                // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed
+                // with the old multiplier bridge. Phase 2 reintroduces per-sect dispatch.
 
                 // Issue move to rally point
                 if (hasRally)

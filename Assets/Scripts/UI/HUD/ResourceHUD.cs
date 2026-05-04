@@ -94,7 +94,7 @@ namespace TheWaningBorder.UI.HUD
 
             _rpQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<ReligionPoints>());
+                ComponentType.ReadOnly<FactionReligionPoints>());
 
             // Menu button textures use the canonical navy panel bg + a brighter hover variant.
             // Source the base color from Styles.PanelBgColor so the palette stays canonical.
@@ -151,14 +151,14 @@ namespace TheWaningBorder.UI.HUD
                 _popCache[popTags[i].Value] = (pops[i].Current, pops[i].Max);
             }
 
-            // Get religion points
+            // Get religion points (task-063: FactionReligionPoints.Balance is the new source).
             using var rpEntities = _rpQuery.ToEntityArray(Allocator.Temp);
             using var rpTags = _rpQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var rpData = _rpQuery.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+            using var rpData = _rpQuery.ToComponentDataArray<FactionReligionPoints>(Allocator.Temp);
 
             for (int i = 0; i < rpEntities.Length; i++)
             {
-                _rpCache[rpTags[i].Value] = rpData[i].Value;
+                _rpCache[rpTags[i].Value] = rpData[i].Balance;
             }
 
             // Cache Alanthor wall enclosure income per-faction so the panel can

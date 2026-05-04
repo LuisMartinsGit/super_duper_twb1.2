@@ -18,13 +18,11 @@ namespace TheWaningBorder.Systems.Economy
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
-            var em = state.EntityManager;
 
-            foreach (var (vault, entity) in SystemAPI
+            foreach (var vault in SystemAPI
                 .Query<RefRW<VaultStorage>>()
                 .WithAll<VaultTag>()
-                .WithNone<UnderConstruction>()
-                .WithEntityAccess())
+                .WithNone<UnderConstruction>())
             {
                 // Tick lock timer
                 if (vault.ValueRO.LockTimer > 0f)
@@ -37,12 +35,9 @@ namespace TheWaningBorder.Systems.Economy
                     // Simplified: amount += amount * rate * dt / 60
                     float rate = vault.ValueRO.InterestRate;
 
-                    // Apply sect vault interest multiplier
-                    if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(entity))
-                    {
-                        var vFaction = em.GetComponentData<FactionTag>(entity).Value;
-                        rate *= FactionSectState.Instance.GetMultipliers(vFaction).VaultInterest;
-                    }
+                    // task-063 phase 1: sect VaultInterest multiplier removed with the
+                    // FactionSectState bridge. The vault's stored InterestRate is now
+                    // the single source of truth until Phase 2 reintroduces sect levers.
 
                     vault.ValueRW.StoredAmount += vault.ValueRO.StoredAmount * rate * dt / 60f;
                 }

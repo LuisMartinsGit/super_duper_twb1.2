@@ -120,16 +120,12 @@ namespace TheWaningBorder.Economy
         public int Value;
     }
 
-    /// <summary>
-    /// Tracks cumulative Religion Points (RP) for a faction.
-    /// RP are granted by temple level-ups and shrine construction.
-    /// Attached to faction bank entity alongside FactionResources.
-    /// </summary>
-    public struct ReligionPoints : IComponentData
-    {
-        /// <summary>Cumulative religion points</summary>
-        public int Value;
-    }
+    // The old `ReligionPoints { int Value }` component was removed in
+    // task-063 phase 1. Religion Points now live on FactionReligionPoints
+    // (see Economy/FactionReligionPoints.cs) which carries the Shrine-bonus
+    // latch and CurrentAge needed for the age-gated upgrade rules. All
+    // callers were migrated; readers of RP balance go through
+    // FactionReligionPointsHelper.GetBalance.
 
     // ═══════════════════════════════════════════════════════════════════════
     // RESOURCE TICK STATE

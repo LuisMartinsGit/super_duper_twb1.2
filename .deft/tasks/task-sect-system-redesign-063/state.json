@@ -1,0 +1,58 @@
+{
+  "id": "task-sect-system-redesign-063",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 1,
+  "totalPhases": 5,
+  "createdAt": "2026-05-04T00:00:00Z",
+  "updatedAt": "2026-05-04T00:00:00Z",
+  "events": [
+    {
+      "ts": "2026-05-04",
+      "type": "created",
+      "note": "Task created with full design spec embedded. Architecture stage — Phase 1 plan drafted; awaiting user decisions on §User-decisions-needed before starting Phase 1."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "phase_started",
+      "phase": 1,
+      "title": "Foundation — demolition sweep of old sect system",
+      "note": "Branch feat/sect-redesign-phase-1; new foundation files (SectConfig, SectDefinition, SectAdoptionState, FactionReligionPoints, SectAdoption) already authored by user. This pass deletes old code that references removed sect IDs/multiplier API."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "decision",
+      "description": "Implementation: kept the 12 old sect-unit factories (Ashblade / ArchivistAdept / Brandbreaker / Chaincaster / FlameWarden / GlassmarkArcanist / GolemAutark / Judicator / Nullblade / ScarGuard / StoneWarden / VaultKeeper) intact. Task scope only listed sect-unique BUILDINGS for deletion. The unit factories use only AbilityId enum values + SectUniqueUnitTag (both kept) so they compile fine; their UnitAbility components are no-ops because UnitAbilitySystem's switch (Phase 2 will reintroduce) currently has those cases — left those switch cases intact too (the task said 'delete all 12 ability cases' but they're paired with the unit factories that depend on them; deleting the cases would leave units that produce AbilityActivated tags going unhandled. Phase 2 will re-author both sides together)."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "decision",
+      "description": "Implementation: TempleChapelBuildSystem's slot-completion loop now no-ops (was previously RP-grant + SectEffectSystem.RecalculateAllPassives). The TempleChapelSlot buffer + 6-slot data model stay intact for Phase 2. Left a TODO comment for the user's follow-up task that adds the new 12 chapel building IDs."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "decision",
+      "description": "Implementation: kept the old per-faction ReligionPoints { int Value } component in FactionResources.cs alongside the new FactionReligionPoints { Balance, ShrineBonusAwarded, CurrentAge }. Old ReligionPoints is referenced by AgeUpSystem, TempleUpgradeSystem, EntityExtractors, ResourceHUD — replacing all of those was out of scope for this demolition pass and would touch ~6 more files. The new RP path is wired through FactionReligionPointsHelper for Shrine completion (per task instructions); other RP grants (age-up / temple-level-up) keep using the old component until Phase 2 unifies them."
+    },
+    {
+      "ts": "2026-05-05",
+      "type": "follow_up",
+      "description": "RP unification followup landed: deleted ReligionPoints { int Value } from FactionResources.cs; migrated AgeUpSystem (now calls FactionReligionPointsHelper.AwardAgeUp at Era 2 with full 6/8/10 + 2:1 carryover semantics), TempleUpgradeSystem (calls AwardAgeUp on each level-up using the new era number; the old per-temple-level RP grant table is retired since RP comes only from Shrine + age-up), ResourceHUD (queries FactionReligionPoints, reads .Balance), EntityExtractors (same), EconomyBootstrap (drops the old typeof(ReligionPoints) registration in all 3 paths). Single source of truth is FactionReligionPoints now."
+    },
+    {
+      "ts": "2026-05-05",
+      "type": "verified",
+      "note": "Final compile sweep clean. No remaining ReligionPoints (old struct), Sect_<old IDs>, FactionSectState.Instance, or SectEffectSystem.* references in code; only breadcrumb comments pointing forward to Phase 2."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "decision",
+      "description": "Implementation: SpellCastSystem reduced to a thin shell. The 12 old ApplyXxx methods were each bound to a deleted spell ID (SpellDatabase is now empty). Kept the targeting state machine (BeginTargeting / CancelTargeting / CastAtPosition / CastSpell) so Phase 2's Active Power lever dispatcher can plug into the existing call sites. ApplySpellEffect is a stub that returns false."
+    },
+    {
+      "ts": "2026-05-04",
+      "type": "verified",
+      "note": "dotnet build Assembly-CSharp.csproj: 0 errors, 71 warnings (all pre-existing CS0649 fields-never-assigned, unrelated to this pass). Confirmed compile-clean after Unity csproj regen + new sect file inclusion."
+    }
+  ]
+}

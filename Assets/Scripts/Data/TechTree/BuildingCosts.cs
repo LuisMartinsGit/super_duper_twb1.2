@@ -68,19 +68,10 @@ namespace TheWaningBorder.Data
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
 
-            // Sect unique buildings
-            { "Sect_Sanctuary",          Cost.Of(supplies: 200, iron: 60, crystal: 40) },
-            { "Sect_ArchiveTower",       Cost.Of(supplies: 250, iron: 80, crystal: 50) },
-            { "Sect_StoneheartBastion",  Cost.Of(supplies: 300, iron: 100, crystal: 40) },
-            { "Sect_VeilSpire",          Cost.Of(supplies: 180, iron: 40, crystal: 60) },
-            { "Sect_FlameBeacon",        Cost.Of(supplies: 200, iron: 50, crystal: 40) },
-            { "Sect_Strongbox",          Cost.Of(supplies: 350, iron: 80, crystal: 60) },
-            { "Sect_GlassSanctum",       Cost.Of(supplies: 200, iron: 40, crystal: 80) },
-            { "Sect_Tribunal",           Cost.Of(supplies: 250, iron: 70, crystal: 50) },
-            { "Sect_WarPyre",            Cost.Of(supplies: 200, iron: 60, crystal: 30) },
-            { "Sect_DreadTotem",         Cost.Of(supplies: 180, iron: 50, crystal: 30) },
-            { "Sect_BindingPillar",      Cost.Of(supplies: 200, iron: 60, crystal: 50) },
-            { "Sect_PurgeAltar",         Cost.Of(supplies: 250, iron: 80, crystal: 60) },
+            // task-063 phase 1: 12 old Sect_<UniqueBuilding> cost entries
+            // removed alongside their creators. Phase 2 reintroduces sect-
+            // unique buildings (Reliquary / Workshop Eternal / Oath-Stone / etc.)
+            // — costs will land here when those creators are written.
         };
 
         // ═══════════════════════════════════════════════════════════════════════

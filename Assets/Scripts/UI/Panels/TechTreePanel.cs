@@ -142,7 +142,11 @@ namespace TheWaningBorder.UI.Panels
 
             DrawSection("Era 1 Technologies", Era1Techs, faction, researchState);
             DrawSection("Runai Technologies", RunaiTechs, faction, researchState);
-            DrawSectTechSection(faction, researchState);
+            // task-063 phase 1: DrawSectTechSection removed — every entry it
+            // displayed (the 12 sect-tech bridges) referenced deleted SectConfig
+            // APIs (GetTechId / GetTechDisplayName / GetTechDescription) and
+            // the deleted FactionSectState. Sect tech research is no longer a
+            // concept in the redesign — chapels drive adoption, not techs.
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
@@ -171,99 +175,6 @@ namespace TheWaningBorder.UI.Panels
             GUILayout.Space(SectionSpacing);
         }
 
-        private void DrawSectTechSection(Faction faction, FactionResearchState researchState)
-        {
-            var sectState = FactionSectState.Instance;
-            if (sectState == null) return;
-
-            GUILayout.Label("Sect Technologies", Styles.SubHeader);
-            GUILayout.Space(4f);
-
-            // Group by culture
-            DrawSectCultureGroup("Alanthor Sects", new[]
-            {
-                SectConfig.Renewal, SectConfig.Antiquity,
-                SectConfig.LivingStone, SectConfig.VeiledMemory
-            }, faction, sectState, CultureConfig.AlanthorPrimary);
-
-            DrawSectCultureGroup("Runai Sects", new[]
-            {
-                SectConfig.StillFlame, SectConfig.QuietVault,
-                SectConfig.MirrorRite, SectConfig.ShardJudgment
-            }, faction, sectState, CultureConfig.RunaiPrimary);
-
-            DrawSectCultureGroup("Feraldis Sects", new[]
-            {
-                SectConfig.EmberAsh, SectConfig.HollowBrand,
-                SectConfig.FlamewroughtChains, SectConfig.UnmakersGrasp
-            }, faction, sectState, CultureConfig.FeraldisPrimary);
-        }
-
-        private void DrawSectCultureGroup(string groupTitle, string[] sectIds,
-            Faction faction, FactionSectState sectState, Color cultureColor)
-        {
-            var cultureLabel = new GUIStyle(_smallStyle)
-            {
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = cultureColor }
-            };
-            GUILayout.Label(groupTitle, cultureLabel);
-            GUILayout.Space(2f);
-
-            foreach (var sectId in sectIds)
-            {
-                bool adopted = sectState.HasAdopted(faction, sectId);
-                bool techResearched = sectState.HasTechFlag(faction, sectId);
-
-                string name = SectConfig.GetTechDisplayName(sectId);
-                string desc = SectConfig.GetTechDescription(sectId);
-                string passive = SectConfig.GetPassiveDescription(sectId);
-
-                // Status: researched > adopted (can research) > not adopted (locked)
-                string status;
-                Color statusColor;
-                if (techResearched)
-                {
-                    status = "RESEARCHED";
-                    statusColor = Styles.SuccessColor;
-                }
-                else if (adopted)
-                {
-                    status = "AVAILABLE";
-                    statusColor = Styles.HighlightColor;
-                }
-                else
-                {
-                    status = "LOCKED";
-                    statusColor = Styles.DisabledColor;
-                }
-
-                // Row background
-                var rowRect = GUILayoutUtility.GetRect(PanelWidth - 60f, RowHeight);
-                GUI.Box(rowRect, "", Styles.InnerRowBox);
-
-                // Sect display name + passive
-                string sectName = SectConfig.GetDisplayName(sectId);
-                var nameStyle = new GUIStyle(Styles.Label) { fontStyle = FontStyle.Bold };
-                GUI.Label(new Rect(rowRect.x + 8f, rowRect.y + 2f, 180f, 20f), sectName, nameStyle);
-                GUI.Label(new Rect(rowRect.x + 8f, rowRect.y + 20f, 280f, 18f), passive, _smallStyle);
-
-                // Tech description
-                GUI.Label(new Rect(rowRect.x + 300f, rowRect.y + 4f, 240f, 36f), desc, _smallStyle);
-
-                // Status label
-                var statusStyle = new GUIStyle(Styles.Label)
-                {
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleRight,
-                    normal = { textColor = statusColor }
-                };
-                GUI.Label(new Rect(rowRect.x + rowRect.width - 110f, rowRect.y + 10f, 100f, 22f),
-                    status, statusStyle);
-            }
-
-            GUILayout.Space(8f);
-        }
 
         private void DrawTechRow(string name, string effect, TheWaningBorder.Data.CostBlock cost,
             bool researched, bool meetsPrereqs)
