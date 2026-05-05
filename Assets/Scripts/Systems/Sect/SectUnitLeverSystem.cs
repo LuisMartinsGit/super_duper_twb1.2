@@ -126,8 +126,15 @@ namespace TheWaningBorder.Systems.Sect
         private static void ApplyDelta(EntityManager em, Entity entity,
             in SectUnitLeverSpec spec, float scalar)
         {
+            // SectUnitLeverSpec uses the default(0) value for "unset" multipliers.
+            // Skip both 0 (unset) and 1 (no-op) for HP / Damage so a sect that
+            // only sets one axis doesn't accidentally zero the other on every
+            // matching unit. (Previously: HpMultiplier=0 sect → unit HP × 0.)
+
             // HP — multiplicative on Max + Value.
-            if (math.abs(spec.HpMultiplier - 1f) > 0.001f && em.HasComponent<Health>(entity))
+            if (spec.HpMultiplier > 0.001f
+                && math.abs(spec.HpMultiplier - 1f) > 0.001f
+                && em.HasComponent<Health>(entity))
             {
                 var hp = em.GetComponentData<Health>(entity);
                 float diff = 1f + (spec.HpMultiplier - 1f) * scalar;
@@ -149,7 +156,9 @@ namespace TheWaningBorder.Systems.Sect
             }
 
             // Damage — multiplicative on Damage component.
-            if (math.abs(spec.DamageMultiplier - 1f) > 0.001f && em.HasComponent<Damage>(entity))
+            if (spec.DamageMultiplier > 0.001f
+                && math.abs(spec.DamageMultiplier - 1f) > 0.001f
+                && em.HasComponent<Damage>(entity))
             {
                 var dmg = em.GetComponentData<Damage>(entity);
                 float diff = 1f + (spec.DamageMultiplier - 1f) * scalar;
