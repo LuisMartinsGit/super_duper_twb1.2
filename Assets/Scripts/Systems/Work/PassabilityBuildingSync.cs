@@ -216,12 +216,10 @@ namespace TheWaningBorder.Systems.Work
 
             obstacleToRemove.Dispose();
 
-            // If anything changed, invalidate stale flow fields so units re-route
-            if (gridChanged)
-            {
-                var ffm = FlowFieldManager.Instance;
-                if (ffm != null) ffm.InvalidateAll();
-            }
+            // PR3 — flow-field invalidation removed. NavMeshManager re-bakes
+            // its navmesh when the building set changes via its own ECS sync.
+            // gridChanged is still tracked for future use but no longer dispatched.
+            _ = gridChanged;
         }
     }
 }
