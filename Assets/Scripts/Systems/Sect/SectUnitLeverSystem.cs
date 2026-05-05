@@ -30,68 +30,64 @@ namespace TheWaningBorder.Systems.Sect
         {
             var em = state.EntityManager;
 
-            // Per-faction × per-sect, walk the matching units once.
-            // Inner loop is small (at most 8 sects × number-of-factions),
-            // so the cost per tick is dominated by the unit query.
-            for (int sectIdx = 0; sectIdx < SectConfig.SectCount; sectIdx++)
-            {
-                string sectId = SectConfig.IdAt(sectIdx);
-                var spec = SectLeverEffects.UnitOf(sectId);
-                // Skip sects whose Unit-lever spec is empty / default.
-                if (spec.DamageMultiplier == 0f && spec.ArmorBonus == 0 && spec.HpMultiplier == 0f) continue;
-
-                ApplyForSect(ref state, em, sectId, spec);
-            }
-        }
-
-        private static void ApplyForSect(ref SystemState state, EntityManager em,
-            string sectId, in SectUnitLeverSpec spec)
-        {
-            // Stamp encodes (sectIndex << 4) | level so re-application on
-            // upgrade is a simple inequality check.
-            int sectIdx = SectConfig.IndexOf(sectId);
-            if (sectIdx < 0) return;
-
-            // Pass 1: never-stamped units of this sect.
-            var pendingNew = new NativeList<Entity>(Allocator.Temp);
-            var pendingNewLevels = new NativeList<byte>(Allocator.Temp);
-
+            // Materialize the unit set once per tick. SystemAPI.Query cannot
+            // be called from a static helper (source-generator constraint),
+            // so we keep the iteration in OnUpdate and pre-collect the inputs
+            // per sect into temp lists.
+            var unitEntities = new NativeList<Entity>(Allocator.Temp);
+            var unitClasses  = new NativeList<int>(Allocator.Temp);
+            var unitFactions = new NativeList<Faction>(Allocator.Temp);
             foreach (var (unit, faction, entity) in SystemAPI
                 .Query<RefRO<UnitTag>, RefRO<FactionTag>>()
                 .WithEntityAccess())
             {
-                if (spec.AppliesToClass >= 0 && (int)unit.ValueRO.Class != spec.AppliesToClass)
+                unitEntities.Add(entity);
+                unitClasses.Add((int)unit.ValueRO.Class);
+                unitFactions.Add(faction.ValueRO.Value);
+            }
+
+            for (int sectIdx = 0; sectIdx < SectConfig.SectCount; sectIdx++)
+            {
+                string sectId = SectConfig.IdAt(sectIdx);
+                var spec = SectLeverEffects.UnitOf(sectId);
+                if (spec.DamageMultiplier == 0f && spec.ArmorBonus == 0 && spec.HpMultiplier == 0f) continue;
+
+                ApplyForSect(em, sectIdx, sectId, spec,
+                    unitEntities, unitClasses, unitFactions);
+            }
+
+            unitEntities.Dispose();
+            unitClasses.Dispose();
+            unitFactions.Dispose();
+        }
+
+        private static void ApplyForSect(EntityManager em,
+            int sectIdx, string sectId, in SectUnitLeverSpec spec,
+            NativeList<Entity> unitEntities, NativeList<int> unitClasses,
+            NativeList<Faction> unitFactions)
+        {
+            for (int i = 0; i < unitEntities.Length; i++)
+            {
+                var entity = unitEntities[i];
+                if (!em.Exists(entity)) continue;
+
+                if (spec.AppliesToClass >= 0 && unitClasses[i] != spec.AppliesToClass)
                     continue;
 
-                byte level = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                byte level = SectQuery.LevelOf(em, unitFactions[i],
                     sectId, SectLeverKind.Unit);
                 if (level == 0) continue;
 
-                // Existing stamp: skip if this sect already at the same or higher level.
-                if (HasStampForSect(em, entity, sectIdx, out byte appliedLevel)
-                    && appliedLevel >= level) continue;
+                byte appliedLevel = 0;
+                bool hasStamp = HasStampForSect(em, entity, sectIdx, out appliedLevel);
+                if (hasStamp && appliedLevel >= level) continue;
 
-                pendingNew.Add(entity);
-                pendingNewLevels.Add(level);
+                float scalar = SectLeverEffects.LevelScalar(level)
+                              / (appliedLevel > 0 ? SectLeverEffects.LevelScalar(appliedLevel) : 1f);
+
+                ApplyDelta(em, entity, spec, scalar);
+                SetStampForSect(em, entity, sectIdx, level);
             }
-
-            for (int i = 0; i < pendingNew.Length; i++)
-            {
-                var e = pendingNew[i];
-                if (!em.Exists(e)) continue;
-
-                byte applied = HasStampForSect(em, e, sectIdx, out byte prev) ? prev : (byte)0;
-                byte newLevel = pendingNewLevels[i];
-
-                float scalar = SectLeverEffects.LevelScalar(newLevel)
-                              / (applied > 0 ? SectLeverEffects.LevelScalar(applied) : 1f);
-
-                ApplyDelta(em, e, spec, scalar);
-                SetStampForSect(em, e, sectIdx, newLevel);
-            }
-
-            pendingNew.Dispose();
-            pendingNewLevels.Dispose();
         }
 
         // Stamp uses a DynamicBuffer<SectUnitLeverApplied> per unit so each
