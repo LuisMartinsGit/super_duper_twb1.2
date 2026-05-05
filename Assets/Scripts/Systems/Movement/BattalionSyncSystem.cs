@@ -468,6 +468,21 @@ namespace TheWaningBorder.Systems.Movement
                     if (em.HasComponent<DesiredDestination>(member))
                         ecb.RemoveComponent<DesiredDestination>(member);
 
+                    // Per-member collision radius — defaults to a half-cell if
+                    // no Radius component (matches the old behaviour).
+                    float memberRadius = em.HasComponent<Radius>(member)
+                        ? em.GetComponentData<Radius>(member).Value : 0.5f;
+
+                    // Slot-validity guard: if the formation slot itself sits on
+                    // a building cell or wedged into a corner the member can't
+                    // physically occupy, swap to follow-leader behaviour for
+                    // this frame. Otherwise the member would walk straight at
+                    // the bad slot and pile up on the building edge.
+                    // (Nav-clearance fix #4.)
+                    bool slotValid = passGrid == null
+                        || passGrid.IsPassableForRadius(target, memberRadius);
+                    if (!slotValid) target = leaderPos;
+
                     float3 newPos;
 
                     if (dist < 0.01f)
@@ -486,7 +501,7 @@ namespace TheWaningBorder.Systems.Movement
                         float3 dir = math.normalizesafe(target - memberXf.Position);
 
                         float speed;
-                        if (_followsLeader[i])
+                        if (_followsLeader[i] || !slotValid)
                         {
                             // Following leader around obstacle — use flow field
                             dir = FlowFieldMovementHelper.GetDirection(
@@ -509,8 +524,9 @@ namespace TheWaningBorder.Systems.Movement
                         float step = math.min(speed * dt, math.min(dist, maxStep));
                         newPos = memberXf.Position + dir * step;
 
-                        // Passability check: don't walk into impassable cells
-                        if (passGrid != null && !passGrid.IsPassable(newPos))
+                        // Radius-aware passability: don't walk where the
+                        // member's body would overlap an obstacle.
+                        if (passGrid != null && !passGrid.IsPassableForRadius(newPos, memberRadius))
                         {
                             // Blocked — try to path toward leader using flow field instead.
                             // Earlier missing braces (line ~516) made this fall through to
@@ -520,7 +536,7 @@ namespace TheWaningBorder.Systems.Movement
                             float3 ffDir = FlowFieldMovementHelper.GetDirection(
                                 memberXf.Position, leaderPos, dir, dist);
                             float3 altPos = memberXf.Position + ffDir * step;
-                            if (passGrid.IsPassable(altPos))
+                            if (passGrid.IsPassableForRadius(altPos, memberRadius))
                                 newPos = altPos;
                             else
                                 newPos = memberXf.Position; // truly stuck, don't move

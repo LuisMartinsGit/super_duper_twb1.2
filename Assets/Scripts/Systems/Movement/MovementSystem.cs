@@ -478,14 +478,20 @@ namespace TheWaningBorder.Systems.Movement
                 float step = math.min(speed * dt, dist);
                 float3 nextPos = pos + smoothedDir * step;
 
-                // === PASSABILITY CHECK ===
+                // === PASSABILITY CHECK (radius-aware Minkowski) ===
+                // Test the unit's collision footprint, not just its centre cell.
+                // This is the fix for "stuck on every building edge" — without
+                // it, the unit's centre can occupy a passable cell while its
+                // body overlaps a neighbouring blocked cell.
                 bool blocked = false;
                 var passGrid = PassabilityGrid.Instance;
                 int2 nextCell = default;
                 if (passGrid != null)
                 {
                     nextCell = passGrid.WorldToCell(nextPos);
-                    if (!passGrid.IsPassable(nextCell))
+                    float radius = em.HasComponent<Radius>(entity)
+                        ? em.GetComponentData<Radius>(entity).Value : 0f;
+                    if (!passGrid.IsPassableForRadius(nextPos, radius))
                         blocked = true;
                 }
 
