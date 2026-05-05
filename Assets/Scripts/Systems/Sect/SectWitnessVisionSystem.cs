@@ -26,8 +26,14 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SectWitnessVisionSystem : ISystem
     {
-        // Lv I factor. Phase 4: 1.50× / 1.75× for Lv II / Lv III.
-        private const float VisionMultiplierLv1 = 1.25f;
+        // Per-level vision multiplier. Phase 4 reads AppliedLevel and applies
+        // the diff (factorAt(new) / factorAt(old)) on lever upgrade.
+        public static float MultiplierFor(byte level) => level switch
+        {
+            2 => 1.50f,
+            3 => 1.75f,
+            _ => 1.25f,
+        };
 
         public void OnCreate(ref SystemState state)
         {
@@ -38,9 +44,9 @@ namespace TheWaningBorder.Systems.Sect
         {
             var em = state.EntityManager;
 
-            // Collect scouts that need the bonus stamped — defer the actual
-            // archetype mutation (AddComponent) until after the foreach.
-            var pendingStamps = new NativeList<Entity>(8, Allocator.Temp);
+            // Pass 1: brand-new scouts that haven't received the bonus yet.
+            var pendingNewStamps = new NativeList<Entity>(8, Allocator.Temp);
+            var pendingNewLevels = new NativeList<byte>(8, Allocator.Temp);
 
             foreach (var (unit, faction, los, entity) in SystemAPI
                 .Query<RefRO<UnitTag>, RefRO<FactionTag>, RefRW<LineOfSight>>()
@@ -48,19 +54,39 @@ namespace TheWaningBorder.Systems.Sect
                 .WithEntityAccess())
             {
                 if (unit.ValueRO.Class != UnitClass.Scout) continue;
-                if (!SectQuery.IsAdoptedAtLeast(em, faction.ValueRO.Value,
-                        SectConfig.Witness, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Witness, SectLeverKind.Passive);
+                if (level == 0) continue;
 
-                los.ValueRW.Radius *= VisionMultiplierLv1;
-                pendingStamps.Add(entity);
+                los.ValueRW.Radius *= MultiplierFor(level);
+                pendingNewStamps.Add(entity);
+                pendingNewLevels.Add(level);
             }
 
-            for (int i = 0; i < pendingStamps.Length; i++)
+            for (int i = 0; i < pendingNewStamps.Length; i++)
             {
-                if (em.Exists(pendingStamps[i]))
-                    em.AddComponentData(pendingStamps[i], new WitnessVisionApplied { AppliedLevel = 1 });
+                if (em.Exists(pendingNewStamps[i]))
+                    em.AddComponentData(pendingNewStamps[i],
+                        new WitnessVisionApplied { AppliedLevel = pendingNewLevels[i] });
             }
-            pendingStamps.Dispose();
+            pendingNewStamps.Dispose();
+            pendingNewLevels.Dispose();
+
+            // Pass 2: already-stamped scouts whose faction's lever level rose
+            // since stamping. Apply the diff factor and bump AppliedLevel.
+            // (task-063 phase 4)
+            foreach (var (faction, los, applied) in SystemAPI
+                .Query<RefRO<FactionTag>, RefRW<LineOfSight>, RefRW<WitnessVisionApplied>>())
+            {
+                byte currentLevel = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Witness, SectLeverKind.Passive);
+                byte appliedLevel = applied.ValueRO.AppliedLevel;
+                if (currentLevel <= appliedLevel) continue;
+
+                float diffMult = MultiplierFor(currentLevel) / MultiplierFor(appliedLevel);
+                los.ValueRW.Radius *= diffMult;
+                applied.ValueRW.AppliedLevel = currentLevel;
+            }
         }
     }
 }

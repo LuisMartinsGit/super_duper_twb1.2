@@ -5,6 +5,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Sect;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -31,16 +32,21 @@ namespace TheWaningBorder.Systems.Combat
     public static class CombatDamageHelper
     {
         /// <summary>
-        /// Returns the SpellBuff.ArmorBonus on the target (0 if no SpellBuff).
-        /// Callers MUST add this to the defender's defense value before running
-        /// the damage-type x armor-type matrix. Wired into Melee/Ranged combat
-        /// so abilities like StoneheartBastion's +3 armor aura actually fire.
-        /// (task-062 C-1)
+        /// Returns extra armor on the target — sums SpellBuff.ArmorBonus and
+        /// SilenceVigilArmor.Bonus. Callers MUST add this to the defender's
+        /// defense value before running the damage-type x armor-type matrix.
+        /// Wired into Melee/Ranged combat so abilities like StoneheartBastion's
+        /// +3 armor aura and Silence's "Steadfast Vigil" stance bonus actually
+        /// fire. (task-062 C-1, task-063 phase 2e)
         /// </summary>
         public static int GetSpellBuffArmorBonus(EntityManager em, Entity target)
         {
-            if (!em.HasComponent<SpellBuff>(target)) return 0;
-            return (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
+            int bonus = 0;
+            if (em.HasComponent<SpellBuff>(target))
+                bonus += (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
+            if (em.HasComponent<SilenceVigilArmor>(target))
+                bonus += em.GetComponentData<SilenceVigilArmor>(target).Bonus;
+            return bonus;
         }
 
         /// <summary>
@@ -116,24 +122,98 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
-            // Wrath Lv I "Spite of the Forsaken" passive: attacker deals
-            // +0.5% damage per 5% HP missing (max +9.5% at 1 HP). The blood-
-            // pool half (+10% in pools at Lv I) lives behind Phase 3 and is
-            // not applied here. Phase 4 scales the per-stack bonus to 1% / 1.5%
-            // for Lv II / Lv III. (task-063 phase 2c)
-            if (em.HasComponent<FactionTag>(attacker)
-                && em.HasComponent<Health>(attacker)
-                && SectQuery.IsAdoptedAtLeast(em,
-                    em.GetComponentData<FactionTag>(attacker).Value,
-                    SectConfig.Wrath, SectLeverKind.Passive))
+            // Ruin "Profane Hands": Ruin-adopted attackers deal +25/40/60%
+            // damage to enemy buildings. Refund-on-destroy half lives in
+            // SectRuinRefundSystem. Friendly fire is excluded. (task-063
+            // phase 2d / phase 4 scaling)
+            if (em.HasComponent<BuildingTag>(target)
+                && em.HasComponent<FactionTag>(attacker)
+                && em.HasComponent<FactionTag>(target))
             {
-                var hp = em.GetComponentData<Health>(attacker);
-                if (hp.Max > 0 && hp.Value < hp.Max)
+                var atkFac = em.GetComponentData<FactionTag>(attacker).Value;
+                var tgtFac = em.GetComponentData<FactionTag>(target).Value;
+                if (atkFac != tgtFac)
                 {
-                    float fractionMissing = 1f - (float)hp.Value / hp.Max;
-                    // 0.5% per 5% missing == 0.1× the missing fraction.
-                    float bonus = fractionMissing * 0.10f;
-                    final = (int)(final * (1f + bonus));
+                    byte ruinLevel = SectQuery.LevelOf(em, atkFac,
+                        SectConfig.Ruin, SectLeverKind.Passive);
+                    if (ruinLevel > 0)
+                    {
+                        float ruinMult = ruinLevel switch
+                        {
+                            2 => 1.40f,
+                            3 => 1.60f,
+                            _ => 1.25f,
+                        };
+                        final = (int)(final * ruinMult);
+                    }
+                }
+            }
+
+            // Antiquity "Tally of the Lost": +N% per logged kill of the
+            // target's UnitClass; per-kill bonus scales with lever level.
+            // (task-063 phase 2e / phase 4 scaling)
+            if (em.HasComponent<AntiquityKills>(attacker)
+                && em.HasComponent<UnitTag>(target)
+                && em.HasComponent<FactionTag>(attacker))
+            {
+                byte antiqLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(attacker).Value,
+                    SectConfig.Antiquity, SectLeverKind.Passive);
+                if (antiqLevel > 0)
+                {
+                    var kills = em.GetComponentData<AntiquityKills>(attacker);
+                    var tgtClass = em.GetComponentData<UnitTag>(target).Class;
+                    byte n = SectAntiquityTallySystem.KillsAgainst(in kills, tgtClass);
+                    if (n > 0)
+                    {
+                        float perKill = antiqLevel switch
+                        {
+                            2 => 0.015f,
+                            3 => 0.020f,
+                            _ => 0.010f,
+                        };
+                        final = (int)(final * (1f + perKill * n));
+                    }
+                }
+            }
+
+            // Wrath "Spite of the Forsaken": +N% per 5% HP missing on the
+            // attacker. Lv I 0.5% per 5% (max +9.5%). Lv II 1% (max +19%).
+            // Lv III 1.5% (max +28.5%). Stacks multiplicatively with the
+            // blood-pool bonus when the attacker is standing in a Feraldis
+            // pool (phase 3): +10/+15/+20% by lever level.
+            // (task-063 phase 2c / phase 4 scaling / phase 3)
+            if (em.HasComponent<FactionTag>(attacker)
+                && em.HasComponent<Health>(attacker))
+            {
+                byte wrathLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(attacker).Value,
+                    SectConfig.Wrath, SectLeverKind.Passive);
+                if (wrathLevel > 0)
+                {
+                    var hp = em.GetComponentData<Health>(attacker);
+                    if (hp.Max > 0 && hp.Value < hp.Max)
+                    {
+                        float fractionMissing = 1f - (float)hp.Value / hp.Max;
+                        float scalar = wrathLevel switch
+                        {
+                            2 => 0.20f,
+                            3 => 0.30f,
+                            _ => 0.10f,
+                        };
+                        final = (int)(final * (1f + fractionMissing * scalar));
+                    }
+
+                    if (em.HasComponent<InBloodPool>(attacker))
+                    {
+                        float poolMult = wrathLevel switch
+                        {
+                            2 => 1.15f,
+                            3 => 1.20f,
+                            _ => 1.10f,
+                        };
+                        final = (int)(final * poolMult);
+                    }
                 }
             }
 
@@ -161,6 +241,30 @@ namespace TheWaningBorder.Systems.Combat
                     : voidStrike.BonusDamage;
                 final += (int)bonus;
                 ecb.RemoveComponent<VoidStrikeBuff>(attacker);
+            }
+
+            // Reclamation "Curse-Hardened" (combat half): defender takes -25/35/50%
+            // damage from Crystal-faction PvE attackers. Applied last so the
+            // reduction comes off the final post-bonus number — same intent as
+            // a flat resistance. The cursed-ground DoT half is in
+            // CursedGroundDamageSystem. (task-063 phase 2d / phase 4 scaling)
+            if (em.HasComponent<CrystalTag>(attacker)
+                && em.HasComponent<FactionTag>(target))
+            {
+                byte reclLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(target).Value,
+                    SectConfig.Reclamation, SectLeverKind.Passive);
+                if (reclLevel > 0)
+                {
+                    float reclMult = reclLevel switch
+                    {
+                        2 => 0.65f,
+                        3 => 0.50f,
+                        _ => 0.75f,
+                    };
+                    final = (int)(final * reclMult);
+                    if (final < 1) final = 1;
+                }
             }
 
             return final;

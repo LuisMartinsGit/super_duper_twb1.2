@@ -24,11 +24,20 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectVenerationFervorSystem : ISystem
     {
-        // Lv I tuning. Kept inline; Phase 4 will pull from SectDefinition.
-        private const byte  MaxStacks    = 8;        // caps the multiplier at +24% / +24%
-        private const float StackDuration = 3f;
-        private const float DamageBonusPerStack = 0.03f;
-        private const float AttackSpeedBonusPerStack = 0.03f;
+        // Stack count + duration are shared across levels; Phase 4 scales
+        // only the per-stack bonus values. Lv III adds a movement-speed
+        // stack — that lever is deferred to Phase 5 since the move-speed
+        // read points aren't yet wired through SpellBuff.SpeedMultiplier.
+        private const byte  MaxStacks     = 8;        // caps the multiplier at +(stack% × 8)
+        private const float StackDuration = 3f;       // Lv III bumps to 4s — applied below.
+
+        private static float DamageBonusPerStackFor(byte level) => level switch
+        {
+            2 => 0.05f,
+            3 => 0.07f,
+            _ => 0.03f,
+        };
+        private static float StackDurationFor(byte level) => level == 3 ? 4f : StackDuration;
 
         public void OnCreate(ref SystemState state)
         {
@@ -53,17 +62,18 @@ namespace TheWaningBorder.Systems.Sect
 
                 Faction killerFaction = em.GetComponentData<FactionTag>(killer).Value;
 
-                // Gate on Veneration adoption (any lever level on the Passive
-                // counts; Phase 4 reads the level to scale per-stack values).
-                if (!SectQuery.IsAdoptedAtLeast(em, killerFaction,
-                        SectConfig.Veneration, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, killerFaction,
+                    SectConfig.Veneration, SectLeverKind.Passive);
+                if (level == 0) continue;
+                float perStack = DamageBonusPerStackFor(level);
+                float duration = StackDurationFor(level);
 
                 // Add or refresh the stack.
                 if (em.HasComponent<VenerationFervor>(killer))
                 {
                     var fervor = em.GetComponentData<VenerationFervor>(killer);
                     if (fervor.Stacks < MaxStacks) fervor.Stacks++;
-                    fervor.TimeRemaining = StackDuration;
+                    fervor.TimeRemaining = duration;
                     em.SetComponentData(killer, fervor);
                 }
                 else
@@ -71,26 +81,23 @@ namespace TheWaningBorder.Systems.Sect
                     em.AddComponentData(killer, new VenerationFervor
                     {
                         Stacks = 1,
-                        TimeRemaining = StackDuration,
+                        TimeRemaining = duration,
                     });
                 }
 
                 // Mirror the bonus into SpellBuff so existing combat-pipeline
                 // readers (CombatDamageHelper.ApplyBonusDamageOnHit reads
                 // SpellBuff.DamageMultiplier) see the boost. SpellBuff is the
-                // unified "outgoing damage modifier" channel; SpeedMultiplier
-                // doesn't directly affect attack speed in the current code,
-                // so the +attack-speed half of Fervor is handled separately
-                // in Phase 4 when the attack-cooldown read points get touched.
+                // unified "outgoing damage modifier" channel; the +attack-
+                // speed and Lv III +move halves remain Phase 5 work since
+                // those read points aren't wired through SpellBuff.
                 int newStacks = em.GetComponentData<VenerationFervor>(killer).Stacks;
-                float dmgMult = 1f + DamageBonusPerStack * newStacks;
+                float dmgMult = 1f + perStack * newStacks;
                 if (em.HasComponent<SpellBuff>(killer))
                 {
                     var buff = em.GetComponentData<SpellBuff>(killer);
-                    // Take the max so Fervor doesn't clobber a stronger
-                    // existing buff (e.g. an ally's Crystal Communion zone).
                     if (dmgMult > buff.DamageMultiplier) buff.DamageMultiplier = dmgMult;
-                    if (StackDuration > buff.TimeRemaining) buff.TimeRemaining = StackDuration;
+                    if (duration > buff.TimeRemaining) buff.TimeRemaining = duration;
                     em.SetComponentData(killer, buff);
                 }
                 else
@@ -98,7 +105,7 @@ namespace TheWaningBorder.Systems.Sect
                     em.AddComponentData(killer, new SpellBuff
                     {
                         DamageMultiplier = dmgMult,
-                        TimeRemaining    = StackDuration,
+                        TimeRemaining    = duration,
                     });
                 }
             }

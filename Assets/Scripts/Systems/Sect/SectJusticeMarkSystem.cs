@@ -30,9 +30,16 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectJusticeMarkSystem : ISystem
     {
-        // Lv I tuning. Phase 4 will scale these via SectQuery.LevelOf.
+        // Mark duration is shared across levels — Phase 4 only scales the
+        // damage bonus per the Lv I/II/III spec (+10% / +20% / +30%).
         private const float MarkDuration = 30f;
-        private const float MarkDamageBonus = 0.10f; // +10% damage taken at Lv I
+
+        private static float DamageBonusFor(byte level) => level switch
+        {
+            2 => 0.20f,
+            3 => 0.30f,
+            _ => 0.10f,
+        };
 
         public void OnCreate(ref SystemState state)
         {
@@ -79,13 +86,14 @@ namespace TheWaningBorder.Systems.Sect
                 if (avengerFaction == killerFaction) continue; // friendly fire — no mark
 
                 // Gate on the VICTIM's faction having Justice adopted.
-                if (!SectQuery.IsAdoptedAtLeast(em, avengerFaction,
-                        SectConfig.Justice, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, avengerFaction,
+                    SectConfig.Justice, SectLeverKind.Passive);
+                if (level == 0) continue;
 
                 var mark = new MarkedForSentence
                 {
                     MarkerFaction = avengerFaction,
-                    DamageBonus   = MarkDamageBonus,
+                    DamageBonus   = DamageBonusFor(level),
                     TimeRemaining = MarkDuration,
                 };
 

@@ -236,6 +236,14 @@ namespace TheWaningBorder.Input
                 IssueStanceToSelection(BattalionStance.Defensive);
             }
 
+            // B - Cycle through idle builders (workers with no BuildOrder/RepairOrder).
+            // Each press selects the next idle builder of the local player faction
+            // and centers the camera on it.
+            if (UnityEngine.Input.GetKeyDown(KeyCode.B))
+            {
+                CycleIdleBuilders();
+            }
+
             // Z - Toggle planning mode (BFME2); Enter also executes
             if (UnityEngine.Input.GetKeyDown(KeyCode.Z))
             {
@@ -1137,6 +1145,51 @@ namespace TheWaningBorder.Input
             return TargetType.Ground;
         }
         
+        // ═══════════════════════════════════════════════════════════════════════
+        // BUILDER CYCLE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Last-cycled builder, so subsequent presses advance through the list
+        // instead of re-selecting the same unit.
+        private static int _builderCycleIndex = -1;
+
+        /// <summary>
+        /// Selects the next idle builder of the local player faction (and
+        /// centers the camera on it). An "idle" builder is one with the
+        /// CanBuild component and no active BuildOrder or RepairOrder.
+        /// Press repeatedly to cycle. (Spec: 'b' cycles through idle builders.)
+        /// </summary>
+        private void CycleIdleBuilders()
+        {
+            var query = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<CanBuild>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var entities = query.ToEntityArray(Allocator.Temp);
+
+            var idle = new List<Entity>();
+            foreach (var e in entities)
+            {
+                if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
+                    continue;
+                if (_em.HasComponent<BuildOrder>(e)) continue;
+                if (_em.HasComponent<RepairOrder>(e)) continue;
+                idle.Add(e);
+            }
+
+            if (idle.Count == 0) return;
+
+            _builderCycleIndex = (_builderCycleIndex + 1) % idle.Count;
+            var pick = idle[_builderCycleIndex];
+
+            SelectionSystem.ClearSelection();
+            SelectionSystem.AddToSelection(pick);
+
+            var pos = _em.GetComponentData<LocalTransform>(pick).Position;
+            GameCamera.FocusOn(new Vector3(pos.x, pos.y, pos.z));
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // CAPABILITY DETECTION
         // ═══════════════════════════════════════════════════════════════════════

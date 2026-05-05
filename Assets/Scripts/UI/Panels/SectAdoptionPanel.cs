@@ -17,6 +17,7 @@
 using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Sect;
 using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
@@ -120,9 +121,36 @@ namespace TheWaningBorder.UI.Panels
                 DrawLeverButton(em, faction, sectId, SectLeverKind.Building,    "B", sect.BuildingLevel);
                 DrawLeverButton(em, faction, sectId, SectLeverKind.Unit,        "U", sect.UnitLevel);
                 DrawLeverButton(em, faction, sectId, SectLeverKind.ActivePower, "A", sect.ActivePowerLevel);
+
+                // Fire button — only shown for sects with the Active Power
+                // lever bought. Casts the power at the temple's position; a
+                // future polish pass will add a target-cursor mode.
+                // (task-063 phase 5)
+                if (sect.ActivePowerLevel > 0)
+                {
+                    DrawFireButton(em, faction, sectId, temple);
+                }
             }
 
             GUILayout.EndHorizontal();
+        }
+
+        private static void DrawFireButton(
+            EntityManager em, Faction faction, string sectId, Entity temple)
+        {
+            float remaining = SectActivePowerHelper.CooldownRemaining(em, faction, sectId);
+            bool ready = remaining <= 0f;
+            GUI.enabled = ready;
+            string label = ready ? "Fire" : $"{(int)remaining}s";
+            if (GUILayout.Button(label, GUILayout.Width(64)))
+            {
+                if (em.HasComponent<Unity.Transforms.LocalTransform>(temple))
+                {
+                    var t = em.GetComponentData<Unity.Transforms.LocalTransform>(temple);
+                    SectActivePowerHelper.Fire(em, faction, sectId, t.Position);
+                }
+            }
+            GUI.enabled = true;
         }
 
         private static void DrawLeverButton(

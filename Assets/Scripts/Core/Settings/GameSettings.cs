@@ -103,6 +103,16 @@ public static class GameSettings
     /// <summary>Start every faction with 100,000 of each resource (debug / sandbox).</summary>
     public static bool MaxStartingResources = false;
 
+    // ==================== Selection Settings ====================
+
+    /// <summary>
+    /// Smart military drag-select: when ON, a click-and-drag rectangle that
+    /// contains both military and economic units selects only the military
+    /// units (workers / scouts are excluded). When OFF, the rectangle selects
+    /// every selectable entity it covers.
+    /// </summary>
+    public static bool SmartMilitaryDrag = true;
+
     // ==================== Map Settings ====================
 
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
