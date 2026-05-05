@@ -67,28 +67,34 @@ namespace TheWaningBorder.Systems.Movement
         /// <summary>
         /// Find a path from start to goal using A*.
         /// Returns a list of world-space waypoints (cell centers), or null if unreachable.
-        /// Convenience overload — defaults to a 1-cell radius inflation so pathing
-        /// keeps a one-cell clearance from blocked cells (kills "stuck on edge").
+        /// Convenience overload — assumes the typical 0.5m unit radius for the
+        /// string-pull LOS check. Callers with bigger units should pass agentRadius.
         /// </summary>
         public static List<float3> FindPath(float3 startWorld, float3 goalWorld, PassabilityGrid grid)
-            => FindPath(startWorld, goalWorld, grid, agentRadiusCells: 1);
+            => FindPath(startWorld, goalWorld, grid, agentRadius: 0.5f);
 
         /// <summary>
-        /// Find a path with a configurable agent-radius inflation (in cells).
-        /// Inflation = N requires every traversed cell to have an N-cell ring of
-        /// passable neighbours (Minkowski sum of obstacles by agent footprint).
+        /// Find a path with a configurable agent radius (world units).
+        /// Inflation in cells = ceil((agentRadius - cellSize/2) / cellSize),
+        /// requiring every traversed cell to have an N-cell ring of passable
+        /// neighbours (Minkowski sum of obstacles by agent footprint).
         /// If no path is found at the requested inflation, falls back to 0
         /// inflation so units already wedged in tight spots can still escape.
+        /// String-pull post-process uses the geometric, sampled LOS so it
+        /// won't drop a waypoint whose shortcut clips a building corner.
         /// (Nav-clearance fix.)
         /// </summary>
         public static List<float3> FindPath(float3 startWorld, float3 goalWorld,
-            PassabilityGrid grid, int agentRadiusCells)
+            PassabilityGrid grid, float agentRadius)
         {
+            int agentRadiusCells = grid != null
+                ? math.max(0, (int)math.ceil((agentRadius - grid.CellSize * 0.5f) / grid.CellSize))
+                : 0;
             var path = FindPathInternal(startWorld, goalWorld, grid, agentRadiusCells);
             if (path == null && agentRadiusCells > 0)
                 path = FindPathInternal(startWorld, goalWorld, grid, 0);
             if (path != null && path.Count >= 3)
-                StringPull(path, grid, agentRadiusCells);
+                StringPull(path, grid, agentRadius);
             return path;
         }
 
@@ -285,19 +291,19 @@ namespace TheWaningBorder.Systems.Movement
 
         /// <summary>
         /// String-pulling smoothing pass — drops any waypoint whose
-        /// predecessor and successor have a clear line-of-sight in the grid
-        /// (Bresenham scan). This converts the 8-direction grid output into
-        /// any-angle straight-line segments where the obstacle field allows
-        /// it, killing the 45° staircase look without requiring a navmesh
-        /// or theta*. Operates in place. (Funnel-style smoothing.)
+        /// predecessor and successor have a clear, radius-aware line of sight.
+        /// Uses the sampled geometric LOS so it correctly rejects shortcuts
+        /// that clip a building corner (which a Bresenham-on-cells scan would
+        /// miss when the line passes through the corner of a blocked cell).
+        /// Operates in place.
         /// </summary>
-        private static void StringPull(List<float3> path, PassabilityGrid grid, int agentRadiusCells)
+        private static void StringPull(List<float3> path, PassabilityGrid grid, float agentRadius)
         {
             if (path == null || path.Count < 3) return;
             int i = 0;
             while (i < path.Count - 2)
             {
-                if (HasLineOfSight(path[i], path[i + 2], grid, agentRadiusCells))
+                if (grid.HasClearLineOfSight(path[i], path[i + 2], agentRadius))
                 {
                     path.RemoveAt(i + 1);
                     if (i > 0) i--; // re-test the prior segment, the new neighbour might be reachable too
@@ -306,35 +312,6 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     i++;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Bresenham-style cell sweep between two world positions; returns true
-        /// only when every traversed cell satisfies the radius-aware passability
-        /// check. Used by <see cref="StringPull"/>.
-        /// </summary>
-        private static bool HasLineOfSight(float3 a, float3 b, PassabilityGrid grid, int agentRadiusCells)
-        {
-            int2 c0 = grid.WorldToCell(a);
-            int2 c1 = grid.WorldToCell(b);
-            int dx = math.abs(c1.x - c0.x);
-            int dy = math.abs(c1.y - c0.y);
-            int sx = c0.x < c1.x ? 1 : -1;
-            int sy = c0.y < c1.y ? 1 : -1;
-            int err = dx - dy;
-            int x = c0.x;
-            int y = c0.y;
-            while (true)
-            {
-                bool ok = agentRadiusCells <= 0
-                    ? grid.IsPassable(new int2(x, y))
-                    : grid.IsCellPassableForRadius(new int2(x, y), agentRadiusCells);
-                if (!ok) return false;
-                if (x == c1.x && y == c1.y) return true;
-                int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x += sx; }
-                if (e2 <  dx) { err += dx; y += sy; }
             }
         }
 

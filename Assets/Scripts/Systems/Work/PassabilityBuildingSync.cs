@@ -109,9 +109,18 @@ namespace TheWaningBorder.Systems.Work
             {
                 if (!currentBuildings.ContainsKey(kvp.Key))
                 {
+                    // Missing braces here meant the circular UnblockBuilding ran
+                    // unconditionally — fine for unblock, but a real bug at the
+                    // matching block site below. Adding braces both places to
+                    // make the intent explicit.
                     if (kvp.Value.HasSize == 1)
+                    {
                         grid.UnblockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    }
+                    else
+                    {
                         grid.UnblockBuilding(kvp.Value.Position, kvp.Value.Radius);
+                    }
                     toRemove.Add(kvp.Key);
                 }
             }
@@ -127,9 +136,23 @@ namespace TheWaningBorder.Systems.Work
             {
                 if (!_knownBuildings.ContainsKey(kvp.Key))
                 {
+                    // BUG FIX: missing braces here meant `BlockBuilding` (a
+                    // CIRCULAR stamp) was called for EVERY building regardless
+                    // of HasSize, so every rect-footprint building also got an
+                    // overlapping circle. The circle's radius is derived from
+                    // BuildingSize so it can extend WELL beyond the rect's
+                    // footprint, jamming pathing around buildings the player
+                    // can't see is "fat". Use the rect for sized buildings,
+                    // fall back to circle only for legacy buildings without
+                    // a BuildingSize component.
                     if (kvp.Value.HasSize == 1)
+                    {
                         grid.BlockBuildingRect(kvp.Value.Position, kvp.Value.Size);
+                    }
+                    else
+                    {
                         grid.BlockBuilding(kvp.Value.Position, kvp.Value.Radius);
+                    }
                     _knownBuildings.Add(kvp.Key, kvp.Value);
                     newBuildingsAdded = true;
                 }
