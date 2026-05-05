@@ -144,33 +144,85 @@ namespace TheWaningBorder.Economy
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Called by BuildingConstructionSystem when a chapel building completes.
-        /// Performs the full adoption transaction: validates, deducts RP, sets
-        /// per-sect state, fires SectAdopted event.
+        /// Try to start a chapel build for <paramref name="sectId"/>: validates
+        /// the adoption is legal, then atomically deducts both the RP cost
+        /// and the chapel material cost. The caller is responsible for actually
+        /// queuing the slot once this returns Ok.
         ///
-        /// Returns Ok on success. On failure no state changes (caller should
-        /// not have allowed the chapel to be built — UI gating mirrors this).
+        /// This is the canonical click-time entry point for the Religion HUD.
+        /// Adopting at click time (instead of at chapel completion) matches the
+        /// player's expectation that resources drop immediately, and prevents
+        /// the duplicate-build race the old chapel-completion path allowed.
+        ///
+        /// Refuses if any temple slot is currently building this same sect
+        /// (reads <paramref name="temple"/> 's slot buffer if provided).
+        /// </summary>
+        public static SectAdoptionResult TryStartAdoption(
+            EntityManager em, Faction faction, string sectId,
+            in TheWaningBorder.Core.Cost chapelCost, Entity temple)
+        {
+            int idx = SectConfig.IndexOf(sectId);
+            if (idx < 0) return SectAdoptionResult.UnknownSect;
+
+            // Standard validation (RP afford / not already adopted / slot count).
+            var check = CanAdopt(em, faction, sectId, out int rpCost);
+            if (check != SectAdoptionResult.Ok) return check;
+
+            // In-flight build guard — refuse if any temple slot is currently
+            // building this same sect.
+            if (em.Exists(temple) && em.HasBuffer<TempleChapelSlot>(temple))
+            {
+                var slots = em.GetBuffer<TempleChapelSlot>(temple);
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i].State == 1 && slots[i].SectId == sectId)
+                        return SectAdoptionResult.AlreadyAdopted;
+                }
+            }
+
+            // Material check before any spend, so an RP-only failure doesn't
+            // leave the player with materials gone but adoption refused.
+            if (!FactionEconomy.CanAfford(em, faction, chapelCost))
+                return SectAdoptionResult.NotEnoughRP; // re-using enum for "can't pay"
+
+            // Atomic spend: RP first, then materials. If the material spend
+            // somehow fails (race), refund the RP.
+            if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost))
+                return SectAdoptionResult.NotEnoughRP;
+            if (!FactionEconomy.Spend(em, faction, chapelCost))
+            {
+                FactionReligionPointsHelper.Refund(em, faction, rpCost);
+                return SectAdoptionResult.NotEnoughRP;
+            }
+
+            return SectAdoptionResult.Ok;
+        }
+
+        /// <summary>
+        /// Called by TempleChapelBuildSystem when a chapel building completes.
+        /// At this point RP + materials were already deducted by
+        /// <see cref="TryStartAdoption"/>; this method only stamps the
+        /// adoption state and fires the public event. Idempotent — re-entry
+        /// for the same sect is a no-op (returns AlreadyAdopted).
         /// </summary>
         public static SectAdoptionResult OnChapelCompleted(EntityManager em, Faction faction, string chapelBuildingId)
         {
             string sectId = SectConfig.SectIdFromChapelId(chapelBuildingId);
             if (sectId == null) return SectAdoptionResult.UnknownSect;
-
-            var check = CanAdopt(em, faction, sectId, out int cost);
-            if (check != SectAdoptionResult.Ok) return check;
+            int idx = SectConfig.IndexOf(sectId);
+            if (idx < 0) return SectAdoptionResult.UnknownSect;
 
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return SectAdoptionResult.BankMissing;
-
-            // Deduct RP first — TrySpend is atomic and re-validates affordability.
-            if (!FactionReligionPointsHelper.TrySpend(em, faction, cost))
-                return SectAdoptionResult.NotEnoughRP;
-
-            int idx = SectConfig.IndexOf(sectId);
-            byte currentAge = em.GetComponentData<FactionReligionPoints>(bank).CurrentAge;
-            if (currentAge == 0) currentAge = 1; // Defensive — should be set on faction init.
+            if (!em.HasComponent<SectAdoptionState>(bank)) return SectAdoptionResult.BankMissing;
 
             var state = em.GetComponentData<SectAdoptionState>(bank);
-            var sect  = new PerSectState
+            if (state.Get(idx).IsAdopted) return SectAdoptionResult.AlreadyAdopted;
+
+            byte currentAge = em.HasComponent<FactionReligionPoints>(bank)
+                ? em.GetComponentData<FactionReligionPoints>(bank).CurrentAge : (byte)1;
+            if (currentAge == 0) currentAge = 1;
+
+            var sect = new PerSectState
             {
                 AdoptedAtAge = currentAge,
                 PassiveLevel = 1,

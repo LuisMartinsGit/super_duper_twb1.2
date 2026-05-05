@@ -471,18 +471,10 @@ namespace TheWaningBorder.UI.Panels
             // ── Temple Level-Up Section ──
             DrawTempleLevelUpSection(entity);
 
-            // ── Sect adoption + lever upgrades (task-063 phase 2a) ──
-            // SectAdoptionPanel renders the 12-sect roster, RP balance, and
-            // chapel-build / lever-upgrade buttons. Adoption RP is deducted
-            // when the chapel-slot build completes (TempleChapelBuildSystem
-            // calls SectAdoption.OnChapelCompleted), not at click time.
-            {
-                var em = UnifiedUIManager.GetEntityManager();
-                Faction faction = GameSettings.LocalPlayerFaction;
-                if (em.HasComponent<FactionTag>(entity))
-                    faction = em.GetComponentData<FactionTag>(entity).Value;
-                SectAdoptionPanel.Draw(faction, entity);
-            }
+            // Sect adoption + lever management lives entirely on the
+            // top Religion HUD now (audit fix #1). The temple panel is
+            // intentionally free of any sect controls — selecting the
+            // temple should ONLY surface temple-level actions.
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
