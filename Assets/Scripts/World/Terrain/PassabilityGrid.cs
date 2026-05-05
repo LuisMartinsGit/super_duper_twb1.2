@@ -259,19 +259,30 @@ namespace TheWaningBorder.World.Terrain
         }
 
         /// <summary>
-        /// Radius-aware passability — true only if every cell within
-        /// <paramref name="radius"/> of <paramref name="worldPos"/> is passable.
+        /// Radius-aware passability — true only if every cell within the
+        /// agent's collision footprint of <paramref name="worldPos"/> is passable.
         /// Implements a Minkowski check at query time so callers don't need to
         /// pre-inflate the grid (which would trap units inside their own
-        /// building's footprint). Use this from MovementSystem / AStarPathfinder
-        /// to keep units off building edges. (Nav-clearance fix.)
+        /// building's footprint).
+        ///
+        /// Reach is computed as ceil((radius - cellSize/2) / cellSize) — i.e.
+        /// neighbours only need to be inspected when the agent's body actually
+        /// crosses cell boundaries. A unit standing in the centre of a 1m cell
+        /// with a 0.5m radius fits exactly inside that cell and reach is 0
+        /// (degenerates to centre-only IsPassable). Bigger units (siege,
+        /// battalion sizes) get the proper 3x3 / 5x5 sweep.
+        ///
+        /// Earlier the formula was naive ceil(radius / cellSize) which made
+        /// typical 0.5m units require all 8 neighbours to be passable — they
+        /// got stuck on every building edge during travel.
+        /// (Nav-clearance fix, recalibrated.)
         /// </summary>
         public bool IsPassableForRadius(float3 worldPos, float radius)
         {
             if (radius <= 0f) return IsPassable(worldPos);
-            // Inflate by ceil(radius / cellSize). For typical 0.5m radius +
-            // 1m cell size that's a single neighbor ring (3x3 sweep).
-            int reach = (int)math.ceil(radius / _cellSize);
+            int reach = (int)math.ceil((radius - _cellSize * 0.5f) / _cellSize);
+            if (reach < 0) reach = 0;
+            if (reach == 0) return IsPassable(worldPos);
             int2 c = WorldToCell(worldPos);
             // Treat the centre cell as a special case: if the unit is currently
             // standing inside its own building (BuildingBlocked), allow the
