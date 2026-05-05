@@ -124,6 +124,22 @@ namespace TheWaningBorder.Economy
             return true;
         }
 
+        /// <summary>
+        /// Add RP back to the faction's balance — used to roll back a failed
+        /// composite spend (e.g. RP succeeded but materials failed in
+        /// SectAdoption.TryStartAdoption). No upper bound enforced; caller
+        /// is responsible for sane amounts.
+        /// </summary>
+        public static void Refund(EntityManager em, Faction faction, int amount)
+        {
+            if (amount <= 0) return;
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return;
+            if (!em.HasComponent<FactionReligionPoints>(bank)) return;
+            var rp = em.GetComponentData<FactionReligionPoints>(bank);
+            rp.Balance += amount;
+            em.SetComponentData(bank, rp);
+        }
+
         /// <summary>Read-only balance lookup. Returns 0 if no bank or no RP component.</summary>
         public static int GetBalance(EntityManager em, Faction faction)
         {
