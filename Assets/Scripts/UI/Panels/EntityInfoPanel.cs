@@ -260,68 +260,164 @@ namespace TheWaningBorder.UI.Panels
         }
 
         /// <summary>
-        /// Veteran rank UI for the selected military unit. Shows the current
-        /// rank and a "Promote — N <resource>" button that consumes the
-        /// per-rank cost. At Lv 5 a Glow button replaces the promote.
-        /// (Audit fix #1)
+        /// Veteran rank UI for the current selection — works for a single
+        /// unit, a battalion (leader + members), or a mixed multi-select.
+        /// Aggregates owned military units and exposes a single Promote
+        /// button that targets the lowest-rank cohort (so subsequent clicks
+        /// catch up stragglers before pushing the front-runners higher).
+        /// At Lv 5 a Glow Ability button fires the burst on every ready
+        /// Lv 5 unit in the selection.
+        /// (Audit fix #1 / battalion-promote follow-up.)
         /// </summary>
         private void DrawUnitRankSection()
         {
-            var entity = UnifiedUIManager.GetFirstSelectedEntity();
             var em = UnifiedUIManager.GetEntityManager();
-            if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
-            if (!em.HasComponent<UnitTag>(entity)) return;
+            if (em.Equals(default(EntityManager))) return;
 
-            var cls = em.GetComponentData<UnitTag>(entity).Class;
-            bool military = cls == UnitClass.Melee
-                         || cls == UnitClass.Ranged
-                         || cls == UnitClass.Siege;
-            if (!military) return;
+            var selection = TWB_Input.SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
 
-            // Player must own the unit to promote/cast.
-            if (!em.HasComponent<FactionTag>(entity)) return;
-            if (em.GetComponentData<FactionTag>(entity).Value != GameSettings.LocalPlayerFaction) return;
+            // Bucket owned military units by current rank, plus collect
+            // Lv5 units for the Glow Ability button.
+            var byRank = new int[TheWaningBorder.Economy.UnitRankConfig.MaxRank + 1];
+            var promotable = new System.Collections.Generic.List<Entity>(selection.Count);
+            var glowReady = new System.Collections.Generic.List<Entity>();
+            int glowActiveCount = 0;
+            int glowCooldownMin = int.MaxValue;
+            int glowMaxCount = 0;
 
-            byte rank = 1;
-            if (em.HasComponent<UnitRank>(entity))
-                rank = em.GetComponentData<UnitRank>(entity).Value;
-            if (rank < 1) rank = 1;
+            foreach (var e in selection)
+            {
+                if (!em.Exists(e)) continue;
+                if (!em.HasComponent<UnitTag>(e)) continue;
+                var cls = em.GetComponentData<UnitTag>(e).Class;
+                if (cls != UnitClass.Melee && cls != UnitClass.Ranged && cls != UnitClass.Siege) continue;
+                if (!em.HasComponent<FactionTag>(e)) continue;
+                if (em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction) continue;
+
+                byte rank = em.HasComponent<UnitRank>(e) ? em.GetComponentData<UnitRank>(e).Value : (byte)1;
+                if (rank < 1) rank = 1;
+                if (rank > TheWaningBorder.Economy.UnitRankConfig.MaxRank) rank = TheWaningBorder.Economy.UnitRankConfig.MaxRank;
+                byRank[rank]++;
+                if (rank < TheWaningBorder.Economy.UnitRankConfig.MaxRank)
+                    promotable.Add(e);
+
+                if (rank == TheWaningBorder.Economy.UnitRankConfig.MaxRank)
+                {
+                    glowMaxCount++;
+                    GlowAbilityState glow = default;
+                    if (em.HasComponent<GlowAbilityState>(e))
+                        glow = em.GetComponentData<GlowAbilityState>(e);
+                    if (glow.ActiveRemaining > 0f) glowActiveCount++;
+                    else if (glow.CooldownRemaining > 0f)
+                        glowCooldownMin = System.Math.Min(glowCooldownMin, (int)glow.CooldownRemaining);
+                    else
+                        glowReady.Add(e);
+                }
+            }
+
+            int totalMilitary = 0;
+            for (int i = 1; i <= TheWaningBorder.Economy.UnitRankConfig.MaxRank; i++) totalMilitary += byRank[i];
+            if (totalMilitary == 0) return;
 
             GUILayout.Space(5);
-            GUILayout.Label($"Rank: {rank}", Styles.Label);
 
-            if (rank < TheWaningBorder.Economy.UnitRankConfig.MaxRank)
+            // Composition line: "Ranks: 8×I, 4×II"
+            string composition = BuildRankComposition(byRank);
+            GUILayout.Label($"Ranks: {composition}", Styles.Label);
+
+            // ── Promote (lowest-rank cohort) ──
+            if (promotable.Count > 0)
             {
-                byte target = (byte)(rank + 1);
-                var cost = TheWaningBorder.Economy.UnitRankConfig.CostFor(target);
-                string costLabel = CostLabel(cost);
-                bool canAfford = TheWaningBorder.Economy.FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, cost);
-                GUI.enabled = canAfford;
-                if (GUILayout.Button($"Promote → Lv {target} ({costLabel})", GUILayout.Width(220)))
+                byte lowestRank = 1;
+                for (byte r = 1; r < TheWaningBorder.Economy.UnitRankConfig.MaxRank; r++)
                 {
-                    TheWaningBorder.Core.Commands.Types.UnitRankCommandHelper.Execute(em, entity);
+                    if (byRank[r] > 0) { lowestRank = r; break; }
+                }
+                int cohortCount = byRank[lowestRank];
+                byte target = (byte)(lowestRank + 1);
+                var unitCost = TheWaningBorder.Economy.UnitRankConfig.CostFor(target);
+                var totalCost = MultiplyCost(unitCost, cohortCount);
+                string costLabel = CostLabel(totalCost);
+                bool canAffordOne = TheWaningBorder.Economy.FactionEconomy.CanAfford(
+                    em, GameSettings.LocalPlayerFaction, unitCost);
+                bool canAffordAll = TheWaningBorder.Economy.FactionEconomy.CanAfford(
+                    em, GameSettings.LocalPlayerFaction, totalCost);
+                string suffix = canAffordAll ? "" : (canAffordOne ? "  (partial)" : "  (need resources)");
+
+                GUI.enabled = canAffordOne;
+                string label = cohortCount == 1
+                    ? $"Promote → Lv {target} ({costLabel}){suffix}"
+                    : $"Promote {cohortCount} (Lv {lowestRank} → Lv {target}) — {costLabel}{suffix}";
+                if (GUILayout.Button(label, GUILayout.Width(260)))
+                {
+                    // Re-collect the cohort by rank so we don't promote
+                    // stale entries (selection might have changed since gather).
+                    foreach (var e in promotable)
+                    {
+                        if (!em.Exists(e)) continue;
+                        byte r = em.HasComponent<UnitRank>(e) ? em.GetComponentData<UnitRank>(e).Value : (byte)1;
+                        if (r < 1) r = 1;
+                        if (r != lowestRank) continue;
+                        var result = TheWaningBorder.Core.Commands.Types
+                            .UnitRankCommandHelper.Execute(em, e);
+                        if (result == TheWaningBorder.Core.Commands.Types.UnitRankPromoteResult.CannotAfford)
+                            break; // stop on first afford failure
+                    }
                 }
                 GUI.enabled = true;
             }
-            else
-            {
-                // Lv 5 — Glow Ability button.
-                GlowAbilityState glow = default;
-                if (em.HasComponent<GlowAbilityState>(entity))
-                    glow = em.GetComponentData<GlowAbilityState>(entity);
 
-                bool active = glow.ActiveRemaining > 0f;
-                bool ready = !active && glow.CooldownRemaining <= 0f;
+            // ── Glow Ability (Lv 5 batch fire) ──
+            if (glowMaxCount > 0)
+            {
+                bool ready = glowReady.Count > 0;
                 GUI.enabled = ready;
-                string label = active
-                    ? $"Glow active ({glow.ActiveRemaining:F1}s)"
-                    : (ready ? "Glow Ability" : $"Glow ({glow.CooldownRemaining:F0}s)");
-                if (GUILayout.Button(label, GUILayout.Width(220)))
+                string label;
+                if (ready)
+                    label = glowReady.Count == 1
+                        ? "Glow Ability"
+                        : $"Glow Ability ({glowReady.Count} ready)";
+                else if (glowActiveCount > 0)
+                    label = $"Glow active ({glowActiveCount})";
+                else if (glowCooldownMin != int.MaxValue)
+                    label = $"Glow ({glowCooldownMin}s)";
+                else
+                    label = "Glow Ability";
+                if (GUILayout.Button(label, GUILayout.Width(260)))
                 {
-                    TheWaningBorder.Core.Commands.Types.GlowAbilityCommandHelper.Execute(em, entity);
+                    foreach (var e in glowReady)
+                        TheWaningBorder.Core.Commands.Types.GlowAbilityCommandHelper.Execute(em, e);
                 }
                 GUI.enabled = true;
             }
+        }
+
+        private static string BuildRankComposition(int[] byRank)
+        {
+            var sb = new System.Text.StringBuilder();
+            string[] roman = { "?", "I", "II", "III", "IV", "V" };
+            bool first = true;
+            for (int r = 1; r < byRank.Length; r++)
+            {
+                if (byRank[r] == 0) continue;
+                if (!first) sb.Append(", ");
+                first = false;
+                sb.Append(byRank[r]).Append('×').Append(roman[r]);
+            }
+            return first ? "—" : sb.ToString();
+        }
+
+        private static TheWaningBorder.Core.Cost MultiplyCost(in TheWaningBorder.Core.Cost c, int n)
+        {
+            return new TheWaningBorder.Core.Cost
+            {
+                Supplies  = c.Supplies  * n,
+                Iron      = c.Iron      * n,
+                Crystal   = c.Crystal   * n,
+                Veilsteel = c.Veilsteel * n,
+                Glow      = c.Glow      * n,
+            };
         }
 
         private static string CostLabel(in TheWaningBorder.Core.Cost c)
@@ -465,6 +561,9 @@ namespace TheWaningBorder.UI.Panels
 
             // ── Stats panel for highlighted unit ──
             DrawHighlightedStats(em, _highlightedEntity);
+
+            // ── Veteran rank promotion + Glow Ability (batch over selection) ──
+            DrawUnitRankSection();
 
             GUILayout.EndArea();
         }
