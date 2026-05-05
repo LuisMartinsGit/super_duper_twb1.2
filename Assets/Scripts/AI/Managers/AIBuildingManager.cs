@@ -390,6 +390,76 @@ namespace TheWaningBorder.AI
         };
 
         /// <summary>
+        /// Age-1 essentials the AI must keep alive at all ages — if any of
+        /// these gets destroyed (player raid mid-Age-2), the AI rebuilds them
+        /// before queueing more culture-specific Era-2 buildings. Order is
+        /// the priority order for rebuild (resource collection first, then
+        /// military, then population).
+        /// </summary>
+        private static readonly (string id, int target)[] Age1Essentials = {
+            ("GatherersHut", 1),
+            ("Barracks",     1),
+            ("Hut",          2),
+        };
+
+        /// <summary>
+        /// If any Age-1 essential building is below its target count for this
+        /// faction (and not already pending in the build queue), queue a
+        /// rebuild and return true. Caller should return immediately so we
+        /// only queue one essential rebuild per tick — same throttle as the
+        /// culture build flow. (Fix: AI didn't replace destroyed Age-1
+        /// buildings after aging up.)
+        /// </summary>
+        private bool TryQueueEssentialRebuild(ref SystemState state, Faction faction,
+            DynamicBuffer<BuildRequest> buildReqs, float3 hallPos)
+        {
+            for (int i = 0; i < Age1Essentials.Length; i++)
+            {
+                string buildingId = Age1Essentials[i].id;
+                int target = Age1Essentials[i].target;
+
+                // Skip if already pending.
+                bool alreadyPending = false;
+                for (int j = 0; j < buildReqs.Length; j++)
+                {
+                    if (buildReqs[j].BuildingType.Equals(buildingId) && buildReqs[j].Assigned == 0)
+                    {
+                        alreadyPending = true;
+                        break;
+                    }
+                }
+                if (alreadyPending) continue;
+
+                int existingCount = CountFactionBuildings(ref state, faction, buildingId);
+                if (existingCount >= target) continue;
+
+                var buildingTypeFixed = new FixedString64Bytes(buildingId);
+                if (!CanAffordBuilding(ref state, faction, buildingTypeFixed)) continue;
+
+                uint seed = (uint)(SystemAPI.Time.ElapsedTime * 1000 + (int)faction * 53 + i * 17 + 7);
+                if (seed == 0) seed = 1;
+                var random = new Unity.Mathematics.Random(seed);
+                float angle = random.NextFloat(0, math.PI * 2);
+                float distance = random.NextFloat(15f, 25f);
+                float3 buildPos = hallPos + new float3(
+                    math.cos(angle) * distance, 0, math.sin(angle) * distance);
+
+                buildReqs.Add(new BuildRequest
+                {
+                    BuildingType = buildingTypeFixed,
+                    DesiredPosition = buildPos,
+                    Priority = 7, // higher than culture (5) — replace lost essentials first
+                    Assigned = 0,
+                    AssignedBuilder = Entity.Null,
+                });
+                AILogger.Log(faction, "BUILDING",
+                    $"Rebuild Age-1 essential {buildingId} ({existingCount}/{target} existing)");
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// After age-up to Era 2+, queue culture-specific buildings one at a time.
         /// Skips buildings that already exist, are under construction, or are
         /// pending in the build queue. Only queues the next needed building per
@@ -447,6 +517,14 @@ namespace TheWaningBorder.AI
                 }
             }
             if (!foundHall) return;
+
+            // 4b. Rebuild missing Age-1 essentials BEFORE walking the culture
+            // build order. Without this, an AI that aged up while one of its
+            // Huts / GathererHuts / Barracks was destroyed permanently lost
+            // that capability — the culture order only adds new Era-2 buildings.
+            // Queues one rebuild per tick (consistent with culture flow).
+            if (TryQueueEssentialRebuild(ref state, faction, buildReqs, hallPos))
+                return;
 
             // 5. Walk the build order and queue the first needed building
             foreach (string buildingId in buildOrder)
