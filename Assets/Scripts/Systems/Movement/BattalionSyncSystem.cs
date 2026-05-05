@@ -282,10 +282,13 @@ namespace TheWaningBorder.Systems.Movement
                             em.SetComponentData(entity, newXf);
                             leaderPos = newLeaderPos;
                         }
+                        // ECB for the structural Add — direct EntityManager
+                        // calls would trip the iteration-vs-structural-change
+                        // safety check.
                         if (em.HasComponent<BattalionAlignmentState>(entity))
-                            em.SetComponentData(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
+                            ecb.SetComponent(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
                         else
-                            em.AddComponentData(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
+                            ecb.AddComponent(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
                     }
                 }
 
