@@ -309,12 +309,18 @@ namespace TheWaningBorder.Systems.Movement
                         target = leaderPos + math.mul(formationRot, localOffset);
                     }
 
-                    // Check if the slot is reachable (passable terrain)
-                    bool slotBlocked = passGrid != null && !passGrid.IsPassable(target);
+                    // Tier C — BFME2 horde pathing.
+                    // Slot validity is radius-aware: a slot is invalid for a
+                    // member if its body would clip an obstacle there OR the
+                    // straight-line path from current pos to slot would clip
+                    // one along the way. Per-member radius lookup so siege
+                    // pieces and infantry get correct clearance.
+                    float memberRadiusForCheck = em.HasComponent<Radius>(_members[i])
+                        ? em.GetComponentData<Radius>(_members[i]).Value : 0.5f;
 
-                    // Check if the PATH from member to slot crosses impassable cells.
-                    // Even if the slot itself is passable (between trees), the member
-                    // may need to traverse through blocked cells to reach it.
+                    bool slotBlocked = passGrid != null
+                        && !passGrid.IsPassableForRadius(target, memberRadiusForCheck);
+
                     if (!slotBlocked && passGrid != null)
                     {
                         float3 toSlot = target - _memberPos[i];
@@ -322,18 +328,12 @@ namespace TheWaningBorder.Systems.Movement
                         float slotDist = math.length(toSlot);
                         if (slotDist > spacing)
                         {
-                            float3 slotDir = toSlot / slotDist;
-                            float cellSize = passGrid.CellSize;
-                            float checkDist = slotDist;
-                            for (float d = cellSize; d <= checkDist; d += cellSize)
-                            {
-                                float3 checkPos = _memberPos[i] + slotDir * d;
-                                if (!passGrid.IsPassable(checkPos))
-                                {
-                                    slotBlocked = true;
-                                    break;
-                                }
-                            }
+                            // Sampled geometric LOS — same code path StringPull
+                            // uses for A* simplification. Catches the case
+                            // where slot + current pos are both clear but
+                            // the line between them clips a building corner.
+                            if (!passGrid.HasClearLineOfSight(_memberPos[i], target, memberRadiusForCheck))
+                                slotBlocked = true;
                         }
                     }
 
