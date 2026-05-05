@@ -478,11 +478,14 @@ namespace TheWaningBorder.Systems.Movement
                 float step = math.min(speed * dt, dist);
                 float3 nextPos = pos + smoothedDir * step;
 
-                // === PASSABILITY CHECK (radius-aware Minkowski) ===
+                // === PASSABILITY CHECK (radius-aware Minkowski with escape) ===
                 // Test the unit's collision footprint, not just its centre cell.
-                // This is the fix for "stuck on every building edge" — without
-                // it, the unit's centre can occupy a passable cell while its
-                // body overlaps a neighbouring blocked cell.
+                // BUT: only enforce the radius check if the unit's current
+                // position already passes it. Otherwise units that spawn
+                // directly adjacent to a building (e.g. builder next to its
+                // hall) would refuse every step — their starting cell already
+                // fails the 3x3 sweep so no neighbour can pass either. Falling
+                // back to the centre-only check lets them walk out.
                 bool blocked = false;
                 var passGrid = PassabilityGrid.Instance;
                 int2 nextCell = default;
@@ -491,8 +494,12 @@ namespace TheWaningBorder.Systems.Movement
                     nextCell = passGrid.WorldToCell(nextPos);
                     float radius = em.HasComponent<Radius>(entity)
                         ? em.GetComponentData<Radius>(entity).Value : 0f;
-                    if (!passGrid.IsPassableForRadius(nextPos, radius))
-                        blocked = true;
+                    bool currentlyClear = radius <= 0f
+                        || passGrid.IsPassableForRadius(pos, radius);
+                    bool nextOk = currentlyClear
+                        ? passGrid.IsPassableForRadius(nextPos, radius)
+                        : passGrid.IsPassable(nextCell);
+                    if (!nextOk) blocked = true;
                 }
 
                 // === SLOPE CHECK with terrain height caching ===
