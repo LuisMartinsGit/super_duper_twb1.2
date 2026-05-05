@@ -5,6 +5,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Sect;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -31,16 +32,21 @@ namespace TheWaningBorder.Systems.Combat
     public static class CombatDamageHelper
     {
         /// <summary>
-        /// Returns the SpellBuff.ArmorBonus on the target (0 if no SpellBuff).
-        /// Callers MUST add this to the defender's defense value before running
-        /// the damage-type x armor-type matrix. Wired into Melee/Ranged combat
-        /// so abilities like StoneheartBastion's +3 armor aura actually fire.
-        /// (task-062 C-1)
+        /// Returns extra armor on the target — sums SpellBuff.ArmorBonus and
+        /// SilenceVigilArmor.Bonus. Callers MUST add this to the defender's
+        /// defense value before running the damage-type x armor-type matrix.
+        /// Wired into Melee/Ranged combat so abilities like StoneheartBastion's
+        /// +3 armor aura and Silence's "Steadfast Vigil" stance bonus actually
+        /// fire. (task-062 C-1, task-063 phase 2e)
         /// </summary>
         public static int GetSpellBuffArmorBonus(EntityManager em, Entity target)
         {
-            if (!em.HasComponent<SpellBuff>(target)) return 0;
-            return (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
+            int bonus = 0;
+            if (em.HasComponent<SpellBuff>(target))
+                bonus += (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
+            if (em.HasComponent<SilenceVigilArmor>(target))
+                bonus += em.GetComponentData<SilenceVigilArmor>(target).Bonus;
+            return bonus;
         }
 
         /// <summary>
@@ -134,6 +140,20 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     final = (int)(final * 1.25f);
                 }
+            }
+
+            // Antiquity Lv I "Tally of the Lost" passive: +1% per logged kill
+            // of the *target's* UnitClass on this attacker (capped at +10% per
+            // class — the cap lives in SectAntiquityTallySystem). Phase 4
+            // raises both the per-kill bonus and the cap. (task-063 phase 2e)
+            if (em.HasComponent<AntiquityKills>(attacker)
+                && em.HasComponent<UnitTag>(target))
+            {
+                var kills = em.GetComponentData<AntiquityKills>(attacker);
+                var tgtClass = em.GetComponentData<UnitTag>(target).Class;
+                byte n = SectAntiquityTallySystem.KillsAgainst(in kills, tgtClass);
+                if (n > 0)
+                    final = (int)(final * (1f + 0.01f * n));
             }
 
             // Wrath Lv I "Spite of the Forsaken" passive: attacker deals

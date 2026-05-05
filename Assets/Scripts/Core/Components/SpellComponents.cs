@@ -117,3 +117,54 @@ public struct VenerationFervor : IComponentData
     /// <summary>Seconds remaining before the stack expires (refreshed each kill).</summary>
     public float TimeRemaining;
 }
+
+/// <summary>
+/// Antiquity's "Tally of the Lost" passive (task-063 sect Lv I).
+/// Per-attacker, per-victim-class kill counter — each kill of a given
+/// <see cref="UnitClass"/> grants the killer +1% damage on future hits
+/// against that class, capped per-class. Lv I cap is 10 kills (so the
+/// max bonus per class is +10%).
+///
+/// Layout: one byte per UnitClass (0..7) for an 8-byte total — a
+/// DynamicBuffer would have been overkill since the class count is fixed
+/// and tiny. Phase 4 raises the cap and per-kill bonus.
+///
+/// Stamped lazily by SectAntiquityTallySystem the first time the unit
+/// makes a relevant kill; consumed by CombatDamageHelper on every hit.
+/// </summary>
+public struct AntiquityKills : IComponentData
+{
+    public byte Melee;
+    public byte Ranged;
+    public byte Siege;
+    public byte Support;
+    public byte Magic;
+    public byte Economy;
+    public byte Miner;
+    public byte Scout;
+}
+
+/// <summary>
+/// Silence's "Steadfast Vigil" passive (task-063 sect Lv I).
+/// Tracks how long this unit has been holding position (HoldPositionTag).
+/// Refreshed every frame by SectSilenceVigilSystem while the tag is
+/// present; removed (along with <see cref="SilenceVigilArmor"/>) the
+/// frame the tag drops, so the bonus fades the instant the unit moves.
+/// </summary>
+public struct SilenceVigilState : IComponentData
+{
+    /// <summary>Seconds spent in HoldPosition stance.</summary>
+    public float TimeInStance;
+}
+
+/// <summary>
+/// Active armor bump from Silence's Steadfast Vigil. Consumed by
+/// CombatDamageHelper.GetSpellBuffArmorBonus alongside SpellBuff.ArmorBonus
+/// so the matrix damage formula sees the buff. Lives behind a dedicated
+/// component (rather than SpellBuff) so it can be cleared cleanly when
+/// the unit moves — SpellBuff would leak its longest-running field.
+/// </summary>
+public struct SilenceVigilArmor : IComponentData
+{
+    public int Bonus;
+}
