@@ -4,6 +4,7 @@
 // Part of: Data/
 
 using System.Collections.Generic;
+using Unity.Entities;
 using TheWaningBorder.Core;
 
 namespace TheWaningBorder.Data
@@ -146,6 +147,74 @@ namespace TheWaningBorder.Data
                                     int crystal = 0, int veilsteel = 0, int glow = 0)
         {
             _byId[id] = Cost.Of(supplies, iron, crystal, veilsteel, glow);
+        }
+
+        /// <summary>
+        /// Reverse-map a built building entity to its cost-table ID using the
+        /// tag components that BuildingFactory stamped at creation time. Returns
+        /// null if no known tag is present (e.g. legacy or sect-unique entities).
+        ///
+        /// Centralized here so SelfDestructSystem (refund-on-self-destruct),
+        /// SectRuinRefundSystem (Ruin Lv I 12% refund), and future cost-aware
+        /// readers all share one mapping. Wall-instance entities are mapped to
+        /// the per-culture wall ID since BuildCosts keys them per culture.
+        /// (task-063 phase 2d)
+        /// </summary>
+        public static string IdFromEntity(EntityManager em, Entity entity)
+        {
+            // Era 1 core
+            if (em.HasComponent<HallTag>(entity)) return "Hall";
+            if (em.HasComponent<HutTag>(entity)) return "Hut";
+            if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
+            if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
+
+            // Era 1 choice
+            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
+            if (em.HasComponent<TempleOfRidanTag>(entity)
+                || em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
+            if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
+            if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
+
+            // Runai
+            if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
+            if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
+            if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
+            if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
+
+            // Alanthor
+            if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
+            if (em.HasComponent<CrucibleTag>(entity)) return "Alanthor_Crucible";
+            if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
+            if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_Stable";
+            if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
+
+            // Feraldis
+            if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
+            if (em.HasComponent<LoggingStationTag>(entity)) return "Feraldis_LoggingStation";
+            if (em.HasComponent<WarbrandFoundryTag>(entity)) return "Feraldis_Foundry";
+            if (em.HasComponent<LonghouseTag>(entity)) return "Feraldis_Longhouse";
+            if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_Tower";
+            if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
+
+            // Walls / wall instances — map to the generic Alanthor wall ID; refund
+            // here is small and identical across cultures, so a per-culture branch
+            // is overkill until Phase 5 polish.
+            if (em.HasComponent<WallTowerTag>(entity)) return "Alanthor_WallTower";
+            if (em.HasComponent<WallGateTag>(entity)) return "Alanthor_WallGate";
+            if (em.HasComponent<WallInstanceTag>(entity)
+                || em.HasComponent<WallTag>(entity)
+                || em.HasComponent<WallHubTag>(entity)
+                || em.HasComponent<WallSegmentTag>(entity)) return "Alanthor_Wall";
+
+            // Chapels: SectConfig owns their ids; resolve via ChapelTag.SectId.
+            if (em.HasComponent<ChapelTag>(entity))
+            {
+                var sectId = em.GetComponentData<ChapelTag>(entity).SectId.ToString();
+                return TheWaningBorder.Economy.SectConfig.ChapelIdFor(sectId);
+            }
+
+            return null;
         }
 
         /// <summary>

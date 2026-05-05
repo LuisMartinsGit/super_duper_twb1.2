@@ -89,6 +89,17 @@ namespace TheWaningBorder.Systems.Training
                     if (FactionColors.GetFactionCulture(buildingFaction) == Cultures.Feraldis)
                         trainingTime *= 1.75f;
 
+                    // Sect of War Lv I: military units train 15% faster.
+                    // (task-063 phase 2d) — Phase 4 scales to 25% / 35% for Lv II/III.
+                    bool isMilitary = UnitFactory.GetUnitClass(unitId) == UnitClass.Melee
+                                   || UnitFactory.GetUnitClass(unitId) == UnitClass.Ranged
+                                   || UnitFactory.GetUnitClass(unitId) == UnitClass.Siege;
+                    if (isMilitary && SectQuery.IsAdoptedAtLeast(state.EntityManager, buildingFaction,
+                            SectConfig.War, SectLeverKind.Passive))
+                    {
+                        trainingTime *= 0.85f; // -15% time = ×0.85
+                    }
+
                     ts.ValueRW.Busy = 1;
                     ts.ValueRW.Remaining = trainingTime;
                 }
