@@ -168,3 +168,25 @@ public struct SilenceVigilArmor : IComponentData
 {
     public int Bonus;
 }
+
+/// <summary>
+/// Feraldis blood-pool entity (task-063 phase 3). Spawned at unit death
+/// positions when a Feraldis-cultured faction has reached Age II+. Self-
+/// decays via TimeRemaining; SectBloodPoolEffectSystem ticks the timer
+/// and destroys the entity at zero. Inhabited Feraldis units (any unit
+/// of a Feraldis Age II+ faction standing inside the pool's radius)
+/// get stamped with <see cref="InBloodPool"/> for the frame.
+/// </summary>
+public struct BloodPool : IComponentData
+{
+    public float Radius;
+    public float TimeRemaining;
+}
+
+/// <summary>
+/// Per-frame marker stamped on a unit currently inside any BloodPool.
+/// Read by CombatDamageHelper to layer the in-pool damage bonus on top
+/// of Wrath's Lv I HP-missing bonus. Removed the next frame the unit
+/// is no longer in a pool.
+/// </summary>
+public struct InBloodPool : IComponentData { }
