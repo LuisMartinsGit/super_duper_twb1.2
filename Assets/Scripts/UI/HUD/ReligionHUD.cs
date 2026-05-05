@@ -20,6 +20,7 @@
 // Audit fix: spec items #1 / #2 / #3.
 
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Economy;
@@ -104,36 +105,53 @@ namespace TheWaningBorder.UI.HUD
                 _rosterOpen = !_rosterOpen;
             }
 
-            DynamicBuffer<TempleChapelSlot> slots = default;
-            bool hasSlots = temple != Entity.Null && _em.HasBuffer<TempleChapelSlot>(temple);
-            if (hasSlots) slots = _em.GetBuffer<TempleChapelSlot>(temple);
+            // Snapshot slot data into local arrays — DynamicBuffer references
+            // are invalidated by any structural change in the entity world,
+            // and OnGUI fires multiple times per frame (Layout/Repaint events)
+            // interleaved with ECS work. Holding a buffer reference across
+            // GUI controls trips the safety system with ObjectDisposedException.
+            int slotCount = 0;
+            var slotStates = new byte[StripSlotCount];
+            var slotSectIds = new string[StripSlotCount];
+            var slotProgress = new int[StripSlotCount];
+            if (temple != Entity.Null && _em.HasBuffer<TempleChapelSlot>(temple))
+            {
+                var slots = _em.GetBuffer<TempleChapelSlot>(temple);
+                slotCount = math.min(StripSlotCount, slots.Length);
+                for (int i = 0; i < slotCount; i++)
+                {
+                    var s = slots[i];
+                    slotStates[i] = s.State;
+                    slotSectIds[i] = s.SectId.ToString();
+                    slotProgress[i] = s.BuildTime > 0 ? (int)(100f * s.BuildProgress / s.BuildTime) : 0;
+                }
+            }
 
             for (int i = 0; i < StripSlotCount; i++)
             {
                 var rect = new Rect(x0 + i * (StripSlotWidth + StripSlotSpacing), y,
                     StripSlotWidth, StripSlotHeight);
 
-                if (!hasSlots || i >= slots.Length)
+                if (i >= slotCount)
                 {
                     GUI.Label(rect, "Slot\n(no temple)", _slotEmptyStyle);
                     continue;
                 }
 
-                var slot = slots[i];
-                if (slot.State == 0)
+                var state = slotStates[i];
+                if (state == 0)
                 {
                     GUI.Label(rect, $"Slot {i + 1}\n(empty)", _slotEmptyStyle);
                     continue;
                 }
-                if (slot.State == 1)
+                if (state == 1)
                 {
-                    int pct = slot.BuildTime > 0 ? (int)(100f * slot.BuildProgress / slot.BuildTime) : 0;
-                    GUI.Label(rect, $"{ShortName(slot.SectId.ToString())}\n{pct}%", _slotStyle);
+                    GUI.Label(rect, $"{ShortName(slotSectIds[i])}\n{slotProgress[i]}%", _slotStyle);
                     continue;
                 }
 
                 // State 2 — adopted. Show short name + Fire button if AP bought.
-                string sectId = slot.SectId.ToString();
+                string sectId = slotSectIds[i];
                 GUI.Label(new Rect(rect.x, rect.y, rect.width, 26f),
                     ShortName(sectId), _slotStyle);
 
