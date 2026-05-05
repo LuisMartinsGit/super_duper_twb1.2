@@ -141,7 +141,12 @@ namespace TheWaningBorder.Systems.Movement
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
-            var passGrid = PassabilityGrid.Instance;
+            // PR2 — when UseNavMesh is on, the navmesh routes the leader and
+            // (transitively) the formation away from buildings; the grid
+            // becomes a stale parallel source of truth that disagrees at cell
+            // boundaries. Treat passGrid as null here so per-member slot
+            // validity / next-step checks just trust the navmesh path.
+            var passGrid = GameSettings.UseNavMesh ? null : PassabilityGrid.Instance;
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);

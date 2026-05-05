@@ -144,11 +144,11 @@ public static class GameSettings
     /// <summary>
     /// Tier-4 navmesh migration toggle. When ON, units route via Unity's
     /// runtime-built navmesh (NavMeshManager) instead of the grid-based
-    /// flow field / A* stack. Default OFF until the navmesh consumer
-    /// (PR2) lands. Once enabled the legacy stack stops being consulted
-    /// and can be deleted (PR3).
+    /// flow field / A* stack. Default ON as of PR2 (navmesh consumer
+    /// landed). The flow-field / A* / passability-grid code is still
+    /// present but no longer consulted by movement; PR3 deletes it.
     /// </summary>
-    public static bool UseNavMesh = false;
+    public static bool UseNavMesh = true;
 
     // ==================== Multiplayer Settings ====================
 
