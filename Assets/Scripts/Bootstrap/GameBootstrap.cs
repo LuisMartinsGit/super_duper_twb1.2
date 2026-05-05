@@ -253,6 +253,16 @@ namespace TheWaningBorder.Bootstrap
                 #endif
             }
 
+            // PR1 — NavMeshManager: bake Unity's runtime navmesh from terrain
+            // and the ECS building set. Inert until GameSettings.UseNavMesh
+            // flips on (PR2). Sits alongside the legacy stack.
+            var existingNMM = Object.FindFirstObjectByType<NavMeshManager>();
+            if (existingNMM == null)
+            {
+                var nmmGO = new GameObject("NavMeshManager");
+                nmmGO.AddComponent<NavMeshManager>();
+            }
+
             // Initialize fog of war if enabled (disabled for Observer - they see everything)
             if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)
             {

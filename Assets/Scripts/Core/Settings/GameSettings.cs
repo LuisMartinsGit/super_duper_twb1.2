@@ -141,6 +141,15 @@ public static class GameSettings
     /// <summary>True = flow fields (shared BFS), false = A* (per-unit paths).</summary>
     public static bool UseFlowFields = true;
 
+    /// <summary>
+    /// Tier-4 navmesh migration toggle. When ON, units route via Unity's
+    /// runtime-built navmesh (NavMeshManager) instead of the grid-based
+    /// flow field / A* stack. Default OFF until the navmesh consumer
+    /// (PR2) lands. Once enabled the legacy stack stops being consulted
+    /// and can be deleted (PR3).
+    /// </summary>
+    public static bool UseNavMesh = false;
+
     // ==================== Multiplayer Settings ====================
 
     /// <summary>Whether the current game is a multiplayer session.</summary>
