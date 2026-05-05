@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Creatures
 {
@@ -52,6 +53,7 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // Apply damage to non-crystal units standing on cursed ground
+            var em = state.EntityManager;
             foreach (var (health, unitTransform, entity) in SystemAPI
                 .Query<RefRW<Health>, RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
@@ -71,6 +73,19 @@ namespace TheWaningBorder.Systems.Creatures
                     {
                         // Apply one tick of damage (DPS * tick interval)
                         int damage = math.max(1, (int)(groundDPS[i].DamagePerSecond * DamageTickInterval));
+
+                        // Reclamation Lv I "Curse-Hardened" passive: Reclamation-
+                        // adopted factions take -25% from Crystal-Curse PvE.
+                        // Mirrors the combat-path reduction in CombatDamageHelper.
+                        // (task-063 phase 2d)
+                        if (em.HasComponent<FactionTag>(entity)
+                            && SectQuery.IsAdoptedAtLeast(em,
+                                em.GetComponentData<FactionTag>(entity).Value,
+                                SectConfig.Reclamation, SectLeverKind.Passive))
+                        {
+                            damage = math.max(1, (int)(damage * 0.75f));
+                        }
+
                         ref var hp = ref health.ValueRW;
                         hp.Value = math.max(0, hp.Value - damage);
                         break; // Only take damage from one tile per tick

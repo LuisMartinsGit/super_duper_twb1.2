@@ -344,8 +344,10 @@ namespace TheWaningBorder.UI.Panels
                     return;
                 }
 
-                // Deduct cost when adding to queue
-                if (!FactionEconomy.Spend(em, faction, button.Cost))
+                // Deduct cost when adding to queue. War Lv I -5% discount applies
+                // to military units only (task-063 phase 2d).
+                var trainCost = WarSectCostHelper.MilitaryDiscount(em, faction, button.Id.ToString(), button.Cost);
+                if (!FactionEconomy.Spend(em, faction, trainCost))
                 {
                     PlayerNotificationSystem.NotifyError("Not enough resources");
                     return;
@@ -441,7 +443,8 @@ namespace TheWaningBorder.UI.Panels
                         return;
                     }
 
-                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    var trainCost = WarSectCostHelper.MilitaryDiscount(em, faction, button.Id.ToString(), button.Cost);
+                    if (!FactionEconomy.Spend(em, faction, trainCost))
                     {
                         PlayerNotificationSystem.NotifyError("Not enough resources");
                         return;
@@ -807,7 +810,8 @@ namespace TheWaningBorder.UI.Panels
                         return;
                     }
 
-                    if (!FactionEconomy.Spend(em, faction, button.Cost))
+                    var trainCost = WarSectCostHelper.MilitaryDiscount(em, faction, button.Id.ToString(), button.Cost);
+                    if (!FactionEconomy.Spend(em, faction, trainCost))
                     {
                         PlayerNotificationSystem.NotifyError("Not enough resources");
                         return;

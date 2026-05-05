@@ -54,6 +54,19 @@ public struct Invulnerable : IComponentData
 }
 
 /// <summary>
+/// Fortitude's "Veiled Stone" HP-bonus stamp (task-063 sect Lv I+).
+/// Stamped on a wall, wall hub, or tower entity once its <c>Health.Max</c>
+/// (and current <c>Value</c>, by the same fraction) has been multiplied
+/// by Fortitude's per-level HP factor. <c>AppliedLevel</c> records the
+/// level the bonus was applied at so Phase 4 lever upgrades can apply
+/// the diff (factorAtNewLevel / factorAtOldLevel) without re-scaling.
+/// </summary>
+public struct FortitudeHpApplied : IComponentData
+{
+    public byte AppliedLevel; // 1/2/3 — matches SectQuery.LevelOf
+}
+
+/// <summary>
 /// Witness's "All-Seeing" vision-bonus stamp (task-063 sect Lv I+).
 /// Stamped on a Scout entity once its LineOfSight.Radius has been multiplied
 /// by Witness's per-level vision factor. <c>AppliedLevel</c> records the

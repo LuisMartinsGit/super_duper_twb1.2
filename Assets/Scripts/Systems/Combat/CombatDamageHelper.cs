@@ -116,6 +116,26 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
+            // Ruin Lv I "Profane Hands" passive: Ruin-adopted attackers deal
+            // +25% damage to enemy buildings. The 12% cost-refund-on-destruction
+            // half lives in SectRuinRefundSystem. Friendly-fire on own buildings
+            // is rare but explicitly excluded — the bonus only applies when
+            // attacker faction != target faction. Phase 4 scales the multiplier
+            // to 1.40× / 1.60× for Lv II / Lv III. (task-063 phase 2d)
+            if (em.HasComponent<BuildingTag>(target)
+                && em.HasComponent<FactionTag>(attacker)
+                && em.HasComponent<FactionTag>(target))
+            {
+                var atkFac = em.GetComponentData<FactionTag>(attacker).Value;
+                var tgtFac = em.GetComponentData<FactionTag>(target).Value;
+                if (atkFac != tgtFac
+                    && SectQuery.IsAdoptedAtLeast(em, atkFac,
+                        SectConfig.Ruin, SectLeverKind.Passive))
+                {
+                    final = (int)(final * 1.25f);
+                }
+            }
+
             // Wrath Lv I "Spite of the Forsaken" passive: attacker deals
             // +0.5% damage per 5% HP missing (max +9.5% at 1 HP). The blood-
             // pool half (+10% in pools at Lv I) lives behind Phase 3 and is
@@ -161,6 +181,23 @@ namespace TheWaningBorder.Systems.Combat
                     : voidStrike.BonusDamage;
                 final += (int)bonus;
                 ecb.RemoveComponent<VoidStrikeBuff>(attacker);
+            }
+
+            // Reclamation Lv I "Curse-Hardened" passive (combat half): defender
+            // takes -25% damage from Crystal-faction PvE attackers. Applied last
+            // so the reduction comes off the final post-bonus number — same
+            // intent as a flat resistance. The cursed-ground DoT half is hooked
+            // separately in CursedGroundDamageSystem (it bypasses this helper).
+            // Phase 4 scales reduction to 35% / 50% for Lv II / Lv III.
+            // (task-063 phase 2d)
+            if (em.HasComponent<CrystalTag>(attacker)
+                && em.HasComponent<FactionTag>(target)
+                && SectQuery.IsAdoptedAtLeast(em,
+                    em.GetComponentData<FactionTag>(target).Value,
+                    SectConfig.Reclamation, SectLeverKind.Passive))
+            {
+                final = (int)(final * 0.75f);
+                if (final < 1) final = 1;
             }
 
             return final;
