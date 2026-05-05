@@ -22,8 +22,16 @@ namespace TheWaningBorder.Economy
     public partial struct WallEnclosureIncomeSystem : ISystem
     {
         private const float UpdateInterval = 5f;
-        private const float IncomePerSquareUnit = 0.5f; // Supplies per square-unit per tick
-        private const float TickInterval = 10f;          // Income tick interval (seconds)
+        // Spec: 1 supply per minute per 20 units² of enclosed terrain.
+        // That's 1/20 = 0.05 supplies per minute per unit²,
+        // i.e. 0.05/60 ≈ 8.33e-4 per second.
+        // Income is applied via a SuppliesIncome.PerTick multiplied by
+        // ResourceTickSystem's tick (1 second), so the constant equals
+        // the per-second rate per unit²:  1 / (60 * 20) = 1/1200.
+        // Old value (0.5f) was 600× too high — yielded 30 supplies/min
+        // per unit² instead of 1 per 20 units².
+        private const float IncomePerSquareUnit = 1f / 1200f;
+        private const float TickInterval = 1f;  // Match ResourceTickSystem cadence
 
         private double _lastUpdateTime;
 
