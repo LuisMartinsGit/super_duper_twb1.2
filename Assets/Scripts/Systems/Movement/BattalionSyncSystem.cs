@@ -149,6 +149,33 @@ namespace TheWaningBorder.Systems.Movement
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
+            // ── BFME2-style arrival alignment snapshot ──
+            // Snapshot every idle (DesiredDestination.Has==0) battalion leader
+            // up-front. The per-leader loop below uses this to detect overlap
+            // when its leader has just arrived, and shifts the new arrival's
+            // anchor to a clear adjacent spot. This is the BFME2 "snap to
+            // align" feel — dampening alone (PR #290) prevented the shake
+            // but left formations stacked on top of each other.
+            var alignSnaps = new NativeList<AlignmentSnap>(32, Allocator.Temp);
+            foreach (var (otherLeader, otherXf, otherEntity) in SystemAPI
+                .Query<RefRO<BattalionLeader>, RefRO<LocalTransform>>()
+                .WithAll<BattalionTag>()
+                .WithEntityAccess())
+            {
+                bool otherMoving = false;
+                if (em.HasComponent<DesiredDestination>(otherEntity))
+                    otherMoving = em.GetComponentData<DesiredDestination>(otherEntity).Has != 0;
+                if (otherMoving) continue;
+                var obl = otherLeader.ValueRO;
+                float r = math.max(obl.Columns, obl.Rows) * obl.Spacing * 0.5f;
+                alignSnaps.Add(new AlignmentSnap
+                {
+                    Entity = otherEntity,
+                    Position = otherXf.ValueRO.Position,
+                    Radius = r,
+                });
+            }
+
             foreach (var (leader, leaderXf, entity) in SystemAPI
                 .Query<RefRW<BattalionLeader>, RefRO<LocalTransform>>()
                 .WithAll<BattalionTag>()
@@ -200,6 +227,66 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     formationRot = leaderRot;
                     leader.ValueRW.FormationRot = formationRot;
+                }
+
+                // ── BFME2-style arrival alignment ──
+                // On the first frame after a battalion arrives at its
+                // destination, check the snapshot for any other idle
+                // battalion whose formation footprint overlaps. If found,
+                // shift this leader's anchor away from the conflict so
+                // the two formations sit alongside instead of on top.
+                // Members re-target their slots automatically next frame
+                // because slot offsets are computed in leader-local space.
+                if (isMoving)
+                {
+                    if (em.HasComponent<BattalionAlignmentState>(entity))
+                        em.SetComponentData(entity, new BattalionAlignmentState { AlignedSinceArrival = 0 });
+                }
+                else
+                {
+                    bool aligned = em.HasComponent<BattalionAlignmentState>(entity)
+                        && em.GetComponentData<BattalionAlignmentState>(entity).AlignedSinceArrival != 0;
+                    if (!aligned)
+                    {
+                        float myRadius = math.max(cols, rows) * spacing * 0.5f;
+                        float3 shift = float3.zero;
+                        int conflictCount = 0;
+                        for (int s = 0; s < alignSnaps.Length; s++)
+                        {
+                            var snap = alignSnaps[s];
+                            if (snap.Entity == entity) continue;
+                            float3 diff = leaderPos - snap.Position;
+                            diff.y = 0f;
+                            float distSq = math.lengthsq(diff);
+                            float minDist = myRadius + snap.Radius;
+                            if (distSq < minDist * minDist && distSq > 0.0001f)
+                            {
+                                float dist = math.sqrt(distSq);
+                                float overlap = minDist - dist + 0.5f; // small buffer
+                                shift += (diff / dist) * overlap;
+                                conflictCount++;
+                            }
+                        }
+                        if (conflictCount > 0)
+                        {
+                            shift /= conflictCount;
+                            float3 newLeaderPos = leaderPos + shift;
+                            // Snap the shifted anchor onto the navmesh so
+                            // we don't land on a building / unreachable tile.
+                            var nmm = NavMeshManager.Instance;
+                            if (nmm != null)
+                                newLeaderPos = nmm.SnapToNavMesh(
+                                    new UnityEngine.Vector3(newLeaderPos.x, newLeaderPos.y, newLeaderPos.z), 5f);
+                            var newXf = LocalTransform.FromPositionRotationScale(
+                                newLeaderPos, leaderXf.ValueRO.Rotation, leaderXf.ValueRO.Scale);
+                            em.SetComponentData(entity, newXf);
+                            leaderPos = newLeaderPos;
+                        }
+                        if (em.HasComponent<BattalionAlignmentState>(entity))
+                            em.SetComponentData(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
+                        else
+                            em.AddComponentData(entity, new BattalionAlignmentState { AlignedSinceArrival = 1 });
+                    }
                 }
 
                 // ── 1. Decide whether to run greedy reassignment ──
@@ -516,6 +603,25 @@ namespace TheWaningBorder.Systems.Movement
                         newPos, formationRot, memberXf.Scale));
                 }
             }
+
+            alignSnaps.Dispose();
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // BFME2 ALIGNMENT SUPPORT
+        // ──────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// One snapshot row used by the alignment pass — an idle leader's
+        /// world position + formation radius. Filled at the top of OnUpdate
+        /// before the per-leader iteration so each leader can scan its
+        /// peers without nested SystemAPI queries.
+        /// </summary>
+        private struct AlignmentSnap
+        {
+            public Entity Entity;
+            public float3 Position;
+            public float Radius;
         }
     }
 }
