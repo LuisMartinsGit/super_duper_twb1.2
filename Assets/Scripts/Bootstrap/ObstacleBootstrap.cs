@@ -113,9 +113,8 @@ namespace TheWaningBorder.Bootstrap
 
             placedPositions.Dispose();
 
-            // Invalidate flow fields now that obstacles have been registered on the passability grid
-            var ffm = TheWaningBorder.Systems.Movement.FlowFieldManager.Instance;
-            if (ffm != null) ffm.InvalidateAll();
+            // PR3 — flow-field invalidation removed. NavMeshManager picks up
+            // the new building set via its own ECS sync.
 
         }
 

@@ -269,7 +269,7 @@ namespace TheWaningBorder.Systems.Economy
                     Has = 1
                 });
 
-                FlowFieldManager.Instance?.RequestFlowField(req.DestPos);
+                // PR3 — pre-warm removed; NavMeshPathRequestSystem handles it lazily.
             }
 
             traderRequests.Dispose();
