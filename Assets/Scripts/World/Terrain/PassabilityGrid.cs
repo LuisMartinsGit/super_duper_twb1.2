@@ -259,50 +259,84 @@ namespace TheWaningBorder.World.Terrain
         }
 
         /// <summary>
-        /// Radius-aware passability — true only if every cell within the
-        /// agent's collision footprint of <paramref name="worldPos"/> is passable.
-        /// Implements a Minkowski check at query time so callers don't need to
-        /// pre-inflate the grid (which would trap units inside their own
-        /// building's footprint).
+        /// Geometric radius-aware passability — true only if every cell whose
+        /// rectangle is within <paramref name="radius"/> world units of
+        /// <paramref name="worldPos"/> is passable (Minkowski sum of obstacles
+        /// with the agent disk).
         ///
-        /// Reach is computed as ceil((radius - cellSize/2) / cellSize) — i.e.
-        /// neighbours only need to be inspected when the agent's body actually
-        /// crosses cell boundaries. A unit standing in the centre of a 1m cell
-        /// with a 0.5m radius fits exactly inside that cell and reach is 0
-        /// (degenerates to centre-only IsPassable). Bigger units (siege,
-        /// battalion sizes) get the proper 3x3 / 5x5 sweep.
+        /// The centre cell is treated leniently: BuildingBlocked is OK at the
+        /// centre so units can leave their own building's footprint. Surrounding
+        /// cells must be Passable.
         ///
-        /// Earlier the formula was naive ceil(radius / cellSize) which made
-        /// typical 0.5m units require all 8 neighbours to be passable — they
-        /// got stuck on every building edge during travel.
-        /// (Nav-clearance fix, recalibrated.)
+        /// Iterates the AABB enclosing the agent disk and computes the
+        /// point-to-rectangle distance for each candidate cell — this catches
+        /// the case where the agent's centre is at one cell's centre but its
+        /// body still penetrates an adjacent blocked cell (e.g. 0.5m unit at
+        /// world (2.0, 0.0) with a building at cell (1, 0) — body extends
+        /// to x=1.5, z=-0.5, overlapping the building corner).
+        /// (Nav-clearance fix, geometric pass.)
         /// </summary>
         public bool IsPassableForRadius(float3 worldPos, float radius)
         {
             if (radius <= 0f) return IsPassable(worldPos);
-            int reach = (int)math.ceil((radius - _cellSize * 0.5f) / _cellSize);
-            if (reach < 0) reach = 0;
-            if (reach == 0) return IsPassable(worldPos);
-            int2 c = WorldToCell(worldPos);
-            // Treat the centre cell as a special case: if the unit is currently
-            // standing inside its own building (BuildingBlocked), allow the
-            // check to pass — only refuse when the surrounding ring is blocked
-            // by something the unit collided into.
-            byte centreVal = (c.x < 0 || c.x >= _width || c.y < 0 || c.y >= _height)
-                ? TerrainBlocked
-                : _cells[c.y * _width + c.x];
-            bool centreOk = centreVal == Passable || centreVal == BuildingBlocked;
-            if (!centreOk) return false;
-            for (int dy = -reach; dy <= reach; dy++)
+            int2 centreCell = WorldToCell(worldPos);
+            int2 minCell = WorldToCell(new float3(worldPos.x - radius, 0f, worldPos.z - radius));
+            int2 maxCell = WorldToCell(new float3(worldPos.x + radius, 0f, worldPos.z + radius));
+            float r2 = radius * radius;
+            for (int y = minCell.y; y <= maxCell.y; y++)
             {
-                for (int dx = -reach; dx <= reach; dx++)
+                for (int x = minCell.x; x <= maxCell.x; x++)
                 {
-                    if (dx == 0 && dy == 0) continue;
-                    int x = c.x + dx;
-                    int y = c.y + dy;
-                    if (x < 0 || x >= _width || y < 0 || y >= _height) return false;
-                    if (_cells[y * _width + x] != Passable) return false;
+                    // Distance from worldPos to the cell rectangle.
+                    float cellMinX = _origin.x + x * _cellSize;
+                    float cellMaxX = cellMinX + _cellSize;
+                    float cellMinZ = _origin.z + y * _cellSize;
+                    float cellMaxZ = cellMinZ + _cellSize;
+                    float dx = math.max(0f, math.max(cellMinX - worldPos.x, worldPos.x - cellMaxX));
+                    float dz = math.max(0f, math.max(cellMinZ - worldPos.z, worldPos.z - cellMaxZ));
+                    if (dx * dx + dz * dz >= r2) continue; // body just touches or doesn't reach
+
+                    byte v;
+                    if (x < 0 || x >= _width || y < 0 || y >= _height)
+                        v = TerrainBlocked;
+                    else
+                        v = _cells[y * _width + x];
+
+                    bool isCentre = (x == centreCell.x && y == centreCell.y);
+                    if (isCentre)
+                    {
+                        if (v != Passable && v != BuildingBlocked) return false;
+                    }
+                    else
+                    {
+                        if (v != Passable) return false;
+                    }
                 }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Sampled radius-aware line-of-sight between two world positions. Used
+        /// by AStarPathfinder.StringPull to verify a "shortcut" between two
+        /// waypoints is actually traversable by an agent of the given radius.
+        ///
+        /// Bresenham-on-cells is not enough: the centres of cells the line
+        /// passes through can all be Passable while the actual world-space
+        /// segment clips a building corner geometrically. Here we sample at
+        /// half-cell intervals and run the geometric IsPassableForRadius at
+        /// each sample.
+        /// </summary>
+        public bool HasClearLineOfSight(float3 a, float3 b, float radius)
+        {
+            float dist = math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
+            // Sample at half-cell intervals (capped at 64 samples for sanity).
+            int samples = (int)math.clamp(math.ceil(dist / (_cellSize * 0.5f)), 2f, 64f);
+            for (int i = 0; i <= samples; i++)
+            {
+                float t = (float)i / samples;
+                float3 p = math.lerp(a, b, t);
+                if (!IsPassableForRadius(p, radius)) return false;
             }
             return true;
         }
