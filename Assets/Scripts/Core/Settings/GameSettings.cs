@@ -138,17 +138,9 @@ public static class GameSettings
     /// <summary>Cell size for the passability grid (world units per cell). 1 = 1m resolution.</summary>
     public static float PathfindingCellSize = 1f;
 
-    /// <summary>True = flow fields (shared BFS), false = A* (per-unit paths).</summary>
-    public static bool UseFlowFields = true;
-
-    /// <summary>
-    /// Tier-4 navmesh migration toggle. When ON, units route via Unity's
-    /// runtime-built navmesh (NavMeshManager) instead of the grid-based
-    /// flow field / A* stack. Default ON as of PR2 (navmesh consumer
-    /// landed). The flow-field / A* / passability-grid code is still
-    /// present but no longer consulted by movement; PR3 deletes it.
-    /// </summary>
-    public static bool UseNavMesh = true;
+    // Flow-field / A* toggles removed in PR3 — navmesh is the only path
+    // source. PassabilityGrid stays for non-pathing queries (territorial
+    // enclosures, spawn placement, building placement validation).
 
     // ==================== Multiplayer Settings ====================
 

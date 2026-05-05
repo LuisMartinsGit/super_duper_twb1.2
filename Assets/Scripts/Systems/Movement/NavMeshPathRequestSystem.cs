@@ -38,7 +38,6 @@ namespace TheWaningBorder.Systems.Movement
 
         protected override void OnUpdate()
         {
-            if (!GameSettings.UseNavMesh) return;
             var nmm = NavMeshManager.Instance;
             if (nmm == null || !nmm.IsBaked) return;
 

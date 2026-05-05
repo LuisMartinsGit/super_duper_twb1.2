@@ -82,25 +82,10 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.SetComponentData(unit, new StuckState { Counter = 0, LastAttempt = 0 });
             if (em.HasComponent<SmoothedDirection>(unit))
                 em.SetComponentData(unit, new SmoothedDirection { Value = float3.zero });
-            if (em.HasComponent<MovementCache>(unit))
-                em.SetComponentData(unit, new MovementCache
-                {
-                    LastDestination = new float3(float.MaxValue),
-                    LastSnappedDest = -1,
-                    LastHeightCell = new int2(int.MinValue),
-                    CachedHeight = 0f
-                });
-
-            // Pre-warm pathfinding for this destination
-            if (GameSettings.UseFlowFields)
-            {
-                FlowFieldManager.Instance?.RequestFlowField(destination);
-            }
-            else
-            {
-                var pos = em.GetComponentData<LocalTransform>(unit).Position;
-                AStarPathStore.Instance?.RequestPath(unit, pos, destination);
-            }
+            // Pre-warm: NavMeshPathRequestSystem picks up the new
+            // DesiredDestination next frame and computes the path lazily.
+            // The legacy MovementCache + flow-field/A* pre-warm shims are
+            // gone with the navmesh migration (PR3).
 
             // Add UserMoveOrder to prevent auto-targeting from overriding
             if (!em.HasComponent<UserMoveOrder>(unit))

@@ -232,13 +232,8 @@ namespace TheWaningBorder.Core.Commands.Types
                     });
                 }
 
-                // Pre-warm the flow field at the resource node so the BFS is
-                // ready by the time MovementSystem processes the miner. Without
-                // this, the miner walks one or two frames of direct-line before
-                // the field is cached — long enough to clip a building corner
-                // when the deposit sits just past one.
-                if (GameSettings.UseFlowFields)
-                    FlowFieldManager.Instance?.RequestFlowField(nodePos);
+                // (Pre-warm removed with the navmesh migration — PR3.
+                // NavMeshPathRequestSystem picks up the new DesiredDestination.)
             }
         }
     }
