@@ -331,6 +331,20 @@ public struct UnderConstruction : IComponentData
 }
 
 /// <summary>
+/// Tracks the wall-clock time of the most recent damage taken by a building.
+/// Written by <c>CombatDamageHelper.TrackLastDamager</c>; read by sect systems
+/// that need an "out of combat" signal (e.g. Renewal's auto-repair, which
+/// only ticks once SecondsSinceLastDamage &gt;= OutOfCombatThreshold).
+/// (task-063 phase 2c)
+/// </summary>
+public struct BuildingDamageState : IComponentData
+{
+    /// <summary>Seconds-since-world-start when this building was last damaged.
+    /// Matches <c>SystemAPI.Time.ElapsedTime</c>.</summary>
+    public double LastDamagedAt;
+}
+
+/// <summary>
 /// Build order assigned to a builder unit.
 /// </summary>
 public struct BuildOrder : IComponentData

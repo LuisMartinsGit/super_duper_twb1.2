@@ -138,7 +138,7 @@ namespace TheWaningBorder.Systems.Combat
 
                             if (t >= 0.95f || distToTarget < HitRadius)
                             {
-                                ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
+                                ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time);
                                 shouldDestroy = true;
                             }
                             else
@@ -201,7 +201,7 @@ namespace TheWaningBorder.Systems.Combat
                                 float d = math.length(new float2(diff.x, diff.z));
                                 if (d < 2.5f)
                                 {
-                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter);
+                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter, time);
                                     pierce.RemainingPierces--;
                                     if (pierce.RemainingPierces <= 0) { shouldDestroy = true; break; }
                                 }
@@ -221,7 +221,7 @@ namespace TheWaningBorder.Systems.Combat
                         }
                         else if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
                         {
-                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter);
+                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time);
                             shouldDestroy = true;
                         }
                         else if (!shouldDestroy)
@@ -284,7 +284,7 @@ namespace TheWaningBorder.Systems.Combat
         /// Shared between arrow and laser impact paths.
         /// </summary>
         private static void ApplyDamage(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
-            Entity targetEntity, bool targetIsAlive, Entity shooter = default)
+            Entity targetEntity, bool targetIsAlive, Entity shooter = default, double elapsed = 0)
         {
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
@@ -345,6 +345,17 @@ namespace TheWaningBorder.Systems.Combat
                     em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
                     else
                         ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
+            }
+
+            // Stamp BuildingDamageState for the out-of-combat repair window
+            // (Renewal Lv I auto-repair). (task-063 phase 2c)
+            if (elapsed > 0 && em.HasComponent<BuildingTag>(targetEntity))
+            {
+                var stamp = new BuildingDamageState { LastDamagedAt = elapsed };
+                if (em.HasComponent<BuildingDamageState>(targetEntity))
+                    em.SetComponentData(targetEntity, stamp);
+                else
+                    ecb.AddComponent(targetEntity, stamp);
             }
         }
 
