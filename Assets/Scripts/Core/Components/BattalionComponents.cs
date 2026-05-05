@@ -60,7 +60,7 @@ public struct BattalionMemberData : IComponentData
 /// </summary>
 public enum BattalionStance : byte
 {
-    Default = 0,    // Auto-acquire within LOS, pursue up to 25 units from guard point, then return
+    Default = 0,    // Auto-acquire within LOS, pursue for 5 seconds outside the guard leash, then return
     Defensive = 1,  // No auto-acquire; return fire only if attacker is within attack range
     Aggressive = 2  // Auto-acquire and pursue without distance limit (existing behavior)
 }
@@ -72,6 +72,19 @@ public enum BattalionStance : byte
 public struct BattalionStanceData : IComponentData
 {
     public BattalionStance Value;
+}
+
+/// <summary>
+/// Marks a Default-stance battalion member that is currently pursuing an
+/// enemy outside its leader's guard leash. Used to time-bound the chase
+/// to 5 seconds (per the design spec) before forcing the unit back to
+/// the guard point. Stamped by TargetingSystem when pursuit starts;
+/// removed when the unit re-enters the leash radius or when 5s elapses.
+/// </summary>
+public struct DefaultStancePursuit : IComponentData
+{
+    /// <summary>SystemAPI.Time.ElapsedTime when pursuit began.</summary>
+    public double StartedAt;
 }
 
 /// <summary>

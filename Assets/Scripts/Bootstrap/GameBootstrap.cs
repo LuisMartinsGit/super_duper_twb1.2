@@ -180,6 +180,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<UnifiedUIManager>();         // Entity info + action panels
             managersGO.AddComponent<BuilderCommandPanel>();      // Building placement preview
             managersGO.AddComponent<ResourceHUD>();              // Resource display
+            managersGO.AddComponent<ReligionHUD>();              // Top-center sect-slot HUD (audit fix #3)
             managersGO.AddComponent<MinimapRenderer>();          // Minimap display
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals

@@ -450,8 +450,10 @@ namespace TheWaningBorder.Input
                 _selection.AddRange(units);
             }
 
-            // Among units, prioritize military over economic
-            if (units.Count > 1)
+            // Among units, prioritize military over economic — gated on the
+            // SmartMilitaryDrag toggle. When OFF, mixed-unit drags keep
+            // every entity the rectangle covered.
+            if (units.Count > 1 && GameSettings.SmartMilitaryDrag)
             {
                 var military = new List<Entity>();
                 var economic = new List<Entity>();
@@ -460,14 +462,13 @@ namespace TheWaningBorder.Input
                 {
                     if (!_em.HasComponent<UnitTag>(e)) continue;
                     var cls = _em.GetComponentData<UnitTag>(e).Class;
-                    // Earlier missing braces put EVERY unit into `military`, so
-                    // the post-filter that should drop economic units when
-                    // soldiers are present (lines below) replaced _selection
-                    // with itself. Box-selecting 5 builders + 5 swordsmen
-                    // returned all 10 instead of just the 5 swordsmen.
-                    // (task-053 F-4 / task-060 F-1)
+                    // The original code was missing an `else` here, so every
+                    // economic unit was also added to `military` and the
+                    // priority filter never dropped them. (task-060 F-1
+                    // claimed a fix that didn't actually land — fixed now.)
                     if (cls == UnitClass.Economy || cls == UnitClass.Miner)
                         economic.Add(e);
+                    else
                         military.Add(e);
                 }
 
