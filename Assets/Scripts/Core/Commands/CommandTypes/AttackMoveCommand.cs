@@ -50,16 +50,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.AddComponent<DesiredDestination>(unit);
             em.SetComponentData(unit, new DesiredDestination { Position = destination, Has = 1 });
 
-            // Pre-warm pathfinding for this destination
-            if (GameSettings.UseFlowFields)
-            {
-                FlowFieldManager.Instance?.RequestFlowField(destination);
-            }
-            else
-            {
-                var pos = em.GetComponentData<LocalTransform>(unit).Position;
-                AStarPathStore.Instance?.RequestPath(unit, pos, destination);
-            }
+            // NavMeshPathRequestSystem will pick up the new DesiredDestination
+            // and compute the path lazily next frame. Legacy pre-warm gone with PR3.
 
             // Set GuardPoint to destination (unit resumes here after combat)
             if (em.HasComponent<GuardPoint>(unit))

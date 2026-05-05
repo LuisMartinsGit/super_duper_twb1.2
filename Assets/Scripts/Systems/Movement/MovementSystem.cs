@@ -123,17 +123,8 @@ namespace TheWaningBorder.Systems.Movement
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
-                // Invalidate flow field cache so next frame re-requests for new destination
-                if (em.HasComponent<MovementCache>(entity))
-                {
-                    ecb.SetComponent(entity, new MovementCache
-                    {
-                        LastDestination = new float3(float.MaxValue),
-                        LastSnappedDest = -1,
-                        LastHeightCell = new int2(int.MinValue),
-                        CachedHeight = 0f
-                    });
-                }
+                // (Flow-field cache invalidation removed in PR3 — navmesh
+                // path freshness is owned by NavMeshPathRequestSystem.)
 
                 // DON'T remove AttackCommand here - let UnifiedCombatSystem see the MoveCommand
                 // and skip attack processing for this entity
@@ -227,11 +218,7 @@ namespace TheWaningBorder.Systems.Movement
             // PHASE 2: Move units toward their destinations
             // =============================================================================
 
-            // Pathfinding mode: flow fields (shared BFS) or A* (per-unit paths)
-            bool useFlowFields = GameSettings.UseFlowFields;
-            var ffm = useFlowFields ? FlowFieldManager.Instance : null;
-            var ffLookup = (ffm != null) ? ffm.CurrentLookup : default;
-            var astarStore = useFlowFields ? null : AStarPathStore.Instance;
+            // PR3 — pathing source is Unity navmesh via NavMeshPathRequestSystem.
 
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
@@ -361,12 +348,12 @@ namespace TheWaningBorder.Systems.Movement
                 float3 dir = to / math.max(1e-5f, dist);
 
                 // === PATHFINDING DIRECTION ===
-                bool useNavMesh = GameSettings.UseNavMesh;
-                if (useNavMesh && em.HasComponent<NavMeshPathfollowState>(entity)
+                // PR3 — navmesh is the only path source. Walk the corridor
+                // computed by NavMeshPathRequestSystem; fall back to direct-
+                // line until the first request resolves.
+                if (em.HasComponent<NavMeshPathfollowState>(entity)
                     && em.HasBuffer<NavMeshWaypoint>(entity))
                 {
-                    // Navmesh waypoint following (Tier-4 / Option B). Path is
-                    // computed by NavMeshPathRequestSystem; we only walk it here.
                     var nmState = em.GetComponentData<NavMeshPathfollowState>(entity);
                     if (nmState.HasPath != 0)
                     {
@@ -390,101 +377,14 @@ namespace TheWaningBorder.Systems.Movement
                                     wpDist = math.length(toWp);
                                 }
                                 // else: corridor exhausted; fall through to direct-line
-                                // toward goal (DesiredDestination arrival check will stop).
+                                // toward goal (DesiredDestination arrival check stops).
                             }
 
                             if (wpDist > 1e-4f)
                                 dir = toWp / wpDist;
                         }
                     }
-                    // No HasPath yet (request pending) — keep direct-line dir as
-                    // a placeholder; first frame after the request resolves the
-                    // unit will pick up the corridor.
-                }
-                else if (!useFlowFields && astarStore != null && em.HasComponent<AStarPathIndex>(entity))
-                {
-                    // A* waypoint following
-                    var pathIdx = em.GetComponentData<AStarPathIndex>(entity);
-                    if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 wp))
-                    {
-                        float3 toWp = wp - pos;
-                        toWp.y = 0f;
-                        float wpDist = math.length(toWp);
-
-                        if (wpDist < StopDistance * 2f)
-                        {
-                            // Advance to next waypoint
-                            pathIdx.CurrentWaypoint++;
-                            ecb.SetComponent(entity, pathIdx);
-
-                            // Check if more waypoints remain
-                            if (astarStore.TryGetWaypoint(entity, pathIdx.CurrentWaypoint, out float3 nextWp))
-                            {
-                                toWp = nextWp - pos;
-                                toWp.y = 0f;
-                                wpDist = math.length(toWp);
-                            }
-                            // else: path exhausted, fall through — the DesiredDestination
-                            // arrival check at line ~243 handles final stop
-                        }
-
-                        if (wpDist > 1e-4f)
-                            dir = toWp / wpDist;
-                    }
-                    // else: no path available, keep direct-line dir
-                }
-                else
-                {
-                    // Flow field direction lookup with per-unit destination caching.
-                    // We must re-request when EITHER the destination changed OR the
-                    // grid version bumped (a building got placed/destroyed). Without
-                    // the version check, units pathed against the new obstacle layout
-                    // using stale direction data and walked straight into walls.
-                    int snappedDest = -1;
-                    if (ffm != null)
-                    {
-                        int liveGridVersion = ffm.GridVersion;
-                        bool needsRefresh = true;
-                        if (em.HasComponent<MovementCache>(entity))
-                        {
-                            var cache = em.GetComponentData<MovementCache>(entity);
-                            float3 diff2 = goal - cache.LastDestination;
-                            bool destChanged = math.lengthsq(diff2) > DestChangedThresholdSq;
-                            bool gridChanged = cache.LastGridVersion != liveGridVersion;
-                            needsRefresh = destChanged || gridChanged;
-                            if (!needsRefresh)
-                            {
-                                snappedDest = cache.LastSnappedDest;
-                            }
-                        }
-
-                        if (needsRefresh)
-                        {
-                            var field = ffm.RequestFlowField(goal);
-                            if (field.HasValue)
-                            {
-                                // BFS completed (or already cached) — commit to per-unit cache.
-                                snappedDest = field.Value.DestinationIndex;
-                                if (em.HasComponent<MovementCache>(entity))
-                                {
-                                    var mvc = em.GetComponentData<MovementCache>(entity);
-                                    mvc.LastDestination = goal;
-                                    mvc.LastSnappedDest = snappedDest;
-                                    mvc.LastGridVersion = liveGridVersion;
-                                    em.SetComponentData(entity, mvc);
-                                }
-                            }
-                            // else: field is queued for async generation. DO NOT
-                            // commit (-1, liveGridVersion) to the per-unit cache —
-                            // doing so would freeze destChanged/gridChanged at false
-                            // next frame and the unit would walk direct-line forever
-                            // (straight into any building between it and the goal),
-                            // never consulting the flow field once the BFS completes.
-                            // Leaving the cache untouched keeps needsRefresh=true so
-                            // we re-request until a real field comes back.
-                        }
-                    }
-                    dir = ffLookup.GetDirection(pos, snappedDest, dir, dist);
+                    // No HasPath yet — keep direct-line dir as a placeholder.
                 }
 
                 // === Per-unit direction smoothing ===
@@ -529,44 +429,12 @@ namespace TheWaningBorder.Systems.Movement
                 bool blocked = false;
                 var passGrid = PassabilityGrid.Instance;
                 int2 nextCell = default;
-                // PR2 — when UseNavMesh is on, the navmesh path is the source
-                // of truth for obstacle avoidance. Skip the grid-based radius
-                // check entirely (the grid still exists for non-pathing
-                // queries like wall-enclosure detection until PR3 deletes it).
-                // Otherwise grid + navmesh disagree at cell boundaries and
-                // units get rejected mid-corridor.
-                if (passGrid != null && !GameSettings.UseNavMesh)
-                {
-                    nextCell = passGrid.WorldToCell(nextPos);
-                    float radius = em.HasComponent<Radius>(entity)
-                        ? em.GetComponentData<Radius>(entity).Value : 0f;
-                    bool currentlyClear = radius <= 0f
-                        || passGrid.IsPassableForRadius(pos, radius);
-                    bool nextOk = currentlyClear
-                        ? passGrid.IsPassableForRadius(nextPos, radius)
-                        : passGrid.IsPassable(nextCell);
-
-                    // Tier D — context steering. If the desired step is
-                    // blocked, sample a fan of alternative directions around
-                    // the desired heading and take the most-aligned one that
-                    // clears. Avoids the abrupt "Tier 2 perpendicular nudge"
-                    // dance and gives the unit a smooth detour around minor
-                    // obstacles. Only kicks in for units that aren't currently
-                    // wedged (currentlyClear == true) — wedged units still
-                    // use the existing escape hatch (centre-only fallback).
-                    if (!nextOk && currentlyClear && radius > 0f)
-                    {
-                        if (ContextSteer.TrySteerAround(pos, smoothedDir, step, radius, passGrid, out var steeredDir))
-                        {
-                            smoothedDir = steeredDir;
-                            nextPos = pos + smoothedDir * step;
-                            nextCell = passGrid.WorldToCell(nextPos);
-                            nextOk = true;
-                        }
-                    }
-
-                    if (!nextOk) blocked = true;
-                }
+                // PR3 — radius / passability checks removed. Navmesh path is
+                // the source of truth for obstacle avoidance.
+                // PassabilityGrid stays alive for non-pathing queries
+                // (wall-enclosure income, spawn placement, building
+                // placement validation) but is no longer consulted here.
+                if (passGrid != null) nextCell = passGrid.WorldToCell(nextPos);
 
                 // === SLOPE CHECK with terrain height caching ===
                 // Cache terrain height per cell: if the unit's next position is in the same

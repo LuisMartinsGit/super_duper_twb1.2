@@ -208,8 +208,7 @@ namespace TheWaningBorder.Bootstrap
             // instances of the same MonoBehaviour to the RuntimeManagers
             // GameObject, causing doubled event handling and a second render
             // pass per frame.
-            managersGO.AddComponent<AStarPathStore>();               // A* per-unit path storage
-            managersGO.AddComponent<PathfindingToggleHUD>();         // FF/A* toggle button (F5)
+            // PR3 — AStarPathStore + PathfindingToggleHUD removed (legacy nav stack gone).
             Object.DontDestroyOnLoad(managersGO);
         }
 
@@ -242,20 +241,10 @@ namespace TheWaningBorder.Bootstrap
                 gridGO.AddComponent<PassabilityGrid>();
             }
 
-            // Create flow field manager for obstacle-aware pathfinding (needs grid)
-            var existingFFM = Object.FindFirstObjectByType<FlowFieldManager>();
-            if (existingFFM == null)
-            {
-                var ffmGO = new GameObject("FlowFieldManager");
-                ffmGO.AddComponent<FlowFieldManager>();
-                #if UNITY_EDITOR
-                ffmGO.AddComponent<FlowFieldGizmos>();
-                #endif
-            }
+            // PR3 — flow-field manager removed; navmesh is the only path source.
 
-            // PR1 — NavMeshManager: bake Unity's runtime navmesh from terrain
-            // and the ECS building set. Inert until GameSettings.UseNavMesh
-            // flips on (PR2). Sits alongside the legacy stack.
+            // NavMeshManager: bakes Unity's runtime navmesh from terrain and
+            // the ECS building set; owns RequestPath / SnapToNavMesh.
             var existingNMM = Object.FindFirstObjectByType<NavMeshManager>();
             if (existingNMM == null)
             {

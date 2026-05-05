@@ -63,7 +63,7 @@ namespace TheWaningBorder.Systems.Economy
                     dest.Position = newPos;
                     dest.Has = 1;
                     ts.PreviousPosition = currentPos;
-                    FlowFieldManager.Instance?.RequestFlowField(newPos);
+                    // (Pre-warm removed with navmesh migration — PR3.)
                     continue;
                 }
 
@@ -103,7 +103,7 @@ namespace TheWaningBorder.Systems.Economy
                     ts.CurrentDest = next;
                     dest.Position = nPos;
                     dest.Has = 1;
-                    FlowFieldManager.Instance?.RequestFlowField(nPos);
+                    // (Pre-warm removed with navmesh migration — PR3.)
                 }
                 else
                 {

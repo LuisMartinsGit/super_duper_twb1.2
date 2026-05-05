@@ -97,11 +97,9 @@ namespace TheWaningBorder.Systems.Buildings
             unitTransforms.Dispose();
             unitFactions.Dispose();
 
-            if (anyChanged)
-            {
-                var ffm = FlowFieldManager.Instance;
-                if (ffm != null) ffm.InvalidateAll();
-            }
+            // PR3 — flow-field invalidation removed. NavMeshManager re-bakes
+            // when its building set changes (gates aren't BuildingTag entities
+            // in their own right but the wall change triggers a rebake too).
         }
     }
 }

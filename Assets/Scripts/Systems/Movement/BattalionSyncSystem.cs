@@ -141,12 +141,10 @@ namespace TheWaningBorder.Systems.Movement
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
-            // PR2 — when UseNavMesh is on, the navmesh routes the leader and
-            // (transitively) the formation away from buildings; the grid
-            // becomes a stale parallel source of truth that disagrees at cell
-            // boundaries. Treat passGrid as null here so per-member slot
-            // validity / next-step checks just trust the navmesh path.
-            var passGrid = GameSettings.UseNavMesh ? null : PassabilityGrid.Instance;
+            // PR3 — battalion members trust the leader's navmesh route.
+            // Local slot positioning has no grid query; the per-member
+            // movement integrator skips passability checks too.
+            PassabilityGrid passGrid = null;
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
@@ -422,30 +420,12 @@ namespace TheWaningBorder.Systems.Movement
                             if (ms > 0f) memberSpeed = ms;
                         }
 
+                        // PR3 — direct-line toward enemy. Battalion-wide
+                        // routing is owned by the leader's navmesh path; the
+                        // member just steers locally toward its target.
                         float3 dir = math.normalizesafe(toEnemy);
-
-                        // Use flow field for pathfinding around obstacles and allies
-                        dir = FlowFieldMovementHelper.GetDirection(
-                            memberXf.Position, enemyPos, dir, distToEnemy);
-
                         float step = math.min(memberSpeed * dt, distToEnemy);
                         float3 newPos = memberXf.Position + dir * step;
-
-                        if (passGrid != null && !passGrid.IsPassable(newPos))
-                        {
-                            // Try alternate direction.
-                            // Earlier this fell through to `newPos = memberXf.Position`
-                            // unconditionally because of missing braces — the alt-direction
-                            // probe was always discarded so combat members never used the
-                            // passability fallback. (task-053 F-2 / MB-2)
-                            float3 altDir = FlowFieldMovementHelper.GetDirection(
-                                memberXf.Position, enemyPos, -dir, distToEnemy);
-                            float3 altPos = memberXf.Position + altDir * step;
-                            if (passGrid.IsPassable(altPos))
-                                newPos = altPos;
-                            else
-                                newPos = memberXf.Position;
-                        }
 
                         newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);
 
@@ -503,59 +483,31 @@ namespace TheWaningBorder.Systems.Movement
                             if (ms > 0f) memberSpeed = ms;
                         }
 
+                        // PR3 — direct-line steering toward slot or leader.
+                        // Battalion-wide routing is owned by the leader's
+                        // navmesh path; the formation passability is
+                        // implicitly correct because the leader's path
+                        // routes around obstacles.
                         float3 dir = math.normalizesafe(target - memberXf.Position);
 
                         float speed;
                         if (_followsLeader[i] || !slotValid)
                         {
-                            // Following leader around obstacle — use flow field
-                            dir = FlowFieldMovementHelper.GetDirection(
-                                memberXf.Position, target, dir, dist);
+                            // Slot unreachable — chase the leader's position.
                             speed = memberSpeed;
                         }
                         else
                         {
-                            // In formation — ratio-based speed so everyone arrives together
+                            // In formation — ratio-based speed so everyone arrives together.
                             float ratio = dist / math.max(maxDist, 0.01f);
                             speed = memberSpeed * math.clamp(ratio, 0.15f, 1.0f);
                         }
 
-                        // Stray detection: if member is far from target, boost to 2x speed
-                        if (dist > spacing * 3f)
-                            speed = memberSpeed * 2f;
+                        if (dist > spacing * 3f) speed = memberSpeed * 2f;
 
-                        // Hard cap: never move more than 2x unit speed per frame
                         float maxStep = memberSpeed * 2f * dt;
                         float step = math.min(speed * dt, math.min(dist, maxStep));
                         newPos = memberXf.Position + dir * step;
-
-                        // Radius-aware passability: don't walk where the
-                        // member's body would overlap an obstacle. Same escape
-                        // hatch as MovementSystem — if the member already
-                        // fails the radius check (spawned adjacent to a
-                        // building, etc.) fall back to the centre-cell check
-                        // so they can walk out of the tight spot.
-                        if (passGrid != null)
-                        {
-                            bool currentlyClear = memberRadius <= 0f
-                                || passGrid.IsPassableForRadius(memberXf.Position, memberRadius);
-                            bool nextOk = currentlyClear
-                                ? passGrid.IsPassableForRadius(newPos, memberRadius)
-                                : passGrid.IsPassable(newPos);
-                            if (!nextOk)
-                            {
-                                float3 ffDir = FlowFieldMovementHelper.GetDirection(
-                                    memberXf.Position, leaderPos, dir, dist);
-                                float3 altPos = memberXf.Position + ffDir * step;
-                                bool altOk = currentlyClear
-                                    ? passGrid.IsPassableForRadius(altPos, memberRadius)
-                                    : passGrid.IsPassable(altPos);
-                                if (altOk)
-                                    newPos = altPos;
-                                else
-                                    newPos = memberXf.Position; // truly stuck, don't move
-                            }
-                        }
                     }
 
                     newPos.y = TerrainUtility.GetHeight(newPos.x, newPos.z);

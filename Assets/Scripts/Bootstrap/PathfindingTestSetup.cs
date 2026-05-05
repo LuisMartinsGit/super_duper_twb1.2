@@ -71,12 +71,8 @@ namespace TheWaningBorder.Bootstrap
                 gridGO.AddComponent<PassabilityGrid>();
             }
 
-            // Create flow field manager
-            if (Object.FindFirstObjectByType<FlowFieldManager>() == null)
-            {
-                var ffmGO = new GameObject("FlowFieldManager");
-                ffmGO.AddComponent<FlowFieldManager>();
-            }
+            // PR3 — flow field manager removed. NavMeshManager is created
+            // in GameBootstrap; battalion test mode skips it for now.
 
             // Initialize camera
             GameCamera.Ensure();
