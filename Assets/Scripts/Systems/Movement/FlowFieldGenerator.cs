@@ -38,6 +38,70 @@ namespace TheWaningBorder.Systems.Movement
         /// <summary>Sentinel value for unreachable / unvisited cells.</summary>
         private const ushort Unreachable = ushort.MaxValue;
 
+        /// <summary>
+        /// Internal-only cell value used by the inflation pre-pass to mark
+        /// Passable cells that have at least one blocked 1-cell neighbour.
+        /// The BFS treats these as blocked (Cells != 0). Distinct from
+        /// PassabilityGrid.BuildingBlocked / TerrainBlocked / ObstacleBlocked
+        /// so debug tooling can tell them apart if it inspects the BFS copy.
+        /// </summary>
+        private const byte InflatedClearance = 4;
+
+        /// <summary>
+        /// Mark Passable cells adjacent to any blocked cell as InflatedClearance.
+        /// One-cell Chebyshev kernel — sufficient for typical 0.5m units on a
+        /// 1m grid. The destination cell is restored to Passable so BFS can
+        /// seed it even when the goal sits next to a building. Operates in
+        /// place on the BFS's private cells copy.
+        /// </summary>
+        private static void InflateForAgentRadius(NativeArray<byte> cells, int width, int height, int destinationIndex)
+        {
+            // Pre-compute a snapshot of which cells were originally blocked, so
+            // we don't cascade the inflation (each pass would inflate the
+            // previous inflation's ring, propagating the obstacle outward
+            // forever).
+            var originallyBlocked = new NativeArray<byte>(cells.Length, Allocator.Temp);
+            for (int i = 0; i < cells.Length; i++)
+                originallyBlocked[i] = (byte)(cells[i] != 0 ? 1 : 0);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int idx = y * width + x;
+                    if (cells[idx] != 0) continue; // already blocked, leave alone
+
+                    bool adjacentBlocked = false;
+                    for (int dy = -1; dy <= 1 && !adjacentBlocked; dy++)
+                    {
+                        int ny = y + dy;
+                        if (ny < 0 || ny >= height) continue;
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            int nx = x + dx;
+                            if (nx < 0 || nx >= width) continue;
+                            if (originallyBlocked[ny * width + nx] != 0)
+                            {
+                                adjacentBlocked = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (adjacentBlocked) cells[idx] = InflatedClearance;
+                }
+            }
+
+            // Preserve destination — BFS bails if Cells[DestinationIndex] != 0.
+            if (destinationIndex >= 0 && destinationIndex < cells.Length
+                && originallyBlocked[destinationIndex] == 0)
+            {
+                cells[destinationIndex] = 0;
+            }
+
+            originallyBlocked.Dispose();
+        }
+
         // =====================================================================
         // PUBLIC API
         // =====================================================================
@@ -125,6 +189,18 @@ namespace TheWaningBorder.Systems.Movement
             // dispose (existing code already does this).
             var passabilityCopy = new NativeArray<byte>(passabilityCells.Length, Allocator.Persistent);
             passabilityCopy.CopyFrom(passabilityCells);
+
+            // Tier B (nav rework): radius-aware inflation pre-pass. Mark every
+            // Passable cell that has at least one blocked 1-cell neighbour as
+            // InflatedClearance — the BFS treats it as blocked, so the flow
+            // field naturally routes 1 cell away from buildings instead of
+            // squeezing through corner-touching cells the unit's body can't
+            // physically traverse. The destination cell is preserved so BFS
+            // can seed even when the goal sits next to a building. Units that
+            // happen to spawn inside the inflated ring fall back to direct-line
+            // via the existing FlowFieldLookup 5x5 Gaussian which finds a
+            // non-zero neighbour direction.
+            InflateForAgentRadius(passabilityCopy, gridWidth, gridHeight, destinationIndex);
 
             // Allocate BFS queue
             var bfsQueue = new NativeQueue<int>(Allocator.Persistent);
