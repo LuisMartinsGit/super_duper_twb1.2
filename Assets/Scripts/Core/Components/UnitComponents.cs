@@ -67,6 +67,20 @@ public struct GlowAbilityState : IComponentData
     public float CooldownRemaining; // Seconds until castable again (0 = ready)
 }
 
+/// <summary>
+/// Pickup entity dropped when a Lv 2+ veteran unit dies. Carries the
+/// cumulative resources the unit consumed during its rank-ups. Any unit
+/// of any faction that walks within <see cref="PickupRadius"/> credits
+/// the pile to its faction and destroys the pile. Self-despawns after
+/// <see cref="Lifetime"/> seconds if not collected.
+/// </summary>
+public struct UpgradePile : IComponentData
+{
+    public TheWaningBorder.Core.Cost Drop;
+    public float Lifetime;
+    public float PickupRadius;
+}
+
 // ==================== Unit Type Tags ====================
 
 /// <summary>Marks a unit as capable of constructing buildings.</summary>

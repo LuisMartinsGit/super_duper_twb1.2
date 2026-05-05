@@ -323,12 +323,16 @@ namespace TheWaningBorder.Systems.Combat
                                 isAOE, aoeRadius, spawnYOffset);
                         }
 
-                        // Reset state — use unit's configured cooldown
+                        // Reset state — use unit's configured cooldown.
+                        // Glow Ability (Lv 5 active window) shortens by 30%
+                        // per the design spec. (audit follow-up)
                         float cooldownValue = 1.5f;
                         if (em.HasComponent<AttackCooldown>(entity))
                             cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
+                        if (em.HasComponent<GlowAbilityState>(entity)
+                            && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
+                            cooldownValue *= (1f / 1.30f);
 
-                        // task-063 phase 1: sect AttackSpeed multiplier gone — baseline 1.0×.
                         archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;
                         archer.IsFiring = 0;
