@@ -499,6 +499,26 @@ namespace TheWaningBorder.Systems.Movement
                     bool nextOk = currentlyClear
                         ? passGrid.IsPassableForRadius(nextPos, radius)
                         : passGrid.IsPassable(nextCell);
+
+                    // Tier D — context steering. If the desired step is
+                    // blocked, sample a fan of alternative directions around
+                    // the desired heading and take the most-aligned one that
+                    // clears. Avoids the abrupt "Tier 2 perpendicular nudge"
+                    // dance and gives the unit a smooth detour around minor
+                    // obstacles. Only kicks in for units that aren't currently
+                    // wedged (currentlyClear == true) — wedged units still
+                    // use the existing escape hatch (centre-only fallback).
+                    if (!nextOk && currentlyClear && radius > 0f)
+                    {
+                        if (ContextSteer.TrySteerAround(pos, smoothedDir, step, radius, passGrid, out var steeredDir))
+                        {
+                            smoothedDir = steeredDir;
+                            nextPos = pos + smoothedDir * step;
+                            nextCell = passGrid.WorldToCell(nextPos);
+                            nextOk = true;
+                        }
+                    }
+
                     if (!nextOk) blocked = true;
                 }
 
