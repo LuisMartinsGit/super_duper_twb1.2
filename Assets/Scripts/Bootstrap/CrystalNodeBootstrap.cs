@@ -144,6 +144,22 @@ namespace TheWaningBorder.Bootstrap
                 });
             }
 
+            // Initialize extinction state singleton so CrystalExtinctionSystem
+            // gets to run. Without this, RequireForUpdate<CrystalExtinctionState>
+            // permanently parks the system and the curse can't recover after
+            // the player wipes its initial nodes.
+            var extQuery = em.CreateEntityQuery(ComponentType.ReadOnly<CrystalExtinctionState>());
+            if (extQuery.IsEmpty)
+            {
+                var extEntity = em.CreateEntity(typeof(CrystalExtinctionState));
+                em.SetComponentData(extEntity, new CrystalExtinctionState
+                {
+                    IsExtinct = 0,
+                    RespawnTimer = 0f,
+                    HasEverExisted = 1,
+                });
+            }
+
             // Starter near-patch is spawned by CrystalPatchBootstrap (which always
             // runs, with or without the curse). This file used to spawn its own
             // 5×320=1600-crystal starter patch, doubling up with CrystalPatchBootstrap
