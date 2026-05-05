@@ -182,6 +182,14 @@ namespace TheWaningBorder.Systems.Movement
             for (int i = 0; i < entities.Length; i++)
             {
                 var e = entities[i];
+                // Wall gates are walk-through-able. Skip them from the
+                // navmesh stamp so units can path through ally gates.
+                // (The friend/foe gate logic in WallGatePassabilitySystem
+                // is gameplay, not pathing — combat handles enemies on
+                // contact. A per-faction navmesh layer would let us close
+                // the gate for enemies cleanly; that's a future tile-set
+                // extension.)
+                if (em.HasComponent<WallGateTag>(e)) continue;
                 var t = em.GetComponentData<LocalTransform>(e);
                 Vector2 sz;
                 if (em.HasComponent<BuildingSize>(e))
