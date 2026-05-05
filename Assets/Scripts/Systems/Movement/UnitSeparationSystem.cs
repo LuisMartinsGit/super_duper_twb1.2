@@ -132,6 +132,14 @@ namespace TheWaningBorder.Systems.Movement
                 float3 pushDirection = float3.zero;
                 int pushCount = 0;
 
+                // Per-unit "is my battalion idle" precheck — used to dampen
+                // pushes between members of two idle battalions (the BFME2
+                // settled-formation feel). When both leaders are idle we
+                // suppress the inter-member push entirely so members park on
+                // their slots instead of fighting each other for space and
+                // shaking back and forth.
+                bool myBattalionIdle = IsBattalionIdle(em, allUnits[i]);
+
                 GetCellKey(in myPos, out int2 myCell);
 
                 // Check only neighboring cells (3x3 grid around current cell)
@@ -149,6 +157,13 @@ namespace TheWaningBorder.Systems.Movement
                         {
                             if (i == j) continue; // Skip self
                             if (!em.Exists(allUnits[j])) continue;
+
+                            // Skip the push entirely if BOTH units belong to
+                            // idle battalions — they're each holding their
+                            // formation slot and shouldn't fight for space.
+                            // Visual overlap is acceptable; oscillation is not.
+                            if (myBattalionIdle && IsBattalionIdle(em, allUnits[j]))
+                                continue;
 
                             var otherPos = allPositions[j].Position;
                             var otherRadius = allRadii[j].Value;
@@ -187,8 +202,14 @@ namespace TheWaningBorder.Systems.Movement
                         isMoving = dd.Has != 0;
                     }
 
-                    // Reduce push force for moving units to prevent jitter
-                    float pushMultiplier = isMoving ? 0.3f : 1.0f;
+                    // Three-state multiplier: moving=0.3 (existing — gentle
+                    // while traveling), idle-non-battalion=1.0 (push idle
+                    // blockers aside), idle-battalion=0.4 (members of an
+                    // idle battalion settle gradually instead of fighting).
+                    float pushMultiplier;
+                    if (isMoving) pushMultiplier = 0.3f;
+                    else if (myBattalionIdle) pushMultiplier = 0.4f;
+                    else pushMultiplier = 1.0f;
                     float3 newPos = myPos + pushDirection * PushForce * dt * pushMultiplier;
 
                     // === SLOPE CHECK: don't push units onto impassable terrain ===
@@ -385,6 +406,23 @@ namespace TheWaningBorder.Systems.Movement
             allUnits.Dispose();
             allPositions.Dispose();
             allRadii.Dispose();
+        }
+
+        /// <summary>
+        /// True if the unit is a battalion member whose leader has no active
+        /// DesiredDestination — used to dampen inter-battalion shake when two
+        /// idle formations overlap. Non-battalion units (or members whose
+        /// leaders are missing) return false (treated as moving / available
+        /// to push). Cheap component-presence reads only.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsBattalionIdle(EntityManager em, Entity unit)
+        {
+            if (!em.HasComponent<BattalionMemberData>(unit)) return false;
+            var leader = em.GetComponentData<BattalionMemberData>(unit).Leader;
+            if (!em.Exists(leader)) return false;
+            if (!em.HasComponent<DesiredDestination>(leader)) return true;
+            return em.GetComponentData<DesiredDestination>(leader).Has == 0;
         }
 
         /// <summary>
