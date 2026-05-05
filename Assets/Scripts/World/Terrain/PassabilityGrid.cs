@@ -259,6 +259,65 @@ namespace TheWaningBorder.World.Terrain
         }
 
         /// <summary>
+        /// Radius-aware passability — true only if every cell within
+        /// <paramref name="radius"/> of <paramref name="worldPos"/> is passable.
+        /// Implements a Minkowski check at query time so callers don't need to
+        /// pre-inflate the grid (which would trap units inside their own
+        /// building's footprint). Use this from MovementSystem / AStarPathfinder
+        /// to keep units off building edges. (Nav-clearance fix.)
+        /// </summary>
+        public bool IsPassableForRadius(float3 worldPos, float radius)
+        {
+            if (radius <= 0f) return IsPassable(worldPos);
+            // Inflate by ceil(radius / cellSize). For typical 0.5m radius +
+            // 1m cell size that's a single neighbor ring (3x3 sweep).
+            int reach = (int)math.ceil(radius / _cellSize);
+            int2 c = WorldToCell(worldPos);
+            // Treat the centre cell as a special case: if the unit is currently
+            // standing inside its own building (BuildingBlocked), allow the
+            // check to pass — only refuse when the surrounding ring is blocked
+            // by something the unit collided into.
+            byte centreVal = (c.x < 0 || c.x >= _width || c.y < 0 || c.y >= _height)
+                ? TerrainBlocked
+                : _cells[c.y * _width + c.x];
+            bool centreOk = centreVal == Passable || centreVal == BuildingBlocked;
+            if (!centreOk) return false;
+            for (int dy = -reach; dy <= reach; dy++)
+            {
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int x = c.x + dx;
+                    int y = c.y + dy;
+                    if (x < 0 || x >= _width || y < 0 || y >= _height) return false;
+                    if (_cells[y * _width + x] != Passable) return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Cell-space radius-aware check for use inside pathfind inner loops
+        /// (no float3 conversion). <paramref name="cellRadius"/> is the half-
+        /// width of the inflation box; pass 1 for a 3x3 sweep around the cell.
+        /// </summary>
+        public bool IsCellPassableForRadius(int2 cell, int cellRadius)
+        {
+            if (cellRadius <= 0) return IsPassable(cell);
+            for (int dy = -cellRadius; dy <= cellRadius; dy++)
+            {
+                for (int dx = -cellRadius; dx <= cellRadius; dx++)
+                {
+                    int x = cell.x + dx;
+                    int y = cell.y + dy;
+                    if (x < 0 || x >= _width || y < 0 || y >= _height) return false;
+                    if (_cells[y * _width + x] != Passable) return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Get the raw cell value at the given cell coordinates.
         /// Returns TerrainBlocked for out-of-bounds cells.
         /// </summary>
