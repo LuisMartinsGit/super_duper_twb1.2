@@ -361,7 +361,47 @@ namespace TheWaningBorder.Systems.Movement
                 float3 dir = to / math.max(1e-5f, dist);
 
                 // === PATHFINDING DIRECTION ===
-                if (!useFlowFields && astarStore != null && em.HasComponent<AStarPathIndex>(entity))
+                bool useNavMesh = GameSettings.UseNavMesh;
+                if (useNavMesh && em.HasComponent<NavMeshPathfollowState>(entity)
+                    && em.HasBuffer<NavMeshWaypoint>(entity))
+                {
+                    // Navmesh waypoint following (Tier-4 / Option B). Path is
+                    // computed by NavMeshPathRequestSystem; we only walk it here.
+                    var nmState = em.GetComponentData<NavMeshPathfollowState>(entity);
+                    if (nmState.HasPath != 0)
+                    {
+                        var waypoints = em.GetBuffer<NavMeshWaypoint>(entity);
+                        if (nmState.CurrentWaypoint < waypoints.Length)
+                        {
+                            var wp = waypoints[nmState.CurrentWaypoint].Position;
+                            float3 toWp = wp - pos;
+                            toWp.y = 0f;
+                            float wpDist = math.length(toWp);
+
+                            if (wpDist < StopDistance * 2f)
+                            {
+                                nmState.CurrentWaypoint++;
+                                ecb.SetComponent(entity, nmState);
+                                if (nmState.CurrentWaypoint < waypoints.Length)
+                                {
+                                    var wp2 = waypoints[nmState.CurrentWaypoint].Position;
+                                    toWp = wp2 - pos;
+                                    toWp.y = 0f;
+                                    wpDist = math.length(toWp);
+                                }
+                                // else: corridor exhausted; fall through to direct-line
+                                // toward goal (DesiredDestination arrival check will stop).
+                            }
+
+                            if (wpDist > 1e-4f)
+                                dir = toWp / wpDist;
+                        }
+                    }
+                    // No HasPath yet (request pending) — keep direct-line dir as
+                    // a placeholder; first frame after the request resolves the
+                    // unit will pick up the corridor.
+                }
+                else if (!useFlowFields && astarStore != null && em.HasComponent<AStarPathIndex>(entity))
                 {
                     // A* waypoint following
                     var pathIdx = em.GetComponentData<AStarPathIndex>(entity);
@@ -489,7 +529,13 @@ namespace TheWaningBorder.Systems.Movement
                 bool blocked = false;
                 var passGrid = PassabilityGrid.Instance;
                 int2 nextCell = default;
-                if (passGrid != null)
+                // PR2 — when UseNavMesh is on, the navmesh path is the source
+                // of truth for obstacle avoidance. Skip the grid-based radius
+                // check entirely (the grid still exists for non-pathing
+                // queries like wall-enclosure detection until PR3 deletes it).
+                // Otherwise grid + navmesh disagree at cell boundaries and
+                // units get rejected mid-corridor.
+                if (passGrid != null && !GameSettings.UseNavMesh)
                 {
                     nextCell = passGrid.WorldToCell(nextPos);
                     float radius = em.HasComponent<Radius>(entity)
