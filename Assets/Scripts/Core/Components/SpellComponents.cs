@@ -54,6 +54,39 @@ public struct Invulnerable : IComponentData
 }
 
 /// <summary>
+/// Witness's "All-Seeing" vision-bonus stamp (task-063 sect Lv I+).
+/// Stamped on a Scout entity once its LineOfSight.Radius has been multiplied
+/// by Witness's per-level vision factor. <c>AppliedLevel</c> records the
+/// level the bonus was applied at — when Phase 4 lever upgrades land, the
+/// diff between AppliedLevel and the current lever level is applied.
+/// </summary>
+public struct WitnessVisionApplied : IComponentData
+{
+    public byte AppliedLevel; // 1/2/3 — matches SectQuery.LevelOf
+}
+
+/// <summary>
+/// Justice's "Marked for Sentence" mark (task-063 sect Lv I).
+/// Applied to an enemy unit when it kills one of your units, IF the killed
+/// unit's faction has Justice adopted. While active:
+///   - The marked unit is visible through fog of war to the marker faction.
+///   - It takes +10% damage (Lv I — scales to +20%/+30% in Phase 4) from
+///     units of the marker faction.
+/// Self-removed by SpellBuffSystem when TimeRemaining hits 0.
+/// </summary>
+public struct MarkedForSentence : IComponentData
+{
+    /// <summary>Faction that placed the mark (the avenger).</summary>
+    public Faction MarkerFaction;
+
+    /// <summary>Bonus damage multiplier added when the marker faction attacks (e.g. 0.10 = +10%).</summary>
+    public float DamageBonus;
+
+    /// <summary>Seconds remaining on the mark.</summary>
+    public float TimeRemaining;
+}
+
+/// <summary>
 /// Veneration's "Fervor" passive (task-063 sect Lv I).
 /// On every kill the killer unit gains a stack of +damage / +attack-speed
 /// for a few seconds, refreshed on each kill. The stack count is capped to

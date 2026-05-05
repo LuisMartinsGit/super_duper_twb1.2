@@ -101,6 +101,42 @@ namespace TheWaningBorder.Systems.Combat
                 final = (int)(final * condemned.DamageMultiplier);
             }
 
+            // MarkedForSentence (Justice Lv I passive): if the target was marked
+            // by the attacker's faction, the marker faction's units deal bonus
+            // damage. Other factions attacking the same target don't get the
+            // bonus — the mark is per-marker. (task-063 phase 2c)
+            if (em.HasComponent<MarkedForSentence>(target)
+                && em.HasComponent<FactionTag>(attacker))
+            {
+                var mark = em.GetComponentData<MarkedForSentence>(target);
+                if (mark.MarkerFaction == em.GetComponentData<FactionTag>(attacker).Value
+                    && mark.DamageBonus > 0f)
+                {
+                    final = (int)(final * (1f + mark.DamageBonus));
+                }
+            }
+
+            // Wrath Lv I "Spite of the Forsaken" passive: attacker deals
+            // +0.5% damage per 5% HP missing (max +9.5% at 1 HP). The blood-
+            // pool half (+10% in pools at Lv I) lives behind Phase 3 and is
+            // not applied here. Phase 4 scales the per-stack bonus to 1% / 1.5%
+            // for Lv II / Lv III. (task-063 phase 2c)
+            if (em.HasComponent<FactionTag>(attacker)
+                && em.HasComponent<Health>(attacker)
+                && SectQuery.IsAdoptedAtLeast(em,
+                    em.GetComponentData<FactionTag>(attacker).Value,
+                    SectConfig.Wrath, SectLeverKind.Passive))
+            {
+                var hp = em.GetComponentData<Health>(attacker);
+                if (hp.Max > 0 && hp.Value < hp.Max)
+                {
+                    float fractionMissing = 1f - (float)hp.Value / hp.Max;
+                    // 0.5% per 5% missing == 0.1× the missing fraction.
+                    float bonus = fractionMissing * 0.10f;
+                    final = (int)(final * (1f + bonus));
+                }
+            }
+
             // IgniteBuff: attacker's next attacks deal bonus fire damage
             if (em.HasComponent<IgniteBuff>(attacker))
             {
@@ -153,9 +189,15 @@ namespace TheWaningBorder.Systems.Combat
         /// Updates LastDamagedByFaction and LastAttackerEntity on the target.
         /// Used by PillageSystem, CaravanDeathSystem, and defensive-stance
         /// return-fire logic.
+        ///
+        /// If <paramref name="elapsedTime"/> is non-zero AND the target is a
+        /// building, also stamps <see cref="BuildingDamageState.LastDamagedAt"/>
+        /// so out-of-combat readers (Renewal's auto-repair Lv I, etc.) can
+        /// gate repair ticks on a quiet-window threshold. Pass 0 from callers
+        /// that don't have the time handy. (task-063 phase 2c)
         /// </summary>
         public static void TrackLastDamager(EntityManager em, EntityCommandBuffer ecb,
-            Entity attacker, Entity target)
+            Entity attacker, Entity target, double elapsedTime = 0)
         {
             if (em.HasComponent<FactionTag>(attacker))
             {
@@ -175,6 +217,16 @@ namespace TheWaningBorder.Systems.Combat
                 em.SetComponentData(target, new LastAttackerEntity { Value = attacker });
                 else
                     ecb.AddComponent(target, new LastAttackerEntity { Value = attacker });
+
+            // Building-only damage timestamp for the out-of-combat repair window.
+            if (elapsedTime > 0 && em.HasComponent<BuildingTag>(target))
+            {
+                var stamp = new BuildingDamageState { LastDamagedAt = elapsedTime };
+                if (em.HasComponent<BuildingDamageState>(target))
+                    em.SetComponentData(target, stamp);
+                else
+                    ecb.AddComponent(target, stamp);
+            }
         }
 
         // task-063 phase 1: ApplySectOnHitDebuffs deleted with the old

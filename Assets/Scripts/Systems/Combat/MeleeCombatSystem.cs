@@ -42,6 +42,7 @@ namespace TheWaningBorder.Systems.Combat
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var dt = SystemAPI.Time.DeltaTime;
+            var elapsed = SystemAPI.Time.ElapsedTime; // for BuildingDamageState stamps
             var em = state.EntityManager;
 
             foreach (var (transform, target, cooldown, damage, entity) in SystemAPI
@@ -200,7 +201,7 @@ namespace TheWaningBorder.Systems.Combat
                         em.SetComponentData(tgt.Value, health);
 
                         // Fix #226: last-damager tracking routed through shared helper
-                        CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value);
+                        CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
 
                         // Reset cooldown (sect attack-speed multiplier removed in Phase 1).
                         cd.Timer = cd.Cooldown;
