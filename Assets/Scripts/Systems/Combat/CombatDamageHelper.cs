@@ -179,8 +179,10 @@ namespace TheWaningBorder.Systems.Combat
 
             // Wrath "Spite of the Forsaken": +N% per 5% HP missing on the
             // attacker. Lv I 0.5% per 5% (max +9.5%). Lv II 1% (max +19%).
-            // Lv III 1.5% (max +28.5%). Blood-pool half lives in Phase 3.
-            // (task-063 phase 2c / phase 4 scaling)
+            // Lv III 1.5% (max +28.5%). Stacks multiplicatively with the
+            // blood-pool bonus when the attacker is standing in a Feraldis
+            // pool (phase 3): +10/+15/+20% by lever level.
+            // (task-063 phase 2c / phase 4 scaling / phase 3)
             if (em.HasComponent<FactionTag>(attacker)
                 && em.HasComponent<Health>(attacker))
             {
@@ -193,7 +195,6 @@ namespace TheWaningBorder.Systems.Combat
                     if (hp.Max > 0 && hp.Value < hp.Max)
                     {
                         float fractionMissing = 1f - (float)hp.Value / hp.Max;
-                        // Per-level scalar on the fraction-missing.
                         float scalar = wrathLevel switch
                         {
                             2 => 0.20f,
@@ -201,6 +202,17 @@ namespace TheWaningBorder.Systems.Combat
                             _ => 0.10f,
                         };
                         final = (int)(final * (1f + fractionMissing * scalar));
+                    }
+
+                    if (em.HasComponent<InBloodPool>(attacker))
+                    {
+                        float poolMult = wrathLevel switch
+                        {
+                            2 => 1.15f,
+                            3 => 1.20f,
+                            _ => 1.10f,
+                        };
+                        final = (int)(final * poolMult);
                     }
                 }
             }
