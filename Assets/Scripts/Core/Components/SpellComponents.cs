@@ -190,3 +190,29 @@ public struct BloodPool : IComponentData
 /// is no longer in a pool.
 /// </summary>
 public struct InBloodPool : IComponentData { }
+
+/// <summary>
+/// Per-unit buffer recording which sect Unit-lever bumps have already
+/// been applied to this unit. <see cref="SectIndex"/> is the [0..11]
+/// index into <see cref="TheWaningBorder.Economy.SectConfig.AllSectIds"/>;
+/// <see cref="Level"/> is the lever level applied. SectUnitLeverSystem
+/// reads this to skip already-stamped entries and to compute the diff
+/// when the lever level on the faction rises (task-063 phase 5 + phase 4).
+/// </summary>
+public struct SectUnitLeverApplied : IBufferElementData
+{
+    public byte SectIndex;
+    public byte Level;
+}
+
+/// <summary>
+/// Per-faction-per-sect cooldown tracker for the Active Power lever
+/// (task-063 phase 5). Stamped on the faction bank entity when the
+/// power is fired; SectActivePowerSystem ticks the timer and removes
+/// the component when ready. UI gates the Fire button on absence.
+/// </summary>
+public struct SectActivePowerCooldown : IBufferElementData
+{
+    public byte SectIndex;
+    public float Remaining;
+}
