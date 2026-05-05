@@ -88,6 +88,20 @@ public struct DefaultStancePursuit : IComponentData
 }
 
 /// <summary>
+/// Per-leader latch for the BFME2-style on-arrival formation alignment.
+/// When a battalion's DesiredDestination.Has transitions from 1 → 0, the
+/// alignment pass in BattalionSyncSystem checks for overlap with another
+/// idle battalion and shifts this leader to a clear adjacent spot. Once
+/// shifted (or confirmed clear), AlignedSinceArrival flips to 1 and the
+/// pass skips this leader. Reset to 0 when a new move command lands
+/// (Has flips back to 1).
+/// </summary>
+public struct BattalionAlignmentState : IComponentData
+{
+    public byte AlignedSinceArrival;
+}
+
+/// <summary>
 /// Set on a unit when it takes damage. Records the attacking entity.
 /// Used by TargetingSystem to implement Defensive stance return-fire behavior.
 /// Cleared each frame by TargetingSystem after processing.
