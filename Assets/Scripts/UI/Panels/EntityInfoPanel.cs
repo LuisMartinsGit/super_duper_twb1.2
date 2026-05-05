@@ -248,12 +248,89 @@ namespace TheWaningBorder.UI.Panels
             // Trade lane caravan countdown (Runai Trading Posts)
             DrawTradeLaneCountdown();
 
+            // Veteran rank promotion + Glow Ability (audit fix #1)
+            DrawUnitRankSection();
+
             GUILayout.Space(10);
 
             // Description
             GUILayout.Label(info.Description, _descStyle);
 
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Veteran rank UI for the selected military unit. Shows the current
+        /// rank and a "Promote — N <resource>" button that consumes the
+        /// per-rank cost. At Lv 5 a Glow button replaces the promote.
+        /// (Audit fix #1)
+        /// </summary>
+        private void DrawUnitRankSection()
+        {
+            var entity = UnifiedUIManager.GetFirstSelectedEntity();
+            var em = UnifiedUIManager.GetEntityManager();
+            if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
+            if (!em.HasComponent<UnitTag>(entity)) return;
+
+            var cls = em.GetComponentData<UnitTag>(entity).Class;
+            bool military = cls == UnitClass.Melee
+                         || cls == UnitClass.Ranged
+                         || cls == UnitClass.Siege;
+            if (!military) return;
+
+            // Player must own the unit to promote/cast.
+            if (!em.HasComponent<FactionTag>(entity)) return;
+            if (em.GetComponentData<FactionTag>(entity).Value != GameSettings.LocalPlayerFaction) return;
+
+            byte rank = 1;
+            if (em.HasComponent<UnitRank>(entity))
+                rank = em.GetComponentData<UnitRank>(entity).Value;
+            if (rank < 1) rank = 1;
+
+            GUILayout.Space(5);
+            GUILayout.Label($"Rank: {rank}", Styles.Label);
+
+            if (rank < TheWaningBorder.Economy.UnitRankConfig.MaxRank)
+            {
+                byte target = (byte)(rank + 1);
+                var cost = TheWaningBorder.Economy.UnitRankConfig.CostFor(target);
+                string costLabel = CostLabel(cost);
+                bool canAfford = TheWaningBorder.Economy.FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, cost);
+                GUI.enabled = canAfford;
+                if (GUILayout.Button($"Promote → Lv {target} ({costLabel})", GUILayout.Width(220)))
+                {
+                    TheWaningBorder.Core.Commands.Types.UnitRankCommandHelper.Execute(em, entity);
+                }
+                GUI.enabled = true;
+            }
+            else
+            {
+                // Lv 5 — Glow Ability button.
+                GlowAbilityState glow = default;
+                if (em.HasComponent<GlowAbilityState>(entity))
+                    glow = em.GetComponentData<GlowAbilityState>(entity);
+
+                bool active = glow.ActiveRemaining > 0f;
+                bool ready = !active && glow.CooldownRemaining <= 0f;
+                GUI.enabled = ready;
+                string label = active
+                    ? $"Glow active ({glow.ActiveRemaining:F1}s)"
+                    : (ready ? "Glow Ability" : $"Glow ({glow.CooldownRemaining:F0}s)");
+                if (GUILayout.Button(label, GUILayout.Width(220)))
+                {
+                    TheWaningBorder.Core.Commands.Types.GlowAbilityCommandHelper.Execute(em, entity);
+                }
+                GUI.enabled = true;
+            }
+        }
+
+        private static string CostLabel(in TheWaningBorder.Core.Cost c)
+        {
+            if (c.Glow > 0)      return $"{c.Glow} Glow";
+            if (c.Veilsteel > 0) return $"{c.Veilsteel} Veilsteel";
+            if (c.Crystal > 0)   return $"{c.Crystal} Crystal";
+            if (c.Iron > 0)      return $"{c.Iron} Iron";
+            return $"{c.Supplies} Supplies";
         }
 
         // ═══════════════════════════════════════════════════════════════════════

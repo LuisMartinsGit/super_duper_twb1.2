@@ -29,6 +29,8 @@ namespace TheWaningBorder.Systems.Combat
         private const float GuardReturnThreshold = 2f;
         private const float BattalionDefaultLeash = 25f;
         private const float DefaultMeleeRange = 1.5f;
+        // Default-stance pursuit time cap (spec: pursue 5s outside leash, then return).
+        private const double DefaultPursuitDuration = 5.0;
 
         // Fix #207: spatial-hash cell size for the enemy scan.
         // Cell=20 means a unit with LOS<=20 only visits a 3x3 neighborhood
@@ -385,7 +387,11 @@ namespace TheWaningBorder.Systems.Combat
                     }
                     else if (stance == BattalionStance.Default)
                     {
-                        // Default stance battalion member: check distance from leader's guard point
+                        // Default stance: time-bounded pursuit. Once the unit
+                        // strays beyond the guard leash, give it 5 seconds to
+                        // chase before forcing a return to the guard point.
+                        // Inside the leash, no constraint applies and any
+                        // existing pursuit timer is cleared.
                         var memberData = em.GetComponentData<BattalionMemberData>(entity);
                         if (em.Exists(memberData.Leader) && em.HasComponent<GuardPoint>(memberData.Leader))
                         {
@@ -395,8 +401,33 @@ namespace TheWaningBorder.Systems.Combat
                                 var distFromLeaderGuard = DistXZ(myPos, leaderGuard.Position);
                                 if (distFromLeaderGuard > BattalionDefaultLeash)
                                 {
-                                    // Too far from leader's guard point — do not acquire target
-                                    continue;
+                                    double now = state.WorldUnmanaged.Time.ElapsedTime;
+                                    if (em.HasComponent<DefaultStancePursuit>(entity))
+                                    {
+                                        var pursuit = em.GetComponentData<DefaultStancePursuit>(entity);
+                                        if (now - pursuit.StartedAt > DefaultPursuitDuration)
+                                        {
+                                            // Chase ran out — return to guard, drop target.
+                                            ecb.SetComponent(entity, new Target { Value = Entity.Null });
+                                            if (em.HasComponent<DesiredDestination>(entity))
+                                                ecb.SetComponent(entity, new DesiredDestination
+                                                    { Position = leaderGuard.Position, Has = 1 });
+                                            else
+                                                ecb.AddComponent(entity, new DesiredDestination
+                                                    { Position = leaderGuard.Position, Has = 1 });
+                                            ecb.RemoveComponent<DefaultStancePursuit>(entity);
+                                            continue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        ecb.AddComponent(entity, new DefaultStancePursuit { StartedAt = now });
+                                    }
+                                }
+                                else if (em.HasComponent<DefaultStancePursuit>(entity))
+                                {
+                                    // Back in leash — fresh 5s on the next chase.
+                                    ecb.RemoveComponent<DefaultStancePursuit>(entity);
                                 }
                             }
                         }
