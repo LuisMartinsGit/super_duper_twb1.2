@@ -525,21 +525,31 @@ namespace TheWaningBorder.Systems.Movement
                         newPos = memberXf.Position + dir * step;
 
                         // Radius-aware passability: don't walk where the
-                        // member's body would overlap an obstacle.
-                        if (passGrid != null && !passGrid.IsPassableForRadius(newPos, memberRadius))
+                        // member's body would overlap an obstacle. Same escape
+                        // hatch as MovementSystem — if the member already
+                        // fails the radius check (spawned adjacent to a
+                        // building, etc.) fall back to the centre-cell check
+                        // so they can walk out of the tight spot.
+                        if (passGrid != null)
                         {
-                            // Blocked — try to path toward leader using flow field instead.
-                            // Earlier missing braces (line ~516) made this fall through to
-                            // `newPos = memberXf.Position` unconditionally, so the
-                            // alt-direction probe was always discarded and stuck members
-                            // never used the formation-member fallback. (task-053 F-2 / MB-2)
-                            float3 ffDir = FlowFieldMovementHelper.GetDirection(
-                                memberXf.Position, leaderPos, dir, dist);
-                            float3 altPos = memberXf.Position + ffDir * step;
-                            if (passGrid.IsPassableForRadius(altPos, memberRadius))
-                                newPos = altPos;
-                            else
-                                newPos = memberXf.Position; // truly stuck, don't move
+                            bool currentlyClear = memberRadius <= 0f
+                                || passGrid.IsPassableForRadius(memberXf.Position, memberRadius);
+                            bool nextOk = currentlyClear
+                                ? passGrid.IsPassableForRadius(newPos, memberRadius)
+                                : passGrid.IsPassable(newPos);
+                            if (!nextOk)
+                            {
+                                float3 ffDir = FlowFieldMovementHelper.GetDirection(
+                                    memberXf.Position, leaderPos, dir, dist);
+                                float3 altPos = memberXf.Position + ffDir * step;
+                                bool altOk = currentlyClear
+                                    ? passGrid.IsPassableForRadius(altPos, memberRadius)
+                                    : passGrid.IsPassable(altPos);
+                                if (altOk)
+                                    newPos = altPos;
+                                else
+                                    newPos = memberXf.Position; // truly stuck, don't move
+                            }
                         }
                     }
 
