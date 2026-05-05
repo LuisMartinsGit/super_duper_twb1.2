@@ -45,6 +45,13 @@
       "note": "Final compile sweep clean. No remaining ReligionPoints (old struct), Sect_<old IDs>, FactionSectState.Instance, or SectEffectSystem.* references in code; only breadcrumb comments pointing forward to Phase 2."
     },
     {
+      "ts": "2026-05-05",
+      "type": "phase_started",
+      "phase": 2,
+      "title": "Phase 2a — chapel registration + adoption wiring",
+      "note": "BuildingFactory now dispatches all 12 Chapel_Sect_<id> IDs to a uniform CreateChapel/ECB creator that stamps ChapelTag.SectId. BuildingCosts seeds the 12 chapel cost entries at static-init via SectConfig.AllSectIds. TempleChapelBuildSystem's slot-completion loop now spawns the chapel entity (BuildingFactory.Create) and calls SectAdoption.OnChapelCompleted (deducts adoption RP, sets PerSectState.AdoptedAtAge, fires SectAdopted event, grants Lv I on every lever). On adoption failure (e.g. RP gone between click and completion) the chapel entity is destroyed. SectAdoptionPanel rewritten as a working IMGUI section: shows RP balance, lists the 12 sects, Adopt button per non-adopted sect (deducts material cost at click time, slot-claim queues build), 4 lever-upgrade buttons per adopted sect (P/B/U/A) with cost + age-gating colour-coding via SectAdoption.CanUpgradeLever. Wired into EntityActionPanel's temple panel."
+    },
+    {
       "ts": "2026-05-04",
       "type": "decision",
       "description": "Implementation: SpellCastSystem reduced to a thin shell. The 12 old ApplyXxx methods were each bound to a deleted spell ID (SpellDatabase is now empty). Kept the targeting state machine (BeginTargeting / CancelTargeting / CastAtPosition / CastSpell) so Phase 2's Active Power lever dispatcher can plug into the existing call sites. ApplySpellEffect is a stub that returns false."

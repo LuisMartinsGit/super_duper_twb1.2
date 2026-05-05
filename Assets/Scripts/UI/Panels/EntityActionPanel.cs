@@ -468,12 +468,18 @@ namespace TheWaningBorder.UI.Panels
             // ── Temple Level-Up Section ──
             DrawTempleLevelUpSection(entity);
 
-            // task-063 phase 1: DrawTempleChapelSlots / DrawSectChoiceMenu
-            // removed — they referenced deleted SectConfig APIs
-            // (GetDisplayName, GetPassiveDescription, AlanthorSects, ...)
-            // and the removed FactionSectState.TryAdopt path. Phase 2 will
-            // rebuild this against SectAdoption.OnChapelCompleted +
-            // SectAdoptionState. Until then, the slot UI is silent.
+            // ── Sect adoption + lever upgrades (task-063 phase 2a) ──
+            // SectAdoptionPanel renders the 12-sect roster, RP balance, and
+            // chapel-build / lever-upgrade buttons. Adoption RP is deducted
+            // when the chapel-slot build completes (TempleChapelBuildSystem
+            // calls SectAdoption.OnChapelCompleted), not at click time.
+            {
+                var em = UnifiedUIManager.GetEntityManager();
+                Faction faction = GameSettings.LocalPlayerFaction;
+                if (em.HasComponent<FactionTag>(entity))
+                    faction = em.GetComponentData<FactionTag>(entity).Value;
+                SectAdoptionPanel.Draw(faction, entity);
+            }
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();

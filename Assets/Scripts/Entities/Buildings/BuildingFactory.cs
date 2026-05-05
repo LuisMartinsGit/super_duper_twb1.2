@@ -65,10 +65,11 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Tower" => CreateFeraldisTotemTower(em, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
                 "Feraldis_Foundry" => CreateFeraldisFoundry(em, position, faction),
-                // task-063 phase 1: the 12 old Chapel_Sect_<OldSectId> entries
-                // and the 12 old Sect_<UniqueBuilding> creators have been
-                // removed with the old sect roster. The new 12 Chapel_<NewSectId>
-                // entries land in a separate task — explicitly out of scope here.
+                // task-063 phase 2a: 12 chapel building IDs (Chapel_Sect_Antiquity
+                // .. Chapel_Sect_Wrath) all dispatch to a single uniform creator
+                // that stamps ChapelTag.SectId from the chapel-id suffix. Visual
+                // differentiation per sect lands in a Phase 5 polish pass.
+                _ when SectConfig.IsChapelId(buildingId) => CreateChapel(em, position, faction, SectConfig.SectIdFromChapelId(buildingId)),
                 _ => CreateDefault(em, buildingId, position, faction)
             };
 
@@ -120,7 +121,9 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Tower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
                 "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
                 "Feraldis_Foundry" => CreateFeraldisFoundryECB(ecb, position, faction),
-                // task-063 phase 1: old chapel + sect-unique-building IDs removed.
+                // task-063 phase 2a: chapels dispatch to a single uniform ECB creator
+                // (parameterised by sect id parsed from the chapel building id).
+                _ when SectConfig.IsChapelId(buildingId) => CreateChapelECB(ecb, position, faction, SectConfig.SectIdFromChapelId(buildingId)),
                 _ => CreateDefault(ecb, buildingId, position, faction)
             };
 
@@ -175,8 +178,9 @@ namespace TheWaningBorder.Entities
                 "Runai_Vault" => 365,
                 "Runai_VeilsteelFoundry" => 366,
                 "Feraldis_Foundry" => 367,
-                // task-063 phase 1: old Chapel_Sect_<OldSectId> + Sect_<UniqueBuilding>
-                // PIDs (390-401, 410-421) removed. New chapel PIDs land in a follow-up.
+                // task-063 phase 2a: all 12 new chapels share PID 390 for now.
+                // Phase 5 polish will introduce per-sect visual variation.
+                _ when SectConfig.IsChapelId(buildingId) => 390,
                 _ => 100
             };
         }
@@ -428,6 +432,87 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Create a sect chapel inside a Temple slot. task-063 phase 2a:
+        /// uniform creator for all 12 chapels (Chapel_Sect_Antiquity ..
+        /// Chapel_Sect_Wrath) — visual differentiation per sect lands in
+        /// Phase 5. The chapel acts as the *adoption marker* for its sect:
+        /// TempleChapelBuildSystem fires SectAdoption.OnChapelCompleted on
+        /// completion which credits the sect to the faction's
+        /// SectAdoptionState (and deducts adoption RP).
+        /// </summary>
+        private static Entity CreateChapel(EntityManager em, float3 position, Faction faction, string sectId)
+        {
+            const int ChapelPresentationId = 390; // shared mesh slot — Phase 5 will introduce per-sect variation
+            const float Hp = 350f;
+            const float Los = 8f;
+
+            var entity = em.CreateEntity(
+                typeof(PresentationId),
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(Health),
+                typeof(LineOfSight),
+                typeof(Radius),
+                typeof(BuildingSize),
+                typeof(ChapelTag)
+            );
+
+            em.SetComponentData(entity, new PresentationId { Id = ChapelPresentationId });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new Health { Value = (int)Hp, Max = (int)Hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = Los });
+
+            // BuildingSizeConfig already returns (2, 2) for any Chapel_* via the
+            // wildcard prefix branch — re-use that lookup for footprint + radius.
+            var gridSize = BuildingSizeConfig.GetSize("Chapel_Sect_Antiquity"); // any chapel id matches the wildcard
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+
+            em.SetComponentData(entity, new ChapelTag
+            {
+                SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
+            });
+
+            // Combat type tags
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
+            return entity;
+        }
+
+        /// <summary>ECB-deferred variant of <see cref="CreateChapel"/>.</summary>
+        private static Entity CreateChapelECB(EntityCommandBuffer ecb, float3 position, Faction faction, string sectId)
+        {
+            const int ChapelPresentationId = 390;
+            const float Hp = 350f;
+            const float Los = 8f;
+
+            var entity = ecb.CreateEntity();
+
+            ecb.AddComponent(entity, new PresentationId { Id = ChapelPresentationId });
+            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            ecb.AddComponent(entity, new FactionTag { Value = faction });
+            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            ecb.AddComponent(entity, new Health { Value = (int)Hp, Max = (int)Hp });
+            ecb.AddComponent(entity, new LineOfSight { Radius = Los });
+
+            var gridSize = BuildingSizeConfig.GetSize("Chapel_Sect_Antiquity");
+            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+
+            ecb.AddComponent(entity, new ChapelTag
+            {
+                SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
+            });
+
+            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
