@@ -25,10 +25,17 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SectRenewalAutoRepairSystem : ISystem
     {
-        // Lv I tuning. Phase 4: 25% / 40% per minute for Lv II / Lv III.
-        private const float RepairRatePerMinute = 0.12f;            // 12% of MaxHP per minute
+        // Out-of-combat threshold + tick interval are constant across levels.
+        // Repair-rate is per-level — Phase 4 scales per spec (12/25/40 %/min).
         private const float OutOfCombatThreshold = 5.0f;             // seconds without taking damage
         private const float TickInterval = 0.5f;                     // half-second tick (240 buildings @ 60fps would be wasteful)
+
+        private static float RepairRatePerMinuteFor(byte level) => level switch
+        {
+            2 => 0.25f,
+            3 => 0.40f,
+            _ => 0.12f,
+        };
 
         // Per-system tick accumulator.
         private float _tickTimer;
@@ -49,10 +56,6 @@ namespace TheWaningBorder.Systems.Sect
             var em = state.EntityManager;
             double now = SystemAPI.Time.ElapsedTime;
 
-            // Convert per-minute rate to per-tick HP delta.
-            // tickHp = MaxHP * 0.12 * (effectiveDt / 60).
-            float perTickFraction = RepairRatePerMinute * (effectiveDt / 60f);
-
             foreach (var (health, faction, entity) in SystemAPI
                 .Query<RefRW<Health>, RefRO<FactionTag>>()
                 .WithAll<BuildingTag>()
@@ -62,8 +65,9 @@ namespace TheWaningBorder.Systems.Sect
                 if (health.ValueRO.Value <= 0) continue;
                 if (health.ValueRO.Value >= health.ValueRO.Max) continue;
 
-                if (!SectQuery.IsAdoptedAtLeast(em, faction.ValueRO.Value,
-                        SectConfig.Renewal, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Renewal, SectLeverKind.Passive);
+                if (level == 0) continue;
 
                 // Out-of-combat gate: skip if damaged within the last threshold.
                 if (em.HasComponent<BuildingDamageState>(entity))
@@ -72,7 +76,8 @@ namespace TheWaningBorder.Systems.Sect
                     if (now - dmg.LastDamagedAt < OutOfCombatThreshold) continue;
                 }
 
-                // Tick repair. Round up so a low-Max building still gets at least 1 HP per tick.
+                // Per-level rate, then convert per-minute → per-tick HP delta.
+                float perTickFraction = RepairRatePerMinuteFor(level) * (effectiveDt / 60f);
                 int delta = (int)math.ceil(health.ValueRO.Max * perTickFraction);
                 if (delta < 1) delta = 1;
 

@@ -25,8 +25,12 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectAntiquityTallySystem : ISystem
     {
-        // Lv I cap. Phase 4: 16 / 25 for Lv II / Lv III.
-        private const byte KillCap = 10;
+        private static byte KillCapFor(byte level) => level switch
+        {
+            2 => 16,
+            3 => 25,
+            _ => 10,
+        };
 
         public void OnCreate(ref SystemState state)
         {
@@ -53,8 +57,9 @@ namespace TheWaningBorder.Systems.Sect
                 if (em.HasComponent<FactionTag>(entity)
                     && em.GetComponentData<FactionTag>(entity).Value == killerFaction) continue;
 
-                if (!SectQuery.IsAdoptedAtLeast(em, killerFaction,
-                        SectConfig.Antiquity, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, killerFaction,
+                    SectConfig.Antiquity, SectLeverKind.Passive);
+                if (level == 0) continue;
 
                 var victimClass = victimUnit.ValueRO.Class;
 
@@ -63,23 +68,23 @@ namespace TheWaningBorder.Systems.Sect
                     em.AddComponentData(killer, new AntiquityKills());
 
                 var kills = em.GetComponentData<AntiquityKills>(killer);
-                Increment(ref kills, victimClass);
+                Increment(ref kills, victimClass, KillCapFor(level));
                 em.SetComponentData(killer, kills);
             }
         }
 
-        private static void Increment(ref AntiquityKills k, UnitClass cls)
+        private static void Increment(ref AntiquityKills k, UnitClass cls, byte cap)
         {
             switch (cls)
             {
-                case UnitClass.Melee:   if (k.Melee   < KillCap) k.Melee++;   break;
-                case UnitClass.Ranged:  if (k.Ranged  < KillCap) k.Ranged++;  break;
-                case UnitClass.Siege:   if (k.Siege   < KillCap) k.Siege++;   break;
-                case UnitClass.Support: if (k.Support < KillCap) k.Support++; break;
-                case UnitClass.Magic:   if (k.Magic   < KillCap) k.Magic++;   break;
-                case UnitClass.Economy: if (k.Economy < KillCap) k.Economy++; break;
-                case UnitClass.Miner:   if (k.Miner   < KillCap) k.Miner++;   break;
-                case UnitClass.Scout:   if (k.Scout   < KillCap) k.Scout++;   break;
+                case UnitClass.Melee:   if (k.Melee   < cap) k.Melee++;   break;
+                case UnitClass.Ranged:  if (k.Ranged  < cap) k.Ranged++;  break;
+                case UnitClass.Siege:   if (k.Siege   < cap) k.Siege++;   break;
+                case UnitClass.Support: if (k.Support < cap) k.Support++; break;
+                case UnitClass.Magic:   if (k.Magic   < cap) k.Magic++;   break;
+                case UnitClass.Economy: if (k.Economy < cap) k.Economy++; break;
+                case UnitClass.Miner:   if (k.Miner   < cap) k.Miner++;   break;
+                case UnitClass.Scout:   if (k.Scout   < cap) k.Scout++;   break;
             }
         }
 

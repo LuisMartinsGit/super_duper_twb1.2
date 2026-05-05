@@ -20,8 +20,14 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SectFortitudeHpSystem : ISystem
     {
-        // Lv I factor. Phase 4: 1.25× / 1.40× for Lv II / Lv III.
-        private const float HpMultiplierLv1 = 1.12f;
+        // Per-level HP multiplier. Phase 4 lever upgrades read AppliedLevel
+        // and apply the diff (factorAt(new) / factorAt(old)) — see below.
+        public static float MultiplierFor(byte level) => level switch
+        {
+            2 => 1.25f,
+            3 => 1.40f,
+            _ => 1.12f,
+        };
 
         public void OnCreate(ref SystemState state)
         {
@@ -32,7 +38,9 @@ namespace TheWaningBorder.Systems.Sect
         {
             var em = state.EntityManager;
 
-            var pendingStamps = new NativeList<Entity>(8, Allocator.Temp);
+            // Pass 1: brand-new walls/towers that haven't received any HP bonus yet.
+            var pendingNewStamps = new NativeList<Entity>(8, Allocator.Temp);
+            var pendingNewLevels = new NativeList<byte>(8, Allocator.Temp);
 
             foreach (var (health, faction, entity) in SystemAPI
                 .Query<RefRW<Health>, RefRO<FactionTag>>()
@@ -50,24 +58,47 @@ namespace TheWaningBorder.Systems.Sect
                  || em.HasComponent<TotemTowerTag>(entity);
                 if (!isWallOrTower) continue;
 
-                if (!SectQuery.IsAdoptedAtLeast(em, faction.ValueRO.Value,
-                        SectConfig.Fortitude, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Fortitude, SectLeverKind.Passive);
+                if (level == 0) continue;
 
+                float mult = MultiplierFor(level);
                 var hp = health.ValueRO;
-                int newMax = (int)(hp.Max * HpMultiplierLv1);
-                int newVal = (int)(hp.Value * HpMultiplierLv1);
-                health.ValueRW.Max = newMax;
-                health.ValueRW.Value = newVal;
+                health.ValueRW.Max   = (int)(hp.Max   * mult);
+                health.ValueRW.Value = (int)(hp.Value * mult);
 
-                pendingStamps.Add(entity);
+                pendingNewStamps.Add(entity);
+                pendingNewLevels.Add(level);
             }
 
-            for (int i = 0; i < pendingStamps.Length; i++)
+            for (int i = 0; i < pendingNewStamps.Length; i++)
             {
-                if (em.Exists(pendingStamps[i]))
-                    em.AddComponentData(pendingStamps[i], new FortitudeHpApplied { AppliedLevel = 1 });
+                if (em.Exists(pendingNewStamps[i]))
+                    em.AddComponentData(pendingNewStamps[i],
+                        new FortitudeHpApplied { AppliedLevel = pendingNewLevels[i] });
             }
-            pendingStamps.Dispose();
+            pendingNewStamps.Dispose();
+            pendingNewLevels.Dispose();
+
+            // Pass 2: already-stamped buildings whose faction's lever level
+            // has since increased. Apply the diff factor to bring them up
+            // to date and bump AppliedLevel. (task-063 phase 4)
+            foreach (var (health, faction, applied, entity) in SystemAPI
+                .Query<RefRW<Health>, RefRO<FactionTag>, RefRW<FortitudeHpApplied>>()
+                .WithAll<BuildingTag>()
+                .WithEntityAccess())
+            {
+                byte currentLevel = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Fortitude, SectLeverKind.Passive);
+                byte appliedLevel = applied.ValueRO.AppliedLevel;
+                if (currentLevel <= appliedLevel) continue;
+
+                float diffMult = MultiplierFor(currentLevel) / MultiplierFor(appliedLevel);
+                var hp = health.ValueRO;
+                health.ValueRW.Max   = (int)(hp.Max   * diffMult);
+                health.ValueRW.Value = (int)(hp.Value * diffMult);
+                applied.ValueRW.AppliedLevel = currentLevel;
+            }
         }
     }
 }

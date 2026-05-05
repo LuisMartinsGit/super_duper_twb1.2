@@ -27,10 +27,16 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SectSilenceVigilSystem : ISystem
     {
-        // Lv I tuning. Phase 4: faster warm-up + higher cap for Lv II / Lv III.
-        private const float WarmupSeconds = 2f;
-        private const float RampSeconds   = 4f;   // ramp window AFTER warm-up
-        private const int   ArmorCap      = 6;
+        // Per-level tuning: warm-up shrinks and the cap grows with the lever.
+        private static void GetTuning(byte level, out float warmup, out float ramp, out int cap)
+        {
+            switch (level)
+            {
+                case 2:  warmup = 1.0f; ramp = 3.0f; cap = 10; return;
+                case 3:  warmup = 0.5f; ramp = 2.5f; cap = 15; return;
+                default: warmup = 2.0f; ramp = 4.0f; cap = 6;  return;
+            }
+        }
 
         public void OnCreate(ref SystemState state)
         {
@@ -50,8 +56,10 @@ namespace TheWaningBorder.Systems.Sect
                 .WithAll<HoldPositionTag, UnitTag>()
                 .WithEntityAccess())
             {
-                if (!SectQuery.IsAdoptedAtLeast(em, faction.ValueRO.Value,
-                        SectConfig.Silence, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, faction.ValueRO.Value,
+                    SectConfig.Silence, SectLeverKind.Passive);
+                if (level == 0) continue;
+                GetTuning(level, out float warmup, out float ramp, out int cap);
 
                 float t;
                 if (em.HasComponent<SilenceVigilState>(entity))
@@ -68,12 +76,12 @@ namespace TheWaningBorder.Systems.Sect
                 }
 
                 int bonus;
-                if (t < WarmupSeconds) bonus = 0;
-                else if (t >= WarmupSeconds + RampSeconds) bonus = ArmorCap;
+                if (t < warmup) bonus = 0;
+                else if (t >= warmup + ramp) bonus = cap;
                 else
                 {
-                    float fraction = (t - WarmupSeconds) / RampSeconds;
-                    bonus = (int)(fraction * ArmorCap);
+                    float fraction = (t - warmup) / ramp;
+                    bonus = (int)(fraction * cap);
                 }
 
                 if (em.HasComponent<SilenceVigilArmor>(entity))

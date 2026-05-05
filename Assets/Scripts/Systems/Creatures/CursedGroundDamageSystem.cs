@@ -74,16 +74,25 @@ namespace TheWaningBorder.Systems.Creatures
                         // Apply one tick of damage (DPS * tick interval)
                         int damage = math.max(1, (int)(groundDPS[i].DamagePerSecond * DamageTickInterval));
 
-                        // Reclamation Lv I "Curse-Hardened" passive: Reclamation-
-                        // adopted factions take -25% from Crystal-Curse PvE.
+                        // Reclamation "Curse-Hardened" passive: Reclamation-
+                        // adopted factions take -25/35/50% from Crystal-Curse PvE.
                         // Mirrors the combat-path reduction in CombatDamageHelper.
-                        // (task-063 phase 2d)
-                        if (em.HasComponent<FactionTag>(entity)
-                            && SectQuery.IsAdoptedAtLeast(em,
-                                em.GetComponentData<FactionTag>(entity).Value,
-                                SectConfig.Reclamation, SectLeverKind.Passive))
+                        // (task-063 phase 2d / phase 4 scaling)
+                        if (em.HasComponent<FactionTag>(entity))
                         {
-                            damage = math.max(1, (int)(damage * 0.75f));
+                            byte reclLevel = SectQuery.LevelOf(em,
+                                em.GetComponentData<FactionTag>(entity).Value,
+                                SectConfig.Reclamation, SectLeverKind.Passive);
+                            if (reclLevel > 0)
+                            {
+                                float reclMult = reclLevel switch
+                                {
+                                    2 => 0.65f,
+                                    3 => 0.50f,
+                                    _ => 0.75f,
+                                };
+                                damage = math.max(1, (int)(damage * reclMult));
+                            }
                         }
 
                         ref var hp = ref health.ValueRW;
