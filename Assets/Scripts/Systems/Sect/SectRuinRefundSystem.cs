@@ -31,8 +31,13 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectRuinRefundSystem : ISystem
     {
-        // Lv I refund factor. Phase 4: 0.18 / 0.25 for Lv II / Lv III.
-        private const float RefundFraction = 0.12f;
+        // Per-level refund fraction.
+        private static float RefundFractionFor(byte level) => level switch
+        {
+            2 => 0.18f,
+            3 => 0.25f,
+            _ => 0.12f,
+        };
 
         public void OnCreate(ref SystemState state)
         {
@@ -57,19 +62,21 @@ namespace TheWaningBorder.Systems.Sect
                 // Skip own-faction kills (denies refund-farming demolitions).
                 if (killerFaction == victimFaction) continue;
 
-                if (!SectQuery.IsAdoptedAtLeast(em, killerFaction,
-                        SectConfig.Ruin, SectLeverKind.Passive)) continue;
+                byte level = SectQuery.LevelOf(em, killerFaction,
+                    SectConfig.Ruin, SectLeverKind.Passive);
+                if (level == 0) continue;
 
                 string buildingId = BuildCosts.IdFromEntity(em, entity);
                 if (buildingId == null) continue;
                 if (!BuildCosts.TryGet(buildingId, out var cost)) continue;
 
+                float frac = RefundFractionFor(level);
                 var refund = Cost.Of(
-                    supplies:  (int)(cost.Supplies  * RefundFraction),
-                    iron:      (int)(cost.Iron      * RefundFraction),
-                    crystal:   (int)(cost.Crystal   * RefundFraction),
-                    veilsteel: (int)(cost.Veilsteel * RefundFraction),
-                    glow:      (int)(cost.Glow      * RefundFraction)
+                    supplies:  (int)(cost.Supplies  * frac),
+                    iron:      (int)(cost.Iron      * frac),
+                    crystal:   (int)(cost.Crystal   * frac),
+                    veilsteel: (int)(cost.Veilsteel * frac),
+                    glow:      (int)(cost.Glow      * frac)
                 );
 
                 FactionEconomy.Add(em, killerFaction, refund);

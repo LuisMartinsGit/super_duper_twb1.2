@@ -26,10 +26,25 @@ namespace TheWaningBorder.Economy
     public static class WarSectCostHelper
     {
         /// <summary>
-        /// Lv I cost multiplier: 0.95 (i.e. -5%). Phase 4 will read SectQuery.LevelOf
-        /// and pick the right per-level multiplier.
+        /// Per-level cost multiplier — Lv I/II/III give -5/-10/-15%.
         /// </summary>
-        private const float CostMultiplierLv1 = 0.95f;
+        public static float CostMultiplierFor(byte level) => level switch
+        {
+            2 => 0.90f,
+            3 => 0.85f,
+            _ => 0.95f,
+        };
+
+        /// <summary>
+        /// Per-level training-time multiplier — Lv I/II/III give -15/-25/-35%.
+        /// Read by TrainingSystem when computing the per-unit train cooldown.
+        /// </summary>
+        public static float TrainTimeMultiplierFor(byte level) => level switch
+        {
+            2 => 0.75f,
+            3 => 0.65f,
+            _ => 0.85f,
+        };
 
         /// <summary>
         /// Returns the cost the faction should be charged for training
@@ -40,9 +55,9 @@ namespace TheWaningBorder.Economy
         public static Cost MilitaryDiscount(EntityManager em, Faction faction, string unitId, in Cost baseCost)
         {
             if (!IsMilitaryUnit(unitId)) return baseCost;
-            if (!SectQuery.IsAdoptedAtLeast(em, faction,
-                    SectConfig.War, SectLeverKind.Passive)) return baseCost;
-            return Scale(baseCost, CostMultiplierLv1);
+            byte level = SectQuery.LevelOf(em, faction, SectConfig.War, SectLeverKind.Passive);
+            if (level == 0) return baseCost;
+            return Scale(baseCost, CostMultiplierFor(level));
         }
 
         /// <summary>

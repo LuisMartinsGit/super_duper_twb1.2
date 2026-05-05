@@ -122,58 +122,86 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
-            // Ruin Lv I "Profane Hands" passive: Ruin-adopted attackers deal
-            // +25% damage to enemy buildings. The 12% cost-refund-on-destruction
-            // half lives in SectRuinRefundSystem. Friendly-fire on own buildings
-            // is rare but explicitly excluded — the bonus only applies when
-            // attacker faction != target faction. Phase 4 scales the multiplier
-            // to 1.40× / 1.60× for Lv II / Lv III. (task-063 phase 2d)
+            // Ruin "Profane Hands": Ruin-adopted attackers deal +25/40/60%
+            // damage to enemy buildings. Refund-on-destroy half lives in
+            // SectRuinRefundSystem. Friendly fire is excluded. (task-063
+            // phase 2d / phase 4 scaling)
             if (em.HasComponent<BuildingTag>(target)
                 && em.HasComponent<FactionTag>(attacker)
                 && em.HasComponent<FactionTag>(target))
             {
                 var atkFac = em.GetComponentData<FactionTag>(attacker).Value;
                 var tgtFac = em.GetComponentData<FactionTag>(target).Value;
-                if (atkFac != tgtFac
-                    && SectQuery.IsAdoptedAtLeast(em, atkFac,
-                        SectConfig.Ruin, SectLeverKind.Passive))
+                if (atkFac != tgtFac)
                 {
-                    final = (int)(final * 1.25f);
+                    byte ruinLevel = SectQuery.LevelOf(em, atkFac,
+                        SectConfig.Ruin, SectLeverKind.Passive);
+                    if (ruinLevel > 0)
+                    {
+                        float ruinMult = ruinLevel switch
+                        {
+                            2 => 1.40f,
+                            3 => 1.60f,
+                            _ => 1.25f,
+                        };
+                        final = (int)(final * ruinMult);
+                    }
                 }
             }
 
-            // Antiquity Lv I "Tally of the Lost" passive: +1% per logged kill
-            // of the *target's* UnitClass on this attacker (capped at +10% per
-            // class — the cap lives in SectAntiquityTallySystem). Phase 4
-            // raises both the per-kill bonus and the cap. (task-063 phase 2e)
+            // Antiquity "Tally of the Lost": +N% per logged kill of the
+            // target's UnitClass; per-kill bonus scales with lever level.
+            // (task-063 phase 2e / phase 4 scaling)
             if (em.HasComponent<AntiquityKills>(attacker)
-                && em.HasComponent<UnitTag>(target))
+                && em.HasComponent<UnitTag>(target)
+                && em.HasComponent<FactionTag>(attacker))
             {
-                var kills = em.GetComponentData<AntiquityKills>(attacker);
-                var tgtClass = em.GetComponentData<UnitTag>(target).Class;
-                byte n = SectAntiquityTallySystem.KillsAgainst(in kills, tgtClass);
-                if (n > 0)
-                    final = (int)(final * (1f + 0.01f * n));
+                byte antiqLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(attacker).Value,
+                    SectConfig.Antiquity, SectLeverKind.Passive);
+                if (antiqLevel > 0)
+                {
+                    var kills = em.GetComponentData<AntiquityKills>(attacker);
+                    var tgtClass = em.GetComponentData<UnitTag>(target).Class;
+                    byte n = SectAntiquityTallySystem.KillsAgainst(in kills, tgtClass);
+                    if (n > 0)
+                    {
+                        float perKill = antiqLevel switch
+                        {
+                            2 => 0.015f,
+                            3 => 0.020f,
+                            _ => 0.010f,
+                        };
+                        final = (int)(final * (1f + perKill * n));
+                    }
+                }
             }
 
-            // Wrath Lv I "Spite of the Forsaken" passive: attacker deals
-            // +0.5% damage per 5% HP missing (max +9.5% at 1 HP). The blood-
-            // pool half (+10% in pools at Lv I) lives behind Phase 3 and is
-            // not applied here. Phase 4 scales the per-stack bonus to 1% / 1.5%
-            // for Lv II / Lv III. (task-063 phase 2c)
+            // Wrath "Spite of the Forsaken": +N% per 5% HP missing on the
+            // attacker. Lv I 0.5% per 5% (max +9.5%). Lv II 1% (max +19%).
+            // Lv III 1.5% (max +28.5%). Blood-pool half lives in Phase 3.
+            // (task-063 phase 2c / phase 4 scaling)
             if (em.HasComponent<FactionTag>(attacker)
-                && em.HasComponent<Health>(attacker)
-                && SectQuery.IsAdoptedAtLeast(em,
-                    em.GetComponentData<FactionTag>(attacker).Value,
-                    SectConfig.Wrath, SectLeverKind.Passive))
+                && em.HasComponent<Health>(attacker))
             {
-                var hp = em.GetComponentData<Health>(attacker);
-                if (hp.Max > 0 && hp.Value < hp.Max)
+                byte wrathLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(attacker).Value,
+                    SectConfig.Wrath, SectLeverKind.Passive);
+                if (wrathLevel > 0)
                 {
-                    float fractionMissing = 1f - (float)hp.Value / hp.Max;
-                    // 0.5% per 5% missing == 0.1× the missing fraction.
-                    float bonus = fractionMissing * 0.10f;
-                    final = (int)(final * (1f + bonus));
+                    var hp = em.GetComponentData<Health>(attacker);
+                    if (hp.Max > 0 && hp.Value < hp.Max)
+                    {
+                        float fractionMissing = 1f - (float)hp.Value / hp.Max;
+                        // Per-level scalar on the fraction-missing.
+                        float scalar = wrathLevel switch
+                        {
+                            2 => 0.20f,
+                            3 => 0.30f,
+                            _ => 0.10f,
+                        };
+                        final = (int)(final * (1f + fractionMissing * scalar));
+                    }
                 }
             }
 
@@ -203,21 +231,28 @@ namespace TheWaningBorder.Systems.Combat
                 ecb.RemoveComponent<VoidStrikeBuff>(attacker);
             }
 
-            // Reclamation Lv I "Curse-Hardened" passive (combat half): defender
-            // takes -25% damage from Crystal-faction PvE attackers. Applied last
-            // so the reduction comes off the final post-bonus number — same
-            // intent as a flat resistance. The cursed-ground DoT half is hooked
-            // separately in CursedGroundDamageSystem (it bypasses this helper).
-            // Phase 4 scales reduction to 35% / 50% for Lv II / Lv III.
-            // (task-063 phase 2d)
+            // Reclamation "Curse-Hardened" (combat half): defender takes -25/35/50%
+            // damage from Crystal-faction PvE attackers. Applied last so the
+            // reduction comes off the final post-bonus number — same intent as
+            // a flat resistance. The cursed-ground DoT half is in
+            // CursedGroundDamageSystem. (task-063 phase 2d / phase 4 scaling)
             if (em.HasComponent<CrystalTag>(attacker)
-                && em.HasComponent<FactionTag>(target)
-                && SectQuery.IsAdoptedAtLeast(em,
-                    em.GetComponentData<FactionTag>(target).Value,
-                    SectConfig.Reclamation, SectLeverKind.Passive))
+                && em.HasComponent<FactionTag>(target))
             {
-                final = (int)(final * 0.75f);
-                if (final < 1) final = 1;
+                byte reclLevel = SectQuery.LevelOf(em,
+                    em.GetComponentData<FactionTag>(target).Value,
+                    SectConfig.Reclamation, SectLeverKind.Passive);
+                if (reclLevel > 0)
+                {
+                    float reclMult = reclLevel switch
+                    {
+                        2 => 0.65f,
+                        3 => 0.50f,
+                        _ => 0.75f,
+                    };
+                    final = (int)(final * reclMult);
+                    if (final < 1) final = 1;
+                }
             }
 
             return final;
