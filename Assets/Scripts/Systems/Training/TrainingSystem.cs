@@ -238,13 +238,9 @@ namespace TheWaningBorder.Systems.Training
             {
                 Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
                 TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
-                // Sect adoption only boosted units alive at adoption time via the
-                // delta system; newly trained units silently started at base
-                // damage forever because ApplySectEffectsToUnit was defined but
-                // never called. Wire it up here, alongside the tech-effects
-                // application that has been correctly wired all along.
-                // (task-057 F-2)
-                SectEffectSystem.ApplySectEffectsToUnit(em, leader, faction);
+                // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed
+                // with the old multiplier bridge. Phase 2's per-sect, per-lever
+                // dispatchers will reintroduce on-spawn sect effects.
 
                 // Rally point handling for leader
                 if (hasRally)
@@ -261,8 +257,7 @@ namespace TheWaningBorder.Systems.Training
 
             // Apply all completed tech effects to the newly spawned unit
             TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
-            // Apply sect bonuses (mirror battalion path above). (task-057 F-2)
-            SectEffectSystem.ApplySectEffectsToUnit(em, unit, faction);
+            // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed.
 
             // Issue move command to rally point if one is set
             if (hasRally)

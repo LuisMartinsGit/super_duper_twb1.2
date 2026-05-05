@@ -71,20 +71,10 @@ namespace TheWaningBorder.Systems.Research
         {
             if (TechTreeDB.Instance == null) return;
 
-            // Sect-tech bridge: previously SetTechFlag had zero callers in the
-            // codebase, so all 12 sect technologies were silently inert —
-            // research completed and fired this event, but the sect-flag
-            // multipliers (RegenPerSecond, SpellCooldownReduction, MagicDamage,
-            // WallIncomeFromTech) never applied. Tech*Effects.HasAnyEffect on
-            // sect techs is false because sect bonuses live in FactionSectState
-            // multipliers, not the tech's effects block — so this gate has to
-            // run BEFORE the HasAnyEffect early-return below. (task-057 F-1)
-            if (SectConfig.IsSectTech(techId))
-            {
-                var sectId = SectConfig.GetSectIdForTechId(techId);
-                FactionSectState.Instance?.SetTechFlag(faction, sectId);
-                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
-            }
+            // task-063 phase 1: sect-tech bridge deleted. The redesigned sect
+            // system does not bridge tech research to sects — chapels are the
+            // only adoption mechanism. Old IsSectTech / SetTechFlag /
+            // RecalculateAllPassives chain is gone.
 
             var tech = TechTreeDB.Instance.GetTechnology(techId);
             if (tech == null || tech.effects == null || !tech.effects.HasAnyEffect)

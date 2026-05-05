@@ -82,20 +82,16 @@ namespace TheWaningBorder.Systems.Work
                     em.SetComponentData(hallEntity, lt);
                 }
 
-                // 3. Set FactionEra to 2 and grant RP for temple level 1
+                // 3. Set FactionEra to 2 and award the Age-2 RP bonus.
+                //    task-063: RP economy is sect-adoption-driven now (6/8/10
+                //    per age + ⌊leftover/2⌋ carryover, plus +1 from Shrine).
+                //    Temple existence is no longer a gate on the per-age award.
                 if (FactionEconomy.TryGetBank(em, faction, out var bankEntity))
                 {
                     if (em.HasComponent<FactionEra>(bankEntity))
                         em.SetComponentData(bankEntity, new FactionEra { Value = 2 });
 
-                    // Grant RP for temple level 1 (2 RP) if a temple exists
-                    bool hasTemple = HasFactionTemple(em, faction);
-                    if (hasTemple && em.HasComponent<ReligionPoints>(bankEntity))
-                    {
-                        var rp = em.GetComponentData<ReligionPoints>(bankEntity);
-                        rp.Value += TempleLevelConfig.GetRPGranted(1);
-                        em.SetComponentData(bankEntity, rp);
-                    }
+                    FactionReligionPointsHelper.AwardAgeUp(em, faction, newAge: 2);
                 }
 
                 // 4. Alanthor: start 2-minute self-destruct countdown on all faction GathererHuts

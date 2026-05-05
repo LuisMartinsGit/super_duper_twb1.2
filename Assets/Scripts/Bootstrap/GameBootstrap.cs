@@ -198,8 +198,9 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
             managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
             managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
-            managersGO.AddComponent<FactionSectState>();            // Sect adoption tracking per faction
-            managersGO.AddComponent<SectEffectSystem>();            // Sect passive effect application
+            // Sect system v2 (task-063): adoption state + RP balance live on the
+            // faction bank entity (see EconomyBootstrap), not in managed singletons.
+            // Phase 2 will add the per-sect, per-lever effect dispatchers.
             // Fix #232: duplicate InGameMenuPanel AddComponent removed.
             // The first AddComponent<InGameMenuPanel>() a few lines above
             // already registers the ESC menu; adding it twice attached two

@@ -52,3 +52,22 @@ public struct Invulnerable : IComponentData
 {
     public float TimeRemaining;
 }
+
+/// <summary>
+/// Veneration's "Fervor" passive (task-063 sect Lv I).
+/// On every kill the killer unit gains a stack of +damage / +attack-speed
+/// for a few seconds, refreshed on each kill. The stack count is capped to
+/// keep the multiplier finite. Lv I/II/III scale the per-stack values:
+///   Lv I  : +3% / +3%, 3s, kept by SectVenerationFervorSystem
+///   Lv II : +5% / +5%, 3s   (Phase 4)
+///   Lv III: +5% / +5% / +5% move, 4s  (Phase 4)
+/// Removed by SpellBuffSystem when TimeRemaining hits 0.
+/// </summary>
+public struct VenerationFervor : IComponentData
+{
+    /// <summary>Number of kills currently stacked on this unit.</summary>
+    public byte Stacks;
+
+    /// <summary>Seconds remaining before the stack expires (refreshed each kill).</summary>
+    public float TimeRemaining;
+}

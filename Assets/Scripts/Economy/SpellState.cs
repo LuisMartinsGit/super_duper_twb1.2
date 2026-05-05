@@ -114,20 +114,12 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
-        /// Start a cooldown for a spell. Duration is the base cooldown, modified by
-        /// sect tech SpellCooldownReduction if applicable.
+        /// Start a cooldown for a spell. Duration is the base cooldown.
+        /// task-063 phase 1: SpellCooldownReduction removed with the
+        /// FactionSectState bridge. Phase 2 reintroduces sect cooldown levers.
         /// </summary>
         public void StartCooldown(Faction faction, string spellId, float duration)
         {
-            // Apply spell cooldown reduction from sect techs
-            var sectState = FactionSectState.Instance;
-            if (sectState != null)
-            {
-                var mults = sectState.GetMultipliers(faction);
-                if (mults.SpellCooldownReduction > 0f)
-                    duration *= (1f - mults.SpellCooldownReduction);
-            }
-
             int key = (int)faction;
             if (!_cooldownsByFaction.TryGetValue(key, out var cooldowns))
             {
@@ -139,20 +131,12 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
-        /// Get the effective cooldown for a spell definition (with tech reductions applied).
-        /// Used by UI to show total cooldown time.
+        /// Get the effective cooldown for a spell definition.
+        /// task-063 phase 1: sect cooldown reduction removed.
         /// </summary>
         public float GetEffectiveCooldown(Faction faction, SpellDefinition spell)
         {
-            float cd = spell.Cooldown;
-            var sectState = FactionSectState.Instance;
-            if (sectState != null)
-            {
-                var mults = sectState.GetMultipliers(faction);
-                if (mults.SpellCooldownReduction > 0f)
-                    cd *= (1f - mults.SpellCooldownReduction);
-            }
-            return cd;
+            return spell.Cooldown;
         }
 
         /// <summary>

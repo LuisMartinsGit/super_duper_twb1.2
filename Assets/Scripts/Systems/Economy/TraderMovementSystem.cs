@@ -87,15 +87,10 @@ namespace TheWaningBorder.Systems.Economy
 
                 if (supDep > 0 || cryDep > 0)
                 {
-                    // Apply sect trade income multiplier
-                    float tradeMult = 1f;
-                    if (FactionSectState.Instance != null)
-                        tradeMult = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value).TradeIncome;
-
-                    int finalSup = (int)(supDep * tradeMult);
-                    int finalCry = (int)(cryDep * tradeMult);
-
-                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: finalSup, crystal: finalCry));
+                    // task-063 phase 1: sect TradeIncome multiplier removed with the
+                    // FactionSectState bridge. Baseline 1.0× until Phase 2 reintroduces
+                    // trade-related sect levers.
+                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: supDep, crystal: cryDep));
                 }
 
                 // Keep fractional remainder

@@ -4,6 +4,8 @@
 
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 
@@ -82,43 +84,81 @@ namespace TheWaningBorder.Systems.Buildings // (task-062 Q-47 — was singular)
                 }
             }
 
-            // Process completed slots — chapels are NOT standalone entities anymore,
-            // they are part of the temple. Just log and grant RP.
+            // Process completed slots — task-063 phase 2a wiring:
+            //   1. Spawn the corresponding chapel building entity at the slot
+            //      position (BuildingFactory dispatches Chapel_Sect_<id> through
+            //      its uniform CreateChapel path).
+            //   2. Stash the new chapel entity into the slot record so the UI
+            //      can show "this slot is occupied by chapel X".
+            //   3. Call SectAdoption.OnChapelCompleted to deduct adoption RP,
+            //      mark the sect adopted (PerSectState.AdoptedAtAge), and fire
+            //      the public SectAdopted event.
+            //
+            // Failure modes — if the OnChapelCompleted call returns non-Ok (e.g.
+            // not enough RP, sect already adopted, slots full), the chapel
+            // entity is destroyed and the slot is reset. This shouldn't happen
+            // in practice because the UI gates the chapel-build button via
+            // SectAdoption.CanAdopt, but the guard avoids leaving an orphan
+            // chapel pinned to a slot we couldn't credit.
             for (int i = 0; i < deferredSpawns.Length; i++)
             {
                 var spawn = deferredSpawns[i];
-
                 if (!em.Exists(spawn.Temple)) continue;
                 if (!em.HasBuffer<TempleChapelSlot>(spawn.Temple)) continue;
+                if (!em.HasComponent<FactionTag>(spawn.Temple)) continue;
 
                 var faction = em.GetComponentData<FactionTag>(spawn.Temple).Value;
+                string sectId = spawn.SectId.ToString();
+                if (string.IsNullOrEmpty(sectId)) continue;
+                if (!SectConfig.IsKnownSect(sectId)) continue;
 
-                // Grant +1 RP bonus for chapel construction
-                GrantShrineRPBonus(em, faction);
+                // Compute the chapel's world position from the slot offset.
+                float3 templePos = em.HasComponent<LocalTransform>(spawn.Temple)
+                    ? em.GetComponentData<LocalTransform>(spawn.Temple).Position
+                    : float3.zero;
+                float3 chapelPos = templePos + ComputeSlotOffset(spawn.SlotIndex);
 
-                // Recalculate sect passives since a new chapel is complete
-                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
+                // Spawn the chapel entity through BuildingFactory.
+                string chapelId = SectConfig.ChapelIdFor(sectId);
+                Entity chapelEntity = BuildingFactory.Create(em, chapelId, chapelPos, faction);
 
+                // Credit the sect (deducts adoption RP, fires SectAdopted event).
+                var result = SectAdoption.OnChapelCompleted(em, faction, chapelId);
+                if (result != SectAdoptionResult.Ok)
+                {
+                    // Roll back — destroy the chapel entity so we don't leave an
+                    // orphan that doesn't correspond to an adopted sect.
+                    if (em.Exists(chapelEntity))
+                        em.DestroyEntity(chapelEntity);
+                    UnityEngine.Debug.LogWarning(
+                        $"[TempleChapelBuildSystem] Chapel completion for sect '{sectId}' failed: {result}");
+                    continue;
+                }
+
+                // Stash the chapel entity into the slot record so the UI can
+                // resolve slot → chapel without a separate query.
+                var slots = em.GetBuffer<TempleChapelSlot>(spawn.Temple);
+                if (spawn.SlotIndex >= 0 && spawn.SlotIndex < slots.Length)
+                {
+                    var slot = slots[spawn.SlotIndex];
+                    slot.Chapel = chapelEntity;
+                    slots[spawn.SlotIndex] = slot;
+                }
             }
 
             deferredSpawns.Dispose();
         }
 
         /// <summary>
-        /// Grant +1 Religion Point when a chapel completes construction.
-        /// Mirrors the logic in BuildingConstructionSystem.GrantShrineRPBonus.
+        /// Convert a 0..5 slot index into a world-space offset around the temple.
+        /// 6 slots arranged in a hexagon — front-arc 3 closer, back-arc 3 farther.
+        /// (Phase 5 polish will replace this with proper layout / decals.)
         /// </summary>
-        private void GrantShrineRPBonus(EntityManager em, Faction faction)
+        private static float3 ComputeSlotOffset(int slotIndex)
         {
-            if (FactionEconomy.TryGetBank(em, faction, out var bank))
-            {
-                if (em.HasComponent<ReligionPoints>(bank))
-                {
-                    var rp = em.GetComponentData<ReligionPoints>(bank);
-                    rp.Value += TempleLevelConfig.ShrineBonus;
-                    em.SetComponentData(bank, rp);
-                }
-            }
+            const float Radius = 6f;
+            float angle = (slotIndex / 6f) * math.PI * 2f;
+            return new float3(math.cos(angle) * Radius, 0f, math.sin(angle) * Radius);
         }
     }
 }

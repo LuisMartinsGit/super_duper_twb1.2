@@ -453,23 +453,24 @@ namespace TheWaningBorder.UI
                 return 0;
 
             // Fix #206: cache query across OnGUI frames.
+            // task-063: source of truth is FactionReligionPoints.Balance.
             if (!_rpQueryOwner.Equals(em))
             {
                 _rpQuery = em.CreateEntityQuery(
                     ComponentType.ReadOnly<FactionTag>(),
-                    ComponentType.ReadOnly<ReligionPoints>()
+                    ComponentType.ReadOnly<FactionReligionPoints>()
                 );
                 _rpQueryOwner = em;
             }
 
             using var entities = _rpQuery.ToEntityArray(Allocator.Temp);
             using var tags = _rpQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var rps = _rpQuery.ToComponentDataArray<ReligionPoints>(Allocator.Temp);
+            using var rps = _rpQuery.ToComponentDataArray<FactionReligionPoints>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
                 if (tags[i].Value == faction)
-                    return rps[i].Value;
+                    return rps[i].Balance;
             }
 
             return 0;
@@ -1125,57 +1126,13 @@ namespace TheWaningBorder.UI
         /// </summary>
         private static List<ActionButton> GetChapelTrainingActions(Entity entity, EntityManager em, Faction faction)
         {
-            var actions = new List<ActionButton>();
-            if (!em.HasComponent<ChapelTag>(entity)) return actions;
-
-            var chapelTag = em.GetComponentData<ChapelTag>(entity);
-            string sectId = chapelTag.SectId.ToString();
-            string unitId = SectConfig.GetSectUnitId(sectId);
-            if (string.IsNullOrEmpty(unitId)) return actions;
-
-            Cost available = GetFactionResourcesAsCost(em, faction);
-
-            // Look up the unit in TechTreeDB for cost/stats
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var unit))
-            {
-                var cost = unit.cost != null ? new Cost
-                {
-                    Supplies = unit.cost.Supplies,
-                    Iron = unit.cost.Iron,
-                    Crystal = unit.cost.Crystal
-                } : default;
-
-                string tooltip = BuildTooltip(unit.name, unit.unitClass, cost, available, trainingTime: unit.trainingTime);
-
-                actions.Add(new ActionButton
-                {
-                    Id = unit.id,
-                    Label = unit.name,
-                    Tooltip = tooltip,
-                    Cost = cost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
-                    Icon = null
-                });
-            }
-            else
-            {
-                // Fallback if unit not in TechTreeDB — show with placeholder cost
-                string displayName = SectConfig.GetDisplayName(sectId) + " Unit";
-                var fallbackCost = Cost.Of(supplies: 100, iron: 50);
-                actions.Add(new ActionButton
-                {
-                    Id = unitId,
-                    Label = displayName,
-                    Tooltip = BuildTooltip(displayName, "Sect unit", fallbackCost, available),
-                    Cost = fallbackCost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, fallbackCost),
-                    Icon = null
-                });
-            }
-
-            return actions;
+            // task-063 phase 1: chapel training actions previously read
+            // SectConfig.GetSectUnitId / GetDisplayName for the deleted 12-sect
+            // unique-unit mapping. Phase 2 reintroduces these via the new
+            // sect's "Unit" lever (Lorekeeper / Tinker / Aegis-Bearer / etc.)
+            // backed by SectAdoptionState.UnitLevel.
+            _ = entity; _ = em; _ = faction;
+            return new List<ActionButton>();
         }
 
         /// <summary>
@@ -1215,121 +1172,25 @@ namespace TheWaningBorder.UI
                 });
             }
 
-            // Add training for all adopted sect units (from completed chapel slots)
-            if (em.HasBuffer<TempleChapelSlot>(entity))
-            {
-                var slots = em.GetBuffer<TempleChapelSlot>(entity);
-                var addedUnits = new System.Collections.Generic.HashSet<string>();
-
-                for (int i = 0; i < slots.Length; i++)
-                {
-                    if (slots[i].State != 2) continue; // Only completed chapels
-                    string sectId = slots[i].SectId.ToString();
-                    if (string.IsNullOrEmpty(sectId)) continue;
-
-                    string unitId = SectConfig.GetSectUnitId(sectId);
-                    if (string.IsNullOrEmpty(unitId) || addedUnits.Contains(unitId)) continue;
-                    addedUnits.Add(unitId);
-
-                    if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var unit))
-                    {
-                        var cost = unit.cost != null ? new Cost
-                        {
-                            Supplies = unit.cost.Supplies,
-                            Iron = unit.cost.Iron,
-                            Crystal = unit.cost.Crystal
-                        } : default;
-
-                        actions.Add(new ActionButton
-                        {
-                            Id = unit.id,
-                            Label = unit.name,
-                            Tooltip = BuildTooltip(unit.name, unit.unitClass, cost, available, trainingTime: unit.trainingTime),
-                            Cost = cost,
-                            Enabled = true,
-                            CanAfford = FactionEconomy.CanAfford(em, faction, cost),
-                            Icon = null
-                        });
-                    }
-                }
-            }
+            // task-063 phase 1: temple's "train every adopted sect's unique
+            // unit" loop removed — relied on the deleted SectConfig.GetSectUnitId
+            // mapping for the 12 old sects. Phase 2 reintroduces this against
+            // the new sect roster + each sect's UnitLevel (Lv I/II/III).
 
             return actions;
         }
 
         /// <summary>
         /// Get research actions for a chapel entity.
-        /// Each chapel researches one unique sect technology defined in SectConfig.
+        /// task-063 phase 1: stub. Sect tech research is gone in the redesign —
+        /// each chapel exposes 4 lever-upgrade buttons (Passive / Building /
+        /// Unit / Active Power) instead. Phase 2 reintroduces upgrade
+        /// actions backed by SectAdoption.TryUpgradeLever; not Tech research.
         /// </summary>
         private static List<ActionButton> GetChapelResearchActions(Entity entity, EntityManager em, Faction faction)
         {
-            var actions = new List<ActionButton>();
-            if (!em.HasComponent<ChapelTag>(entity)) return actions;
-
-            var chapelTag = em.GetComponentData<ChapelTag>(entity);
-            string sectId = chapelTag.SectId.ToString();
-            string techId = SectConfig.GetTechId(sectId);
-            if (string.IsNullOrEmpty(techId)) return actions;
-
-            // Skip if already researched
-            var researchState = TheWaningBorder.Economy.FactionResearchState.Instance;
-            if (researchState != null && researchState.HasResearched(faction, techId))
-                return actions;
-
-            Cost available = GetFactionResourcesAsCost(em, faction);
-
-            // Look up the tech in TechTreeDB for cost
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetTechnology(techId, out var tech))
-            {
-                var cost = tech.cost != null ? new Cost
-                {
-                    Supplies = tech.cost.Supplies,
-                    Iron = tech.cost.Iron,
-                    Crystal = tech.cost.Crystal,
-                    Veilsteel = tech.cost.Veilsteel,
-                    Glow = tech.cost.Glow
-                } : default;
-
-                string techName = tech.name ?? SectConfig.GetTechDisplayName(sectId);
-                string tooltip = BuildTooltip(
-                    techName,
-                    SectConfig.GetTechDescription(sectId),
-                    cost,
-                    available,
-                    trainingTime: tech.researchTime
-                );
-
-                actions.Add(new ActionButton
-                {
-                    Id = tech.id,
-                    Label = techName,
-                    Tooltip = tooltip,
-                    Cost = cost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
-                    Icon = null
-                });
-            }
-            else
-            {
-                // Fallback if tech not in TechTreeDB
-                string techName = SectConfig.GetTechDisplayName(sectId);
-                string techDesc = SectConfig.GetTechDescription(sectId);
-                var fallbackCost = Cost.Of(supplies: 150, iron: 75, crystal: 50);
-
-                actions.Add(new ActionButton
-                {
-                    Id = techId,
-                    Label = techName,
-                    Tooltip = BuildTooltip(techName, techDesc, fallbackCost, available),
-                    Cost = fallbackCost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, fallbackCost),
-                    Icon = null
-                });
-            }
-
-            return actions;
+            _ = entity; _ = em; _ = faction;
+            return new List<ActionButton>();
         }
 
         private static string GetBuildingId(Entity entity, EntityManager em)

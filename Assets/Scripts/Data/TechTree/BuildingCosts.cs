@@ -68,25 +68,40 @@ namespace TheWaningBorder.Data
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
 
-            // Sect unique buildings
-            { "Sect_Sanctuary",          Cost.Of(supplies: 200, iron: 60, crystal: 40) },
-            { "Sect_ArchiveTower",       Cost.Of(supplies: 250, iron: 80, crystal: 50) },
-            { "Sect_StoneheartBastion",  Cost.Of(supplies: 300, iron: 100, crystal: 40) },
-            { "Sect_VeilSpire",          Cost.Of(supplies: 180, iron: 40, crystal: 60) },
-            { "Sect_FlameBeacon",        Cost.Of(supplies: 200, iron: 50, crystal: 40) },
-            { "Sect_Strongbox",          Cost.Of(supplies: 350, iron: 80, crystal: 60) },
-            { "Sect_GlassSanctum",       Cost.Of(supplies: 200, iron: 40, crystal: 80) },
-            { "Sect_Tribunal",           Cost.Of(supplies: 250, iron: 70, crystal: 50) },
-            { "Sect_WarPyre",            Cost.Of(supplies: 200, iron: 60, crystal: 30) },
-            { "Sect_DreadTotem",         Cost.Of(supplies: 180, iron: 50, crystal: 30) },
-            { "Sect_BindingPillar",      Cost.Of(supplies: 200, iron: 60, crystal: 50) },
-            { "Sect_PurgeAltar",         Cost.Of(supplies: 250, iron: 80, crystal: 60) },
+            // task-063 phase 2a: chapel resource cost. Adoption RP cost is
+            // separate — handled by SectAdoption.OnChapelCompleted, not here.
+            // The 12 Chapel_Sect_<id> entries are added programmatically below
+            // (one shared cost — Phase 5 polish may differentiate).
+
+            // task-063 phase 1: 12 old Sect_<UniqueBuilding> cost entries
+            // removed alongside their creators. Phase 2 reintroduces sect-
+            // unique buildings (Reliquary / Workshop Eternal / Oath-Stone / etc.)
+            // — costs will land here when those creators are written.
         };
+
+        /// <summary>
+        /// Per-chapel material cost (in addition to RP). Shared across all 12
+        /// chapels in Phase 2a. Values match the rough scale of Era-2 secondary
+        /// buildings — affordability guard is the RP economy, not resources.
+        /// </summary>
+        private static readonly Cost ChapelMaterialCost = Cost.Of(supplies: 200, crystal: 80);
+
+        // Inject the 12 chapel entries into the dictionary at static-init time
+        // so callers can use the same TryGet path as for any other building.
+        static BuildCosts()
+        {
+            for (int i = 0; i < TheWaningBorder.Economy.SectConfig.SectCount; i++)
+            {
+                string sectId   = TheWaningBorder.Economy.SectConfig.IdAt(i);
+                string chapelId = TheWaningBorder.Economy.SectConfig.ChapelIdFor(sectId);
+                _byId[chapelId] = ChapelMaterialCost;
+            }
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // PUBLIC API
         // ═══════════════════════════════════════════════════════════════════════
-        
+
         /// <summary>
         /// Try to get the cost for a building by ID.
         /// </summary>

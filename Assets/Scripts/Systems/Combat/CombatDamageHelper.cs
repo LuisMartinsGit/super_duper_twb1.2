@@ -177,41 +177,8 @@ namespace TheWaningBorder.Systems.Combat
                     ecb.AddComponent(target, new LastAttackerEntity { Value = attacker });
         }
 
-        /// <summary>
-        /// Applies sect panic and control chance debuffs on hit. Uses a
-        /// deterministic hash of (attacker, target) so the outcome is
-        /// reproducible inside a single frame.
-        /// </summary>
-        public static void ApplySectOnHitDebuffs(EntityManager em, EntityCommandBuffer ecb,
-            Entity attacker, Entity target, FactionSectState.SectMultipliers sectMults)
-        {
-            // Panic chance: 50% speed reduction for 2 seconds
-            if (sectMults.PanicChance > 0f)
-            {
-                int hash = attacker.Index ^ (target.Index * 397);
-                if ((math.abs(hash) % 100) < (int)(sectMults.PanicChance * 100f))
-                {
-                    var panic = new SpellDebuff { SpeedReduction = 0.5f, TimeRemaining = 2f };
-                    if (!em.HasComponent<SpellDebuff>(target))
-                        ecb.AddComponent(target, panic);
-                        else
-                            ecb.SetComponent(target, panic);
-                }
-            }
-
-            // Control chance: full root for 1 second
-            if (sectMults.ControlChance > 0f)
-            {
-                int hash = attacker.Index ^ (target.Index * 631);
-                if ((math.abs(hash) % 100) < (int)(sectMults.ControlChance * 100f))
-                {
-                    var root = new SpellDebuff { SpeedReduction = 1.0f, TimeRemaining = 1f };
-                    if (!em.HasComponent<SpellDebuff>(target))
-                        ecb.AddComponent(target, root);
-                        else
-                            ecb.SetComponent(target, root);
-                }
-            }
-        }
+        // task-063 phase 1: ApplySectOnHitDebuffs deleted with the old
+        // FactionSectState multiplier bridge. Panic / control chance are sect
+        // levers that Phase 2 will reintroduce per-sect, per-lever.
     }
 }

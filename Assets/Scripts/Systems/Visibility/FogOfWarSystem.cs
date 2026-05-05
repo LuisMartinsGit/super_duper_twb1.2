@@ -61,13 +61,9 @@ namespace TheWaningBorder.Systems.Visibility
                 // Ensure valid radius
                 float radius = Mathf.Max(0.01f, lineOfSights[i].Radius);
 
-                // Apply sect fog vision bonus
-                if (FactionSectState.Instance != null)
-                {
-                    float bonus = FactionSectState.Instance.GetMultipliers(factions[i].Value).FogVisionBonus;
-                    if (bonus > 0f)
-                        radius *= (1f + bonus);
-                }
+                // task-063 phase 1: sect FogVisionBonus removed with the
+                // FactionSectState bridge. Phase 2 reintroduces vision-related sect
+                // levers (e.g. Witness — All-Seeing).
 
                 // Stamp visibility circle for this unit's faction
                 mgr.Stamp(factions[i].Value, (Vector3)transforms[i].Position, radius);

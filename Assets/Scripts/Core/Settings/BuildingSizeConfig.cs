@@ -60,24 +60,16 @@ public static class BuildingSizeConfig
             "Feraldis_SiegeYard"      => new int2(3, 3),
             "Feraldis_Foundry"        => new int2(3, 3),
 
-            // Chapels (all sects)
+            // Chapels (all sects) — generic Chapel_* prefix wildcard.
+            // Phase 2 chapel creators will fall through this same case.
             _ when buildingId != null && buildingId.StartsWith("Chapel_") => new int2(2, 2),
 
-            // Sect unique buildings (all 2x2)
-            "Sect_Sanctuary"          => new int2(2, 2),
-            "Sect_ArchiveTower"       => new int2(2, 2),
-            "Sect_StoneheartBastion"  => new int2(2, 2),
-            "Sect_VeilSpire"          => new int2(2, 2),
-            "Sect_FlameBeacon"        => new int2(2, 2),
-            "Sect_Strongbox"          => new int2(2, 2),
-            "Sect_GlassSanctum"       => new int2(2, 2),
-            "Sect_Tribunal"           => new int2(2, 2),
-            "Sect_WarPyre"            => new int2(2, 2),
-            "Sect_DreadTotem"         => new int2(2, 2),
-            "Sect_BindingPillar"      => new int2(2, 2),
-            "Sect_PurgeAltar"         => new int2(2, 2),
-            // (No `Sect_*` wildcard — every sect building is explicitly cased
-            // above. The wildcard branch was unreachable. task-062 Q-46)
+            // task-063 phase 1: the 12 old Sect_<UniqueBuilding> entries
+            // (Sanctuary / ArchiveTower / StoneheartBastion / VeilSpire /
+            // FlameBeacon / Strongbox / GlassSanctum / Tribunal / WarPyre /
+            // DreadTotem / BindingPillar / PurgeAltar) were deleted along with
+            // their creators. New sect-unique buildings will be added here in
+            // Phase 2 alongside the new building creators.
 
             // Crystal nodes (natural, not player-built)
             "CrystalMainNode"         => new int2(5, 5),

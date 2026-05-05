@@ -237,8 +237,10 @@ public struct ChapelLargeTag : IComponentData { }
 
 /// <summary>
 /// Chapel building tag — generic across all 12 sects.
-/// SectId identifies which sect this chapel belongs to (e.g., "Sect_Renewal").
-/// Chapels train sect-unique units and research sect technologies.
+/// SectId identifies which sect this chapel belongs to (e.g., "Sect_Antiquity"
+/// in the task-063 roster). Chapels are the adoption marker + per-sect lever
+/// upgrade host. TODO(task-063 phase 2): kept for reuse — Phase 2 chapel
+/// creators will tag chapels with this and call SectAdoption.OnChapelCompleted.
 /// </summary>
 public struct ChapelTag : IComponentData
 {

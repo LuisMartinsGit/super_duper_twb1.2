@@ -194,14 +194,9 @@ namespace TheWaningBorder.Systems.Combat
                     // Accumulate aim time
                     archer.AimTimer += dt;
 
-                    // Effective aim duration reduced by sect ranged accuracy bonus
+                    // task-063 phase 1: sect RangedAccuracy multiplier gone with the old
+                    // multiplier bridge. Phase 2 reintroduces per-sect levers.
                     float effectiveAimRequired = archer.AimTimeRequired;
-                    if (FactionSectState.Instance != null)
-                    {
-                        var aimMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
-                        if (aimMults.RangedAccuracy > 0f)
-                            effectiveAimRequired *= (1f - math.min(aimMults.RangedAccuracy, 0.9f));
-                    }
 
                     // Siege units must face the center of the enemy battalion they are attacking
                     bool isSiege = em.HasComponent<SiegeTag>(entity);
@@ -271,15 +266,8 @@ namespace TheWaningBorder.Systems.Combat
                         // Note: CrystalDebuff on target is applied at projectile impact, not here
                         finalDamage = math.max(1, finalDamage);
 
-                        // Apply sect ranged damage and damage-vs-crystal multipliers
-                        if (FactionSectState.Instance != null)
-                        {
-                            var rMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
-                            finalDamage = (int)(finalDamage * rMults.RangedDamage);
-                            if (em.HasComponent<CrystalTag>(tgt.Value))
-                                finalDamage = (int)(finalDamage * rMults.DamageVsCrystal);
-                            finalDamage = math.max(1, finalDamage);
-                        }
+                        // task-063 phase 1: sect RangedDamage / DamageVsCrystal multipliers
+                        // gone — baseline 1.0×. Phase 2 reintroduces per-sect levers.
 
                         // Fortified armor bonus on target (flat defense increase)
                         if (em.HasComponent<Fortified>(tgt.Value))
@@ -340,14 +328,7 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<AttackCooldown>(entity))
                             cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
 
-                        // Apply sect attack speed multiplier to cooldown
-                        if (FactionSectState.Instance != null)
-                        {
-                            var asMults = FactionSectState.Instance.GetMultipliers(faction.ValueRO.Value);
-                            if (asMults.AttackSpeed > 1f)
-                                cooldownValue /= asMults.AttackSpeed;
-                        }
-
+                        // task-063 phase 1: sect AttackSpeed multiplier gone — baseline 1.0×.
                         archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;
                         archer.IsFiring = 0;

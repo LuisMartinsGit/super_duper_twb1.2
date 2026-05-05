@@ -17,7 +17,9 @@ namespace TheWaningBorder.Economy
     ///
     /// Only completed buildings contribute (those without UnderConstruction component).
     /// </summary>
-    // NOTE: No [BurstCompile] — uses managed FactionSectState singleton for sect multipliers
+    // NOTE: No [BurstCompile] — historically read managed FactionSectState. The
+    // multiplier bridge was removed in task-063 phase 1; Burst could be re-enabled
+    // once Phase 2 reintroduces sect income effects via component-only state.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ResourceTickSystem : ISystem
     {
@@ -74,13 +76,8 @@ namespace TheWaningBorder.Economy
                     var facKey = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(facKey, out var supplies))
                     {
-                        // Apply sect income multiplier
-                        if (FactionSectState.Instance != null)
-                        {
-                            var mults = FactionSectState.Instance.GetMultipliers(tag.ValueRO.Value);
-                            supplies = (int)(supplies * mults.AllIncome);
-                        }
-
+                        // task-063 phase 1: AllIncome multiplier removed with the old
+                        // FactionSectState bridge. Phase 2 reintroduces income levers.
                         bank.ValueRW.Supplies += supplies;
                         if (bank.ValueRO.Supplies > FactionResources.ResourceCap)
                             bank.ValueRW.Supplies = FactionResources.ResourceCap;
@@ -116,16 +113,13 @@ namespace TheWaningBorder.Economy
                     var facKey = (byte)tag.ValueRO.Value;
                     if (perFactionIncome.TryGetValue(facKey, out var income))
                     {
-                        // Apply sect income multiplier to other resources
-                        float incomeMult = 1f;
-                        if (FactionSectState.Instance != null)
-                            incomeMult = FactionSectState.Instance.GetMultipliers(tag.ValueRO.Value).AllIncome;
-
+                        // task-063 phase 1: sect AllIncome multiplier removed with the
+                        // old FactionSectState bridge. Baseline 1.0× until Phase 2.
                         var resources = bank.ValueRO;
-                        resources.Iron += (int)(income.Iron * missed * incomeMult);
-                        resources.Crystal += (int)(income.Crystal * missed * incomeMult);
-                        resources.Veilsteel += (int)(income.Veilsteel * missed * incomeMult);
-                        resources.Glow += (int)(income.Glow * missed * incomeMult);
+                        resources.Iron += income.Iron * missed;
+                        resources.Crystal += income.Crystal * missed;
+                        resources.Veilsteel += income.Veilsteel * missed;
+                        resources.Glow += income.Glow * missed;
                         resources.Clamp();
                         bank.ValueRW = resources;
                     }

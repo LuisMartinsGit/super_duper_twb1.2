@@ -68,33 +68,26 @@ namespace TheWaningBorder.Systems.Work
                 // 1. Set temple level
                 em.SetComponentData(templeEntity, new TempleLevel { Level = nextLevel });
 
-                // 2. Set FactionEra on faction bank
+                // 2. Set FactionEra on faction bank + award the per-age RP bonus.
+                //    task-063: RP comes from age-up (6/8/10) + Shrine (+1) only.
+                //    Temple-level grants were retired with the old sect system.
                 int nextEra = TempleLevelConfig.GetEraForLevel(nextLevel);
                 if (FactionEconomy.TryGetBank(em, faction, out var bankEntity))
                 {
                     if (em.HasComponent<FactionEra>(bankEntity))
                         em.SetComponentData(bankEntity, new FactionEra { Value = nextEra });
 
-                    // 3. Grant Religion Points
-                    int rpGrant = TempleLevelConfig.GetRPGranted(nextLevel);
-                    if (em.HasComponent<ReligionPoints>(bankEntity))
-                    {
-                        var rp = em.GetComponentData<ReligionPoints>(bankEntity);
-                        rp.Value += rpGrant;
-                        em.SetComponentData(bankEntity, rp);
-                    }
-
+                    FactionReligionPointsHelper.AwardAgeUp(em, faction, newAge: nextEra);
                 }
 
-                // 4. Recalculate sect passive scaling
-                SectEffectSystem.Instance?.RecalculateAllPassives(faction);
-
-                // 5. Remove TempleUpgradeState — upgrade is complete
+                // 3. Remove TempleUpgradeState — upgrade is complete
                 em.RemoveComponent<TempleUpgradeState>(templeEntity);
 
-                // Notify player
+                // Notify player. Look up the RP delta after the award so the
+                // toast shows the actual gain (which may be augmented by carryover).
+                int rpGain = SectConfig.RpAwardForAge(nextEra);
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    $"Era {nextEra} reached! +{TempleLevelConfig.GetRPGranted(nextLevel)} Religion Points");
+                    $"Era {nextEra} reached! +{rpGain} Religion Points");
             }
 
             completed.Dispose();

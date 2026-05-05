@@ -180,19 +180,9 @@ namespace TheWaningBorder.Systems.Combat
                         int finalDamage = CombatModifiers.CalculateFinalDamage(
                             baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod);
 
-                        // Apply sect melee damage and damage-vs-crystal multipliers
-                        FactionSectState.SectMultipliers sectMults = default;
-                        bool hasSectMults = false;
-                        if (FactionSectState.Instance != null && em.HasComponent<FactionTag>(entity))
-                        {
-                            sectMults = FactionSectState.Instance.GetMultipliers(
-                                em.GetComponentData<FactionTag>(entity).Value);
-                            hasSectMults = true;
-                            finalDamage = (int)(finalDamage * sectMults.MeleeDamage);
-                            if (em.HasComponent<CrystalTag>(tgt.Value))
-                                finalDamage = (int)(finalDamage * sectMults.DamageVsCrystal);
-                            finalDamage = math.max(1, finalDamage);
-                        }
+                        // task-063 phase 1: sect melee/AS/crystal/panic/control multipliers
+                        // gone with the old multiplier bridge. Phase 2 reintroduces these
+                        // per-sect, per-lever — for now use baseline (1.0× damage / no debuffs).
 
                         // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper
                         finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
@@ -212,15 +202,8 @@ namespace TheWaningBorder.Systems.Combat
                         // Fix #226: last-damager tracking routed through shared helper
                         CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value);
 
-                        // Fix #226: sect on-hit debuffs routed through shared helper
-                        if (hasSectMults)
-                            CombatDamageHelper.ApplySectOnHitDebuffs(em, ecb, entity, tgt.Value, sectMults);
-
-                        // Reset cooldown (with sect attack speed bonus)
-                        float cooldownVal = cd.Cooldown;
-                        if (hasSectMults && sectMults.AttackSpeed > 1f)
-                            cooldownVal /= sectMults.AttackSpeed;
-                        cd.Timer = cooldownVal;
+                        // Reset cooldown (sect attack-speed multiplier removed in Phase 1).
+                        cd.Timer = cd.Cooldown;
                     }
                 }
                 else
