@@ -38,10 +38,24 @@ namespace TheWaningBorder.Systems.Sect
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
 
-            foreach (var (cooldowns, entity) in SystemAPI
+            // Snapshot entities first — DynamicBuffer iteration variables are
+            // read-only inside a SystemAPI foreach, so we re-fetch the buffer
+            // via EntityManager.GetBuffer for the mutating pass.
+            var bankEntities = new Unity.Collections.NativeList<Entity>(
+                Unity.Collections.Allocator.Temp);
+            foreach (var (_, entity) in SystemAPI
                 .Query<DynamicBuffer<SectActivePowerCooldown>>()
                 .WithEntityAccess())
             {
+                bankEntities.Add(entity);
+            }
+
+            for (int b = 0; b < bankEntities.Length; b++)
+            {
+                var bank = bankEntities[b];
+                if (!em.Exists(bank)) continue;
+                if (!em.HasBuffer<SectActivePowerCooldown>(bank)) continue;
+                var cooldowns = em.GetBuffer<SectActivePowerCooldown>(bank);
                 for (int i = cooldowns.Length - 1; i >= 0; i--)
                 {
                     var cd = cooldowns[i];
@@ -52,6 +66,7 @@ namespace TheWaningBorder.Systems.Sect
                         cooldowns[i] = cd;
                 }
             }
+            bankEntities.Dispose();
         }
     }
 
