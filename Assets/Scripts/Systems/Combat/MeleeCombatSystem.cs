@@ -203,8 +203,14 @@ namespace TheWaningBorder.Systems.Combat
                         // Fix #226: last-damager tracking routed through shared helper
                         CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
 
-                        // Reset cooldown (sect attack-speed multiplier removed in Phase 1).
-                        cd.Timer = cd.Cooldown;
+                        // Reset cooldown. Glow Ability (Lv 5 active window)
+                        // shortens the cooldown by 30% per the design spec.
+                        // (audit follow-up — was deferred in PR #258.)
+                        float cdMult = 1f;
+                        if (em.HasComponent<GlowAbilityState>(entity)
+                            && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
+                            cdMult = 1f / 1.30f;
+                        cd.Timer = cd.Cooldown * cdMult;
                     }
                 }
                 else

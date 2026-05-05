@@ -1,12 +1,13 @@
 // UnitRankDeathEffectsSystem.cs
-// On-death AOE for Lv 4+ veteran units. Mirrors PillageSystem's death-event
-// hook (runs before DeathSystem with WithNone<DeathAnimationState>).
+// On-death AOE for Lv 4+ veteran units AND drop-pile spawn for Lv 2+
+// veterans. Mirrors PillageSystem's death-event hook.
 //
 // Lv 4: small magical explosion, AOE damage to nearby enemies.
-// Lv 5: medium explosion, more damage + push-back (sets DesiredDestination
-//       on nearby enemies away from the death position).
+// Lv 5: medium explosion, more damage + push-back.
+// Lv 2+: drops cumulative consumed resources at 50%, as a pickup any
+//        faction can collect (UpgradePile entity, audit follow-up).
 //
-// Audit fix #1.
+// Audit fix #1 + follow-up.
 //
 // Location: Assets/Scripts/Systems/Combat/UnitRankDeathEffectsSystem.cs
 
@@ -31,11 +32,11 @@ namespace TheWaningBorder.Systems.Combat
         {
             var em = state.EntityManager;
 
-            // Snapshot dead Lv 4+ units before applying AOE so the iteration
-            // doesn't see effects we cause.
-            var explosions = new NativeList<float3>(Allocator.Temp);
-            var explosionFactions = new NativeList<Faction>(Allocator.Temp);
-            var explosionRanks = new NativeList<byte>(Allocator.Temp);
+            // Snapshot dead veterans before applying effects so iteration
+            // doesn't see entities we spawn.
+            var deadPositions = new NativeList<float3>(Allocator.Temp);
+            var deadFactions  = new NativeList<Faction>(Allocator.Temp);
+            var deadRanks     = new NativeList<byte>(Allocator.Temp);
 
             foreach (var (health, transform, faction, rank) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<UnitRank>>()
@@ -43,21 +44,63 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<DeathAnimationState>())
             {
                 if (health.ValueRO.Value > 0) continue;
-                if (rank.ValueRO.Value < 4) continue;
+                if (rank.ValueRO.Value < 2) continue;
 
-                explosions.Add(transform.ValueRO.Position);
-                explosionFactions.Add(faction.ValueRO.Value);
-                explosionRanks.Add(rank.ValueRO.Value);
+                deadPositions.Add(transform.ValueRO.Position);
+                deadFactions.Add(faction.ValueRO.Value);
+                deadRanks.Add(rank.ValueRO.Value);
             }
 
-            for (int i = 0; i < explosions.Length; i++)
+            for (int i = 0; i < deadPositions.Length; i++)
             {
-                ApplyExplosion(em, explosions[i], explosionFactions[i], explosionRanks[i]);
+                if (deadRanks[i] >= 4)
+                    ApplyExplosion(em, deadPositions[i], deadFactions[i], deadRanks[i]);
+                SpawnUpgradePile(em, deadPositions[i], deadRanks[i]);
             }
 
-            explosions.Dispose();
-            explosionFactions.Dispose();
-            explosionRanks.Dispose();
+            deadPositions.Dispose();
+            deadFactions.Dispose();
+            deadRanks.Dispose();
+        }
+
+        /// <summary>
+        /// Spawns an UpgradePile entity at the death position carrying 50% of
+        /// the cumulative resources the unit paid for its rank-ups. Lv 2 drops
+        /// half the Lv-2 cost, Lv 3 drops half of (Lv2 + Lv3), and so on.
+        /// (Audit follow-up — drop-pile-on-death.)
+        /// </summary>
+        private static void SpawnUpgradePile(EntityManager em, float3 pos, byte rank)
+        {
+            // Sum costs for ranks 2..rank.
+            var drop = new TheWaningBorder.Core.Cost();
+            for (byte r = 2; r <= rank; r++)
+            {
+                var c = UnitRankConfig.CostFor(r);
+                drop.Supplies  += c.Supplies;
+                drop.Iron      += c.Iron;
+                drop.Crystal   += c.Crystal;
+                drop.Veilsteel += c.Veilsteel;
+                drop.Glow      += c.Glow;
+            }
+            // 50% recovery rate.
+            drop.Supplies  /= 2;
+            drop.Iron      /= 2;
+            drop.Crystal   /= 2;
+            drop.Veilsteel /= 2;
+            drop.Glow      /= 2;
+
+            // Skip if nothing to drop (shouldn't happen at Lv 2+ but guard anyway).
+            if (drop.Supplies + drop.Iron + drop.Crystal + drop.Veilsteel + drop.Glow == 0) return;
+
+            var pile = em.CreateEntity(typeof(UpgradePile), typeof(LocalTransform));
+            em.SetComponentData(pile, new UpgradePile
+            {
+                Drop = drop,
+                Lifetime = 60f,       // 1 minute to collect before despawn
+                PickupRadius = 1.5f,
+            });
+            em.SetComponentData(pile, LocalTransform.FromPositionRotationScale(
+                pos, quaternion.identity, 1f));
         }
 
         private static void ApplyExplosion(EntityManager em, float3 center, Faction owner, byte rank)
