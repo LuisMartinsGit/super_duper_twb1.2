@@ -43,10 +43,11 @@ namespace TheWaningBorder.Bootstrap
                     IronDepositBootstrap.SpawnIronDeposits();
                     // Mineable crystal patches always spawn (1 near each player
                     // + scattered) so AI/players can age up without hunting
-                    // Crystallings first. Curse main nodes are still gated on
-                    // CrystalCurseEnabled and skipped on flat test maps.
+                    // Crystallings first. Curse main nodes respect only their
+                    // own toggle now — FlatTestMap previously double-gated and
+                    // silently disabled the curse in dev builds.
                     CrystalPatchBootstrap.SpawnCrystalPatches();
-                    if (GameSettings.CrystalCurseEnabled && !GameSettings.FlatTestMap)
+                    if (GameSettings.CrystalCurseEnabled)
                         CrystalNodeBootstrap.SpawnCrystalNodes();
                     FocusCameraOnHall();
                     LoadingScreen.NotifyReady();
@@ -64,7 +65,7 @@ namespace TheWaningBorder.Bootstrap
                 ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
             CrystalPatchBootstrap.SpawnCrystalPatches();
-            if (!GameSettings.FlatTestMap)
+            if (GameSettings.CrystalCurseEnabled)
                 CrystalNodeBootstrap.SpawnCrystalNodes();
             FocusCameraOnHall();
             LoadingScreen.NotifyReady();
