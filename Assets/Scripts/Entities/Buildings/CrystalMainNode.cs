@@ -10,14 +10,14 @@ namespace TheWaningBorder.Entities
     /// <summary>
     /// Crystal Main Node - the central hive of the Crystal Curse faction.
     /// Spawned at map start, spreads cursed ground, and controls crystal AI behavior.
-    /// Uses Faction.White so existing targeting treats it as enemy to all players.
+    /// Uses Faction.Curse so existing targeting treats it as enemy to all players.
     /// </summary>
     public static class CrystalMainNode
     {
         /// <summary>
         /// Create CrystalMainNode using EntityManager.
         /// </summary>
-        public static Entity Create(EntityManager em, float3 position, Faction faction = Faction.White)
+        public static Entity Create(EntityManager em, float3 position, Faction faction = Faction.Curse)
         {
             var entity = em.CreateEntity(
                 typeof(PresentationId),
@@ -90,7 +90,7 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Create CrystalMainNode using EntityCommandBuffer for deferred creation.
         /// </summary>
-        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction = Faction.White)
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction = Faction.Curse)
         {
             var entity = ecb.CreateEntity();
 

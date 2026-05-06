@@ -16,7 +16,7 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Create CrystalResourceNode using EntityManager.
         /// </summary>
-        public static Entity Create(EntityManager em, float3 position, Faction faction = Faction.White)
+        public static Entity Create(EntityManager em, float3 position, Faction faction = Faction.Curse)
         {
             var entity = em.CreateEntity(
                 typeof(PresentationId),
@@ -66,7 +66,7 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Create CrystalResourceNode using EntityCommandBuffer for deferred creation.
         /// </summary>
-        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction = Faction.White)
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction = Faction.Curse)
         {
             var entity = ecb.CreateEntity();
 

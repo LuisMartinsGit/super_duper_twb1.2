@@ -865,6 +865,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             Faction.Orange => new Color(1f, 0.6f, 0.2f),
             Faction.Teal => new Color(0.2f, 0.8f, 0.8f),
             Faction.White => new Color(0.9f, 0.9f, 0.9f),
+            Faction.Curse => new Color(0.6f, 0.85f, 0.95f), // icy cyan — crystal aesthetic
             _ => Color.gray
         };
     }

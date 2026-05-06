@@ -119,6 +119,7 @@ public static class FactionColors
         }
         // Creature/neutral fallback
         if (f == Faction.White) return new Color(1f, 1f, 1f, 1f);
+        if (f == Faction.Curse) return new Color(0.6f, 0.85f, 0.95f, 1f); // icy cyan — crystal aesthetic
         return ColorPool[0];
     }
 

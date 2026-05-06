@@ -123,11 +123,11 @@ namespace TheWaningBorder.Bootstrap
                 nodesSpawned++;
             }
 
-            // Initialize Faction.White crystal bank if it doesn't exist
-            if (!FactionEconomy.TryGetBank(em, Faction.White, out _))
+            // Initialize Faction.Curse crystal bank if it doesn't exist
+            if (!FactionEconomy.TryGetBank(em, Faction.Curse, out _))
             {
                 var bankEntity = em.CreateEntity(typeof(FactionTag), typeof(FactionResources));
-                em.SetComponentData(bankEntity, new FactionTag { Value = Faction.White });
+                em.SetComponentData(bankEntity, new FactionTag { Value = Faction.Curse });
                 em.SetComponentData(bankEntity, new FactionResources { Crystal = 100 * nodesSpawned });
             }
 
