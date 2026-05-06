@@ -255,6 +255,21 @@ namespace TheWaningBorder.UI.Panels
             // Get presentation ID for the current build type
             int previewPid = GetPreviewPresentationId(_currentBuild);
 
+            // ── Upgrade-aware prefab-first preview ─────────────────────
+            // Mirror the actual spawn path: pre-age-up shows the L0 base
+            // prefab (Hall.prefab / Barracks.prefab / Hut.prefab); after
+            // culture is picked, show the L1 prefab (e.g. Hall_al_1) so
+            // the player previews exactly what they'll see once
+            // BuildingCultureAutoLevelSystem auto-bumps the new building.
+            GameObject upgradePreview = TryLoadUpgradePreviewPrefab(_currentBuild, playerCulture);
+            if (upgradePreview != null)
+            {
+                _placingInstance = Instantiate(upgradePreview);
+                _placingInstance.SetActive(true);
+            }
+            else
+            {
+
             // Try procedural generation first
             GameObject procPreview = null;
             if (previewPid > 0)
@@ -304,6 +319,8 @@ namespace TheWaningBorder.UI.Panels
                     if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
                 }
             }
+
+            } // end of else (no upgrade-aware prefab found)
 
             _placingInstance.name = "PlacementPreview";
 
@@ -527,6 +544,54 @@ namespace TheWaningBorder.UI.Panels
             BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
             _ => "Hut"
         };
+
+        // Cached preview-prefab lookups so Resources.Load runs at most once
+        // per (BuildType, culture) pair. null = "no upgrade-aware prefab present"
+        // (the existing procedural / explicit-prefab fallback applies).
+        private readonly System.Collections.Generic.Dictionary<(BuildType, byte), GameObject>
+            _previewPrefabCache = new();
+        private readonly System.Collections.Generic.HashSet<(BuildType, byte)>
+            _previewPrefabNegativeCache = new();
+
+        /// <summary>
+        /// Resolve the upgrade-aware preview prefab for the current build:
+        /// L0 base prefab when the player hasn't picked a culture yet, L1
+        /// prefab when they have (so the placement ghost matches the visual
+        /// the new building will assume the moment construction finishes
+        /// and BuildingCultureAutoLevelSystem auto-bumps it). Returns null
+        /// for build types not in the upgrade ladder OR when no matching
+        /// prefab is present in Resources — caller falls through to the
+        /// existing procedural / prefab-by-id path.
+        /// </summary>
+        private GameObject TryLoadUpgradePreviewPrefab(BuildType bt, byte culture)
+        {
+            // Only Hall / Barracks / Hut participate in the upgrade system
+            // (matches BuildingUpgradeable on the entity factories).
+            string baseName = bt switch
+            {
+                BuildType.Hut      => "Hut",
+                BuildType.Barracks => "Barracks",
+                _                  => null,
+            };
+            if (baseName == null) return null;
+
+            var key = (bt, culture);
+            if (_previewPrefabCache.TryGetValue(key, out var cached)) return cached;
+            if (_previewPrefabNegativeCache.Contains(key)) return null;
+
+            string code = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
+            string path = string.IsNullOrEmpty(code)
+                ? $"Prefabs/Buildings/{baseName}"          // L0 — pre age-up
+                : $"Prefabs/Buildings/{baseName}_{code}_1"; // L1 — post age-up
+            var loaded = Resources.Load<GameObject>(path);
+            if (loaded == null)
+            {
+                _previewPrefabNegativeCache.Add(key);
+                return null;
+            }
+            _previewPrefabCache[key] = loaded;
+            return loaded;
+        }
 
         /// <summary>
         /// Get the PresentationId for preview rendering of a BuildType.
