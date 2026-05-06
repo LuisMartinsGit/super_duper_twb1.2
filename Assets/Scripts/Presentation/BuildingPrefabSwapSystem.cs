@@ -138,7 +138,14 @@ namespace TheWaningBorder.Presentation
             Vector3 pos = t.Position;
             pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
 
-            var newGo = Instantiate(prefab, pos, t.Rotation);
+            // Apply the +180° Y building visual offset on top of the
+            // entity's rotation — same convention as PresentationSpawnSystem.
+            // ECS LocalTransform.Rotation stays clean; SyncTransforms keeps
+            // re-applying this offset every frame for the swapped GameObject.
+            Quaternion entityRot = t.Rotation;
+            Quaternion visualRot = entityRot * Quaternion.Euler(0f, 180f, 0f);
+
+            var newGo = Instantiate(prefab, pos, visualRot);
             newGo.SetActive(true);
             newGo.name = $"Entity_{e.Index}_{buildingId}_L{level}";
 

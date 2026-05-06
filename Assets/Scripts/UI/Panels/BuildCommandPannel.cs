@@ -143,7 +143,13 @@ namespace TheWaningBorder.UI.Panels
 
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
                     if (_currentBuild != BuildType.Wall)
-                        _placingInstance.transform.rotation = Quaternion.Euler(0f, _placementYaw, 0f);
+                        // +180° visual offset so building previews face the
+                        // default camera. Matches the runtime visual rotation
+                        // applied in PresentationSpawnSystem.VisualRotation —
+                        // ECS LocalTransform stays clean (yaw only), the
+                        // visual is offset.
+                        _placingInstance.transform.rotation =
+                            Quaternion.Euler(0f, _placementYaw + 180f, 0f);
 
                     // Check placement validity for non-wall buildings (AABB collision)
                     if (_currentBuild != BuildType.Wall)

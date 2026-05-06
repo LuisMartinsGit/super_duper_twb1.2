@@ -132,6 +132,24 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// <summary>Presentation ID for cursed ground tiles.</summary>
     private const int CursedGroundPresentationId = 311;
 
+    // Building model orientation offset. Authoring convention: building
+    // prefabs + procedural meshes face -Z, but the default RTS camera
+    // looks at +Z, so visuals need a 180° Y-rotation to face the camera.
+    // ECS LocalTransform.Rotation stays clean (mouse-wheel yaw); the
+    // offset is applied only when writing the GameObject rotation.
+    private static readonly Quaternion BuildingVisualOffsetY180 = Quaternion.Euler(0f, 180f, 0f);
+
+    /// <summary>
+    /// Apply the +180° Y visual offset for any entity with BuildingTag.
+    /// Units pass through unchanged.
+    /// </summary>
+    private Quaternion VisualRotation(Entity entity, Quaternion entityRot)
+    {
+        if (_em.HasComponent<BuildingTag>(entity))
+            return entityRot * BuildingVisualOffsetY180;
+        return entityRot;
+    }
+
     // Fallback prefabs if specific one not found
     private GameObject _fallbackUnitPrefab;
     private GameObject _fallbackBuildingPrefab;
@@ -387,7 +405,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             var basePrefab = TryLoadBaseBuildingPrefab(presentationId);
             if (basePrefab != null)
             {
-                var go = Instantiate(basePrefab, pos, transform.Rotation);
+                // FinishProceduralBuilding writes the final visual rotation
+                // (with the +180° building offset) — we just position here.
+                var go = Instantiate(basePrefab, pos, Quaternion.identity);
                 go.SetActive(true);
                 // Preserve the prefab's authored scale through SyncTransforms.
                 var ps = basePrefab.transform.localScale;
@@ -447,7 +467,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         goInst.SetActive(true); // Ensure active (fallback prefabs are stored inactive)
         goInst.name = $"Entity_{entity.Index}_{presentationId}";
         goInst.transform.position = pos;
-        goInst.transform.rotation = transform.Rotation;
+        goInst.transform.rotation = VisualRotation(entity, transform.Rotation);
         goInst.transform.localScale = Vector3.one * transform.Scale;
 
         // Ensure a collider exists for raycasting/selection
@@ -587,7 +607,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private GameObject FinishProceduralBuilding(GameObject go, Entity entity, LocalTransform transform)
     {
         go.name = $"Entity_{entity.Index}_{(_em.HasComponent<PresentationId>(entity) ? _em.GetComponentData<PresentationId>(entity).Id : 0)}";
-        go.transform.rotation = transform.Rotation;
+        go.transform.rotation = VisualRotation(entity, transform.Rotation);
         go.transform.localScale = Vector3.one * transform.Scale;
 
         // Add aggregate collider sized to actual visual bounds (not entity Radius).
@@ -898,7 +918,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 }
 
                 go.transform.position = pos;
-                go.transform.rotation = transforms[i].Rotation;
+                go.transform.rotation = VisualRotation(entities[i], transforms[i].Rotation);
                 // Respect procedural unit base scale (ProceduralScaleTag)
                 var scaleTag = go.GetComponent<ProceduralScaleTag>();
                 float baseScale = (scaleTag != null) ? scaleTag.BaseScale : 1f;
