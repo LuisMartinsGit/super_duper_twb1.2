@@ -68,6 +68,7 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponent<BuildingUpgradeable>(entity);
 
             return entity;
         }
@@ -113,6 +114,7 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            ecb.AddComponent<BuildingUpgradeable>(entity);
 
             return entity;
         }

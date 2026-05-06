@@ -59,6 +59,7 @@ namespace TheWaningBorder.Entities
             // Training queue buffer + rally point + ranged attack
             creator.AddBuffer<TrainQueueItem>(entity);
             creator.AddComponent<HallTag>(entity);
+            creator.AddComponent<BuildingUpgradeable>(entity);
             creator.AddComponent(entity, new RallyPoint { Position = position + new float3(5f, 0, 5f), Has = 1 });
             creator.AddComponent(entity, new BuildingRangedAttack
             {

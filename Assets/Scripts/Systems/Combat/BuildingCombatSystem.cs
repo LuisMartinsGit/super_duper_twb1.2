@@ -44,7 +44,7 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (transform, attack, faction, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<BuildingRangedAttack>, RefRO<FactionTag>>()
                 .WithAll<BuildingTag>()
-                .WithNone<UnderConstruction>()
+                .WithNone<UnderConstruction, BuildingUpgrading>()
                 .WithEntityAccess())
             {
                 // Tick cooldown

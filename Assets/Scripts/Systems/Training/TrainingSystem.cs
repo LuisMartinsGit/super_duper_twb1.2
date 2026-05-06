@@ -64,6 +64,7 @@ namespace TheWaningBorder.Systems.Training
             foreach (var (ts, entity) in SystemAPI
                          .Query<RefRW<TrainingState>>()
                          .WithNone<UnderConstruction, BatchTrainingTag, AgeUpState>()
+                         .WithNone<BuildingUpgrading>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<TrainQueueItem>(entity);
@@ -100,6 +101,15 @@ namespace TheWaningBorder.Systems.Training
                             SectConfig.War, SectLeverKind.Passive);
                         if (warLevel > 0)
                             trainingTime *= WarSectCostHelper.TrainTimeMultiplierFor(warLevel);
+                    }
+
+                    // Building upgrade: cultured Hall/Barracks train faster.
+                    // Multiplier is 1.0 at lvl 0 and shrinks per level.
+                    if (state.EntityManager.HasComponent<BuildingUpgradeState>(entity))
+                    {
+                        byte upLevel = state.EntityManager.GetComponentData<BuildingUpgradeState>(entity).Level;
+                        trainingTime *= TheWaningBorder.Core.Settings.BuildingUpgradeConfig
+                            .TrainTimeMultiplier[upLevel];
                     }
 
                     ts.ValueRW.Busy = 1;

@@ -9,6 +9,7 @@ using TWB_Input = TheWaningBorder.Input;
 using TheWaningBorder.UI;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -158,6 +159,11 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+
+            // Upgrade button — appears next to the portrait area for any
+            // upgradeable building owned by the local player whose faction
+            // has picked a culture. Click triggers UpgradeBuildingCommandHelper.
+            DrawUpgradeButton();
 
             GUILayout.Space(10);
 
@@ -887,5 +893,99 @@ namespace TheWaningBorder.UI.Panels
             );
             return screenRect.Contains(mousePos);
         }
+
+        // ──────────────────────────────────────────────────────────────────
+        // BUILDING UPGRADE BUTTON
+        // ──────────────────────────────────────────────────────────────────
+
+        // Brief feedback line shown under the upgrade button — reflects the
+        // last command result so the player understands why a click stuck
+        // (or didn't). Clears after BuildingUpgradeFeedbackTimeout seconds.
+        private string _upgradeFeedback;
+        private float _upgradeFeedbackUntil;
+        private const float BuildingUpgradeFeedbackTimeout = 3f;
+
+        private void DrawUpgradeButton()
+        {
+            var entity = UnifiedUIManager.GetFirstSelectedEntity();
+            var em = UnifiedUIManager.GetEntityManager();
+            if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<BuildingUpgradeable>(entity)) return;
+
+            // Local-player only — no upgrade button on enemy buildings.
+            if (!em.HasComponent<FactionTag>(entity)) return;
+            var fac = em.GetComponentData<FactionTag>(entity).Value;
+            if (fac != GameSettings.LocalPlayerFaction) return;
+
+            // Already at max?
+            byte currentLevel = em.HasComponent<BuildingUpgradeState>(entity)
+                ? em.GetComponentData<BuildingUpgradeState>(entity).Level : (byte)0;
+            bool atMax = currentLevel >= TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel;
+
+            // In progress?
+            bool upgrading = em.HasComponent<BuildingUpgrading>(entity);
+
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+
+            if (upgrading)
+            {
+                var ub = em.GetComponentData<BuildingUpgrading>(entity);
+                float pct = ub.Total > 0f ? Mathf.Clamp01(ub.Progress / ub.Total) : 0f;
+                GUILayout.Label($"Upgrading to L{ub.TargetLevel}... {(int)(pct * 100f)}%",
+                    Styles.Label);
+            }
+            else if (atMax)
+            {
+                GUILayout.Label($"Lvl {currentLevel} (max)", Styles.Label);
+            }
+            else if (UpgradeBuildingCommandHelper.TryGetNextCost(em, entity,
+                out var cost, out byte nextLevel))
+            {
+                string costLabel = FormatCost(cost);
+                bool clicked = GUILayout.Button($"Upgrade to L{nextLevel} — {costLabel}");
+                if (clicked)
+                {
+                    var result = UpgradeBuildingCommandHelper.Execute(em, entity);
+                    _upgradeFeedback = FeedbackFor(result);
+                    _upgradeFeedbackUntil = Time.realtimeSinceStartup + BuildingUpgradeFeedbackTimeout;
+                }
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (!string.IsNullOrEmpty(_upgradeFeedback)
+                && Time.realtimeSinceStartup < _upgradeFeedbackUntil)
+            {
+                GUILayout.Label(_upgradeFeedback, Styles.SmallLabel);
+            }
+        }
+
+        private static string FormatCost(TheWaningBorder.Core.Cost c)
+        {
+            // Compact inline display: "100s 25i" or "200s 50i 15c". Skip
+            // zeros so the button label stays short.
+            var sb = new System.Text.StringBuilder(24);
+            if (c.Supplies > 0)  sb.Append(c.Supplies).Append("s ");
+            if (c.Iron > 0)      sb.Append(c.Iron).Append("i ");
+            if (c.Crystal > 0)   sb.Append(c.Crystal).Append("c ");
+            if (c.Veilsteel > 0) sb.Append(c.Veilsteel).Append("v ");
+            if (c.Glow > 0)      sb.Append(c.Glow).Append("g ");
+            if (sb.Length == 0)  return "free";
+            return sb.ToString().TrimEnd();
+        }
+
+        private static string FeedbackFor(UpgradeBuildingResult r) => r switch
+        {
+            UpgradeBuildingResult.Ok                 => "Upgrade started.",
+            UpgradeBuildingResult.NotUpgradeable     => "Cannot upgrade this building.",
+            UpgradeBuildingResult.AlreadyMaxLevel    => "Already at max level.",
+            UpgradeBuildingResult.NoCulture          => "Pick a culture (age up) first.",
+            UpgradeBuildingResult.AlreadyUpgrading   => "Already upgrading.",
+            UpgradeBuildingResult.UnderConstruction  => "Finish construction first.",
+            UpgradeBuildingResult.CannotAfford       => "Not enough resources.",
+            _                                        => string.Empty,
+        };
     }
 }
