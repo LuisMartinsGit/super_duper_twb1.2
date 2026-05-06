@@ -64,6 +64,20 @@ namespace TheWaningBorder.Systems.Buildings
                 // ── Apply level ────────────────────────────────────────
                 ApplyLevel(em, e, up.TargetLevel);
                 em.RemoveComponent<BuildingUpgrading>(e);
+
+                // Debug log so the upgrade pipeline is visible during
+                // playtesting. Identifies the building type by tag — same
+                // resolution the command helper uses.
+                if (em.HasComponent<FactionTag>(e))
+                {
+                    string id = em.HasComponent<HallTag>(e)     ? "Hall"
+                             :  em.HasComponent<BarracksTag>(e) ? "Barracks"
+                             :  em.HasComponent<HutTag>(e)      ? "Hut"
+                             :                                    "Building";
+                    var fac = em.GetComponentData<FactionTag>(e).Value;
+                    UnityEngine.Debug.Log(
+                        $"[Upgrade] {fac} {id} → L{up.TargetLevel}");
+                }
             }
         }
 
@@ -122,15 +136,22 @@ namespace TheWaningBorder.Systems.Buildings
             }
             else if (isBarracks && level >= 3)
             {
-                // Gain ranged attack on first arrival at lvl 3. Idempotent
-                // because we set the same fields whether component is new or old.
+                // L3 Barracks gains a ranged attack. Apply the L3 attack-rate
+                // multiplier to its cooldown for symmetry with Hall — a fully
+                // upgraded Barracks fires at the same cadence as a fully
+                // upgraded Hall.
+                float scaledCooldown = BarracksAttackCooldown
+                    * BuildingUpgradeConfig.AttackCooldownMultiplier[level];
+
+                // Gain ranged attack on first arrival at lvl 3. Idempotent —
+                // we set the same fields whether the component is new or old.
                 if (!em.HasComponent<BuildingRangedAttack>(building))
                 {
                     em.AddComponentData(building, new BuildingRangedAttack
                     {
                         Range      = BarracksAttackRange,
                         Damage     = BarracksAttackDamage,
-                        Cooldown   = BarracksAttackCooldown,
+                        Cooldown   = scaledCooldown,
                         Timer      = 0f,
                         MaxTargets = 1,
                     });
@@ -144,7 +165,7 @@ namespace TheWaningBorder.Systems.Buildings
                     var atk = em.GetComponentData<BuildingRangedAttack>(building);
                     atk.Range      = BarracksAttackRange;
                     atk.Damage     = BarracksAttackDamage;
-                    atk.Cooldown   = BarracksAttackCooldown;
+                    atk.Cooldown   = scaledCooldown;
                     atk.MaxTargets = 1;
                     em.SetComponentData(building, atk);
                 }
