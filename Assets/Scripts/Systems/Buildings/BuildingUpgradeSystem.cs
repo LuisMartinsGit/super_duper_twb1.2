@@ -53,7 +53,14 @@ namespace TheWaningBorder.Systems.Buildings
                 if (!em.Exists(e)) continue;
 
                 var up = em.GetComponentData<BuildingUpgrading>(e);
+                bool firstTick = up.Progress < dt + 0.001f;
                 up.Progress += dt;
+
+                if (firstTick)
+                {
+                    UnityEngine.Debug.Log(
+                        $"[Upgrade] tick — entity {e.Index}, progress {up.Progress:F1}/{up.Total:F1}, target L{up.TargetLevel}");
+                }
 
                 if (up.Progress < up.Total)
                 {
