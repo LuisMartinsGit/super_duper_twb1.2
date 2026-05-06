@@ -905,12 +905,34 @@ namespace TheWaningBorder.UI.Panels
         private float _upgradeFeedbackUntil;
         private const float BuildingUpgradeFeedbackTimeout = 3f;
 
+        // Diagnostic: log the eligibility outcome ONCE per entity so we
+        // can see in the console which gate (Upgradeable / Faction / etc.)
+        // is rejecting an upgrade attempt without spamming every frame.
+        private Entity _lastDiagEntity = Entity.Null;
+        private string _lastDiagOutcome;
+
         private void DrawUpgradeButton()
         {
             var entity = UnifiedUIManager.GetFirstSelectedEntity();
             var em = UnifiedUIManager.GetEntityManager();
             if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
             if (!em.Exists(entity)) return;
+
+            // Diagnostic: log once when selection changes, so the console
+            // tells us whether the button is being suppressed.
+            if (entity != _lastDiagEntity)
+            {
+                _lastDiagEntity = entity;
+                bool upgradeable = em.HasComponent<BuildingUpgradeable>(entity);
+                bool hasFaction  = em.HasComponent<FactionTag>(entity);
+                Faction sFac = hasFaction ? em.GetComponentData<FactionTag>(entity).Value : (Faction)255;
+                bool localOwned = hasFaction && sFac == GameSettings.LocalPlayerFaction;
+                byte lvl = em.HasComponent<BuildingUpgradeState>(entity)
+                    ? em.GetComponentData<BuildingUpgradeState>(entity).Level : (byte)0;
+                Debug.Log($"[Upgrade] selected entity {entity.Index}: " +
+                          $"upgradeable={upgradeable} faction={sFac} local={localOwned} level={lvl}");
+            }
+
             if (!em.HasComponent<BuildingUpgradeable>(entity)) return;
 
             // Local-player only — no upgrade button on enemy buildings.
@@ -947,7 +969,9 @@ namespace TheWaningBorder.UI.Panels
                 bool clicked = GUILayout.Button($"Upgrade to L{nextLevel} — {costLabel}");
                 if (clicked)
                 {
+                    Debug.Log($"[Upgrade] click — entity {entity.Index}, target L{nextLevel}, cost {costLabel}");
                     var result = UpgradeBuildingCommandHelper.Execute(em, entity);
+                    Debug.Log($"[Upgrade] result = {result}");
                     _upgradeFeedback = FeedbackFor(result);
                     _upgradeFeedbackUntil = Time.realtimeSinceStartup + BuildingUpgradeFeedbackTimeout;
                 }
