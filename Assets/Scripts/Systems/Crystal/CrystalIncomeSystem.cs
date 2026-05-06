@@ -1,6 +1,6 @@
 // File: Assets/Scripts/Systems/Crystal/CrystalIncomeSystem.cs
 // Crystal income system: generates Crystal resources based on cursed ground coverage.
-// Income is credited to Faction.White's resource bank every second.
+// Income is credited to Faction.Curse's resource bank every second.
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -48,8 +48,8 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (income <= 0) return;
 
-            // Credit to Faction.White bank
-            FactionEconomy.Add(em, Faction.White, new Cost { Crystal = income });
+            // Credit to Faction.Curse bank
+            FactionEconomy.Add(em, Faction.Curse, new Cost { Crystal = income });
         }
     }
 }

@@ -121,7 +121,7 @@ namespace TheWaningBorder.Systems.Crystal
             var playerPositions = new NativeList<float3>(Allocator.Temp);
             for (int i = 0; i < hallFactions.Length; i++)
             {
-                if (hallFactions[i].Value != Faction.White)
+                if (hallFactions[i].Value != Faction.Curse)
                     playerPositions.Add(hallTransforms[i].Position);
             }
 
@@ -160,7 +160,7 @@ namespace TheWaningBorder.Systems.Crystal
                 CrystalMainNode.Create(em, candidate);
 
                 // Give small crystal bank boost
-                FactionEconomy.Add(em, Faction.White, Cost.Of(crystal: 100));
+                FactionEconomy.Add(em, Faction.Curse, Cost.Of(crystal: 100));
 
                 playerPositions.Dispose();
                 return;

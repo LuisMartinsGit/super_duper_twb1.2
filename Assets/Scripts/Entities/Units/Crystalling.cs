@@ -8,7 +8,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Crystalling unit - fast, weak melee crystal swarm unit.
-    /// Cheap crystal-cost melee infantry for the Crystal faction (Faction.White).
+    /// Cheap crystal-cost melee infantry for the Crystal faction (Faction.Curse).
     /// No population cost - crystal faction uses crystal resource economy.
     /// </summary>
     public static class Crystalling

@@ -54,8 +54,8 @@ namespace TheWaningBorder.Systems.Crystal
                 .WithAll<UnitTag>()
                 .WithEntityAccess())
             {
-                // Only debuff non-White (non-crystal) faction units
-                if (faction.ValueRO.Value == Faction.White) continue;
+                // Only debuff non-Curse (player) faction units
+                if (faction.ValueRO.Value == Faction.Curse) continue;
 
                 float3 unitPos = unitTransform.ValueRO.Position;
 

@@ -136,7 +136,7 @@ namespace TheWaningBorder.Systems.Crystal
             var em = EntityManager;
 
             // Get crystal bank balance
-            if (!FactionEconomy.TryGetResources(em, Faction.White, out var resources))
+            if (!FactionEconomy.TryGetResources(em, Faction.Curse, out var resources))
                 return;
 
             int crystalBank = resources.Crystal;
@@ -171,7 +171,7 @@ namespace TheWaningBorder.Systems.Crystal
                 float territoryRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
 
                 // Refresh bank balance
-                if (FactionEconomy.TryGetResources(em, Faction.White, out resources))
+                if (FactionEconomy.TryGetResources(em, Faction.Curse, out resources))
                     crystalBank = resources.Crystal;
 
                 // Drive AI phase from elapsed game time
@@ -199,12 +199,12 @@ namespace TheWaningBorder.Systems.Crystal
                                 if (spawnPos.x != float.MinValue)
                                 {
                                     string unitName = ts.TrainingUnitType switch { 1 => "Crystalling", 2 => "Veilstinger", 3 => "Godsplinter", _ => "?" };
-                                    AILogger.Log(Faction.White, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
+                                    AILogger.Log(Faction.Curse, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
                                     switch (ts.TrainingUnitType)
                                     {
-                                        case 1: Crystalling.Create(em, spawnPos, Faction.White); break;
-                                        case 2: Veilstinger.Create(em, spawnPos, Faction.White); break;
-                                        case 3: Godsplinter.Create(em, spawnPos, Faction.White); break;
+                                        case 1: Crystalling.Create(em, spawnPos, Faction.Curse); break;
+                                        case 2: Veilstinger.Create(em, spawnPos, Faction.Curse); break;
+                                        case 3: Godsplinter.Create(em, spawnPos, Faction.Curse); break;
                                     }
                                     crystalUnitCount++;
                                 }
@@ -303,7 +303,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (resourceCount < MaxResourceNodesPerMain && crystalBank >= ResourceNodeCost)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ResourceNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: ResourceNodeCost)))
                 {
                     created = CrystalResourceNode.Create(em, buildPos);
                     crystalBank -= ResourceNodeCost;
@@ -311,7 +311,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (turretCount < MaxTurretNodesPerMain && crystalBank >= TurretNodeCost)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: TurretNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: TurretNodeCost)))
                 {
                     created = CrystalTurretNode.Create(em, buildPos);
                     crystalBank -= TurretNodeCost;
@@ -319,7 +319,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (restorationCount < MaxRestorationNodesPerMain && crystalBank >= RestorationNodeCost && ai.Phase >= 1)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: RestorationNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: RestorationNodeCost)))
                 {
                     created = CrystalRestorationNode.Create(em, buildPos);
                     crystalBank -= RestorationNodeCost;
@@ -327,7 +327,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (enforcementCount < MaxEnforcementNodesPerMain && crystalBank >= EnforcementNodeCost && ai.Phase >= 1)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: EnforcementNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: EnforcementNodeCost)))
                 {
                     created = CrystalEnforcementNode.Create(em, buildPos);
                     crystalBank -= EnforcementNodeCost;
@@ -335,7 +335,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (suppressionCount < MaxSuppressionNodesPerMain && crystalBank >= SuppressionNodeCost && ai.Phase >= 2)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: SuppressionNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: SuppressionNodeCost)))
                 {
                     created = CrystalSuppressionNode.Create(em, buildPos);
                     crystalBank -= SuppressionNodeCost;
@@ -376,7 +376,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (unitType == 0) return;
 
-            if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: cost)))
+            if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: cost)))
             {
                 crystalBank -= cost;
                 em.SetComponentData(nodeEntity, new CrystalTrainingState
@@ -447,7 +447,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             for (int i = 0; i < intruders.Length; i++)
             {
-                if (intruderFactions[i].Value == Faction.White) continue;
+                if (intruderFactions[i].Value == Faction.Curse) continue;
                 float dist = math.distance(nodePos, intruderTransforms[i].Position);
                 if (dist <= spreadRadius && dist < closestDist)
                 {
@@ -519,154 +519,127 @@ namespace TheWaningBorder.Systems.Crystal
             int nodeCount = mainNodes.Length;
             float elapsedMinutes = (float)(World.Time.ElapsedTime / 60.0);
 
+            // WaveInterval still scales with curse footprint, but it's no longer
+            // the trigger for unit movement — pursuit is continuous, see below.
+            // The interval now governs the rescue pass + logging cadence.
             wave.WaveInterval = math.max(25f, 120f - nodeCount * 8f - elapsedMinutes * 2f);
+
+            // Continuous pursuit: every decision tick (5 s), every non-engaged
+            // curse unit gets redirected to the nearest non-Crystal asset (any
+            // building or unit, any player faction). Subsumes the old "pick one
+            // player's halls and send a periodic wave" model — units now hunt
+            // whatever's closest at all times.
+            int reassigned = PursueAllPlayerAssets(em);
 
             wave.WaveTimer -= DecisionInterval;
             if (wave.WaveTimer <= 0)
             {
-                // Rescue any stranded curse units before sending the wave so they
-                // actually contribute to the attack instead of dying on a beach.
+                // On the cadence tick, also rescue any units stranded far from
+                // every main node (failed pathfind / abandoned beach) and log a
+                // wave marker so the curse's pressure is visible in the AI log.
                 RescueStrandedUnits(em, nodeTransforms, ref random);
-
-                SendWave(em, nodeTransforms, ref random, wave.WaveNumber + 1);
                 wave.WaveTimer = wave.WaveInterval;
                 wave.WaveNumber++;
+                AILogger.Log(Faction.Curse, "WAVE",
+                    $"Pursuit wave #{wave.WaveNumber}: {reassigned} units retargeted (interval {wave.WaveInterval:F0}s)");
             }
 
             em.SetComponentData(waveEntities[0], wave);
         }
 
         /// <summary>
-        /// Pick a random non-Crystal player faction with at least one Hall and send
-        /// EVERY available curse unit toward that player's halls. Idle units (no
-        /// active destination, no live target) are recruited; engaged units are left
-        /// alone so combat in progress isn't aborted.
+        /// Continuous pursuit pass. Each tick, redirects every non-engaged curse
+        /// unit toward the nearest non-Crystal asset on the entire map — buildings
+        /// AND units, any player faction. Engaged units (live Target component)
+        /// are left alone so combat-in-progress isn't aborted. Returns the count
+        /// of units retargeted, for logging.
+        ///
+        /// Targets are gathered from BuildingTag + UnitTag with FactionTag != White.
+        /// Dead entities (Health.Value &lt;= 0) are excluded — pursuing a corpse
+        /// would let them stack on a kill site instead of moving on.
         /// </summary>
-        private void SendWave(EntityManager em,
-            NativeArray<LocalTransform> nodeTransforms,
-            ref Random random, int waveNumber)
+        private int PursueAllPlayerAssets(EntityManager em)
         {
-            using var halls = _hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = _hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = _hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            // Bucket halls by faction (skip Crystal). NativeParallelMultiHashMap has no
-            // ContainsKey, so a side-set tracks which factions we've already listed.
-            var factionHallsByFaction = new NativeParallelMultiHashMap<int, float3>(
-                math.max(8, halls.Length), Allocator.Temp);
-            var factionList = new NativeList<int>(Allocator.Temp);
-            var seenFactions = new NativeHashSet<int>(8, Allocator.Temp);
-
-            for (int i = 0; i < halls.Length; i++)
-            {
-                int f = (int)hallFactions[i].Value;
-                if (f == (int)Faction.White) continue;
-                if (seenFactions.Add(f)) factionList.Add(f);
-                factionHallsByFaction.Add(f, hallTransforms[i].Position);
-            }
-
-            // Fallback: no halls found, target any non-Crystal building (any faction).
-            var fallbackTargets = new NativeList<float3>(Allocator.Temp);
-            if (factionList.Length == 0)
-            {
-                var buildingQuery = EntityManager.CreateEntityQuery(
-                    ComponentType.ReadOnly<BuildingTag>(),
-                    ComponentType.ReadOnly<FactionTag>(),
-                    ComponentType.ReadOnly<LocalTransform>()
-                );
-                using var buildings = buildingQuery.ToEntityArray(Allocator.Temp);
-                using var buildingFactions = buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                using var buildingTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                for (int i = 0; i < buildings.Length; i++)
-                {
-                    if (buildingFactions[i].Value == Faction.White) continue;
-                    fallbackTargets.Add(buildingTransforms[i].Position);
-                }
-            }
-
-            // Pick the target faction at random (uniform across living players).
-            int chosenFaction = -1;
-            if (factionList.Length > 0)
-                chosenFaction = factionList[random.NextInt(0, factionList.Length)];
-
-            // Resolve the list of target positions for this wave.
+            // ── Gather target positions ──────────────────────────────────
             var targets = new NativeList<float3>(Allocator.Temp);
-            if (chosenFaction >= 0)
+
+            // Buildings (every faction except Crystal).
+            var buildingQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>());
+            using (var bEnts = buildingQuery.ToEntityArray(Allocator.Temp))
+            using (var bFactions = buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var bTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            using (var bHealth = buildingQuery.ToComponentDataArray<Health>(Allocator.Temp))
             {
-                if (factionHallsByFaction.TryGetFirstValue(chosenFaction, out var hallPos, out var it))
+                for (int i = 0; i < bEnts.Length; i++)
                 {
-                    do { targets.Add(hallPos); }
-                    while (factionHallsByFaction.TryGetNextValue(out hallPos, ref it));
+                    if (bFactions[i].Value == Faction.Curse) continue;
+                    if (bHealth[i].Value <= 0) continue;
+                    targets.Add(bTransforms[i].Position);
                 }
             }
-            else if (fallbackTargets.Length > 0)
+
+            // Units (every faction except Crystal).
+            var unitQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>());
+            using (var uEnts = unitQuery.ToEntityArray(Allocator.Temp))
+            using (var uFactions = unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var uTransforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            using (var uHealth = unitQuery.ToComponentDataArray<Health>(Allocator.Temp))
             {
-                // No halls anywhere — pick a random fallback building as the target.
-                targets.Add(fallbackTargets[random.NextInt(0, fallbackTargets.Length)]);
+                for (int i = 0; i < uEnts.Length; i++)
+                {
+                    if (uFactions[i].Value == Faction.Curse) continue;
+                    if (uHealth[i].Value <= 0) continue;
+                    targets.Add(uTransforms[i].Position);
+                }
             }
 
-            if (targets.Length == 0)
-            {
-                factionHallsByFaction.Dispose();
-                factionList.Dispose();
-                fallbackTargets.Dispose();
-                targets.Dispose();
-                return;
-            }
+            if (targets.Length == 0) { targets.Dispose(); return 0; }
 
-            // Gather ALL idle crystal units (engaged units skipped to preserve combat).
+            // ── Redirect every non-engaged crystal unit ──────────────────
             using var units = _crystalUnitQuery.ToEntityArray(Allocator.Temp);
             using var unitTransforms = _crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            var idleUnits = new NativeList<int>(Allocator.Temp);
+            int reassigned = 0;
             for (int i = 0; i < units.Length; i++)
             {
-                bool isIdle = true;
-                if (em.HasComponent<DesiredDestination>(units[i]))
-                {
-                    var dest = em.GetComponentData<DesiredDestination>(units[i]);
-                    if (dest.Has == 1) isIdle = false;
-                }
-                if (isIdle && em.HasComponent<Target>(units[i]))
+                // Skip units in active combat — TargetingSystem set Target on them
+                // and the combat systems will resolve it. Re-pathing here would
+                // pull them off mid-swing.
+                if (em.HasComponent<Target>(units[i]))
                 {
                     var t = em.GetComponentData<Target>(units[i]);
-                    if (t.Value != Entity.Null && em.Exists(t.Value)) isIdle = false;
+                    if (t.Value != Entity.Null && em.Exists(t.Value)) continue;
                 }
-                if (isIdle) idleUnits.Add(i);
-            }
 
-            string targetLabel = chosenFaction >= 0 ? ((Faction)chosenFaction).ToString() : "<no halls>";
-            AILogger.Log(Faction.White, "WAVE",
-                $"Wave #{waveNumber} → {targetLabel} ({targets.Length} target(s)), deploying {idleUnits.Length} units");
-
-            // Distribute every idle unit across the chosen player's halls (round-robin
-            // by nearest-target so each unit goes to the closest hall it has).
-            for (int u = 0; u < idleUnits.Length; u++)
-            {
-                int idx = idleUnits[u];
-                float3 unitPos = unitTransforms[idx].Position;
-
-                // Pick nearest target for this unit
-                float bestDist = float.MaxValue;
+                // Find nearest target (sq-distance, no allocation).
+                float3 unitPos = unitTransforms[i].Position;
+                float bestDistSq = float.MaxValue;
                 float3 bestTarget = targets[0];
                 for (int t = 0; t < targets.Length; t++)
                 {
-                    float d = math.distancesq(unitPos, targets[t]);
-                    if (d < bestDist) { bestDist = d; bestTarget = targets[t]; }
+                    float dx = targets[t].x - unitPos.x;
+                    float dz = targets[t].z - unitPos.z;
+                    float d = dx * dx + dz * dz;
+                    if (d < bestDistSq) { bestDistSq = d; bestTarget = targets[t]; }
                 }
 
-                if (em.HasComponent<DesiredDestination>(units[idx]))
-                    em.SetComponentData(units[idx], new DesiredDestination { Position = bestTarget, Has = 1 });
+                if (em.HasComponent<DesiredDestination>(units[i]))
+                    em.SetComponentData(units[i], new DesiredDestination { Position = bestTarget, Has = 1 });
                 else
-                    em.AddComponentData(units[idx], new DesiredDestination { Position = bestTarget, Has = 1 });
+                    em.AddComponentData(units[i], new DesiredDestination { Position = bestTarget, Has = 1 });
+                reassigned++;
             }
 
-            idleUnits.Dispose();
             targets.Dispose();
-            factionHallsByFaction.Dispose();
-            factionList.Dispose();
-            seenFactions.Dispose();
-            fallbackTargets.Dispose();
+            return reassigned;
         }
 
         /// <summary>
@@ -721,7 +694,7 @@ namespace TheWaningBorder.Systems.Crystal
                 rescued++;
             }
             if (rescued > 0)
-                AILogger.Log(Faction.White, "RESCUE", $"Recalled {rescued} stranded units to nearest main node");
+                AILogger.Log(Faction.Curse, "RESCUE", $"Recalled {rescued} stranded units to nearest main node");
         }
 
         /// <summary>Try to seed a new main curse node. Returns true on creation.</summary>
@@ -767,7 +740,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (!found) return false;
 
-            if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ExpansionCost)))
+            if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: ExpansionCost)))
             {
                 CrystalMainNode.Create(em, expandPos);
                 crystalBank -= ExpansionCost;

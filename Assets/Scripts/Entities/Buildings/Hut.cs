@@ -54,6 +54,7 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            creator.AddComponent<BuildingUpgradeable>(entity);
 
             return entity;
         }

@@ -16,7 +16,14 @@ public enum Faction : byte
     Purple = 4,
     Orange = 5,
     Teal = 6,
-    White = 7
+    White = 7,
+    /// <summary>
+    /// Crystal Curse — environmental hostile faction, hostile to all
+    /// player factions. NOT a player slot; falls outside the 0..7 player
+    /// color range so it's never picked up by lobby/AI slot iteration
+    /// (LobbyConfig.Slots and player-color tables are length 8).
+    /// </summary>
+    Curse = 8,
 }
 
 public static class Cultures
