@@ -136,7 +136,7 @@ namespace TheWaningBorder.Systems.Crystal
             var em = EntityManager;
 
             // Get crystal bank balance
-            if (!FactionEconomy.TryGetResources(em, Faction.White, out var resources))
+            if (!FactionEconomy.TryGetResources(em, Faction.Curse, out var resources))
                 return;
 
             int crystalBank = resources.Crystal;
@@ -171,7 +171,7 @@ namespace TheWaningBorder.Systems.Crystal
                 float territoryRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
 
                 // Refresh bank balance
-                if (FactionEconomy.TryGetResources(em, Faction.White, out resources))
+                if (FactionEconomy.TryGetResources(em, Faction.Curse, out resources))
                     crystalBank = resources.Crystal;
 
                 // Drive AI phase from elapsed game time
@@ -199,12 +199,12 @@ namespace TheWaningBorder.Systems.Crystal
                                 if (spawnPos.x != float.MinValue)
                                 {
                                     string unitName = ts.TrainingUnitType switch { 1 => "Crystalling", 2 => "Veilstinger", 3 => "Godsplinter", _ => "?" };
-                                    AILogger.Log(Faction.White, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
+                                    AILogger.Log(Faction.Curse, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
                                     switch (ts.TrainingUnitType)
                                     {
-                                        case 1: Crystalling.Create(em, spawnPos, Faction.White); break;
-                                        case 2: Veilstinger.Create(em, spawnPos, Faction.White); break;
-                                        case 3: Godsplinter.Create(em, spawnPos, Faction.White); break;
+                                        case 1: Crystalling.Create(em, spawnPos, Faction.Curse); break;
+                                        case 2: Veilstinger.Create(em, spawnPos, Faction.Curse); break;
+                                        case 3: Godsplinter.Create(em, spawnPos, Faction.Curse); break;
                                     }
                                     crystalUnitCount++;
                                 }
@@ -303,7 +303,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (resourceCount < MaxResourceNodesPerMain && crystalBank >= ResourceNodeCost)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ResourceNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: ResourceNodeCost)))
                 {
                     created = CrystalResourceNode.Create(em, buildPos);
                     crystalBank -= ResourceNodeCost;
@@ -311,7 +311,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (turretCount < MaxTurretNodesPerMain && crystalBank >= TurretNodeCost)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: TurretNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: TurretNodeCost)))
                 {
                     created = CrystalTurretNode.Create(em, buildPos);
                     crystalBank -= TurretNodeCost;
@@ -319,7 +319,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (restorationCount < MaxRestorationNodesPerMain && crystalBank >= RestorationNodeCost && ai.Phase >= 1)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: RestorationNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: RestorationNodeCost)))
                 {
                     created = CrystalRestorationNode.Create(em, buildPos);
                     crystalBank -= RestorationNodeCost;
@@ -327,7 +327,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (enforcementCount < MaxEnforcementNodesPerMain && crystalBank >= EnforcementNodeCost && ai.Phase >= 1)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: EnforcementNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: EnforcementNodeCost)))
                 {
                     created = CrystalEnforcementNode.Create(em, buildPos);
                     crystalBank -= EnforcementNodeCost;
@@ -335,7 +335,7 @@ namespace TheWaningBorder.Systems.Crystal
             }
             else if (suppressionCount < MaxSuppressionNodesPerMain && crystalBank >= SuppressionNodeCost && ai.Phase >= 2)
             {
-                if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: SuppressionNodeCost)))
+                if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: SuppressionNodeCost)))
                 {
                     created = CrystalSuppressionNode.Create(em, buildPos);
                     crystalBank -= SuppressionNodeCost;
@@ -376,7 +376,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (unitType == 0) return;
 
-            if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: cost)))
+            if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: cost)))
             {
                 crystalBank -= cost;
                 em.SetComponentData(nodeEntity, new CrystalTrainingState
@@ -447,7 +447,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             for (int i = 0; i < intruders.Length; i++)
             {
-                if (intruderFactions[i].Value == Faction.White) continue;
+                if (intruderFactions[i].Value == Faction.Curse) continue;
                 float dist = math.distance(nodePos, intruderTransforms[i].Position);
                 if (dist <= spreadRadius && dist < closestDist)
                 {
@@ -540,7 +540,7 @@ namespace TheWaningBorder.Systems.Crystal
                 RescueStrandedUnits(em, nodeTransforms, ref random);
                 wave.WaveTimer = wave.WaveInterval;
                 wave.WaveNumber++;
-                AILogger.Log(Faction.White, "WAVE",
+                AILogger.Log(Faction.Curse, "WAVE",
                     $"Pursuit wave #{wave.WaveNumber}: {reassigned} units retargeted (interval {wave.WaveInterval:F0}s)");
             }
 
@@ -576,7 +576,7 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 for (int i = 0; i < bEnts.Length; i++)
                 {
-                    if (bFactions[i].Value == Faction.White) continue;
+                    if (bFactions[i].Value == Faction.Curse) continue;
                     if (bHealth[i].Value <= 0) continue;
                     targets.Add(bTransforms[i].Position);
                 }
@@ -595,7 +595,7 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 for (int i = 0; i < uEnts.Length; i++)
                 {
-                    if (uFactions[i].Value == Faction.White) continue;
+                    if (uFactions[i].Value == Faction.Curse) continue;
                     if (uHealth[i].Value <= 0) continue;
                     targets.Add(uTransforms[i].Position);
                 }
@@ -694,7 +694,7 @@ namespace TheWaningBorder.Systems.Crystal
                 rescued++;
             }
             if (rescued > 0)
-                AILogger.Log(Faction.White, "RESCUE", $"Recalled {rescued} stranded units to nearest main node");
+                AILogger.Log(Faction.Curse, "RESCUE", $"Recalled {rescued} stranded units to nearest main node");
         }
 
         /// <summary>Try to seed a new main curse node. Returns true on creation.</summary>
@@ -740,7 +740,7 @@ namespace TheWaningBorder.Systems.Crystal
 
             if (!found) return false;
 
-            if (FactionEconomy.Spend(em, Faction.White, Cost.Of(crystal: ExpansionCost)))
+            if (FactionEconomy.Spend(em, Faction.Curse, Cost.Of(crystal: ExpansionCost)))
             {
                 CrystalMainNode.Create(em, expandPos);
                 crystalBank -= ExpansionCost;

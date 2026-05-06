@@ -203,7 +203,7 @@ namespace TheWaningBorder.Systems.Creatures
                     ecb.AddComponent(groundEntity, LocalTransform.FromPosition(groundPos));
                     ecb.AddComponent(groundEntity, new PresentationId { Id = CursedGroundPresentationId });
                     ecb.AddComponent(groundEntity, new Radius { Value = TileRadius });
-                    ecb.AddComponent(groundEntity, new FactionTag { Value = Faction.White });
+                    ecb.AddComponent(groundEntity, new FactionTag { Value = Faction.Curse });
                     ecb.AddComponent(groundEntity, new CursedGroundDPS
                     {
                         DamagePerSecond = BaseDPS,

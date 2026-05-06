@@ -95,7 +95,7 @@ namespace TheWaningBorder.UI.HUD
             InitQueries(em);
 
             // Crystal bank
-            if (FactionEconomy.TryGetResources(em, Faction.White, out var res))
+            if (FactionEconomy.TryGetResources(em, Faction.Curse, out var res))
                 _crystalBank = res.Crystal;
 
             // Count main nodes first (needed for income calc)
