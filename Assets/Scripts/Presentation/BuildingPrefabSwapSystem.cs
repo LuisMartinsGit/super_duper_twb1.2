@@ -60,6 +60,8 @@ namespace TheWaningBorder.Presentation
         {
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated) _em = _world.EntityManager;
+            Debug.Log("[BuildingPrefabSwap] system attached + ready (scan every "
+                + ScanInterval + "s)");
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
@@ -103,64 +105,86 @@ namespace TheWaningBorder.Presentation
         private void TrySwap(Entity e, byte level)
         {
             string buildingId = ResolveBuildingId(e);
-            if (string.IsNullOrEmpty(buildingId)) return;
+            if (string.IsNullOrEmpty(buildingId))
+            {
+                Debug.Log($"[BuildingPrefabSwap] skip entity {e.Index}: not Hall/Barracks/Hut");
+                return;
+            }
 
             byte culture = ReadCulture(e);
-            if (culture == Cultures.None) return;
+            if (culture == Cultures.None)
+            {
+                Debug.Log($"[BuildingPrefabSwap] skip {buildingId} entity {e.Index}: faction has no culture");
+                return;
+            }
             string code = BuildingUpgradeConfig.CultureCode(culture);
             if (string.IsNullOrEmpty(code)) return;
 
-            // Houses (Hut) get a deterministic variant per entity so the same
-            // house always shows the same prefab between frames. 2 variants.
             int variant = (buildingId == "Hut") ? 1 + (Mathf.Abs(e.Index) % 2) : 0;
 
-            var prefab = ResolvePrefab(buildingId, code, level, variant);
-            if (prefab == null) return; // procedural fallback — leave visual alone
+            var prefab = ResolvePrefab(buildingId, code, level, variant, out string resolvedPath);
+            if (prefab == null)
+            {
+                Debug.Log($"[BuildingPrefabSwap] no prefab found for {buildingId}_{code}_{level}" +
+                          (variant > 0 ? $"_{variant}" : "") + " — keeping procedural visual");
+                return;
+            }
+
+            // Use entity transform as the source of truth for position/rotation.
+            // The prefab's authored scale is preserved via ProceduralScaleTag so
+            // PresentationSpawnSystem.SyncTransforms doesn't clobber it on the
+            // next frame — same pattern used for procedural unit visuals.
+            var t = _em.GetComponentData<LocalTransform>(e);
+            Vector3 pos = t.Position;
+            pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
+
+            var newGo = Instantiate(prefab, pos, t.Rotation);
+            newGo.SetActive(true);
+            newGo.name = $"Entity_{e.Index}_{buildingId}_L{level}";
+
+            // Preserve the prefab's authored scale across SyncTransforms ticks.
+            var ps = prefab.transform.localScale;
+            float baseScale = (ps.x + ps.y + ps.z) / 3f;
+            if (baseScale > 0.001f)
+            {
+                var existing = newGo.GetComponent<ProceduralScaleTag>();
+                if (existing == null)
+                    existing = newGo.AddComponent<ProceduralScaleTag>();
+                existing.BaseScale = baseScale;
+            }
+            // Final scale = entity Scale × prefab BaseScale. Most entity Scale
+            // is 1.0 once construction completes; SyncTransforms reapplies
+            // every frame from LocalTransform.
+            newGo.transform.localScale = Vector3.one * t.Scale * baseScale;
 
             var current = EntityViewManager.Instance != null
                 ? EntityViewManager.Instance.GetView(e) : null;
 
-            // Compute spawn position from current view if we have one (preserves
-            // the snap-to-grid Y), otherwise from the LocalTransform.
-            Vector3 pos;
-            Quaternion rot;
-            Vector3 scale;
-            if (current != null)
-            {
-                pos = current.transform.position;
-                rot = current.transform.rotation;
-                scale = current.transform.localScale;
-            }
-            else
-            {
-                var t = _em.GetComponentData<LocalTransform>(e);
-                pos = t.Position;
-                rot = t.Rotation;
-                scale = Vector3.one * t.Scale;
-            }
-
-            var newGo = Instantiate(prefab, pos, rot);
-            newGo.transform.localScale = scale;
-            newGo.name = $"Entity_{e.Index}_Upgraded_L{level}";
-
-            // Replace registration. Destroy the old visual on the next frame
-            // so any in-flight presentation systems finish their tick safely.
-            if (current != null) Destroy(current);
+            // Register the new view BEFORE destroying the old one so other
+            // systems reading EntityViewManager mid-frame always see a valid
+            // GameObject (even for the brief in-frame window).
             EntityViewManager.Instance?.RegisterView(e, newGo);
+            if (current != null) Destroy(current);
+
+            Debug.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
         }
 
-        private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant)
+        private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant,
+            out string resolvedPath)
         {
-            // Build candidate paths in priority order. First Resources.Load
-            // hit wins. Empty / null on full miss → procedural fallback.
+            resolvedPath = null;
             var paths = BuildCandidatePaths(buildingId, cultureCode, level, variant);
             for (int i = 0; i < paths.Count; i++)
             {
                 var p = paths[i];
-                if (_prefabCache.TryGetValue(p, out var cached)) { if (cached != null) return cached; continue; }
+                if (_prefabCache.TryGetValue(p, out var cached))
+                {
+                    if (cached != null) { resolvedPath = p; return cached; }
+                    continue;
+                }
                 var loaded = Resources.Load<GameObject>(p);
                 _prefabCache[p] = loaded; // cache hit OR negative-cache
-                if (loaded != null) return loaded;
+                if (loaded != null) { resolvedPath = p; return loaded; }
             }
             return null;
         }
