@@ -378,6 +378,30 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
         }
 
+        // === BASE BUILDING PREFABS (Hall / Barracks / Hut at level 0) ===
+        // Prefer hand-authored prefabs at Resources/Prefabs/Buildings/{name}
+        // when present; fall through to procedural otherwise. The level-1+
+        // visuals (Hall_al_1, …) are managed separately by
+        // BuildingPrefabSwapSystem after upgrades complete.
+        {
+            var basePrefab = TryLoadBaseBuildingPrefab(presentationId);
+            if (basePrefab != null)
+            {
+                var go = Instantiate(basePrefab, pos, transform.Rotation);
+                go.SetActive(true);
+                // Preserve the prefab's authored scale through SyncTransforms.
+                var ps = basePrefab.transform.localScale;
+                float baseScale = (ps.x + ps.y + ps.z) / 3f;
+                if (baseScale > 0.001f)
+                {
+                    var tag = go.AddComponent<ProceduralScaleTag>();
+                    tag.BaseScale = baseScale;
+                    go.transform.localScale = Vector3.one * transform.Scale * baseScale;
+                }
+                return FinishProceduralBuilding(go, entity, transform);
+            }
+        }
+
         // Try procedural generation for all known building types
         {
             var procGo = ProceduralBuildingGenerator.TryCreate(presentationId, pos, entity, buildingCulture);
@@ -611,6 +635,49 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         ApplyFactionBannerOnly(go, entity);
 
         return go;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // BASE BUILDING PREFAB LOOKUP (Hall / Barracks / Hut, level 0)
+    // ──────────────────────────────────────────────────────────────────
+
+    // Cached Resources lookups so we don't re-resolve every spawn. null
+    // entries mean "negative cache — no prefab exists at this path".
+    private readonly System.Collections.Generic.Dictionary<int, GameObject> _baseBuildingPrefabCache = new();
+    private readonly System.Collections.Generic.HashSet<int> _baseBuildingPrefabNegativeCache = new();
+
+    /// <summary>
+    /// Look up the level-0 hand-authored prefab for Hall / Barracks / Hut.
+    /// Returns null if no prefab is present at the canonical path — caller
+    /// falls back to procedural generation.
+    /// </summary>
+    private GameObject TryLoadBaseBuildingPrefab(int presentationId)
+    {
+        if (_baseBuildingPrefabCache.TryGetValue(presentationId, out var cached))
+            return cached;
+        if (_baseBuildingPrefabNegativeCache.Contains(presentationId)) return null;
+
+        string path = presentationId switch
+        {
+            100 => "Prefabs/Buildings/Hall",     // Hall.PresentationID
+            102 => "Prefabs/Buildings/Hut",      // Hut.PresentationID
+            510 => "Prefabs/Buildings/Barracks", // Barracks.PresentationID
+            _   => null,
+        };
+        if (path == null)
+        {
+            _baseBuildingPrefabNegativeCache.Add(presentationId);
+            return null;
+        }
+
+        var loaded = Resources.Load<GameObject>(path);
+        if (loaded == null)
+        {
+            _baseBuildingPrefabNegativeCache.Add(presentationId);
+            return null;
+        }
+        _baseBuildingPrefabCache[presentationId] = loaded;
+        return loaded;
     }
 
     /// <summary>
