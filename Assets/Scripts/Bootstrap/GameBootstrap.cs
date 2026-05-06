@@ -175,6 +175,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RuntimeManagers>();
             managersGO.AddComponent<EntityViewManager>();
             managersGO.AddComponent<PresentationSpawnSystem>();
+            managersGO.AddComponent<TheWaningBorder.Presentation.BuildingPrefabSwapSystem>();
             managersGO.AddComponent<SelectionSystem>();          // Click + box select
             managersGO.AddComponent<RTSInputManager>();          // Right-click command routing
             managersGO.AddComponent<UnifiedUIManager>();         // Entity info + action panels
