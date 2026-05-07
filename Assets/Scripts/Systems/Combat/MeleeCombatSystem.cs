@@ -233,12 +233,37 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Non-battalion units: chase via DesiredDestination
+                    // Non-battalion units: chase via DesiredDestination.
+                    //
+                    // For wide targets (buildings whose radius exceeds the attacker's
+                    // melee range), aim at the EDGE of the target rather than its
+                    // center. Walking to an impassable building center cell makes
+                    // small melee units (Crystallings vs. e.g. a Hall radius 4)
+                    // stall against the collision footprint, never closing to
+                    // effectiveMeleeRange = MeleeRange + targetRadius.
+                    float3 chaseTarget = targetPos;
+                    if (targetRadius > MeleeRange)
+                    {
+                        float dx = targetPos.x - myPos.x;
+                        float dz = targetPos.z - myPos.z;
+                        float horiz = math.sqrt(dx * dx + dz * dz);
+                        if (horiz > 0.001f)
+                        {
+                            // Stop at half a melee step inside the engagement ring
+                            // so we land squarely in attack range without bouncing.
+                            float stopDist = targetRadius + MeleeRange * 0.5f;
+                            float scale = math.max(0f, (horiz - stopDist) / horiz);
+                            chaseTarget.x = myPos.x + dx * scale;
+                            chaseTarget.z = myPos.z + dz * scale;
+                            chaseTarget.y = targetPos.y;
+                        }
+                    }
+
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chaseTarget,
                             Has = 1
                         });
                     }
@@ -246,7 +271,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         ecb.SetComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = chaseTarget,
                             Has = 1
                         });
                     }

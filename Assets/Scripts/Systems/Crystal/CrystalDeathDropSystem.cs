@@ -41,14 +41,23 @@ namespace TheWaningBorder.Systems.Crystal
             var dropPositions = new NativeList<float3>(Allocator.Temp);
             var dropAmounts = new NativeList<int>(Allocator.Temp);
 
-            foreach (var (health, transform, resourceValue) in SystemAPI
+            foreach (var (health, transform, resourceValue, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<CrystalResourceValue>>()
-                .WithNone<DeathAnimationState, BuildingCollapseState>())
+                .WithNone<DeathAnimationState, BuildingCollapseState>()
+                .WithEntityAccess())
             {
                 if (health.ValueRO.Value > 0) continue;
 
                 int lootAmount = resourceValue.ValueRO.BuildCost;
                 if (lootAmount <= 0) continue;
+
+                // Crystal units drop only 10% of their build cost — discourages
+                // farming the curse. Buildings (no CrystalUnitTag) still drop
+                // their full cost so demolishing a node is worth the effort.
+                if (em.HasComponent<CrystalUnitTag>(entity))
+                {
+                    lootAmount = math.max(1, lootAmount / 10);
+                }
 
                 dropPositions.Add(transform.ValueRO.Position);
                 dropAmounts.Add(lootAmount);

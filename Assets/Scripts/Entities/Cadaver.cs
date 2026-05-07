@@ -21,7 +21,7 @@ namespace TheWaningBorder.Entities
     public static class Cadaver
     {
         public const int DefaultCrystal = 300;
-        public const float MergeRadius = 1f;
+        public const float MergeRadius = 4f;
 
         private const int PresentationID = 301;
 

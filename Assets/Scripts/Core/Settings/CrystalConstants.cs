@@ -67,7 +67,7 @@ namespace TheWaningBorder.Core.Config
         public const int TurretMaxTargets = 2;
 
         // ==================== Crystalling (Unit) ====================
-        public const float CrystallingHP = 60f;
+        public const float CrystallingHP = 72f;     // +20% from 60
         public const float CrystallingSpeed = 5.5f;
         public const float CrystallingDamage = 8f;
         public const float CrystallingLoS = 10f;
@@ -77,7 +77,7 @@ namespace TheWaningBorder.Core.Config
         public const int CrystallingPresentationID = 320;
 
         // ==================== Veilstinger (Unit) ====================
-        public const float VeilstingerHP = 65f;
+        public const float VeilstingerHP = 78f;     // +20% from 65
         public const float VeilstingerSpeed = 4.0f;
         public const float VeilstingerDamage = 18f;
         public const float VeilstingerLoS = 28f;
@@ -89,7 +89,7 @@ namespace TheWaningBorder.Core.Config
         public const int VeilstingerPresentationID = 321;
 
         // ==================== Godsplinter (Unit) ====================
-        public const float GodsplinterHP = 1200f;
+        public const float GodsplinterHP = 1440f;   // +20% from 1200
         public const float GodsplinterSpeed = 1.8f;
         public const float GodsplinterDamage = 40f;
         public const float GodsplinterLoS = 20f;

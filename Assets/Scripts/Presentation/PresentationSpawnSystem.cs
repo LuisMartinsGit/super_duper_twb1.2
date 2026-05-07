@@ -2904,9 +2904,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Create a crystal node/building visual: large bulbous, eroded crystals with purple base
-    /// fading to dark green tips.  Translucent, reflective material with dim purple emission
-    /// and a white point light at the core.
+    /// Create a crystal node/building visual: a cluster of tall, jagged spires
+    /// (procedurally faceted meshes — flat shaded, polygonal sides, taper to
+    /// an irregular apex). Purple base fading to dark green tips with a white
+    /// point light at the core.
     /// </summary>
     private void CreateCrystalNodeVisual(GameObject root, int presentationId, Color coreColor, Color glowColor, Entity entity)
     {
@@ -2919,39 +2920,45 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         var rng = new System.Random(entity.Index + presentationId);
 
-        // --- Central dominant crystal (tall bulbous sphere, stretched vertically) ---
-        var mainCrystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        mainCrystal.name = "MainCrystal";
+        // --- Central dominant spire (tall jagged spike) ---
+        float mainHeight = 4.2f * scale;
+        var mainCrystal = BuildCrystalSpire(
+            "MainCrystal",
+            height: mainHeight,
+            baseRadius: 0.55f * scale,
+            sides: 6,
+            rings: 4,
+            jaggedness: 0.30f,
+            rng: rng);
         mainCrystal.transform.SetParent(root.transform, false);
-        float mainHeight = 2.8f * scale;
-        mainCrystal.transform.localPosition = Vector3.up * (mainHeight * 0.45f);
-        mainCrystal.transform.localScale = new Vector3(1.1f * scale, mainHeight, 0.95f * scale);
+        mainCrystal.transform.localPosition = Vector3.zero;
         mainCrystal.transform.localRotation = Quaternion.Euler(
             (float)rng.NextDouble() * 6f - 3f, (float)rng.NextDouble() * 360f,
             (float)rng.NextDouble() * 6f - 3f);
         ApplyCrystalMaterial(mainCrystal, purpleBase, greenTip, emissionPurple, tipBlend: 0.65f);
-        DestroyCollider(mainCrystal);
 
-        // --- Secondary bulbous crystals (leaning outward) ---
+        // --- Secondary spires (leaning outward) ---
         int secondaryCount = presentationId == 310 ? 4 : 2;
         for (int i = 0; i < secondaryCount; i++)
         {
             float angle = (i / (float)secondaryCount) * 360f + (float)rng.NextDouble() * 40f;
             float dist  = (0.55f + (float)rng.NextDouble() * 0.35f) * scale;
-            float h     = 1.4f + (float)rng.NextDouble() * 1.0f;
+            float h     = (2.2f + (float)rng.NextDouble() * 1.4f) * scale;
 
-            var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            crystal.name = $"Crystal_{i}";
+            var crystal = BuildCrystalSpire(
+                $"Crystal_{i}",
+                height: h,
+                baseRadius: (0.30f + (float)rng.NextDouble() * 0.15f) * scale,
+                sides: 5,
+                rings: 3,
+                jaggedness: 0.35f,
+                rng: rng);
             crystal.transform.SetParent(root.transform, false);
             float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-            crystal.transform.localPosition = new Vector3(px, h * 0.4f * scale, pz);
-            crystal.transform.localScale = new Vector3(
-                (0.55f + (float)rng.NextDouble() * 0.25f) * scale,
-                h * scale,
-                (0.50f + (float)rng.NextDouble() * 0.20f) * scale);
-            // Lean outward from center for organic feel
-            float lean = 10f + (float)rng.NextDouble() * 20f;
+            crystal.transform.localPosition = new Vector3(px, 0f, pz);
+            // Lean outward — apex tilts away from the cluster center.
+            float lean = 12f + (float)rng.NextDouble() * 18f;
             crystal.transform.localRotation = Quaternion.Euler(
                 Mathf.Cos(angle * Mathf.Deg2Rad) * lean,
                 angle + (float)rng.NextDouble() * 30f,
@@ -2959,27 +2966,28 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             float tipT = 0.4f + (float)rng.NextDouble() * 0.4f;
             ApplyCrystalMaterial(crystal, purpleBase, greenTip, emissionPurple, tipBlend: tipT);
-            DestroyCollider(crystal);
         }
 
-        // --- Small eroded nub clusters at the base ---
+        // --- Small jagged shards at the base ---
         int nubCount = presentationId == 310 ? 6 : 3;
         for (int i = 0; i < nubCount; i++)
         {
             float angle = (float)rng.NextDouble() * 360f;
-            float dist  = (0.3f + (float)rng.NextDouble() * 0.8f) * scale;
-            float nubH  = 0.25f + (float)rng.NextDouble() * 0.45f;
+            float dist  = (0.4f + (float)rng.NextDouble() * 0.9f) * scale;
+            float nubH  = (0.6f + (float)rng.NextDouble() * 0.7f) * scale;
 
-            var nub = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            nub.name = $"Nub_{i}";
+            var nub = BuildCrystalSpire(
+                $"Nub_{i}",
+                height: nubH,
+                baseRadius: (0.16f + (float)rng.NextDouble() * 0.10f) * scale,
+                sides: 4,
+                rings: 2,
+                jaggedness: 0.40f,
+                rng: rng);
             nub.transform.SetParent(root.transform, false);
             float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-            nub.transform.localPosition = new Vector3(px, nubH * 0.35f * scale, pz);
-            nub.transform.localScale = new Vector3(
-                (0.25f + (float)rng.NextDouble() * 0.20f) * scale,
-                nubH * scale,
-                (0.25f + (float)rng.NextDouble() * 0.20f) * scale);
+            nub.transform.localPosition = new Vector3(px, 0f, pz);
             nub.transform.localRotation = Quaternion.Euler(
                 (float)rng.NextDouble() * 30f - 15f,
                 (float)rng.NextDouble() * 360f,
@@ -2987,7 +2995,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             // Nubs are more purple (base region), less green blend
             ApplyCrystalMaterial(nub, purpleBase, greenTip, emissionPurple, tipBlend: 0.15f);
-            DestroyCollider(nub);
         }
 
         // --- Ground stain / base disc ---
@@ -3018,6 +3025,119 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         var col = go.GetComponent<Collider>();
         if (col != null) Destroy(col);
+    }
+
+    /// <summary>
+    /// Build a faceted crystal-spire GameObject with MeshFilter + MeshRenderer
+    /// attached. Polygonal cross-section taper from a base ring to a single
+    /// apex at the top, with each ring vertex randomly perturbed for jagged
+    /// edges. Vertices are split per-triangle so URP/Lit flat-shades each
+    /// facet (no smoothing across edges) — the shape reads as crystalline
+    /// rather than rounded.
+    ///
+    /// Parameters:
+    ///   sides      — polygonal divisions around the vertical axis (4-8 looks best).
+    ///   rings      — vertical ring stages between base and apex (2-5).
+    ///   jaggedness — 0..1 random radial perturbation factor per vertex.
+    /// </summary>
+    private static GameObject BuildCrystalSpire(string name, float height, float baseRadius,
+        int sides, int rings, float jaggedness, System.Random rng)
+    {
+        if (sides < 3) sides = 3;
+        if (rings < 1) rings = 1;
+
+        var smoothVerts = new List<Vector3>();
+        var smoothTris = new List<int>();
+
+        // Build vertical rings, base (r=0) → near-apex (r=rings).
+        var ringIdx = new int[rings + 1, sides];
+        for (int r = 0; r <= rings; r++)
+        {
+            float t = r / (float)rings;
+            float y = height * t;
+            // Quadratic taper: stays full near the base, narrows aggressively
+            // near the top so the silhouette reads as a spire, not a cone.
+            float radius = baseRadius * (1f - 0.85f * (t * t));
+            // Twist each ring so opposing facets don't form long flat strips.
+            float ringTwist = (float)rng.NextDouble() * (Mathf.PI / sides);
+            for (int s = 0; s < sides; s++)
+            {
+                float angle = ringTwist + s * (Mathf.PI * 2f / sides);
+                float jag = 1f + ((float)rng.NextDouble() - 0.5f) * jaggedness;
+                float ax = Mathf.Cos(angle) * radius * jag;
+                float az = Mathf.Sin(angle) * radius * jag;
+                ringIdx[r, s] = smoothVerts.Count;
+                smoothVerts.Add(new Vector3(ax, y, az));
+            }
+        }
+
+        // Apex point — slightly off-center for asymmetry.
+        int apexIdx = smoothVerts.Count;
+        smoothVerts.Add(new Vector3(
+            ((float)rng.NextDouble() - 0.5f) * baseRadius * 0.20f,
+            height * 1.04f,
+            ((float)rng.NextDouble() - 0.5f) * baseRadius * 0.20f));
+
+        // Side quads between rings (two triangles each).
+        for (int r = 0; r < rings; r++)
+        {
+            for (int s = 0; s < sides; s++)
+            {
+                int s2 = (s + 1) % sides;
+                int a = ringIdx[r, s];
+                int b = ringIdx[r, s2];
+                int c = ringIdx[r + 1, s];
+                int d = ringIdx[r + 1, s2];
+                smoothTris.Add(a); smoothTris.Add(c); smoothTris.Add(b);
+                smoothTris.Add(b); smoothTris.Add(c); smoothTris.Add(d);
+            }
+        }
+
+        // Cap to apex from the top ring.
+        int topRing = rings;
+        for (int s = 0; s < sides; s++)
+        {
+            int s2 = (s + 1) % sides;
+            smoothTris.Add(ringIdx[topRing, s]);
+            smoothTris.Add(apexIdx);
+            smoothTris.Add(ringIdx[topRing, s2]);
+        }
+
+        // Bottom cap (closed base disc) so the spire isn't see-through from
+        // below when the camera tilts low. Triangle fan around the centroid.
+        int baseCenterIdx = smoothVerts.Count;
+        smoothVerts.Add(new Vector3(0f, 0f, 0f));
+        for (int s = 0; s < sides; s++)
+        {
+            int s2 = (s + 1) % sides;
+            smoothTris.Add(baseCenterIdx);
+            smoothTris.Add(ringIdx[0, s2]);
+            smoothTris.Add(ringIdx[0, s]);
+        }
+
+        // Flat-shade by giving every triangle its own three vertices. Each
+        // face then gets a unique normal and the spire reads as faceted.
+        var srcVerts = smoothVerts.ToArray();
+        var srcTris = smoothTris.ToArray();
+        var flatVerts = new Vector3[srcTris.Length];
+        var flatTris = new int[srcTris.Length];
+        for (int i = 0; i < srcTris.Length; i++)
+        {
+            flatVerts[i] = srcVerts[srcTris[i]];
+            flatTris[i] = i;
+        }
+
+        var mesh = new Mesh { name = $"{name}_SpireMesh" };
+        mesh.vertices = flatVerts;
+        mesh.triangles = flatTris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        var go = new GameObject(name);
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>();
+        return go;
     }
 
     /// <summary>
