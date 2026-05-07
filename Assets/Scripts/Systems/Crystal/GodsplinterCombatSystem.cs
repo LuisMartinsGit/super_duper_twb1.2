@@ -296,9 +296,16 @@ namespace TheWaningBorder.Systems.Crystal
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
             DamageType dmgType = DamageType.Siege, float spawnYOffset = 1.5f)
         {
-            var direction = math.normalize(targetPos - start);
+            // Lasers fly straight; downward shots dip below the terrain
+            // collision margin (0.5m) midway and get killed before reaching
+            // their target. Force horizontal flight at gun height. (Same
+            // fix as VeilstingerCombatSystem.CreateLaserFromGun.)
+            float3 dir = targetPos - start;
+            dir.y = 0f;
+            var direction = math.normalizesafe(dir, new float3(0, 0, 1));
             var velocity = direction * LaserSpeed;
-            var flightTime = distance / LaserSpeed;
+            float horizDist = math.length(new float2(dir.x, dir.z));
+            var flightTime = math.max(0.05f, horizDist / LaserSpeed);
 
             var laser = ecb.CreateEntity();
 

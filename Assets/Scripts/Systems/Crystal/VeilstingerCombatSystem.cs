@@ -292,9 +292,18 @@ namespace TheWaningBorder.Systems.Crystal
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
             DamageType dmgType = DamageType.Magic)
         {
-            var direction = math.normalize(targetPos - gunPos);
+            // Lasers fly straight, no arc. If the target is below the gun
+            // (buildings sit at y≈0, gun at y≈1) the beam dips below the
+            // ProjectileSystem's terrain-collision margin (0.5m) midway and
+            // gets destroyed before it lands — the "shots only go halfway"
+            // bug. Force a purely horizontal trajectory at gun height: zero
+            // the Y delta and recompute flight time from the XZ distance.
+            float3 dir = targetPos - gunPos;
+            dir.y = 0f;
+            var direction = math.normalizesafe(dir, new float3(0, 0, 1));
             var velocity = direction * LaserSpeed;
-            var flightTime = distance / LaserSpeed;
+            float horizDist = math.length(new float2(dir.x, dir.z));
+            var flightTime = math.max(0.05f, horizDist / LaserSpeed);
 
             var laser = ecb.CreateEntity();
 
