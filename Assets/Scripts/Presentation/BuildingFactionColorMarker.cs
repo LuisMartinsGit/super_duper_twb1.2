@@ -114,35 +114,49 @@ namespace TheWaningBorder.Presentation
 
         private static bool TryReplaceAtlasTexture(Material mat, Color factionColor, int factionKey)
         {
-            Texture2D source = ReadBaseTexture(mat) as Texture2D;
-            if (source == null) return false;
-
-            if (!source.isReadable)
+            // Walk every texture property the shader exposes — custom
+            // shaders rarely use the URP-default _BaseMap / _MainTex names,
+            // so we look at all of them and swap any whose texture is a
+            // readable Texture2D containing marker pixels. (_BaseMap and
+            // _MainTex show up in GetTexturePropertyNames too, so this
+            // also covers the standard URP / Built-in cases.)
+            var propNames = mat.GetTexturePropertyNames();
+            bool replacedAny = false;
+            for (int p = 0; p < propNames.Length; p++)
             {
-                if (_warnedUnreadable.Add(source))
+                string prop = propNames[p];
+                Texture2D source = mat.GetTexture(prop) as Texture2D;
+                if (source == null) continue;
+
+                if (!source.isReadable)
                 {
-                    Debug.LogWarning(
-                        $"[BuildingFactionColorMarker] Texture '{source.name}' is not Read/Write " +
-                        "enabled — atlas pixel replacement skipped. Enable Read/Write in the texture's " +
-                        "import settings for faction coloring to work on prefabs that use it.");
+                    if (_warnedUnreadable.Add(source))
+                    {
+                        Debug.LogWarning(
+                            $"[BuildingFactionColorMarker] Texture '{source.name}' (shader prop '{prop}') " +
+                            "is not Read/Write enabled — atlas pixel replacement skipped. Enable Read/Write " +
+                            "in the texture's import settings.");
+                    }
+                    continue;
                 }
-                return false;
+
+                var key = (source, factionKey);
+                if (_swappedCache.TryGetValue(key, out var cached))
+                {
+                    if (cached == null) continue; // negative cache: no marker pixels
+                    mat.SetTexture(prop, cached);
+                    replacedAny = true;
+                    continue;
+                }
+
+                var swapped = BuildSwappedAtlas(source, factionColor);
+                _swappedCache[key] = swapped; // null entry too — negative cache
+                if (swapped == null) continue;
+
+                mat.SetTexture(prop, swapped);
+                replacedAny = true;
             }
-
-            var key = (source, factionKey);
-            if (_swappedCache.TryGetValue(key, out var cached))
-            {
-                if (cached == null) return false; // negative cache: no marker pixels
-                WriteBaseTexture(mat, cached);
-                return true;
-            }
-
-            var swapped = BuildSwappedAtlas(source, factionColor);
-            _swappedCache[key] = swapped; // null entry too — negative cache
-            if (swapped == null) return false;
-
-            WriteBaseTexture(mat, swapped);
-            return true;
+            return replacedAny;
         }
 
         /// <summary>
@@ -219,19 +233,6 @@ namespace TheWaningBorder.Presentation
         // ──────────────────────────────────────────────────────────────────
         // INTERNAL HELPERS
         // ──────────────────────────────────────────────────────────────────
-
-        private static Texture ReadBaseTexture(Material mat)
-        {
-            if (mat.HasProperty("_BaseMap")) return mat.GetTexture("_BaseMap");
-            if (mat.HasProperty("_MainTex")) return mat.mainTexture;
-            return null;
-        }
-
-        private static void WriteBaseTexture(Material mat, Texture tex)
-        {
-            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
-            else if (mat.HasProperty("_MainTex")) mat.mainTexture = tex;
-        }
 
         private static int PackKey(Color c)
         {
