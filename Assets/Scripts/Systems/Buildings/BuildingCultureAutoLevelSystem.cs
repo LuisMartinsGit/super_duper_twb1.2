@@ -66,9 +66,13 @@ namespace TheWaningBorder.Systems.Buildings
                     if (em.GetComponentData<BuildingUpgradeState>(e).Level >= 1) continue;
                 }
 
-                // Faction must have picked a culture.
+                // Faction must have COMPLETED age-up. AgeUpSystem sets the
+                // Hall's FactionProgress.Culture only on completion (line 73
+                // of AgeUpSystem.cs). FactionColors.SetFactionCulture is called
+                // earlier — at age-up START via the UI popup — so reading from
+                // FactionColors fires the bump too early.
                 var faction = em.GetComponentData<FactionTag>(e).Value;
-                byte culture = FactionColors.GetFactionCulture(faction);
+                if (!TryGetCompletedCulture(em, faction, out byte culture)) continue;
                 if (culture == Cultures.None) continue;
 
                 // Capture base stats once (same shape as the manual command
@@ -95,6 +99,32 @@ namespace TheWaningBorder.Systems.Buildings
                 UnityEngine.Debug.Log(
                     $"[Upgrade] auto-L1 — {faction} entity {e.Index} (culture picked)");
             }
+        }
+
+        /// <summary>
+        /// Look up the faction's completed culture by reading FactionProgress.Culture
+        /// off the Hall — the source of truth set by AgeUpSystem on age-up completion.
+        /// Returns false (and culture=None) if the Hall is still mid-age-up
+        /// (AgeUpState component still attached) so the auto-bump doesn't fire
+        /// prematurely from the UI popup's FactionColors.SetFactionCulture call.
+        /// </summary>
+        private static bool TryGetCompletedCulture(EntityManager em, Faction faction, out byte culture)
+        {
+            culture = Cultures.None;
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<FactionProgress>());
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                // Age-up still in progress — wait for completion.
+                if (em.HasComponent<AgeUpState>(ents[i])) return false;
+                culture = em.GetComponentData<FactionProgress>(ents[i]).Culture;
+                return true;
+            }
+            return false;
         }
     }
 }

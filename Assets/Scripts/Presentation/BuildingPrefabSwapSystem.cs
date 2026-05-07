@@ -42,6 +42,13 @@ namespace TheWaningBorder.Presentation
         // null means "definitely-missing" — checked positively too.
         private readonly Dictionary<string, GameObject> _prefabCache = new();
 
+        // What GameObject we last registered with EntityViewManager for
+        // each entity. If on the next scan EntityViewManager's view is a
+        // DIFFERENT GameObject, our swap got clobbered (e.g.
+        // PresentationSpawnSystem.RefreshFactionVisuals respawned
+        // procedurally during age-up completion) and we need to re-swap.
+        private readonly Dictionary<Entity, GameObject> _registeredView = new();
+
         // Throttle the scan — upgrades take 20-45s, no need to poll every
         // frame. 0.5s feels instant after the upgrade completes.
         private const float ScanInterval = 0.5f;
@@ -88,6 +95,22 @@ namespace TheWaningBorder.Presentation
             {
                 var e = ents[i];
                 byte level = _em.GetComponentData<BuildingUpgradeState>(e).Level;
+
+                // Detect external clobber: if EntityViewManager's view differs
+                // from the one we registered, somebody else replaced our swap
+                // (e.g. AgeUpSystem.RefreshFactionVisuals at age-up complete).
+                // Clear our caches for this entity so the swap fires again.
+                if (_registeredView.TryGetValue(e, out var lastReg))
+                {
+                    var current = EntityViewManager.Instance != null
+                        ? EntityViewManager.Instance.GetView(e) : null;
+                    if (current != lastReg)
+                    {
+                        Debug.Log($"[BuildingPrefabSwap] view clobbered for entity {e.Index} — re-swapping");
+                        _lastLevel.Remove(e);
+                        _registeredView.Remove(e);
+                    }
+                }
 
                 if (_lastLevel.TryGetValue(e, out byte cached) && cached == level) continue;
                 _lastLevel[e] = level;
@@ -171,6 +194,7 @@ namespace TheWaningBorder.Presentation
             // systems reading EntityViewManager mid-frame always see a valid
             // GameObject (even for the brief in-frame window).
             EntityViewManager.Instance?.RegisterView(e, newGo);
+            _registeredView[e] = newGo;
             if (current != null) Destroy(current);
 
             Debug.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
@@ -257,7 +281,11 @@ namespace TheWaningBorder.Presentation
             var toRemove = new List<Entity>(8);
             foreach (var kvp in _lastLevel)
                 if (!_em.Exists(kvp.Key)) toRemove.Add(kvp.Key);
-            for (int i = 0; i < toRemove.Count; i++) _lastLevel.Remove(toRemove[i]);
+            for (int i = 0; i < toRemove.Count; i++)
+            {
+                _lastLevel.Remove(toRemove[i]);
+                _registeredView.Remove(toRemove[i]);
+            }
         }
     }
 }
