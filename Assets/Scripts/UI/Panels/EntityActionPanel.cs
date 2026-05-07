@@ -661,9 +661,16 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.Space(6);
 
-            // Check prerequisites
-            string choiceBuilding = BuildingFactory.GetFactionChoiceBuilding(em, faction);
+            // Check prerequisites — choice building must be COMPLETED, not
+            // just under construction. (Players were able to research the
+            // culture choice + start age-up before the Shrine/Vault/Keep
+            // had finished building.)
+            string choiceBuilding = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction);
             bool hasChoiceBuilding = choiceBuilding != null;
+            // Distinguish "no choice building yet" from "still building" so
+            // the requirement label can be precise.
+            bool choiceBuildingPending = !hasChoiceBuilding
+                && BuildingFactory.GetFactionChoiceBuilding(em, faction) != null;
             bool canAfford = FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost);
 
             bool canAgeUp = hasChoiceBuilding && canAfford;
@@ -681,7 +688,10 @@ namespace TheWaningBorder.UI.Panels
             // Requirement status
             if (!hasChoiceBuilding)
             {
-                GUILayout.Label("Requires: Choice Building (Temple / Vault / Keep)", _requireStyle);
+                GUILayout.Label(choiceBuildingPending
+                    ? "Requires: Choice Building completed (still building)"
+                    : "Requires: Choice Building (Temple / Vault / Keep)",
+                    _requireStyle);
             }
             else if (!canAfford)
             {

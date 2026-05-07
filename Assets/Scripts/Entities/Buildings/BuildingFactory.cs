@@ -244,6 +244,8 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Check if a faction already has a choice building (built or under construction).
         /// Returns the building ID if one exists, null otherwise.
+        /// Use this for "can the player place a SECOND choice building?" gating —
+        /// for the age-up gate, see <see cref="GetCompletedFactionChoiceBuilding"/>.
         /// </summary>
         public static string GetFactionChoiceBuilding(EntityManager em, Faction faction)
         {
@@ -260,6 +262,32 @@ namespace TheWaningBorder.Entities
                     result = GetBuildingIdFromEntity(em, entities[i]);
                     break;
                 }
+            }
+            entities.Dispose();
+            return result;
+        }
+
+        /// <summary>
+        /// Like <see cref="GetFactionChoiceBuilding"/>, but only returns a
+        /// non-null result if the choice building is COMPLETED (no
+        /// UnderConstruction component). Used by the age-up gate so players
+        /// (and AI) can't research culture choice / advance era while the
+        /// Shrine / Vault / Keep is still being built.
+        /// </summary>
+        public static string GetCompletedFactionChoiceBuilding(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                typeof(ChoiceBuildingTag), typeof(FactionTag), typeof(BuildingTag));
+            var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            string result = null;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var fac = em.GetComponentData<FactionTag>(entities[i]).Value;
+                if (fac != faction) continue;
+                if (em.HasComponent<UnderConstruction>(entities[i])) continue;
+                result = GetBuildingIdFromEntity(em, entities[i]);
+                break;
             }
             entities.Dispose();
             return result;

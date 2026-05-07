@@ -806,13 +806,16 @@ namespace TheWaningBorder.AI
         private static bool FactionHasChoiceBuilding(EntityManager em, Faction faction)
         {
             // Choice buildings carry ChoiceBuildingTag (set by BuildingFactory for
-            // ShrineOfAhridan / VaultOfAlmierra / FiendstoneKeep). TempleOfRidan
-            // is also valid for AgeUp prereq per TechTree.json — fall through to
-            // BuildingFactory.GetFactionChoiceBuilding for the canonical answer.
-            var existing = BuildingFactory.GetFactionChoiceBuilding(em, faction);
+            // ShrineOfAhridan / VaultOfAlmierra / FiendstoneKeep). The AI age-up
+            // gate must require a COMPLETED choice building — the canonical
+            // helper that excludes UnderConstruction is
+            // GetCompletedFactionChoiceBuilding. (Player + AI gates were both
+            // counting under-construction choice buildings before the fix.)
+            var existing = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction);
             if (existing != null) return true;
 
-            // Also accept TempleOfRidan even though it isn't a "choice" building.
+            // Also accept a completed TempleOfRidan even though it isn't a
+            // "choice" building per ChoiceBuildingIds.
             Entity temple = FindFactionBuilding<TempleTag>(em, faction);
             return temple != Entity.Null && !em.HasComponent<UnderConstruction>(temple);
         }
