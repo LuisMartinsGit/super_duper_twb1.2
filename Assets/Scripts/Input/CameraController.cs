@@ -66,6 +66,9 @@ namespace TheWaningBorder.Input
         public float heightDamping = 0.1f;
         
         [Header("World Bounds")]
+        // Defaults are placeholders; Start() pulls the real bounds from
+        // GameSettings.MapHalfSize so the camera can reach the edge of
+        // whatever map the lobby selected (largest preset goes to ±512).
         public Vector2 worldMin = new Vector2(-256, -256);
         public Vector2 worldMax = new Vector2(256, 256);
         
@@ -121,7 +124,17 @@ namespace TheWaningBorder.Input
         {
             InitializeCameraRig();
             FindTerrain();
-            
+
+            // Pull bounds from the lobby-selected map size so the camera
+            // can pan to the edge of the largest map (was hardcoded ±256
+            // and stopped short on Large + Custom-Large maps).
+            int half = GameSettings.MapHalfSize;
+            if (half > 0)
+            {
+                worldMin = new Vector2(-half, -half);
+                worldMax = new Vector2( half,  half);
+            }
+
             // Initialize from current state
             _targetPosition = transform.position;
             _currentZoom = _targetZoom = _camTransform.localPosition.magnitude;
