@@ -1086,15 +1086,12 @@ namespace TheWaningBorder.World.Terrain
 
                     if (dist > localRadius) continue;
 
-                    // Smooth falloff from center to distorted edge.
-                    // Center hits 1.0 so the curse layer fully dominates the
-                    // splat at the hub — at 0.95 you could still see ~5% of
-                    // the underlying grass leaking through.
-                    float t = 1f - dist / localRadius;
-                    t = t * t * (3f - 2f * t); // smoothstep
-                    // Plateau the inner ring at full weight, so the central
-                    // ~60% of the radius is solid curse instead of gradient.
-                    float curseWeight = Mathf.Clamp01(t * 1.45f);
+                    // Hard edge: every cell inside the noise-distorted radius
+                    // gets full curse weight, every cell outside gets none.
+                    // No smoothstep / falloff. The organic shape still comes
+                    // from the noise-warped localRadius above; the edge
+                    // itself is binary.
+                    float curseWeight = 1f;
 
                     // Blend: take the max so overlapping patches merge smoothly
                     float existingCurse = splat[z, x, curseIndex];
