@@ -240,9 +240,13 @@ namespace TheWaningBorder.Systems.Training
                 maxAttempts: 16
             );
 
-            // Check if building has a rally point to move to after spawning
+            // Check if building has a rally point to move to after spawning.
+            // RallyPoint.TargetEntity is an optional follow-up target — when
+            // it's a resource node and the freshly-spawned unit is a miner,
+            // we'll issue a Gather command instead of a plain move.
             float3 rallyTarget = float3.zero;
             bool hasRally = false;
+            Entity rallyTargetEntity = Entity.Null;
             if (em.HasComponent<RallyPoint>(building))
             {
                 var rally = em.GetComponentData<RallyPoint>(building);
@@ -250,6 +254,7 @@ namespace TheWaningBorder.Systems.Training
                 {
                     rallyTarget = rally.Position;
                     hasRally = true;
+                    rallyTargetEntity = rally.TargetEntity;
                 }
             }
 
@@ -285,17 +290,71 @@ namespace TheWaningBorder.Systems.Training
             // Issue move command to rally point if one is set
             if (hasRally)
             {
-                if (!em.HasComponent<DesiredDestination>(unit))
-                    em.AddComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
-                    else
-                        em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                // Resource rally — point miners straight at the deposit so
+                // they auto-gather without any further player input.
+                bool issuedGather = false;
+                if (rallyTargetEntity != Entity.Null && em.Exists(rallyTargetEntity)
+                    && em.HasComponent<MinerTag>(unit)
+                    && (em.HasComponent<IronMineTag>(rallyTargetEntity)
+                        || em.HasComponent<CadaverTag>(rallyTargetEntity)))
+                {
+                    Entity dropOff = FindFactionDropOff(em, faction);
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueGather(
+                        em, unit, rallyTargetEntity, dropOff,
+                        TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
+                    issuedGather = true;
+                }
 
-                if (!em.HasComponent<GuardPoint>(unit))
-                    em.AddComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
-                    else
-                        em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                if (!issuedGather)
+                {
+                    if (!em.HasComponent<DesiredDestination>(unit))
+                        em.AddComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                        else
+                            em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+
+                    if (!em.HasComponent<GuardPoint>(unit))
+                        em.AddComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                        else
+                            em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                }
             }
 
+        }
+
+        /// <summary>
+        /// Find a faction-owned drop-off building (GathererHut > Hall) for
+        /// rally-issued gather commands. Mirrors the player input path's
+        /// FindNearestGatherersHut but simpler — picks the first match.
+        /// </summary>
+        private static Entity FindFactionDropOff(EntityManager em, Faction faction)
+        {
+            // Prefer GathererHut.
+            var ghQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<GathererHutTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using (var ents = ghQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    return ents[i];
+                }
+            }
+            // Fallback: Hall.
+            var hallQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using (var ents = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    return ents[i];
+                }
+            }
+            return Entity.Null;
         }
     }
 }

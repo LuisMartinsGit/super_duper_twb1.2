@@ -327,20 +327,29 @@ namespace TheWaningBorder.Core.Commands
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Set rally point for a building.
+        /// Set rally point for a building. <paramref name="targetEntity"/>
+        /// is an optional follow-up target (e.g. a resource node) that
+        /// post-spawn handlers may use — TrainingSystem auto-issues a
+        /// gather command on miners when this points at an iron / crystal
+        /// deposit. Pass Entity.Null for plain "walk here" rallies.
         /// </summary>
         public static void SetRallyPoint(EntityManager em, Entity building, float3 position,
+            Entity targetEntity = default,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (building == Entity.Null || !em.Exists(building)) return;
 
             if (ShouldQueueForLockstep(source))
             {
+                // Lockstep queue currently doesn't replicate targetEntity —
+                // single-player sets it directly; multiplayer falls back to
+                // a position-only rally. Networked target sync can be added
+                // later by extending the lockstep payload.
                 QueueRallyPointForLockstep(em, building, position);
             }
             else
             {
-                SetRallyPointDirect(em, building, position);
+                SetRallyPointDirect(em, building, position, targetEntity);
             }
         }
 
@@ -550,11 +559,17 @@ namespace TheWaningBorder.Core.Commands
         // direct-execution helpers below.
         // ═══════════════════════════════════════════════════════════════
 
-        private static void SetRallyPointDirect(EntityManager em, Entity building, float3 position)
+        private static void SetRallyPointDirect(EntityManager em, Entity building, float3 position,
+            Entity targetEntity = default)
         {
             if (!em.HasComponent<RallyPoint>(building))
                 em.AddComponent<RallyPoint>(building);
-            em.SetComponentData(building, new RallyPoint { Position = position, Has = 1 });
+            em.SetComponentData(building, new RallyPoint
+            {
+                Position     = position,
+                Has          = 1,
+                TargetEntity = targetEntity,
+            });
         }
     }
 

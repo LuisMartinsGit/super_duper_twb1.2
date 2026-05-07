@@ -199,7 +199,7 @@ namespace TheWaningBorder.AI
             if (!ShouldAIIssueCommands()) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
-            CommandRouter.SetRallyPoint(em, building, position, CommandSource.AI);
+            CommandRouter.SetRallyPoint(em, building, position, Entity.Null, CommandSource.AI);
         }
 
         // ==================== Batch Operations ====================

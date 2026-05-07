@@ -2759,8 +2759,12 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         var greenTip   = new Color(0.06f, 0.28f, 0.10f, 0.55f);
         var emPurple   = new Color(0.35f, 0.05f, 0.50f);
 
-        // Small cluster of 3-5 bulbous crystal nubs (spheres)
-        int shardCount = Random.Range(3, 6);
+        // Cluster of 4-6 bulbous crystal nubs. Sizes were ~2× smaller before
+        // and the entity transform's amount-driven scale (0.6..4.0) made low-
+        // amount cadavers nearly impossible to click. Doubled the shard
+        // dimensions + spread so the smallest cadaver is a comfortable
+        // selection target.
+        int shardCount = Random.Range(4, 7);
         for (int i = 0; i < shardCount; i++)
         {
             var shard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -2768,13 +2772,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             shard.transform.SetParent(root.transform);
 
             float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
-            float dist = Random.Range(0.05f, 0.3f);
+            float dist = Random.Range(0.15f, 0.7f);
             float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
 
-            // Bulbous eroded shape — short and wide spheres
-            float height = Random.Range(0.25f, 0.55f);
-            float width = Random.Range(0.12f, 0.22f);
+            // Bulbous eroded shape — bigger so the crystal pile reads from
+            // RTS camera distance and clicks land on the visual.
+            float height = Random.Range(0.6f, 1.2f);
+            float width = Random.Range(0.30f, 0.50f);
             shard.transform.localPosition = new Vector3(x, height * 0.4f, z);
             shard.transform.localScale = new Vector3(width, height, width);
 
@@ -2790,21 +2795,25 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             ApplyCrystalMaterial(shard, purpleBase, greenTip, emPurple, tipBlend: tipT);
         }
 
-        // Tiny point light for the loot pile
+        // Point light for the pile — bumped intensity + range to match the
+        // larger silhouette.
         var lightObj = new GameObject("LootGlow");
         lightObj.transform.SetParent(root.transform, false);
-        lightObj.transform.localPosition = Vector3.up * 0.25f;
+        lightObj.transform.localPosition = Vector3.up * 0.5f;
         var pl = lightObj.AddComponent<Light>();
         pl.type = LightType.Point;
         pl.color = Color.white;
-        pl.intensity = 0.6f;
-        pl.range = 1.2f;
+        pl.intensity = 0.9f;
+        pl.range = 2.5f;
         pl.shadows = LightShadows.None;
 
-        // Add a box collider to the root for selection/raycasting
+        // Generous box collider for selection/raycasting. The smallest
+        // amount-driven scale is 0.6 (Cadaver.MinScale) so the effective
+        // collider after scaling is 1.5×1.2×1.5 m — comfortably clickable
+        // from the RTS camera. Iron deposits use 3×2×3 — match that ballpark.
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(0.8f, 0.6f, 0.8f);
-        boxCol.center = Vector3.up * 0.3f;
+        boxCol.size = new Vector3(2.5f, 2.0f, 2.5f);
+        boxCol.center = Vector3.up * 1.0f;
 
         // Add EntityReference for raycasting/selection
         var entityRef = root.AddComponent<EntityReference>();

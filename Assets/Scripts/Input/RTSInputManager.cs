@@ -392,7 +392,17 @@ namespace TheWaningBorder.Input
             // If ONLY owned buildings are selected and right-clicking ground, set rally point
             if (targetType == TargetType.Ground && HasOnlyOwnedBuildings())
             {
-                SetRallyPoints(clickWorld);
+                SetRallyPoints(clickWorld, Entity.Null);
+                return;
+            }
+
+            // Same flow but with a resource as the rally target — newly
+            // trained miners auto-gather it on spawn (TrainingSystem reads
+            // RallyPoint.TargetEntity). Lets the player point a Hall at a
+            // crystal / iron deposit and walk away.
+            if (targetType == TargetType.Resource && HasOnlyOwnedBuildings())
+            {
+                SetRallyPoints(clickWorld, target);
                 return;
             }
 
@@ -529,7 +539,7 @@ namespace TheWaningBorder.Input
             }
         }
 
-        private void SetRallyPoints(float3 position)
+        private void SetRallyPoints(float3 position, Entity targetEntity)
         {
             foreach (var e in SelectionSystem.CurrentSelection)
             {
@@ -537,8 +547,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<BuildingTag>(e)) continue;
 
-                CommandRouter.SetRallyPoint(_em, e, position, CommandSource.LocalPlayer);
-
+                CommandRouter.SetRallyPoint(_em, e, position, targetEntity, CommandSource.LocalPlayer);
             }
         }
 
