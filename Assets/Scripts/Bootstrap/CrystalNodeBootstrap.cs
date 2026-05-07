@@ -65,6 +65,10 @@ namespace TheWaningBorder.Bootstrap
                 float3 nodePos = float3.zero;
                 bool found = false;
 
+                int rejWater = 0, rejConnectivity = 0, rejPlayer = 0, rejNode = 0;
+                int sampledPassableSum = 0;
+                bool gridSeenNotNull = false;
+
                 for (int attempt = 0; attempt < 30; attempt++)
                 {
                     float x = random.NextFloat(-spawnRange, spawnRange);
@@ -75,7 +79,7 @@ namespace TheWaningBorder.Bootstrap
                     // Check not in water
                     var terrain = ProceduralTerrain.Instance;
                     if (terrain != null && terrain.IsInWater(new Vector3(x, y, z)))
-                        continue;
+                    { rejWater++; continue; }
 
                     // Connectivity gate: reject candidates surrounded by water or
                     // cliff (e.g. small beach pockets). Sample 8 directions around
@@ -83,6 +87,7 @@ namespace TheWaningBorder.Bootstrap
                     var grid = PassabilityGrid.Instance;
                     if (grid != null)
                     {
+                        gridSeenNotNull = true;
                         int passable = 0;
                         for (int d = 0; d < 8; d++)
                         {
@@ -93,7 +98,8 @@ namespace TheWaningBorder.Bootstrap
                             sample.y = TerrainUtility.GetHeight(sample.x, sample.z);
                             if (grid.IsPassable(sample)) passable++;
                         }
-                        if (passable < MinPassableNeighbours) continue;
+                        sampledPassableSum += passable;
+                        if (passable < MinPassableNeighbours) { rejConnectivity++; continue; }
                     }
 
                     // Check distance from all player positions
@@ -106,7 +112,7 @@ namespace TheWaningBorder.Bootstrap
                             break;
                         }
                     }
-                    if (tooCloseToPlayer) continue;
+                    if (tooCloseToPlayer) { rejPlayer++; continue; }
 
                     // Check distance from already-placed nodes
                     bool tooCloseToNode = false;
@@ -118,7 +124,7 @@ namespace TheWaningBorder.Bootstrap
                             break;
                         }
                     }
-                    if (tooCloseToNode) continue;
+                    if (tooCloseToNode) { rejNode++; continue; }
 
                     nodePos = candidate;
                     found = true;
@@ -127,11 +133,17 @@ namespace TheWaningBorder.Bootstrap
 
                 if (!found)
                 {
-                    Debug.LogWarning(
-                        $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount}: 30 attempts " +
-                        "failed (water / cliff / dist-from-player / dist-from-other-node).");
-                    continue;
+                    float avgPassable = gridSeenNotNull && rejConnectivity > 0
+                        ? sampledPassableSum / (float)rejConnectivity : -1f;
+                    Debug.LogError(
+                        $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} placement FAILED — " +
+                        $"30 attempts: water={rejWater} connectivity={rejConnectivity} " +
+                        $"player-too-close={rejPlayer} node-too-close={rejNode} " +
+                        $"gridNotNull={gridSeenNotNull} avgPassableSamples={avgPassable:F1}/8 " +
+                        $"(MinPassableNeighbours={MinPassableNeighbours})");
                 }
+
+                if (!found) continue;
 
                 // Create the crystal main node
                 CrystalMainNode.Create(em, nodePos);
