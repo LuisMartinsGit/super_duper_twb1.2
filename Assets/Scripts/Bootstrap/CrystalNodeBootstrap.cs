@@ -52,6 +52,9 @@ namespace TheWaningBorder.Bootstrap
             // while ramping curse pressure on larger lobbies.
             int playerN = math.max(1, playerPositions.Length);
             int nodeCount = random.NextInt(playerN, playerN * 2 + 1);
+            UnityEngine.Debug.Log(
+                $"[CrystalNodeBootstrap] players={playerPositions.Length} → nodeCount={nodeCount} " +
+                $"(range [{playerN}, {playerN * 2}], spawnRange={spawnRange:F0})");
             var nodePosArray = new float3[nodeCount];
             int nodesSpawned = 0;
 
@@ -120,12 +123,29 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 }
 
-                if (!found) continue;
+                if (!found)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount}: 30 placement attempts " +
+                        "all rejected (water / cliff / too close to player or other node).");
+                    continue;
+                }
 
                 // Create the crystal main node
                 CrystalMainNode.Create(em, nodePos);
                 nodePosArray[nodesSpawned] = nodePos;
                 nodesSpawned++;
+                UnityEngine.Debug.Log(
+                    $"[CrystalNodeBootstrap] placed main node {nodesSpawned} at " +
+                    $"({nodePos.x:F0}, {nodePos.z:F0})");
+            }
+
+            if (nodesSpawned == 0)
+            {
+                UnityEngine.Debug.LogError(
+                    "[CrystalNodeBootstrap] ZERO curse main nodes placed — curse will be inactive. " +
+                    "Map may be too small / dense with players, or all candidate spots failed " +
+                    "the water+connectivity gate. Check the warnings above.");
             }
 
             // Initialize Faction.Curse crystal bank if it doesn't exist
@@ -136,15 +156,18 @@ namespace TheWaningBorder.Bootstrap
                 em.SetComponentData(bankEntity, new FactionResources { Crystal = 100 * nodesSpawned });
             }
 
-            // Initialize attack wave state singleton so CrystalAISystem can send waves
+            // Initialize attack wave state singleton so CrystalAISystem can send waves.
+            // First wave fires at WaveTimer = 30s so the curse becomes visible
+            // quickly; subsequent waves are 180s apart per spec (overwritten by
+            // CrystalAISystem.WaveInterval each tick).
             var waveQuery = em.CreateEntityQuery(ComponentType.ReadOnly<CrystalWaveState>());
             if (waveQuery.IsEmpty)
             {
                 var waveEntity = em.CreateEntity(typeof(CrystalWaveState));
                 em.SetComponentData(waveEntity, new CrystalWaveState
                 {
-                    WaveTimer = 60f,
-                    WaveInterval = 90f,
+                    WaveTimer = 30f,
+                    WaveInterval = 180f,
                     WaveNumber = 0
                 });
             }
