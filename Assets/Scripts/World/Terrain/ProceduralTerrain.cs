@@ -320,9 +320,16 @@ namespace TheWaningBorder.World.Terrain
 
             if (curse == null)
             {
-                curse = CreateTerrainLayer("Curse", GenerateCurseTexture(texOffsetX, texOffsetY), tileSize);
-                curse.metallic = 0.7f;    // Reflective crystalline surface
-                curse.smoothness = 0.85f; // Glassy sheen
+                // Try to load the authored Crystal_ground texture set from
+                // Assets/Resources/Crystal_ground/. Falls back to the procedural
+                // curse texture if any of the textures are missing.
+                curse = TryBuildCurseLayerFromResources(tileSize);
+                if (curse == null)
+                {
+                    curse = CreateTerrainLayer("Curse", GenerateCurseTexture(texOffsetX, texOffsetY), tileSize);
+                    curse.metallic = 0.7f;    // Reflective crystalline surface
+                    curse.smoothness = 0.85f; // Glassy sheen
+                }
             }
 
             if (forestFloor == null)
@@ -389,6 +396,168 @@ namespace TheWaningBorder.World.Terrain
                 normalScale = 1.0f
             };
             return layer;
+        }
+
+        // ─── Curse ground from authored Crystal_ground textures ──────────────
+        //
+        // Loads the 6-texture set from Resources/Crystal_ground/, bakes a
+        // purple→dark-green tint into the diffuse using the heightmap to
+        // drive the gradient (deep purple in crevices, dark green on peaks),
+        // packs the URP mask map (R=Metallic, G=AO, B=Height, A=Smoothness),
+        // and cranks normalScale so the surface reads as very jagged.
+        TerrainLayer TryBuildCurseLayerFromResources(float tileSize)
+        {
+            var color    = Resources.Load<Texture2D>("Crystal_ground/Crystal_ground_color");
+            var normal   = Resources.Load<Texture2D>("Crystal_ground/Crystal_ground_normal_opengl");
+            var heightTx = Resources.Load<Texture2D>("Crystal_ground/Crystal_ground_height");
+            var rough    = Resources.Load<Texture2D>("Crystal_ground/Crystal_ground_roughness");
+            var ao       = Resources.Load<Texture2D>("Crystal_ground/Crystal_ground_ambient_oclusion");
+
+            if (color == null || normal == null || heightTx == null)
+            {
+                Debug.LogWarning("[ProceduralTerrain] Crystal_ground textures missing — " +
+                                 "falling back to procedural curse layer.");
+                return null;
+            }
+
+            // Tinted diffuse: lerp between deep purple (low) and dark green (high)
+            // driven by the heightmap, modulated by the original texture's
+            // luminance so the underlying crystal pattern still reads.
+            var tintedDiffuse = BakeTintedCurseDiffuse(color, heightTx);
+
+            // Packed mask map — Unity URP terrain convention.
+            var maskMap = BakeCurseMaskMap(heightTx, rough, ao);
+
+            var layer = new TerrainLayer
+            {
+                diffuseTexture = tintedDiffuse,
+                normalMapTexture = normal,
+                maskMapTexture = maskMap,
+                tileSize = new Vector2(tileSize, tileSize),
+                tileOffset = Vector2.zero,
+                // Crank normal scale aggressively — primary lever for the
+                // "very jagged" look since URP terrain doesn't do parallax.
+                normalScale = 4.5f,
+                metallic = 0.7f,
+                smoothness = 0.85f,
+                // Pull height to the top of the remap so this layer wins
+                // height-based blending at peaks (URP terrain uses mask map
+                // B channel for height-blend between layers).
+                maskMapRemapMin = new Vector4(0f, 0f, 0f, 0f),
+                maskMapRemapMax = new Vector4(0.7f, 1f, 1f, 0.95f),
+            };
+            return layer;
+        }
+
+        Texture2D BakeTintedCurseDiffuse(Texture2D srcColor, Texture2D heightSrc)
+        {
+            var src = ReadablePixels(srcColor, out int sw, out int sh);
+            var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
+
+            var deepPurple = new Color(0.28f, 0.08f, 0.42f); // crevices
+            var darkGreen  = new Color(0.10f, 0.32f, 0.16f); // peaks
+
+            var output = new Color32[sw * sh];
+            for (int y = 0; y < sh; y++)
+            {
+                int hy = (y * hh) / sh;
+                for (int x = 0; x < sw; x++)
+                {
+                    int hx = (x * hw) / sw;
+                    int hi = hy * hw + hx;
+                    int si = y * sw + x;
+
+                    float ht = hgt[hi].r / 255f;
+
+                    Color tint = Color.Lerp(deepPurple, darkGreen, ht);
+                    // Boost contrast — crevices darker, peaks brighter.
+                    float contrast = Mathf.Lerp(0.55f, 1.30f, ht);
+
+                    // Preserve underlying micro-detail via source luminance.
+                    var s = src[si];
+                    float lum = (s.r + s.g + s.b) / (3f * 255f);
+                    float lumMod = 0.55f + lum * 0.85f;
+
+                    float r = Mathf.Clamp01(tint.r * contrast * lumMod);
+                    float g = Mathf.Clamp01(tint.g * contrast * lumMod);
+                    float b = Mathf.Clamp01(tint.b * contrast * lumMod);
+
+                    output[si] = new Color32(
+                        (byte)(r * 255f),
+                        (byte)(g * 255f),
+                        (byte)(b * 255f),
+                        255);
+                }
+            }
+
+            var tex = new Texture2D(sw, sh, TextureFormat.RGBA32, true, false);
+            tex.SetPixels32(output);
+            tex.Apply(updateMipmaps: true);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.name = "Curse_TintedDiffuse";
+            return tex;
+        }
+
+        Texture2D BakeCurseMaskMap(Texture2D heightSrc, Texture2D roughSrc, Texture2D aoSrc)
+        {
+            var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
+            // Use the heightmap resolution as the mask-map resolution.
+            int mw = hw, mh = hh;
+
+            // roughness / AO are optional; substitute neutral defaults.
+            Color32[] rough = roughSrc != null ? ReadablePixels(roughSrc, out int rw, out int rh) : null;
+            int rwOut = roughSrc != null ? roughSrc.width : 0;
+            int rhOut = roughSrc != null ? roughSrc.height : 0;
+            Color32[] ao  = aoSrc != null ? ReadablePixels(aoSrc, out int aw, out int ah) : null;
+            int awOut = aoSrc != null ? aoSrc.width : 0;
+            int ahOut = aoSrc != null ? aoSrc.height : 0;
+
+            var output = new Color32[mw * mh];
+            for (int y = 0; y < mh; y++)
+            {
+                for (int x = 0; x < mw; x++)
+                {
+                    int i = y * mw + x;
+                    byte hVal = hgt[i].r;
+                    byte rVal = (rough != null) ? rough[((y * rhOut) / mh) * rwOut + ((x * rwOut) / mw)].r : (byte)128;
+                    byte aVal = (ao    != null) ? ao   [((y * ahOut) / mh) * awOut + ((x * awOut) / mw)].r : (byte)255;
+                    byte smoothness = (byte)(255 - rVal);
+                    output[i] = new Color32(180, aVal, hVal, smoothness); // metallic≈0.7
+                }
+            }
+
+            var tex = new Texture2D(mw, mh, TextureFormat.RGBA32, true, true);
+            tex.SetPixels32(output);
+            tex.Apply(updateMipmaps: true);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.name = "Curse_MaskMap";
+            return tex;
+        }
+
+        // GetPixels32 throws if the texture isn't import-set readable. Blit
+        // through a RenderTexture as a fallback so we don't depend on import
+        // settings for the Crystal_ground assets.
+        static Color32[] ReadablePixels(Texture2D src, out int w, out int h)
+        {
+            w = src.width;
+            h = src.height;
+            if (src.isReadable)
+                return src.GetPixels32();
+
+            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+            Graphics.Blit(src, rt);
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var tmp = new Texture2D(w, h, TextureFormat.RGBA32, false, true);
+            tmp.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tmp.Apply();
+            var pixels = tmp.GetPixels32();
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Object.Destroy(tmp);
+            return pixels;
         }
 
         Texture2D GenerateNormalMap(Texture2D source)
