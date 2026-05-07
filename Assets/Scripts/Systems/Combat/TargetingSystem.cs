@@ -113,10 +113,17 @@ namespace TheWaningBorder.Systems.Combat
         {
             // Initialize GuardPoint for units that don't have one
             // Skip battalion members — they are positioned by BattalionSyncSystem, not movement
+            // Skip curse units — they're long-range hunters driven by
+            //   CrystalAISystem.PursueAllPlayerAssets, which sends them tens
+            //   of meters past their spawn point. The non-battalion guard
+            //   leash (line ~365 below) would yank them back to their spawn
+            //   the moment they crossed MaxGuardDistance (20 m), making
+            //   them appear to "move to attack and immediately get called back".
             foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
                 .WithNone<GuardPoint>()
                 .WithNone<BattalionMemberData>()
+                .WithNone<CrystalUnitTag>()
                 .WithEntityAccess())
             {
                 ecb.AddComponent(entity, new GuardPoint
