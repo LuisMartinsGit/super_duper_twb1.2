@@ -468,18 +468,17 @@ namespace TheWaningBorder.World.Terrain
             var src = ReadablePixels(srcColor, out int sw, out int sh);
             var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
 
-            // The source texture is icy blue; we want strong purple. Ignore
-            // the source's chrominance entirely and use only its luminance
-            // as a detail/reflection mask. The color is then forced to a
-            // height-driven purple→green palette.
+            // Source texture is icy blue; we want strong dark green. Use
+            // the source for luminance/detail only; force the chrominance
+            // to a height-driven dark-green palette.
             //
             // Three anchors across the height range:
-            //   ht 0.0 → deep void purple   (crevices)
-            //   ht 0.5 → vivid magenta      (mid surface)
-            //   ht 1.0 → toxic-green accent (peaks/glints)
-            var voidPurple   = new Color(0.20f, 0.04f, 0.34f);
-            var vividPurple  = new Color(0.62f, 0.10f, 0.92f);
-            var greenAccent  = new Color(0.18f, 0.62f, 0.28f);
+            //   ht 0.0  → near-black moss-green (crevices)
+            //   ht 0.55 → dark forest green     (main surface)
+            //   ht 1.0  → cool mint highlight   (peaks / rim light)
+            var voidGreen    = new Color(0.04f, 0.14f, 0.07f);
+            var darkGreen    = new Color(0.10f, 0.40f, 0.18f);
+            var mintAccent   = new Color(0.40f, 0.78f, 0.55f);
 
             var output = new Color32[sw * sh];
             for (int y = 0; y < sh; y++)
@@ -496,9 +495,9 @@ namespace TheWaningBorder.World.Terrain
                     // 3-stop gradient on the heightmap.
                     Color tint;
                     if (ht < 0.55f)
-                        tint = Color.Lerp(voidPurple, vividPurple, ht / 0.55f);
+                        tint = Color.Lerp(voidGreen, darkGreen, ht / 0.55f);
                     else
-                        tint = Color.Lerp(vividPurple, greenAccent, (ht - 0.55f) / 0.45f);
+                        tint = Color.Lerp(darkGreen, mintAccent, (ht - 0.55f) / 0.45f);
 
                     // Source luminance modulates brightness for highlights /
                     // reflections without bringing back the blue.
@@ -506,19 +505,14 @@ namespace TheWaningBorder.World.Terrain
                     float lum = (s.r + s.g + s.b) / (3f * 255f);
                     float lumMod = 0.65f + lum * 0.85f; // 0.65..1.50
 
-                    // Fake parallax depth — heightmap drives shadow/highlight
-                    // modulation baked into the albedo. URP terrain has no
-                    // real parallax displacement, so this is the cheapest
-                    // way to make the surface read as deeply chiselled.
-                    //
-                    // 5× scale in height (per user): contrast delta widened
-                    // from ±0.8 to ±4.0 around 1.0. Crevices go almost
-                    // black; ridges blow out and saturate (clamped at 1.0
-                    // after multiplication, but the saturation reads as a
-                    // bright ridge highlight).
-                    //   ht 0.0 → 0.05× (near-black crevice)
-                    //   ht 1.0 → 8.05× (saturated ridge — clamps to 1.0)
-                    float heightShade = 0.05f + ht * 8.0f;
+                    // Fake AO/highlight from the heightmap, baked into the
+                    // albedo to approximate parallax depth. Dialled back
+                    // from the previous 5× setting — the new range gives
+                    // visible relief without crushing the dark areas to
+                    // pure black or blowing the ridges to white.
+                    //   ht 0.0 → 0.50× (subtle AO shadow)
+                    //   ht 1.0 → 1.40× (gentle rim highlight)
+                    float heightShade = 0.50f + ht * 0.90f;
 
                     float r = Mathf.Clamp01(tint.r * lumMod * heightShade);
                     float g = Mathf.Clamp01(tint.g * lumMod * heightShade);
