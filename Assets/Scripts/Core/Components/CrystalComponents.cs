@@ -95,6 +95,20 @@ public struct CrystalAIState : IComponentData
 public struct CrystalUnitTag : IComponentData { }
 
 /// <summary>
+/// Per-wave dispatch order on a curse unit. Set when CrystalAISystem
+/// launches a mass wave (every 3 minutes) — the unit walks toward
+/// <see cref="TargetPosition"/>, engages anything in the way, and
+/// resumes the march after each kill until <see cref="ExpiryTime"/>
+/// passes (at which point CrystalAISystem drops the order and the
+/// unit goes idle near a curse node, waiting for the next wave).
+/// </summary>
+public struct CrystalWaveOrder : IComponentData
+{
+    public Unity.Mathematics.float3 TargetPosition;
+    public float ExpiryTime;
+}
+
+/// <summary>
 /// Crystal resource cost for building or spawning.
 /// </summary>
 public struct CrystalResourceValue : IComponentData

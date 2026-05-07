@@ -516,130 +516,218 @@ namespace TheWaningBorder.Systems.Crystal
             using var waveEntities = _waveQuery.ToEntityArray(Allocator.Temp);
             var wave = em.GetComponentData<CrystalWaveState>(waveEntities[0]);
 
-            int nodeCount = mainNodes.Length;
-            float elapsedMinutes = (float)(World.Time.ElapsedTime / 60.0);
+            // Fixed 3-minute cadence (per spec). Curse units accumulate idle
+            // near nodes between waves; on the timer tick we dispatch all
+            // available units in one synchronised assault on a random
+            // non-Curse player faction.
+            wave.WaveInterval = WaveInterval;
 
-            // WaveInterval still scales with curse footprint, but it's no longer
-            // the trigger for unit movement — pursuit is continuous, see below.
-            // The interval now governs the rescue pass + logging cadence.
-            wave.WaveInterval = math.max(25f, 120f - nodeCount * 8f - elapsedMinutes * 2f);
-
-            // Continuous pursuit: every decision tick (5 s), every non-engaged
-            // curse unit gets redirected to the nearest non-Crystal asset (any
-            // building or unit, any player faction). Subsumes the old "pick one
-            // player's halls and send a periodic wave" model — units now hunt
-            // whatever's closest at all times.
-            int reassigned = PursueAllPlayerAssets(em);
+            // Refresh existing wave orders every tick — units that have a
+            // CrystalWaveOrder, are not engaged, and lost their
+            // DesiredDestination (arrived / killed an interloper / pathfind
+            // failed) get re-pointed at the wave target so they resume
+            // the march. Expired orders are dropped — those units idle
+            // until the next wave.
+            RefreshWaveOrders(em);
 
             wave.WaveTimer -= DecisionInterval;
             if (wave.WaveTimer <= 0)
             {
-                // On the cadence tick, also rescue any units stranded far from
-                // every main node (failed pathfind / abandoned beach) and log a
-                // wave marker so the curse's pressure is visible in the AI log.
-                RescueStrandedUnits(em, nodeTransforms, ref random);
                 wave.WaveTimer = wave.WaveInterval;
                 wave.WaveNumber++;
+
+                // Rescue any stranded units BEFORE dispatch so they actually
+                // contribute to the assault (otherwise they'd be far from
+                // the rally start).
+                RescueStrandedUnits(em, nodeTransforms, ref random);
+
+                int dispatched = LaunchMassWave(em, ref random);
                 AILogger.Log(Faction.Curse, "WAVE",
-                    $"Pursuit wave #{wave.WaveNumber}: {reassigned} units retargeted (interval {wave.WaveInterval:F0}s)");
+                    $"Mass wave #{wave.WaveNumber}: {dispatched} units dispatched (next in {WaveInterval:F0}s)");
             }
 
             em.SetComponentData(waveEntities[0], wave);
         }
 
+        // Wave cadence — fixed 3 minutes between mass attacks regardless of
+        // curse footprint, per spec. Units accumulate idle near nodes
+        // between waves, then march together when the timer fires.
+        private const float WaveInterval = 180f;
+
+        // CrystalWaveOrder lifetime — how long after a wave fires the order
+        // stays valid on a unit. Long enough to cross the map a few times,
+        // short enough that survivors of a wave aren't perpetually
+        // marching when the next wave already picked a different target.
+        private const float WaveOrderTtl = 240f;
+
         /// <summary>
-        /// Continuous pursuit pass. Each tick, redirects every non-engaged curse
-        /// unit toward the nearest non-Crystal asset on the entire map — buildings
-        /// AND units, any player faction. Engaged units (live Target component)
-        /// are left alone so combat-in-progress isn't aborted. Returns the count
-        /// of units retargeted, for logging.
-        ///
-        /// Targets are gathered from BuildingTag + UnitTag with FactionTag != White.
-        /// Dead entities (Health.Value &lt;= 0) are excluded — pursuing a corpse
-        /// would let them stack on a kill site instead of moving on.
+        /// Mass-wave dispatch. Pick one non-Curse player faction at random,
+        /// then send every available curse unit toward that player's halls.
+        /// Each unit gets a CrystalWaveOrder so it resumes the march after
+        /// auto-acquired combat ends — combat systems pick up enemies in the
+        /// way; once those targets fall, RefreshWaveOrders re-applies the
+        /// destination so the unit keeps going. Returns dispatched count.
         /// </summary>
-        private int PursueAllPlayerAssets(EntityManager em)
+        private int LaunchMassWave(EntityManager em, ref Random random)
         {
-            // ── Gather target positions ──────────────────────────────────
-            var targets = new NativeList<float3>(Allocator.Temp);
-
-            // Buildings (every faction except Crystal).
-            var buildingQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
+            // Gather candidate target factions and their living halls.
+            var hallQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<Health>());
-            using (var bEnts = buildingQuery.ToEntityArray(Allocator.Temp))
-            using (var bFactions = buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
-            using (var bTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-            using (var bHealth = buildingQuery.ToComponentDataArray<Health>(Allocator.Temp))
+            using var hallEnts = hallQuery.ToEntityArray(Allocator.Temp);
+            using var hallFacs = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hallHealth = hallQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            var hallsByFaction = new NativeParallelMultiHashMap<int, float3>(8, Allocator.Temp);
+            var factionList = new NativeList<int>(Allocator.Temp);
+            var seenFactions = new NativeHashSet<int>(8, Allocator.Temp);
+            for (int i = 0; i < hallEnts.Length; i++)
             {
-                for (int i = 0; i < bEnts.Length; i++)
-                {
-                    if (bFactions[i].Value == Faction.Curse) continue;
-                    if (bHealth[i].Value <= 0) continue;
-                    targets.Add(bTransforms[i].Position);
-                }
+                if (hallFacs[i].Value == Faction.Curse) continue;
+                if (hallHealth[i].Value <= 0) continue;
+                int f = (int)hallFacs[i].Value;
+                if (seenFactions.Add(f)) factionList.Add(f);
+                hallsByFaction.Add(f, hallTransforms[i].Position);
             }
 
-            // Units (every faction except Crystal).
-            var unitQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>());
-            using (var uEnts = unitQuery.ToEntityArray(Allocator.Temp))
-            using (var uFactions = unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
-            using (var uTransforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-            using (var uHealth = unitQuery.ToComponentDataArray<Health>(Allocator.Temp))
+            int dispatched = 0;
+            if (factionList.Length == 0)
             {
-                for (int i = 0; i < uEnts.Length; i++)
-                {
-                    if (uFactions[i].Value == Faction.Curse) continue;
-                    if (uHealth[i].Value <= 0) continue;
-                    targets.Add(uTransforms[i].Position);
-                }
+                hallsByFaction.Dispose();
+                factionList.Dispose();
+                seenFactions.Dispose();
+                return 0;
             }
 
-            if (targets.Length == 0) { targets.Dispose(); return 0; }
+            // Pick a random target faction; collect their hall positions.
+            int chosenFaction = factionList[random.NextInt(0, factionList.Length)];
+            var targetHalls = new NativeList<float3>(Allocator.Temp);
+            if (hallsByFaction.TryGetFirstValue(chosenFaction, out var hPos, out var it))
+            {
+                do { targetHalls.Add(hPos); }
+                while (hallsByFaction.TryGetNextValue(out hPos, ref it));
+            }
 
-            // ── Redirect every non-engaged crystal unit ──────────────────
+            // Dispatch every curse unit at the nearest target hall — engaged
+            // units still get an updated wave order so they resume the march
+            // after the kill, but their current Target / DesiredDestination
+            // is left untouched (combat systems own them mid-swing).
+            float now = (float)World.Time.ElapsedTime;
+            float expiry = now + WaveOrderTtl;
+
             using var units = _crystalUnitQuery.ToEntityArray(Allocator.Temp);
             using var unitTransforms = _crystalUnitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            int reassigned = 0;
-            for (int i = 0; i < units.Length; i++)
+            for (int u = 0; u < units.Length; u++)
             {
-                // Skip units in active combat — TargetingSystem set Target on them
-                // and the combat systems will resolve it. Re-pathing here would
-                // pull them off mid-swing.
-                if (em.HasComponent<Target>(units[i]))
+                Entity uE = units[u];
+                float3 nearest = NearestHall(unitTransforms[u].Position, targetHalls);
+                WriteWaveOrder(em, uE, nearest, expiry);
+
+                bool engaged = false;
+                if (em.HasComponent<Target>(uE))
                 {
-                    var t = em.GetComponentData<Target>(units[i]);
+                    var t = em.GetComponentData<Target>(uE);
+                    if (t.Value != Entity.Null && em.Exists(t.Value)) engaged = true;
+                }
+                if (engaged) continue; // combat resolves first; refresh will pick up later
+
+                if (em.HasComponent<DesiredDestination>(uE))
+                    em.SetComponentData(uE, new DesiredDestination { Position = nearest, Has = 1 });
+                else
+                    em.AddComponentData(uE, new DesiredDestination { Position = nearest, Has = 1 });
+                dispatched++;
+            }
+
+            targetHalls.Dispose();
+            hallsByFaction.Dispose();
+            factionList.Dispose();
+            seenFactions.Dispose();
+            return dispatched;
+        }
+
+        /// <summary>
+        /// Re-apply DesiredDestination from CrystalWaveOrder for any unit
+        /// that's currently idle (no destination, no live target) but still
+        /// has an unexpired order. Lets units resume the march after each
+        /// kill so they reach the wave target instead of stalling. Drops
+        /// orders that have outlived their TTL.
+        /// </summary>
+        private void RefreshWaveOrders(EntityManager em)
+        {
+            float now = (float)World.Time.ElapsedTime;
+
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<CrystalUnitTag>(),
+                ComponentType.ReadOnly<CrystalWaveOrder>());
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                Entity e = ents[i];
+                var order = em.GetComponentData<CrystalWaveOrder>(e);
+
+                if (now >= order.ExpiryTime)
+                {
+                    em.RemoveComponent<CrystalWaveOrder>(e);
+                    continue;
+                }
+
+                if (em.HasComponent<Target>(e))
+                {
+                    var t = em.GetComponentData<Target>(e);
                     if (t.Value != Entity.Null && em.Exists(t.Value)) continue;
                 }
 
-                // Find nearest target (sq-distance, no allocation).
-                float3 unitPos = unitTransforms[i].Position;
-                float bestDistSq = float.MaxValue;
-                float3 bestTarget = targets[0];
-                for (int t = 0; t < targets.Length; t++)
+                // Already moving? Don't override (could be AttackIntruders
+                // pulling toward a closer territorial intruder).
+                if (em.HasComponent<DesiredDestination>(e))
                 {
-                    float dx = targets[t].x - unitPos.x;
-                    float dz = targets[t].z - unitPos.z;
-                    float d = dx * dx + dz * dz;
-                    if (d < bestDistSq) { bestDistSq = d; bestTarget = targets[t]; }
+                    var d = em.GetComponentData<DesiredDestination>(e);
+                    if (d.Has == 1) continue;
+                    em.SetComponentData(e, new DesiredDestination
+                    {
+                        Position = order.TargetPosition,
+                        Has = 1,
+                    });
                 }
-
-                if (em.HasComponent<DesiredDestination>(units[i]))
-                    em.SetComponentData(units[i], new DesiredDestination { Position = bestTarget, Has = 1 });
                 else
-                    em.AddComponentData(units[i], new DesiredDestination { Position = bestTarget, Has = 1 });
-                reassigned++;
+                {
+                    em.AddComponentData(e, new DesiredDestination
+                    {
+                        Position = order.TargetPosition,
+                        Has = 1,
+                    });
+                }
             }
+        }
 
-            targets.Dispose();
-            return reassigned;
+        private static void WriteWaveOrder(EntityManager em, Entity unit, float3 target, float expiry)
+        {
+            var order = new CrystalWaveOrder
+            {
+                TargetPosition = target,
+                ExpiryTime     = expiry,
+            };
+            if (em.HasComponent<CrystalWaveOrder>(unit))
+                em.SetComponentData(unit, order);
+            else
+                em.AddComponentData(unit, order);
+        }
+
+        private static float3 NearestHall(float3 unitPos, NativeList<float3> halls)
+        {
+            float3 best = halls[0];
+            float bestSq = float.MaxValue;
+            for (int i = 0; i < halls.Length; i++)
+            {
+                float dx = halls[i].x - unitPos.x;
+                float dz = halls[i].z - unitPos.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestSq) { bestSq = d; best = halls[i]; }
+            }
+            return best;
         }
 
         /// <summary>

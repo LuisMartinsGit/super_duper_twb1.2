@@ -46,7 +46,12 @@ namespace TheWaningBorder.Bootstrap
             int half = GameSettings.MapHalfSize;
             float spawnRange = half * 0.7f;
 
-            int nodeCount = playerPositions.Length; // one node per player
+            // At least one curse node per player, up to 2× the player count
+            // (random within that range). With 4 players, the map seeds 4-8
+            // initial curse nodes — keeps low-player skirmishes survivable
+            // while ramping curse pressure on larger lobbies.
+            int playerN = math.max(1, playerPositions.Length);
+            int nodeCount = random.NextInt(playerN, playerN * 2 + 1);
             var nodePosArray = new float3[nodeCount];
             int nodesSpawned = 0;
 
