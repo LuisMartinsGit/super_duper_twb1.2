@@ -23,6 +23,13 @@ namespace TheWaningBorder.Presentation
     public static class BuildingFactionColorMarker
     {
         /// <summary>
+        /// Master switch. Flip false at runtime to bypass the marker
+        /// replacement entirely (e.g. for debugging — see the original
+        /// prefab unmodified). Defaults true.
+        /// </summary>
+        public static bool Enabled = true;
+
+        /// <summary>
         /// Marker color in authored prefabs / atlas textures. Default:
         /// pure blue (0,0,1). Materials whose base map contains pixels
         /// within Tolerance of this hue have those pixels recolored to
@@ -32,11 +39,21 @@ namespace TheWaningBorder.Presentation
 
         /// <summary>
         /// Match tolerance in RGB Euclidean distance squared (per channel
-        /// values are 0..1). 0.0625 ≈ ±0.25 per channel — wide enough to
-        /// absorb texture compression rounding, narrow enough not to
-        /// recolor genuine-blue art on the same atlas.
+        /// values are 0..1). Default 0.01 (≈ ±0.1 per channel, ±10%) is
+        /// strict enough to catch only the marker hue and not adjacent
+        /// shades of blue baked into the atlas. If your art uses an
+        /// off-pure-blue marker (e.g. RGB 50,80,255), bump this to ~0.04
+        /// or set Marker to the exact hue used.
         /// </summary>
-        public static float ToleranceSquared = 0.25f * 0.25f;
+        public static float ToleranceSquared = 0.01f;
+
+        /// <summary>
+        /// Diagnostic — log the first replacement statistics for each
+        /// distinct atlas processed (texture name, dimensions, matched
+        /// pixel count and percentage). Helps tune Marker / ToleranceSquared
+        /// without staring at the model. Set false in production.
+        /// </summary>
+        public static bool LogReplacementStats = true;
 
         // ──────────────────────────────────────────────────────────────────
         // CACHES
@@ -65,7 +82,7 @@ namespace TheWaningBorder.Presentation
         /// </summary>
         public static void Apply(GameObject go, Color factionColor)
         {
-            if (go == null) return;
+            if (!Enabled || go == null) return;
 
             int factionKey = PackKey(factionColor);
 
@@ -147,7 +164,7 @@ namespace TheWaningBorder.Presentation
             byte facG = (byte)Mathf.Clamp(Mathf.RoundToInt(factionColor.g * 255f), 0, 255);
             byte facB = (byte)Mathf.Clamp(Mathf.RoundToInt(factionColor.b * 255f), 0, 255);
 
-            bool any = false;
+            int replaced = 0;
             for (int i = 0; i < pixels.Length; i++)
             {
                 int dr = pixels[i].r - markerR;
@@ -157,10 +174,18 @@ namespace TheWaningBorder.Presentation
                 pixels[i].r = facR;
                 pixels[i].g = facG;
                 pixels[i].b = facB;
-                any = true;
+                replaced++;
             }
 
-            if (!any) return null;
+            if (LogReplacementStats)
+            {
+                float pct = pixels.Length > 0 ? (100f * replaced / pixels.Length) : 0f;
+                Debug.Log($"[BuildingFactionColorMarker] '{source.name}' " +
+                          $"{source.width}×{source.height}: {replaced}/{pixels.Length} pixels matched " +
+                          $"(~{pct:F1}%) — Marker={Marker}, Tol²={ToleranceSquared:F4}");
+            }
+
+            if (replaced == 0) return null;
 
             var clone = new Texture2D(source.width, source.height, TextureFormat.RGBA32,
                 mipChain: source.mipmapCount > 1, linear: false);
