@@ -65,82 +65,96 @@ namespace TheWaningBorder.Bootstrap
                 float3 nodePos = float3.zero;
                 bool found = false;
 
-                int rejWater = 0, rejConnectivity = 0, rejPlayer = 0, rejNode = 0;
-                int sampledPassableSum = 0;
-                bool gridSeenNotNull = false;
-
-                for (int attempt = 0; attempt < 30; attempt++)
+                // Two-pass placement: pass 0 enforces the connectivity gate
+                // (rejects beach pockets and isolated cliff tops); pass 1
+                // disables it as a fallback. The gate depends on
+                // PassabilityGrid being baked, which on flat test maps
+                // and early-bake races reports every cell as not-passable
+                // — would otherwise silently fail every attempt.
+                for (int strict = 0; strict < 2 && !found; strict++)
                 {
-                    float x = random.NextFloat(-spawnRange, spawnRange);
-                    float z = random.NextFloat(-spawnRange, spawnRange);
-                    float y = TerrainUtility.GetHeight(x, z);
-                    float3 candidate = new float3(x, y, z);
+                    bool useConnectivityGate = (strict == 0);
+                    int rejWater = 0, rejConnectivity = 0, rejPlayer = 0, rejNode = 0;
+                    int sampledPassableSum = 0;
+                    bool gridSeenNotNull = false;
 
-                    // Check not in water
-                    var terrain = ProceduralTerrain.Instance;
-                    if (terrain != null && terrain.IsInWater(new Vector3(x, y, z)))
-                    { rejWater++; continue; }
-
-                    // Connectivity gate: reject candidates surrounded by water or
-                    // cliff (e.g. small beach pockets). Sample 8 directions around
-                    // the candidate and require enough passable neighbours.
-                    var grid = PassabilityGrid.Instance;
-                    if (grid != null)
+                    for (int attempt = 0; attempt < 30; attempt++)
                     {
-                        gridSeenNotNull = true;
-                        int passable = 0;
-                        for (int d = 0; d < 8; d++)
+                        float x = random.NextFloat(-spawnRange, spawnRange);
+                        float z = random.NextFloat(-spawnRange, spawnRange);
+                        float y = TerrainUtility.GetHeight(x, z);
+                        float3 candidate = new float3(x, y, z);
+
+                        // Check not in water
+                        var terrain = ProceduralTerrain.Instance;
+                        if (terrain != null && terrain.IsInWater(new Vector3(x, y, z)))
+                        { rejWater++; continue; }
+
+                        // Connectivity gate (only on strict pass).
+                        var grid = PassabilityGrid.Instance;
+                        if (useConnectivityGate && grid != null)
                         {
-                            float a = d * (math.PI * 2f / 8f);
-                            float3 sample = candidate + new float3(
-                                math.cos(a) * ConnectivityProbeRadius, 0f,
-                                math.sin(a) * ConnectivityProbeRadius);
-                            sample.y = TerrainUtility.GetHeight(sample.x, sample.z);
-                            if (grid.IsPassable(sample)) passable++;
+                            gridSeenNotNull = true;
+                            int passable = 0;
+                            for (int d = 0; d < 8; d++)
+                            {
+                                float a = d * (math.PI * 2f / 8f);
+                                float3 sample = candidate + new float3(
+                                    math.cos(a) * ConnectivityProbeRadius, 0f,
+                                    math.sin(a) * ConnectivityProbeRadius);
+                                sample.y = TerrainUtility.GetHeight(sample.x, sample.z);
+                                if (grid.IsPassable(sample)) passable++;
+                            }
+                            sampledPassableSum += passable;
+                            if (passable < MinPassableNeighbours) { rejConnectivity++; continue; }
                         }
-                        sampledPassableSum += passable;
-                        if (passable < MinPassableNeighbours) { rejConnectivity++; continue; }
+
+                        // Check distance from all player positions
+                        bool tooCloseToPlayer = false;
+                        for (int p = 0; p < playerPositions.Length; p++)
+                        {
+                            if (math.distance(candidate, playerPositions[p]) < MinDistFromPlayers)
+                            {
+                                tooCloseToPlayer = true;
+                                break;
+                            }
+                        }
+                        if (tooCloseToPlayer) { rejPlayer++; continue; }
+
+                        // Check distance from already-placed nodes
+                        bool tooCloseToNode = false;
+                        for (int prev = 0; prev < nodesSpawned; prev++)
+                        {
+                            if (math.distance(candidate, nodePosArray[prev]) < MinDistBetweenNodes)
+                            {
+                                tooCloseToNode = true;
+                                break;
+                            }
+                        }
+                        if (tooCloseToNode) { rejNode++; continue; }
+
+                        nodePos = candidate;
+                        found = true;
+                        break;
                     }
 
-                    // Check distance from all player positions
-                    bool tooCloseToPlayer = false;
-                    for (int p = 0; p < playerPositions.Length; p++)
+                    if (!found && strict == 0)
                     {
-                        if (math.distance(candidate, playerPositions[p]) < MinDistFromPlayers)
-                        {
-                            tooCloseToPlayer = true;
-                            break;
-                        }
+                        float avgPassable = gridSeenNotNull && rejConnectivity > 0
+                            ? sampledPassableSum / (float)rejConnectivity : -1f;
+                        Debug.LogWarning(
+                            $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} strict pass failed — " +
+                            $"water={rejWater} connectivity={rejConnectivity} " +
+                            $"player-too-close={rejPlayer} node-too-close={rejNode} " +
+                            $"avgPassableSamples={avgPassable:F1}/8. " +
+                            "Retrying without connectivity gate.");
                     }
-                    if (tooCloseToPlayer) { rejPlayer++; continue; }
-
-                    // Check distance from already-placed nodes
-                    bool tooCloseToNode = false;
-                    for (int prev = 0; prev < nodesSpawned; prev++)
+                    else if (!found && strict == 1)
                     {
-                        if (math.distance(candidate, nodePosArray[prev]) < MinDistBetweenNodes)
-                        {
-                            tooCloseToNode = true;
-                            break;
-                        }
+                        Debug.LogError(
+                            $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} fallback pass also failed — " +
+                            $"water={rejWater} player-too-close={rejPlayer} node-too-close={rejNode}.");
                     }
-                    if (tooCloseToNode) { rejNode++; continue; }
-
-                    nodePos = candidate;
-                    found = true;
-                    break;
-                }
-
-                if (!found)
-                {
-                    float avgPassable = gridSeenNotNull && rejConnectivity > 0
-                        ? sampledPassableSum / (float)rejConnectivity : -1f;
-                    Debug.LogError(
-                        $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} placement FAILED — " +
-                        $"30 attempts: water={rejWater} connectivity={rejConnectivity} " +
-                        $"player-too-close={rejPlayer} node-too-close={rejNode} " +
-                        $"gridNotNull={gridSeenNotNull} avgPassableSamples={avgPassable:F1}/8 " +
-                        $"(MinPassableNeighbours={MinPassableNeighbours})");
                 }
 
                 if (!found) continue;
