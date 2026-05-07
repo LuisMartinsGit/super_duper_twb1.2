@@ -184,9 +184,10 @@ namespace TheWaningBorder.Bootstrap
                 var waveEntity = em.CreateEntity(typeof(CrystalWaveState));
                 em.SetComponentData(waveEntity, new CrystalWaveState
                 {
-                    WaveTimer = 60f,
-                    WaveInterval = 90f,
-                    WaveNumber = 0
+                    WaveTimer = 180f,         // first wave window opens at 3 min
+                    WaveInterval = 210f,      // ~3-4 min between waves (re-rolled each fire)
+                    WaveNumber = 0,
+                    WaveThreshold = 12,       // first wave needs 12 idle units; grows per wave
                 });
             }
 

@@ -112,11 +112,14 @@ namespace TheWaningBorder.Systems.Combat
         private void InitializeCombatComponents(ref SystemState state, ref EntityCommandBuffer ecb)
         {
             // Initialize GuardPoint for units that don't have one
-            // Skip battalion members — they are positioned by BattalionSyncSystem, not movement
+            // Skip battalion members — they are positioned by BattalionSyncSystem, not movement.
+            // Skip curse units — long-range hunters driven by CrystalAISystem wave dispatch;
+            // the 20m guard leash below would yank them home mid-march.
             foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
                 .WithNone<GuardPoint>()
                 .WithNone<BattalionMemberData>()
+                .WithNone<CrystalUnitTag>()
                 .WithEntityAccess())
             {
                 ecb.AddComponent(entity, new GuardPoint

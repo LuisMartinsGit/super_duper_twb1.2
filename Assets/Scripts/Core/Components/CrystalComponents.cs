@@ -261,6 +261,24 @@ public struct CrystalDebuff : IComponentData
 
 public struct CrystalCadaverLifetime : IComponentData { public float TimeRemaining; }
 public struct CrystalExtinctionState : IComponentData { public byte IsExtinct; public float RespawnTimer; public byte HasEverExisted; }
-public struct CrystalWaveState : IComponentData { public float WaveTimer; public float WaveInterval; public int WaveNumber; }
+public struct CrystalWaveState : IComponentData
+{
+    public float WaveTimer;       // Counts down to next wave fire
+    public float WaveInterval;    // Seconds until next wave (random 180-240 between waves)
+    public int WaveNumber;        // Wave counter (0 = none yet fired)
+    public int WaveThreshold;     // Idle units required to trigger the next wave (grows per wave)
+}
+
+/// <summary>
+/// Marks a curse unit as part of an active wave. While present, the AI
+/// keeps re-issuing DesiredDestination toward Target so the unit resumes
+/// the march after killing anything that gets in the way. Cleared when
+/// the unit reaches the target zone.
+/// </summary>
+public struct CrystalWaveOrder : IComponentData
+{
+    public float3 Target;
+    public int WaveNumber;
+}
 public struct CrystalTrainingState : IComponentData { public byte TrainingUnitType; public float TimeRemaining; public float TotalTime; }
 public struct CrystalAutoBuild : IComponentData { public float TimeRemaining; public float TotalTime; }
