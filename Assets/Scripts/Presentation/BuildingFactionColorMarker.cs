@@ -30,12 +30,14 @@ namespace TheWaningBorder.Presentation
         public static bool Enabled = true;
 
         /// <summary>
-        /// Marker color in authored prefabs / atlas textures. Default:
-        /// pure blue (0,0,1). Materials whose base map contains pixels
-        /// within Tolerance of this hue have those pixels recolored to
-        /// the faction color at spawn / swap time.
+        /// Marker color in authored prefabs / atlas textures. Default
+        /// matches the project's actual marker (#3A7ABD ≈ 58/122/189) —
+        /// the muted cornflower blue artists paint on team-color regions
+        /// of the building atlas. Materials whose base map contains
+        /// pixels within Tolerance of this hue have those pixels
+        /// recolored to the faction color at spawn / swap time.
         /// </summary>
-        public static Color Marker = new Color(0f, 0f, 1f, 1f);
+        public static Color Marker = new Color(0x3A / 255f, 0x7A / 255f, 0xBD / 255f, 1f);
 
         /// <summary>
         /// Match tolerance in RGB Euclidean distance squared (per channel
