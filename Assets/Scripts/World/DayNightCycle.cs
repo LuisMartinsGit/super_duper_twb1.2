@@ -1,92 +1,101 @@
 // DayNightCycle.cs
-// Rotates a directional light to simulate a full day-night cycle every
-// cycleDuration minutes. Adjusts light color, intensity, and ambient light
-// to match the time of day. Configures shadows for RTS camera distance.
-// Includes drifting cloud shadow projector using Perlin noise.
+// (Day/night cycle removed — the game now stays in a single atmospheric
+//  preset: dark-blue volcanic, well-lit. This MonoBehaviour kept its
+//  name so GameBootstrap and any inspector references still resolve.)
 //
-// Attach to any GameObject or let GameBootstrap create it.
+// Responsibilities now:
+//   - Configure a single directional sun light with a cool blueish tone
+//     and enough intensity that the play area reads clearly.
+//   - Set ambient + fog (volumetric fake) for a dark moody backdrop.
+//   - Set up post-processing tint, vignette, and bloom on the global
+//     URP volume so the screen has a deep blue-volcanic mood.
+//
+// Cloud-shadow projector retained because it adds depth, but is fixed
+// (no day-fade, no cloud-shadow opacity ramp).
 
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace TheWaningBorder.World
 {
     public class DayNightCycle : MonoBehaviour
     {
-        [Header("Cycle")]
-        [Tooltip("Full day-night cycle duration in minutes")]
-        public float cycleDuration = 15f;
+        [Header("Sun (fixed, no day/night cycle)")]
+        [Tooltip("Sun pitch — angle from horizon. ~25° gives a low, dramatic 'eternal evening' rake.")]
+        public float sunPitch = 25f;
+        [Tooltip("Sun heading (compass) in degrees.")]
+        public float sunHeading = 145f;
+        [Tooltip("Sun colour. Default is a cool steel-blue with a faint warm tint, like a moonlit volcanic ridge.")]
+        public Color sunColor = new(0.55f, 0.65f, 0.85f);
+        [Tooltip("Sun intensity. ~0.85 keeps the scene 'dark' but readable.")]
+        public float sunIntensity = 0.85f;
 
-        [Tooltip("Starting time of day (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)")]
-        public float startTime = 0.3f;
+        [Header("Ambient (fixed)")]
+        [Tooltip("Flat ambient — fills shadows so units stay readable in a dark scene.")]
+        public Color ambientColor = new(0.10f, 0.13f, 0.20f);
 
-        [Header("Sun")]
-        [Tooltip("Sun rotation axis latitude (angle from horizon at noon)")]
-        public float sunLatitude = 45f;
+        [Header("Fog / Volumetric Mood")]
+        [Tooltip("Fog colour — deep blue-black for the volcanic-ash mood.")]
+        public Color fogColor = new(0.05f, 0.07f, 0.12f);
+        [Tooltip("Exponential-squared fog density. Tiny values: 0.002 = subtle, 0.008 = thick.")]
+        public float fogDensity = 0.0035f;
+
+        [Header("Post-Processing (URP global volume)")]
+        [Tooltip("Vignette intensity (0-1). 0.45 darkens screen corners noticeably.")]
+        [Range(0f, 1f)] public float vignetteIntensity = 0.45f;
+        [Tooltip("Vignette colour.")]
+        public Color vignetteColor = new(0.02f, 0.03f, 0.06f);
+        [Tooltip("Bloom intensity for crystal/lava/light glow.")]
+        [Range(0f, 5f)] public float bloomIntensity = 0.9f;
+        [Tooltip("Bloom threshold — only HDR-bright pixels glow.")]
+        [Range(0f, 2f)] public float bloomThreshold = 0.95f;
+        [Tooltip("Negative post-exposure darkens overall image.")]
+        [Range(-3f, 3f)] public float postExposure = -0.6f;
+        [Tooltip("Saturation adjustment. Negative drains colour for cinematic mood.")]
+        [Range(-100f, 100f)] public float saturation = -15f;
+        [Tooltip("Contrast adjustment.")]
+        [Range(-100f, 100f)] public float contrast = 12f;
+        [Tooltip("White-balance temperature. Negative = cool/blue.")]
+        [Range(-100f, 100f)] public float whiteBalanceTemperature = -25f;
+        [Tooltip("White-balance tint. Slight magenta to push toward 'volcanic'.")]
+        [Range(-100f, 100f)] public float whiteBalanceTint = -8f;
 
         [Header("Shadows")]
         [Tooltip("Shadow draw distance in world units")]
         public float shadowDistance = 300f;
 
         [Header("Cloud Shadows")]
-        [Tooltip("Enable moving cloud shadow layer on terrain")]
+        [Tooltip("Enable static cloud shadow projector for depth")]
         public bool cloudShadows = true;
-        [Tooltip("Cloud shadow darkness (0=invisible, 1=black)")]
-        public float cloudOpacity = 0.25f;
-        [Tooltip("Cloud drift speed in world units per second")]
-        public float cloudSpeed = 3f;
-        [Tooltip("Cloud noise scale (lower = larger clouds)")]
+        [Range(0f, 1f)] public float cloudOpacity = 0.30f;
+        public float cloudSpeed = 2f;
         public float cloudScale = 0.008f;
-        [Tooltip("World size of the cloud shadow projector")]
         public float cloudProjectorSize = 300f;
 
         // ── Runtime ──
         private Light _sun;
-        private float _timeOfDay;
-
-        // Color gradient stops for the sun
-        private static readonly Color SunriseColor = new(1.0f, 0.55f, 0.25f);
-        private static readonly Color NoonColor    = new(1.0f, 0.97f, 0.90f);
-        private static readonly Color SunsetColor  = new(1.0f, 0.45f, 0.20f);
-        private static readonly Color NightColor   = new(0.15f, 0.18f, 0.35f);
-
-        // Ambient light colors
-        private static readonly Color AmbientDay     = new(0.45f, 0.50f, 0.55f);
-        private static readonly Color AmbientSunrise = new(0.30f, 0.25f, 0.25f);
-        private static readonly Color AmbientNight   = new(0.05f, 0.06f, 0.12f);
-
-        // Cloud projector state. Mesh + Texture2D refs cached so OnDestroy can
-        // release them — destroying the GameObject doesn't auto-destroy assigned
-        // assets, so without this they leaked on every scene reload. (task-062 Q-27)
+        private Volume _volume;
         private GameObject _cloudProjector;
         private Material _cloudMaterial;
         private Mesh _cloudMesh;
         private Texture2D _cloudTexture;
         private float _cloudOffsetX;
         private float _cloudOffsetZ;
-
-        // Cached references (Camera.main was previously called every Update,
-        // which scans all cameras tagged MainCamera each call). (task-062 Q-28)
         private Camera _mainCamera;
 
         void Awake()
         {
-            _timeOfDay = startTime;
             CreateOrFindSun();
             ConfigureShadows();
+            ApplyStaticAtmosphere();
+            EnsurePostProcessingVolume();
             _mainCamera = Camera.main;
         }
 
         void Update()
         {
-            float cycleSeconds = cycleDuration * 60f;
-            _timeOfDay += Time.deltaTime / cycleSeconds;
-            if (_timeOfDay >= 1f) _timeOfDay -= 1f;
-
-            UpdateSunTransform();
-            UpdateSunLight();
-            UpdateAmbient();
-
+            // No cycle — just drift the cloud texture for life.
             if (cloudShadows)
                 UpdateCloudShadows();
         }
@@ -114,7 +123,6 @@ namespace TheWaningBorder.World
             _sun.shadowStrength = 0.7f;
             _sun.shadowNormalBias = 0.4f;
             _sun.shadowBias = 0.05f;
-            _sun.intensity = 1.2f;
         }
 
         private void ConfigureShadows()
@@ -136,84 +144,74 @@ namespace TheWaningBorder.World
             }
         }
 
-        private void UpdateSunTransform()
+        /// <summary>One-time atmospheric setup: sun, ambient, fog.</summary>
+        private void ApplyStaticAtmosphere()
         {
-            float sunAngle = _timeOfDay * 360f - 90f;
-            _sun.transform.rotation = Quaternion.Euler(sunAngle, 170f, 0f);
-        }
-
-        private void UpdateSunLight()
-        {
-            float t = _timeOfDay;
-            Color sunColor;
-            float intensity;
-
-            if (t < 0.2f)
-            {
-                float f = t / 0.2f;
-                sunColor = Color.Lerp(NightColor, SunriseColor, f * f);
-                intensity = Mathf.Lerp(0.05f, 0.4f, f);
-            }
-            else if (t < 0.3f)
-            {
-                float f = (t - 0.2f) / 0.1f;
-                sunColor = Color.Lerp(SunriseColor, NoonColor, f);
-                intensity = Mathf.Lerp(0.4f, 1.2f, f);
-            }
-            else if (t < 0.7f)
-            {
-                sunColor = NoonColor;
-                intensity = 1.2f;
-            }
-            else if (t < 0.8f)
-            {
-                float f = (t - 0.7f) / 0.1f;
-                sunColor = Color.Lerp(NoonColor, SunsetColor, f);
-                intensity = Mathf.Lerp(1.2f, 0.4f, f);
-            }
-            else
-            {
-                float f = (t - 0.8f) / 0.2f;
-                sunColor = Color.Lerp(SunsetColor, NightColor, f * f);
-                intensity = Mathf.Lerp(0.4f, 0.05f, f);
-            }
-
+            // Sun rotation and look.
+            _sun.transform.rotation = Quaternion.Euler(sunPitch, sunHeading, 0f);
             _sun.color = sunColor;
-            _sun.intensity = intensity;
+            _sun.intensity = sunIntensity;
+
+            // Ambient — fills shadows so the dark scene stays readable.
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = ambientColor;
+
+            // Fog — fakes volumetric depth for the volcanic-haze mood.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = fogColor;
+            RenderSettings.fogDensity = fogDensity;
         }
 
-        private void UpdateAmbient()
+        /// <summary>
+        /// Build (or update) a global URP Volume with vignette, bloom, color
+        /// adjustments, and white balance for the dark blue-volcanic mood.
+        /// </summary>
+        private void EnsurePostProcessingVolume()
         {
-            float t = _timeOfDay;
-            Color ambient;
+            // Find or create a global Volume on this GameObject.
+            _volume = GetComponent<Volume>();
+            if (_volume == null)
+                _volume = gameObject.AddComponent<Volume>();
+            _volume.isGlobal = true;
+            _volume.priority = 10f;
+            _volume.weight = 1f;
 
-            if (t < 0.2f || t > 0.85f)
-                ambient = AmbientNight;
-            else if (t < 0.35f)
-            {
-                float f = (t - 0.2f) / 0.15f;
-                ambient = Color.Lerp(AmbientNight, AmbientSunrise, f);
-            }
-            else if (t < 0.45f)
-            {
-                float f = (t - 0.35f) / 0.1f;
-                ambient = Color.Lerp(AmbientSunrise, AmbientDay, f);
-            }
-            else if (t < 0.65f)
-                ambient = AmbientDay;
-            else if (t < 0.75f)
-            {
-                float f = (t - 0.65f) / 0.1f;
-                ambient = Color.Lerp(AmbientDay, AmbientSunrise, f);
-            }
-            else
-            {
-                float f = (t - 0.75f) / 0.1f;
-                ambient = Color.Lerp(AmbientSunrise, AmbientNight, f);
-            }
+            // Always rebuild the profile in case fields changed in the inspector.
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            profile.name = "TWB_StaticAtmosphereProfile";
 
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = ambient;
+            // Vignette.
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(vignetteIntensity);
+            vignette.color.Override(vignetteColor);
+            vignette.smoothness.Override(0.45f);
+            vignette.rounded.Override(false);
+
+            // Bloom — makes crystals / projectiles glow against the dark.
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.Override(bloomIntensity);
+            bloom.threshold.Override(bloomThreshold);
+            bloom.scatter.Override(0.75f);
+            bloom.tint.Override(new Color(0.55f, 0.70f, 1.0f));
+
+            // Color adjustments — exposure / saturation / contrast.
+            var color = profile.Add<ColorAdjustments>(true);
+            color.postExposure.Override(postExposure);
+            color.saturation.Override(saturation);
+            color.contrast.Override(contrast);
+            color.colorFilter.Override(new Color(0.85f, 0.92f, 1.05f, 1f)); // faint cool tint
+
+            // White balance — push the whole image cool/blue.
+            var wb = profile.Add<WhiteBalance>(true);
+            wb.temperature.Override(whiteBalanceTemperature);
+            wb.tint.Override(whiteBalanceTint);
+
+            // Tonemapping — ACES pulls highlights without crushing.
+            var tone = profile.Add<Tonemapping>(true);
+            tone.mode.Override(TonemappingMode.ACES);
+
+            _volume.sharedProfile = profile;
         }
 
         private void UpdateCloudShadows()
@@ -228,14 +226,9 @@ namespace TheWaningBorder.World
             {
                 _cloudMaterial.SetFloat("_OffsetX", _cloudOffsetX);
                 _cloudMaterial.SetFloat("_OffsetZ", _cloudOffsetZ);
-
-                // Fade clouds at night (no cloud shadows in darkness)
-                float dayFactor = Mathf.Clamp01((_sun.intensity - 0.2f) / 0.8f);
-                _cloudMaterial.SetFloat("_Opacity", cloudOpacity * dayFactor);
+                _cloudMaterial.SetFloat("_Opacity", cloudOpacity);
             }
 
-            // Re-resolve if cached camera was destroyed mid-session (e.g. scene
-            // change). Cheap fallback that costs nothing in the common case.
             if (_mainCamera == null) _mainCamera = Camera.main;
             if (_mainCamera != null)
             {
@@ -267,7 +260,6 @@ namespace TheWaningBorder.World
             _cloudMesh.RecalculateNormals();
             mf.mesh = _cloudMesh;
 
-            // Generate 3-octave Perlin noise cloud texture
             int res = 512;
             _cloudTexture = new Texture2D(res, res, TextureFormat.RGBA32, true);
             for (int y = 0; y < res; y++)
@@ -295,7 +287,6 @@ namespace TheWaningBorder.World
             _cloudMaterial.mainTexture = _cloudTexture;
             _cloudMaterial.color = new Color(0f, 0f, 0f, cloudOpacity);
 
-            // Multiply blend — darkens terrain where cloud texture is opaque
             _cloudMaterial.SetFloat("_Surface", 1);
             _cloudMaterial.SetFloat("_Blend", 0);
             _cloudMaterial.SetOverrideTag("RenderType", "Transparent");
@@ -316,17 +307,15 @@ namespace TheWaningBorder.World
         void OnDestroy()
         {
             if (_cloudProjector != null) Destroy(_cloudProjector);
-            // GameObject destruction doesn't release the assigned Mesh / Texture2D
-            // / Material assets — they leak unless explicitly destroyed. (Q-27)
             if (_cloudMesh != null) Destroy(_cloudMesh);
             if (_cloudTexture != null) Destroy(_cloudTexture);
             if (_cloudMaterial != null) Destroy(_cloudMaterial);
+            if (_volume != null && _volume.sharedProfile != null) Destroy(_volume.sharedProfile);
         }
 
-        /// <summary>Current time of day (0=midnight, 0.5=noon).</summary>
-        public float TimeOfDay => _timeOfDay;
-
-        /// <summary>Set time of day immediately (0-1).</summary>
-        public void SetTime(float t) => _timeOfDay = Mathf.Repeat(t, 1f);
+        // Legacy API surface kept as no-ops so any caller that still touches
+        // these doesn't break compilation. They're meaningless now.
+        public float TimeOfDay => 0.5f;
+        public void SetTime(float t) { /* no-op */ }
     }
 }

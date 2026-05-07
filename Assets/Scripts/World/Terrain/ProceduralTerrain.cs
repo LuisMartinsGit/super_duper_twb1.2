@@ -424,11 +424,12 @@ namespace TheWaningBorder.World.Terrain
                       $"(color={color.width}×{color.height}, normal={normal.width}×{normal.height}, " +
                       $"height={heightTx.width}×{heightTx.height}). Baking tinted curse layer…");
 
-            // Tinted diffuse: source's blue iciness is replaced by a strong
-            // purple→green-accent gradient driven by the heightmap. Source
-            // is used as a luminance/detail mask only, so reflections and
-            // micro-pattern still read but the color is forced to purple.
-            var tintedDiffuse = BakeTintedCurseDiffuse(color, heightTx);
+            // Use the source diffuse as-is. Earlier passes baked tints
+            // (purple, then dark green) but the user reverted to the
+            // texture's authored colour. The heightmap-derived AO/highlight
+            // is applied as a much subtler modulation so the surface keeps
+            // its source palette but still reads as relief.
+            var tintedDiffuse = BakeShadedCurseDiffuse(color, heightTx);
 
             // Packed mask map — Unity URP terrain convention.
             var maskMap = BakeCurseMaskMap(heightTx, rough, ao);
@@ -463,23 +464,14 @@ namespace TheWaningBorder.World.Terrain
             return layer;
         }
 
-        Texture2D BakeTintedCurseDiffuse(Texture2D srcColor, Texture2D heightSrc)
+        Texture2D BakeShadedCurseDiffuse(Texture2D srcColor, Texture2D heightSrc)
         {
             var src = ReadablePixels(srcColor, out int sw, out int sh);
             var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
 
-            // Source texture is icy blue; we want strong dark green. Use
-            // the source for luminance/detail only; force the chrominance
-            // to a height-driven dark-green palette.
-            //
-            // Three anchors across the height range:
-            //   ht 0.0  → near-black moss-green (crevices)
-            //   ht 0.55 → dark forest green     (main surface)
-            //   ht 1.0  → cool mint highlight   (peaks / rim light)
-            var voidGreen    = new Color(0.04f, 0.14f, 0.07f);
-            var darkGreen    = new Color(0.10f, 0.40f, 0.18f);
-            var mintAccent   = new Color(0.40f, 0.78f, 0.55f);
-
+            // Use the source colour as-is. Apply only a gentle heightmap-
+            // based AO/highlight to approximate relief; no chrominance
+            // override. Crevices darken slightly, peaks brighten slightly.
             var output = new Color32[sw * sh];
             for (int y = 0; y < sh; y++)
             {
@@ -491,32 +483,15 @@ namespace TheWaningBorder.World.Terrain
                     int si = y * sw + x;
 
                     float ht = hgt[hi].r / 255f;
-
-                    // 3-stop gradient on the heightmap.
-                    Color tint;
-                    if (ht < 0.55f)
-                        tint = Color.Lerp(voidGreen, darkGreen, ht / 0.55f);
-                    else
-                        tint = Color.Lerp(darkGreen, mintAccent, (ht - 0.55f) / 0.45f);
-
-                    // Source luminance modulates brightness for highlights /
-                    // reflections without bringing back the blue.
                     var s = src[si];
-                    float lum = (s.r + s.g + s.b) / (3f * 255f);
-                    float lumMod = 0.65f + lum * 0.85f; // 0.65..1.50
 
-                    // Fake AO/highlight from the heightmap, baked into the
-                    // albedo to approximate parallax depth. Dialled back
-                    // from the previous 5× setting — the new range gives
-                    // visible relief without crushing the dark areas to
-                    // pure black or blowing the ridges to white.
-                    //   ht 0.0 → 0.50× (subtle AO shadow)
-                    //   ht 1.0 → 1.40× (gentle rim highlight)
-                    float heightShade = 0.50f + ht * 0.90f;
+                    //   ht 0.0 → 0.65× (gentle AO shadow)
+                    //   ht 1.0 → 1.20× (gentle rim highlight)
+                    float heightShade = 0.65f + ht * 0.55f;
 
-                    float r = Mathf.Clamp01(tint.r * lumMod * heightShade);
-                    float g = Mathf.Clamp01(tint.g * lumMod * heightShade);
-                    float b = Mathf.Clamp01(tint.b * lumMod * heightShade);
+                    float r = Mathf.Clamp01((s.r / 255f) * heightShade);
+                    float g = Mathf.Clamp01((s.g / 255f) * heightShade);
+                    float b = Mathf.Clamp01((s.b / 255f) * heightShade);
 
                     output[si] = new Color32(
                         (byte)(r * 255f),
