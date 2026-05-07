@@ -73,6 +73,33 @@ namespace TheWaningBorder.Presentation
 
         void OnDestroy() { if (Instance == this) Instance = null; }
 
+        /// <summary>
+        /// External pre-registration: PresentationSpawnSystem can spawn an
+        /// L1 prefab directly when the faction has already aged up, then
+        /// call this so the swap system's caches stay in sync — otherwise
+        /// the next scan would detect "level 0 cached, level 1 expected"
+        /// and re-instantiate the same prefab. Idempotent.
+        /// </summary>
+        public void RegisterPreSwapped(Entity entity, GameObject view, byte level)
+        {
+            if (entity == Entity.Null || view == null) return;
+            _registeredView[entity] = view;
+            _lastLevel[entity] = level;
+        }
+
+        /// <summary>
+        /// Look up the level-1 prefab path for a building so external
+        /// callers (PresentationSpawnSystem) can use the same lookup
+        /// ladder as the swap system. Returns null if no prefab found.
+        /// </summary>
+        public GameObject TryLoadLevel1Prefab(string buildingId, byte culture, int variant, out string resolvedPath)
+        {
+            resolvedPath = null;
+            string code = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
+            if (string.IsNullOrEmpty(code)) return null;
+            return ResolvePrefab(buildingId, code, level: 1, variant: variant, out resolvedPath);
+        }
+
         void Update()
         {
             if (_world == null || !_world.IsCreated) return;

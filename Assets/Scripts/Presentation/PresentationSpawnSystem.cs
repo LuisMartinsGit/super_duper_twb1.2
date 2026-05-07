@@ -396,21 +396,55 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
         }
 
-        // === BASE BUILDING PREFABS (Hall / Barracks / Hut at level 0) ===
-        // Prefer hand-authored prefabs at Resources/Prefabs/Buildings/{name}
-        // when present; fall through to procedural otherwise. The level-1+
-        // visuals (Hall_al_1, …) are managed separately by
-        // BuildingPrefabSwapSystem after upgrades complete.
+        // === BUILDING PREFABS (Hall / Barracks / Hut, level 0 OR 1) ===
+        //
+        // After age-up, all newly placed/spawned Hall/Barracks/Hut go straight
+        // to the L1 culture prefab — no L0 visual flash during construction
+        // followed by a 1-second delayed swap. Pre age-up, falls back to the
+        // base prefab; if neither is present, falls through to procedural.
+        //
+        // The L1 path also stamps BuildingUpgradeState.Level=1 + applies the
+        // L1 stat scaling so HP / train speed / attack rate match the
+        // visual immediately. BuildingPrefabSwapSystem is told the entity
+        // is already at L1 so it doesn't redundantly re-instantiate.
         {
-            var basePrefab = TryLoadBaseBuildingPrefab(presentationId);
-            if (basePrefab != null)
+            string buildingId = presentationId switch
+            {
+                100 => "Hall",
+                102 => "Hut",
+                510 => "Barracks",
+                _   => null,
+            };
+
+            // Try L1 first when faction has a culture.
+            GameObject buildingPrefab = null;
+            byte spawnLevel = 0;
+            if (buildingId != null && _em.HasComponent<FactionTag>(entity))
+            {
+                var faction = _em.GetComponentData<FactionTag>(entity).Value;
+                byte culture = FactionColors.GetFactionCulture(faction);
+                if (culture != Cultures.None && BuildingPrefabSwapSystem.Instance != null)
+                {
+                    int variant = (buildingId == "Hut") ? 1 + (Mathf.Abs(entity.Index) % 2) : 0;
+                    buildingPrefab = BuildingPrefabSwapSystem.Instance.TryLoadLevel1Prefab(
+                        buildingId, culture, variant, out _);
+                    if (buildingPrefab != null) spawnLevel = 1;
+                }
+            }
+
+            // Fall back to L0 base prefab.
+            if (buildingPrefab == null)
+                buildingPrefab = TryLoadBaseBuildingPrefab(presentationId);
+
+            if (buildingPrefab != null)
             {
                 // FinishProceduralBuilding writes the final visual rotation
                 // (with the +180° building offset) — we just position here.
-                var go = Instantiate(basePrefab, pos, Quaternion.identity);
+                var go = Instantiate(buildingPrefab, pos, Quaternion.identity);
                 go.SetActive(true);
+                go.name = $"Entity_{entity.Index}_{buildingId}_L{spawnLevel}";
                 // Preserve the prefab's authored scale through SyncTransforms.
-                var ps = basePrefab.transform.localScale;
+                var ps = buildingPrefab.transform.localScale;
                 float baseScale = (ps.x + ps.y + ps.z) / 3f;
                 if (baseScale > 0.001f)
                 {
@@ -418,7 +452,16 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                     tag.BaseScale = baseScale;
                     go.transform.localScale = Vector3.one * transform.Scale * baseScale;
                 }
-                return FinishProceduralBuilding(go, entity, transform);
+                var finished = FinishProceduralBuilding(go, entity, transform);
+
+                // If we spawned the L1 prefab, sync the ECS state so the
+                // upgrade pipeline doesn't try to swap again on its next scan.
+                if (spawnLevel == 1)
+                {
+                    EnsureBuildingUpgradeStateAtLevel1(entity);
+                    BuildingPrefabSwapSystem.Instance.RegisterPreSwapped(entity, finished, level: 1);
+                }
+                return finished;
             }
         }
 
@@ -698,6 +741,45 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
         _baseBuildingPrefabCache[presentationId] = loaded;
         return loaded;
+    }
+
+    /// <summary>
+    /// Stamp BuildingUpgradeState{Level=1} on a freshly-spawned post-age-up
+    /// building and apply the L1 stat scaling. Captures base stats first
+    /// the same way the manual upgrade command does, so any later
+    /// L1→L2/L3 upgrade recomputes idempotently from the original values.
+    /// </summary>
+    private void EnsureBuildingUpgradeStateAtLevel1(Entity entity)
+    {
+        if (_em.HasComponent<BuildingUpgradeState>(entity))
+        {
+            // Already stamped. If somehow at L0, bump to L1; if already at
+            // L1+, leave it alone (covers reload / save-restore paths).
+            var existing = _em.GetComponentData<BuildingUpgradeState>(entity);
+            if (existing.Level >= 1) return;
+            TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
+                .ApplyLevel(_em, entity, 1);
+            return;
+        }
+
+        // Capture base stats once.
+        int baseHp = _em.HasComponent<Health>(entity)
+            ? _em.GetComponentData<Health>(entity).Max : 0;
+        float baseAtkCd = _em.HasComponent<BuildingRangedAttack>(entity)
+            ? _em.GetComponentData<BuildingRangedAttack>(entity).Cooldown : 0f;
+        int basePop = _em.HasComponent<TheWaningBorder.Economy.PopulationProvider>(entity)
+            ? _em.GetComponentData<TheWaningBorder.Economy.PopulationProvider>(entity).Amount : 0;
+
+        _em.AddComponentData(entity, new BuildingUpgradeState
+        {
+            Level                  = 0,
+            BaseHpMax              = baseHp,
+            BaseAttackCooldown     = baseAtkCd,
+            BasePopulationProvider = basePop,
+        });
+
+        TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
+            .ApplyLevel(_em, entity, 1);
     }
 
     /// <summary>
