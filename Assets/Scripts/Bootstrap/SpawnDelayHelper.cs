@@ -47,6 +47,7 @@ namespace TheWaningBorder.Bootstrap
                     // own toggle now — FlatTestMap previously double-gated and
                     // silently disabled the curse in dev builds.
                     CrystalPatchBootstrap.SpawnCrystalPatches();
+                    UnityEngine.Debug.Log($"[SpawnDelayHelper] HAPPY PATH — about to call CrystalNodeBootstrap.SpawnCrystalNodes (CrystalCurseEnabled={GameSettings.CrystalCurseEnabled})");
                     if (GameSettings.CrystalCurseEnabled)
                         CrystalNodeBootstrap.SpawnCrystalNodes();
                     FocusCameraOnHall();
@@ -65,6 +66,7 @@ namespace TheWaningBorder.Bootstrap
                 ObstacleBootstrap.SpawnObstacles();
             IronDepositBootstrap.SpawnIronDeposits();
             CrystalPatchBootstrap.SpawnCrystalPatches();
+            UnityEngine.Debug.Log($"[SpawnDelayHelper] TIMEOUT PATH — about to call CrystalNodeBootstrap.SpawnCrystalNodes (CrystalCurseEnabled={GameSettings.CrystalCurseEnabled})");
             if (GameSettings.CrystalCurseEnabled)
                 CrystalNodeBootstrap.SpawnCrystalNodes();
             FocusCameraOnHall();

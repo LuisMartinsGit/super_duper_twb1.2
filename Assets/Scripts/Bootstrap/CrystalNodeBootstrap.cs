@@ -33,9 +33,17 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         public static int SpawnCrystalNodes()
         {
+            Debug.Log($"[CrystalNodeBootstrap] SpawnCrystalNodes ENTRY — " +
+                      $"CrystalCurseEnabled={GameSettings.CrystalCurseEnabled} " +
+                      $"FlatTestMap={GameSettings.FlatTestMap} " +
+                      $"TotalPlayers={GameSettings.TotalPlayers} " +
+                      $"MapHalfSize={GameSettings.MapHalfSize} " +
+                      $"SpawnSeed={GameSettings.SpawnSeed}");
+
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
+                Debug.LogError("[CrystalNodeBootstrap] no ECS world — aborting");
                 return 0;
             }
 
@@ -47,6 +55,8 @@ namespace TheWaningBorder.Bootstrap
             float spawnRange = half * 0.7f;
 
             int nodeCount = playerPositions.Length; // one node per player
+            Debug.Log($"[CrystalNodeBootstrap] playerPositions.Length={playerPositions.Length} " +
+                      $"→ nodeCount={nodeCount} spawnRange={spawnRange:F0}");
             var nodePosArray = new float3[nodeCount];
             int nodesSpawned = 0;
 
@@ -115,13 +125,23 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 }
 
-                if (!found) continue;
+                if (!found)
+                {
+                    Debug.LogWarning(
+                        $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount}: 30 attempts " +
+                        "failed (water / cliff / dist-from-player / dist-from-other-node).");
+                    continue;
+                }
 
                 // Create the crystal main node
                 CrystalMainNode.Create(em, nodePos);
                 nodePosArray[nodesSpawned] = nodePos;
                 nodesSpawned++;
+                Debug.Log($"[CrystalNodeBootstrap] placed node {nodesSpawned} at " +
+                          $"({nodePos.x:F0},{nodePos.z:F0})");
             }
+
+            Debug.Log($"[CrystalNodeBootstrap] DONE — nodesSpawned={nodesSpawned}");
 
             // Initialize Faction.Curse crystal bank if it doesn't exist
             if (!FactionEconomy.TryGetBank(em, Faction.Curse, out _))
