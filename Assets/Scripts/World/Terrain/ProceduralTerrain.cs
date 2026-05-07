@@ -506,15 +506,19 @@ namespace TheWaningBorder.World.Terrain
                     float lum = (s.r + s.g + s.b) / (3f * 255f);
                     float lumMod = 0.65f + lum * 0.85f; // 0.65..1.50
 
-                    // Fake parallax depth — the heightmap drives a strong
-                    // shadow/highlight modulation baked into the albedo so
-                    // crevices look genuinely deep and peaks catch light.
-                    // URP terrain has no real parallax displacement, so this
-                    // is the cheapest way to make the surface read as
-                    // chiselled rather than flat.
-                    //   ht 0.0 → 0.25× (deep AO shadow)
-                    //   ht 1.0 → 1.85× (strong rim highlight)
-                    float heightShade = 0.25f + ht * 1.60f;
+                    // Fake parallax depth — heightmap drives shadow/highlight
+                    // modulation baked into the albedo. URP terrain has no
+                    // real parallax displacement, so this is the cheapest
+                    // way to make the surface read as deeply chiselled.
+                    //
+                    // 5× scale in height (per user): contrast delta widened
+                    // from ±0.8 to ±4.0 around 1.0. Crevices go almost
+                    // black; ridges blow out and saturate (clamped at 1.0
+                    // after multiplication, but the saturation reads as a
+                    // bright ridge highlight).
+                    //   ht 0.0 → 0.05× (near-black crevice)
+                    //   ht 1.0 → 8.05× (saturated ridge — clamps to 1.0)
+                    float heightShade = 0.05f + ht * 8.0f;
 
                     float r = Mathf.Clamp01(tint.r * lumMod * heightShade);
                     float g = Mathf.Clamp01(tint.g * lumMod * heightShade);
