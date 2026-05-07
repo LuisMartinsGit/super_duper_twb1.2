@@ -214,6 +214,15 @@ namespace TheWaningBorder.Presentation
             // every frame from LocalTransform.
             newGo.transform.localScale = Vector3.one * t.Scale * baseScale;
 
+            // Authored prefabs paint team-color regions with a flat marker
+            // (default pure blue). Replace with the faction color so each
+            // player's L1/L2/L3 buildings carry their lobby color.
+            if (_em.HasComponent<FactionTag>(e))
+            {
+                var fac = _em.GetComponentData<FactionTag>(e).Value;
+                BuildingFactionColorMarker.Apply(newGo, FactionColors.Get(fac));
+            }
+
             var current = EntityViewManager.Instance != null
                 ? EntityViewManager.Instance.GetView(e) : null;
 

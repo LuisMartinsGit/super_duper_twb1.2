@@ -697,6 +697,16 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // but still need the faction banner for player identity)
         ApplyFactionBannerOnly(go, entity);
 
+        // Authored prefabs paint team-color regions with a flat marker hue
+        // (default pure blue). Replace with the faction color at runtime so
+        // each player's buildings carry their lobby color. Procedural
+        // buildings have no marker materials so this is a no-op for them.
+        if (_em.HasComponent<FactionTag>(entity))
+        {
+            var fac = _em.GetComponentData<FactionTag>(entity).Value;
+            BuildingFactionColorMarker.Apply(go, FactionColors.Get(fac));
+        }
+
         return go;
     }
 
