@@ -69,6 +69,13 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
 
+            // Pre-allocate DesiredDestination so MeleeCombatSystem (which queues
+            // an AddComponent if missing) and CrystalAISystem (which adds it
+            // immediately via em) don't both record AddComponent in the same
+            // frame and clobber EndSimulationECB on playback. Has=0 means "no
+            // active destination" — semantically identical to no component.
+            em.AddComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
             return entity;
         }
 
@@ -114,6 +121,10 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
+
+            // Pre-allocate DesiredDestination — see comment in EntityManager
+            // overload above for the race rationale.
+            ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             return entity;
         }

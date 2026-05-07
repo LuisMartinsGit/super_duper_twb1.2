@@ -84,6 +84,9 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
             em.AddComponentData(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
 
+            // Pre-allocate DesiredDestination — same race-fix as Crystalling.
+            em.AddComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
             return entity;
         }
 
@@ -143,6 +146,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
             ecb.AddComponent(entity, new Defense { Melee = 3, Ranged = 2, Siege = 1, Magic = 2 });
+
+            // Pre-allocate DesiredDestination — same race-fix as Crystalling.
+            ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             return entity;
         }
