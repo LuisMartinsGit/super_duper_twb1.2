@@ -447,7 +447,11 @@ namespace TheWaningBorder.World.Terrain
                 tileOffset = Vector2.zero,
                 // Crank normal scale aggressively — primary lever for the
                 // "very jagged" look since URP terrain doesn't do parallax.
-                normalScale = 4.5f,
+                // 9.0 is well past Unity's nominal "extreme" — the diffuse
+                // bake also fakes deep AO/highlight, so the surface reads
+                // as genuinely chiselled even though there's no real
+                // displacement.
+                normalScale = 9.0f,
                 metallic = 0.7f,
                 smoothness = 0.85f,
                 // Pull height to the top of the remap so this layer wins
@@ -497,16 +501,24 @@ namespace TheWaningBorder.World.Terrain
                         tint = Color.Lerp(vividPurple, greenAccent, (ht - 0.55f) / 0.45f);
 
                     // Source luminance modulates brightness for highlights /
-                    // reflections without bringing back the blue. Bias high
-                    // so the result stays bright enough to dominate the
-                    // splat blend against grass.
+                    // reflections without bringing back the blue.
                     var s = src[si];
                     float lum = (s.r + s.g + s.b) / (3f * 255f);
                     float lumMod = 0.65f + lum * 0.85f; // 0.65..1.50
 
-                    float r = Mathf.Clamp01(tint.r * lumMod);
-                    float g = Mathf.Clamp01(tint.g * lumMod);
-                    float b = Mathf.Clamp01(tint.b * lumMod);
+                    // Fake parallax depth — the heightmap drives a strong
+                    // shadow/highlight modulation baked into the albedo so
+                    // crevices look genuinely deep and peaks catch light.
+                    // URP terrain has no real parallax displacement, so this
+                    // is the cheapest way to make the surface read as
+                    // chiselled rather than flat.
+                    //   ht 0.0 → 0.25× (deep AO shadow)
+                    //   ht 1.0 → 1.85× (strong rim highlight)
+                    float heightShade = 0.25f + ht * 1.60f;
+
+                    float r = Mathf.Clamp01(tint.r * lumMod * heightShade);
+                    float g = Mathf.Clamp01(tint.g * lumMod * heightShade);
+                    float b = Mathf.Clamp01(tint.b * lumMod * heightShade);
 
                     output[si] = new Color32(
                         (byte)(r * 255f),
