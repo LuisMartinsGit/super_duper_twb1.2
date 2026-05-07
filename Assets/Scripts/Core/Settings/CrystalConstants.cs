@@ -9,7 +9,7 @@ namespace TheWaningBorder.Core.Config
         // ==================== Main Node ====================
         public const int MainNodeHP = 4000;
         public const float MainNodeRadius = 2.5f;
-        public const float MainNodeSpreadRadius = 15f;
+        public const float MainNodeSpreadRadius = 22f;  // bumped from 15
         public const float MainNodeSpreadPerTick = 1f;
         public const float MainNodeTickInterval = 45f;
         public const int MainNodeBuildCost = 2000;
@@ -22,7 +22,7 @@ namespace TheWaningBorder.Core.Config
         // ==================== Resource Node ====================
         public const int ResourceNodeHP = 200;
         public const float ResourceNodeRadius = 1.5f;
-        public const float ResourceNodeSpreadRadius = 8f;
+        public const float ResourceNodeSpreadRadius = 12f;  // bumped from 8
         public const float ResourceNodeSpreadPerTick = 1f;
         public const float ResourceNodeTickInterval = 30f;
         public const int ResourceNodeBuildCost = 150;

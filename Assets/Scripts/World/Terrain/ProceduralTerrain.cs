@@ -416,9 +416,13 @@ namespace TheWaningBorder.World.Terrain
             if (color == null || normal == null || heightTx == null)
             {
                 Debug.LogWarning("[ProceduralTerrain] Crystal_ground textures missing — " +
-                                 "falling back to procedural curse layer.");
+                                 $"color={(color != null)} normal={(normal != null)} " +
+                                 $"height={(heightTx != null)}. Falling back to procedural curse layer.");
                 return null;
             }
+            Debug.Log($"[ProceduralTerrain] Loaded Crystal_ground textures " +
+                      $"(color={color.width}×{color.height}, normal={normal.width}×{normal.height}, " +
+                      $"height={heightTx.width}×{heightTx.height}). Baking tinted curse layer…");
 
             // Tinted diffuse: lerp between deep purple (low) and dark green (high)
             // driven by the heightmap, modulated by the original texture's
@@ -454,8 +458,11 @@ namespace TheWaningBorder.World.Terrain
             var src = ReadablePixels(srcColor, out int sw, out int sh);
             var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
 
-            var deepPurple = new Color(0.28f, 0.08f, 0.42f); // crevices
-            var darkGreen  = new Color(0.10f, 0.32f, 0.16f); // peaks
+            // Saturated, bright tints so the curse layer doesn't wash out
+            // when splat-blended against grass/dirt at modest weights. Earlier
+            // pass produced muddy near-black output at typical splat 0.4-0.6.
+            var deepPurple = new Color(0.55f, 0.18f, 0.78f); // crevices
+            var darkGreen  = new Color(0.20f, 0.55f, 0.30f); // peaks
 
             var output = new Color32[sw * sh];
             for (int y = 0; y < sh; y++)
@@ -470,13 +477,15 @@ namespace TheWaningBorder.World.Terrain
                     float ht = hgt[hi].r / 255f;
 
                     Color tint = Color.Lerp(deepPurple, darkGreen, ht);
-                    // Boost contrast — crevices darker, peaks brighter.
-                    float contrast = Mathf.Lerp(0.55f, 1.30f, ht);
+                    // Crevices ~85% brightness, peaks ~150%. Don't go too dark
+                    // at the low end — terrain blending eats it otherwise.
+                    float contrast = Mathf.Lerp(0.85f, 1.50f, ht);
 
-                    // Preserve underlying micro-detail via source luminance.
+                    // Preserve micro-detail via source luminance, but bias
+                    // toward 1.0 so the tint dominates the result.
                     var s = src[si];
                     float lum = (s.r + s.g + s.b) / (3f * 255f);
-                    float lumMod = 0.55f + lum * 0.85f;
+                    float lumMod = 0.80f + lum * 0.45f;
 
                     float r = Mathf.Clamp01(tint.r * contrast * lumMod);
                     float g = Mathf.Clamp01(tint.g * contrast * lumMod);
@@ -1060,10 +1069,15 @@ namespace TheWaningBorder.World.Terrain
 
                     if (dist > localRadius) continue;
 
-                    // Smooth falloff from center to distorted edge
+                    // Smooth falloff from center to distorted edge.
+                    // Center hits 1.0 so the curse layer fully dominates the
+                    // splat at the hub — at 0.95 you could still see ~5% of
+                    // the underlying grass leaking through.
                     float t = 1f - dist / localRadius;
                     t = t * t * (3f - 2f * t); // smoothstep
-                    float curseWeight = t * 0.95f;
+                    // Plateau the inner ring at full weight, so the central
+                    // ~60% of the radius is solid curse instead of gradient.
+                    float curseWeight = Mathf.Clamp01(t * 1.45f);
 
                     // Blend: take the max so overlapping patches merge smoothly
                     float existingCurse = splat[z, x, curseIndex];

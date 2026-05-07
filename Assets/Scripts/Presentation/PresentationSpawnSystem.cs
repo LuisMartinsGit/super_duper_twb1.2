@@ -2997,16 +2997,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             ApplyCrystalMaterial(nub, purpleBase, greenTip, emissionPurple, tipBlend: 0.15f);
         }
 
-        // --- Ground stain / base disc ---
-        var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        basePlate.name = "BasePlate";
-        basePlate.transform.SetParent(root.transform, false);
-        basePlate.transform.localPosition = Vector3.up * 0.04f;
-        basePlate.transform.localScale = new Vector3(1.8f * scale, 0.04f, 1.8f * scale);
-        var darkBase = purpleBase * 0.3f;
-        darkBase.a = 0.85f;
-        ApplyCrystalMaterial(basePlate, darkBase, darkBase, emissionPurple * 0.15f, tipBlend: 0f);
-        DestroyCollider(basePlate);
+        // (Ground-stain base disc removed — the cursed-ground splat painted
+        // by CrystalSpreadSystem now provides the dark stain underneath.)
 
         // --- White point light inside the crystal cluster ---
         var lightObj = new GameObject("CrystalCoreLight");
