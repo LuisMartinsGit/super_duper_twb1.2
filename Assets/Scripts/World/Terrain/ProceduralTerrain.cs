@@ -424,20 +424,26 @@ namespace TheWaningBorder.World.Terrain
                       $"(color={color.width}×{color.height}, normal={normal.width}×{normal.height}, " +
                       $"height={heightTx.width}×{heightTx.height}). Baking tinted curse layer…");
 
-            // Tinted diffuse: lerp between deep purple (low) and dark green (high)
-            // driven by the heightmap, modulated by the original texture's
-            // luminance so the underlying crystal pattern still reads.
+            // Tinted diffuse: source's blue iciness is replaced by a strong
+            // purple→green-accent gradient driven by the heightmap. Source
+            // is used as a luminance/detail mask only, so reflections and
+            // micro-pattern still read but the color is forced to purple.
             var tintedDiffuse = BakeTintedCurseDiffuse(color, heightTx);
 
             // Packed mask map — Unity URP terrain convention.
             var maskMap = BakeCurseMaskMap(heightTx, rough, ao);
+
+            // Tile this layer ~4× denser than the other layers so the texture
+            // pattern reads as a tight crystalline crust instead of stretched
+            // smears. Same texture, smaller world footprint per tile.
+            float curseTile = tileSize * 0.25f;
 
             var layer = new TerrainLayer
             {
                 diffuseTexture = tintedDiffuse,
                 normalMapTexture = normal,
                 maskMapTexture = maskMap,
-                tileSize = new Vector2(tileSize, tileSize),
+                tileSize = new Vector2(curseTile, curseTile),
                 tileOffset = Vector2.zero,
                 // Crank normal scale aggressively — primary lever for the
                 // "very jagged" look since URP terrain doesn't do parallax.
@@ -458,11 +464,18 @@ namespace TheWaningBorder.World.Terrain
             var src = ReadablePixels(srcColor, out int sw, out int sh);
             var hgt = ReadablePixels(heightSrc, out int hw, out int hh);
 
-            // Saturated, bright tints so the curse layer doesn't wash out
-            // when splat-blended against grass/dirt at modest weights. Earlier
-            // pass produced muddy near-black output at typical splat 0.4-0.6.
-            var deepPurple = new Color(0.55f, 0.18f, 0.78f); // crevices
-            var darkGreen  = new Color(0.20f, 0.55f, 0.30f); // peaks
+            // The source texture is icy blue; we want strong purple. Ignore
+            // the source's chrominance entirely and use only its luminance
+            // as a detail/reflection mask. The color is then forced to a
+            // height-driven purple→green palette.
+            //
+            // Three anchors across the height range:
+            //   ht 0.0 → deep void purple   (crevices)
+            //   ht 0.5 → vivid magenta      (mid surface)
+            //   ht 1.0 → toxic-green accent (peaks/glints)
+            var voidPurple   = new Color(0.20f, 0.04f, 0.34f);
+            var vividPurple  = new Color(0.62f, 0.10f, 0.92f);
+            var greenAccent  = new Color(0.18f, 0.62f, 0.28f);
 
             var output = new Color32[sw * sh];
             for (int y = 0; y < sh; y++)
@@ -476,20 +489,24 @@ namespace TheWaningBorder.World.Terrain
 
                     float ht = hgt[hi].r / 255f;
 
-                    Color tint = Color.Lerp(deepPurple, darkGreen, ht);
-                    // Crevices ~85% brightness, peaks ~150%. Don't go too dark
-                    // at the low end — terrain blending eats it otherwise.
-                    float contrast = Mathf.Lerp(0.85f, 1.50f, ht);
+                    // 3-stop gradient on the heightmap.
+                    Color tint;
+                    if (ht < 0.55f)
+                        tint = Color.Lerp(voidPurple, vividPurple, ht / 0.55f);
+                    else
+                        tint = Color.Lerp(vividPurple, greenAccent, (ht - 0.55f) / 0.45f);
 
-                    // Preserve micro-detail via source luminance, but bias
-                    // toward 1.0 so the tint dominates the result.
+                    // Source luminance modulates brightness for highlights /
+                    // reflections without bringing back the blue. Bias high
+                    // so the result stays bright enough to dominate the
+                    // splat blend against grass.
                     var s = src[si];
                     float lum = (s.r + s.g + s.b) / (3f * 255f);
-                    float lumMod = 0.80f + lum * 0.45f;
+                    float lumMod = 0.65f + lum * 0.85f; // 0.65..1.50
 
-                    float r = Mathf.Clamp01(tint.r * contrast * lumMod);
-                    float g = Mathf.Clamp01(tint.g * contrast * lumMod);
-                    float b = Mathf.Clamp01(tint.b * contrast * lumMod);
+                    float r = Mathf.Clamp01(tint.r * lumMod);
+                    float g = Mathf.Clamp01(tint.g * lumMod);
+                    float b = Mathf.Clamp01(tint.b * lumMod);
 
                     output[si] = new Color32(
                         (byte)(r * 255f),
