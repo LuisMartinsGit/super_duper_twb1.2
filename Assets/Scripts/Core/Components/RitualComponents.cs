@@ -163,22 +163,18 @@ public struct GlowCarrier : IComponentData
     public RitualKind Source;
 }
 
-// ==================== Glow Reliquary (deposit building) ====================
+// ==================== Glow Storage (spec refinement #2) ====================
 
 /// <summary>
-/// Marks a building as a Glow deposit point. Carriers entering range
-/// automatically deliver. Spec §6.3: the building EXPLODES when destroyed
-/// while holding glow (highest passive value, highest catastrophic
-/// downside).
+/// Glow currently stored on a building (always TempleOfRidan per spec
+/// refinement #2 — the standalone GlowReliquary was removed). Drives
+/// both the god-power cooldown reduction (spec refinement #6) and the
+/// explode-on-death magnitude (§6.3 transferred onto the Temple).
+///
+/// Buildings with Amount == 0 do not explode — only the stockpile is
+/// volatile.
 /// </summary>
-public struct GlowReliquaryTag : IComponentData { }
-
-/// <summary>
-/// Glow currently stored in this reliquary. Drives the explode-on-death
-/// magnitude. Reliquaries with Amount == 0 do not explode — only the
-/// stockpile is volatile.
-/// </summary>
-public struct GlowReliquaryStored : IComponentData
+public struct GlowStored : IComponentData
 {
     public int Amount;
 }

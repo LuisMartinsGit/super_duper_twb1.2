@@ -208,27 +208,6 @@
                     }
                 },
                 {
-                    "id": "GlowReliquary",
-                    "name": "Glow Reliquary",
-                    "role": "Deposit point for Glow pickups. Stockpiled Glow explodes when destroyed.",
-                    "hp": 600,
-                    "armorType": "structure_human",
-                    "baseDefense": {
-                        "melee": 1,
-                        "ranged": 1,
-                        "siege": 0,
-                        "magic": 0
-                    },
-                    "lineOfSight": 14,
-                    "radius": 1.6,
-                    "cost": {
-                        "Supplies": 250,
-                        "Iron": 60,
-                        "Crystal": 40
-                    },
-                    "notes": "Spec §6.3: Highest passive Glow value, highest catastrophic downside — explodes on death while holding glow."
-                },
-                {
                     "id": "TempleOfRidan",
                     "type": "Core",
                     "name": "Shrine of Ridan",

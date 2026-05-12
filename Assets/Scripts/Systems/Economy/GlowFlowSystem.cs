@@ -19,11 +19,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
-using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Combat;
 using static TheWaningBorder.Core.Config.CrystalConstants;
-using Cost = TheWaningBorder.Core.Cost;
 
 namespace TheWaningBorder.Systems.Economy
 {
@@ -121,19 +119,23 @@ namespace TheWaningBorder.Systems.Economy
             }
             claimed.Dispose();
 
-            // ── Phase 3: carrier-near-reliquary → deposit ──────────────
-            // Snapshot reliquaries.
-            var reliquaryQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GlowReliquaryTag>(),
+            // ── Phase 3: carrier-near-temple → deposit ─────────────────
+            // Spec refinement #2: Glow is stored on TempleOfRidan, not on a
+            // standalone reliquary. The stockpile stays in the Temple — it
+            // does NOT flush into the faction bank. Stored Glow is consumed
+            // directly by spending paths (Glow weapon upgrades, god powers
+            // when those reach refinement #6 wiring).
+            var templeQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleOfRidanTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<Health>());
-            using var relEnts = reliquaryQuery.ToEntityArray(Allocator.Temp);
-            using var relFactions = reliquaryQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var relTransforms = reliquaryQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var relHealth = reliquaryQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            using var templeEnts = templeQuery.ToEntityArray(Allocator.Temp);
+            using var templeFactions = templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var templeTransforms = templeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var templeHealth = templeQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            if (relEnts.Length > 0)
+            if (templeEnts.Length > 0)
             {
                 foreach (var (carrierRW, unitTransform, unitFaction, unitHealth, unitEntity) in SystemAPI
                     .Query<RefRW<GlowCarrier>, RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<Health>>()
@@ -145,67 +147,33 @@ namespace TheWaningBorder.Systems.Economy
                     Faction f = unitFaction.ValueRO.Value;
                     var unitPos = unitTransform.ValueRO.Position;
 
-                    for (int i = 0; i < relEnts.Length; i++)
+                    for (int i = 0; i < templeEnts.Length; i++)
                     {
-                        if (relFactions[i].Value != f) continue;
-                        if (relHealth[i].Value <= 0) continue;
-                        // Skip reliquaries still under construction.
-                        if (em.HasComponent<UnderConstruction>(relEnts[i])) continue;
+                        if (templeFactions[i].Value != f) continue;
+                        if (templeHealth[i].Value <= 0) continue;
+                        // Skip temples still under construction.
+                        if (em.HasComponent<UnderConstruction>(templeEnts[i])) continue;
+                        // Temple created via the older factory path may not yet
+                        // carry GlowStored — skip gracefully rather than crash.
+                        if (!em.HasComponent<GlowStored>(templeEnts[i])) continue;
 
                         var dxz = math.distance(
                             new float2(unitPos.x, unitPos.z),
-                            new float2(relTransforms[i].Position.x, relTransforms[i].Position.z));
+                            new float2(templeTransforms[i].Position.x, templeTransforms[i].Position.z));
                         if (dxz > GlowAutoDepositRadius) continue;
 
                         int delivered = carrierRW.ValueRO.Amount;
-                        var stored = em.GetComponentData<GlowReliquaryStored>(relEnts[i]);
+                        var stored = em.GetComponentData<GlowStored>(templeEnts[i]);
                         stored.Amount += delivered;
-                        em.SetComponentData(relEnts[i], stored);
+                        em.SetComponentData(templeEnts[i], stored);
 
                         carrierRW.ValueRW.Amount = 0;
                         ecb.RemoveComponent<GlowCarrier>(unitEntity);
 
-                        Debug.Log($"[Glow] {f} deposited {delivered} Glow into reliquary (now stored: {stored.Amount})");
+                        Debug.Log($"[Glow] {f} deposited {delivered} Glow at Temple of Ridan (stored: {stored.Amount})");
                         break;
                     }
                 }
-            }
-
-            // ── Phase 4: reliquary flush → faction bank ────────────────
-            // Reliquaries hold Glow until destroyed; the spec implies the
-            // glow IS the stockpile (not the bank), so the explode-on-death
-            // gate works. But for the player to actually USE the Glow, we
-            // flush 1 unit per second from stored → bank. (Tuning knob.)
-            foreach (var (storedRW, faction, health, entity) in SystemAPI
-                .Query<RefRW<GlowReliquaryStored>, RefRO<FactionTag>, RefRO<Health>>()
-                .WithAll<GlowReliquaryTag>()
-                .WithEntityAccess())
-            {
-                if (storedRW.ValueRO.Amount <= 0) continue;
-                if (health.ValueRO.Value <= 0) continue;
-                if (em.HasComponent<UnderConstruction>(entity)) continue;
-
-                // Flush 1 per second. Simpler than a per-frame fractional
-                // accumulator; uses the floor of (dt * rate) per tick.
-                // At 60fps with dt ≈ 0.0167s, 1*dt = 0.0167 → cast to int = 0
-                // most frames. We accumulate by stamping a fractional helper.
-                // Simplest: only flush every full second using ElapsedTime.
-                int wholeSecond = (int)SystemAPI.Time.ElapsedTime;
-                if (em.HasComponent<GlowFlushTimer>(entity))
-                {
-                    var t = em.GetComponentData<GlowFlushTimer>(entity);
-                    if (t.LastFlushSecond == wholeSecond) continue;
-                    t.LastFlushSecond = wholeSecond;
-                    em.SetComponentData(entity, t);
-                }
-                else
-                {
-                    ecb.AddComponent(entity, new GlowFlushTimer { LastFlushSecond = wholeSecond });
-                    continue;  // first observation, defer flush to next tick
-                }
-
-                FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(glow: 1));
-                storedRW.ValueRW.Amount -= 1;
             }
 
             // ── Phase 5: carrier-dies → respawn pickup ─────────────────
@@ -243,14 +211,5 @@ namespace TheWaningBorder.Systems.Economy
             ecb.Playback(em);
             ecb.Dispose();
         }
-    }
-
-    /// <summary>
-    /// Per-reliquary tracker for the once-per-second flush from Stored to
-    /// the faction bank. Holds the last whole-second tick that flushed.
-    /// </summary>
-    public struct GlowFlushTimer : IComponentData
-    {
-        public int LastFlushSecond;
     }
 }

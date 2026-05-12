@@ -43,7 +43,6 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => CreateFiendstoneKeep(em, position, faction),
                 "Alanthor_Wall" => AlanthorWall.CreateHub(em, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(em, position, faction),
-                "GlowReliquary" => GlowReliquary.Create(em, position, faction),
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
@@ -99,7 +98,6 @@ namespace TheWaningBorder.Entities
                 "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
                 "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
-                "GlowReliquary" => GlowReliquary.Create(ecb, position, faction),
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
@@ -154,7 +152,6 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => 540,
                 "Alanthor_Wall" => AlanthorWall.HubPresentationID,
                 "Alanthor_Smelter" => Smelter.PresentationID,
-                "GlowReliquary" => GlowReliquary.PresentationID,
                 // Runai culture buildings
                 "Runai_Outpost" => 350,
                 "Runai_TradeHub" => 351,
@@ -591,6 +588,10 @@ namespace TheWaningBorder.Entities
             em.AddComponent<TempleOfRidanTag>(entity);
             em.AddComponent<TempleTag>(entity); // Keep legacy tag for TempleUpgradeSystem compatibility
             em.AddComponentData(entity, new TempleLevel { Level = 1 });
+
+            // Glow storage lives on the Temple per spec refinement #2
+            // (the standalone GlowReliquary was deleted).
+            em.AddComponentData(entity, new GlowStored { Amount = 0 });
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
@@ -1437,6 +1438,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent<TempleOfRidanTag>(entity);
             ecb.AddComponent<TempleTag>(entity);
             ecb.AddComponent(entity, new TempleLevel { Level = 1 });
+
+            // Glow storage lives on the Temple per spec refinement #2.
+            ecb.AddComponent(entity, new GlowStored { Amount = 0 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 

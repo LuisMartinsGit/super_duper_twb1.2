@@ -31,9 +31,6 @@ public static class BuildingSizeConfig
             "VaultOfAlmierra"   => new int2(4, 4),
             "FiendstoneKeep"    => new int2(5, 5),
 
-            // Glow deposit building (universal, spec §6.3)
-            "GlowReliquary"     => new int2(3, 3),
-
             // Walls - special 1x1
             "Alanthor_Wall"     => new int2(1, 1),
 
