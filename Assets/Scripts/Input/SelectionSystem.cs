@@ -187,6 +187,10 @@ namespace TheWaningBorder.Input
         
         private void HandleSelection()
         {
+            // God-power targeting consumes the left-click. Don't start a drag
+            // selection while the player is aiming.
+            if (TheWaningBorder.UI.HUD.GodPowerHUD.TargetingMode) return;
+
             // Start drag on left mouse down
             if (UnityEngine.Input.GetMouseButtonDown(0))
             {

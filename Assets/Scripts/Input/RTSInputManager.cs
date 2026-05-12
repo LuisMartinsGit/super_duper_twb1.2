@@ -297,6 +297,10 @@ namespace TheWaningBorder.Input
         
         private void HandleRightClick()
         {
+            // God-power targeting mode owns the right-click (treats it as
+            // cancel). Let GodPowerHUD handle the input instead.
+            if (TheWaningBorder.UI.HUD.GodPowerHUD.TargetingMode) return;
+
             // Drag-to-preview formation: when the user has held right-mouse and
             // dragged, FormationDragPreview takes over. Skip the instant move.
             if (TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick)
