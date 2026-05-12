@@ -181,7 +181,22 @@ namespace TheWaningBorder.Systems.Crystal
                 var nodePos = transforms[n].Position;
                 float territoryRadius = crystalNodes[n].SpreadRadius; // Fixed territory radius
 
-                // Refresh bank balance
+                // Read this node's state — Active and Converted both produce
+                // units, but Converted spawns into the OwnerFaction (spec §5.4:
+                // Runai-allied curse). Cleansed nodes are inert; skip them.
+                Faction spawnFaction = Faction.Curse;
+                if (em.HasComponent<CrystalNodeState>(entities[n]))
+                {
+                    var nodeState = em.GetComponentData<CrystalNodeState>(entities[n]);
+                    if (nodeState.State == NodeState.Cleansed) continue;
+                    if (nodeState.State == NodeState.Converted)
+                        spawnFaction = nodeState.OwnerFaction;
+                }
+
+                // Refresh bank balance — Converted nodes still draw against
+                // the Curse bank for training cost. (Spec doesn't specify a
+                // separate bank; using the existing one keeps the economy
+                // single-pool for now.)
                 if (FactionEconomy.TryGetResources(em, Faction.Curse, out resources))
                     crystalBank = resources.Crystal;
 
@@ -210,12 +225,12 @@ namespace TheWaningBorder.Systems.Crystal
                                 if (spawnPos.x != float.MinValue)
                                 {
                                     string unitName = ts.TrainingUnitType switch { 1 => "Crystalling", 2 => "Veilstinger", 3 => "Godsplinter", _ => "?" };
-                                    AILogger.Log(Faction.Curse, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}), bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
+                                    AILogger.Log(spawnFaction, "TRAINING", $"Spawned {unitName} at ({spawnPos.x:F0},{spawnPos.z:F0}) for {spawnFaction}, bank:{crystalBank}, pop:{crystalUnitCount + 1}/{MaxCrystalUnits}");
                                     switch (ts.TrainingUnitType)
                                     {
-                                        case 1: Crystalling.Create(em, spawnPos, Faction.Curse); break;
-                                        case 2: Veilstinger.Create(em, spawnPos, Faction.Curse); break;
-                                        case 3: Godsplinter.Create(em, spawnPos, Faction.Curse); break;
+                                        case 1: Crystalling.Create(em, spawnPos, spawnFaction); break;
+                                        case 2: Veilstinger.Create(em, spawnPos, spawnFaction); break;
+                                        case 3: Godsplinter.Create(em, spawnPos, spawnFaction); break;
                                     }
                                     crystalUnitCount++;
                                 }
