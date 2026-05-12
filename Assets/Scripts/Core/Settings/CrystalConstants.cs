@@ -139,5 +139,37 @@ namespace TheWaningBorder.Core.Config
 
         /// <summary>Seconds a culture must hold all-claimed map to trigger node victory.</summary>
         public const float NodeVictoryHoldTime = 300f;        // 5 min
+
+        // ==================== Scholar (Alanthor ritualist) ====================
+        public const float ScholarHP = 90f;
+        public const float ScholarSpeed = 3.0f;
+        public const float ScholarLoS = 14f;
+        public const float ScholarRadius = 0.5f;
+        public const int   ScholarPresentationID = 374;       // Following sect-unique unit IDs in 370s
+
+        // ==================== Ritual (Spec §5, §11) ====================
+        /// <summary>
+        /// Seconds the ritualist must channel uninterrupted (spec §5.1:
+        /// "significant channel time (suggested 30-60 seconds, tunable)"
+        /// and §11 "ritual channel time" tunable). Lower end of the range
+        /// while the system is new — bump if rituals feel too easy.
+        /// </summary>
+        public const float PurificationChannelTime = 35f;
+
+        /// <summary>Distance the ritualist must be within to start channeling on a node.</summary>
+        public const float RitualRange = 6f;
+
+        /// <summary>Distance beyond which an in-progress channel is canceled (scholar wandered too far).</summary>
+        public const float RitualCancelRange = 10f;
+
+        // ==================== Glow Pickup (Spec §4.5) ====================
+        /// <summary>Glow amount a successful Purification deposits into the pickup.</summary>
+        public const int PurificationGlowYield = 10;
+
+        /// <summary>Pickup window before despawn (spec §4.5: 30-60s).</summary>
+        public const float GlowPickupTimeout = 45f;
+
+        /// <summary>Presentation ID for free-floating Glow pickups.</summary>
+        public const int GlowPickupPresentationID = 380;
     }
 }

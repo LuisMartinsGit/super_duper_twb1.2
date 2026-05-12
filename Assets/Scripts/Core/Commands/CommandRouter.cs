@@ -372,6 +372,45 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // PURIFY COMMANDS (Alanthor — scholar channels purification ritual on a crystal node)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a Purify ritual command on a scholar targeting a crystal main node.
+        /// PurificationRitualSystem will move the scholar to within RitualRange,
+        /// then channel for PurificationChannelTime seconds, then cleanse the node
+        /// and spawn a Glow pickup.
+        /// </summary>
+        public static void IssuePurify(EntityManager em, Entity scholar, Entity node,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (scholar == Entity.Null || !em.Exists(scholar)) return;
+            if (node == Entity.Null || !em.Exists(node)) return;
+            if (IsBlockedByNotControllable(em, scholar, source)) return;
+            if (!em.HasComponent<ScholarTag>(scholar)) return;
+            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+
+            // Multiplayer lockstep wiring for Purify is a follow-up slice —
+            // the LockstepCommand schema needs a payload variant. For now,
+            // singleplayer + AI execute directly; multiplayer drops on the floor
+            // with a log so the omission is visible during testing.
+            if (ShouldQueueForLockstep(source))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[CommandRouter.IssuePurify] not yet replicated through lockstep — command ignored in multiplayer");
+                return;
+            }
+
+            // Clear conflicting commands and attach the order. The ritual
+            // system handles the rest (approach, channel, complete).
+            CommandHelper.ClearAllCommands(em, scholar);
+            if (em.HasComponent<PurifyCommand>(scholar))
+                em.SetComponentData(scholar, new PurifyCommand { TargetNode = node });
+            else
+                em.AddComponentData(scholar, new PurifyCommand { TargetNode = node });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // ABILITY COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -512,11 +551,11 @@ namespace TheWaningBorder.Core.Commands
                 "GatherersHut" => 20f,
                 "Barracks" => 30f,
                 "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
-                "Alanthor_Smelter" or "Alanthor_Garrison" => 30f,
+                "Alanthor_Smelter" or "Alanthor_PracticeRange" => 30f,
                 "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
                     or "Feraldis_Tower" or "Runai_Outpost" => 25f,
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
-                "Alanthor_Stable" or "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
+                "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
                     or "Feraldis_SiegeYard" => 35f,
                 "ThessarasBazaar" => 40f,
                 _ => 30f
@@ -638,6 +677,13 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<CommandQueueActive>(unit);
             if (em.HasBuffer<QueuedCommand>(unit))
                 em.GetBuffer<QueuedCommand>(unit).Clear();
+            // Cancel a pending or in-progress ritual when any other command
+            // is issued. PurificationRitualSystem also clears ActiveRitualOnNode
+            // on the targeted node when it observes the command removed.
+            if (em.HasComponent<PurifyCommand>(unit))
+                em.RemoveComponent<PurifyCommand>(unit);
+            if (em.HasComponent<RitualState>(unit))
+                em.RemoveComponent<RitualState>(unit);
         }
     }
 }
