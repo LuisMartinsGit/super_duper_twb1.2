@@ -106,8 +106,36 @@ namespace TheWaningBorder.Systems.Economy
 
                 for (int p = 0; p < pendingEnts.Length; p++)
                 {
-                    ApplyAoe(em, victimEnts, victimTransforms, victimHealth, victimFactions,
-                             pendingTargets[p], pendingCasters[p]);
+                    // Spec §6.4: faction-bias variants. Branch on the caster's
+                    // culture rather than hardcoding a single effect.
+                    byte casterCulture = CultureOf(em, pendingCasters[p]);
+                    int storedGlow = glowByFaction.ContainsKey((byte)pendingCasters[p])
+                        ? glowByFaction[(byte)pendingCasters[p]] : 0;
+
+                    switch (casterCulture)
+                    {
+                        case Cultures.Alanthor:
+                            ApplyAlanthorSanctify(em, victimEnts, victimTransforms,
+                                victimHealth, victimFactions, pendingTargets[p],
+                                pendingCasters[p], storedGlow);
+                            break;
+                        case Cultures.Feraldis:
+                            ApplyFeraldisPyre(em, victimEnts, victimTransforms,
+                                victimHealth, victimFactions, pendingTargets[p],
+                                pendingCasters[p], storedGlow);
+                            break;
+                        case Cultures.Runai:
+                            ApplyRunaiVeilWard(em, victimEnts, victimTransforms,
+                                victimHealth, victimFactions, pendingTargets[p],
+                                pendingCasters[p], storedGlow);
+                            break;
+                        default:
+                            // Pre-culture-commit: generic AOE damage (Timeless Age fallback).
+                            ApplyGenericAoeDamage(em, victimEnts, victimTransforms,
+                                victimHealth, victimFactions, pendingTargets[p],
+                                pendingCasters[p]);
+                            break;
+                    }
                     em.RemoveComponent<PendingGodPowerCast>(pendingEnts[p]);
                 }
             }
@@ -118,7 +146,136 @@ namespace TheWaningBorder.Systems.Economy
             glowByFaction.Dispose();
         }
 
-        private static void ApplyAoe(EntityManager em,
+        /// <summary>Look up a faction's culture via its Hall. Cultures.None pre-age-up.</summary>
+        private byte CultureOf(EntityManager em, Faction faction)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<FactionProgress>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var prog = q.ToComponentDataArray<FactionProgress>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                if (tags[i].Value == faction) return prog[i].Culture;
+            return Cultures.None;
+        }
+
+        /// <summary>
+        /// Alanthor "Sanctify Ground" (spec §6.4 cleansing-themed): heals all
+        /// allied units in radius. Heal scales with stored Glow (each Glow
+        /// adds +10% heal).
+        /// </summary>
+        private static void ApplyAlanthorSanctify(EntityManager em,
+            NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
+            NativeArray<Health> healths, NativeArray<FactionTag> factions,
+            float3 center, Faction caster, int storedGlow)
+        {
+            int healed = 0;
+            int healPerUnit = (int)(GodPowerDamage * 0.6f * (1f + 0.1f * storedGlow));
+            for (int v = 0; v < ents.Length; v++)
+            {
+                if (factions[v].Value != caster) continue;     // allies only
+                if (healths[v].Value <= 0) continue;
+                if (healths[v].Value >= healths[v].Max) continue;
+
+                var pos = transforms[v].Position;
+                float dxz = math.distance(
+                    new float2(pos.x, pos.z),
+                    new float2(center.x, center.z));
+                if (dxz > GodPowerRadius) continue;
+
+                var h = em.GetComponentData<Health>(ents[v]);
+                h.Value = math.min(h.Max, h.Value + healPerUnit);
+                em.SetComponentData(ents[v], h);
+                healed++;
+            }
+            Debug.Log($"[GodPower:Alanthor Sanctify] healed {healed} allies for {healPerUnit} HP each");
+        }
+
+        /// <summary>
+        /// Feraldis "Pyre of the Forsaken" (spec §6.4 destructive): big AOE
+        /// damage to enemies. Damage scales sharply with stored Glow (+15% per).
+        /// </summary>
+        private static void ApplyFeraldisPyre(EntityManager em,
+            NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
+            NativeArray<Health> healths, NativeArray<FactionTag> factions,
+            float3 center, Faction caster, int storedGlow)
+        {
+            int hit = 0;
+            int damage = (int)(GodPowerDamage * (1f + 0.15f * storedGlow));
+            for (int v = 0; v < ents.Length; v++)
+            {
+                if (factions[v].Value == caster) continue;     // friendly fire off
+                if (healths[v].Value <= 0) continue;
+
+                var pos = transforms[v].Position;
+                float dxz = math.distance(
+                    new float2(pos.x, pos.z),
+                    new float2(center.x, center.z));
+                if (dxz > GodPowerRadius) continue;
+
+                float falloff = 1f - (dxz / GodPowerRadius);
+                int dealt = (int)math.max(1, damage * falloff);
+
+                var h = em.GetComponentData<Health>(ents[v]);
+                h.Value = math.max(0, h.Value - dealt);
+                em.SetComponentData(ents[v], h);
+                hit++;
+            }
+            Debug.Log($"[GodPower:Feraldis Pyre] hit {hit} non-{caster} targets, {damage} base damage");
+        }
+
+        /// <summary>
+        /// Runai "Veil Ward" (spec §6.4 map enhancement/passive aura): grants
+        /// a temporary SpellBuff (speed + armor) to all allied units in radius.
+        /// Buff duration scales with stored Glow (+1.5s per).
+        /// </summary>
+        private static void ApplyRunaiVeilWard(EntityManager em,
+            NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
+            NativeArray<Health> healths, NativeArray<FactionTag> factions,
+            float3 center, Faction caster, int storedGlow)
+        {
+            int buffed = 0;
+            float duration = 12f + 1.5f * storedGlow;
+            var buff = new SpellBuff
+            {
+                ArmorBonus = 3f,
+                DamageMultiplier = 1f,
+                SpeedMultiplier = 1.25f,
+                DamageReflect = 0f,
+                TimeRemaining = duration,
+            };
+            for (int v = 0; v < ents.Length; v++)
+            {
+                if (factions[v].Value != caster) continue;
+                if (healths[v].Value <= 0) continue;
+
+                var pos = transforms[v].Position;
+                float dxz = math.distance(
+                    new float2(pos.x, pos.z),
+                    new float2(center.x, center.z));
+                if (dxz > GodPowerRadius) continue;
+
+                if (em.HasComponent<SpellBuff>(ents[v]))
+                {
+                    var existing = em.GetComponentData<SpellBuff>(ents[v]);
+                    existing.ArmorBonus = math.max(existing.ArmorBonus, buff.ArmorBonus);
+                    existing.SpeedMultiplier = math.max(existing.SpeedMultiplier, buff.SpeedMultiplier);
+                    existing.TimeRemaining = math.max(existing.TimeRemaining, buff.TimeRemaining);
+                    em.SetComponentData(ents[v], existing);
+                }
+                else
+                {
+                    em.AddComponentData(ents[v], buff);
+                }
+                buffed++;
+            }
+            Debug.Log($"[GodPower:Runai Veil Ward] buffed {buffed} allies for {duration:F1}s");
+        }
+
+        /// <summary>Pre-culture-commit fallback: generic AOE damage.</summary>
+        private static void ApplyGenericAoeDamage(EntityManager em,
             NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
             NativeArray<Health> healths, NativeArray<FactionTag> factions,
             float3 center, Faction caster)
@@ -126,7 +283,7 @@ namespace TheWaningBorder.Systems.Economy
             int hit = 0;
             for (int v = 0; v < ents.Length; v++)
             {
-                if (factions[v].Value == caster) continue;  // friendly fire off
+                if (factions[v].Value == caster) continue;
                 if (healths[v].Value <= 0) continue;
 
                 var pos = transforms[v].Position;
@@ -143,7 +300,7 @@ namespace TheWaningBorder.Systems.Economy
                 em.SetComponentData(ents[v], h);
                 hit++;
             }
-            Debug.Log($"[GodPower] AOE at ({center.x:F0},{center.z:F0}) hit {hit} non-{caster} targets");
+            Debug.Log($"[GodPower:Generic] hit {hit} non-{caster} targets");
         }
     }
 }
