@@ -62,10 +62,12 @@ namespace TheWaningBorder.Systems.Combat
             ProcessAttackCommands(ref state, ref ecb);
 
             // Build enemy arrays ONCE for both auto-acquire and return-to-guard phases
-            // Exclude BattalionLeader — invisible entities with 1 HP must not be targetable
+            // Exclude BattalionLeader — invisible entities with 1 HP must not be targetable.
+            // Exclude NodeUntargetable — crystal nodes are immune to targeting unless
+            // an Iconoclast is in aura range (IconoclastAuraSystem toggles the tag).
             var enemyQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, FactionTag, Health>()
-                .WithNone<BattalionLeader>()
+                .WithNone<BattalionLeader, NodeUntargetable>()
                 .Build();
 
             using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);

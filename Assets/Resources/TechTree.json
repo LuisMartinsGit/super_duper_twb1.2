@@ -220,7 +220,8 @@
                     "trains": [
                         "Litharch",
                         "Alanthor_Scholar",
-                        "Runai_Acolyte"
+                        "Runai_Acolyte",
+                        "Feraldis_Iconoclast"
                     ],
                     "uniquePerPlayer": true,
                     "minEra": 1,
@@ -1026,11 +1027,10 @@
                                 "magic": 0
                             },
                             "lineOfSight": 20,
-                            "role": "Batch-trains melee (5 or 10) with small discount; Lv 3 unlocks Iconoclast",
+                            "role": "Batch-trains melee (5 or 10) with small discount",
                             "trains": [
                                 "Feraldis_Berserker",
-                                "Feraldis_WarboarRider",
-                                "Feraldis_Iconoclast"
+                                "Feraldis_WarboarRider"
                             ],
                             "systems": {
                                 "batchTraining": {
@@ -1166,13 +1166,13 @@
                         },
                         {
                             "id": "Feraldis_Iconoclast",
-                            "class": "human_melee",
+                            "class": "human_magic",
                             "hp": 280,
                             "speed": 3.2,
                             "trainingTime": 60.0,
-                            "minBuildingLevel": 3,
+                            "minBuildingLevel": 4,
                             "armorType": "infantry_heavy",
-                            "damage": 25,
+                            "damage": 0,
                             "damageType": "melee",
                             "defense": {
                                 "melee": 4,
@@ -1181,17 +1181,15 @@
                                 "magic": 2
                             },
                             "lineOfSight": 16,
-                            "attackRange": 1.8,
-                            "attackCooldown": 1.6,
                             "trainAt": [
-                                "Feraldis_Longhouse"
+                                "TempleOfRidan"
                             ],
                             "cost": {
                                 "Supplies": 300,
                                 "Iron": 150,
                                 "Crystal": 100
                             },
-                            "notes": "Spec refinement #1: only damage source that bypasses Crystal node invulnerability — the path to Destroyed."
+                            "notes": "Refinement v2: ENABLER unit. Strips NodeUntargetable from crystal nodes within IconoclastAuraRadius — other units do the damage. Cannot attack."
                         }
                     ],
                     "tech": [

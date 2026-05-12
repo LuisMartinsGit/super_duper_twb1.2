@@ -155,12 +155,20 @@ namespace TheWaningBorder.Core.Config
         // Destroyed — every other attacker is refunded by NodeInvulnerabilitySystem.
         public const float IconoclastHP = 280f;
         public const float IconoclastSpeed = 3.2f;
-        public const float IconoclastDamage = 25f;
+        public const float IconoclastDamage = 0f;     // enabler, not damage dealer (aura strips node un-targetability)
         public const float IconoclastLoS = 16f;
         public const float IconoclastRadius = 0.7f;
         public const float IconoclastAttackRange = 1.8f;
         public const float IconoclastAttackCooldown = 1.6f;
         public const int   IconoclastPresentationID = 386;
+
+        /// <summary>
+        /// Iconoclast aura radius — within this distance of a crystal node, the
+        /// Iconoclast strips NodeUntargetable, allowing OTHER units (not the
+        /// Iconoclast itself) to attack the node. Refinement v2 makes the
+        /// Iconoclast an enabler, not a damage dealer.
+        /// </summary>
+        public const float IconoclastAuraRadius = 12f;
 
         // ==================== Acolyte (Runai ritualist) ====================
         // Same shape as Scholar — vulnerable caster, escort required. The

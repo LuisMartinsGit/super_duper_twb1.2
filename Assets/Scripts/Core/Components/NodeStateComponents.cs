@@ -54,16 +54,25 @@ public struct CrystalNodeState : IComponentData
 /// </summary>
 public struct NodeDormant : IComponentData { }
 
-// ==================== Node Invulnerability (spec refinement) ====================
+// ==================== Node Untargetability (spec refinement v2) ====================
 
 /// <summary>
-/// Snapshot of a node's HP from the previous frame. Used by
-/// NodeInvulnerabilitySystem to detect new damage and refund it unless
-/// the attacker carries IconoclastTag.
+/// Tag added by IconoclastAuraSystem to mark a crystal node as untargetable.
+/// TargetingSystem's enemy query excludes entities carrying this tag — units
+/// won't auto-acquire the node, AI won't path to it, right-click attacks no-op.
 ///
-/// Crystal nodes are invulnerable (spec refinement #1): normal units
-/// cannot damage them. Only a Feraldis Iconoclast (high-value Lv 3 unit)
-/// can break the invulnerability.
+/// Removed when an IconoclastTag unit is within IconoclastAuraRadius of the
+/// node; restored when no Iconoclast is in range. This is the AI-friendly
+/// replacement for the old NodeInvulnerabilityState refund-per-frame approach.
+/// </summary>
+public struct NodeUntargetable : IComponentData { }
+
+/// <summary>
+/// LEGACY — old invulnerability snapshot, kept for backward compatibility
+/// with CrystalMainNode.Create archetype. NodeInvulnerabilitySystem has been
+/// deleted; this struct is unused at runtime but its archetype slot stays so
+/// existing factories don't have to drop it from their CreateEntity calls.
+/// Safe to remove in a follow-up cleanup pass.
 /// </summary>
 public struct NodeInvulnerabilityState : IComponentData
 {
