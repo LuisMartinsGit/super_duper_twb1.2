@@ -38,6 +38,11 @@ namespace TheWaningBorder.Systems.Combat
                 .WithEntityAccess())
             {
                 int target = EquipmentTierConfig.ShieldBarMax(appliedRO.ValueRO.Value);
+
+                // Siege Crystal+ aura boosts every ally's effective Max (spec §4.3).
+                if (em.HasComponent<AuraShieldBoost>(entity))
+                    target += em.GetComponentData<AuraShieldBoost>(entity).Amount;
+
                 bool hasShield = em.HasComponent<ShieldBar>(entity);
 
                 if (target <= 0)

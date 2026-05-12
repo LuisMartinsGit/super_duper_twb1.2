@@ -123,6 +123,43 @@ public struct ShieldBar : IComponentData
 /// </summary>
 public struct GlowReviveUsed : IComponentData { }
 
+/// <summary>
+/// Spec §4.3 Crystal-tier siege: "Aura granting shields to nearby allies."
+/// Stamped on siege units that have at least Crystal tier. The aura system
+/// (SiegeShieldAuraSystem) reads this radius + boost amount each tick and
+/// adds AuraShieldBoost to friendly units in range.
+/// </summary>
+public struct SiegeShieldAura : IComponentData
+{
+    public float Radius;
+    public int BonusShield;
+}
+
+/// <summary>
+/// Transient boost added to a unit standing inside a SiegeShieldAura.
+/// Drives a temporary ShieldBar.Max bump while inside the radius; removed
+/// on the next tick if the unit leaves. The ShieldBarSystem honors the
+/// new Max immediately (clamping Current up to it on the next regen tick).
+/// </summary>
+public struct AuraShieldBoost : IComponentData
+{
+    public int Amount;
+}
+
+/// <summary>
+/// Spec §4.4 Crystal-tier hero: "Cooldown-based phase shield."
+/// Auto-stamped on Magic/Support-class units at Crystal+ tier. While
+/// ChargeReadyTimer == 0, the next damage hit is partially absorbed
+/// (reduction % below). After absorbing, the timer resets to BaseCooldown.
+/// </summary>
+public struct HeroPhaseShield : IComponentData
+{
+    public float ChargeReadyTimer;    // 0 = ready to absorb; > 0 = recharging
+    public float BaseCooldown;        // seconds between absorbs
+    public float ReductionPercent;    // 0.0 - 1.0 (e.g. 0.5 = absorb 50% of one hit)
+    public int LastObservedHealth;    // for damage detection
+}
+
 // ==================== Glow Weapon Drop (spec §4.5) ====================
 
 /// <summary>

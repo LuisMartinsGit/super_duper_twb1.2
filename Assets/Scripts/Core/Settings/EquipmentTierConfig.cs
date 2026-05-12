@@ -89,5 +89,29 @@ namespace TheWaningBorder.Core.Settings
 
         /// <summary>Fraction of Max HP the on-death Glow revive restores.</summary>
         public const float GlowReviveHealthPercent = 0.5f;
+
+        // ==================== Siege shield aura (spec §4.3 Crystal+) ====================
+
+        /// <summary>Aura radius for Crystal+ siege units (spec §4.3).</summary>
+        public const float SiegeShieldAuraRadius = 8f;
+
+        /// <summary>Bonus shield HP granted by Siege Crystal aura to each ally in range.</summary>
+        public const int SiegeShieldAuraCrystalBonus = 30;
+
+        /// <summary>Bonus at Veilsteel (stacking up from Crystal).</summary>
+        public const int SiegeShieldAuraVeilsteelBonus = 50;
+
+        /// <summary>Bonus at Glow.</summary>
+        public const int SiegeShieldAuraGlowBonus = 75;
+
+        // ==================== Hero phase shield (spec §4.4 Crystal+) ====================
+
+        /// <summary>Seconds between phase-shield absorbs.</summary>
+        public const float HeroPhaseShieldCooldown = 12f;
+
+        /// <summary>Fraction of damage absorbed by a charged phase shield (per tier).</summary>
+        public const float HeroPhaseShieldReductionCrystal = 0.50f;
+        public const float HeroPhaseShieldReductionVeilsteel = 0.65f;
+        public const float HeroPhaseShieldReductionGlow = 0.80f;
     }
 }
