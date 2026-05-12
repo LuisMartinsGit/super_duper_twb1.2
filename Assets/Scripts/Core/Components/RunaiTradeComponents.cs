@@ -105,3 +105,25 @@ public struct BazaarPackCommand : IComponentData { }
 
 /// <summary>Command to unpack a wagon unit back into a Bazaar building. Consumed by BazaarPackSystem.</summary>
 public struct BazaarUnpackCommand : IComponentData { }
+
+// ==================== Patrol Alert / Threat Detection (spec §7.4) ====================
+
+/// <summary>
+/// Spec §7.4 (Sins of a Solar Empire 2 TEC borrow): when enemy units
+/// engage within range of a trade lane, nearby patrols become
+/// player-controllable; returns to autonomous when combat ends.
+///
+/// Present on every TradePatrolData entity. PatrolThreatDetectionSystem
+/// flips IsAlert based on hostile proximity; while IsAlert == 1 the
+/// patrol has its NotControllableTag stripped so RTSInputManager can
+/// route commands to it. Returns to autonomous when no hostile has
+/// been within range for PatrolAlertTimeout seconds.
+/// </summary>
+public struct PatrolAlertState : IComponentData
+{
+    /// <summary>1 = currently alerted (controllable), 0 = autonomous.</summary>
+    public byte IsAlert;
+
+    /// <summary>Seconds since the last hostile sighting in range. Counts up while peaceful.</summary>
+    public float PeacefulSeconds;
+}

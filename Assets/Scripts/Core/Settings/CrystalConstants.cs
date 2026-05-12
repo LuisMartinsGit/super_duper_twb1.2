@@ -220,6 +220,14 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Seconds a qualifying unit must stand within radius (uninterrupted) to claim.</summary>
         public const float GlowWeaponAttunementTime = 5f;
 
+        // ==================== Runaii Patrol Alert (spec §7.4) ====================
+
+        /// <summary>Distance at which a hostile unit triggers a Runai patrol's controllable-when-threatened mode.</summary>
+        public const float PatrolThreatRange = 12f;
+
+        /// <summary>Seconds of "no hostile within range" required to drop a patrol back to autonomous.</summary>
+        public const float PatrolAlertTimeout = 8f;
+
         // ==================== Ritual Defense (spec §5.1, §5.5) ====================
         // The node defends itself: while a ritual is being channeled, the
         // node spawns curse units at the ritualist with rising frequency.
