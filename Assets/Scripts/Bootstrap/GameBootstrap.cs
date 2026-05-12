@@ -190,6 +190,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
             managersGO.AddComponent<UnitVisualOverlaySystem>();   // Rank pips + Glow halo (spec refinement #7)
             managersGO.AddComponent<GodPowerHUD>();                // God power cast button + cooldown (spec §6.2)
+            managersGO.AddComponent<VictoryProgressHUD>();         // Per-culture node-victory tracker (spec §11 item 7)
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<TheWaningBorder.World.Terrain.GathererHutGrassPainter>(); // Yellow-grass detail patch around completed huts
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
