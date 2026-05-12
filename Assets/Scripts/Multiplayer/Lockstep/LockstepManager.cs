@@ -400,10 +400,14 @@ namespace TheWaningBorder.Multiplayer
             var em = world.EntityManager;
 
             // PlaceBuilding and Train don't require an existing entity lookup —
-            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building
+            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building.
+            // GodPower + EquipmentUpgrade pack the caster faction into
+            // EntityNetworkId, not a real entity id, so they skip the lookup too.
             Entity entity = Entity.Null;
             bool needsEntity = cmd.Type != LockstepCommandType.SetRally
-                            && cmd.Type != LockstepCommandType.PlaceBuilding;
+                            && cmd.Type != LockstepCommandType.PlaceBuilding
+                            && cmd.Type != LockstepCommandType.GodPower
+                            && cmd.Type != LockstepCommandType.EquipmentUpgrade;
 
             if (needsEntity)
             {
@@ -533,6 +537,40 @@ namespace TheWaningBorder.Multiplayer
                             : Entity.Null;
                         CommandRouter.IssueAbilityDirect(em, entity, abilityTarget);
                         if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Purify:
+                    if (entity != Entity.Null && targetEntity != Entity.Null)
+                    {
+                        CommandRouter.IssuePurifyDirect(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed Purify from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertNode:
+                    if (entity != Entity.Null && targetEntity != Entity.Null)
+                    {
+                        CommandRouter.IssueConvertNodeDirect(em, entity, targetEntity);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertNode from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.EquipmentUpgrade:
+                    {
+                        Faction caster = (Faction)cmd.EntityNetworkId;
+                        UnitClass cls = (UnitClass)(byte)(cmd.TargetEntityId & 0xFF);
+                        EquipmentTier tier = (EquipmentTier)(byte)((cmd.TargetEntityId >> 8) & 0xFF);
+                        CommandRouter.IssueEquipmentUpgradeDirect(em, caster, cls, tier);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed EquipmentUpgrade {caster}/{cls}->{tier} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.GodPower:
+                    {
+                        Faction caster = (Faction)cmd.EntityNetworkId;
+                        CommandRouter.IssueGodPowerDirect(em, caster, cmd.TargetPosition);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed GodPower {caster} from player {cmd.PlayerIndex}");
                     }
                     break;
             }

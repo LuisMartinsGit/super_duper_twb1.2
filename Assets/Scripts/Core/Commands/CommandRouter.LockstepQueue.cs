@@ -298,5 +298,74 @@ namespace TheWaningBorder.Core.Commands
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
+
+        // ─── Spec-implementation commands (slice 29) ──────────────────
+
+        private static void QueuePurifyForLockstep(EntityManager em, Entity scholar, Entity node)
+        {
+            int scholarId = GetNetworkId(em, scholar);
+            int nodeId = GetNetworkId(em, node);
+            if (scholarId <= 0 || nodeId <= 0)
+            {
+                IssuePurifyDirect(em, scholar, node);
+                return;
+            }
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.Purify,
+                EntityNetworkId = scholarId,
+                TargetEntityId = nodeId,
+            });
+        }
+
+        private static void QueueConvertNodeForLockstep(EntityManager em, Entity acolyte, Entity node)
+        {
+            int acolyteId = GetNetworkId(em, acolyte);
+            int nodeId = GetNetworkId(em, node);
+            if (acolyteId <= 0 || nodeId <= 0)
+            {
+                IssueConvertNodeDirect(em, acolyte, node);
+                return;
+            }
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.ConvertNode,
+                EntityNetworkId = acolyteId,
+                TargetEntityId = nodeId,
+            });
+        }
+
+        /// <summary>
+        /// Equipment-upgrade payload packs the faction (EntityNetworkId),
+        /// unit class (TargetEntityId low byte), and target tier (TargetEntityId
+        /// high byte). BuildingId remains empty for this command.
+        /// </summary>
+        private static void QueueEquipmentUpgradeForLockstep(Faction faction,
+            UnitClass unitClass, EquipmentTier targetTier)
+        {
+            int packed = ((byte)unitClass) | (((byte)targetTier) << 8);
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.EquipmentUpgrade,
+                EntityNetworkId = (int)faction,
+                TargetEntityId = packed,
+            });
+        }
+
+        /// <summary>
+        /// God-power payload uses EntityNetworkId for the caster faction
+        /// (Faction is a byte) and TargetPosition for the world-space cast
+        /// point. There is no entity to dereference; the resolver looks up
+        /// the faction's bank by FactionTag.
+        /// </summary>
+        private static void QueueGodPowerForLockstep(Faction caster, float3 targetPosition)
+        {
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.GodPower,
+                EntityNetworkId = (int)caster,
+                TargetPosition = targetPosition,
+            });
+        }
     }
 }

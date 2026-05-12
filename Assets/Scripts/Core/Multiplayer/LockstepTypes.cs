@@ -34,7 +34,11 @@ namespace TheWaningBorder.Core.Multiplayer
         Patrol = 12,
         HoldPosition = 13,
         PlaceBuilding = 14,
-        Ability = 15
+        Ability = 15,
+        Purify = 16,             // CommandRouter.IssuePurify  (scholar + node)
+        ConvertNode = 17,        // CommandRouter.IssueConvertNode (acolyte + node)
+        EquipmentUpgrade = 18,   // CommandRouter.IssueEquipmentUpgrade (faction + class + tier)
+        GodPower = 19,           // CommandRouter.IssueGodPower (faction + targetPosition)
     }
 
     /// <summary>

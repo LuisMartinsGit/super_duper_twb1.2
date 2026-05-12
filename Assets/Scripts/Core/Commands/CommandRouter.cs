@@ -396,11 +396,16 @@ namespace TheWaningBorder.Core.Commands
         {
             if (ShouldQueueForLockstep(source))
             {
-                UnityEngine.Debug.LogWarning(
-                    "[CommandRouter.IssueEquipmentUpgrade] not yet replicated through lockstep");
-                return false;
+                QueueEquipmentUpgradeForLockstep(faction, unitClass, targetTier);
+                return true;
             }
+            return IssueEquipmentUpgradeDirect(em, faction, unitClass, targetTier);
+        }
 
+        /// <summary>Execute IssueEquipmentUpgrade on this peer. Used by LockstepManager dispatch.</summary>
+        public static bool IssueEquipmentUpgradeDirect(EntityManager em, Faction faction,
+            UnitClass unitClass, EquipmentTier targetTier)
+        {
             // Find the faction's tier entity (created in EconomyBootstrap).
             var q = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
@@ -456,11 +461,19 @@ namespace TheWaningBorder.Core.Commands
         {
             if (ShouldQueueForLockstep(source))
             {
-                UnityEngine.Debug.LogWarning(
-                    "[CommandRouter.IssueGodPower] not yet replicated through lockstep");
-                return false;
+                QueueGodPowerForLockstep(caster, targetPosition);
+                return true;  // queued — executor on every peer fires IssueGodPowerDirect
             }
+            return IssueGodPowerDirect(em, caster, targetPosition);
+        }
 
+        /// <summary>
+        /// Execute the god-power cast on this peer. Public so LockstepManager
+        /// can dispatch through it after deserializing a queued command.
+        /// </summary>
+        public static bool IssueGodPowerDirect(EntityManager em, Faction caster,
+            Unity.Mathematics.float3 targetPosition)
+        {
             // Find the faction's bank entity.
             var q = em.CreateEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
@@ -513,19 +526,21 @@ namespace TheWaningBorder.Core.Commands
             if (!em.HasComponent<ScholarTag>(scholar)) return;
             if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
 
-            // Multiplayer lockstep wiring for Purify is a follow-up slice —
-            // the LockstepCommand schema needs a payload variant. For now,
-            // singleplayer + AI execute directly; multiplayer drops on the floor
-            // with a log so the omission is visible during testing.
             if (ShouldQueueForLockstep(source))
             {
-                UnityEngine.Debug.LogWarning(
-                    "[CommandRouter.IssuePurify] not yet replicated through lockstep — command ignored in multiplayer");
+                QueuePurifyForLockstep(em, scholar, node);
                 return;
             }
+            IssuePurifyDirect(em, scholar, node);
+        }
 
-            // Clear conflicting commands and attach the order. The ritual
-            // system handles the rest (approach, channel, complete).
+        /// <summary>Execute IssuePurify on this peer. Used by LockstepManager dispatch.</summary>
+        public static void IssuePurifyDirect(EntityManager em, Entity scholar, Entity node)
+        {
+            if (!em.Exists(scholar) || !em.Exists(node)) return;
+            if (!em.HasComponent<ScholarTag>(scholar)) return;
+            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+
             CommandHelper.ClearAllCommands(em, scholar);
             if (em.HasComponent<PurifyCommand>(scholar))
                 em.SetComponentData(scholar, new PurifyCommand { TargetNode = node });
@@ -550,10 +565,18 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                UnityEngine.Debug.LogWarning(
-                    "[CommandRouter.IssueConvertNode] not yet replicated through lockstep — command ignored in multiplayer");
+                QueueConvertNodeForLockstep(em, acolyte, node);
                 return;
             }
+            IssueConvertNodeDirect(em, acolyte, node);
+        }
+
+        /// <summary>Execute IssueConvertNode on this peer. Used by LockstepManager dispatch.</summary>
+        public static void IssueConvertNodeDirect(EntityManager em, Entity acolyte, Entity node)
+        {
+            if (!em.Exists(acolyte) || !em.Exists(node)) return;
+            if (!em.HasComponent<AcolyteTag>(acolyte)) return;
+            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
 
             CommandHelper.ClearAllCommands(em, acolyte);
             if (em.HasComponent<ConvertNodeCommand>(acolyte))
