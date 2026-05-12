@@ -372,6 +372,72 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // EQUIPMENT TIER UPGRADE COMMANDS (faction-wide tier research)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Upgrade a faction's equipment tier for a unit class. Adjacent
+        /// tier moves only (Base→Iron→Crystal→Veilsteel→Glow). Costs are
+        /// spent immediately from the faction bank; the new tier applies
+        /// to all current and future units of that class on the next
+        /// EquipmentTierSystem tick.
+        ///
+        /// Returns true if the upgrade applied; false if the move was
+        /// non-adjacent, the bank couldn't pay, or the faction has no
+        /// FactionEquipmentTier component yet.
+        ///
+        /// Multiplayer lockstep wiring for this command is a follow-up —
+        /// the LockstepCommand schema needs a payload variant. For now,
+        /// singleplayer + AI execute directly; multiplayer logs and drops.
+        /// </summary>
+        public static bool IssueEquipmentUpgrade(EntityManager em, Faction faction,
+            UnitClass unitClass, EquipmentTier targetTier,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldQueueForLockstep(source))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[CommandRouter.IssueEquipmentUpgrade] not yet replicated through lockstep");
+                return false;
+            }
+
+            // Find the faction's tier entity (created in EconomyBootstrap).
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadWrite<FactionEquipmentTier>());
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            Entity tierEntity = Entity.Null;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (tags[i].Value == faction) { tierEntity = ents[i]; break; }
+            }
+            if (tierEntity == Entity.Null) return false;
+
+            var tiers = em.GetComponentData<FactionEquipmentTier>(tierEntity);
+            EquipmentTier current = tiers.Get(unitClass);
+
+            // Adjacent moves only — no skipping Iron → Veilsteel.
+            if ((byte)targetTier != (byte)current + 1) return false;
+
+            var cost = TheWaningBorder.Core.Settings.EquipmentTierConfig.UpgradeCost(current, targetTier);
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return false;
+
+            switch (unitClass)
+            {
+                case UnitClass.Melee:   tiers.Melee   = targetTier; break;
+                case UnitClass.Ranged:  tiers.Ranged  = targetTier; break;
+                case UnitClass.Siege:   tiers.Siege   = targetTier; break;
+                case UnitClass.Magic:   tiers.Magic   = targetTier; break;
+                case UnitClass.Support: tiers.Support = targetTier; break;
+                default: return false;  // Economy / Miner / Scout don't take equipment
+            }
+            em.SetComponentData(tierEntity, tiers);
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // PURIFY COMMANDS (Alanthor — scholar channels purification ritual on a crystal node)
         // ═══════════════════════════════════════════════════════════════
 
