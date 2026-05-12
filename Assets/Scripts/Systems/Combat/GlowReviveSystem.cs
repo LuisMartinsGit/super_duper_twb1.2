@@ -1,14 +1,17 @@
 // GlowReviveSystem.cs
-// Glow-tier on-death revive (spec §4.2 Glow tier). When a Glow-tier unit
-// reaches 0 HP for the first time, it pops back up with a fraction of its
-// max HP intact and gets a GlowReviveUsed tag so the revive can't fire
-// twice. Subsequent deaths fall through to DeathSystem + GlowWeaponDropSystem.
+// Glow-tier on-death revive (spec §4.2 Glow tier: "Revive on cooldown").
 //
-// Runs UpdateBefore(GlowWeaponDropSystem) and UpdateBefore(DeathSystem) so
-// the revive takes precedence over the drop / destroy path. After revival,
-// Health.Value > 0 again, so both downstream systems skip the unit.
+// Per-unit GlowReviveCooldown ticks down each frame. When a Glow-tier
+// non-Curse unit reaches 0 HP AND the cooldown is ready, it pops back
+// at GlowReviveHealthPercent of max with a refreshed shield bar; the
+// cooldown resets to GlowReviveCooldownSec. While the cooldown is on,
+// lethal damage falls through to DeathSystem + GlowWeaponDropSystem
+// normally — the recurring revive is a window of opportunity, not a
+// permanent invulnerability.
 //
-// Curse units don't revive — Glow tier is a player-side equipment concept.
+// Runs UpdateBefore(GlowWeaponDropSystem) so the revive takes precedence
+// over the drop/destroy path. After revival, Health.Value > 0 again, so
+// both downstream systems skip the unit.
 //
 // Location: Assets/Scripts/Systems/Combat/
 
@@ -28,23 +31,50 @@ namespace TheWaningBorder.Systems.Combat
         protected override void OnUpdate()
         {
             var em = EntityManager;
+            float dt = (float)SystemAPI.Time.DeltaTime;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (healthRW, applied, faction, entity) in SystemAPI
-                .Query<RefRW<Health>, RefRO<UnitEquipmentApplied>, RefRO<FactionTag>>()
-                .WithNone<GlowReviveUsed>()
+            // ── Phase 1: ensure Glow-tier units carry GlowReviveCooldown, tick down. ──
+            foreach (var (applied, faction, entity) in SystemAPI
+                .Query<RefRO<UnitEquipmentApplied>, RefRO<FactionTag>>()
+                .WithEntityAccess())
+            {
+                bool isGlow = applied.ValueRO.Value == EquipmentTier.Glow
+                    && faction.ValueRO.Value != Faction.Curse;
+                bool hasCd = em.HasComponent<GlowReviveCooldown>(entity);
+
+                if (isGlow && !hasCd)
+                {
+                    // Stamp ready-to-revive on first observation.
+                    ecb.AddComponent(entity, new GlowReviveCooldown { TimeRemaining = 0f });
+                }
+                else if (!isGlow && hasCd)
+                {
+                    // Lost the Glow tier (e.g. via UnitTierOverride downgrade) — strip cooldown.
+                    ecb.RemoveComponent<GlowReviveCooldown>(entity);
+                }
+            }
+
+            foreach (var cdRW in SystemAPI.Query<RefRW<GlowReviveCooldown>>())
+            {
+                if (cdRW.ValueRO.TimeRemaining > 0f)
+                    cdRW.ValueRW.TimeRemaining = math.max(0f, cdRW.ValueRO.TimeRemaining - dt);
+            }
+
+            // ── Phase 2: fire revive on Health <= 0 if cooldown is ready. ──
+            foreach (var (healthRW, applied, faction, cdRW, entity) in SystemAPI
+                .Query<RefRW<Health>, RefRO<UnitEquipmentApplied>, RefRO<FactionTag>, RefRW<GlowReviveCooldown>>()
                 .WithEntityAccess())
             {
                 if (healthRW.ValueRO.Value > 0) continue;
                 if (applied.ValueRO.Value != EquipmentTier.Glow) continue;
                 if (faction.ValueRO.Value == Faction.Curse) continue;
+                if (cdRW.ValueRO.TimeRemaining > 0f) continue;
 
                 int revived = (int)math.max(1, healthRW.ValueRO.Max * EquipmentTierConfig.GlowReviveHealthPercent);
                 healthRW.ValueRW.Value = revived;
-                ecb.AddComponent<GlowReviveUsed>(entity);
+                cdRW.ValueRW.TimeRemaining = EquipmentTierConfig.GlowReviveCooldownSec;
 
-                // Refresh shield bar on revive so the next blow doesn't kill
-                // through a depleted shield.
                 if (em.HasComponent<ShieldBar>(entity))
                 {
                     var sb = em.GetComponentData<ShieldBar>(entity);
@@ -54,7 +84,7 @@ namespace TheWaningBorder.Systems.Combat
                     em.SetComponentData(entity, sb);
                 }
 
-                Debug.Log($"[GlowRevive] {faction.ValueRO.Value} Glow-tier unit revived at {revived}/{healthRW.ValueRO.Max} HP");
+                Debug.Log($"[GlowRevive] {faction.ValueRO.Value} Glow unit revived at {revived}/{healthRW.ValueRO.Max} HP — cooldown {EquipmentTierConfig.GlowReviveCooldownSec:F0}s");
             }
 
             ecb.Playback(em);

@@ -116,12 +116,17 @@ public struct ShieldBar : IComponentData
 }
 
 /// <summary>
-/// Set on a unit once its Glow-tier on-death revive has fired. Prevents
-/// repeated revives on the same entity. Spec §4.2 Glow tier: "Revive
-/// lost battalion members on cooldown" — MVP is a one-shot revive per
-/// Glow unit; the cooldown-based revive is a future polish slice.
+/// Per-unit cooldown for the Glow-tier on-death revive (spec §4.2 Glow
+/// tier: "Revive lost battalion members on cooldown"). When TimeRemaining
+/// is 0, the next time the unit's Health drops to 0 it pops back at half
+/// max HP and the cooldown resets to GlowReviveCooldownSec. While
+/// TimeRemaining > 0, lethal damage falls through to DeathSystem +
+/// GlowWeaponDropSystem normally.
 /// </summary>
-public struct GlowReviveUsed : IComponentData { }
+public struct GlowReviveCooldown : IComponentData
+{
+    public float TimeRemaining;
+}
 
 /// <summary>
 /// Spec §4.3 Crystal-tier siege: "Aura granting shields to nearby allies."

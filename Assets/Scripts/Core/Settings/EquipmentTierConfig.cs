@@ -90,6 +90,9 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>Fraction of Max HP the on-death Glow revive restores.</summary>
         public const float GlowReviveHealthPercent = 0.5f;
 
+        /// <summary>Seconds between Glow revives on the same unit (spec §4.2 "on cooldown").</summary>
+        public const float GlowReviveCooldownSec = 45f;
+
         // ==================== Siege shield aura (spec §4.3 Crystal+) ====================
 
         /// <summary>Aura radius for Crystal+ siege units (spec §4.3).</summary>
