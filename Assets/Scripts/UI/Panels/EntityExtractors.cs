@@ -296,8 +296,7 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
             // Alanthor culture buildings
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
-            if (em.HasComponent<GarrisonTag>(entity)) return "Garrison";
-            if (em.HasComponent<RoyalStableTag>(entity)) return "Royal Stable";
+            if (em.HasComponent<PracticeRangeTag>(entity)) return "Practice Range";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Hunting Lodge";
@@ -696,7 +695,7 @@ namespace TheWaningBorder.UI
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings
-            "Alanthor_Tower", "Alanthor_Garrison", "Alanthor_Stable", "Alanthor_SiegeYard",
+            "Alanthor_Tower", "Alanthor_PracticeRange", "Alanthor_SiegeYard",
             // Feraldis culture buildings
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation", "Feraldis_Longhouse",
             "Feraldis_Tower", "Feraldis_SiegeYard"
@@ -845,6 +844,24 @@ namespace TheWaningBorder.UI
             // Get current resources for rich tooltip coloring
             Cost available = GetFactionResourcesAsCost(em, faction);
 
+            // Building level for advanced-unit gating. Default L1 for buildings
+            // that haven't been stamped with BuildingUpgradeState yet.
+            // Temples track their level via TempleLevel rather than
+            // BuildingUpgradeState — read whichever is present so the
+            // Scholar/Acolyte minBuildingLevel: 4 gate fires correctly
+            // (spec refinement #5: ritualists train at a fully-leveled Temple).
+            int buildingLevel = 1;
+            if (em.HasComponent<BuildingUpgradeState>(entity))
+            {
+                int lv = em.GetComponentData<BuildingUpgradeState>(entity).Level;
+                if (lv > buildingLevel) buildingLevel = lv;
+            }
+            if (em.HasComponent<TempleLevel>(entity))
+            {
+                int lv = em.GetComponentData<TempleLevel>(entity).Level;
+                if (lv > buildingLevel) buildingLevel = lv;
+            }
+
             // Only show units this building can train (from its "trains" array)
             foreach (var unitId in buildingDef.trains)
             {
@@ -855,11 +872,18 @@ namespace TheWaningBorder.UI
                 if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
                     continue;
 
+                // Building-level gating: advanced units (minBuildingLevel >= 2)
+                // stay locked until the trainer reaches the required level.
+                int minLv = unit.minBuildingLevel < 1 ? 1 : unit.minBuildingLevel;
+                bool levelLocked = buildingLevel < minLv;
+
                 var cost = unit.cost != null ? new Cost
                 {
                     Supplies = unit.cost.Supplies,
                     Iron = unit.cost.Iron,
-                    Crystal = unit.cost.Crystal
+                    Crystal = unit.cost.Crystal,
+                    Veilsteel = unit.cost.Veilsteel,
+                    Glow = unit.cost.Glow,
                 } : default;
 
                 string tooltip = BuildTooltip(
@@ -869,15 +893,17 @@ namespace TheWaningBorder.UI
                     available,
                     trainingTime: unit.trainingTime
                 );
+                if (levelLocked)
+                    tooltip = $"Requires Lv {minLv} {buildingDef.name ?? buildingId}\n" + tooltip;
 
                 actions.Add(new ActionButton
                 {
                     Id = unit.id,
-                    Label = unit.name,
+                    Label = levelLocked ? $"{unit.name}  (Lv {minLv})" : unit.name,
                     Tooltip = tooltip,
                     Cost = cost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                    Enabled = !levelLocked,
+                    CanAfford = !levelLocked && FactionEconomy.CanAfford(em, faction, cost),
                     Icon = null
                 });
             }
@@ -1212,8 +1238,7 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
             // Alanthor culture buildings
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
-            if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
-            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_Stable";
+            if (em.HasComponent<PracticeRangeTag>(entity)) return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";

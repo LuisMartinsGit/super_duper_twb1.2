@@ -769,6 +769,7 @@
                             "hp": 90,
                             "speed": 3.0,
                             "trainingTime": 35.0,
+                            "minBuildingLevel": 4,
                             "armorType": "ranged",
                             "damage": 0,
                             "damageType": "magic",
@@ -786,7 +787,7 @@
                                 "Supplies": 140,
                                 "Crystal": 50
                             },
-                            "notes": "Channels Conversion ritual on Active crystal nodes. Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
+                            "notes": "Channels Conversion ritual on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
                         },
                         {
                             "id": "Runai_SandBallista",
@@ -1530,6 +1531,7 @@
                             "hp": 90,
                             "speed": 3.0,
                             "trainingTime": 30.0,
+                            "minBuildingLevel": 4,
                             "armorType": "ranged",
                             "damage": 0,
                             "damageType": "magic",
@@ -1547,7 +1549,7 @@
                                 "Supplies": 120,
                                 "Crystal": 30
                             },
-                            "notes": "Channels Purification rituals on Active crystal nodes. Vulnerable — needs escort."
+                            "notes": "Channels Purification rituals on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Vulnerable — needs escort."
                         }
                     ],
                     "tech": [
