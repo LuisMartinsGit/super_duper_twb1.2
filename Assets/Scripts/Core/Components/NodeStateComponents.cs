@@ -54,6 +54,22 @@ public struct CrystalNodeState : IComponentData
 /// </summary>
 public struct NodeDormant : IComponentData { }
 
+// ==================== Node Invulnerability (spec refinement) ====================
+
+/// <summary>
+/// Snapshot of a node's HP from the previous frame. Used by
+/// NodeInvulnerabilitySystem to detect new damage and refund it unless
+/// the attacker carries IconoclastTag.
+///
+/// Crystal nodes are invulnerable (spec refinement #1): normal units
+/// cannot damage them. Only a Feraldis Iconoclast (high-value Lv 3 unit)
+/// can break the invulnerability.
+/// </summary>
+public struct NodeInvulnerabilityState : IComponentData
+{
+    public int LastObservedHealth;
+}
+
 // ==================== Node Victory Tracking ====================
 
 /// <summary>

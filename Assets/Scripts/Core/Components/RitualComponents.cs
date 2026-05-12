@@ -24,6 +24,15 @@ public struct ScholarTag : IComponentData { }
 /// </summary>
 public struct AcolyteTag : IComponentData { }
 
+/// <summary>
+/// Marker for Feraldis's Iconoclast — the high-value Lv 3 unit whose
+/// attacks can damage Crystal nodes (spec refinement #1). Without this
+/// tag on the attacker, NodeInvulnerabilitySystem refunds all node
+/// damage so the node stays at full HP. Iconoclast attacks pass through
+/// and are the only path to a Destroyed node state.
+/// </summary>
+public struct IconoclastTag : IComponentData { }
+
 // ==================== Ritual state ====================
 
 /// <summary>

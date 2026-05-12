@@ -147,6 +147,19 @@ namespace TheWaningBorder.Core.Config
         public const float ScholarRadius = 0.5f;
         public const int   ScholarPresentationID = 382;       // After sect-unique unit IDs (370-381)
 
+        // ==================== Iconoclast (Feraldis node breaker, spec refinement #1) ====================
+        // High-value, slow, hard-hitting unit gated to a Lv 3 Feraldis
+        // Longhouse. Only damage source that can bring a Crystal node to
+        // Destroyed — every other attacker is refunded by NodeInvulnerabilitySystem.
+        public const float IconoclastHP = 280f;
+        public const float IconoclastSpeed = 3.2f;
+        public const float IconoclastDamage = 25f;
+        public const float IconoclastLoS = 16f;
+        public const float IconoclastRadius = 0.7f;
+        public const float IconoclastAttackRange = 1.8f;
+        public const float IconoclastAttackCooldown = 1.6f;
+        public const int   IconoclastPresentationID = 386;
+
         // ==================== Acolyte (Runai ritualist) ====================
         // Same shape as Scholar — vulnerable caster, escort required. The
         // mechanical difficulty comes from RitualDefenseSystem's

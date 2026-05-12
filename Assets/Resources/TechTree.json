@@ -1046,10 +1046,11 @@
                                 "magic": 0
                             },
                             "lineOfSight": 20,
-                            "role": "Batch-trains melee (5 or 10) with small discount",
+                            "role": "Batch-trains melee (5 or 10) with small discount; Lv 3 unlocks Iconoclast",
                             "trains": [
                                 "Feraldis_Berserker",
-                                "Feraldis_WarboarRider"
+                                "Feraldis_WarboarRider",
+                                "Feraldis_Iconoclast"
                             ],
                             "systems": {
                                 "batchTraining": {
@@ -1182,6 +1183,35 @@
                                 "Iron": 140,
                                 "Crystal": 70
                             }
+                        },
+                        {
+                            "id": "Feraldis_Iconoclast",
+                            "class": "human_melee",
+                            "hp": 280,
+                            "speed": 3.2,
+                            "trainingTime": 60.0,
+                            "minBuildingLevel": 3,
+                            "armorType": "infantry_heavy",
+                            "damage": 25,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 4,
+                                "ranged": 3,
+                                "siege": 1,
+                                "magic": 2
+                            },
+                            "lineOfSight": 16,
+                            "attackRange": 1.8,
+                            "attackCooldown": 1.6,
+                            "trainAt": [
+                                "Feraldis_Longhouse"
+                            ],
+                            "cost": {
+                                "Supplies": 300,
+                                "Iron": 150,
+                                "Crystal": 100
+                            },
+                            "notes": "Spec refinement #1: only damage source that bypasses Crystal node invulnerability — the path to Destroyed."
                         }
                     ],
                     "tech": [

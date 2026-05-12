@@ -222,6 +222,7 @@ namespace TheWaningBorder.Economy
                 "Feraldis_Hunter" => 1,
                 "Feraldis_WarboarRider" => 1,
                 "Feraldis_SiegeRam" => 2,
+                "Feraldis_Iconoclast" => 4,    // High-value Lv 3 unit, spec refinement #1
 
                 // Alanthor units
                 "Alanthor_Sentinel" => 1,

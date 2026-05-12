@@ -57,6 +57,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => Hunter.Create(em, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
+                "Feraldis_Iconoclast" => Iconoclast.Create(em, position, faction),
                 // Sect unique units
                 "Sect_ScarGuard" => ScarGuard.Create(em, position, faction),
                 "Sect_GolemAutark" => GolemAutark.Create(em, position, faction),
@@ -121,6 +122,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(ecb, position, faction),
+                "Feraldis_Iconoclast" => Iconoclast.Create(ecb, position, faction),
                 // Sect unique units
                 "Sect_ScarGuard" => ScarGuard.Create(ecb, position, faction),
                 "Sect_GolemAutark" => GolemAutark.Create(ecb, position, faction),
@@ -189,6 +191,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => UnitClass.Ranged,
                 "Feraldis_WarboarRider" => UnitClass.Melee,
                 "Feraldis_SiegeRam" => UnitClass.Siege,
+                "Feraldis_Iconoclast" => UnitClass.Melee,
                 // Sect unique units
                 "Sect_ScarGuard" => UnitClass.Melee,
                 "Sect_GolemAutark" => UnitClass.Magic,
@@ -239,6 +242,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => 338,
                 "Feraldis_WarboarRider" => 339,
                 "Feraldis_SiegeRam" => 340,
+                "Feraldis_Iconoclast" => 386,
                 // Sect unique units
                 "Sect_ScarGuard" => 370,
                 "Sect_GolemAutark" => 371,

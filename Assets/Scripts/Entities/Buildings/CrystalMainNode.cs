@@ -36,7 +36,9 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalTrainingState),
                 typeof(CrystalResourceValue),
                 typeof(CrystalNodeState),
+                typeof(NodeInvulnerabilityState),
                 typeof(LastDamagedByFaction),
+                typeof(LastAttackerEntity),
                 typeof(BuildingRangedAttack),
                 typeof(Defense)
             );
@@ -70,7 +72,9 @@ namespace TheWaningBorder.Entities
                 OwnerFaction = Faction.Curse,
                 StateTimer = 0f,
             });
+            em.SetComponentData(entity, new NodeInvulnerabilityState { LastObservedHealth = MainNodeHP });
             em.SetComponentData(entity, new LastDamagedByFaction { Value = Faction.Curse });
+            em.SetComponentData(entity, new LastAttackerEntity { Value = Entity.Null });
 
             // Self-defense turret
             em.SetComponentData(entity, new BuildingRangedAttack
@@ -145,7 +149,9 @@ namespace TheWaningBorder.Entities
                 OwnerFaction = Faction.Curse,
                 StateTimer = 0f,
             });
+            ecb.AddComponent(entity, new NodeInvulnerabilityState { LastObservedHealth = MainNodeHP });
             ecb.AddComponent(entity, new LastDamagedByFaction { Value = Faction.Curse });
+            ecb.AddComponent(entity, new LastAttackerEntity { Value = Entity.Null });
 
             // Self-defense turret
             ecb.AddComponent(entity, new BuildingRangedAttack
