@@ -13,8 +13,12 @@
 
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
+using UnityEngine;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Combat;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Crystal
 {
@@ -45,10 +49,11 @@ namespace TheWaningBorder.Systems.Crystal
             // Collect dying main nodes — defer structural changes until after
             // the query loop, same pattern as NodeStateReversionSystem.
             var dyingNodes = new NativeList<Entity>(2, Allocator.Temp);
+            var dyingPositions = new NativeList<float3>(2, Allocator.Temp);
             var killers = new NativeList<Faction>(2, Allocator.Temp);
 
-            foreach (var (health, state, lastDamager, entity) in SystemAPI
-                .Query<RefRO<Health>, RefRO<CrystalNodeState>, RefRO<LastDamagedByFaction>>()
+            foreach (var (health, state, lastDamager, transform, entity) in SystemAPI
+                .Query<RefRO<Health>, RefRO<CrystalNodeState>, RefRO<LastDamagedByFaction>, RefRO<LocalTransform>>()
                 .WithAll<CrystalMainNodeTag>()
                 .WithNone<NodeDormant>()
                 .WithEntityAccess())
@@ -57,12 +62,14 @@ namespace TheWaningBorder.Systems.Crystal
                 if (state.ValueRO.State == NodeState.Destroyed) continue;
 
                 dyingNodes.Add(entity);
+                dyingPositions.Add(transform.ValueRO.Position);
                 killers.Add(lastDamager.ValueRO.Value);
             }
 
             if (dyingNodes.Length == 0)
             {
                 dyingNodes.Dispose();
+                dyingPositions.Dispose();
                 killers.Dispose();
                 return;
             }
@@ -106,6 +113,21 @@ namespace TheWaningBorder.Systems.Crystal
                     victory.LastDestroyerFaction = killer;
                     victory.LastDestroyerCulture = killerCulture;
                 }
+
+                // Feraldis Violent Extraction (spec §5.3): when the killing
+                // blow came from a Feraldis-aligned faction, the node erupts
+                // in a final massive curse wave + drops a Glow pickup. Other
+                // factions that bring a node to 0 HP still cause Destroyed
+                // (state machine is symmetric) but do NOT trigger the
+                // extraction reward — they didn't perform the ritual.
+                if (killerCulture == Cultures.Feraldis)
+                {
+                    SpawnFinalCurseWave(dyingPositions[i], killer);
+                    GlowPickup.Create(EntityManager, dyingPositions[i],
+                        RitualKind.ViolentExtraction,
+                        ViolentExtractionGlowYield);
+                    Debug.Log($"[ViolentExtraction] node destroyed by {killer} (Feraldis) — final wave + Glow pickup spawned");
+                }
             }
 
             if (hasVictoryState)
@@ -113,7 +135,62 @@ namespace TheWaningBorder.Systems.Crystal
 
             cultureOf.Dispose();
             dyingNodes.Dispose();
+            dyingPositions.Dispose();
             killers.Dispose();
+        }
+
+        /// <summary>
+        /// Spawn the spec §5.3 final massive curse wave around a node that
+        /// was just destroyed by Feraldis. Units charge the killer's nearest
+        /// hall (or, failing that, the killer's last known position).
+        /// </summary>
+        private void SpawnFinalCurseWave(float3 nodePos, Faction killer)
+        {
+            var em = EntityManager;
+
+            // Find a target — prefer the killer's hall.
+            float3 target = nodePos; // fallback: charge outward from the corpse
+            var hallQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var hallEnts = hallQuery.ToEntityArray(Allocator.Temp);
+            using var hallTags = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < hallEnts.Length; i++)
+            {
+                if (hallTags[i].Value != killer) continue;
+                if (em.HasComponent<Health>(hallEnts[i])
+                    && em.GetComponentData<Health>(hallEnts[i]).Value <= 0) continue;
+                target = hallTransforms[i].Position;
+                break;
+            }
+
+            // Deterministic per-event seed so multiplayer replays match.
+            uint seed = (uint)(math.abs((int)(nodePos.x * 1009 + nodePos.z * 7919)) + (int)killer * 31 + 1);
+            var rng = new Unity.Mathematics.Random(math.max(1u, seed));
+
+            for (int i = 0; i < ViolentExtractionFinalWaveSize; i++)
+            {
+                float angle = rng.NextFloat(0f, math.PI * 2f);
+                float r = ViolentExtractionFinalWaveRadius * rng.NextFloat(0.5f, 1.0f);
+                var spawnPos = new float3(
+                    nodePos.x + math.cos(angle) * r,
+                    nodePos.y,
+                    nodePos.z + math.sin(angle) * r);
+
+                // Two Veilstingers, the rest Crystallings — gives the wave a
+                // ranged backbone so it feels like a climax, not just a melee
+                // mob.
+                Entity unit = (i < 2)
+                    ? Veilstinger.Create(em, spawnPos, Faction.Curse)
+                    : Crystalling.Create(em, spawnPos, Faction.Curse);
+
+                if (em.HasComponent<CrystalWaveOrder>(unit))
+                    em.SetComponentData(unit, new CrystalWaveOrder { Target = target, WaveNumber = -2 });
+                else
+                    em.AddComponentData(unit, new CrystalWaveOrder { Target = target, WaveNumber = -2 });
+            }
         }
 
         /// <summary>

@@ -166,6 +166,18 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Glow amount a successful Purification deposits into the pickup.</summary>
         public const int PurificationGlowYield = 10;
 
+        /// <summary>Glow amount yielded by Feraldis Violent Extraction (slightly higher — destruction is permanent).</summary>
+        public const int ViolentExtractionGlowYield = 12;
+
+        /// <summary>Glow amount yielded by Runai Conversion (highest — node fights enslavement hardest).</summary>
+        public const int ConversionGlowYield = 14;
+
+        /// <summary>Curse units in the final wave that erupts when Feraldis destroys a node (spec §5.3).</summary>
+        public const int ViolentExtractionFinalWaveSize = 8;
+
+        /// <summary>Spawn radius for the final wave around the destroyed node.</summary>
+        public const float ViolentExtractionFinalWaveRadius = 5f;
+
         /// <summary>Pickup window before despawn (spec §4.5: 30-60s).</summary>
         public const float GlowPickupTimeout = 45f;
 
