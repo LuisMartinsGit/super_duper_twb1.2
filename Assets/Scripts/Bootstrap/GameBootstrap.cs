@@ -187,6 +187,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
+            managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<TheWaningBorder.World.Terrain.GathererHutGrassPainter>(); // Yellow-grass detail patch around completed huts
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display

@@ -82,15 +82,14 @@ namespace TheWaningBorder.Systems.Economy
             SpawnTraders(ref state, em, dt);
 
             // =============================================================
-            // PHASE 3: Patrol Spawning (all trade nodes) — collect then spawn
+            // PHASE 3 + 4: Patrol spawning + follow disabled (spec refinement #3).
+            // Caravans replaced the separate patrol entity type — they fight
+            // back natively (Damage + Target components on the Caravan).
+            // The old SpawnPatrolsFromHubs / SpawnPatrolsFromNodes /
+            // UpdatePatrolFollowers helpers stay in this file as dead code
+            // for now; a future cleanup pass can delete them along with the
+            // TradePatrol entity factory.
             // =============================================================
-            SpawnPatrolsFromHubs(ref state, em, dt);
-            SpawnPatrolsFromNodes(ref state, em, dt);
-
-            // =============================================================
-            // PHASE 4: Patrol Follow — patrols track nearest same-faction caravan
-            // =============================================================
-            UpdatePatrolFollowers(ref state, em);
         }
 
         /// <summary>

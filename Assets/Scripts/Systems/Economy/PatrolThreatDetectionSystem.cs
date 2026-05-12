@@ -1,19 +1,18 @@
 // PatrolThreatDetectionSystem.cs
 // Spec §7.4 (Sins of a Solar Empire 2 TEC borrow): when enemy units engage
-// within range of a trade lane, nearby patrols become player-controllable.
+// within range of a trade lane, nearby caravans become player-controllable.
 // Returns to autonomous when combat ends.
 //
-// Implementation:
-//   - Every Runai patrol carries PatrolAlertState (added lazily).
+// Implementation (refinement #3 — keyed on CaravanTag since the separate
+// patrol entity type was removed):
+//   - Every caravan carries PatrolAlertState (added lazily).
 //   - Each tick we scan for hostile units within PatrolThreatRange of each
-//     patrol. If any present: alert flag flips to 1 and NotControllableTag
+//     caravan. If any present: alert flag flips to 1 and NotControllableTag
 //     is removed (RTSInputManager.IsBlockedByNotControllable then lets the
 //     player issue commands).
 //   - If no hostile in range, PeacefulSeconds counts up. After
 //     PatrolAlertTimeout seconds, alert flag clears and NotControllableTag
-//     is restored — the patrol resumes its autonomous TradePatrolData flow.
-//
-// Caravans (CaravanTag) stay strictly autonomous — only patrols flip.
+//     is restored — the caravan resumes autonomous route behavior.
 //
 // Location: Assets/Scripts/Systems/Economy/
 
@@ -45,7 +44,7 @@ namespace TheWaningBorder.Systems.Economy
             {
                 All = new[]
                 {
-                    ComponentType.ReadOnly<TradePatrolData>(),
+                    ComponentType.ReadOnly<CaravanTag>(),
                     ComponentType.ReadOnly<LocalTransform>(),
                     ComponentType.ReadOnly<FactionTag>(),
                 },
@@ -81,10 +80,10 @@ namespace TheWaningBorder.Systems.Economy
             using var hostileTransforms = _hostileQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var hostileHealths = _hostileQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            // ── Step 2: tick each patrol ──
+            // ── Step 2: tick each caravan ──
             foreach (var (alertRW, transform, faction, entity) in SystemAPI
                 .Query<RefRW<PatrolAlertState>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<TradePatrolData>()
+                .WithAll<CaravanTag>()
                 .WithEntityAccess())
             {
                 ref var alert = ref alertRW.ValueRW;
