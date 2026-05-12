@@ -206,6 +206,20 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Presentation ID for free-floating Glow pickups.</summary>
         public const int GlowPickupPresentationID = 383;
 
+        // ==================== Glow Weapon Drop (spec §4.5) ====================
+
+        /// <summary>Presentation ID for dropped Glow weapons.</summary>
+        public const int GlowWeaponPresentationID = 385;
+
+        /// <summary>Seconds before a dropped Glow weapon despawns if no one attunes.</summary>
+        public const float GlowWeaponPickupTimeout = 45f;
+
+        /// <summary>Distance within which a qualifying unit can attune to a dropped Glow weapon.</summary>
+        public const float GlowWeaponClaimRadius = 1.5f;
+
+        /// <summary>Seconds a qualifying unit must stand within radius (uninterrupted) to claim.</summary>
+        public const float GlowWeaponAttunementTime = 5f;
+
         // ==================== Ritual Defense (spec §5.1, §5.5) ====================
         // The node defends itself: while a ritual is being channeled, the
         // node spawns curse units at the ritualist with rising frequency.

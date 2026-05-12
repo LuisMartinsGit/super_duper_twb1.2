@@ -72,3 +72,45 @@ public struct UnitEquipmentApplied : IComponentData
 {
     public EquipmentTier Value;
 }
+
+/// <summary>
+/// Per-unit override of the equipment tier. When present, this takes
+/// precedence over the faction-wide FactionEquipmentTier value for the
+/// unit's class. Set when a unit attunes to a dropped Glow weapon (spec
+/// §4.5) — a Glow weapon claim upgrades the carrier above their faction's
+/// general research level.
+/// </summary>
+public struct UnitTierOverride : IComponentData
+{
+    public EquipmentTier Value;
+}
+
+// ==================== Glow Weapon Drop (spec §4.5) ====================
+
+/// <summary>
+/// Marker for a free-floating Glow weapon dropped when a Glow-tier unit
+/// dies. Only Glow-tier equipment drops on death (earlier tiers do not).
+/// </summary>
+public struct GlowWeaponTag : IComponentData { }
+
+/// <summary>
+/// Per-weapon state. Pickup window counts down; attunement requires a
+/// qualifying unit (Veilsteel-tier or higher) to stand within
+/// GlowWeaponClaimRadius for GlowWeaponAttunementTime uninterrupted.
+/// If the current attuner moves out of range or dies, the progress
+/// resets and another in-range qualifier can take over.
+/// </summary>
+public struct GlowWeaponState : IComponentData
+{
+    /// <summary>Unit class this weapon is for (e.g. Melee, Ranged, Siege, Magic).</summary>
+    public UnitClass Class;
+
+    /// <summary>Seconds remaining before despawn if uncarried.</summary>
+    public float TimeRemaining;
+
+    /// <summary>Entity currently attuning to this weapon (Entity.Null when no attuner).</summary>
+    public Unity.Entities.Entity Attuner;
+
+    /// <summary>Seconds the current attuner has spent within radius.</summary>
+    public float AttunementProgress;
+}

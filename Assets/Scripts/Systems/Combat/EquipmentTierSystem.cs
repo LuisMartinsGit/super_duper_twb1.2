@@ -58,7 +58,23 @@ namespace TheWaningBorder.Systems.Combat
                 int facIdx = (int)faction.ValueRO.Value;
                 if (facIdx < 0 || facIdx >= FactionCount) continue;
 
-                EquipmentTier target = byFaction[facIdx].Get(unitTag.ValueRO.Class);
+                // Per-unit override (spec §4.5: Glow weapon claim) wins over
+                // the faction-wide tier. Otherwise read from the faction matrix.
+                EquipmentTier target;
+                if (em.HasComponent<UnitTierOverride>(entity))
+                {
+                    target = em.GetComponentData<UnitTierOverride>(entity).Value;
+                    EquipmentTier facTier = byFaction[facIdx].Get(unitTag.ValueRO.Class);
+                    // Override never downgrades — if the faction has since
+                    // researched a higher tier, the unit benefits from that
+                    // instead. (Unlikely in normal play; safety against
+                    // confusing partial-state.)
+                    if ((byte)facTier > (byte)target) target = facTier;
+                }
+                else
+                {
+                    target = byFaction[facIdx].Get(unitTag.ValueRO.Class);
+                }
 
                 EquipmentTier applied = EquipmentTier.Base;
                 if (em.HasComponent<UnitEquipmentApplied>(entity))
