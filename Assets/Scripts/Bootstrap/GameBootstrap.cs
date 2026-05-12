@@ -186,7 +186,9 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
+            managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
+            managersGO.AddComponent<TheWaningBorder.World.Terrain.GathererHutGrassPainter>(); // Yellow-grass detail patch around completed huts
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
