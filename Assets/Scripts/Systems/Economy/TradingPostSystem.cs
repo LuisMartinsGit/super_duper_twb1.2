@@ -1,4 +1,4 @@
-// File: Assets/Scripts/Systems/Economy/TradingPostSystem.cs
+﻿// File: Assets/Scripts/Systems/Economy/TradingPostSystem.cs
 // Renamed internally to RunaiTradeHubSystem — manages the Runai trade network.
 using Unity.Collections;
 using Unity.Entities;
@@ -33,26 +33,12 @@ namespace TheWaningBorder.Systems.Economy
         private float _discoveryTimer;
         private uint _randomSeed;
 
-        // Deferred request structs
-        private struct PatrolFollowUpdate
-        {
-            public Entity Patrol;
-            public float3 TargetPos;
-        }
-
         private struct TraderSpawnRequest
         {
             public float3 SpawnPos;
             public Faction Faction;
             public Entity Dest;
             public float3 DestPos;
-        }
-
-        private struct PatrolSpawnRequest
-        {
-            public Entity SourceBuilding;
-            public float3 SourcePos;
-            public Faction Faction;
         }
 
         public void OnCreate(ref SystemState state)
@@ -276,228 +262,12 @@ namespace TheWaningBorder.Systems.Economy
             factionTraderCount.Dispose();
         }
 
-        /// <summary>
-        /// Spawn patrols from TradeHub nodes. Collects requests, spawns after loop.
-        ///
-        /// Fix #233: the old code tracked cumulative PatrolsSpawned and never
-        /// decremented on death, so once the cap was hit a spawner would
-        /// permanently stop producing patrols even after its entire patrol
-        /// pool had been wiped out. Instead, count LIVE patrols per source
-        /// building each tick via TradePatrolData.PostA and compare that
-        /// against the cap.
-        /// </summary>
-        private void SpawnPatrolsFromHubs(ref SystemState state, EntityManager em, float dt)
-        {
-            var patrolRequests = new NativeList<PatrolSpawnRequest>(8, Allocator.Temp);
-
-            // Count live patrols per source building (Fix #233)
-            var liveCount = new NativeParallelHashMap<Entity, int>(16, Allocator.Temp);
-            foreach (var patrolData in SystemAPI.Query<RefRO<TradePatrolData>>())
-            {
-                var src = patrolData.ValueRO.PostA;
-                if (liveCount.TryGetValue(src, out int c)) liveCount[src] = c + 1;
-                else liveCount.TryAdd(src, 1);
-            }
-
-            foreach (var (spawner, transform, faction, entity) in SystemAPI
-                .Query<RefRW<TradeHubSpawner>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<TradeHubTag, TradeNodeTag>()
-                .WithNone<UnderConstruction>()
-                .WithEntityAccess())
-            {
-                ref var s = ref spawner.ValueRW;
-                s.PatrolTimer -= dt;
-
-                if (s.PatrolTimer > 0f) continue;
-
-                int patrolCap = s.TradersSpawned * PatrolsPerTrader;
-                if (patrolCap <= 0) patrolCap = DefaultPatrolCap;
-
-                int current = liveCount.TryGetValue(entity, out int lc) ? lc : 0;
-                s.PatrolsSpawned = current; // keep field in sync for telemetry
-                if (current >= patrolCap)
-                {
-                    s.PatrolTimer = PatrolSpawnInterval;
-                    continue;
-                }
-
-                patrolRequests.Add(new PatrolSpawnRequest
-                {
-                    SourceBuilding = entity,
-                    SourcePos = transform.ValueRO.Position,
-                    Faction = faction.ValueRO.Value
-                });
-
-                s.PatrolTimer = PatrolSpawnInterval;
-            }
-
-            // Spawn patrols outside the iteration
-            for (int i = 0; i < patrolRequests.Length; i++)
-            {
-                var req = patrolRequests[i];
-                SpawnPatrolUnit(em, req.SourceBuilding, req.SourcePos, req.Faction);
-            }
-
-            patrolRequests.Dispose();
-            liveCount.Dispose();
-        }
-
-        /// <summary>
-        /// Spawn patrols from Hall/Bazaar trade nodes. Collects requests, spawns after loop.
-        /// Fix #233: live-patrol count (see SpawnPatrolsFromHubs).
-        /// </summary>
-        private void SpawnPatrolsFromNodes(ref SystemState state, EntityManager em, float dt)
-        {
-            var patrolRequests = new NativeList<PatrolSpawnRequest>(8, Allocator.Temp);
-
-            var liveCount = new NativeParallelHashMap<Entity, int>(16, Allocator.Temp);
-            foreach (var patrolData in SystemAPI.Query<RefRO<TradePatrolData>>())
-            {
-                var src = patrolData.ValueRO.PostA;
-                if (liveCount.TryGetValue(src, out int c)) liveCount[src] = c + 1;
-                else liveCount.TryAdd(src, 1);
-            }
-
-            foreach (var (spawner, transform, faction, entity) in SystemAPI
-                .Query<RefRW<TradeNodePatrolSpawner>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<TradeNodeTag>()
-                .WithNone<UnderConstruction>()
-                .WithEntityAccess())
-            {
-                ref var s = ref spawner.ValueRW;
-                s.PatrolTimer -= dt;
-
-                if (s.PatrolTimer > 0f) continue;
-
-                int current = liveCount.TryGetValue(entity, out int lc) ? lc : 0;
-                s.PatrolsSpawned = current;
-                if (current >= s.PatrolCap)
-                {
-                    s.PatrolTimer = PatrolSpawnInterval;
-                    continue;
-                }
-
-                patrolRequests.Add(new PatrolSpawnRequest
-                {
-                    SourceBuilding = entity,
-                    SourcePos = transform.ValueRO.Position,
-                    Faction = faction.ValueRO.Value
-                });
-
-                s.PatrolTimer = PatrolSpawnInterval;
-            }
-
-            // Spawn patrols outside the iteration
-            for (int i = 0; i < patrolRequests.Length; i++)
-            {
-                var req = patrolRequests[i];
-                SpawnPatrolUnit(em, req.SourceBuilding, req.SourcePos, req.Faction);
-            }
-
-            patrolRequests.Dispose();
-            liveCount.Dispose();
-        }
-
-        private const float FollowRetargetDistSq = 9f; // Re-target when > 3 units from nearest caravan
-
-        /// <summary>
-        /// Updates each CaravanFollowerTag patrol to follow the nearest same-faction caravan.
-        /// Re-targets when idle OR when the nearest caravan is more than 3 units away.
-        /// </summary>
-        private void UpdatePatrolFollowers(ref SystemState state, EntityManager em)
-        {
-            // Collect all caravan positions and factions
-            var caravanPositions = new NativeList<float3>(32, Allocator.Temp);
-            var caravanFactions = new NativeList<int>(32, Allocator.Temp);
-
-            foreach (var (transform, faction) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<CaravanTag, RunaiTraderState>())
-            {
-                caravanPositions.Add(transform.ValueRO.Position);
-                caravanFactions.Add((int)faction.ValueRO.Value);
-            }
-
-            if (caravanPositions.Length == 0)
-            {
-                caravanPositions.Dispose();
-                caravanFactions.Dispose();
-                return;
-            }
-
-            // Collect patrol update requests
-            var updates = new NativeList<PatrolFollowUpdate>(16, Allocator.Temp);
-
-            foreach (var (transform, faction, dd, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<DesiredDestination>>()
-                .WithAll<CaravanFollowerTag>()
-                .WithEntityAccess())
-            {
-                float3 patrolPos = transform.ValueRO.Position;
-                int fac = (int)faction.ValueRO.Value;
-
-                // Find nearest same-faction caravan
-                float bestDistSq = float.MaxValue;
-                float3 bestPos = patrolPos;
-                bool found = false;
-
-                for (int i = 0; i < caravanPositions.Length; i++)
-                {
-                    if (caravanFactions[i] != fac) continue;
-                    float dSq = math.distancesq(patrolPos, caravanPositions[i]);
-                    if (dSq < bestDistSq)
-                    {
-                        bestDistSq = dSq;
-                        bestPos = caravanPositions[i];
-                        found = true;
-                    }
-                }
-
-                if (!found) continue;
-
-                // Re-target if idle (arrived) or if nearest caravan is far away
-                bool idle = dd.ValueRO.Has == 0;
-                bool caravanFar = bestDistSq > FollowRetargetDistSq;
-
-                if (idle || caravanFar)
-                {
-                    updates.Add(new PatrolFollowUpdate { Patrol = entity, TargetPos = bestPos });
-                }
-            }
-
-            // Apply destination updates outside query
-            for (int i = 0; i < updates.Length; i++)
-            {
-                var u = updates[i];
-                if (!em.Exists(u.Patrol)) continue;
-                em.SetComponentData(u.Patrol, new DesiredDestination { Position = u.TargetPos, Has = 1 });
-            }
-
-            updates.Dispose();
-            caravanPositions.Dispose();
-            caravanFactions.Dispose();
-        }
-
-        /// <summary>
-        /// Spawn a patrol unit at the given building, with waypoints to 2 random trade nodes.
-        /// Must be called OUTSIDE of SystemAPI.Query loops.
-        /// </summary>
-        private void SpawnPatrolUnit(EntityManager em, Entity sourceBuilding, float3 sourcePos, Faction faction)
-        {
-            // destA is only needed for TradePatrol.Create signature (PostB endpoint)
-            if (!TryPickRandomNode(em, faction, sourceBuilding, sourcePos, out Entity destA, out float3 posA))
-                return;
-
-            Entity patrol = TradePatrol.Create(em, sourcePos, faction, sourceBuilding, destA, sourcePos, posA);
-
-            // Clear waypoints — patrols follow caravans via CaravanFollowerTag, not PatrolSystem
-            if (em.HasBuffer<PatrolWaypoint>(patrol))
-                em.GetBuffer<PatrolWaypoint>(patrol).Clear();
-
-            // Set destination to idle so UpdatePatrolFollowers picks up nearest caravan next frame
-            em.SetComponentData(patrol, new DesiredDestination { Position = float3.zero, Has = 0 });
-        }
-
+        // Patrol-spawning helpers (SpawnPatrolsFromHubs / SpawnPatrolsFromNodes /
+        // UpdatePatrolFollowers / SpawnPatrolUnit) were deleted in slice 28
+        // alongside their callsites in OnUpdate. Spec refinement #3 collapsed
+        // caravans + patrols into a single combat-capable trader entity, so
+        // these helpers had no live callers. The PatrolFollowUpdate +
+        // PatrolSpawnRequest deferred-request structs went with them.
         /// <summary>
         /// Pick a random TradeNodeTag entity of the same faction, excluding a specific entity.
         /// Returns a position offset 3 units from the building center toward the approaching unit.
