@@ -43,6 +43,7 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => CreateFiendstoneKeep(em, position, faction),
                 "Alanthor_Wall" => AlanthorWall.CreateHub(em, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(em, position, faction),
+                "GlowReliquary" => GlowReliquary.Create(em, position, faction),
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
@@ -53,8 +54,7 @@ namespace TheWaningBorder.Entities
                 "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundry(em, position, faction),
                 // Alanthor culture buildings
                 "Alanthor_Tower" => CreateAlanthorWatchTower(em, position, faction),
-                "Alanthor_Garrison" => CreateAlanthorGarrison(em, position, faction),
-                "Alanthor_Stable" => CreateAlanthorRoyalStable(em, position, faction),
+                "Alanthor_PracticeRange" => CreateAlanthorPracticeRange(em, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
                 "KingsCourt" => CreateKingsCourt(em, position, faction),
                 "Alanthor_Crucible" => CreateAlanthorCrucible(em, position, faction),
@@ -99,6 +99,7 @@ namespace TheWaningBorder.Entities
                 "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
                 "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
                 "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
+                "GlowReliquary" => GlowReliquary.Create(ecb, position, faction),
                 // Runai culture buildings
                 "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
                 "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
@@ -109,8 +110,7 @@ namespace TheWaningBorder.Entities
                 "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundryECB(ecb, position, faction),
                 // Alanthor culture buildings
                 "Alanthor_Tower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
-                "Alanthor_Garrison" => CreateAlanthorGarrisonECB(ecb, position, faction),
-                "Alanthor_Stable" => CreateAlanthorRoyalStableECB(ecb, position, faction),
+                "Alanthor_PracticeRange" => CreateAlanthorPracticeRangeECB(ecb, position, faction),
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
                 "KingsCourt" => CreateKingsCourtECB(ecb, position, faction),
                 "Alanthor_Crucible" => CreateAlanthorCrucibleECB(ecb, position, faction),
@@ -154,18 +154,18 @@ namespace TheWaningBorder.Entities
                 "FiendstoneKeep" => 540,
                 "Alanthor_Wall" => AlanthorWall.HubPresentationID,
                 "Alanthor_Smelter" => Smelter.PresentationID,
+                "GlowReliquary" => GlowReliquary.PresentationID,
                 // Runai culture buildings
                 "Runai_Outpost" => 350,
                 "Runai_TradeHub" => 351,
                 "ThessarasBazaar" => 352,
                 "Runai_SiegeWorkshop" => 353,
-                // Runai_TradingPost shares mesh 355 with Alanthor_Garrison.
+                // Runai_TradingPost shares mesh 355 with Alanthor_PracticeRange.
                 // (task-062 Q-39 — was missing, falling through to 100/default.)
                 "Runai_TradingPost" => 355,
                 // Alanthor culture buildings
                 "Alanthor_Tower" => 354,
-                "Alanthor_Garrison" => 355,
-                "Alanthor_Stable" => 356,
+                "Alanthor_PracticeRange" => 355,
                 "Alanthor_SiegeYard" => 357,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => 358,
@@ -195,7 +195,7 @@ namespace TheWaningBorder.Entities
                 "Hall" => 20,
                 "Hut" => 10,
                 "ThessarasBazaar" => 40,
-                "Alanthor_Garrison" => 8,
+                "Alanthor_PracticeRange" => 8,
                 "KingsCourt" => 10,
                 "Feraldis_HuntingLodge" => 10,
                 "Feraldis_LoggingStation" => 10,
@@ -217,8 +217,7 @@ namespace TheWaningBorder.Entities
                 "Runai_TradeHub" => true,
                 "ThessarasBazaar" => true,
                 "Runai_SiegeWorkshop" => true,
-                "Alanthor_Garrison" => true,
-                "Alanthor_Stable" => true,
+                "Alanthor_PracticeRange" => true,
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
@@ -848,10 +847,10 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Alanthor Garrison — trains Sentinel+Crossbowman. +8 pop.
         /// </summary>
-        private static Entity CreateAlanthorGarrison(EntityManager em, float3 position, Faction faction)
+        private static Entity CreateAlanthorPracticeRange(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1500f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Garrison", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -863,40 +862,12 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Garrison");
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_PracticeRange");
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
             em.SetComponentData(entity, new PopulationProvider { Amount = 8 });
-            em.AddComponent<GarrisonTag>(entity);
-            em.AddBuffer<TrainQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        /// <summary>
-        /// Alanthor Royal Stable — trains Cataphract.
-        /// </summary>
-        private static Entity CreateAlanthorRoyalStable(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 1300f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Stable", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
-            em.SetComponentData(entity, new PresentationId { Id = 356 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Stable");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            em.AddComponent<RoyalStableTag>(entity);
+            em.AddComponent<PracticeRangeTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -1726,10 +1697,10 @@ namespace TheWaningBorder.Entities
             return entity;
         }
 
-        private static Entity CreateAlanthorGarrisonECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        private static Entity CreateAlanthorPracticeRangeECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1500f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Garrison", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1739,36 +1710,12 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Garrison");
+            var gridSize = BuildingSizeConfig.GetSize("Alanthor_PracticeRange");
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 8 });
-            ecb.AddComponent<GarrisonTag>(entity);
-            ecb.AddBuffer<TrainQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
-        }
-
-        private static Entity CreateAlanthorRoyalStableECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 1300f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Stable", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 356 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Stable");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            ecb.AddComponent<RoyalStableTag>(entity);
+            ecb.AddComponent<PracticeRangeTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

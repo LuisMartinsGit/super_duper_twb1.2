@@ -31,14 +31,16 @@ public static class BuildingSizeConfig
             "VaultOfAlmierra"   => new int2(4, 4),
             "FiendstoneKeep"    => new int2(5, 5),
 
+            // Glow deposit building (universal, spec §6.3)
+            "GlowReliquary"     => new int2(3, 3),
+
             // Walls - special 1x1
             "Alanthor_Wall"     => new int2(1, 1),
 
             // Alanthor culture
             "Alanthor_Smelter"  => new int2(3, 3),
             "Alanthor_Tower"    => new int2(2, 2),
-            "Alanthor_Garrison" => new int2(3, 4),
-            "Alanthor_Stable"   => new int2(4, 3),
+            "Alanthor_PracticeRange" => new int2(3, 4),
             "Alanthor_SiegeYard"=> new int2(3, 3),
             "KingsCourt"        => new int2(4, 4),
             "Alanthor_Crucible" => new int2(3, 3),

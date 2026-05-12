@@ -119,3 +119,38 @@ public struct GlowPickupState : IComponentData
     /// <summary>RitualKind that produced this pickup (for visuals / faction-bias scoring).</summary>
     public RitualKind Source;
 }
+
+/// <summary>
+/// On a unit that picked up a Glow pickup. Amount accumulates across
+/// multiple pickups. Drops on death (carrier-death system respawns a
+/// GlowPickup at the death position) — spec §5.1: "Glow pickup can be
+/// intercepted in transit by any faction."
+/// </summary>
+public struct GlowCarrier : IComponentData
+{
+    /// <summary>Glow currently being carried (deposited into faction bank on reaching a reliquary).</summary>
+    public int Amount;
+
+    /// <summary>RitualKind that originally produced the carried glow (preserved through hand-offs).</summary>
+    public RitualKind Source;
+}
+
+// ==================== Glow Reliquary (deposit building) ====================
+
+/// <summary>
+/// Marks a building as a Glow deposit point. Carriers entering range
+/// automatically deliver. Spec §6.3: the building EXPLODES when destroyed
+/// while holding glow (highest passive value, highest catastrophic
+/// downside).
+/// </summary>
+public struct GlowReliquaryTag : IComponentData { }
+
+/// <summary>
+/// Glow currently stored in this reliquary. Drives the explode-on-death
+/// magnitude. Reliquaries with Amount == 0 do not explode — only the
+/// stockpile is volatile.
+/// </summary>
+public struct GlowReliquaryStored : IComponentData
+{
+    public int Amount;
+}

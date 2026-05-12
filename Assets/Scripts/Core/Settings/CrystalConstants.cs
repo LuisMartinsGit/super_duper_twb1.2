@@ -192,5 +192,25 @@ namespace TheWaningBorder.Core.Config
 
         /// <summary>Multiplier applied to spawn rate for Runai conversion rituals.</summary>
         public const float RitualDefenseRunaiIntensity = 1.6f;
+
+        // ==================== Glow Flow (spec §5.1, §6.3) ====================
+
+        /// <summary>Distance (XZ) at which a passing unit auto-picks-up a free Glow pickup.</summary>
+        public const float GlowAutoPickupRadius = 1.5f;
+
+        /// <summary>Distance (XZ) at which a Glow carrier auto-deposits at an owned reliquary.</summary>
+        public const float GlowAutoDepositRadius = 3.0f;
+
+        // ==================== Glow Reliquary ====================
+        public const int    GlowReliquaryHP = 600;
+        public const float  GlowReliquaryRadius = 1.6f;
+        public const float  GlowReliquaryLoS = 14f;
+        public const int    GlowReliquaryPresentationID = 522;
+
+        /// <summary>Explosion radius when a reliquary holding glow is destroyed.</summary>
+        public const float  GlowReliquaryExplodeRadius = 12f;
+
+        /// <summary>Damage per stored Glow point dealt to non-owner units inside the blast radius.</summary>
+        public const float  GlowReliquaryExplodeDamagePerGlow = 8f;
     }
 }
