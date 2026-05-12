@@ -80,6 +80,8 @@ namespace TheWaningBorder.World.Minimap
         private EntityQuery _buildingsQ;
         private EntityQuery _obstaclesQ;
         private EntityQuery _ironDepositsQ;
+        private EntityQuery _ritualSitesQ;
+        private EntityQuery _glowPickupsQ;
 
         // FoW
         private FogOfWarManager _fow;
@@ -178,6 +180,16 @@ namespace TheWaningBorder.World.Minimap
 
             _ironDepositsQ = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<IronMineTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+
+            // Ritual broadcast markers (spec §5.1) + Glow pickup markers.
+            // Both visible to all players regardless of fog of war — the spec
+            // is explicit that rituals are universally locatable.
+            _ritualSitesQ = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<ActiveRitualOnNode>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            _glowPickupsQ = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<GlowPickupTag>(),
                 ComponentType.ReadOnly<LocalTransform>());
         }
 
@@ -522,6 +534,37 @@ namespace TheWaningBorder.World.Minimap
                     var pos = xfs[i].Position;
                     int2 p = WorldToPixel(pos);
                     DrawDisc(p.x, p.y, 2, ironColor);
+                }
+            }
+
+            // Ritual broadcast markers (spec §5.1: rituals are visible to all
+            // players, regardless of fog of war). Color matches RitualBeamSystem's
+            // beam tint so the minimap blip + world beam read as the same event.
+            using (var actives = _ritualSitesQ.ToComponentDataArray<ActiveRitualOnNode>(Allocator.Temp))
+            using (var xfs = _ritualSitesQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            {
+                for (int i = 0; i < actives.Length; i++)
+                {
+                    Color c = actives[i].Kind switch
+                    {
+                        RitualKind.Conversion        => new Color(0.45f, 1.00f, 0.55f),
+                        RitualKind.ViolentExtraction => new Color(1.00f, 0.45f, 0.20f),
+                        _                            => new Color(0.65f, 0.95f, 1.00f),
+                    };
+                    int2 p = WorldToPixel(xfs[i].Position);
+                    DrawDisc(p.x, p.y, 4, c);
+                }
+            }
+
+            // Glow pickups on the field — gold blip, also fog-ignorant
+            // (spec §4.5 + refinement #4: the claim must be visible to all).
+            using (var xfs = _glowPickupsQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            {
+                Color glowColor = new Color(1.00f, 0.85f, 0.30f);
+                for (int i = 0; i < xfs.Length; i++)
+                {
+                    int2 p = WorldToPixel(xfs[i].Position);
+                    DrawDisc(p.x, p.y, 3, glowColor);
                 }
             }
         }
