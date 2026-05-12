@@ -36,6 +36,8 @@ namespace TheWaningBorder.Presentation
             public GameObject Root;
             public Transform PipParent;
             public GameObject Halo;
+            public Transform ShieldBarRoot;   // empty wrapper for the shield bar widget
+            public Transform ShieldBarFill;   // inner quad that gets X-scaled by ratio
             public int LastRank = -1;
             public bool LastGlow;
         }
@@ -46,11 +48,15 @@ namespace TheWaningBorder.Presentation
         private EntityQuery _unitQuery;
         private Material _pipMat;
         private Material _haloMat;
+        private Material _shieldBgMat;
+        private Material _shieldFillMat;
 
         void Awake()
         {
             _pipMat = BuildMat(new Color(1.00f, 0.85f, 0.30f, 1f), emissive: true);
             _haloMat = BuildMat(new Color(1.00f, 0.80f, 0.20f, 0.45f), emissive: true);
+            _shieldBgMat = BuildMat(new Color(0.10f, 0.20f, 0.30f, 0.85f), emissive: false);
+            _shieldFillMat = BuildMat(new Color(0.45f, 0.80f, 1.00f, 0.95f), emissive: true);
         }
 
         void Update()
@@ -110,6 +116,28 @@ namespace TheWaningBorder.Presentation
                     if (ov.Halo != null) ov.Halo.SetActive(isGlow);
                     ov.LastGlow = isGlow;
                 }
+
+                // Shield bar: visible only when the unit has a ShieldBar component AND Current > 0.
+                bool hasShield = _em.HasComponent<ShieldBar>(e);
+                int curShield = 0, maxShield = 0;
+                if (hasShield)
+                {
+                    var sb = _em.GetComponentData<ShieldBar>(e);
+                    curShield = sb.Current;
+                    maxShield = sb.Max;
+                }
+                bool showBar = hasShield && curShield > 0 && maxShield > 0;
+                if (ov.ShieldBarRoot != null)
+                {
+                    ov.ShieldBarRoot.gameObject.SetActive(showBar);
+                    if (showBar && ov.ShieldBarFill != null)
+                    {
+                        float ratio = math.clamp((float)curShield / maxShield, 0f, 1f);
+                        ov.ShieldBarFill.localScale = new Vector3(ratio, 1f, 1f);
+                        // Pivot the fill to the left so it shrinks rightward.
+                        ov.ShieldBarFill.localPosition = new Vector3(-0.5f * (1f - ratio), 0f, 0f);
+                    }
+                }
             }
 
             if (_overlays.Count > seen.Count)
@@ -150,11 +178,41 @@ namespace TheWaningBorder.Presentation
             SetMat(halo, _haloMat);
             halo.SetActive(false);
 
+            // Shield bar: a horizontal bar floating slightly below the rank pips.
+            // Wrapper holds the background quad + fill quad. Fill is scaled per
+            // frame by Current/Max ratio; pivots from the left edge so it
+            // shrinks rightward.
+            var sbRoot = new GameObject("ShieldBar").transform;
+            sbRoot.SetParent(root.transform, false);
+            sbRoot.localPosition = new Vector3(0, PipBaseHeight - 0.25f, 0);
+            sbRoot.localScale = new Vector3(1.0f, 0.08f, 1f);  // 1u wide, 0.08u tall
+
+            var sbBg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            sbBg.name = "Bg";
+            sbBg.transform.SetParent(sbRoot, false);
+            sbBg.transform.localScale = new Vector3(1f, 1f, 0.1f);
+            StripCollider(sbBg);
+            SetMat(sbBg, _shieldBgMat);
+
+            var sbFillParent = new GameObject("FillPivot").transform;
+            sbFillParent.SetParent(sbRoot, false);
+            sbFillParent.localPosition = Vector3.zero;
+            var sbFill = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            sbFill.name = "Fill";
+            sbFill.transform.SetParent(sbFillParent, false);
+            sbFill.transform.localScale = new Vector3(1f, 1.1f, 0.12f);  // slightly proud of the bg
+            StripCollider(sbFill);
+            SetMat(sbFill, _shieldFillMat);
+
+            sbRoot.gameObject.SetActive(false);
+
             return new Overlay
             {
                 Root = root,
                 PipParent = pipParent,
                 Halo = halo,
+                ShieldBarRoot = sbRoot,
+                ShieldBarFill = sbFillParent,
             };
         }
 
