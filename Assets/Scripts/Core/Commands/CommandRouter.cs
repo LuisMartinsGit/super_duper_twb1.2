@@ -438,6 +438,63 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // GOD POWER COMMANDS (spec §6.2 + refinement #6)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Cast the faction's god power at a target world position. No Glow
+        /// is spent — the cooldown is reduced by the Glow currently stored
+        /// in the faction's Temple of Ridan (cooldown = base × 0.8^stored).
+        ///
+        /// Returns false if the faction has no GodPowerState (pre-Era?),
+        /// the power is still on cooldown, or the source is queued for
+        /// lockstep (multiplayer wiring is a follow-up).
+        /// </summary>
+        public static bool IssueGodPower(EntityManager em, Faction caster,
+            Unity.Mathematics.float3 targetPosition,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldQueueForLockstep(source))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[CommandRouter.IssueGodPower] not yet replicated through lockstep");
+                return false;
+            }
+
+            // Find the faction's bank entity.
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadWrite<GodPowerState>());
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            Entity bank = Entity.Null;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (tags[i].Value == caster) { bank = ents[i]; break; }
+            }
+            if (bank == Entity.Null) return false;
+
+            var gps = em.GetComponentData<GodPowerState>(bank);
+            if (gps.CooldownRemaining > 0f) return false;
+
+            // Queue a pending cast on the bank — GodPowerCastSystem resolves it.
+            if (em.HasComponent<PendingGodPowerCast>(bank))
+                em.SetComponentData(bank, new PendingGodPowerCast
+                {
+                    Caster = caster,
+                    TargetPosition = targetPosition,
+                });
+            else
+                em.AddComponentData(bank, new PendingGodPowerCast
+                {
+                    Caster = caster,
+                    TargetPosition = targetPosition,
+                });
+
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // PURIFY COMMANDS (Alanthor — scholar channels purification ritual on a crystal node)
         // ═══════════════════════════════════════════════════════════════
 

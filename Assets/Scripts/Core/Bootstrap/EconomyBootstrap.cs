@@ -90,7 +90,8 @@ namespace TheWaningBorder.Economy
                 typeof(FactionEra),
                 typeof(FactionReligionPoints),  // task-063: RP balance + Shrine-bonus latch + CurrentAge
                 typeof(SectAdoptionState),      // task-063: per-sect adoption + lever-level state
-                typeof(FactionEquipmentTier)    // spec §4 — faction-wide equipment research
+                typeof(FactionEquipmentTier),   // spec §4 — faction-wide equipment research
+                typeof(GodPowerState)           // spec §6.2 + refinement #6 — CDR scales with stored Glow
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -121,6 +122,12 @@ namespace TheWaningBorder.Economy
             em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
             em.SetComponentData(bank, default(SectAdoptionState));
             em.SetComponentData(bank, default(FactionEquipmentTier));
+            em.SetComponentData(bank, new GodPowerState
+            {
+                BaseCooldown = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                CooldownRemaining = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                CastCount = 0,
+            });
 
             return bank;
         }
@@ -241,7 +248,8 @@ namespace TheWaningBorder.Economy
                 typeof(FactionEra),
                 typeof(FactionReligionPoints),  // task-063
                 typeof(SectAdoptionState),      // task-063
-                typeof(FactionEquipmentTier)    // spec §4 — faction-wide equipment research
+                typeof(FactionEquipmentTier),   // spec §4 — faction-wide equipment research
+                typeof(GodPowerState)           // spec §6.2 + refinement #6
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -273,6 +281,12 @@ namespace TheWaningBorder.Economy
             em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
             em.SetComponentData(bank, default(SectAdoptionState));
             em.SetComponentData(bank, default(FactionEquipmentTier));  // all classes start at Base
+            em.SetComponentData(bank, new GodPowerState
+            {
+                BaseCooldown = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                CooldownRemaining = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                CastCount = 0,
+            });
 
             return bank;
         }

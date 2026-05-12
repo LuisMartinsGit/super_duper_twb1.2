@@ -233,6 +233,23 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Seconds a qualifying unit must stand within radius (uninterrupted) to claim.</summary>
         public const float GlowWeaponAttunementTime = 5f;
 
+        // ==================== God Powers (spec §6.2 + refinement #6) ====================
+        // Cooldown-only (no Glow cost). cooldown = base × 0.8^stored_glow.
+        // The base value is the cooldown with ZERO stored Glow; storing
+        // Glow in the Temple compresses it asymptotically toward 0.
+
+        /// <summary>Base cooldown (seconds at 0 stored Glow) for the generic god power.</summary>
+        public const float GodPowerBaseCooldown = 90f;
+
+        /// <summary>Per-Glow cooldown multiplier — each stored Glow multiplies remaining cooldown by this.</summary>
+        public const float GodPowerCooldownPerGlow = 0.8f;
+
+        /// <summary>AOE radius of the generic god power cast.</summary>
+        public const float GodPowerRadius = 14f;
+
+        /// <summary>Damage dealt to each non-caster unit/building inside the radius.</summary>
+        public const int GodPowerDamage = 120;
+
         // ==================== Runaii Patrol Alert (spec §7.4) ====================
 
         /// <summary>Distance at which a hostile unit triggers a Runai patrol's controllable-when-threatened mode.</summary>
