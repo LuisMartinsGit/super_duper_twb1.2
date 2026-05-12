@@ -63,5 +63,31 @@ namespace TheWaningBorder.Core.Settings
             EquipmentTier.Glow      => 90f,
             _ => 0f,
         };
+
+        // ==================== Shield bar (spec §4.2-§4.4) ====================
+
+        /// <summary>
+        /// Shield-bar max HP for a given tier. Base + Iron have no shield;
+        /// Crystal+ grants a second HP layer that absorbs damage before
+        /// touching Health.
+        /// </summary>
+        public static int ShieldBarMax(EquipmentTier tier) => tier switch
+        {
+            EquipmentTier.Crystal   => 50,
+            EquipmentTier.Veilsteel => 80,
+            EquipmentTier.Glow      => 120,
+            _ => 0,
+        };
+
+        /// <summary>Shield HP regenerated per second once the regen gate opens.</summary>
+        public const float ShieldBarRegenPerSecond = 5f;
+
+        /// <summary>Seconds of "no damage" required before shield regen kicks in.</summary>
+        public const float ShieldBarRegenDelay = 3f;
+
+        // ==================== Glow revive (spec §4.2 Glow tier) ====================
+
+        /// <summary>Fraction of Max HP the on-death Glow revive restores.</summary>
+        public const float GlowReviveHealthPercent = 0.5f;
     }
 }

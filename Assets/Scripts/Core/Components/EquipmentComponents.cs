@@ -85,6 +85,44 @@ public struct UnitTierOverride : IComponentData
     public EquipmentTier Value;
 }
 
+// ==================== Per-tier magical effects (spec §4.2-§4.4) ====================
+
+/// <summary>
+/// Crystal+ tier shield bar — a second HP layer that absorbs damage
+/// before it touches Health. Regenerates out-of-combat. Spec §4.2:
+/// "Crystal tier: Shield bar (second HP layer) + better stats" — applied
+/// universally across unit classes for MVP (the spec illustrates only
+/// spearman example).
+///
+/// Cap scales with tier: Crystal < Veilsteel < Glow.
+/// </summary>
+public struct ShieldBar : IComponentData
+{
+    /// <summary>Current shield HP (0 = depleted, regenerating).</summary>
+    public int Current;
+
+    /// <summary>Max shield HP at the unit's current tier.</summary>
+    public int Max;
+
+    /// <summary>
+    /// Health.Value snapshot from the previous frame. Used to detect new
+    /// damage and route it through the shield. Mirrors the stamp pattern
+    /// used by UnitRankSystem.
+    /// </summary>
+    public int LastObservedHealth;
+
+    /// <summary>Seconds since this shield last absorbed damage (drives regen gate).</summary>
+    public float RegenDelayTimer;
+}
+
+/// <summary>
+/// Set on a unit once its Glow-tier on-death revive has fired. Prevents
+/// repeated revives on the same entity. Spec §4.2 Glow tier: "Revive
+/// lost battalion members on cooldown" — MVP is a one-shot revive per
+/// Glow unit; the cooldown-based revive is a future polish slice.
+/// </summary>
+public struct GlowReviveUsed : IComponentData { }
+
 // ==================== Glow Weapon Drop (spec §4.5) ====================
 
 /// <summary>
