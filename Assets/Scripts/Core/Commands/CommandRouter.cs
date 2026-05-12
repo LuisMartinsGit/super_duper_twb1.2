@@ -476,6 +476,35 @@ namespace TheWaningBorder.Core.Commands
                 em.AddComponentData(scholar, new PurifyCommand { TargetNode = node });
         }
 
+        /// <summary>
+        /// Issue a Convert ritual command on an acolyte targeting a crystal main
+        /// node. ConversionRitualSystem channels for ConversionChannelTime (45s)
+        /// against the node's heightened curse defense, then transitions the node
+        /// to Converted and flips nearby defenders to the acolyte's faction.
+        /// </summary>
+        public static void IssueConvertNode(EntityManager em, Entity acolyte, Entity node,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (acolyte == Entity.Null || !em.Exists(acolyte)) return;
+            if (node == Entity.Null || !em.Exists(node)) return;
+            if (IsBlockedByNotControllable(em, acolyte, source)) return;
+            if (!em.HasComponent<AcolyteTag>(acolyte)) return;
+            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[CommandRouter.IssueConvertNode] not yet replicated through lockstep — command ignored in multiplayer");
+                return;
+            }
+
+            CommandHelper.ClearAllCommands(em, acolyte);
+            if (em.HasComponent<ConvertNodeCommand>(acolyte))
+                em.SetComponentData(acolyte, new ConvertNodeCommand { TargetNode = node });
+            else
+                em.AddComponentData(acolyte, new ConvertNodeCommand { TargetNode = node });
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // ABILITY COMMANDS
         // ═══════════════════════════════════════════════════════════════
@@ -744,10 +773,13 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasBuffer<QueuedCommand>(unit))
                 em.GetBuffer<QueuedCommand>(unit).Clear();
             // Cancel a pending or in-progress ritual when any other command
-            // is issued. PurificationRitualSystem also clears ActiveRitualOnNode
-            // on the targeted node when it observes the command removed.
+            // is issued. PurificationRitualSystem / ConversionRitualSystem
+            // also clear ActiveRitualOnNode on the targeted node when they
+            // observe the command removed.
             if (em.HasComponent<PurifyCommand>(unit))
                 em.RemoveComponent<PurifyCommand>(unit);
+            if (em.HasComponent<ConvertNodeCommand>(unit))
+                em.RemoveComponent<ConvertNodeCommand>(unit);
             if (em.HasComponent<RitualState>(unit))
                 em.RemoveComponent<RitualState>(unit);
         }

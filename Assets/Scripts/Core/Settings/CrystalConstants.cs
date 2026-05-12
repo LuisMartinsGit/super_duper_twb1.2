@@ -147,6 +147,28 @@ namespace TheWaningBorder.Core.Config
         public const float ScholarRadius = 0.5f;
         public const int   ScholarPresentationID = 382;       // After sect-unique unit IDs (370-381)
 
+        // ==================== Acolyte (Runai ritualist) ====================
+        // Same shape as Scholar — vulnerable caster, escort required. The
+        // mechanical difficulty comes from RitualDefenseSystem's
+        // RitualDefenseRunaiIntensity multiplier, not from the ritualist
+        // itself being weaker.
+        public const float AcolyteHP = 90f;
+        public const float AcolyteSpeed = 3.0f;
+        public const float AcolyteLoS = 14f;
+        public const float AcolyteRadius = 0.5f;
+        public const int   AcolytePresentationID = 384;
+
+        // ==================== Runai Conversion ritual ====================
+        /// <summary>
+        /// Channel time for Runai conversion. Set slightly longer than
+        /// Purification (35s) so the higher-intensity defense window is
+        /// genuinely the spec's "node fights hardest" moment.
+        /// </summary>
+        public const float ConversionChannelTime = 45f;
+
+        /// <summary>Radius around the converted node within which curse defenders flip to Runai's faction.</summary>
+        public const float ConversionFlipRadius = 16f;
+
         // ==================== Ritual (Spec §5, §11) ====================
         /// <summary>
         /// Seconds the ritualist must channel uninterrupted (spec §5.1:

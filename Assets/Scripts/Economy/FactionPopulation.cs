@@ -215,6 +215,7 @@ namespace TheWaningBorder.Economy
                 "Runai_Skirmisher" => 1,
                 "Runai_Raider" => 1,
                 "Runai_Catapult" => 2,
+                "Runai_Acolyte" => 2,
 
                 // Feraldis units
                 "Feraldis_Berserker" => 1,

@@ -420,6 +420,12 @@ namespace TheWaningBorder.Input
                         IssuePurifyCommands(target);
                         break;
                     }
+                    // Acolyte + Active crystal main node → Conversion ritual.
+                    if (capabilities.CanConvertNode && IsActiveCrystalMainNode(target))
+                    {
+                        IssueConvertNodeCommands(target);
+                        break;
+                    }
                     if (capabilities.CanAttack)
                         IssueAttackCommands(target);
                     break;
@@ -616,6 +622,22 @@ namespace TheWaningBorder.Input
                 if (!_em.HasComponent<ScholarTag>(e)) continue;
 
                 CommandRouter.IssuePurify(_em, e, node, CommandSource.LocalPlayer);
+            }
+        }
+
+        /// <summary>
+        /// Issue IssueConvertNode on every acolyte in the current selection.
+        /// Same one-target semantics as IssuePurifyCommands.
+        /// </summary>
+        private void IssueConvertNodeCommands(Entity node)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (!_em.HasComponent<AcolyteTag>(e)) continue;
+
+                CommandRouter.IssueConvertNode(_em, e, node, CommandSource.LocalPlayer);
             }
         }
 
@@ -1249,6 +1271,7 @@ namespace TheWaningBorder.Input
             public bool CanHeal;
             public bool CanBuildRepair;
             public bool CanPurify;
+            public bool CanConvertNode;
         }
 
         private UnitCapabilities DetermineCapabilities()
@@ -1279,6 +1302,10 @@ namespace TheWaningBorder.Input
                 // Scholar can channel Purification on Active crystal main nodes.
                 if (_em.HasComponent<ScholarTag>(e))
                     caps.CanPurify = true;
+
+                // Acolyte can channel Conversion on Active crystal main nodes.
+                if (_em.HasComponent<AcolyteTag>(e))
+                    caps.CanConvertNode = true;
             }
 
             return caps;

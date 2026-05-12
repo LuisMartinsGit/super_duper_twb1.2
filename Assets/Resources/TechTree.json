@@ -240,7 +240,8 @@
                     "radius": 1.8,
                     "trains": [
                         "Litharch",
-                        "Alanthor_Scholar"
+                        "Alanthor_Scholar",
+                        "Runai_Acolyte"
                     ],
                     "uniquePerPlayer": true,
                     "minEra": 1,
@@ -782,6 +783,31 @@
                                 "Iron": 100,
                                 "Crystal": 50
                             }
+                        },
+                        {
+                            "id": "Runai_Acolyte",
+                            "class": "human_magic",
+                            "hp": 90,
+                            "speed": 3.0,
+                            "trainingTime": 35.0,
+                            "armorType": "ranged",
+                            "damage": 0,
+                            "damageType": "magic",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 1
+                            },
+                            "lineOfSight": 14,
+                            "trainAt": [
+                                "TempleOfRidan"
+                            ],
+                            "cost": {
+                                "Supplies": 140,
+                                "Crystal": 50
+                            },
+                            "notes": "Channels Conversion ritual on Active crystal nodes. Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
                         },
                         {
                             "id": "Runai_SandBallista",

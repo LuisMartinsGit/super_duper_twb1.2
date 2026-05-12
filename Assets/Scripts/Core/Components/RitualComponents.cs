@@ -16,6 +16,14 @@ using Unity.Mathematics;
 /// </summary>
 public struct ScholarTag : IComponentData { }
 
+/// <summary>
+/// Marker for Runai's acolyte — the ritualist that performs the
+/// Conversion ritual. Vulnerable channeling unit (spec §5.4). The node
+/// fights enslavement harder than destruction (§5.5), so defending the
+/// acolyte is mechanically harder than defending a scholar.
+/// </summary>
+public struct AcolyteTag : IComponentData { }
+
 // ==================== Ritual state ====================
 
 /// <summary>
@@ -92,6 +100,17 @@ public struct ActiveRitualOnNode : IComponentData
 public struct PurifyCommand : IComponentData
 {
     /// <summary>The crystal main node to purify.</summary>
+    public Entity TargetNode;
+}
+
+/// <summary>
+/// Pending conversion order on an acolyte — emitted by CommandRouter.IssueConvertNode.
+/// ConversionRitualSystem consumes it. Same lifecycle as PurifyCommand but
+/// for Runai's ritual path.
+/// </summary>
+public struct ConvertNodeCommand : IComponentData
+{
+    /// <summary>The crystal main node to convert.</summary>
     public Entity TargetNode;
 }
 
