@@ -48,6 +48,8 @@ namespace TheWaningBorder.Entities
                 Amount = yield,
                 TimeRemaining = GlowPickupTimeout,
                 Source = source,
+                Attuner = Entity.Null,
+                AttunementProgress = 0f,
             });
             em.SetComponentData(entity, new Radius { Value = 0.6f });
 
@@ -74,6 +76,8 @@ namespace TheWaningBorder.Entities
                 Amount = yield,
                 TimeRemaining = GlowPickupTimeout,
                 Source = source,
+                Attuner = Entity.Null,
+                AttunementProgress = 0f,
             });
             ecb.AddComponent(entity, new Radius { Value = 0.6f });
 

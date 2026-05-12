@@ -133,8 +133,12 @@ public struct GlowPickupTag : IComponentData { }
 
 /// <summary>
 /// Per-pickup state. Pickup window counts down — if no one claims within
-/// the window, the Glow despawns (spec §4.5: 30-60s pickup window). Future
-/// extension: Carrier entity ref + attunement timer.
+/// the window, the Glow despawns (spec §4.5: 30-60s pickup window).
+///
+/// Spec refinement #4: claim is a 20-second attunement, not an instant
+/// transfer. A unit must stand within GlowAutoPickupRadius for
+/// GlowPickupAttunementTime uninterrupted; if they move out of range or
+/// die, progress resets and another unit in range can take over.
 /// </summary>
 public struct GlowPickupState : IComponentData
 {
@@ -146,6 +150,12 @@ public struct GlowPickupState : IComponentData
 
     /// <summary>RitualKind that produced this pickup (for visuals / faction-bias scoring).</summary>
     public RitualKind Source;
+
+    /// <summary>Unit currently attuning to this pickup (Entity.Null when no attuner).</summary>
+    public Unity.Entities.Entity Attuner;
+
+    /// <summary>Seconds the current attuner has spent in range.</summary>
+    public float AttunementProgress;
 }
 
 /// <summary>

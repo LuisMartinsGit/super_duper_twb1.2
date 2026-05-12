@@ -52,72 +52,130 @@ namespace TheWaningBorder.Systems.Economy
             }
             expiredPickups.Dispose();
 
-            // ── Phase 2: unit-touches-pickup → transfer ────────────────
-            // Snapshot live pickups into temp arrays so the per-unit loop
-            // doesn't keep re-querying the EM.
-            var pickupQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GlowPickupTag>(),
-                ComponentType.ReadOnly<GlowPickupState>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            using var pickupEnts = pickupQuery.ToEntityArray(Allocator.Temp);
-            using var pickupStates = pickupQuery.ToComponentDataArray<GlowPickupState>(Allocator.Temp);
-            using var pickupTransforms = pickupQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            // Pickups claimed this tick — don't double-claim.
-            var claimed = new NativeHashSet<int>(pickupEnts.Length, Allocator.Temp);
-
+            // ── Phase 2: attunement claim (spec refinement #4) ─────────
+            // 20-second visible attunement — no instant-on-touch claim.
+            // First non-Curse unit in range becomes the Attuner. If they
+            // move out of range, die, or change faction, AttunementProgress
+            // resets and another in-range unit can take over (fight-over-
+            // loot). On completion, transfer to GlowCarrier + destroy pickup.
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            if (pickupEnts.Length > 0)
+            // Snapshot units so the per-pickup loop doesn't re-query.
+            var unitSnapshotQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>());
+            using var unitEnts = unitSnapshotQuery.ToEntityArray(Allocator.Temp);
+            using var unitFactions = unitSnapshotQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var unitTransforms = unitSnapshotQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var unitHealths = unitSnapshotQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            var claimedPickups = new NativeList<Entity>(2, Allocator.Temp);
+            var claimers = new NativeList<Entity>(2, Allocator.Temp);
+            var claimedAmounts = new NativeList<int>(2, Allocator.Temp);
+            var claimedSources = new NativeList<RitualKind>(2, Allocator.Temp);
+
+            foreach (var (stateRW, pickupTransform, pickupEntity) in SystemAPI
+                .Query<RefRW<GlowPickupState>, RefRO<LocalTransform>>()
+                .WithAll<GlowPickupTag>()
+                .WithEntityAccess())
             {
-                foreach (var (unitTransform, unitFaction, unitHealth, unitEntity) in SystemAPI
-                    .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<Health>>()
-                    .WithAll<UnitTag>()
-                    .WithEntityAccess())
+                ref var state = ref stateRW.ValueRW;
+                var pickupPos = pickupTransform.ValueRO.Position;
+
+                // Validate current attuner — still in range, alive, non-Curse?
+                bool attunerValid = false;
+                if (state.Attuner != Entity.Null && em.Exists(state.Attuner))
                 {
-                    if (unitHealth.ValueRO.Value <= 0) continue;
-                    // Curse units never carry — they're a hazard to pickups,
-                    // not a delivery vector. Players + AI only.
-                    if (unitFaction.ValueRO.Value == Faction.Curse) continue;
-
-                    var unitPos = unitTransform.ValueRO.Position;
-                    for (int i = 0; i < pickupEnts.Length; i++)
+                    if (em.HasComponent<Health>(state.Attuner)
+                        && em.GetComponentData<Health>(state.Attuner).Value > 0
+                        && em.HasComponent<FactionTag>(state.Attuner)
+                        && em.GetComponentData<FactionTag>(state.Attuner).Value != Faction.Curse
+                        && em.HasComponent<LocalTransform>(state.Attuner))
                     {
-                        if (claimed.Contains(i)) continue;
+                        var aPos = em.GetComponentData<LocalTransform>(state.Attuner).Position;
+                        float dxz = math.distance(
+                            new float2(aPos.x, aPos.z),
+                            new float2(pickupPos.x, pickupPos.z));
+                        if (dxz <= GlowAutoPickupRadius) attunerValid = true;
+                    }
+                }
+                if (!attunerValid)
+                {
+                    state.Attuner = Entity.Null;
+                    state.AttunementProgress = 0f;
+                }
 
-                        var dxz = math.distance(
-                            new float2(unitPos.x, unitPos.z),
-                            new float2(pickupTransforms[i].Position.x, pickupTransforms[i].Position.z));
+                // Find new attuner if none. First valid unit in the snapshot wins.
+                if (state.Attuner == Entity.Null)
+                {
+                    for (int i = 0; i < unitEnts.Length; i++)
+                    {
+                        if (unitHealths[i].Value <= 0) continue;
+                        if (unitFactions[i].Value == Faction.Curse) continue;
+
+                        var uPos = unitTransforms[i].Position;
+                        float dxz = math.distance(
+                            new float2(uPos.x, uPos.z),
+                            new float2(pickupPos.x, pickupPos.z));
                         if (dxz > GlowAutoPickupRadius) continue;
 
-                        // Transfer the pickup to this unit. If the unit
-                        // already carries glow, stack the amount and keep
-                        // the older source label (first ritual wins).
-                        int existing = 0;
-                        RitualKind src = pickupStates[i].Source;
-                        if (em.HasComponent<GlowCarrier>(unitEntity))
-                        {
-                            var car = em.GetComponentData<GlowCarrier>(unitEntity);
-                            existing = car.Amount;
-                            src = car.Source;
-                        }
-                        var merged = new GlowCarrier
-                        {
-                            Amount = existing + pickupStates[i].Amount,
-                            Source = src,
-                        };
-                        if (em.HasComponent<GlowCarrier>(unitEntity))
-                            em.SetComponentData(unitEntity, merged);
-                        else
-                            ecb.AddComponent(unitEntity, merged);
+                        state.Attuner = unitEnts[i];
+                        state.AttunementProgress = 0f;
+                        Debug.Log($"[Glow] {unitFactions[i].Value} unit begins attuning ({GlowPickupAttunementTime:F0}s)");
+                        break;
+                    }
+                }
 
-                        ecb.DestroyEntity(pickupEnts[i]);
-                        claimed.Add(i);
-                        Debug.Log($"[Glow] {unitFaction.ValueRO.Value} unit picked up {pickupStates[i].Amount} Glow (carrying {merged.Amount})");
-                        break; // one pickup per unit per tick
+                // Tick attunement.
+                if (state.Attuner != Entity.Null)
+                {
+                    state.AttunementProgress += dt;
+                    if (state.AttunementProgress >= GlowPickupAttunementTime)
+                    {
+                        claimedPickups.Add(pickupEntity);
+                        claimers.Add(state.Attuner);
+                        claimedAmounts.Add(state.Amount);
+                        claimedSources.Add(state.Source);
                     }
                 }
             }
-            claimed.Dispose();
+
+            // Apply claims after the loop.
+            for (int i = 0; i < claimedPickups.Length; i++)
+            {
+                Entity unit = claimers[i];
+                int amount = claimedAmounts[i];
+                RitualKind src = claimedSources[i];
+
+                if (em.Exists(unit))
+                {
+                    int existing = 0;
+                    RitualKind keepSrc = src;
+                    if (em.HasComponent<GlowCarrier>(unit))
+                    {
+                        var car = em.GetComponentData<GlowCarrier>(unit);
+                        existing = car.Amount;
+                        keepSrc = car.Source; // first ritual wins for the source label
+                    }
+                    var merged = new GlowCarrier { Amount = existing + amount, Source = keepSrc };
+                    if (em.HasComponent<GlowCarrier>(unit))
+                        em.SetComponentData(unit, merged);
+                    else
+                        em.AddComponentData(unit, merged);
+
+                    Faction f = em.HasComponent<FactionTag>(unit)
+                        ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
+                    Debug.Log($"[Glow] {f} attunement complete — picked up {amount} Glow (carrying {merged.Amount})");
+                }
+                if (em.Exists(claimedPickups[i]))
+                    em.DestroyEntity(claimedPickups[i]);
+            }
+            claimedPickups.Dispose();
+            claimers.Dispose();
+            claimedAmounts.Dispose();
+            claimedSources.Dispose();
 
             // ── Phase 3: carrier-near-temple → deposit ─────────────────
             // Spec refinement #2: Glow is stored on TempleOfRidan, not on a

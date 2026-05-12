@@ -264,8 +264,14 @@ namespace TheWaningBorder.Core.Config
 
         // ==================== Glow Flow (spec §5.1, §6.3) ====================
 
-        /// <summary>Distance (XZ) at which a passing unit auto-picks-up a free Glow pickup.</summary>
+        /// <summary>Distance (XZ) at which a unit can attune to a free Glow pickup.</summary>
         public const float GlowAutoPickupRadius = 1.5f;
+
+        /// <summary>
+        /// Seconds a unit must stand within GlowAutoPickupRadius (uninterrupted)
+        /// to claim a Glow pickup (spec refinement #4 — was instant on touch).
+        /// </summary>
+        public const float GlowPickupAttunementTime = 20f;
 
         /// <summary>Distance (XZ) at which a Glow carrier auto-deposits at an owned reliquary.</summary>
         public const float GlowAutoDepositRadius = 3.0f;
