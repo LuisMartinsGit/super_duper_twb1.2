@@ -188,6 +188,50 @@ namespace TheWaningBorder.UI.HUD
         }
 
         /// <summary>
+        /// Called by NodeVictorySystem when a culture wins by node victory
+        /// (Alanthor cleanse-all-hold, Runai convert-all-hold, Feraldis
+        /// destroy-all-instant). Posts the appropriate VICTORY / DEFEAT
+        /// banner from the local player's perspective.
+        /// </summary>
+        public void TriggerNodeVictory(byte culture, Faction winner)
+        {
+            if (_gameOver) return;
+
+            string cultureName = culture switch
+            {
+                Cultures.Runai    => "RUNAI",
+                Cultures.Alanthor => "ALANTHOR",
+                Cultures.Feraldis => "FERALDIS",
+                _ => $"Culture {culture}",
+            };
+
+            _gameOver = true;
+
+            if (GameStatsTracker.Instance != null)
+                GameStatsTracker.Instance.EndGame();
+
+            string result;
+            if (GameSettings.IsObserver)
+            {
+                result = $"{cultureName} WINS (node victory)";
+            }
+            else
+            {
+                // Local player wins if their faction is the representative —
+                // a follow-up will resolve shared-culture team wins properly.
+                bool localWins = winner == GameSettings.LocalPlayerFaction;
+                result = localWins
+                    ? $"VICTORY — {cultureName} node win"
+                    : $"DEFEAT — {cultureName} node win";
+            }
+
+            EndGameButton.GameEndedBySystem = true;
+
+            if (PostGameStatsUI.Instance != null)
+                PostGameStatsUI.Instance.ShowWithResult(result, winner);
+        }
+
+        /// <summary>
         /// Called when the local player surrenders via the End Game button.
         /// </summary>
         public void Surrender()

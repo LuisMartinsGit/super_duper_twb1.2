@@ -35,6 +35,8 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalAIState),
                 typeof(CrystalTrainingState),
                 typeof(CrystalResourceValue),
+                typeof(CrystalNodeState),
+                typeof(LastDamagedByFaction),
                 typeof(BuildingRangedAttack),
                 typeof(Defense)
             );
@@ -61,6 +63,14 @@ namespace TheWaningBorder.Entities
             {
                 BuildCost = MainNodeBuildCost
             });
+            em.SetComponentData(entity, new CrystalNodeState
+            {
+                State = NodeState.Active,
+                OwnerCulture = Cultures.None,
+                OwnerFaction = Faction.Curse,
+                StateTimer = 0f,
+            });
+            em.SetComponentData(entity, new LastDamagedByFaction { Value = Faction.Curse });
 
             // Self-defense turret
             em.SetComponentData(entity, new BuildingRangedAttack
@@ -83,6 +93,10 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
+
+            // Long construction window — drives the staggered rise animation.
+            // Curse nodes have no builders; CurseConstructionSystem advances Progress.
+            em.AddComponentData(entity, new UnderConstruction { Progress = 0f, Total = 240f });
 
             return entity;
         }
@@ -124,6 +138,14 @@ namespace TheWaningBorder.Entities
             {
                 BuildCost = MainNodeBuildCost
             });
+            ecb.AddComponent(entity, new CrystalNodeState
+            {
+                State = NodeState.Active,
+                OwnerCulture = Cultures.None,
+                OwnerFaction = Faction.Curse,
+                StateTimer = 0f,
+            });
+            ecb.AddComponent(entity, new LastDamagedByFaction { Value = Faction.Curse });
 
             // Self-defense turret
             ecb.AddComponent(entity, new BuildingRangedAttack
@@ -146,6 +168,9 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
+
+            // Long construction window — drives the staggered rise animation.
+            ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = 240f });
 
             return entity;
         }

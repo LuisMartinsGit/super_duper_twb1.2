@@ -123,5 +123,21 @@ namespace TheWaningBorder.Core.Config
         public const int MaxEnforcementNodesPerMain = 1;
         public const int MaxSuppressionNodesPerMain = 1;
         public const int MaxSubNodesPerMain = 6;
+
+        // ==================== Node State Machine (Spec §9, §11) ====================
+        // Tunable timers — exposed early per spec §11. "The map wants to be Active":
+        // every non-Active state reverts to Active when its timer expires.
+
+        /// <summary>Seconds a Cleansed node persists before reverting to Active.</summary>
+        public const float NodeCleansedRevertTime = 300f;     // 5 min
+
+        /// <summary>Seconds a Converted node persists before reverting to Active.</summary>
+        public const float NodeConvertedRevertTime = 300f;    // 5 min
+
+        /// <summary>Seconds a Destroyed node remains dormant before regrowing to Active.</summary>
+        public const float NodeDestroyedRegrowTime = 540f;    // 9 min (spec: 8-10 min)
+
+        /// <summary>Seconds a culture must hold all-claimed map to trigger node victory.</summary>
+        public const float NodeVictoryHoldTime = 300f;        // 5 min
     }
 }

@@ -82,13 +82,24 @@ namespace TheWaningBorder.Systems.Crystal
         {
             RequireForUpdate<CrystalMainNodeTag>();
 
-            _mainNodeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadWrite<CrystalAIState>(),
-                ComponentType.ReadOnly<CrystalNode>(),
-                ComponentType.ReadOnly<CrystalNodeLevel>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<CrystalMainNodeTag>()
-            );
+            // WithNone<NodeDormant> so the AI stops driving training / expansion
+            // ticks for nodes that have been destroyed by a Feraldis-style kill
+            // and are sitting in the Destroyed state waiting for regrowth.
+            _mainNodeQuery = EntityManager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadWrite<CrystalAIState>(),
+                    ComponentType.ReadOnly<CrystalNode>(),
+                    ComponentType.ReadOnly<CrystalNodeLevel>(),
+                    ComponentType.ReadOnly<LocalTransform>(),
+                    ComponentType.ReadOnly<CrystalMainNodeTag>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<NodeDormant>(),
+                },
+            });
 
             _subNodeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CrystalSubNodeTag>(),

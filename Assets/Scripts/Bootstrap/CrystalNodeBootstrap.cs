@@ -207,6 +207,23 @@ namespace TheWaningBorder.Bootstrap
                 });
             }
 
+            // Initialize node victory singleton so NodeVictorySystem can run.
+            // Tracks per-culture hold timers and Feraldis last-destroyer
+            // attribution for the dual node-victory paths (spec §8).
+            var victoryQuery = em.CreateEntityQuery(ComponentType.ReadOnly<NodeVictoryState>());
+            if (victoryQuery.IsEmpty)
+            {
+                var victoryEntity = em.CreateEntity(typeof(NodeVictoryState));
+                em.SetComponentData(victoryEntity, new NodeVictoryState
+                {
+                    AlanthorHoldTimer = 0f,
+                    RunaiHoldTimer = 0f,
+                    LastDestroyerFaction = Faction.Curse,
+                    LastDestroyerCulture = Cultures.None,
+                    VictoryFired = 0,
+                });
+            }
+
             // Starter near-patch is spawned by CrystalPatchBootstrap (which always
             // runs, with or without the curse). This file used to spawn its own
             // 5×320=1600-crystal starter patch, doubling up with CrystalPatchBootstrap

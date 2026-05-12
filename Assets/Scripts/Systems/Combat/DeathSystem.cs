@@ -81,6 +81,7 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (health, entity) in SystemAPI
                          .Query<RefRO<Health>>()
                          .WithNone<BattalionLeader, DeathAnimationState, BuildingCollapseState>()
+                         .WithNone<NodeDormant>()
                          .WithEntityAccess())
             {
                 if (health.ValueRO.Value <= 0)
