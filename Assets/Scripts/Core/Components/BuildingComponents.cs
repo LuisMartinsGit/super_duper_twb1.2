@@ -195,11 +195,8 @@ public struct CrucibleTag : IComponentData { }
 /// <summary>Alanthor ranged defensive tower. Garrison 4.</summary>
 public struct WatchTowerTag : IComponentData { }
 
-/// <summary>Alanthor military training building. +8 pop. Trains Sentinel+Crossbowman.</summary>
-public struct GarrisonTag : IComponentData { }
-
-/// <summary>Alanthor cavalry training building. Trains Cataphract.</summary>
-public struct RoyalStableTag : IComponentData { }
+/// <summary>Alanthor ranged training building. +8 pop. Trains Archer at L1, Crossbowman at L2.</summary>
+public struct PracticeRangeTag : IComponentData { }
 
 /// <summary>Alanthor siege unit training building. Trains Ballista.</summary>
 public struct SiegeYardTag : IComponentData { }
@@ -271,6 +268,14 @@ public struct TempleChapelSlot : IBufferElementData
     public float BuildProgress;
     /// <summary>Total build time in seconds.</summary>
     public float BuildTime;
+    /// <summary>
+    /// 0 = no glow, 1 = a glow is allocated to this shrine. When 1, the
+    /// sect's god-power cooldown is halved on each fire (refinement: opt-in
+    /// religion, glow allocated to shrines halves recharge time of that
+    /// sect's god power, no stacking). Glow units come from the Temple's
+    /// GlowStored at allocation time and stay locked until deallocated.
+    /// </summary>
+    public byte GlowAllocated;
 }
 
 /// <summary>

@@ -150,22 +150,32 @@ namespace TheWaningBorder.UI.HUD
                     continue;
                 }
 
-                // State 2 — adopted. Show short name + Fire button if AP bought.
+                // State 2 — adopted. Every adopted sect has a god power
+                // (refinement: religion is opt-in, each chosen sect gets a power).
                 string sectId = slotSectIds[i];
-                GUI.Label(new Rect(rect.x, rect.y, rect.width, 26f),
+                GUI.Label(new Rect(rect.x, rect.y, rect.width, 18f),
                     ShortName(sectId), _slotStyle);
 
-                byte apLevel = SectQuery.LevelOf(_em, faction, sectId, SectLeverKind.ActivePower);
-                if (apLevel > 0)
+                bool glowAllocated = SectActivePowerHelper.HasGlowAllocated(_em, faction, sectId);
+
+                // Fire button — shrinks vertically so a glow toggle fits below.
+                var btnRect = new Rect(rect.x + 4, rect.y + 18, rect.width - 8, 18);
+                float remaining = SectActivePowerHelper.CooldownRemaining(_em, faction, sectId);
+                bool ready = remaining <= 0f;
+                GUI.enabled = ready;
+                string label = ready ? "Fire" : $"{(int)remaining}s";
+                if (GUI.Button(btnRect, label, _btnStyle))
+                    FireActivePower(faction, sectId, temple);
+                GUI.enabled = true;
+
+                // Glow allocation toggle. Filled = 1 Glow locked here (halves
+                // cooldown on each cast). Click to toggle allocate/deallocate.
+                var glowRect = new Rect(rect.x + 4, rect.y + 38, rect.width - 8, 16);
+                string glowLabel = glowAllocated ? "◆ Glow ◆" : "+ Allocate Glow";
+                if (GUI.Button(glowRect, glowLabel, _btnStyle))
                 {
-                    var btnRect = new Rect(rect.x + 4, rect.y + 28, rect.width - 8, 22);
-                    float remaining = SectActivePowerHelper.CooldownRemaining(_em, faction, sectId);
-                    bool ready = remaining <= 0f;
-                    GUI.enabled = ready;
-                    string label = ready ? "Fire" : $"{(int)remaining}s";
-                    if (GUI.Button(btnRect, label, _btnStyle))
-                        FireActivePower(faction, sectId, temple);
-                    GUI.enabled = true;
+                    if (glowAllocated) SectActivePowerHelper.DeallocateGlow(_em, faction, sectId);
+                    else SectActivePowerHelper.AllocateGlow(_em, faction, sectId);
                 }
             }
         }

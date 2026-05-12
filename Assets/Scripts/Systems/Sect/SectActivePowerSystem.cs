@@ -81,6 +81,97 @@ namespace TheWaningBorder.Systems.Sect
         /// Returns the remaining cooldown for the faction's sect Active
         /// Power, or 0 if ready (or if the lever isn't bought).
         /// </summary>
+        /// <summary>True if the faction's Temple has GlowAllocated == 1 on the slot whose SectId matches.</summary>
+        public static bool HasGlowAllocated(EntityManager em, Faction faction, string sectId)
+        {
+            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
+            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
+            var buf = em.GetBuffer<TempleChapelSlot>(temple);
+            for (int i = 0; i < buf.Length; i++)
+            {
+                if (buf[i].SectId.ToString() == sectId) return buf[i].GlowAllocated == 1;
+            }
+            return false;
+        }
+
+        /// <summary>True if this faction has adopted the sect (any AdoptedAtAge != 0).</summary>
+        public static bool IsAdopted(EntityManager em, Faction faction, string sectId)
+        {
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return false;
+            if (!em.HasComponent<SectAdoptionState>(bank)) return false;
+            var sect = em.GetComponentData<SectAdoptionState>(bank).Get(sectId);
+            return sect.IsAdopted;
+        }
+
+        /// <summary>
+        /// Allocate 1 Glow from the Temple's GlowStored to the matching sect's
+        /// shrine slot. No-op if Glow is already allocated, the sect isn't
+        /// adopted, or the Temple has no Glow to spend.
+        /// </summary>
+        public static bool AllocateGlow(EntityManager em, Faction faction, string sectId)
+        {
+            if (!IsAdopted(em, faction, sectId)) return false;
+            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
+            if (!em.HasComponent<GlowStored>(temple)) return false;
+            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
+
+            var stored = em.GetComponentData<GlowStored>(temple);
+            if (stored.Amount <= 0) return false;
+
+            var buf = em.GetBuffer<TempleChapelSlot>(temple);
+            for (int i = 0; i < buf.Length; i++)
+            {
+                if (buf[i].SectId.ToString() != sectId) continue;
+                if (buf[i].GlowAllocated == 1) return false;  // no stacking
+                var slot = buf[i];
+                slot.GlowAllocated = 1;
+                buf[i] = slot;
+                stored.Amount -= 1;
+                em.SetComponentData(temple, stored);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Deallocate 1 Glow from this sect's shrine (refunded to the Temple's GlowStored).</summary>
+        public static bool DeallocateGlow(EntityManager em, Faction faction, string sectId)
+        {
+            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
+            if (!em.HasComponent<GlowStored>(temple)) return false;
+            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
+
+            var buf = em.GetBuffer<TempleChapelSlot>(temple);
+            for (int i = 0; i < buf.Length; i++)
+            {
+                if (buf[i].SectId.ToString() != sectId) continue;
+                if (buf[i].GlowAllocated == 0) return false;
+                var slot = buf[i];
+                slot.GlowAllocated = 0;
+                buf[i] = slot;
+                var stored = em.GetComponentData<GlowStored>(temple);
+                stored.Amount += 1;
+                em.SetComponentData(temple, stored);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Look up the faction's TempleOfRidan entity, if any.</summary>
+        private static bool TryGetFactionTemple(EntityManager em, Faction faction, out Entity temple)
+        {
+            temple = Entity.Null;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleOfRidanTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (tags[i].Value == faction) { temple = ents[i]; return true; }
+            }
+            return false;
+        }
+
         public static float CooldownRemaining(EntityManager em, Faction faction, string sectId)
         {
             int sectIdx = SectConfig.IndexOf(sectId);
@@ -95,8 +186,7 @@ namespace TheWaningBorder.Systems.Sect
 
         public static bool CanFire(EntityManager em, Faction faction, string sectId)
         {
-            byte level = SectQuery.LevelOf(em, faction, sectId, SectLeverKind.ActivePower);
-            if (level == 0) return false;
+            if (!IsAdopted(em, faction, sectId)) return false;
             return CooldownRemaining(em, faction, sectId) <= 0f;
         }
 
@@ -108,19 +198,26 @@ namespace TheWaningBorder.Systems.Sect
         /// </summary>
         public static bool Fire(EntityManager em, Faction faction, string sectId, float3 targetPos)
         {
-            byte level = SectQuery.LevelOf(em, faction, sectId, SectLeverKind.ActivePower);
-            if (level == 0) return false;
+            // Refinement: every ADOPTED sect has its god power, no AP-lever
+            // requirement. The lever level still scales magnitude when bought.
+            byte adopted = (byte)(IsAdopted(em, faction, sectId) ? 1 : 0);
+            if (adopted == 0) return false;
             if (CooldownRemaining(em, faction, sectId) > 0f) return false;
 
             var spec = SectLeverEffects.ActiveOf(sectId);
             if (spec.Kind == SectActivePowerKind.None) return false;
 
-            // Magnitude scales with level; cooldown scales inversely.
-            float scalar = SectLeverEffects.LevelScalar(level);
+            // Magnitude scales with level (default Lv 1 if AP unbought);
+            // cooldown scales inversely. Glow allocated to the sect's shrine
+            // halves the post-fire cooldown.
+            byte level = SectQuery.LevelOf(em, faction, sectId, SectLeverKind.ActivePower);
+            byte effLevel = level == 0 ? (byte)1 : level;
+            float scalar = SectLeverEffects.LevelScalar(effLevel);
             float radius = spec.Radius;
             float magnitude = spec.Magnitude * scalar;
             float duration = spec.Duration;
             float cooldown = spec.Cooldown / scalar;
+            if (HasGlowAllocated(em, faction, sectId)) cooldown *= 0.5f;
 
             DispatchEffect(em, faction, spec.Kind, targetPos, radius, magnitude, duration);
 

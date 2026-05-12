@@ -189,7 +189,9 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
             managersGO.AddComponent<UnitVisualOverlaySystem>();   // Rank pips + Glow halo (spec refinement #7)
-            managersGO.AddComponent<GodPowerHUD>();                // God power cast button + cooldown (spec §6.2)
+            // GodPowerHUD removed — sect god powers now route through the existing
+            // ReligionHUD's per-sect Fire buttons. Glow allocation lives on each
+            // chapel slot (TempleChapelSlot.GlowAllocated).
             managersGO.AddComponent<VictoryProgressHUD>();         // Per-culture node-victory tracker (spec §11 item 7)
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             managersGO.AddComponent<TheWaningBorder.World.Terrain.GathererHutGrassPainter>(); // Yellow-grass detail patch around completed huts
