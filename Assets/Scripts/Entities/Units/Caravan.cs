@@ -25,7 +25,11 @@ namespace TheWaningBorder.Entities
         private const float DefaultAttackRange = 1.6f;
         private const float DefaultAttackCooldown = 1.4f;
         private const float DefaultRadius = 0.4f;
-        private const int PresentationID = 401;
+        // PresentationID intentionally outside PresentationSpawnSystem's PrefabPaths
+        // dictionary so no prefab is instantiated. CaravanVisualSystem builds the
+        // procedural desert-traveler GameObject instead. The previous value 401
+        // collided with "Procedural/Rock" and spawned rocks under every caravan.
+        private const int PresentationID = 405;
 
         /// <summary>
         /// Create Caravan using EntityManager.
@@ -70,6 +74,9 @@ namespace TheWaningBorder.Entities
 
             // Caravan-specific components (RunaiTraderState added by RunaiTradeHubSystem after creation)
             em.AddComponent<CaravanTag>(entity);
+            // Spawn autonomous — PatrolThreatDetectionSystem strips this tag when
+            // an enemy is within range and restores it when the lane is peaceful.
+            em.AddComponent<NotControllableTag>(entity);
             em.AddComponentData(entity, new LastDamagedByFaction { Value = faction });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Melee });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
@@ -102,6 +109,7 @@ namespace TheWaningBorder.Entities
 
             // Caravan-specific components (RunaiTraderState added by RunaiTradeHubSystem after creation)
             ecb.AddComponent<CaravanTag>(entity);
+            ecb.AddComponent<NotControllableTag>(entity);
             ecb.AddComponent(entity, new LastDamagedByFaction { Value = faction });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });

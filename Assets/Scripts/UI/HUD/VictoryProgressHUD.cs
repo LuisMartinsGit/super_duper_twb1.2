@@ -38,6 +38,12 @@ namespace TheWaningBorder.UI.HUD
             int totalNodes = CountTotalNodes();
             if (totalNodes <= 0) return;  // no nodes yet — bootstrap incomplete
 
+            // Spec: hide the panel entirely in the Timeless Age (pre-culture-commit).
+            // Show only after the local player has aged up — once committed, the
+            // dramatic countdown gives them stake in the node race.
+            byte myCulture = LocalPlayerCulture();
+            if (myCulture == Cultures.None) return;
+
             int cleansedByAlanthor = 0;
             int convertedByRunai = 0;
             int destroyed = 0;
@@ -50,22 +56,56 @@ namespace TheWaningBorder.UI.HUD
 
             float x = (Screen.width - PanelWidth) * 0.5f;
             float y = TopMargin;
-            GUI.Box(new Rect(x, y, PanelWidth, PanelHeight), GUIContent.none, _boxStyle);
+            float h = 76f;   // panel sized for player row + summary line only
+            GUI.Box(new Rect(x, y, PanelWidth, h), GUIContent.none, _boxStyle);
 
             GUI.Label(new Rect(x + 12, y + 6, PanelWidth - 24, 22),
                 $"Node Victory — {totalNodes} node{(totalNodes == 1 ? "" : "s")} on the map", _titleStyle);
 
-            DrawRow(x + 12, y + 32,
-                "Alanthor (Cleanse all)", cleansedByAlanthor, totalNodes,
-                alanthorHold, NodeVictoryHoldTime);
-            DrawRow(x + 12, y + 52,
-                "Runai (Convert all)", convertedByRunai, totalNodes,
-                runaiHold, NodeVictoryHoldTime);
-            DrawRow(x + 12, y + 72,
-                "Feraldis (Destroy all)", destroyed, totalNodes,
-                0f, 0f,
-                feraldis: true,
-                lastDestroyerCulture: lastDestroyerCulture);
+            // Render the local player's culture's row prominently…
+            switch (myCulture)
+            {
+                case Cultures.Alanthor:
+                    DrawRow(x + 12, y + 32, "Alanthor (Cleanse all)",
+                        cleansedByAlanthor, totalNodes, alanthorHold, NodeVictoryHoldTime);
+                    break;
+                case Cultures.Runai:
+                    DrawRow(x + 12, y + 32, "Runai (Convert all)",
+                        convertedByRunai, totalNodes, runaiHold, NodeVictoryHoldTime);
+                    break;
+                case Cultures.Feraldis:
+                    DrawRow(x + 12, y + 32, "Feraldis (Destroy all)",
+                        destroyed, totalNodes, 0f, 0f,
+                        feraldis: true, lastDestroyerCulture: lastDestroyerCulture);
+                    break;
+            }
+
+            // …with a small summary line for the other two cultures so the
+            // player still sees the threat level.
+            string others = myCulture switch
+            {
+                Cultures.Alanthor => $"Runai {convertedByRunai}/{totalNodes}    Feraldis {destroyed}/{totalNodes}",
+                Cultures.Runai    => $"Alanthor {cleansedByAlanthor}/{totalNodes}    Feraldis {destroyed}/{totalNodes}",
+                Cultures.Feraldis => $"Alanthor {cleansedByAlanthor}/{totalNodes}    Runai {convertedByRunai}/{totalNodes}",
+                _ => string.Empty,
+            };
+            GUI.Label(new Rect(x + 12, y + 52, PanelWidth - 24, 20), others, _lineStyle);
+        }
+
+        /// <summary>Look up the local player's culture via their Hall.</summary>
+        private byte LocalPlayerCulture()
+        {
+            var q = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<FactionProgress>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var prog = q.ToComponentDataArray<FactionProgress>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                if (tags[i].Value == GameSettings.LocalPlayerFaction)
+                    return prog[i].Culture;
+            return Cultures.None;
         }
 
         private void DrawRow(float x, float y, string label, int count, int total,

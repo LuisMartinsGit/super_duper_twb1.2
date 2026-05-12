@@ -310,7 +310,9 @@ namespace TheWaningBorder.UI.HUD
             DrawResourceRow(panelX, ref yPos, "Iron", res.Iron.ToString(), new Color(0.7f, 0.7f, 0.8f));
             DrawResourceRow(panelX, ref yPos, "Crystal", res.Crystal.ToString(), new Color(0.6f, 0.8f, 1f));
             DrawResourceRow(panelX, ref yPos, "Veilsteel", res.Veilsteel.ToString(), new Color(0.8f, 0.5f, 1f));
-            DrawResourceRow(panelX, ref yPos, "Glow", res.Glow.ToString(), new Color(1f, 1f, 0.6f));
+            // Glow row removed per design refinement — Glow is a sect-shrine
+            // resource held by TempleOfRidan and surfaced by ReligionHUD,
+            // not a bank-wide currency on the resource panel.
 
             // Alanthor wall income — only meaningful for the displayed faction.
             float wallIncome = 0f;

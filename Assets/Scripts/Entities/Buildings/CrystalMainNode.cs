@@ -25,6 +25,7 @@ namespace TheWaningBorder.Entities
                 typeof(FactionTag),
                 typeof(Health),
                 typeof(Radius),
+                typeof(LineOfSight),
                 typeof(BuildingSize),
                 typeof(BuildingTag),
                 typeof(CrystalTag),
@@ -48,6 +49,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
             em.SetComponentData(entity, new Radius { Value = MainNodeRadius });
+            // Small LOS so Faction.Curse "sees" the area around its own node and
+            // can react to attackers; the FOW reveal radius for player factions
+            // is independent and gated by their own scouts.
+            em.SetComponentData(entity, new LineOfSight { Radius = MainNodeLineOfSight });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalNode
             {
@@ -117,6 +122,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
             ecb.AddComponent(entity, new Radius { Value = MainNodeRadius });
+            ecb.AddComponent(entity, new LineOfSight { Radius = MainNodeLineOfSight });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent<CrystalMainNodeTag>(entity);

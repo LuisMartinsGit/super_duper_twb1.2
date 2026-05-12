@@ -72,6 +72,12 @@ namespace TheWaningBorder.Presentation
         void LateUpdate()
         {
             if (!_valid || _animator == null) return;
+            // Guard against the ECS world being disposed (player returned to
+            // main menu mid-game); `_em.Exists` throws ObjectDisposedException
+            // if the world is gone. Re-acquire silently on the next valid frame.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            if (_em != world.EntityManager) _em = world.EntityManager;
             if (LinkedEntity == Entity.Null || !_em.Exists(LinkedEntity)) return;
             if (_deathTriggered) return;
 

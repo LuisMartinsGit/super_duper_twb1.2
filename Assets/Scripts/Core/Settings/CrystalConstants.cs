@@ -18,6 +18,8 @@ namespace TheWaningBorder.Core.Config
         public const int MainNodeAttackDamage = 25;
         public const float MainNodeAttackCooldown = 1.2f;
         public const int MainNodeAttackMaxTargets = 3;
+        /// <summary>LOS radius for the main node — small so the node "sees" its immediate area without revealing the whole map.</summary>
+        public const float MainNodeLineOfSight = 8f;
 
         // ==================== Resource Node ====================
         public const int ResourceNodeHP = 200;
