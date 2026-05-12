@@ -171,5 +171,26 @@ namespace TheWaningBorder.Core.Config
 
         /// <summary>Presentation ID for free-floating Glow pickups.</summary>
         public const int GlowPickupPresentationID = 383;
+
+        // ==================== Ritual Defense (spec §5.1, §5.5) ====================
+        // The node defends itself: while a ritual is being channeled, the
+        // node spawns curse units at the ritualist with rising frequency.
+        // Spec §5.5: Runai conversion uses higher intensity than the other
+        // rituals — the node fights enslavement harder than destruction.
+
+        /// <summary>Spawn interval at the start of a ritual (slowest spawn rate).</summary>
+        public const float RitualDefenseMaxInterval = 7f;
+
+        /// <summary>Spawn interval at ritual completion (fastest spawn rate).</summary>
+        public const float RitualDefenseMinInterval = 2f;
+
+        /// <summary>Per-ritual cap on defenders so the cap on curse pop isn't blown.</summary>
+        public const int RitualDefenseMaxDefenders = 18;
+
+        /// <summary>Spawn radius around the node where defenders appear.</summary>
+        public const float RitualDefenseSpawnRadius = 4f;
+
+        /// <summary>Multiplier applied to spawn rate for Runai conversion rituals.</summary>
+        public const float RitualDefenseRunaiIntensity = 1.6f;
     }
 }

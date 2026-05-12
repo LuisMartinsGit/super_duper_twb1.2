@@ -70,6 +70,17 @@ public struct ActiveRitualOnNode : IComponentData
 
     /// <summary>Cultures.* of the ritualist (drives state transition + victory).</summary>
     public byte RitualistCulture;
+
+    /// <summary>
+    /// Seconds remaining until the next defensive spawn. The ritual-defense
+    /// system ticks this down; on reaching 0 it spawns a defender pointed at
+    /// the ritualist and resets the timer based on current ritual progress
+    /// (interval shrinks as progress increases — "increasingly intense").
+    /// </summary>
+    public float DefenseSpawnTimer;
+
+    /// <summary>Total defenders this ritual has spawned (caps per-ritual swarm size).</summary>
+    public int DefendersSpawned;
 }
 
 /// <summary>

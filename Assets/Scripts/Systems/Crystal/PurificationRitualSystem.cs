@@ -231,22 +231,19 @@ namespace TheWaningBorder.Systems.Crystal
                     TotalDuration = PurificationChannelTime,
                 });
 
+                var active = new ActiveRitualOnNode
+                {
+                    Ritualist = scholar,
+                    Kind = RitualKind.Purification,
+                    RitualistFaction = f,
+                    RitualistCulture = culture,
+                    DefenseSpawnTimer = RitualDefenseMaxInterval, // first spawn after the slowest interval
+                    DefendersSpawned = 0,
+                };
                 if (em.HasComponent<ActiveRitualOnNode>(node))
-                    em.SetComponentData(node, new ActiveRitualOnNode
-                    {
-                        Ritualist = scholar,
-                        Kind = RitualKind.Purification,
-                        RitualistFaction = f,
-                        RitualistCulture = culture,
-                    });
+                    em.SetComponentData(node, active);
                 else
-                    em.AddComponentData(node, new ActiveRitualOnNode
-                    {
-                        Ritualist = scholar,
-                        Kind = RitualKind.Purification,
-                        RitualistFaction = f,
-                        RitualistCulture = culture,
-                    });
+                    em.AddComponentData(node, active);
 
                 // Stop the scholar so they channel in place.
                 if (em.HasComponent<DesiredDestination>(scholar))
