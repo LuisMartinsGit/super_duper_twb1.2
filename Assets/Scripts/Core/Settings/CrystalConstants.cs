@@ -145,7 +145,7 @@ namespace TheWaningBorder.Core.Config
         public const float ScholarSpeed = 3.0f;
         public const float ScholarLoS = 14f;
         public const float ScholarRadius = 0.5f;
-        public const int   ScholarPresentationID = 374;       // Following sect-unique unit IDs in 370s
+        public const int   ScholarPresentationID = 382;       // After sect-unique unit IDs (370-381)
 
         // ==================== Ritual (Spec §5, §11) ====================
         /// <summary>
@@ -170,6 +170,6 @@ namespace TheWaningBorder.Core.Config
         public const float GlowPickupTimeout = 45f;
 
         /// <summary>Presentation ID for free-floating Glow pickups.</summary>
-        public const int GlowPickupPresentationID = 380;
+        public const int GlowPickupPresentationID = 383;
     }
 }

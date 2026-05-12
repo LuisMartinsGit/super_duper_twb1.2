@@ -411,6 +411,15 @@ namespace TheWaningBorder.Input
             switch (targetType)
             {
                 case TargetType.Enemy:
+                    // Scholar + Active crystal main node → Purify ritual.
+                    // Falls through to Attack if the scholar isn't selected
+                    // or the node is no longer Active (Cleansed/Converted/
+                    // Destroyed nodes don't accept purification).
+                    if (capabilities.CanPurify && IsActiveCrystalMainNode(target))
+                    {
+                        IssuePurifyCommands(target);
+                        break;
+                    }
                     if (capabilities.CanAttack)
                         IssueAttackCommands(target);
                     break;
@@ -577,6 +586,36 @@ namespace TheWaningBorder.Input
                 if (!CanHeal(e)) continue;
 
                 CommandRouter.IssueHeal(_em, e, target, CommandSource.LocalPlayer);
+            }
+        }
+
+        /// <summary>
+        /// True when the right-click target is a crystal main node currently
+        /// in the Active state — the only state that accepts Purification.
+        /// </summary>
+        private bool IsActiveCrystalMainNode(Entity target)
+        {
+            if (target == Entity.Null || !_em.Exists(target)) return false;
+            if (!_em.HasComponent<CrystalMainNodeTag>(target)) return false;
+            if (!_em.HasComponent<CrystalNodeState>(target)) return false;
+            return _em.GetComponentData<CrystalNodeState>(target).State == NodeState.Active;
+        }
+
+        /// <summary>
+        /// Issue IssuePurify on every scholar in the current selection
+        /// targeting the same node. Non-scholars in the selection ignore the
+        /// click (they don't fall back to Attack from here — the right-click
+        /// handler treated the click as a Purify intent).
+        /// </summary>
+        private void IssuePurifyCommands(Entity node)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (!_em.HasComponent<ScholarTag>(e)) continue;
+
+                CommandRouter.IssuePurify(_em, e, node, CommandSource.LocalPlayer);
             }
         }
 
@@ -1209,6 +1248,7 @@ namespace TheWaningBorder.Input
             public bool CanGather;
             public bool CanHeal;
             public bool CanBuildRepair;
+            public bool CanPurify;
         }
 
         private UnitCapabilities DetermineCapabilities()
@@ -1235,6 +1275,10 @@ namespace TheWaningBorder.Input
                 // Can build/repair if is a builder
                 if (_em.HasComponent<CanBuild>(e))
                     caps.CanBuildRepair = true;
+
+                // Scholar can channel Purification on Active crystal main nodes.
+                if (_em.HasComponent<ScholarTag>(e))
+                    caps.CanPurify = true;
             }
 
             return caps;

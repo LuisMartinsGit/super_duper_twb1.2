@@ -227,6 +227,7 @@ namespace TheWaningBorder.Economy
                 "Alanthor_Crossbowman" => 1,
                 "Alanthor_Cataphract" => 2,
                 "Alanthor_Ballista" => 2,
+                "Alanthor_Scholar" => 2,    // Investment unit — scarcer than line infantry
 
                 // Default for unknown units
                 _ => 1

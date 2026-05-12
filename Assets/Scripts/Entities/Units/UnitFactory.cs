@@ -51,6 +51,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Crossbowman" => Crossbowman.Create(em, position, faction),
                 "Alanthor_Cataphract" => Cataphract.Create(em, position, faction),
                 "Alanthor_Ballista" => Ballista.Create(em, position, faction),
+                "Alanthor_Scholar" => Scholar.Create(em, position, faction),
                 // Feraldis culture units
                 "Feraldis_Hunter" => Hunter.Create(em, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
@@ -113,6 +114,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Crossbowman" => Crossbowman.Create(ecb, position, faction),
                 "Alanthor_Cataphract" => Cataphract.Create(ecb, position, faction),
                 "Alanthor_Ballista" => Ballista.Create(ecb, position, faction),
+                "Alanthor_Scholar" => Scholar.Create(ecb, position, faction),
                 // Feraldis culture units
                 "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
@@ -179,6 +181,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Crossbowman" => UnitClass.Ranged,
                 "Alanthor_Cataphract" => UnitClass.Melee,
                 "Alanthor_Ballista" => UnitClass.Siege,
+                "Alanthor_Scholar" => UnitClass.Magic,
                 // Feraldis culture units
                 "Feraldis_Hunter" => UnitClass.Ranged,
                 "Feraldis_WarboarRider" => UnitClass.Melee,
@@ -227,6 +230,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Crossbowman" => 335,
                 "Alanthor_Cataphract" => 336,
                 "Alanthor_Ballista" => 337,
+                "Alanthor_Scholar" => 382,
                 // Feraldis culture units
                 "Feraldis_Hunter" => 338,
                 "Feraldis_WarboarRider" => 339,

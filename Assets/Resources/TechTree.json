@@ -182,7 +182,7 @@
                 {
                     "id": "Barracks",
                     "name": "Barracks",
-                    "role": "Train basic troops",
+                    "role": "Train infantry — basics at L1, advanced at L2",
                     "hp": 800,
                     "armorType": "structure_human",
                     "baseDefense": {
@@ -194,7 +194,9 @@
                     "lineOfSight": 18,
                     "trains": [
                         "Swordsman",
-                        "Archer"
+                        "Archer",
+                        "Alanthor_Sentinel",
+                        "Alanthor_Cataphract"
                     ],
                     "research": [
                         "BasicDrills",
@@ -209,14 +211,15 @@
                     "id": "TempleOfRidan",
                     "type": "Core",
                     "name": "Shrine of Ridan",
-                    "role": "Trains Litharchs (healers)",
+                    "role": "Trains Litharchs (healers) and Alanthor Scholars (ritualists)",
                     "hp": 800,
                     "armorType": "structure_human",
                     "levels": 1,
                     "lineOfSight": 16,
                     "radius": 1.8,
                     "trains": [
-                        "Litharch"
+                        "Litharch",
+                        "Alanthor_Scholar"
                     ],
                     "uniquePerPlayer": true,
                     "minEra": 1,
@@ -327,8 +330,8 @@
                     "attackRange": 1.0,
                     "minAttackRange": 0.0,
                     "cost": {
-                        "Supplies": 140,
-                        "Iron": 0
+                        "Supplies": 80,
+                        "Iron": 30
                     },
                     "popCost": 1
                 },
@@ -376,8 +379,8 @@
                     "attackRange": 25.0,
                     "minAttackRange": 10.0,
                     "cost": {
-                        "Supplies": 75,
-                        "Iron": 0
+                        "Supplies": 50,
+                        "Iron": 25
                     },
                     "popCost": 1
                 },
@@ -1269,9 +1272,9 @@
                             }
                         },
                         {
-                            "id": "Alanthor_Garrison",
-                            "name": "Garrison",
-                            "role": "Train heavy infantry / Provides housing / Garrison point",
+                            "id": "Alanthor_PracticeRange",
+                            "name": "Practice Range",
+                            "role": "Train ranged infantry — Archers at L1, Crossbowmen at L2",
                             "hp": 1500,
                             "armorType": "structure_human",
                             "baseDefense": {
@@ -1282,7 +1285,7 @@
                             },
                             "lineOfSight": 22,
                             "trains": [
-                                "Alanthor_Sentinel",
+                                "Archer",
                                 "Alanthor_Crossbowman"
                             ],
                             "provides": {
@@ -1295,28 +1298,6 @@
                             "cost": {
                                 "Supplies": 220,
                                 "Iron": 90
-                            }
-                        },
-                        {
-                            "id": "Alanthor_Stable",
-                            "name": "Royal Stable",
-                            "hp": 1300,
-                            "armorType": "structure_human",
-                            "baseDefense": {
-                                "melee": 1,
-                                "ranged": 1,
-                                "siege": 0,
-                                "magic": 0
-                            },
-                            "lineOfSight": 20,
-                            "role": "Train heavy cavalry",
-                            "trains": [
-                                "Alanthor_Cataphract"
-                            ],
-                            "cost": {
-                                "Supplies": 260,
-                                "Iron": 120,
-                                "Crystal": 40
                             }
                         },
                         {
@@ -1386,6 +1367,8 @@
                             "class": "human_melee",
                             "hp": 160,
                             "speed": 5.0,
+                            "trainingTime": 18.0,
+                            "minBuildingLevel": 2,
                             "armorType": "infantry_heavy",
                             "damage": 12,
                             "damageType": "melee",
@@ -1398,12 +1381,11 @@
                             "lineOfSight": 18,
                             "attackRange": 1.7,
                             "trainAt": [
-                                "Alanthor_Garrison"
+                                "Barracks"
                             ],
                             "cost": {
-                                "Supplies": 120,
-                                "Iron": 25,
-                                "Crystal": 20
+                                "Supplies": 90,
+                                "Veilsteel": 20
                             }
                         },
                         {
@@ -1411,6 +1393,8 @@
                             "class": "human_ranged",
                             "hp": 100,
                             "speed": 5.0,
+                            "trainingTime": 22.0,
+                            "minBuildingLevel": 2,
                             "armorType": "ranged",
                             "damage": 13,
                             "damageType": "ranged",
@@ -1424,12 +1408,11 @@
                             "attackRange": 13.0,
                             "minAttackRange": 4.0,
                             "trainAt": [
-                                "Alanthor_Garrison"
+                                "Alanthor_PracticeRange"
                             ],
                             "cost": {
-                                "Supplies": 120,
-                                "Iron": 20,
-                                "Crystal": 20
+                                "Supplies": 70,
+                                "Veilsteel": 15
                             }
                         },
                         {
@@ -1437,6 +1420,8 @@
                             "class": "human_cavalry",
                             "hp": 180,
                             "speed": 6.6,
+                            "trainingTime": 25.0,
+                            "minBuildingLevel": 2,
                             "armorType": "cavalry",
                             "damage": 20,
                             "damageType": "melee",
@@ -1449,12 +1434,12 @@
                             "lineOfSight": 20,
                             "attackRange": 1.6,
                             "trainAt": [
-                                "Alanthor_Stable"
+                                "Barracks"
                             ],
                             "cost": {
-                                "Supplies": 260,
-                                "Iron": 120,
-                                "Crystal": 60
+                                "Supplies": 220,
+                                "Iron": 80,
+                                "Crystal": 40
                             }
                         },
                         {
@@ -1482,6 +1467,31 @@
                                 "Iron": 80,
                                 "Crystal": 40
                             }
+                        },
+                        {
+                            "id": "Alanthor_Scholar",
+                            "class": "human_magic",
+                            "hp": 90,
+                            "speed": 3.0,
+                            "trainingTime": 30.0,
+                            "armorType": "ranged",
+                            "damage": 0,
+                            "damageType": "magic",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 1
+                            },
+                            "lineOfSight": 14,
+                            "trainAt": [
+                                "TempleOfRidan"
+                            ],
+                            "cost": {
+                                "Supplies": 120,
+                                "Crystal": 30
+                            },
+                            "notes": "Channels Purification rituals on Active crystal nodes. Vulnerable — needs escort."
                         }
                     ],
                     "tech": [
