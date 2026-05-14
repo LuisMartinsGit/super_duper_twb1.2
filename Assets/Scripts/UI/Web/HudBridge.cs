@@ -124,7 +124,7 @@ namespace TheWaningBorder.UI.Web
                     break;
 
                 case "selection:upgrade":
-                    Debug.Log($"[HudBridge] selection:upgrade {m.PayloadJson} (binding TODO)");
+                    HandleSelectionUpgrade();
                     break;
 
                 case "actions:invoke":
@@ -166,8 +166,13 @@ namespace TheWaningBorder.UI.Web
 
             // Train commands — hall/barracks/shrine. Routes through the same
             // CommandRouter.IssueTrain the legacy IMGUI panel used, so the
-            // lockstep queue, cost check, and TrainQueueItem buffer flow stay
-            // intact. `key` is the unit-def ID (e.g. "Builder", "Swordsman").
+            // lockstep queue and TrainQueueItem buffer flow stay intact.
+            // `key` is the unit-def ID (e.g. "Builder", "Swordsman").
+            //
+            // Previously this skipped the IMGUI path's cost check / population /
+            // queue-full guards entirely — orders were queued without spending
+            // resources, so supplies (and iron/crystal) never decremented. The
+            // IMGUI EntityActionPanel does this same dance; mirror it here.
             if (selectionKind == "hall" || selectionKind == "barracks" || selectionKind == "shrine")
             {
                 var sel = Input.SelectionSystem.CurrentSelection;
@@ -179,10 +184,43 @@ namespace TheWaningBorder.UI.Web
                 var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
                 if (world == null || !world.IsCreated) return;
                 var em = world.EntityManager;
-                // Use the first selected entity — train queues belong to a
-                // single building, so a multi-select scenario shouldn't reach
-                // these layouts (deriveSelectionKey gates on kind == "single").
-                Core.Commands.CommandRouter.IssueTrain(em, sel[0], key);
+
+                var trainBuilding = sel[0];
+                if (!em.Exists(trainBuilding)) return;
+
+                Faction faction = GameSettings.LocalPlayerFaction;
+                if (em.HasComponent<FactionTag>(trainBuilding))
+                    faction = em.GetComponentData<FactionTag>(trainBuilding).Value;
+
+                // Production-queue cap (mirrors EntityActionPanel).
+                if (Core.Commands.CommandRouter.IsProductionQueueFull(em, trainBuilding))
+                {
+                    UI.HUD.PlayerNotificationSystem.Notify("Production queue full");
+                    return;
+                }
+
+                // Population capacity check.
+                int popCost = TheWaningBorder.Economy.PopulationHelper.GetUnitPopulationCost(key);
+                if (!TheWaningBorder.Economy.PopulationHelper.HasPopulationCapacity(faction, popCost))
+                {
+                    UI.HUD.PlayerNotificationSystem.Notify("Population cap reached");
+                    return;
+                }
+
+                // Look up cost and spend before queueing — supplies/iron/crystal
+                // should drop the moment the player commits the unit, identical
+                // to the legacy IMGUI flow.
+                var baseCost = LookupUnitCost(key);
+                var trainCost = TheWaningBorder.Economy.WarSectCostHelper
+                    .MilitaryDiscount(em, faction, key, baseCost);
+
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, trainCost))
+                {
+                    UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources");
+                    return;
+                }
+
+                Core.Commands.CommandRouter.IssueTrain(em, trainBuilding, key);
                 return;
             }
 
@@ -196,14 +234,86 @@ namespace TheWaningBorder.UI.Web
             var key = QuickField(payloadJson, "key");
             switch (key)
             {
-                case "resume": UI.HUD.InGameMenuPanel.Close(); break;
-                // Settings / Save / Load / Surrender — wire to the existing
-                // pause-menu handlers when those are exposed. For now, just log.
+                case "resume":
+                    UI.HUD.InGameMenuPanel.Close();
+                    break;
+
+                case "surrender":
+                    // Route through VictoryConditionSystem so elimination tracking
+                    // / post-game stats fire the same way the IMGUI menu does.
+                    UI.HUD.InGameMenuPanel.Close();
+                    if (UI.HUD.VictoryConditionSystem.Instance != null)
+                    {
+                        UI.HUD.VictoryConditionSystem.Instance.Surrender();
+                    }
+                    else if (GameStatsTracker.Instance != null)
+                    {
+                        GameStatsTracker.Instance.EndGame();
+                        var statsUI = UI.HUD.PostGameStatsUI.Instance;
+                        if (statsUI == null)
+                        {
+                            var go = new GameObject("PostGameStatsUI");
+                            statsUI = go.AddComponent<UI.HUD.PostGameStatsUI>();
+                        }
+                        statsUI.Show();
+                    }
+                    break;
+
+                // Save / Load are out-of-scope for this build (no save system yet).
+                // Settings — surface keybinds for now; full settings UI is a follow-up.
+                case "settings":
+                case "save":
+                case "load":
+                    Debug.Log($"[HudBridge] menu item '{key}' not implemented yet");
+                    UI.HUD.InGameMenuPanel.Close();
+                    break;
+
                 default:
-                    Debug.Log($"[HudBridge] menu item '{key}' clicked (no handler yet)");
+                    Debug.Log($"[HudBridge] menu item '{key}' clicked (no handler)");
                     UI.HUD.InGameMenuPanel.Close();
                     break;
             }
+        }
+
+        // Trigger a building upgrade on the currently-selected building.
+        // Mirrors the IMGUI EntityInfoPanel upgrade button: routes through
+        // UpgradeBuildingCommandHelper.Execute, which handles cost spend +
+        // queue + level bump on completion.
+        void HandleSelectionUpgrade()
+        {
+            var sel = Input.SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count == 0) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            var e = sel[0];
+            if (!em.Exists(e)) return;
+
+            var result = TheWaningBorder.Core.Commands.Types
+                .UpgradeBuildingCommandHelper.Execute(em, e);
+            if (result != TheWaningBorder.Core.Commands.Types
+                .UpgradeBuildingResult.Ok)
+            {
+                Debug.Log($"[HudBridge] selection:upgrade failed: {result}");
+            }
+        }
+
+        // Look up a unit's base training cost from TechTreeDB. Returns a
+        // zero Cost if the unit isn't registered — Spend will then succeed
+        // trivially (matches the IMGUI fallback behaviour).
+        static TheWaningBorder.Core.Cost LookupUnitCost(string unitId)
+        {
+            var db = TheWaningBorder.Data.TechTreeDB.Instance;
+            if (db == null) return default;
+            if (!db.TryGetUnit(unitId, out var unit) || unit.cost == null) return default;
+            return new TheWaningBorder.Core.Cost
+            {
+                Supplies  = unit.cost.Supplies,
+                Iron      = unit.cost.Iron,
+                Crystal   = unit.cost.Crystal,
+                Veilsteel = unit.cost.Veilsteel,
+                Glow      = unit.cost.Glow,
+            };
         }
 
         void Update()
@@ -636,7 +746,42 @@ namespace TheWaningBorder.UI.Web
                         .Append(",\"def\":{\"value\":0,\"kind\":\"—\"}")
                         .Append(",\"spd\":{\"value\":0,\"kind\":\"—\"}");
                 }
-                _sb.Append(",\"canUpgrade\":false}");
+
+                // Building upgrade hint — `canUpgrade` and `upgradeCost` are read
+                // by the web HUD's selection panel to draw an Upgrade button.
+                bool canUpgrade = false;
+                int upgSupplies = 0, upgIron = 0, upgCrystal = 0, upgVeilsteel = 0, upgGlow = 0;
+                int upgNextLevel = 0;
+                if (isBuilding && fac == GameSettings.LocalPlayerFaction
+                    && emm.HasComponent<BuildingUpgradeable>(e)
+                    && !emm.HasComponent<BuildingUpgrading>(e)
+                    && !emm.HasComponent<UnderConstruction>(e))
+                {
+                    if (TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
+                            .TryGetNextCost(emm, e, out var upgCost, out byte nextLv))
+                    {
+                        canUpgrade = true;
+                        upgSupplies  = upgCost.Supplies;
+                        upgIron      = upgCost.Iron;
+                        upgCrystal   = upgCost.Crystal;
+                        upgVeilsteel = upgCost.Veilsteel;
+                        upgGlow      = upgCost.Glow;
+                        upgNextLevel = nextLv;
+                    }
+                }
+                _sb.Append(",\"canUpgrade\":").Append(canUpgrade ? "true" : "false");
+                if (canUpgrade)
+                {
+                    _sb.Append(",\"upgradeNextLevel\":").Append(upgNextLevel);
+                    _sb.Append(",\"upgradeCost\":{")
+                        .Append("\"supplies\":").Append(upgSupplies)
+                        .Append(",\"iron\":").Append(upgIron)
+                        .Append(",\"crystal\":").Append(upgCrystal)
+                        .Append(",\"veilsteel\":").Append(upgVeilsteel)
+                        .Append(",\"glow\":").Append(upgGlow)
+                        .Append('}');
+                }
+                _sb.Append('}');
                 PushIfChanged("selection", _sb.ToString());
                 return;
             }

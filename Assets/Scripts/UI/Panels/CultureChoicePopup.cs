@@ -39,6 +39,15 @@ namespace TheWaningBorder.UI.Panels
         private GUIStyle _costUnaffordable;      // pre-cached 13pt centered red cost label
         private bool _stylesInit;
 
+        // Culture portrait textures — loaded once from Resources. Each
+        // culture has an illustration at Resources/Sprites/Cultures/<Name>.
+        // Falls back to colored swatches if the texture is missing.
+        private static Texture2D _imgAlanthor;
+        private static Texture2D _imgFeraldis;
+        private static Texture2D _imgRunai;
+        private static bool _imagesLoaded;
+        private const float CultureImageSize = 96f;
+
         // ═══════════════════════════════════════════════════════════
         // PUBLIC API
         // ═══════════════════════════════════════════════════════════
@@ -66,6 +75,46 @@ namespace TheWaningBorder.UI.Panels
         /// Is the popup currently visible?
         /// </summary>
         public static bool IsVisible => _visible;
+
+        /// <summary>Hall entity currently bound to the popup (Entity.Null when hidden).</summary>
+        public static Entity HallEntity => _hallEntity;
+
+        /// <summary>Faction whose age-up the popup is offering.</summary>
+        public static Faction CurrentFaction => _faction;
+
+        /// <summary>
+        /// Commit the age-up for the currently-shown culture. Same logic as the
+        /// instance CommitAgeUp; exposed statically so the UI Toolkit popup
+        /// region can drive it without re-instantiating the MonoBehaviour.
+        /// </summary>
+        public static void CommitAgeUpStatic(byte culture)
+        {
+            var em = UnifiedUIManager.GetEntityManager();
+            if (em.Equals(default(EntityManager))) return;
+
+            if (!FactionEconomy.Spend(em, _faction, CultureConfig.AgeUpCost))
+            {
+                PlayerNotificationSystem.NotifyError("Not enough resources to advance");
+                return;
+            }
+
+            if (em.Exists(_hallEntity))
+            {
+                float duration = CultureConfig.AgeUpDuration;
+                if (!em.HasComponent<AgeUpState>(_hallEntity))
+                {
+                    em.AddComponentData(_hallEntity, new AgeUpState
+                    {
+                        Culture = culture,
+                        Duration = duration,
+                        Remaining = duration
+                    });
+                }
+            }
+
+            FactionColors.SetFactionCulture(_faction, culture);
+            Close();
+        }
 
         /// <summary>
         /// Check if mouse is over the popup for input blocking.
@@ -170,26 +219,35 @@ namespace TheWaningBorder.UI.Panels
             var secondary = CultureConfig.GetSecondary(culture);
             string name = CultureConfig.GetName(culture);
             string desc = CultureConfig.GetDescription(culture);
+            Texture2D image = GetCultureImage(culture);
 
             GUILayout.BeginVertical(GUILayout.Width(ColumnWidth));
 
-            // Color swatches — primary + secondary side by side
+            // Culture illustration (or colored swatches if image missing)
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
 
-            // Primary swatch
-            var swatchRect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
-            GUI.color = primary;
-            GUI.DrawTexture(swatchRect, Texture2D.whiteTexture);
+            if (image != null)
+            {
+                var imageRect = GUILayoutUtility.GetRect(CultureImageSize, CultureImageSize);
+                GUI.DrawTexture(imageRect, image, ScaleMode.ScaleToFit);
+            }
+            else
+            {
+                // Fallback: colored swatches keyed to the culture's primary/secondary
+                // colours. Renders when Resources/Sprites/Cultures/<Name> is absent.
+                var swatchRect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
+                GUI.color = primary;
+                GUI.DrawTexture(swatchRect, Texture2D.whiteTexture);
 
-            GUILayout.Space(4);
+                GUILayout.Space(4);
 
-            // Secondary swatch
-            var swatch2Rect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
-            GUI.color = secondary;
-            GUI.DrawTexture(swatch2Rect, Texture2D.whiteTexture);
+                var swatch2Rect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
+                GUI.color = secondary;
+                GUI.DrawTexture(swatch2Rect, Texture2D.whiteTexture);
+                GUI.color = Color.white;
+            }
 
-            GUI.color = Color.white;
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
@@ -255,6 +313,39 @@ namespace TheWaningBorder.UI.Panels
 
 
             Close();
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // CULTURE IMAGES
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Resolve the illustration texture for a culture column. Looked up
+        /// once and cached statically. Falls back to null if the user
+        /// hasn't dropped a texture at the expected Resources path yet —
+        /// DrawCultureColumn will use coloured swatches in that case.
+        ///
+        /// Expected paths (Texture2D imports, .png recommended):
+        ///   Assets/Resources/Sprites/Cultures/Alanthor.{png,jpg,tga}
+        ///   Assets/Resources/Sprites/Cultures/Feraldis.{png,jpg,tga}
+        ///   Assets/Resources/Sprites/Cultures/Runai.{png,jpg,tga}
+        /// </summary>
+        private static Texture2D GetCultureImage(byte culture)
+        {
+            if (!_imagesLoaded)
+            {
+                _imgAlanthor = Resources.Load<Texture2D>("Sprites/Cultures/Alanthor");
+                _imgFeraldis = Resources.Load<Texture2D>("Sprites/Cultures/Feraldis");
+                _imgRunai    = Resources.Load<Texture2D>("Sprites/Cultures/Runai");
+                _imagesLoaded = true;
+            }
+            return culture switch
+            {
+                Cultures.Alanthor => _imgAlanthor,
+                Cultures.Feraldis => _imgFeraldis,
+                Cultures.Runai    => _imgRunai,
+                _ => null,
+            };
         }
 
         // ═══════════════════════════════════════════════════════════

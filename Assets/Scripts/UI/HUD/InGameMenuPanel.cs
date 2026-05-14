@@ -66,14 +66,14 @@ namespace TheWaningBorder.UI.HUD
         /// <summary>Toggle menu open/closed.</summary>
         public static void Toggle()
         {
-            // Earlier missing braces meant Open() ran unconditionally — when
-            // called with IsOpen=true, Close() set IsOpen=false then Open()
-            // immediately re-opened. Toggle was effectively one-way. The
-            // ResourceHUD "Menu" button (the only path that called Toggle
-            // when the menu was open) couldn't actually close the menu.
-            // (task-060 F-2)
+            // Missing braces meant Open() ran unconditionally — when called
+            // with IsOpen=true, Close() set IsOpen=false then Open()
+            // immediately re-opened. Toggle was effectively one-way.
+            // The ResourceHUD/UITK "Menu" button + the ESC key all call Toggle
+            // — without these braces, the menu can only be opened, never closed.
             if (IsOpen)
                 Close();
+            else
                 Open();
         }
 

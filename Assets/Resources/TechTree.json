@@ -120,8 +120,7 @@
                     "lineOfSight": 24,
                     "trains": [
                         "Builder",
-                        "Miner",
-                        "Scout"
+                        "Miner"
                     ],
                     "research": [
                         "Research_Era2",
@@ -194,7 +193,7 @@
                     "lineOfSight": 18,
                     "trains": [
                         "Swordsman",
-                        "Archer",
+                        "Scout",
                         "Alanthor_Sentinel",
                         "Alanthor_Cataphract"
                     ],
@@ -205,6 +204,28 @@
                     "cost": {
                         "Supplies": 150,
                         "Iron": 70
+                    }
+                },
+                {
+                    "id": "ArcheryRange",
+                    "name": "Archery Range",
+                    "role": "Train ranged units",
+                    "hp": 600,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 1,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 18,
+                    "trains": [
+                        "Archer"
+                    ],
+                    "research": [],
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 60
                     }
                 },
                 {

@@ -24,6 +24,7 @@ public static class BuildingSizeConfig
             "Hut"               => new int2(3, 3),
             "GatherersHut"      => new int2(2, 2),
             "Barracks"          => new int2(3, 4),
+            "ArcheryRange"      => new int2(3, 4),
 
             // Era 1 Advanced / Choice
             "ShrineOfRidan"     => new int2(3, 3),

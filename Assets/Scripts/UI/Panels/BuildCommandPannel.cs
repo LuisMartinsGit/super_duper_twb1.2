@@ -53,11 +53,11 @@ namespace TheWaningBorder.UI.Panels
         // Build type
         public enum BuildType
         {
-            Hut, GatherersHut, Barracks, Shrine, Vault, Keep, Wall, Smelter, Temple,
+            Hut, GatherersHut, Barracks, ArcheryRange, Shrine, Vault, Keep, Wall, Smelter, Temple,
             // Runai culture buildings
             RunaiOutpost, RunaiTradeHub, RunaiBazaar, RunaiSiegeWorkshop,
             // Alanthor culture buildings
-            AlanthorWatchTower, AlanthorGarrison, AlanthorRoyalStable, AlanthorSiegeYard,
+            AlanthorWatchTower, AlanthorPracticeRange, AlanthorSiegeYard,
             // Feraldis culture buildings
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard
         }
@@ -220,6 +220,7 @@ namespace TheWaningBorder.UI.Panels
                 "Hut" => BuildType.Hut,
                 "GatherersHut" => BuildType.GatherersHut,
                 "Barracks" => BuildType.Barracks,
+                "ArcheryRange" => BuildType.ArcheryRange,
                 "ShrineOfAhridan" => BuildType.Shrine,
                 "TempleOfRidan" => BuildType.Temple,
                 "VaultOfAlmierra" => BuildType.Vault,
@@ -233,8 +234,7 @@ namespace TheWaningBorder.UI.Panels
                 "Runai_SiegeWorkshop" => BuildType.RunaiSiegeWorkshop,
                 // Alanthor culture buildings
                 "Alanthor_Tower" => BuildType.AlanthorWatchTower,
-                "Alanthor_Garrison" => BuildType.AlanthorGarrison,
-                "Alanthor_Stable" => BuildType.AlanthorRoyalStable,
+                "Alanthor_PracticeRange" => BuildType.AlanthorPracticeRange,
                 "Alanthor_SiegeYard" => BuildType.AlanthorSiegeYard,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => BuildType.FeraldisHuntingLodge,
@@ -283,7 +283,7 @@ namespace TheWaningBorder.UI.Panels
                 // Handle shared PresentationId 355 by checking BuildType directly
                 if (previewPid == 355)
                 {
-                    bool isAlanthor = (_currentBuild == BuildType.AlanthorGarrison);
+                    bool isAlanthor = (_currentBuild == BuildType.AlanthorPracticeRange);
                     procPreview = ProceduralBuildingGenerator.Create355(
                         Vector3.zero, Entity.Null, isAlanthor);
                 }
@@ -526,6 +526,7 @@ namespace TheWaningBorder.UI.Panels
             BuildType.Hut => "Hut",
             BuildType.GatherersHut => "GatherersHut",
             BuildType.Barracks => "Barracks",
+            BuildType.ArcheryRange => "ArcheryRange",
             BuildType.Shrine => "ShrineOfAhridan",
             BuildType.Temple => "TempleOfRidan",
             BuildType.Vault => "VaultOfAlmierra",
@@ -539,8 +540,7 @@ namespace TheWaningBorder.UI.Panels
             BuildType.RunaiSiegeWorkshop => "Runai_SiegeWorkshop",
             // Alanthor culture buildings
             BuildType.AlanthorWatchTower => "Alanthor_Tower",
-            BuildType.AlanthorGarrison => "Alanthor_Garrison",
-            BuildType.AlanthorRoyalStable => "Alanthor_Stable",
+            BuildType.AlanthorPracticeRange => "Alanthor_PracticeRange",
             BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
             // Feraldis culture buildings
             BuildType.FeraldisHuntingLodge => "Feraldis_HuntingLodge",
@@ -571,13 +571,16 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         private GameObject TryLoadUpgradePreviewPrefab(BuildType bt, byte culture)
         {
-            // Only Hall / Barracks / Hut participate in the upgrade system
-            // (matches BuildingUpgradeable on the entity factories).
+            // Hall / Barracks / Hut participate in the upgrade system. GatherersHut
+            // uses a single prefab regardless of culture (no _al_1, no _ru_1 etc.) —
+            // we route it through here too so the placement preview matches the
+            // real spawn instead of falling back to the procedural model.
             string baseName = bt switch
             {
-                BuildType.Hut      => "Hut",
-                BuildType.Barracks => "Barracks",
-                _                  => null,
+                BuildType.Hut          => "Hut",
+                BuildType.Barracks     => "Barracks",
+                BuildType.GatherersHut => "GatherersHut",
+                _                      => null,
             };
             if (baseName == null) return null;
 
@@ -585,9 +588,11 @@ namespace TheWaningBorder.UI.Panels
             if (_previewPrefabCache.TryGetValue(key, out var cached)) return cached;
             if (_previewPrefabNegativeCache.Contains(key)) return null;
 
-            string code = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
+            // GatherersHut never evolves — always use the L0 prefab regardless of culture.
+            bool useL0Only = bt == BuildType.GatherersHut;
+            string code = useL0Only ? "" : TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
             string path = string.IsNullOrEmpty(code)
-                ? $"Prefabs/Buildings/{baseName}"          // L0 — pre age-up
+                ? $"Prefabs/Buildings/{baseName}"          // L0 — pre age-up (or culture-agnostic)
                 : $"Prefabs/Buildings/{baseName}_{code}_1"; // L1 — post age-up
             var loaded = Resources.Load<GameObject>(path);
             if (loaded == null)
@@ -607,6 +612,8 @@ namespace TheWaningBorder.UI.Panels
             BuildType.Hut => 102,
             BuildType.GatherersHut => 101,
             BuildType.Barracks => 510,
+            BuildType.ArcheryRange => 511,
+            BuildType.ArcheryRange => 511,
             BuildType.Shrine => 520,
             BuildType.Vault => 530,
             BuildType.Keep => 540,
@@ -617,8 +624,7 @@ namespace TheWaningBorder.UI.Panels
             BuildType.RunaiBazaar => 352,
             BuildType.RunaiSiegeWorkshop => 353,
             BuildType.AlanthorWatchTower => 354,
-            BuildType.AlanthorGarrison => 355,
-            BuildType.AlanthorRoyalStable => 356,
+            BuildType.AlanthorPracticeRange => 355,
             BuildType.AlanthorSiegeYard => 357,
             BuildType.FeraldisHuntingLodge => 358,
             BuildType.FeraldisLoggingStation => 359,

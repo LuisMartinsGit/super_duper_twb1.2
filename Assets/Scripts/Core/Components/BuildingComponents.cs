@@ -31,6 +31,9 @@ public struct HutTag : IComponentData { }
 /// <summary>Military training building.</summary>
 public struct BarracksTag : IComponentData { }
 
+/// <summary>Universal ranged training building. Trains Archers.</summary>
+public struct ArcheryRangeTag : IComponentData { }
+
 /// <summary>Siege/advanced unit training building.</summary>
 public struct WorkshopTag : IComponentData { }
 
@@ -493,6 +496,7 @@ public struct AgeUpState : IComponentData
 public struct SelfDestructTimer : IComponentData
 {
     public float TimeRemaining;  // Seconds until destruction
+    public float Duration;       // Original duration (for progress bar display)
     public byte RefundPaid;      // 1 = resources already refunded
 }
 

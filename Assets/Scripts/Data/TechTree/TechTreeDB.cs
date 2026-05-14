@@ -174,6 +174,7 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseBuilding(json, "Hut");
             ParseBuilding(json, "GatherersHut");
             ParseBuilding(json, "Barracks");
+            ParseBuilding(json, "ArcheryRange");
             ParseBuilding(json, "ShrineOfAhridan");
             ParseBuilding(json, "TempleOfRidan");
             ParseBuilding(json, "VaultOfAlmierra");
@@ -204,8 +205,7 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseBuilding(json, "KingsCourt");
             ParseBuilding(json, "Alanthor_Wall");
             ParseBuilding(json, "Alanthor_Tower");
-            ParseBuilding(json, "Alanthor_Garrison");
-            ParseBuilding(json, "Alanthor_Stable");
+            ParseBuilding(json, "Alanthor_PracticeRange");
             ParseBuilding(json, "Alanthor_SiegeYard");
             ParseBuilding(json, "Alanthor_Smelter");
             ParseBuilding(json, "Alanthor_Crucible");

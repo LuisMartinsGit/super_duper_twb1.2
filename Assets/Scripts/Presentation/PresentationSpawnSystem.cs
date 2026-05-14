@@ -88,11 +88,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 351, "Procedural/RunaiTradeHub" },                      // Runai_TradeHub
         { 352, "Procedural/RunaiBazaar" },                        // ThessarasBazaar
         { 353, "Procedural/RunaiSiegeWorkshop" },                 // Runai_SiegeWorkshop
-        { 355, "Procedural/RunaiTradingPost_or_AlanthorGarrison" }, // Shared ID
+        { 355, "Procedural/RunaiTradingPost_or_AlanthorPracticeRange" }, // Shared ID
 
         // Alanthor culture buildings (procedurally generated)
         { 354, "Procedural/AlanthorTower" },                      // Alanthor_Tower
-        { 356, "Procedural/AlanthorStable" },                     // Alanthor_Stable
         { 357, "Procedural/AlanthorSiegeYard" },                  // Alanthor_SiegeYard
 
         // Feraldis culture buildings (procedurally generated)
@@ -315,16 +314,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.InstancePresentationID)
         {
             var go = CreateProceduralWallInstance(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.TowerPresentationID)
         {
             var go = CreateProceduralWallTower(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.GatePresentationID)
         {
             var go = CreateProceduralWallGate(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -332,6 +334,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.Smelter.PresentationID)
         {
             var go = CreateProceduralSmelter(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -376,6 +379,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId >= 310 && presentationId <= 316 && presentationId != 311)
         {
             var go = CreateProceduralCrystalEntity(pos, presentationId, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -388,10 +392,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             buildingCulture = FactionColors.GetFactionCulture(faction);
         }
 
-        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Garrison
+        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Practice Range
         if (presentationId == 355)
         {
-            bool isAlanthor = _em.HasComponent<GarrisonTag>(entity);
+            bool isAlanthor = _em.HasComponent<PracticeRangeTag>(entity);
             var go355 = ProceduralBuildingGenerator.Create355(pos, entity, isAlanthor);
             if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
         }
@@ -413,6 +417,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 100 => "Hall",
                 102 => "Hut",
                 510 => "Barracks",
+                511 => "Barracks", // ArcheryRange reuses Barracks visual (copy-of-Barracks)
                 _   => null,
             };
 
@@ -676,6 +681,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // Convert world bounds to local space
                 col.center = go.transform.InverseTransformPoint(bounds.center);
                 col.size = bounds.size; // already in world scale, local scale is 1
+
+                // Cache the visual extent so SyncTransforms can sink the building
+                // fully underground during construction. Pivot may sit above the
+                // ground (authored prefabs often anchor at base centre, but some
+                // sit higher), so include any positive max-y on top of size.y.
+                float visualHeight = bounds.size.y +
+                    Mathf.Max(0f, bounds.max.y - go.transform.position.y);
+                if (visualHeight > 0f)
+                {
+                    var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
+                            ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    sink.Value = visualHeight + 0.5f; // small pad keeps the tip below
+                }
             }
             else
             {
@@ -707,11 +725,48 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             BuildingFactionColorMarker.Apply(go, FactionColors.Get(fac));
         }
 
+        // Snapshot the visual hierarchy for the staggered construction rise.
+        // Done last so the faction banner pole/flag are included in the pieces.
+        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        rise.Init();
+
         return go;
     }
 
+    /// <summary>
+    /// Attach the sink-depth tag (sized to actual renderer bounds) and the
+    /// rise-animation snapshot to a procedural visual that doesn't pass
+    /// through FinishProceduralBuilding — walls, towers, gates, smelter,
+    /// curse nodes. Idempotent: safe to call repeatedly.
+    /// </summary>
+    private static void AttachConstructionAnimation(GameObject go)
+    {
+        if (go == null) return;
+
+        var renderers = go.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            var bounds = renderers[0].bounds;
+            for (int r = 1; r < renderers.Length; r++)
+                bounds.Encapsulate(renderers[r].bounds);
+            float visualHeight = bounds.size.y +
+                Mathf.Max(0f, bounds.max.y - go.transform.position.y);
+            if (visualHeight > 0f)
+            {
+                var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
+                        ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                sink.Value = visualHeight + 0.5f;
+            }
+        }
+
+        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        rise.Init();
+    }
+
     // ──────────────────────────────────────────────────────────────────
-    // BASE BUILDING PREFAB LOOKUP (Hall / Barracks / Hut, level 0)
+    // BASE BUILDING PREFAB LOOKUP (Hall / Barracks / Hut / GatherersHut, level 0)
     // ──────────────────────────────────────────────────────────────────
 
     // Cached Resources lookups so we don't re-resolve every spawn. null
@@ -720,7 +775,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private readonly System.Collections.Generic.HashSet<int> _baseBuildingPrefabNegativeCache = new();
 
     /// <summary>
-    /// Look up the level-0 hand-authored prefab for Hall / Barracks / Hut.
+    /// Look up the level-0 hand-authored prefab for Hall / Barracks / Hut / GatherersHut.
     /// Returns null if no prefab is present at the canonical path — caller
     /// falls back to procedural generation.
     /// </summary>
@@ -732,9 +787,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         string path = presentationId switch
         {
-            100 => "Prefabs/Buildings/Hall",     // Hall.PresentationID
-            102 => "Prefabs/Buildings/Hut",      // Hut.PresentationID
-            510 => "Prefabs/Buildings/Barracks", // Barracks.PresentationID
+            100 => "Prefabs/Buildings/Hall",         // Hall.PresentationID
+            101 => "Prefabs/Buildings/GatherersHut", // GatherersHut.PresentationID — single prefab, no culture/level variants
+            102 => "Prefabs/Buildings/Hut",          // Hut.PresentationID
+            510 => "Prefabs/Buildings/Barracks",     // Barracks.PresentationID
+            511 => "Prefabs/Buildings/Barracks",     // ArcheryRange reuses Barracks visual
             _   => null,
         };
         if (path == null)
@@ -956,12 +1013,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 continue;
             }
 
-            // Destroy old visual
-            if (EntityViewManager.Instance.TryGetView(entity, out var oldGo) && oldGo != null)
+            // Capture the old visual for the dissolve transition (if any).
+            // Do NOT destroy it here — BuildingDissolveTransition takes
+            // ownership and destroys it once the wave completes.
+            GameObject oldGo = null;
+            if (EntityViewManager.Instance.TryGetView(entity, out var existing) && existing != null)
             {
+                oldGo = existing;
                 EntityViewManager.Instance.UnregisterView(entity);
                 _spawnedEntities.Remove(entity);
-                Destroy(oldGo);
             }
 
             // Respawn through the canonical entry point so procedural and
@@ -971,6 +1031,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (newGo != null)
             {
                 EntityViewManager.Instance.RegisterView(entity, newGo);
+                _spawnedEntities.Add(entity);
+
+                // Wave dissolve from old culture-neutral visual to the new
+                // culture-specific one. Faction-tinted edge glow.
+                Color accent = FactionColors.Get(faction);
+                BuildingDissolveTransition.Begin(oldGo, newGo, duration: 1.5f, edgeColor: accent);
+            }
+            else if (oldGo != null)
+            {
+                // No new visual was produced — keep the old one rather than
+                // leaving the entity invisible.
+                EntityViewManager.Instance.RegisterView(entity, oldGo);
                 _spawnedEntities.Add(entity);
             }
         }
@@ -997,16 +1069,40 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 var pos = (Vector3)transforms[i].Position;
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
-                // Construction rising animation: buildings start below ground and rise
+                // Construction rising animation: pieces start below ground and
+                // rise into place bottom-to-top via BuildingRiseData. Falls back
+                // to a rigid root sink for visuals that don't have rise data
+                // attached (e.g. mid-construction prefab swap before re-init).
                 if (em.HasValue && em.Value.HasComponent<UnderConstruction>(entities[i]))
                 {
                     var uc = em.Value.GetComponentData<UnderConstruction>(entities[i]);
                     float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
-                    // Sink depth based on building radius (taller buildings sink more)
-                    float sinkDepth = em.Value.HasComponent<Radius>(entities[i])
-                        ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
-                        : 3f;
-                    pos.y -= sinkDepth * (1f - ratio);
+                    var sinkTag = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    float sinkDepth = (sinkTag != null && sinkTag.Value > 0f)
+                        ? sinkTag.Value
+                        : (em.Value.HasComponent<Radius>(entities[i])
+                            ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
+                            : 3f);
+
+                    var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                    if (rise != null)
+                        rise.ApplyRise(ratio, sinkDepth);
+                    else
+                        pos.y -= sinkDepth * (1f - ratio);
+                }
+                else
+                {
+                    // Just exited UnderConstruction: snap pieces back to rest
+                    // once and fire the same flourish used for level-up swaps
+                    // so the transition reads clearly to the player.
+                    var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                    if (rise != null && rise.NotifyConstructionComplete())
+                    {
+                        Color accent = em.HasValue && em.Value.HasComponent<FactionTag>(entities[i])
+                            ? FactionColors.Get(em.Value.GetComponentData<FactionTag>(entities[i]).Value)
+                            : new Color(1f, 0.85f, 0.45f);
+                        TheWaningBorder.Presentation.BuildingLevelUpEffect.Spawn(go, accent);
+                    }
                 }
 
                 go.transform.position = pos;
@@ -1054,107 +1150,153 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Create a smelter/forge: a dark metallic cube base with a chimney (cylinder) on top.
-    /// Uses warm orange-red tones to suggest heat/metalworking.
+    /// Create a large forge: stone-block plinth with a tile-roofed forge hall,
+    /// a tall main stack plus a smaller side flue, two glowing furnace mouths,
+    /// a heavy iron-banded anvil with hammer, a quench barrel, and a bellows.
     /// </summary>
     private GameObject CreateProceduralSmelter(Vector3 center, Entity entity)
     {
-        var root = new GameObject($"Smelter_{entity.Index}");
+        var root = new GameObject($"Forge_{entity.Index}");
         root.transform.position = center;
 
-        // Colors
-        var darkMetal = new Color(0.22f, 0.20f, 0.18f);
-        var warmStone = new Color(0.40f, 0.30f, 0.22f);
-        var chimneyGrey = new Color(0.30f, 0.28f, 0.26f);
-        var embers = new Color(0.8f, 0.3f, 0.1f);
+        // Palette — slightly cooler stone, warmer roof, bright embers.
+        var stone      = new Color(0.46f, 0.40f, 0.34f);
+        var stoneDark  = new Color(0.32f, 0.28f, 0.24f);
+        var roofTile   = new Color(0.55f, 0.30f, 0.20f);
+        var beam       = new Color(0.30f, 0.20f, 0.13f);
+        var iron       = new Color(0.18f, 0.17f, 0.16f);
+        var brass      = new Color(0.66f, 0.50f, 0.20f);
+        var leather    = new Color(0.42f, 0.26f, 0.16f);
+        var embers     = new Color(0.95f, 0.45f, 0.10f);
+        var water      = new Color(0.25f, 0.32f, 0.42f);
 
-        // Main building body (cube)
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.name = "SmelterBody";
-        body.transform.SetParent(root.transform, false);
-        body.transform.localPosition = Vector3.up * 1.25f;
-        body.transform.localScale = new Vector3(2.5f, 2.5f, 2.5f);
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        var bodyRenderer = body.GetComponent<Renderer>();
-        if (bodyRenderer != null)
+        System.Func<PrimitiveType, string, Vector3, Vector3, Quaternion, Color, float, float, bool, GameObject>
+        Make = (type, name, lp, ls, lr, color, metal, smooth, glow) =>
         {
-            bodyRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            bodyRenderer.material.color = warmStone;
-            if (bodyRenderer.material.HasProperty("_Metallic"))
-                bodyRenderer.material.SetFloat("_Metallic", 0.3f);
-        }
-        var bodyCol = body.GetComponent<Collider>();
-        if (bodyCol != null) Destroy(bodyCol);
-
-        // Chimney (tall cylinder)
-        var chimney = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        chimney.name = "Chimney";
-        chimney.transform.SetParent(root.transform, false);
-        chimney.transform.localPosition = new Vector3(0.6f, 3.5f, 0.6f);
-        chimney.transform.localScale = new Vector3(0.6f, 1.5f, 0.6f);
-
-        var chimneyRenderer = chimney.GetComponent<Renderer>();
-        if (chimneyRenderer != null)
-        {
-            chimneyRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            chimneyRenderer.material.color = chimneyGrey;
-            if (chimneyRenderer.material.HasProperty("_Metallic"))
-                chimneyRenderer.material.SetFloat("_Metallic", 0.5f);
-        }
-        var chimneyCol = chimney.GetComponent<Collider>();
-        if (chimneyCol != null) Destroy(chimneyCol);
-
-        // Forge opening (small glowing cube at front)
-        var forgeOpening = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        forgeOpening.name = "ForgeOpening";
-        forgeOpening.transform.SetParent(root.transform, false);
-        forgeOpening.transform.localPosition = new Vector3(0f, 0.5f, 1.3f);
-        forgeOpening.transform.localScale = new Vector3(0.8f, 0.7f, 0.2f);
-
-        var openingRenderer = forgeOpening.GetComponent<Renderer>();
-        if (openingRenderer != null)
-        {
-            openingRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            openingRenderer.material.color = embers;
-            if (openingRenderer.material.HasProperty("_EmissionColor"))
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(root.transform, false);
+            go.transform.localPosition = lp;
+            go.transform.localRotation = lr;
+            go.transform.localScale = ls;
+            var r = go.GetComponent<Renderer>();
+            if (r != null)
             {
-                openingRenderer.material.EnableKeyword("_EMISSION");
-                openingRenderer.material.SetColor("_EmissionColor", embers * 0.5f);
+                r.material = new Material(shader);
+                r.material.color = color;
+                if (r.material.HasProperty("_Metallic"))   r.material.SetFloat("_Metallic", metal);
+                if (r.material.HasProperty("_Smoothness")) r.material.SetFloat("_Smoothness", smooth);
+                if (glow && r.material.HasProperty("_EmissionColor"))
+                {
+                    r.material.EnableKeyword("_EMISSION");
+                    r.material.SetColor("_EmissionColor", color * 1.6f);
+                }
             }
-        }
-        var openingCol = forgeOpening.GetComponent<Collider>();
-        if (openingCol != null) Destroy(openingCol);
+            var c = go.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+            return go;
+        };
 
-        // Anvil (small dark cube in front)
-        var anvil = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        anvil.name = "Anvil";
-        anvil.transform.SetParent(root.transform, false);
-        anvil.transform.localPosition = new Vector3(0f, 0.3f, 2.0f);
-        anvil.transform.localScale = new Vector3(0.5f, 0.6f, 0.4f);
+        // Plinth + dirt-darker apron at the front working area.
+        Make(PrimitiveType.Cube, "Plinth", new Vector3(0f, 0.20f, 0f),
+            new Vector3(4.6f, 0.40f, 4.0f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+        Make(PrimitiveType.Cube, "Apron",  new Vector3(0f, 0.06f, 1.95f),
+            new Vector3(4.4f, 0.05f, 1.6f), Quaternion.identity, stoneDark * 0.85f, 0.05f, 0.10f, false);
 
-        var anvilRenderer = anvil.GetComponent<Renderer>();
-        if (anvilRenderer != null)
+        // Main forge hall body (the furnace block).
+        Make(PrimitiveType.Cube, "Hall",   new Vector3(0f, 1.65f, -0.6f),
+            new Vector3(4.0f, 2.40f, 2.4f), Quaternion.identity, stone, 0.10f, 0.15f, false);
+        // Stone course / belt running around the hall.
+        Make(PrimitiveType.Cube, "Course", new Vector3(0f, 1.35f, -0.6f),
+            new Vector3(4.10f, 0.10f, 2.50f), Quaternion.identity, stoneDark, 0.10f, 0.15f, false);
+
+        // Pitched tile roof — two angled slabs meeting at the ridge.
+        Make(PrimitiveType.Cube, "RoofL",  new Vector3(-1.10f, 3.30f, -0.6f),
+            new Vector3(2.40f, 0.18f, 2.80f), Quaternion.Euler(0f, 0f,  18f), roofTile, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cube, "RoofR",  new Vector3( 1.10f, 3.30f, -0.6f),
+            new Vector3(2.40f, 0.18f, 2.80f), Quaternion.Euler(0f, 0f, -18f), roofTile, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cube, "Ridge",  new Vector3(0f, 3.65f, -0.6f),
+            new Vector3(0.30f, 0.10f, 2.85f), Quaternion.identity, stoneDark, 0.10f, 0.20f, false);
+        // Front beam under the roof eaves — exposed timber.
+        Make(PrimitiveType.Cube, "Eave",   new Vector3(0f, 2.95f, 0.65f),
+            new Vector3(4.20f, 0.18f, 0.18f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "EaveBack", new Vector3(0f, 2.95f, -1.85f),
+            new Vector3(4.20f, 0.18f, 0.18f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+
+        // Main chimney stack — wide stone block with capstone on top.
+        Make(PrimitiveType.Cube,     "StackBase", new Vector3(-0.95f, 4.10f, -0.6f),
+            new Vector3(0.95f, 1.30f, 0.95f), Quaternion.identity, stone, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube,     "StackUpper", new Vector3(-0.95f, 5.20f, -0.6f),
+            new Vector3(0.80f, 0.90f, 0.80f), Quaternion.identity, stoneDark, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube,     "StackCap", new Vector3(-0.95f, 5.75f, -0.6f),
+            new Vector3(1.00f, 0.10f, 1.00f), Quaternion.identity, stone, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cylinder, "StackPipe", new Vector3(-0.95f, 5.95f, -0.6f),
+            new Vector3(0.40f, 0.30f, 0.40f), Quaternion.identity, iron, 0.50f, 0.30f, false);
+
+        // Smaller secondary flue on the other side.
+        Make(PrimitiveType.Cylinder, "FlueA", new Vector3(1.25f, 4.25f, -0.6f),
+            new Vector3(0.45f, 1.10f, 0.45f), Quaternion.identity, iron, 0.45f, 0.30f, false);
+        Make(PrimitiveType.Cylinder, "FlueCap", new Vector3(1.25f, 5.50f, -0.6f),
+            new Vector3(0.55f, 0.10f, 0.55f), Quaternion.identity, iron * 0.8f, 0.50f, 0.30f, false);
+
+        // Twin furnace mouths on the front face — bright emissive embers.
+        for (int i = 0; i < 2; i++)
         {
-            anvilRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            anvilRenderer.material.color = darkMetal;
-            if (anvilRenderer.material.HasProperty("_Metallic"))
-                anvilRenderer.material.SetFloat("_Metallic", 0.7f);
-            if (anvilRenderer.material.HasProperty("_Smoothness"))
-                anvilRenderer.material.SetFloat("_Smoothness", 0.4f);
+            float mx = (i == 0 ? -1.05f : 1.05f);
+            // Stone arch frame around each opening.
+            Make(PrimitiveType.Cube, $"ArchTop_{i}", new Vector3(mx, 1.90f, 0.62f),
+                new Vector3(1.30f, 0.20f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            Make(PrimitiveType.Cube, $"ArchL_{i}", new Vector3(mx - 0.55f, 1.30f, 0.62f),
+                new Vector3(0.20f, 1.40f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            Make(PrimitiveType.Cube, $"ArchR_{i}", new Vector3(mx + 0.55f, 1.30f, 0.62f),
+                new Vector3(0.20f, 1.40f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            // Glowing furnace mouth.
+            Make(PrimitiveType.Cube, $"Mouth_{i}", new Vector3(mx, 1.20f, 0.66f),
+                new Vector3(0.95f, 1.20f, 0.06f), Quaternion.identity, embers, 0.0f, 0.05f, true);
         }
-        var anvilCol = anvil.GetComponent<Collider>();
-        if (anvilCol != null) Destroy(anvilCol);
 
-        // Single collider for entire building
+        // Iron-banded anvil on its stump in the front working area.
+        Make(PrimitiveType.Cylinder, "AnvilStump", new Vector3(-0.9f, 0.55f, 1.85f),
+            new Vector3(0.55f, 0.55f, 0.55f), Quaternion.identity, beam, 0.05f, 0.15f, false);
+        Make(PrimitiveType.Cube, "AnvilBody", new Vector3(-0.9f, 1.05f, 1.85f),
+            new Vector3(0.85f, 0.30f, 0.40f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+        Make(PrimitiveType.Cube, "AnvilHorn", new Vector3(-0.45f, 1.05f, 1.85f),
+            new Vector3(0.45f, 0.20f, 0.30f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+        Make(PrimitiveType.Cube, "AnvilWaist", new Vector3(-0.9f, 0.85f, 1.85f),
+            new Vector3(0.55f, 0.15f, 0.30f), Quaternion.identity, iron * 0.85f, 0.85f, 0.50f, false);
+        // Hammer leaning on the anvil.
+        Make(PrimitiveType.Cylinder, "HammerHaft", new Vector3(-0.55f, 1.30f, 1.85f),
+            new Vector3(0.05f, 0.45f, 0.05f), Quaternion.Euler(0f, 0f, 35f), beam, 0.10f, 0.20f, false);
+        Make(PrimitiveType.Cube, "HammerHead", new Vector3(-0.30f, 1.55f, 1.85f),
+            new Vector3(0.18f, 0.18f, 0.30f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+
+        // Quench barrel (water-filled wooden cask).
+        Make(PrimitiveType.Cylinder, "QuenchStaves", new Vector3(0.95f, 0.85f, 1.85f),
+            new Vector3(0.70f, 0.55f, 0.70f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cylinder, "QuenchHoopT", new Vector3(0.95f, 1.30f, 1.85f),
+            new Vector3(0.74f, 0.04f, 0.74f), Quaternion.identity, iron, 0.50f, 0.40f, false);
+        Make(PrimitiveType.Cylinder, "QuenchHoopB", new Vector3(0.95f, 0.50f, 1.85f),
+            new Vector3(0.74f, 0.04f, 0.74f), Quaternion.identity, iron, 0.50f, 0.40f, false);
+        Make(PrimitiveType.Cylinder, "QuenchWater", new Vector3(0.95f, 1.36f, 1.85f),
+            new Vector3(0.62f, 0.02f, 0.62f), Quaternion.identity, water, 0.10f, 0.85f, false);
+
+        // Side bellows: triangular wood + leather, brass nozzle pointing into the furnace.
+        Make(PrimitiveType.Cube, "BellowsTop", new Vector3(2.55f, 1.60f, -0.10f),
+            new Vector3(0.12f, 0.20f, 1.30f), Quaternion.Euler(0f, 0f, -8f), beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "BellowsBag", new Vector3(2.55f, 1.30f, -0.10f),
+            new Vector3(0.10f, 0.55f, 1.20f), Quaternion.Euler(0f, 0f, -3f), leather, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "BellowsBot", new Vector3(2.55f, 1.00f, -0.10f),
+            new Vector3(0.12f, 0.20f, 1.10f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cylinder, "BellowsNozzle", new Vector3(2.20f, 1.30f, 0.55f),
+            new Vector3(0.08f, 0.40f, 0.08f), Quaternion.Euler(0f, 0f, 90f), brass, 0.80f, 0.50f, false);
+
+        // Single collider for selection / placement bounds — sized to footprint.
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(3f, 5f, 3f);
-        boxCol.center = Vector3.up * 2f;
+        boxCol.size = new Vector3(4.8f, 6.2f, 4.4f);
+        boxCol.center = Vector3.up * 3.1f;
 
-        // Add EntityReference
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 

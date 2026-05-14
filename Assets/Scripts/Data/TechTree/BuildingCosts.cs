@@ -27,7 +27,8 @@ namespace TheWaningBorder.Data
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Resource dropoff
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
-            
+            { "ArcheryRange",   Cost.Of(supplies: 180, iron: 50) },                 // Ranged training
+
             // Era 1 - Religious/Magic Buildings
             { "Shrine",            Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (alias)
             { "ShrineOfAhridan",   Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (choice building)
@@ -63,8 +64,7 @@ namespace TheWaningBorder.Data
             { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
             { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
-            { "Alanthor_Garrison",       Cost.Of(supplies: 220, iron: 90) },
-            { "Alanthor_Stable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+            { "Alanthor_PracticeRange",  Cost.Of(supplies: 220, iron: 90) },
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
@@ -185,8 +185,7 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<CrucibleTag>(entity)) return "Alanthor_Crucible";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
-            if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
-            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_Stable";
+            if (em.HasComponent<PracticeRangeTag>(entity)) return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
 
             // Feraldis

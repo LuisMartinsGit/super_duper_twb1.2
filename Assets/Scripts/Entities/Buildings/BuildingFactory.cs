@@ -35,6 +35,7 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => Hall.Create(em, position, faction),
                 "Barracks" => Barracks.Create(em, position, faction),
+                "ArcheryRange" => ArcheryRange.Create(em, position, faction),
                 "Hut" => Hut.Create(em, position, faction),
                 "GatherersHut" => GatherersHut.Create(em, position, faction),
                 "ShrineOfAhridan" => CreateShrineOfAhridan(em, position, faction),
@@ -91,6 +92,7 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => Hall.Create(ecb, position, faction),
                 "Barracks" => Barracks.Create(ecb, position, faction),
+                "ArcheryRange" => ArcheryRange.Create(ecb, position, faction),
                 "Hut" => Hut.Create(ecb, position, faction),
                 "GatherersHut" => GatherersHut.Create(ecb, position, faction),
                 "ShrineOfAhridan" => CreateShrineOfAhridanECB(ecb, position, faction),
@@ -146,6 +148,7 @@ namespace TheWaningBorder.Entities
                 "Hut" => 102,
                 "GatherersHut" => 101,
                 "Barracks" => 510,
+                "ArcheryRange" => 511,
                 "ShrineOfAhridan" => 520,
                 "TempleOfRidan" => 521,
                 "VaultOfAlmierra" => 530,

@@ -653,9 +653,44 @@ namespace TheWaningBorder.Core.Commands
             }
         }
 
+        // ─── Production-queue cap (combined train + research) ────────────
+        // A single building queues both unit-training and research orders
+        // through separate buffers, but the player perceives them as one
+        // production queue. 5 is the cap: train and research orders share it.
+        public const int MaxProductionQueue = 5;
+
+        public static int GetTrainQueueLength(EntityManager em, Entity building)
+        {
+            if (!em.HasBuffer<TrainQueueItem>(building)) return 0;
+            return em.GetBuffer<TrainQueueItem>(building).Length;
+        }
+
+        public static int GetResearchQueueLength(EntityManager em, Entity building)
+        {
+            if (!em.HasBuffer<ResearchQueueItem>(building)) return 0;
+            return em.GetBuffer<ResearchQueueItem>(building).Length;
+        }
+
+        /// <summary>
+        /// True when this building's combined train + research queue is at the
+        /// cap. UI / AI / command paths should consult this before adding
+        /// another order.
+        /// </summary>
+        public static bool IsProductionQueueFull(EntityManager em, Entity building)
+        {
+            return GetTrainQueueLength(em, building) + GetResearchQueueLength(em, building)
+                   >= MaxProductionQueue;
+        }
+
         private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
             if (!em.HasBuffer<TrainQueueItem>(building)) return;
+            // Reject when combined production queue would exceed the cap.
+            if (IsProductionQueueFull(em, building))
+            {
+                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("Production queue full");
+                return;
+            }
             var queue = em.GetBuffer<TrainQueueItem>(building);
             queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
         }
@@ -724,7 +759,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 "Hut" => 15f,
                 "GatherersHut" => 20f,
-                "Barracks" => 30f,
+                "Barracks" or "ArcheryRange" => 30f,
                 "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
                 "Alanthor_Smelter" or "Alanthor_PracticeRange" => 30f,
                 "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"

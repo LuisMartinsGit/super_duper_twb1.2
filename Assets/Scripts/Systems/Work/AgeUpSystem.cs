@@ -176,6 +176,7 @@ namespace TheWaningBorder.Systems.Work
                 em.AddComponentData(entities[i], new SelfDestructTimer
                 {
                     TimeRemaining = 120f, // 2 minutes
+                    Duration = 120f,
                     RefundPaid = 0
                 });
                 count++;
@@ -206,6 +207,7 @@ namespace TheWaningBorder.Systems.Work
                 em.AddComponentData(entities[i], new SelfDestructTimer
                 {
                     TimeRemaining = 120f, // 2 minutes
+                    Duration = 120f,
                     RefundPaid = 0
                 });
                 count++;

@@ -270,10 +270,11 @@ namespace TheWaningBorder.Systems.Work
             // FactionReligionPointsHelper rather than the legacy
             // ReligionPoints { Value } singleton path.
             //
-            // ChapelSmallTag is the existing ECS marker on the Shrine. Phase 2
-            // will introduce 12 distinct chapel buildings for the actual sect
-            // adoption mechanism — those are NOT this code path.
-            if (em.HasComponent<ChapelSmallTag>(building) && em.HasComponent<FactionTag>(building))
+            // BuildingFactory tags Shrine entities with ShrineTag (not the
+            // earlier-design ChapelSmallTag marker), so gate the bonus on
+            // ShrineTag — the previous check matched nothing on real Shrines
+            // and never awarded the +1 RP grant.
+            if (em.HasComponent<ShrineTag>(building) && em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
                 FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);

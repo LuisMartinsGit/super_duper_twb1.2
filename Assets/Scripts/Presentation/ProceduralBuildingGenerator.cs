@@ -36,6 +36,7 @@ namespace TheWaningBorder.Presentation
                 101 => CreateGatherersHut(pos, entity, culture),
                 102 => CreateHut(pos, entity, culture),
                 510 => CreateBarracks(pos, entity, culture),
+                511 => CreateBarracks(pos, entity, culture),   // ArcheryRange reuses Barracks model
 
                 // Era 1 Advanced
                 520 => CreateTemple(pos, entity, culture),       // ShrineOfAhridan
@@ -48,13 +49,12 @@ namespace TheWaningBorder.Presentation
                 351 => CreateRunaiTradeHub(pos, entity),
                 352 => CreateRunaiBazaar(pos, entity),
                 353 => CreateRunaiSiegeWorkshop(pos, entity),
-                // 355 is shared between Runai_TradingPost and Alanthor_Garrison — use Create355() instead
+                // 355 is shared between Runai_TradingPost and Alanthor_PracticeRange — use Create355() instead
                 365 => CreateRunaiVault(pos, entity),
                 366 => CreateRunaiVeilsteelFoundry(pos, entity),
 
                 // Alanthor culture buildings
                 354 => CreateAlanthorTower(pos, entity),
-                356 => CreateAlanthorStable(pos, entity),
                 357 => CreateAlanthorSiegeYard(pos, entity),
                 363 => CreateKingsCourt(pos, entity),
                 364 => CreateAlanthorCrucible(pos, entity),
@@ -111,12 +111,12 @@ namespace TheWaningBorder.Presentation
 
         /// <summary>
         /// Create building for PresentationId 355 which is shared between
-        /// Runai_TradingPost and Alanthor_Garrison. Caller determines which.
+        /// Runai_TradingPost and Alanthor_PracticeRange. Caller determines which.
         /// </summary>
         public static GameObject Create355(Vector3 pos, Entity entity, bool isAlanthor)
         {
             var result = isAlanthor
-                ? CreateAlanthorGarrison(pos, entity)
+                ? CreateAlanthorPracticeRange(pos, entity)
                 : CreateRunaiTradingPost(pos, entity);
 
             // PID 355 is intercepted in PresentationSpawnSystem before TryCreate
@@ -2100,74 +2100,67 @@ namespace TheWaningBorder.Presentation
             return root;
         }
 
-        /// <summary>Alanthor Garrison: Barracks complex with courtyard.</summary>
-        private static GameObject CreateAlanthorGarrison(Vector3 pos, Entity entity)
+        /// <summary>Alanthor Practice Range: small armoury at the back, open
+        /// shooting line in front with hay-bale targets and an arrow rack.</summary>
+        private static GameObject CreateAlanthorPracticeRange(Vector3 pos, Entity entity)
         {
-            var root = new GameObject($"AlanthorGarrison_{entity.Index}");
+            var root = new GameObject($"AlanthorPracticeRange_{entity.Index}");
             root.transform.position = pos;
 
-            // Courtyard base
-            Prim(PrimitiveType.Cube, "Courtyard", root.transform,
-                new Vector3(0f, 0.05f, 0f), new Vector3(3.5f, 0.1f, 3.5f), AlanthorTrim);
+            var hay      = new Color(0.85f, 0.72f, 0.32f);
+            var hayDark  = new Color(0.55f, 0.45f, 0.20f);
+            var bullseye = new Color(0.78f, 0.18f, 0.18f);
+            var canvas   = new Color(0.92f, 0.88f, 0.78f);
 
-            // Main building (back wall)
-            Prim(PrimitiveType.Cube, "MainBuilding", root.transform,
-                new Vector3(0f, 1.2f, -1.2f), new Vector3(3.0f, 2.4f, 1.0f), AlanthorWall);
-            Prim(PrimitiveType.Cube, "MainRoof", root.transform,
-                new Vector3(0f, 2.5f, -1.2f), new Vector3(3.2f, 0.15f, 1.2f), AlanthorRoof);
+            // Packed-earth shooting field.
+            Prim(PrimitiveType.Cube, "Field", root.transform,
+                new Vector3(0f, 0.05f, 0.4f), new Vector3(3.6f, 0.10f, 3.4f), AlanthorTrim);
 
-            // Side wings (L and R)
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Prim(PrimitiveType.Cube, $"Wing_{side}", root.transform,
-                    new Vector3(side * 1.4f, 0.8f, 0.3f), new Vector3(0.7f, 1.6f, 2.0f), AlanthorWall);
-                Prim(PrimitiveType.Cube, $"WingRoof_{side}", root.transform,
-                    new Vector3(side * 1.4f, 1.7f, 0.3f), new Vector3(0.9f, 0.1f, 2.2f), AlanthorRoof);
-            }
+            // Armoury (back) — modest stone shed with a sloped wooden roof.
+            Prim(PrimitiveType.Cube, "Armoury", root.transform,
+                new Vector3(0f, 1.0f, -1.4f), new Vector3(3.0f, 2.0f, 0.9f), AlanthorWall);
+            PrimRot(PrimitiveType.Cube, "ArmouryRoof", root.transform,
+                new Vector3(0f, 2.15f, -1.4f), new Vector3(3.2f, 0.15f, 1.1f),
+                Quaternion.Euler(6f, 0f, 0f), AlanthorRoof);
+            // Door slit.
+            Prim(PrimitiveType.Cube, "ArmouryDoor", root.transform,
+                new Vector3(0f, 0.55f, -0.95f), new Vector3(0.65f, 1.1f, 0.06f), AlanthorTrim * 0.5f);
 
-            // Gate
-            Prim(PrimitiveType.Cube, "Gate", root.transform,
-                new Vector3(0f, 0.5f, 1.3f), new Vector3(0.8f, 1.0f, 0.15f), AlanthorTrim * 0.5f);
-
-            return root;
-        }
-
-        /// <summary>Alanthor Stable: Long stable building + paddock fence.</summary>
-        private static GameObject CreateAlanthorStable(Vector3 pos, Entity entity)
-        {
-            var root = new GameObject($"AlanthorStable_{entity.Index}");
-            root.transform.position = pos;
-
-            // Foundation
-            Prim(PrimitiveType.Cube, "Foundation", root.transform,
-                new Vector3(0f, 0.05f, 0f), new Vector3(4.0f, 0.1f, 2.5f), AlanthorTrim);
-
-            // Stable body (long)
-            Prim(PrimitiveType.Cube, "Body", root.transform,
-                new Vector3(0f, 1.0f, -0.3f), new Vector3(3.5f, 2.0f, 1.5f), AlanthorWall);
-
-            // Sloped roof
-            PrimRot(PrimitiveType.Cube, "Roof", root.transform,
-                new Vector3(0f, 2.15f, -0.3f), new Vector3(3.7f, 0.15f, 1.8f),
-                Quaternion.Euler(8f, 0f, 0f), AlanthorRoof);
-
-            // Stall divisions (3 stalls visible from front)
+            // Three hay-bale targets along the back of the field.
             for (int i = -1; i <= 1; i++)
             {
-                Prim(PrimitiveType.Cube, $"StallWall_{i}", root.transform,
-                    new Vector3(i * 1.1f, 0.5f, 0.45f), new Vector3(0.08f, 1.0f, 0.5f), AlanthorWall * 0.8f);
+                float tx = i * 1.10f;
+                Prim(PrimitiveType.Cube, $"Bale_{i}", root.transform,
+                    new Vector3(tx, 0.55f, -0.55f), new Vector3(0.70f, 0.90f, 0.45f), hay);
+                Prim(PrimitiveType.Cube, $"BaleStrap_{i}", root.transform,
+                    new Vector3(tx, 0.55f, -0.31f), new Vector3(0.72f, 0.06f, 0.02f), hayDark);
+                // Painted target face on the front of the bale.
+                Prim(PrimitiveType.Cylinder, $"TargetCanvas_{i}", root.transform,
+                    new Vector3(tx, 0.65f, -0.31f), new Vector3(0.50f, 0.02f, 0.50f), canvas);
+                Prim(PrimitiveType.Cylinder, $"Bullseye_{i}", root.transform,
+                    new Vector3(tx, 0.65f, -0.30f), new Vector3(0.18f, 0.025f, 0.18f), bullseye);
             }
 
-            // Paddock fence (front)
-            Prim(PrimitiveType.Cube, "FenceRail", root.transform,
-                new Vector3(0f, 0.45f, 1.0f), new Vector3(3.0f, 0.06f, 0.06f), AlanthorTrim);
-            Prim(PrimitiveType.Cube, "FenceRail2", root.transform,
-                new Vector3(0f, 0.25f, 1.0f), new Vector3(3.0f, 0.06f, 0.06f), AlanthorTrim);
-            // Fence posts
+            // Shooting line — a low wooden rail at the front of the field.
+            Prim(PrimitiveType.Cube, "FrontRail", root.transform,
+                new Vector3(0f, 0.45f, 1.85f), new Vector3(3.3f, 0.06f, 0.06f), AlanthorTrim);
             for (int i = -2; i <= 2; i++)
             {
-                Prim(PrimitiveType.Cylinder, $"FencePost_{i}", root.transform,
-                    new Vector3(i * 0.75f, 0.35f, 1.0f), new Vector3(0.06f, 0.35f, 0.06f), AlanthorTrim);
+                Prim(PrimitiveType.Cylinder, $"RailPost_{i}", root.transform,
+                    new Vector3(i * 0.80f, 0.30f, 1.85f), new Vector3(0.06f, 0.30f, 0.06f), AlanthorTrim);
+            }
+
+            // Arrow rack at the side — a frame with shafts leaning in it.
+            Prim(PrimitiveType.Cube, "RackBack", root.transform,
+                new Vector3(1.55f, 0.85f, 0.4f), new Vector3(0.06f, 1.10f, 0.55f), AlanthorTrim);
+            Prim(PrimitiveType.Cube, "RackTop", root.transform,
+                new Vector3(1.55f, 1.40f, 0.4f), new Vector3(0.10f, 0.06f, 0.65f), AlanthorTrim);
+            for (int i = 0; i < 4; i++)
+            {
+                float az = 0.18f - i * 0.12f;
+                PrimRot(PrimitiveType.Cylinder, $"Arrow_{i}", root.transform,
+                    new Vector3(1.55f, 0.85f, az), new Vector3(0.025f, 0.55f, 0.025f),
+                    Quaternion.Euler(0f, 0f, 12f), AlanthorTrim * 0.7f);
             }
 
             return root;

@@ -273,6 +273,7 @@ namespace TheWaningBorder.UI
         {
             if (em.HasComponent<HallTag>(entity)) return "Hall";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
+            if (em.HasComponent<ArcheryRangeTag>(entity)) return "Archery Range";
             if (em.HasComponent<GathererHutTag>(entity)) return "Gatherer's Hut";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<DepotTag>(entity)) return "Depot";
@@ -558,7 +559,9 @@ namespace TheWaningBorder.UI
                     {
                         Id = "BazaarUnpack",
                         Label = "Unpack",
-                        Tooltip = "Unpack wagon back into Thessara's Bazaar"
+                        Tooltip = "Unpack wagon back into Thessara's Bazaar",
+                        Enabled = true,
+                        CanAfford = true
                     }
                 };
                 return info;
@@ -613,7 +616,9 @@ namespace TheWaningBorder.UI
                     {
                         Id = "BazaarPack",
                         Label = "Pack",
-                        Tooltip = "Pack Bazaar into a mobile wagon"
+                        Tooltip = "Pack Bazaar into a mobile wagon",
+                        Enabled = true,
+                        CanAfford = true
                     });
                 }
 
@@ -689,7 +694,7 @@ namespace TheWaningBorder.UI
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
         private static readonly HashSet<string> BuildableBuildings = new()
         {
-            "Hut", "GatherersHut", "Barracks", "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep",
+            "Hut", "GatherersHut", "Barracks", "ArcheryRange", "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep",
             "TempleOfRidan",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
@@ -1223,6 +1228,7 @@ namespace TheWaningBorder.UI
         {
             if (em.HasComponent<HallTag>(entity)) return "Hall";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
+            if (em.HasComponent<ArcheryRangeTag>(entity)) return "ArcheryRange";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
