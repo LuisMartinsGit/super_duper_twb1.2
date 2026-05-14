@@ -299,6 +299,21 @@ namespace TheWaningBorder.UI.Web
             }
         }
 
+        // Compact cost label for the selection panel's upgrade row.
+        // Skips zero fields so "150s 50i" reads cleanly instead of
+        // "150s 50i 0c 0v 0g". Pure scalar — safe to drop into JSX
+        // as a React text node (avoids React error #31).
+        static string FormatCostShort(int supplies, int iron, int crystal, int veilsteel, int glow)
+        {
+            var parts = new System.Text.StringBuilder(24);
+            if (supplies  > 0) { if (parts.Length > 0) parts.Append(' '); parts.Append(supplies).Append('s'); }
+            if (iron      > 0) { if (parts.Length > 0) parts.Append(' '); parts.Append(iron).Append('i'); }
+            if (crystal   > 0) { if (parts.Length > 0) parts.Append(' '); parts.Append(crystal).Append('c'); }
+            if (veilsteel > 0) { if (parts.Length > 0) parts.Append(' '); parts.Append(veilsteel).Append('v'); }
+            if (glow      > 0) { if (parts.Length > 0) parts.Append(' '); parts.Append(glow).Append('g'); }
+            return parts.Length == 0 ? "free" : parts.ToString();
+        }
+
         // Look up a unit's base training cost from TechTreeDB. Returns a
         // zero Cost if the unit isn't registered — Spend will then succeed
         // trivially (matches the IMGUI fallback behaviour).
@@ -776,8 +791,17 @@ namespace TheWaningBorder.UI.Web
                 _sb.Append(",\"canUpgrade\":").Append(canUpgrade ? "true" : "false");
                 if (canUpgrade)
                 {
+                    // upgradeCost must be a scalar string — the web HUD renders
+                    // it via {t.upgradeCost} inside a <span>, so an object payload
+                    // would trip React error #31 ("objects are not valid as a
+                    // React child"). Format as a compact "150s 50i" label and
+                    // expose the individual fields too for any future consumer
+                    // that wants structured access.
                     _sb.Append(",\"upgradeNextLevel\":").Append(upgNextLevel);
-                    _sb.Append(",\"upgradeCost\":{")
+                    _sb.Append(",\"upgradeCost\":\"")
+                        .Append(JsonEscape(FormatCostShort(upgSupplies, upgIron, upgCrystal, upgVeilsteel, upgGlow)))
+                        .Append('"');
+                    _sb.Append(",\"upgradeCostBreakdown\":{")
                         .Append("\"supplies\":").Append(upgSupplies)
                         .Append(",\"iron\":").Append(upgIron)
                         .Append(",\"crystal\":").Append(upgCrystal)
