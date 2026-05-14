@@ -246,9 +246,9 @@ namespace TheWaningBorder.UI.Web
                     {
                         UI.HUD.VictoryConditionSystem.Instance.Surrender();
                     }
-                    else if (GameStatsTracker.Instance != null)
+                    else if (UI.HUD.GameStatsTracker.Instance != null)
                     {
-                        GameStatsTracker.Instance.EndGame();
+                        UI.HUD.GameStatsTracker.Instance.EndGame();
                         var statsUI = UI.HUD.PostGameStatsUI.Instance;
                         if (statsUI == null)
                         {
@@ -291,8 +291,9 @@ namespace TheWaningBorder.UI.Web
 
             var result = TheWaningBorder.Core.Commands.Types
                 .UpgradeBuildingCommandHelper.Execute(em, e);
-            if (result != TheWaningBorder.Core.Commands.Types
-                .UpgradeBuildingResult.Ok)
+            // UpgradeBuildingResult lives in the global namespace (alongside
+            // BuildingUpgradeable), not inside the Commands.Types namespace.
+            if (result != UpgradeBuildingResult.Ok)
             {
                 Debug.Log($"[HudBridge] selection:upgrade failed: {result}");
             }
@@ -301,9 +302,12 @@ namespace TheWaningBorder.UI.Web
         // Look up a unit's base training cost from TechTreeDB. Returns a
         // zero Cost if the unit isn't registered — Spend will then succeed
         // trivially (matches the IMGUI fallback behaviour).
+        // TechTreeDB lives at the global namespace (its UnitDef/BuildingDef
+        // helpers live in TheWaningBorder.Data, but the singleton itself
+        // is global to match the legacy bootstrap layout).
         static TheWaningBorder.Core.Cost LookupUnitCost(string unitId)
         {
-            var db = TheWaningBorder.Data.TechTreeDB.Instance;
+            var db = TechTreeDB.Instance;
             if (db == null) return default;
             if (!db.TryGetUnit(unitId, out var unit) || unit.cost == null) return default;
             return new TheWaningBorder.Core.Cost

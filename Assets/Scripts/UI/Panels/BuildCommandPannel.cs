@@ -613,7 +613,6 @@ namespace TheWaningBorder.UI.Panels
             BuildType.GatherersHut => 101,
             BuildType.Barracks => 510,
             BuildType.ArcheryRange => 511,
-            BuildType.ArcheryRange => 511,
             BuildType.Shrine => 520,
             BuildType.Vault => 530,
             BuildType.Keep => 540,
