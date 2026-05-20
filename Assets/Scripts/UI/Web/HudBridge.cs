@@ -1426,7 +1426,34 @@ namespace TheWaningBorder.UI.Web
         static string JsonEscape(string s)
         {
             if (string.IsNullOrEmpty(s)) return string.Empty;
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            // Escape every char JSON spec requires (backslash, quote, the
+            // C0 controls). Unit tooltips contain '\n' between lines and
+            // any unescaped control char makes the JS-evaluated payload
+            // a syntax error — UWB's ExecuteJs just dumps our payload
+            // straight into a JS string literal, so \n in the source
+            // becomes a real newline and breaks the parser.
+            var sb = new System.Text.StringBuilder(s.Length + 8);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                switch (c)
+                {
+                    case '\\': sb.Append("\\\\"); break;
+                    case '"':  sb.Append("\\\""); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    case '\b': sb.Append("\\b"); break;
+                    case '\f': sb.Append("\\f"); break;
+                    default:
+                        if (c < 0x20)
+                            sb.Append("\\u").Append(((int)c).ToString("x4"));
+                        else
+                            sb.Append(c);
+                        break;
+                }
+            }
+            return sb.ToString();
         }
 
         // Tiny, defensive JSON field extractors. The JS side only ever sends
