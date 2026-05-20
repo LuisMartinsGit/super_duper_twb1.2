@@ -44,10 +44,22 @@ namespace TheWaningBorder.Input
             }
 
             // Create new camera rig
-            
+
             var rigGO = new GameObject("CameraRig");
+
+            // Match the rotated minimap: the diamond's "top" tip shows
+            // game-NE content (a 45° yaw rotates the texture's NE corner to
+            // screen-up). Pre-rotating the camera the same 45° around Y keeps
+            // the camera-viewport rectangle drawn on the minimap axis-aligned
+            // with the diamond's edges, so the player's spatial intuition
+            // ("up on minimap = where I'm facing") survives the visual spin.
+            if (GameSettings.UseWebHud)
+            {
+                rigGO.transform.rotation = Quaternion.Euler(0f, 45f, 0f);
+            }
+
             _controller = rigGO.AddComponent<CameraController>();
-            
+
             // Position camera at map center (or origin)
             rigGO.transform.position = new Vector3(0, 0, 0);
 

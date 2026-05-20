@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.EventSystems;
 using TheWaningBorder.Input;
+using TheWaningBorder.UI.Common;
 using TheWaningBorder.World.FogOfWar;
 using TheWaningBorder.Systems.Visibility;
 using EntityWorld = Unity.Entities.World;
@@ -84,11 +85,7 @@ namespace TheWaningBorder.UI.HUD
 
         void Awake()
         {
-            if (FindFirstObjectByType<EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-                es.hideFlags = HideFlags.DontSave;
-            }
+            UIEventSystemBootstrap.EnsureSingle();
 
             _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null)

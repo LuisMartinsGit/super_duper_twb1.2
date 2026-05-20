@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine.EventSystems;
 using TheWaningBorder.Input;
+using TheWaningBorder.UI.Common;
 using TheWaningBorder.World.FogOfWar;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Systems.Visibility;
@@ -30,6 +31,17 @@ namespace TheWaningBorder.World.Minimap
     [DefaultExecutionOrder(2000)]
     public sealed class MinimapRenderer : MonoBehaviour
     {
+        // Static overrides applied during Awake. GameBootstrap sets these
+        // before AddComponent<MinimapRenderer>() to inscribe the legacy
+        // minimap inside the web HUD's diamond frame. nulled = use defaults.
+        public static int? OverrideSizePixels;
+        public static Vector2? OverrideOffsetBR;
+        public static int? OverrideCanvasSortingOrder;
+        // When set, EnsureCanvasAndImage always makes its own canvas rather
+        // than re-parenting to the first canvas it finds (which can be the
+        // CEF browser's canvas when the web HUD is active).
+        public static bool ForceDedicatedCanvas;
+
         [Header("Placement")]
         public int sizePixels = 256;
         public Vector2 offsetBR = new Vector2(20, 20);
@@ -49,6 +61,14 @@ namespace TheWaningBorder.World.Minimap
         public Color colRock = new Color(0.40f, 0.38f, 0.35f, 1f);
         public Color colSnow = new Color(0.90f, 0.92f, 0.95f, 1f);
         public Color colWater = new Color(0.10f, 0.15f, 0.25f, 1f);
+        // Stamped over any cell PassabilityGrid considers TerrainBlocked so
+        // the player can see at a glance where units can't path. The 0.7
+        // blend means biome colour still shows through faintly — readable
+        // as "rocky impassable mountain" or "deep water" rather than a
+        // solid grey shape that hides the underlying terrain.
+        [Header("Passability Overlay")]
+        public Color colImpassable = new Color(0.18f, 0.16f, 0.14f, 1f);
+        [Range(0f, 1f)] public float impassableBlend = 0.7f;
 
         [Header("Blip Radii")]
         public int unitRadiusPx = 2;
@@ -95,12 +115,19 @@ namespace TheWaningBorder.World.Minimap
 
         void Awake()
         {
-            // Ensure EventSystem for click handling
-            if (FindFirstObjectByType<EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-                es.hideFlags = HideFlags.DontSave;
-            }
+            // Apply runtime overrides (web HUD inscribes the legacy minimap
+            // inside its diamond frame; sets these before AddComponent).
+            if (OverrideSizePixels.HasValue) sizePixels = OverrideSizePixels.Value;
+            if (OverrideOffsetBR.HasValue)   offsetBR   = OverrideOffsetBR.Value;
+
+            // Ensure exactly one EventSystem for click handling. Two
+            // separate scripts (this one + MinimapUI) used to create their
+            // own and FindFirstObjectByType() can return null inside the
+            // same Awake-frame for other freshly-instantiated EventSystems,
+            // so the scene easily ended up with 4-6 of them after a couple
+            // of bootstrap iterations. Centralise the find-or-create through
+            // a helper that also kills duplicates.
+            UIEventSystemBootstrap.EnsureSingle();
 
             _fow = FindFirstObjectByType<FogOfWarManager>();
             if (_fow != null)
@@ -210,11 +237,16 @@ namespace TheWaningBorder.World.Minimap
             EnsureECSQueries();
             if (_world == null) return;
 
-            // Build ground texture once (terrain doesn't change)
+            // Build ground texture once the passability grid is ready so the
+            // impassable overlay paints with the rest of the biome colours.
+            // If the grid isn't baked yet we still build (so the minimap is
+            // visible) but defer marking it "built" — the next frame retries
+            // and stamps the overlay in.
             if (!_bgBuilt)
             {
                 BuildGroundBackground();
-                _bgBuilt = true;
+                var pg = PassabilityGrid.Instance;
+                _bgBuilt = pg != null && pg.Cells.IsCreated;
             }
 
             BlitBackgroundToFrame();
@@ -263,6 +295,8 @@ namespace TheWaningBorder.World.Minimap
             // Dark foliage green for forest areas on the minimap
             Color forestGround = new Color(0.12f, 0.28f, 0.08f, 1f);
 
+            var passGrid = PassabilityGrid.Instance;
+
             for (int y = 0; y < samples; y++)
             {
                 float vz = Mathf.Lerp(minZ, maxZ, (y + 0.5f) / samples);
@@ -284,6 +318,23 @@ namespace TheWaningBorder.World.Minimap
                             float t = 1f - (distSq / rSq);
                             col = Color.Lerp(col, forestGround, t * 0.85f);
                             break;
+                        }
+                    }
+
+                    // Passability stamp — anything pathing considers blocked
+                    // (mountain interior, water, very steep cliff) is darkened
+                    // toward colImpassable so the player can read at a glance
+                    // where units cannot go. Skipped if the grid isn't built
+                    // yet so the early-game minimap doesn't flicker.
+                    if (passGrid != null && passGrid.Cells.IsCreated)
+                    {
+                        var cell = passGrid.WorldToCell(new float3(vx, 0f, vz));
+                        if (cell.x >= 0 && cell.x < passGrid.Width &&
+                            cell.y >= 0 && cell.y < passGrid.Height)
+                        {
+                            byte v = passGrid.Cells[cell.y * passGrid.Width + cell.x];
+                            if (v == PassabilityGrid.TerrainBlocked)
+                                col = Color.Lerp(col, colImpassable, impassableBlend);
                         }
                     }
 
@@ -340,9 +391,13 @@ namespace TheWaningBorder.World.Minimap
             }
 
             // === LAND — color by height + slope ===
+            // Height tiers match the current heightmap: PlainY=8, hills cap
+            // ~20m, mountain peaks ~30m. Earlier thresholds (40/55/70) were
+            // sized for a long-retired 90m-tall heightmap and painted the
+            // entire map as grass.
             Color ground;
 
-            if (h < 40f)
+            if (h < 12f)
             {
                 // Low land — green grass with woodland patches
                 ground = colGrass;
@@ -361,39 +416,31 @@ namespace TheWaningBorder.World.Minimap
                     ground = Color.Lerp(ground, colDirt, amount * 0.3f);
                 }
             }
-            else if (h < 55f)
+            else if (h < 20f)
             {
-                // Mid land (hills) — grass/dirt blend transitioning to rock
-                float hillT = Mathf.InverseLerp(40f, 55f, h);
-                ground = Color.Lerp(colGrass, colDirt, hillT * 0.6f);
-
-                // Woodland patches
-                float woodNoise = Mathf.PerlinNoise(u * 8f + _noiseOffsetX, v * 8f + _noiseOffsetY);
-                if (woodNoise > 0.45f)
-                {
-                    float amount = (woodNoise - 0.45f) * 2f;
-                    ground = Color.Lerp(ground, colDirt, amount * 0.3f);
-                }
+                // Hill belt — grass/dirt blend.
+                float hillT = Mathf.InverseLerp(12f, 20f, h);
+                ground = Color.Lerp(colGrass, colDirt, hillT * 0.7f);
             }
-            else if (h < 70f)
+            else if (h < 25f)
             {
-                // High land — rock/dirt blend
-                float highT = Mathf.InverseLerp(55f, 70f, h);
+                // Foothill / mountain skirt — dirt giving way to rock.
+                float highT = Mathf.InverseLerp(20f, 25f, h);
                 ground = Color.Lerp(colDirt, colRock, highT);
             }
             else
             {
-                // Mountain peaks — rock with snow tint
-                float snowT = Mathf.InverseLerp(70f, 85f, h);
+                // Mountain proper — rock with a snow tint above 28m.
+                float snowT = Mathf.InverseLerp(25f, 30f, h);
                 ground = Color.Lerp(colRock, colSnow, snowT * 0.7f);
             }
 
-            // Steep slopes get rocky override
-            if (slope > 0.25f)
+            // Cliff override at moderate-or-steep slope.
+            if (slope > 0.30f)
             {
-                float cliffT = Mathf.InverseLerp(0.25f, 0.6f, slope);
+                float cliffT = Mathf.InverseLerp(0.30f, 0.65f, slope);
                 cliffT = Mathf.Clamp01(cliffT);
-                ground = Color.Lerp(ground, colRock, cliffT * 0.7f);
+                ground = Color.Lerp(ground, colRock, cliffT * 0.8f);
             }
 
             return ground;
@@ -629,10 +676,15 @@ namespace TheWaningBorder.World.Minimap
             float w = _rawRect.rect.width;
             float h = _rawRect.rect.height;
 
-            float pixelX = -(w - u * w);
-            float pixelY = v * h;
-
-            return new Vector2(pixelX, pixelY);
+            // Returns pixel coords in the view-line's anchor-relative space.
+            // Legacy path: lines are anchored at (1, 0) → x ∈ [-w, 0], y ∈ [0, h].
+            // Web-HUD path: lines are anchored at (0.5, 0.5) → x ∈ [-w/2, w/2],
+            //               y ∈ [-h/2, h/2] (centered).
+            if (ForceDedicatedCanvas)
+            {
+                return new Vector2(u * w - w * 0.5f, v * h - h * 0.5f);
+            }
+            return new Vector2(-(w - u * w), v * h);
         }
 
         private void DrawLine(int lineIndex, Vector2 start, Vector2 end)
@@ -677,8 +729,15 @@ namespace TheWaningBorder.World.Minimap
             float w = _rawRect.rect.width;
             float h = _rawRect.rect.height;
 
-            float u = (local.x + w) / w;
-            float v = local.y / h;
+            // ScreenPointToLocalPointInRectangle returns a point in the rect's
+            // local frame whose range depends on the pivot. Convert to [0..1]
+            // using the rect's pivot so it works for both legacy (pivot=(1,0))
+            // and web-HUD (pivot=(0.5, 0.5)) placements.
+            //   local.x ∈ [-pivot.x * w, (1 - pivot.x) * w]
+            //   local.y ∈ [-pivot.y * h, (1 - pivot.y) * h]
+            Vector2 pivot = _rawRect.pivot;
+            float u = (local.x / w) + pivot.x;
+            float v = (local.y / h) + pivot.y;
 
             worldX = Mathf.Lerp(worldMin.x, worldMax.x, u);
             worldZ = Mathf.Lerp(worldMin.y, worldMax.y, v);
@@ -738,13 +797,34 @@ namespace TheWaningBorder.World.Minimap
 
         private void EnsureCanvasAndImage()
         {
-            var canvas = FindFirstObjectByType<Canvas>();
+            Canvas canvas = null;
+            if (!ForceDedicatedCanvas)
+            {
+                // Reuse whatever Canvas the scene already has — original behaviour.
+                canvas = FindFirstObjectByType<Canvas>();
+            }
             if (canvas == null)
             {
                 var cGo = new GameObject("MinimapCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
                 canvas = cGo.GetComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 100;
+                canvas.sortingOrder = OverrideCanvasSortingOrder ?? 100;
+
+                // When the web HUD is driving placement, match CEF's
+                // CanvasScaler so the minimap stays inscribed in the diamond
+                // at every screen resolution. Otherwise leave the scaler at
+                // its default (ConstantPixelSize) so legacy positioning stays.
+                if (ForceDedicatedCanvas)
+                {
+                    var scaler = cGo.GetComponent<CanvasScaler>();
+                    scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                    scaler.referenceResolution = new Vector2(1920, 1080);
+                    scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+                }
+            }
+            else if (OverrideCanvasSortingOrder.HasValue)
+            {
+                canvas.sortingOrder = OverrideCanvasSortingOrder.Value;
             }
 
             var rawGo = new GameObject("MinimapRaw", typeof(RawImage));
@@ -756,9 +836,23 @@ namespace TheWaningBorder.World.Minimap
             _rawRect = _raw.rectTransform;
             _rawRect.anchorMin = new Vector2(1, 0);
             _rawRect.anchorMax = new Vector2(1, 0);
-            _rawRect.pivot = new Vector2(1, 0);
-            _rawRect.anchoredPosition = new Vector2(-offsetBR.x, offsetBR.y);
             _rawRect.sizeDelta = new Vector2(sizePixels, sizePixels);
+            if (ForceDedicatedCanvas)
+            {
+                // Web-HUD path: rotate the square 45° so it fits the diamond
+                // frame painted by CEF. Pivot at center so rotation is around
+                // the minimap's middle; anchored position picks the diamond
+                // center using offsetBR as the inset from the screen corner.
+                _rawRect.pivot = new Vector2(0.5f, 0.5f);
+                _rawRect.anchoredPosition = new Vector2(-offsetBR.x, offsetBR.y);
+                _rawRect.localRotation = Quaternion.Euler(0, 0, 45f);
+            }
+            else
+            {
+                // Legacy bottom-right corner placement, axis-aligned.
+                _rawRect.pivot = new Vector2(1, 0);
+                _rawRect.anchoredPosition = new Vector2(-offsetBR.x, offsetBR.y);
+            }
 
             // Add click handler that supports left + right clicks
             var proxy = rawGo.AddComponent<MinimapClickProxy>();
@@ -776,8 +870,13 @@ namespace TheWaningBorder.World.Minimap
                 lineImg.raycastTarget = false;
 
                 var lineRect = lineImg.rectTransform;
-                lineRect.anchorMin = new Vector2(1, 0);
-                lineRect.anchorMax = new Vector2(1, 0);
+                // Anchor to the parent's bottom-right (legacy) or center (web
+                // HUD) so WorldToMinimapPixel's two coordinate spaces line up.
+                Vector2 anchor = ForceDedicatedCanvas
+                    ? new Vector2(0.5f, 0.5f)
+                    : new Vector2(1f, 0f);
+                lineRect.anchorMin = anchor;
+                lineRect.anchorMax = anchor;
                 lineRect.pivot = new Vector2(0, 0.5f);
 
                 _viewLines[i] = lineImg;

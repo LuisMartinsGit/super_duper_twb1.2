@@ -180,6 +180,18 @@ namespace TheWaningBorder.Input
                 }
             }
 
+            // Belt-and-suspenders AudioListener guarantee — if we adopted an
+            // existing Camera.main (lobby scene's, for instance) it may not
+            // carry an AudioListener of its own, and Unity then spams "no
+            // audio listeners in the scene" every frame. Add one if neither
+            // the adopted camera nor anything else in the scene has one.
+            if (mainCamera != null && mainCamera.GetComponent<AudioListener>() == null)
+            {
+                var existing = Object.FindFirstObjectByType<AudioListener>();
+                if (existing == null)
+                    mainCamera.gameObject.AddComponent<AudioListener>();
+            }
+
             _camTransform = mainCamera.transform;
 
             // Create arm if needed

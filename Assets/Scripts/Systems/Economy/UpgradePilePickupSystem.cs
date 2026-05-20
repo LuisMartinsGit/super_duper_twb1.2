@@ -33,8 +33,11 @@ namespace TheWaningBorder.Systems.Economy
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
 
-            // Snapshot pile entities to avoid mutating the iteration set.
+            // Defer expired-pile destruction to an ECB — DestroyEntity is a
+            // structural change and can't fire while inside the foreach.
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
             var pilesToProcess = new NativeList<Entity>(Allocator.Temp);
+
             foreach (var (pile, entity) in SystemAPI
                 .Query<RefRW<UpgradePile>>()
                 .WithEntityAccess())
@@ -42,12 +45,18 @@ namespace TheWaningBorder.Systems.Economy
                 pile.ValueRW.Lifetime -= dt;
                 if (pile.ValueRO.Lifetime <= 0f)
                 {
-                    em.DestroyEntity(entity);
+                    ecb.DestroyEntity(entity);
                     continue;
                 }
                 pilesToProcess.Add(entity);
             }
 
+            ecb.Playback(em);
+            ecb.Dispose();
+
+            // The pickup pass below isn't inside a SystemAPI.Query iteration
+            // (it walks the NativeList snapshot), so TryPickup is free to
+            // call em.DestroyEntity directly on a successful pickup.
             for (int i = 0; i < pilesToProcess.Length; i++)
             {
                 var pile = pilesToProcess[i];

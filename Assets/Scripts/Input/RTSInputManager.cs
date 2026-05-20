@@ -133,6 +133,15 @@ namespace TheWaningBorder.Input
                 return true;
             }
 
+            // Web HUD: while the pointer hovers an interactive HTML element
+            // (button / panel / sidebar handle), block game-world input so the
+            // same click doesn't ALSO deselect units or fire orders. CEF runs
+            // in a separate process so its event capture can't suppress
+            // Unity's input on its own — we mirror the state explicitly via
+            // the `hud:capture` bridge topic.
+            if (TheWaningBorder.UI.Web.HudWebController.IsPointerOverWebHud)
+                return true;
+
             // Block if mouse is over UI panels
             if (EntityActionPanel.IsPointerOver() || EntityInfoPanel.IsPointerOver())
                 return true;

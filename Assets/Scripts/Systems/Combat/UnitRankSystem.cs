@@ -12,6 +12,7 @@
 // Location: Assets/Scripts/Systems/Combat/UnitRankSystem.cs
 
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Economy;
@@ -32,6 +33,11 @@ namespace TheWaningBorder.Systems.Combat
             float dt = SystemAPI.Time.DeltaTime;
 
             // ── Rank stamping + stat diffs ─────────────────────────────────
+            // First-time stamps need AddComponent which is a structural change,
+            // so defer those via ECB. Stat-diff SetComponentData calls inside
+            // ApplyRankDiff are data writes and stay direct.
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
             foreach (var (rank, entity) in SystemAPI
                 .Query<RefRO<UnitRank>>()
                 .WithAll<UnitTag>()
@@ -50,8 +56,11 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<UnitRankApplied>(entity))
                     em.SetComponentData(entity, new UnitRankApplied { Value = newRank });
                 else
-                    em.AddComponentData(entity, new UnitRankApplied { Value = newRank });
+                    ecb.AddComponent(entity, new UnitRankApplied { Value = newRank });
             }
+
+            ecb.Playback(em);
+            ecb.Dispose();
 
             // ── Lv 4+ HP regen ────────────────────────────────────────────
             foreach (var (rank, health) in SystemAPI

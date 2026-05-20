@@ -9,6 +9,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.Economy;
+using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.UI.HUD
@@ -135,7 +136,7 @@ namespace TheWaningBorder.UI.HUD
                         if (amount > 0)
                         {
                             Vector3 pos = (Vector3)transforms[i].Position + Vector3.up * 2f;
-                            SpawnText($"+{amount}", pos, new Color(1f, 0.85f, 0.4f));
+                            SpawnText($"+{amount}", pos, WorldOverlayPalette.Accent);
                         }
                     }
                 }
@@ -177,7 +178,7 @@ namespace TheWaningBorder.UI.HUD
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.fontStyle = FontStyle.Bold;
-            tm.color = new Color(1f, 0.85f, 0.4f, 1f);
+            tm.color = WorldOverlayPalette.Accent;
             return go;
         }
     }

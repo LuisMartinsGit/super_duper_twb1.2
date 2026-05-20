@@ -1,5 +1,12 @@
 # Alanthor Building Prompts
 
+> ⚠ **Visual prompts only.** Building roster + mechanics live in
+> **[docs/Design/Age_1_Alanthor.md](../../../docs/Design/Age_1_Alanthor.md)**
+> and are the truth source. Where the **Era 1 / Era 2** terminology in this
+> file is used, read it as: *Era 1 = Age 0 (pre-culture) + Age-up reskin*,
+> *Era 2 = Age 1 culture-unique buildings*. The Age-0 vs Age-1 distinction
+> from the Design docs supersedes the "Era 1 / Era 2" labels below.
+
 > **Culture Identity:** Industrial forgemasters. Architecture is rich, robust, square, and inspired by European castles. Heavy stone masonry, crenellated battlements, iron reinforcements, heraldic banners. Colors: sage green fabric/banners, warm grey stone.
 
 ---

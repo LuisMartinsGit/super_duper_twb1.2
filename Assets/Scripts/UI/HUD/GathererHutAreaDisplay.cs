@@ -187,7 +187,15 @@ namespace TheWaningBorder.UI.HUD
 
             float radiusSq = GatherRadius * GatherRadius;
 
-            // Determine cell scan bounds
+            // Determine cell scan bounds — clamped to the grid so we never
+            // index out of range. The DENOMINATOR (totalCells) is computed
+            // from the full circle area below, NOT from the loop iteration.
+            // Without that, a hut placed at a map corner would only iterate
+            // ~25 % of its circle, get 25 % of the cells as both numerator
+            // and denominator, and report a fake 100 % yield. With the
+            // full-circle denominator, a corner placement correctly reads
+            // freeCells (≈25 % of cells inside the map) over the FULL
+            // circle, yielding the expected 25 %.
             int2 minCell = grid.WorldToCell(new float3(placementPos.x - GatherRadius, 0f, placementPos.y - GatherRadius));
             int2 maxCell = grid.WorldToCell(new float3(placementPos.x + GatherRadius, 0f, placementPos.y + GatherRadius));
             minCell = math.max(minCell, int2.zero);
@@ -207,7 +215,12 @@ namespace TheWaningBorder.UI.HUD
                 ComponentType.ReadOnly<WallEnclosureIncomeTag>());
             var enclosureEntities = enclosureQuery.ToEntityArray(Allocator.Temp);
 
-            int totalCells = 0;
+            // Full-circle denominator — cells the circle WOULD cover if the
+            // map were infinite. Out-of-map cells stay unsampled and so
+            // never increment freeCells, naturally pulling the ratio down.
+            float circleArea = math.PI * radiusSq;
+            float cellArea = grid.CellSize * grid.CellSize;
+            int totalCells = (int)math.max(1f, math.round(circleArea / cellArea));
             int freeCells = 0;
 
             for (int cy = minCell.y; cy <= maxCell.y; cy++)
@@ -224,7 +237,9 @@ namespace TheWaningBorder.UI.HUD
                     if (dx * dx + dz * dz > radiusSq)
                         continue;
 
-                    totalCells++;
+                    // (totalCells is the full-circle denominator, computed
+                    // above. We no longer count loop iterations here so the
+                    // ratio stays honest at the map edges.)
 
                     // Exclusion 1: Terrain-blocked or building-blocked
                     byte cellValue = grid.GetCell(cell);
@@ -290,17 +305,50 @@ namespace TheWaningBorder.UI.HUD
             hutFactions.Dispose();
             enclosureEntities.Dispose();
 
-            if (totalCells == 0) return 0f;
-            return (float)freeCells / totalCells;
+            // totalCells is a fixed full-circle denominator, never zero.
+            return Mathf.Clamp01((float)freeCells / totalCells);
         }
 
         /// <summary>
         /// Fallback geometric calculation when PassabilityGrid is not available.
+        /// Also subtracts the portion of the circle that lies outside the map
+        /// bounds, so a corner placement reads ~25 % and an edge placement
+        /// ~50 % even before the passability grid has finished baking.
         /// </summary>
         private float CalculatePlacementRatioFallback(float2 placementPos)
         {
             float totalArea = math.PI * GatherRadius * GatherRadius;
             float occupiedArea = 0f;
+
+            // Out-of-map area — sample the circle on a small grid and count
+            // sample points that fall outside the playable rectangle. Cheap
+            // approximation (≈400 samples) that handles corners + edges
+            // uniformly without needing closed-form circle-rectangle clip.
+            var pt = TheWaningBorder.World.Terrain.ProceduralTerrain.Instance;
+            if (pt != null)
+            {
+                const int Samples = 20; // 20x20 grid over the bounding box
+                float step = (GatherRadius * 2f) / Samples;
+                int outside = 0;
+                int inside = 0;
+                for (int j = 0; j < Samples; j++)
+                {
+                    float sz = placementPos.y - GatherRadius + (j + 0.5f) * step;
+                    for (int i = 0; i < Samples; i++)
+                    {
+                        float sx = placementPos.x - GatherRadius + (i + 0.5f) * step;
+                        float dx = sx - placementPos.x;
+                        float dz = sz - placementPos.y;
+                        if (dx * dx + dz * dz > GatherRadius * GatherRadius) continue;
+                        bool oob = sx < pt.worldMin.x || sx > pt.worldMax.x ||
+                                   sz < pt.worldMin.y || sz > pt.worldMax.y;
+                        if (oob) outside++; else inside++;
+                    }
+                }
+                int total = inside + outside;
+                if (total > 0)
+                    occupiedArea += totalArea * ((float)outside / total);
+            }
 
             var hutQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<GathererHutTag>(),
@@ -328,7 +376,7 @@ namespace TheWaningBorder.UI.HUD
             hutFactions.Dispose();
 
             float freeArea = math.max(0f, totalArea - occupiedArea);
-            return freeArea / totalArea;
+            return Mathf.Clamp01(freeArea / totalArea);
         }
 
         private void ShowAllExistingHutCircles()
