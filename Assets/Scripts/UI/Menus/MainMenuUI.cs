@@ -45,12 +45,14 @@ namespace TheWaningBorder.UI.Menus
         // Scenario scroll
         private Vector2 _scenarioScrollPos;
 
-        // Layout constants
-        private const float ButtonWidth = 280f;
-        private const float ButtonHeight = 42f;
-        private const float ButtonSpacing = 8f;
-        private const float TitleHeight = 60f;
-        private const float Padding = 20f;
+        // Layout constants. Sized to host two lines per button (label +
+        // italic hint) the way the in-game pause menu does
+        // (HudFrontend/src/components/Menu.jsx → .hud-menu-item).
+        private const float ButtonWidth = 360f;
+        private const float ButtonHeight = 56f;
+        private const float ButtonSpacing = 2f;
+        private const float TitleHeight = 72f;
+        private const float Padding = 24f;
         private const string GameSceneName = "Game";
 
         void Awake()
@@ -134,34 +136,41 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawMainMenu()
         {
-            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * 6 + Padding * 2;
+            // 7 rows: Skirmish, Multiplayer, Campaign, Load, Scenarios,
+            // Options, Exit. Two of them are stubs (Campaign / Load).
+            const int rowCount = 7;
+            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * rowCount + Padding * 2;
             float startX = (Screen.width - ButtonWidth) * 0.5f;
             float startY = (Screen.height - totalH) * 0.5f;
 
-            // Title
+            // Title — uses the same spaced-uppercase treatment the
+            // pause menu's "ARMISTICE / PAUSED" header has.
             GUI.Label(new Rect(startX, startY, ButtonWidth, TitleHeight),
-                "THE WANING BORDER", _titleStyle);
+                SpaceOut("THE WANING BORDER"), _titleStyle);
 
             float y = startY + TitleHeight + Padding;
 
-            if (DrawMenuButton(startX, ref y, "Skirmish"))
+            if (DrawMenuButton(startX, ref y, "Skirmish", "Single-player vs AI"))
                 _pendingState = MenuState.SkirmishLobby;
 
-            if (DrawMenuButton(startX, ref y, "Multiplayer"))
+            if (DrawMenuButton(startX, ref y, "Multiplayer", "Lockstep network match"))
                 _pendingState = MenuState.MultiplayerLobby;
 
-            // Campaign — disabled
-            GUI.enabled = false;
-            DrawMenuButton(startX, ref y, "Campaign");
-            GUI.enabled = true;
+            // Campaign — not yet implemented.
+            DrawMenuButton(startX, ref y, "Campaign", "Coming soon", enabled: false);
 
-            if (DrawMenuButton(startX, ref y, "Scenarios"))
+            // Load Game — depends on task-save-load-system-081. Visible
+            // here so the player sees the slot exists; greyed out until
+            // the save system ships.
+            DrawMenuButton(startX, ref y, "Load Game", "Coming soon", enabled: false);
+
+            if (DrawMenuButton(startX, ref y, "Scenarios", "Stress-test & showcase rooms"))
                 _pendingState = MenuState.Scenarios;
 
-            if (DrawMenuButton(startX, ref y, "Options"))
+            if (DrawMenuButton(startX, ref y, "Options", "Sound, video, controls"))
                 _pendingState = MenuState.Options;
 
-            if (DrawMenuButton(startX, ref y, "Exit"))
+            if (DrawMenuButton(startX, ref y, "Exit", "Leave the keep"))
                 ExitGame();
         }
 
@@ -205,17 +214,22 @@ namespace TheWaningBorder.UI.Menus
             for (int i = 0; i < scenarios.Length; i++)
             {
                 var btnRect = new Rect(0, y, ButtonWidth - 16, ButtonHeight);
-                if (GUI.Button(btnRect, scenarios[i].label, _buttonStyle))
+                // Long scenario labels — pre-build the rich-text row
+                // (tick + label + chevron, no hint subtitle) since the
+                // sentence form would overflow if we letter-spaced it.
+                string display = $"<color=#d3a942>◆</color>   <b>{scenarios[i].label}</b>   <color=#d3a942>▸</color>";
+                if (GUI.Button(btnRect, display, _buttonStyle))
                     _pendingScenario = scenarios[i].type;
                 y += ButtonHeight + ButtonSpacing;
             }
 
             GUI.EndScrollView();
 
-            // Back button below scroll area
+            // Back button below scroll area — uses the same pause-menu
+            // row treatment as the main menu list.
             float backY = scrollRect.yMax + Padding;
-            var backRect = new Rect(startX, backY, ButtonWidth, ButtonHeight);
-            if (GUI.Button(backRect, "Back", _buttonStyle))
+            float backY_ref = backY;
+            if (DrawMenuButton(startX, ref backY_ref, "Back", "Return to main menu"))
                 _pendingState = MenuState.MainMenu;
         }
 
@@ -223,44 +237,97 @@ namespace TheWaningBorder.UI.Menus
         // HELPERS
         // ═══════════════════════════════════════════════════════════════════════
 
-        private bool DrawMenuButton(float x, ref float y, string label)
+        // Draw one menu row in the in-game pause-menu style: transparent
+        // background, gold uppercase label with letter-spacing, italic
+        // dimmed hint underneath, diamond tick on the left, chevron on
+        // the right. `enabled=false` paints the whole row at low opacity
+        // and disables clicks (matches the disabled Save/Load look in
+        // HudFrontend/src/components/Menu.jsx).
+        private bool DrawMenuButton(float x, ref float y, string label, string hint = null, bool enabled = true)
         {
             var rect = new Rect(x, y, ButtonWidth, ButtonHeight);
             y += ButtonHeight + ButtonSpacing;
-            return GUI.Button(rect, label, _buttonStyle);
+
+            // Rich-text payload — two lines:
+            //   <gold bold label>     ▸
+            //   <dim italic hint>
+            // The trailing chevron and leading diamond tick are inlined
+            // as rich-text characters so a single GUI.Button hosts the
+            // entire row (no separate widgets to align).
+            string spacedLabel = SpaceOut(label.ToUpperInvariant());
+            string display;
+            if (string.IsNullOrEmpty(hint))
+            {
+                display = $"<color=#d3a942>◆</color>   {spacedLabel}   <color=#d3a942>▸</color>";
+            }
+            else
+            {
+                display =
+                    $"<color=#d3a942>◆</color>   {spacedLabel}   <color=#d3a942>▸</color>\n" +
+                    $"<size=12><i><color=#ffffffaa>{hint}</color></i></size>";
+            }
+
+            bool prevEnabled = GUI.enabled;
+            GUI.enabled = prevEnabled && enabled;
+            bool clicked = GUI.Button(rect, display, _buttonStyle);
+            GUI.enabled = prevEnabled;
+            return clicked && enabled;
+        }
+
+        // Fake CSS letter-spacing in IMGUI by inserting hair-thin spaces
+        // between characters. Matches the Cinzel-uppercase look the
+        // pause menu uses (.hud-menu-item-label letter-spacing: 0.16em).
+        private static string SpaceOut(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length == 1) return s;
+            var sb = new System.Text.StringBuilder(s.Length * 2);
+            for (int i = 0; i < s.Length; i++)
+            {
+                sb.Append(s[i]);
+                if (i + 1 < s.Length && s[i] != ' ' && s[i + 1] != ' ')
+                    sb.Append(' ');
+            }
+            return sb.ToString();
         }
 
         private void InitStyles()
         {
             if (_stylesInitialized) return;
 
-            // Bold 16pt menu buttons with hover textures — specialty (no Styles match).
-            // Colors sourced from Styles.HighlightColor; dark-navy bg variants are unique to this menu.
-            var btnNormal = Styles.MakeSolid(new Color(0.06f, 0.08f, 0.16f, 0.75f));
-            var btnHover = Styles.MakeSolid(new Color(0.12f, 0.14f, 0.24f, 0.85f));
-            var btnActive = Styles.MakeSolid(new Color(0.16f, 0.18f, 0.3f, 0.9f));
+            // Match the in-game pause-menu button look (HudFrontend
+            // Menu.jsx → .hud-menu-item). The row has no solid
+            // background; hover paints a subtle white tint band. Gold
+            // accent matches the in-game theme accent.
+            var btnHover  = Styles.MakeSolid(new Color(1f, 1f, 1f, 0.06f));
+            var btnActive = Styles.MakeSolid(new Color(1f, 1f, 1f, 0.10f));
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 16,
+                richText = true,
+                fontSize = 18,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
+                alignment = TextAnchor.MiddleLeft,
                 border = new RectOffset(0, 0, 0, 0),
                 margin = new RectOffset(0, 0, 0, 0),
-                padding = new RectOffset(10, 10, 8, 8)
+                padding = new RectOffset(22, 22, 6, 8),
+                wordWrap = false,
             };
-            _buttonStyle.normal.background = btnNormal;
+            _buttonStyle.normal.background = null; // transparent — keep the menu background visible
             _buttonStyle.normal.textColor = Styles.HighlightColor;
             _buttonStyle.hover.background = btnHover;
-            _buttonStyle.hover.textColor = new Color(1f, 0.85f, 0.4f);
+            _buttonStyle.hover.textColor = new Color(1f, 0.92f, 0.55f);
             _buttonStyle.active.background = btnActive;
-            _buttonStyle.active.textColor = new Color(1f, 0.9f, 0.5f);
+            _buttonStyle.active.textColor = new Color(1f, 0.95f, 0.65f);
+            _buttonStyle.focused.background = null;
+            _buttonStyle.focused.textColor = _buttonStyle.normal.textColor;
 
-            // Title: large 24pt golden text — derived from Styles.Header (which is 20pt gold).
+            // Title: larger spaced golden heading, mirrors the modal
+            // "PAUSED" / "ARMISTICE" treatment in the pause menu.
             _titleStyle = new GUIStyle(Styles.Header)
             {
-                fontSize = 24,
-                alignment = TextAnchor.MiddleCenter
+                fontSize = 32,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true,
             };
 
             _stylesInitialized = true;
