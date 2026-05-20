@@ -96,9 +96,10 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         private static string ResolveBuildingId(EntityManager em, Entity e)
         {
-            if (em.HasComponent<HallTag>(e))     return "Hall";
-            if (em.HasComponent<BarracksTag>(e)) return "Barracks";
-            if (em.HasComponent<HutTag>(e))      return "Hut";
+            if (em.HasComponent<HallTag>(e))         return "Hall";
+            if (em.HasComponent<BarracksTag>(e))     return "Barracks";
+            if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";
+            if (em.HasComponent<HutTag>(e))          return "Hut";
             return string.Empty;
         }
 

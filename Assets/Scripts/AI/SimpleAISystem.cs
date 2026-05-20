@@ -208,7 +208,8 @@ namespace TheWaningBorder.AI
             if (!em.HasBuffer<TrainQueueItem>(trainer)) return false;
 
             var queue = em.GetBuffer<TrainQueueItem>(trainer);
-            if (queue.Length >= MaxTrainQueue) return false;
+            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer)) return false;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
@@ -495,7 +496,8 @@ namespace TheWaningBorder.AI
             if (!em.HasBuffer<ResearchQueueItem>(bldg)) return false;
 
             var queue = em.GetBuffer<ResearchQueueItem>(bldg);
-            if (queue.Length >= MaxTrainQueue) return false;
+            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, bldg)) return false;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;

@@ -406,6 +406,9 @@ public struct TrainingState : IComponentData
 {
     public byte Busy;       // 0 = idle, 1 = training
     public float Remaining; // Seconds until current unit completes
+    public float Total;     // Seconds the current training started with — UI uses
+                            // (Total - Remaining) / Total to render the progress
+                            // bar below the building's health bar.
 }
 
 /// <summary>

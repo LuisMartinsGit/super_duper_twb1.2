@@ -114,6 +114,7 @@ namespace TheWaningBorder.Systems.Training
 
                     ts.ValueRW.Busy = 1;
                     ts.ValueRW.Remaining = trainingTime;
+                    ts.ValueRW.Total = trainingTime;
                 }
                 else
                 {
@@ -155,6 +156,7 @@ namespace TheWaningBorder.Systems.Training
                             queue.RemoveAt(0);
                             ts.ValueRW.Busy = 0;
                             ts.ValueRW.Remaining = 0f;
+                            ts.ValueRW.Total = 0f;
 
                             // Defer spawn until after iteration completes
                             deferredSpawns.Add(new DeferredSpawn

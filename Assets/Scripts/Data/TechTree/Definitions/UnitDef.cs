@@ -37,7 +37,12 @@ namespace TheWaningBorder.Data
         
         // ==================== Economy ====================
         public CostBlock cost;
-        
+
+        // ==================== Progression Gating ====================
+        // Minimum level the trainer building must be to unlock this unit.
+        // 0 / 1 = available immediately. 2 = needs L2 building, etc.
+        public int minBuildingLevel;
+
         // ==================== Support Unit Fields ====================
         public float buildSpeed;        // for builders
         public float gatheringSpeed;    // for miners/gatherers

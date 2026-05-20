@@ -102,6 +102,7 @@ namespace TheWaningBorder.Data
         public int carryCapacity;
         public float healsPerSecond;
         public float attackCooldown;
+        public int minBuildingLevel;
 
         public UnitDef ToDef(string overrideId = null, string overrideName = null,
             float defaultHp = 100, float defaultSpeed = 5, float defaultDamage = 10,
@@ -130,6 +131,7 @@ namespace TheWaningBorder.Data
                 carryCapacity  = carryCapacity,
                 healsPerSecond = healsPerSecond,
                 attackCooldown = attackCooldown,
+                minBuildingLevel = minBuildingLevel,
             };
         }
     }

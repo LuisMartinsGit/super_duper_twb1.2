@@ -108,12 +108,11 @@ namespace TheWaningBorder.AI
                 if (factionTag.ValueRO.Value != faction) continue;
 
                 bool isMilitary = em.HasComponent<BarracksTag>(entity) ||
-                    em.HasComponent<GarrisonTag>(entity) ||
+                    em.HasComponent<PracticeRangeTag>(entity) ||
                     em.HasComponent<LonghouseTag>(entity) ||
                     em.HasComponent<SiegeWorkshopTag>(entity) ||
                     em.HasComponent<SiegeYardTag>(entity) ||
                     em.HasComponent<FerSiegeYardTag>(entity) ||
-                    em.HasComponent<RoyalStableTag>(entity) ||
                     em.HasComponent<BazaarTag>(entity);
 
                 if (isMilitary)
@@ -390,12 +389,11 @@ namespace TheWaningBorder.AI
 
                 // Include any building with a training queue that is a military producer
                 bool isMilitary = em.HasComponent<BarracksTag>(entity) ||
-                    em.HasComponent<GarrisonTag>(entity) ||
+                    em.HasComponent<PracticeRangeTag>(entity) ||
                     em.HasComponent<LonghouseTag>(entity) ||
                     em.HasComponent<SiegeWorkshopTag>(entity) ||
                     em.HasComponent<SiegeYardTag>(entity) ||
                     em.HasComponent<FerSiegeYardTag>(entity) ||
-                    em.HasComponent<RoyalStableTag>(entity) ||
                     em.HasComponent<BazaarTag>(entity);
 
                 if (isMilitary)

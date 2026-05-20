@@ -41,7 +41,7 @@
 //   6. Defensive tower spam — late-game (>5 min) build extra Alanthor_Towers
 //      around the Hall up to a cap. Direct creation (was queueing into
 //      the dead BuildRequest buffer; never actually built anything).
-//   7. Armoured-unit production — when an Alanthor_Stable / Alanthor_SiegeYard
+//   7. Armoured-unit production — when a Barracks / Alanthor_SiegeYard
 //      exists and its TrainQueue has room, push Cataphract / Ballista
 //      directly into the queue (charges cost via FactionEconomy.Spend).
 //   8. Worker flee — for every miner / builder of this faction with an
@@ -674,13 +674,13 @@ namespace TheWaningBorder.AI
         // 7. ARMOURED-UNIT PRODUCTION
         // ──────────────────────────────────────────────────────────────────
 
-        // Push Cataphract / Ballista directly into the Stable / SiegeYard
+        // Push Cataphract / Ballista directly into the Barracks / SiegeYard
         // TrainQueue. Same pattern SimpleAISystem uses for Age-1 units.
         // Charges cost via FactionEconomy.Spend so we don't double-deduct.
         private static void TryQueueArmouredUnits(Faction faction, EntityManager em)
         {
-            TryQueueAt<RoyalStableTag>(em, faction, "Alanthor_Cataphract");
-            TryQueueAt<SiegeYardTag>  (em, faction, "Alanthor_Ballista");
+            TryQueueAt<BarracksTag> (em, faction, "Alanthor_Cataphract");
+            TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Ballista");
         }
 
         private static void TryQueueAt<TBuildingTag>(EntityManager em, Faction faction, string unitId)

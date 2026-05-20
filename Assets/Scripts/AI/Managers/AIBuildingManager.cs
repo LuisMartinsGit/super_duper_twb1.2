@@ -313,8 +313,7 @@ namespace TheWaningBorder.AI
                 "ThessarasBazaar"        => 40f,
                 "Runai_SiegeWorkshop"    => 35f,
                 "Alanthor_Tower"         => 25f,
-                "Alanthor_Garrison"      => 30f,
-                "Alanthor_Stable"        => 35f,
+                "Alanthor_PracticeRange" => 30f,
                 "Alanthor_SiegeYard"     => 35f,
                 "Feraldis_HuntingLodge"  => 25f,
                 "Feraldis_LoggingStation" => 25f,
@@ -355,8 +354,7 @@ namespace TheWaningBorder.AI
                 "ThessarasBazaar"        => 2700,
                 "Runai_SiegeWorkshop"    => 1100,
                 "Alanthor_Tower"         => 950,
-                "Alanthor_Garrison"      => 1500,
-                "Alanthor_Stable"        => 1300,
+                "Alanthor_PracticeRange" => 1500,
                 "Alanthor_SiegeYard"     => 1100,
                 "Feraldis_HuntingLodge"  => 1000,
                 "Feraldis_LoggingStation" => 1000,
@@ -381,8 +379,8 @@ namespace TheWaningBorder.AI
             "Runai_SiegeWorkshop"
         };
         private static readonly string[] AlanthorBuildOrder = {
-            "KingsCourt", "Alanthor_Garrison", "Alanthor_Tower",
-            "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Tower"
+            "KingsCourt", "Alanthor_PracticeRange", "Alanthor_Tower",
+            "Alanthor_SiegeYard", "Alanthor_Tower"
         };
         private static readonly string[] FeraldisBuildOrder = {
             "Feraldis_Longhouse", "Feraldis_HuntingLodge", "Feraldis_Tower",

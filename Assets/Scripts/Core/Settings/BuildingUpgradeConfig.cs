@@ -85,6 +85,9 @@ namespace TheWaningBorder.Core.Settings
                     };
                     return true;
                 case "Barracks":
+                case "ArcheryRange":
+                    // Archery Range mirrors Barracks pricing — same tier of
+                    // military training building, parallel upgrade curve.
                     cost = targetLevel switch
                     {
                         1 => new Cost { Supplies = 80, Iron = 20 },
