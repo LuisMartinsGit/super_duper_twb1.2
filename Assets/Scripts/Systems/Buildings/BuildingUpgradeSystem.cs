@@ -15,6 +15,7 @@
 // building goes briefly inert during the upgrade.
 
 using Unity.Entities;
+using Unity.Transforms;
 using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Economy;
 

@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Economy;
 
 /// <summary>Marker for Feraldis auto-spawned Raider units (uncontrollable skirmishers).</summary>
 public struct FeraldisRaiderTag : IComponentData { }
