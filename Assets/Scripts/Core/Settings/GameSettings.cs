@@ -103,6 +103,16 @@ public static class GameSettings
     /// <summary>Start every faction with 100,000 of each resource (debug / sandbox).</summary>
     public static bool MaxStartingResources = false;
 
+    // ==================== HUD ====================
+
+    /// <summary>
+    /// When true, the game spawns the CEF-backed web HUD (HudWebController +
+    /// HudBridge) and disables the IMGUI / UI Toolkit HUDs (ResourceHUD,
+    /// VictoryProgressHUD, MinimapRenderer, ReligionHUD, GameplayUIController).
+    /// Set false to fall back to the legacy HUD stack.
+    /// </summary>
+    public static bool UseWebHud = true;
+
     // ==================== Selection Settings ====================
 
     /// <summary>
@@ -118,6 +128,10 @@ public static class GameSettings
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
     public static int MapHalfSize = 125;
 
+    /// <summary>Which procedural archetype the map generator uses.</summary>
+    public static TheWaningBorder.World.Maps.MapArchetype MapArchetype =
+        TheWaningBorder.World.Maps.MapArchetype.Plain;
+
     /// <summary>Whether fog of war is enabled.</summary>
     public static bool FogOfWarEnabled = false;
 
@@ -131,7 +145,10 @@ public static class GameSettings
     /// deposits, water plane hidden below the terrain. Toggle off when you
     /// want production-style maps with hills and forests back.
     /// </summary>
-    public static bool FlatTestMap = true;
+    // Default OFF — production maps need hills, forests, iron-deposit slope
+    // checks, and the rest of the world-clutter pipeline. Toggle on only
+    // when isolating AI / pathfinding tests from terrain noise.
+    public static bool FlatTestMap = false;
 
     // ==================== Pathfinding Settings ====================
 

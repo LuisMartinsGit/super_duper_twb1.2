@@ -48,6 +48,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
+
             var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xC7A5));
 
             var playerPositions = GetPlayerPositions(em);
@@ -103,7 +104,7 @@ namespace TheWaningBorder.Bootstrap
                                     math.cos(a) * ConnectivityProbeRadius, 0f,
                                     math.sin(a) * ConnectivityProbeRadius);
                                 sample.y = TerrainUtility.GetHeight(sample.x, sample.z);
-                                if (grid.IsPassable(sample)) passable++;
+                                if (grid.IsReachableByAllPlayers(sample)) passable++;
                             }
                             sampledPassableSum += passable;
                             if (passable < MinPassableNeighbours) { rejConnectivity++; continue; }
@@ -169,6 +170,17 @@ namespace TheWaningBorder.Bootstrap
 
             Debug.Log($"[CrystalNodeBootstrap] DONE — nodesSpawned={nodesSpawned}");
 
+            EnsureCurseFactionState(em, nodesSpawned);
+            return nodesSpawned;
+        }
+
+        /// <summary>
+        /// Initialise the per-match curse-faction singletons (resource bank,
+        /// wave state, extinction state, victory state). Extracted from the
+        /// noise-driven path so the image-driven path can call it too.
+        /// </summary>
+        private static void EnsureCurseFactionState(EntityManager em, int nodesSpawned)
+        {
             // Initialize Faction.Curse crystal bank if it doesn't exist
             if (!FactionEconomy.TryGetBank(em, Faction.Curse, out _))
             {
@@ -228,7 +240,6 @@ namespace TheWaningBorder.Bootstrap
             // runs, with or without the curse). This file used to spawn its own
             // 5×320=1600-crystal starter patch, doubling up with CrystalPatchBootstrap
             // when CrystalCurseEnabled. Removed — single source of truth.
-            return nodesSpawned;
         }
 
         /// <summary>

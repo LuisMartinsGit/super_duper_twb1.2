@@ -87,6 +87,14 @@ namespace TheWaningBorder.Systems.Movement
             _sources = new List<NavMeshBuildSource>(64);
             _knownBuildings = new Dictionary<Entity, BuildingRecord>(64);
             _settings = NavMesh.GetSettingsByID(0);
+            // Default agent slope is 45° — that lets units walk onto the
+            // shoulders of mountains since the ridge noise often stays under
+            // tan(45°)=1.0 along their flanks. Tighten to 30° so mountains
+            // bake as impassable in the NavMesh (matches the slope budgets
+            // used by ProceduralHeightmap for playable regions).
+            _settings.agentSlope = 30f;
+            // Step height — keep low so a 0.5m ridge isn't auto-climbed.
+            _settings.agentClimb = 0.3f;
         }
 
         private void OnDestroy()
@@ -103,14 +111,18 @@ namespace TheWaningBorder.Systems.Movement
 
         private IEnumerator InitialBake()
         {
-            // Wait for the procedural Terrain to exist — it's spawned by
-            // ProceduralTerrain.Awake but generation is asynchronous.
+            // Wait for the procedural Terrain to exist AND for its async
+            // heightmap generation to finish. Baking against the empty
+            // (all-zero) heightmap would produce a flat navmesh that's
+            // out of sync with the eventual eroded terrain.
             UnityEngine.Terrain terrain = null;
             float waited = 0f;
-            while (terrain == null)
+            while (terrain == null ||
+                   !TheWaningBorder.World.Terrain.ProceduralTerrain.IsGenerationComplete)
             {
                 terrain = Object.FindFirstObjectByType<UnityEngine.Terrain>();
-                if (terrain != null && terrain.terrainData != null) break;
+                if (terrain != null && terrain.terrainData != null &&
+                    TheWaningBorder.World.Terrain.ProceduralTerrain.IsGenerationComplete) break;
                 terrain = null;
                 waited += Time.deltaTime;
                 if (waited > 30f)
@@ -177,8 +189,18 @@ namespace TheWaningBorder.Systems.Movement
                 ComponentType.ReadOnly<LocalTransform>());
             using var entities = query.ToEntityArray(Allocator.Temp);
 
+            // Obstacles (ObstacleTag) — static map features that should
+            // carve the navmesh just like buildings do: iron deposits,
+            // forest impassable discs, etc. They're treated identically
+            // for navmesh baking — both feed Box sources at their footprint.
+            var obstacleQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<ObstacleTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Radius>());
+            using var obstacleEntities = obstacleQuery.ToEntityArray(Allocator.Temp);
+
             // Build the new known set.
-            var current = new Dictionary<Entity, BuildingRecord>(entities.Length);
+            var current = new Dictionary<Entity, BuildingRecord>(entities.Length + obstacleEntities.Length);
             for (int i = 0; i < entities.Length; i++)
             {
                 var e = entities[i];
@@ -211,6 +233,23 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     Position = new Vector3(t.Position.x, t.Position.y, t.Position.z),
                     Size = sz,
+                };
+            }
+
+            // Fold in ObstacleTag entities (iron deposits, forest discs).
+            // Each one feeds a Box source sized from its Radius × 2.
+            for (int i = 0; i < obstacleEntities.Length; i++)
+            {
+                var e = obstacleEntities[i];
+                if (current.ContainsKey(e)) continue; // BuildingTag already covered it
+                var t = em.GetComponentData<LocalTransform>(e);
+                var r = em.GetComponentData<Radius>(e).Value;
+                if (r <= 0f) r = 0.5f;
+                float edge = r * 2f;
+                current[e] = new BuildingRecord
+                {
+                    Position = new Vector3(t.Position.x, t.Position.y, t.Position.z),
+                    Size = new Vector2(edge, edge),
                 };
             }
 

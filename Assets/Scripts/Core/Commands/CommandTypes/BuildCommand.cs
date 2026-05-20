@@ -89,6 +89,31 @@ namespace TheWaningBorder.Core.Commands.Types
             float2 newMin = new float2(position.x - halfW, position.z - halfH);
             float2 newMax = new float2(position.x + halfW, position.z + halfH);
 
+            // 0. Map-bounds check — the building's footprint must fit entirely
+            //    inside the world rectangle. Without this, Gatherer's Huts
+            //    placed near the edge could pull their footprint off the map,
+            //    the income system would only sample the in-bounds cells of
+            //    the gather circle, and the resulting passable-cell ratio
+            //    would read as ~100% even though half the circle was empty
+            //    void outside the playable area.
+            var terrain = ProceduralTerrain.Instance;
+            if (terrain != null)
+            {
+                if (newMin.x < terrain.worldMin.x || newMin.y < terrain.worldMin.y ||
+                    newMax.x > terrain.worldMax.x || newMax.y > terrain.worldMax.y)
+                    return false;
+            }
+            else
+            {
+                // Fallback when ProceduralTerrain hasn't published itself
+                // yet (e.g. early bootstrap / flat-test map). Use the
+                // GameSettings half-size as a symmetric bound around origin.
+                float half = GameSettings.MapHalfSize;
+                if (newMin.x < -half || newMin.y < -half ||
+                    newMax.x >  half || newMax.y >  half)
+                    return false;
+            }
+
             // 1. Building overlap check (AABB-vs-AABB on XZ plane)
             var buildingQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),

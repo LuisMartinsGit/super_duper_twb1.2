@@ -533,7 +533,7 @@ namespace TheWaningBorder.Bootstrap
                 (Faction.Blue, new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
                 // Era 2 pre-culture choice buildings (no culture yet)
                 (Faction.Teal, new[] { "ShrineOfAhridan", "TempleOfRidan", "VaultOfAlmierra" }),
-                // Runai (Runai_TradingPost omitted — reuses Alanthor_Garrison presentation)
+                // Runai (Runai_TradingPost omitted — reuses Alanthor_PracticeRange presentation)
                 (Faction.Green, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
@@ -548,8 +548,8 @@ namespace TheWaningBorder.Bootstrap
                 // Alanthor
                 (Faction.Red, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_Garrison",
-                    "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
+                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_PracticeRange",
+                    "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
                 }),
             };
 

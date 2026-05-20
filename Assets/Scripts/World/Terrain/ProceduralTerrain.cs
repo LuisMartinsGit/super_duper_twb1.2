@@ -95,6 +95,11 @@ namespace TheWaningBorder.World.Terrain
         public TerrainLayer snow;
         public TerrainLayer curse;
         public TerrainLayer forestFloor;
+        // Image-map exclusive layers — distinct procedural look so the player
+        // reads sea-bed vs beach and cliff-face vs mountain even though both
+        // pairs use the same height tier or splatmap channel for queries.
+        public TerrainLayer seaBed;
+        public TerrainLayer cliffStone;
 
         [Header("Texture Settings")]
         public int textureResolution = 512;
@@ -184,8 +189,23 @@ namespace TheWaningBorder.World.Terrain
         // INITIALIZATION
         // ═══════════════════════════════════════════════════════════════════════
 
+        // True once the heavy generation coroutine has finished filling the
+        // heightmap, splatmap, and layers. SpawnDelayHelper / other systems
+        // gate on this via TerrainUtility.IsReady(). False during the early
+        // frames while the loading-screen is on-screen.
+        public static bool IsGenerationComplete { get; private set; }
+
         void Awake()
         {
+            // FAST path only — anything that takes more than ~1 ms must move
+            // to GenerateRoutine(). Earlier this method ran heightmap + 1
+            // smoothing pass + 25 erosion iterations + 7 texture layers + 7
+            // normal maps in one synchronous shot, all triggered from
+            // GameBootstrap.OnSceneLoadedHandler → InitializeWorld(). That
+            // froze the main thread for 5-10 s on the activation frame
+            // BEFORE the LoadingScreen overlay ever painted — the player
+            // saw a frozen lobby until the bootstrap finished.
+            IsGenerationComplete = false;
             Instance = this;
 
             // Derive bounds from GameSettings
@@ -201,15 +221,13 @@ namespace TheWaningBorder.World.Terrain
             _noiseOffsetX = _rng.Next(0, 100000);
             _noiseOffsetY = _rng.Next(0, 100000);
 
-            // Create terrain
+            // TerrainData + Terrain GameObject — fast (no heightmap yet).
             var size = new Vector3(worldMax.x - worldMin.x, maxHeight, worldMax.y - worldMin.y);
-
-
             _data = new TerrainData();
             _data.heightmapResolution = heightmapRes;
             _data.alphamapResolution = controlTexRes;
             _data.baseMapResolution = controlTexRes;
-            _data.size = size;  // Set size AFTER resolutions
+            _data.size = size;
 
             var go = UnityEngine.Terrain.CreateTerrainGameObject(_data);
             go.name = "ProcTerrain";
@@ -217,28 +235,83 @@ namespace TheWaningBorder.World.Terrain
             _terrain = go.GetComponent<UnityEngine.Terrain>();
             _terrain.drawInstanced = true;
 
+            // Tree rendering settings — without these the GPU-instanced
+            // forest patches stay invisible regardless of how many
+            // TreeInstance entries we push to TerrainData.
+            _terrain.drawTreesAndFoliage = true;
+            _terrain.treeDistance = 800f;         // hard cull beyond this; default 5000 is overkill
+            _terrain.treeBillboardDistance = 250f; // switch to billboards past this
+            _terrain.treeCrossFadeLength = 50f;
+            _terrain.treeMaximumFullLODCount = 200; // full-LOD nearest 200 trees per terrain
 
-            // Generate textures if not assigned
-            GenerateTerrainLayers();
-
-            // Generate continental terrain
-            GeneratePlayerRegions();
-            GenerateHeightmap();
-            PaintSplatmaps();
-
-            // Create water plane
-            CreateWaterPlane();
-
-            // Place realistic spruce trees via noise-based forest placement
-            // (deferred one frame so player spawn positions are ready)
-            StartCoroutine(PlaceTreesDeferred());
+            waterHeight = 2.5f;
         }
 
-        private System.Collections.IEnumerator PlaceTreesDeferred()
+        void Start()
         {
-            yield return null; // wait one frame for spawn system to resolve positions
-            var spawns = GetMultiplayerSpawnPositions(GameSettings.TotalPlayers);
-            PlaceTerrainTrees(spawns);
+            // Kick the heavy generation off Start so it lands on a frame
+            // AFTER OnSceneLoadedHandler returned and the loading screen has
+            // had at least one Update/OnGUI cycle to paint.
+            StartCoroutine(GenerateRoutine());
+        }
+
+        private System.Collections.IEnumerator GenerateRoutine()
+        {
+            // Yield once so the loading screen paints with whatever status
+            // it had before the scene activated.
+            TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Generating heightmap…");
+            TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.45f);
+            yield return null;
+
+            // Legacy polar fallback for older queries that haven't migrated
+            // to the new region set.
+            GeneratePlayerRegions();
+            yield return null;
+
+            TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Building procedural map…");
+            TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.48f);
+            yield return null;
+
+            // ProceduralMapGen.Generate is still one synchronous block — it
+            // covers heightmap + smoothing + erosion + 7 texture layers + 7
+            // normal maps. The yields above guarantee the loading screen is
+            // on-screen before this fires; the freeze that follows is brief
+            // because the player at least sees "Building procedural map…
+            // 48 %" instead of a frozen lobby.
+            var result = TheWaningBorder.World.Maps.ProceduralMapGen.Generate(
+                GameSettings.MapArchetype, GameSettings.SpawnSeed,
+                Mathf.Max(2, GameSettings.TotalPlayers),
+                _data, waterHeight, worldMin, worldMax);
+
+            if (!result.success)
+            {
+                Debug.LogError($"[ProceduralTerrain] ProceduralMapGen failed: {result.failureReason}. " +
+                               "Falling back to legacy noise continental.");
+                GenerateTerrainLayers();
+                GenerateHeightmap();
+                PaintSplatmaps();
+            }
+            else
+            {
+                SyncIslandsFromRegions(result.regions);
+            }
+            yield return null;
+
+            TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Pouring water plane…");
+            TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.52f);
+            yield return null;
+            CreateWaterPlane();
+
+            // Forests are driven by ObstacleBootstrap.SpawnObstacles, which
+            // calls PaintTreesOnBrownGround on this terrain after the splat
+            // is built. That path samples the L_FOREST splat layer, plants
+            // GPU-instanced terrain trees wherever the brown ground reads,
+            // blocks the matching PassabilityGrid cells, and returns macro
+            // cell centres that ObstacleBootstrap turns into ObstacleTag
+            // entities for NavMeshManager. Nothing to do here.
+            yield return null;
+
+            IsGenerationComplete = true;
         }
 
         void OnDestroy()
@@ -263,10 +336,13 @@ namespace TheWaningBorder.World.Terrain
             // AoE4-style water settings
             // Flow animation (gentle, drifting)
             water.flowSpeed = 0.06f;
-            water.flowStrength = 0.25f;
+            // flowStrength is the max wave amplitude (max(wave1+wave2) ≈ 1.5),
+            // so 0.13 keeps the visible wave height around 0.2 units.
+            water.flowStrength = 0.13f;
 
             // Surface detail
-            water.rippleScale = 0.05f;
+            // rippleScale = wave frequency; higher value → tighter, smaller waves.
+            water.rippleScale = 0.15f;
             water.rippleSpeed = 0.4f;
             water.bumpiness = 0.35f;
 
@@ -335,6 +411,87 @@ namespace TheWaningBorder.World.Terrain
             if (forestFloor == null)
                 forestFloor = CreateTerrainLayer("ForestFloor", GenerateForestFloorTexture(texOffsetX, texOffsetY), tileSize * 0.5f);
 
+            if (seaBed == null)
+                seaBed = CreateTerrainLayer("SeaBed", GenerateSeaBedTexture(texOffsetX, texOffsetY), tileSize * 0.65f);
+
+            if (cliffStone == null)
+                cliffStone = CreateTerrainLayer("CliffStone", GenerateCliffStoneTexture(texOffsetX, texOffsetY), tileSize * 0.85f);
+        }
+
+        // Underwater silt — bluish-gray with darker mottles and bright bands
+        // of pale sand for ripple highlights. Distinct from Beach so the
+        // shoreline reads.
+        Texture2D GenerateSeaBedTexture(float offsetX, float offsetY)
+        {
+            var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
+            var deepSilt = new Color(0.18f, 0.24f, 0.28f);   // wet shaded silt
+            var midSilt  = new Color(0.32f, 0.38f, 0.40f);   // mid silt
+            var palePeb  = new Color(0.55f, 0.58f, 0.55f);   // pale pebbles in ripples
+            var darkSpot = new Color(0.10f, 0.14f, 0.18f);   // sunk debris
+            for (int y = 0; y < textureResolution; y++)
+            {
+                for (int x = 0; x < textureResolution; x++)
+                {
+                    float u = x / (float)textureResolution;
+                    float v = y / (float)textureResolution;
+                    // FBM grain
+                    float n = Mathf.PerlinNoise(u * 32 + offsetX, v * 32 + offsetY) * 0.55f
+                            + Mathf.PerlinNoise(u * 110 + offsetX, v * 110 + offsetY) * 0.30f
+                            + Mathf.PerlinNoise(u * 260 + offsetX, v * 260 + offsetY) * 0.15f;
+                    Color c = Color.Lerp(deepSilt, midSilt, n);
+                    // Stripe ripples — sin in V with a noisy phase so they don't read as bands.
+                    float ripplePhase = Mathf.PerlinNoise(u * 6 + offsetX, v * 6 + offsetY) * 6f;
+                    float ripple = Mathf.Sin(v * 90f + ripplePhase) * 0.5f + 0.5f;
+                    if (ripple > 0.7f)
+                        c = Color.Lerp(c, palePeb, (ripple - 0.7f) * 1.4f);
+                    // Occasional dark debris spots
+                    float spot = Mathf.PerlinNoise(u * 70 + offsetY * 2, v * 70 + offsetX * 2);
+                    if (spot > 0.78f)
+                        c = Color.Lerp(c, darkSpot, (spot - 0.78f) * 4f);
+                    tex.SetPixel(x, y, c);
+                }
+            }
+            tex.Apply();
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            return tex;
+        }
+
+        // Vertical-band cliff face — banded strata in warm grey/brown so the
+        // sharp drop reads as a cliff cross-section, not just darker rock.
+        Texture2D GenerateCliffStoneTexture(float offsetX, float offsetY)
+        {
+            var tex = new Texture2D(textureResolution, textureResolution, TextureFormat.RGB24, true);
+            var darkBand  = new Color(0.22f, 0.18f, 0.15f);
+            var midBand   = new Color(0.42f, 0.36f, 0.30f);
+            var lightBand = new Color(0.60f, 0.54f, 0.46f);
+            var crackLine = new Color(0.10f, 0.08f, 0.06f);
+            for (int y = 0; y < textureResolution; y++)
+            {
+                for (int x = 0; x < textureResolution; x++)
+                {
+                    float u = x / (float)textureResolution;
+                    float v = y / (float)textureResolution;
+                    // Stratified band noise — low frequency along Y, more variance along X.
+                    float strataPhase = Mathf.PerlinNoise(u * 3.5f + offsetX, v * 1.2f + offsetY) * 4f;
+                    float strata = Mathf.PerlinNoise(u * 5f, v * 45f + strataPhase);
+                    Color c = strata < 0.5f
+                        ? Color.Lerp(darkBand, midBand, strata * 2f)
+                        : Color.Lerp(midBand, lightBand, (strata - 0.5f) * 2f);
+                    // High-frequency rock grain
+                    float grain = Mathf.PerlinNoise(u * 220 + offsetX, v * 220 + offsetY);
+                    c = Color.Lerp(c, c * 0.85f, grain * 0.35f);
+                    // Vertical cracks
+                    float crack = Mathf.PerlinNoise(u * 18 + offsetY * 3, v * 4 + offsetX * 3);
+                    if (crack > 0.82f)
+                        c = Color.Lerp(c, crackLine, (crack - 0.82f) * 4f);
+                    tex.SetPixel(x, y, c);
+                }
+            }
+            tex.Apply();
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            return tex;
         }
 
         Texture2D GenerateForestFloorTexture(float offsetX, float offsetY)
@@ -1319,6 +1476,33 @@ namespace TheWaningBorder.World.Terrain
         /// Compute player spawn positions and store as IslandInfo for API compatibility.
         /// No actual circular islands — the continent provides all land.
         /// </summary>
+        /// <summary>
+        /// Rebuild <see cref="_islands"/> from the PlayerStart regions placed
+        /// by ProceduralMapGen so spawn / island queries return the same
+        /// coordinates the heightmap actually flattened.
+        /// </summary>
+        void SyncIslandsFromRegions(TheWaningBorder.World.Maps.MapRegionSet set)
+        {
+            if (set == null) return;
+            var starts = new List<TheWaningBorder.World.Maps.MapRegion>();
+            foreach (var r in set.WithTag(TheWaningBorder.World.Maps.RegionTag.PlayerStart))
+                starts.Add(r);
+            if (starts.Count == 0) return;
+
+            _islands.Clear();
+            for (int i = 0; i < starts.Count; i++)
+            {
+                _islands.Add(new IslandInfo
+                {
+                    Center = starts[i].center,
+                    Radius = starts[i].radiusMeters,
+                    IsMainland = true,
+                    IsPlayerIsland = true,
+                    PlayerIndex = i,
+                });
+            }
+        }
+
         void GeneratePlayerRegions()
         {
             _islands.Clear();
@@ -1719,6 +1903,9 @@ namespace TheWaningBorder.World.Terrain
 
         TerrainLayer[] BuildLayerArray()
         {
+            // Splat layer order. Kept stable so existing materials / saved
+            // alphamaps line up. Indices: sand=0, grass=1, dirt=2, rock=3,
+            // snow=4, curse=5, forest=6, seabed=7, cliff=8.
             var list = new List<TerrainLayer>();
             if (sand != null) list.Add(sand);
             if (grass != null) list.Add(grass);
@@ -1727,6 +1914,8 @@ namespace TheWaningBorder.World.Terrain
             if (snow != null) list.Add(snow);
             if (curse != null) list.Add(curse);
             if (forestFloor != null) list.Add(forestFloor);
+            if (seaBed != null) list.Add(seaBed);
+            if (cliffStone != null) list.Add(cliffStone);
             return list.ToArray();
         }
 
@@ -1860,7 +2049,247 @@ namespace TheWaningBorder.World.Terrain
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // TERRAIN TREE PLACEMENT
+        // FOREST PATCHES (Unity terrain trees — GPU instanced)
+        // ═══════════════════════════════════════════════════════════════════════
+        //
+        // ObstacleBootstrap drives forest placement by calling
+        // PaintTreesOnBrownGround() on this terrain. That walks the
+        // L_FOREST splat at ForestTreeSpacing, plants Unity terrain trees
+        // wherever the splat reads brown ground, blocks the matching
+        // PassabilityGrid cells, and returns macro-cell centres. The
+        // caller then emits one ObstacleTag entity per macro centre so
+        // NavMeshManager carves matching boxes out of the navmesh.
+        //
+        // Tree prefabs are lazy-loaded once from
+        // Resources/Prefabs/Nature/Trees and registered as
+        // TerrainData.treePrototypes.
+        //
+        // Unity terrain trees are GPU-instanced and billboarded at distance
+        // by the terrain renderer, so even ~1000 trees per map cost less than
+        // a few hundred individual MeshRenderers.
+
+        // World-space spacing between candidate tree slots. Dialled back
+        // from 0.7 m (tightly-packed canopy) to 1.6 m so brown-ground areas
+        // get readable forest cover without overcrowding. Trees still
+        // overlap slightly visually thanks to the per-prefab canopy width.
+        private const float ForestTreeSpacing = 1.6f;
+        // Forest splatmap layer index — must match ProceduralSplat.L_FOREST.
+        private const int ForestSplatLayer = 3;
+        // L_FOREST weight above which we plant a tree at the sample point.
+        // Splat fades from 0 → 1 across the forestMask smoothstep band; 0.30
+        // catches the dense interior plus the immediate fringe.
+        private const float ForestSplatThreshold = 0.30f;
+        // Macro-cell size for NavMesh obstacle entities. Each macro cell
+        // that contains at least one painted tree becomes a single
+        // ObstacleTag entity at its centre — NavMeshManager carves a
+        // matching Box source so units refuse to path through brown
+        // ground. 5 m gives ~50 × 50 cells per map (~2500 total), of
+        // which only the brown-ground subset emits entities (~hundreds).
+        private const float ForestMacroCellSize = 5f;
+
+        // Tree prototypes registered on TerrainData. Indexed in the order
+        // returned by LoadForestTreePrefabs() so AddTreeInstance can pick a
+        // prototype-index by hash.
+        private bool _forestProtosReady;
+
+        public void EnsureForestTreePrototypes()
+        {
+            if (_forestProtosReady) return;
+            if (_data == null) return;
+
+            var prefabs = LoadForestTreePrefabs();
+            if (prefabs == null || prefabs.Length == 0)
+            {
+                Debug.LogError("[ProceduralTerrain] No tree prefabs found in Resources/Prefabs/Nature/Trees");
+                _forestProtosReady = true; // give up — don't spam this path
+                return;
+            }
+
+            var protos = new TreePrototype[prefabs.Length];
+            for (int i = 0; i < prefabs.Length; i++)
+            {
+                protos[i] = new TreePrototype
+                {
+                    prefab = prefabs[i],
+                    bendFactor = 0f, // no wind on these — they're static decoration
+                };
+            }
+            _data.treePrototypes = protos;
+            _data.RefreshPrototypes();
+            _forestProtosReady = true;
+        }
+
+        /// <summary>
+        /// Paint Unity terrain trees on every brown-ground cell of the
+        /// splatmap. Replaces the older "forest disc" approach with a
+        /// mask-driven painter: wherever the L_FOREST splat weight is
+        /// above <see cref="ForestSplatThreshold"/>, plant a tree.
+        ///
+        /// Returns the centres of macro cells that ended up with at least
+        /// one tree — the caller (ObstacleBootstrap) emits one ObstacleTag
+        /// entity per centre so NavMeshManager carves matching boxes out
+        /// of the navmesh. Same call also stamps every painted cell as
+        /// ObstacleBlocked in PassabilityGrid so footprints stay impassable
+        /// even on the cell-based building-placement path.
+        /// </summary>
+        public List<Vector3> PaintTreesOnBrownGround()
+        {
+            var macroCenters = new List<Vector3>(256);
+            if (_terrain == null || _data == null) return macroCenters;
+            EnsureForestTreePrototypes();
+            if (!_forestProtosReady) return macroCenters;
+            int protoCount = _data.treePrototypes.Length;
+            if (protoCount == 0) return macroCenters;
+
+            float terrainOriginX = _terrain.transform.position.x;
+            float terrainOriginZ = _terrain.transform.position.z;
+            float sizeX = _data.size.x;
+            float sizeZ = _data.size.z;
+
+            // Pull the alphamap once. Sampling per-cell from the cached
+            // array is far cheaper than calling terrainData.GetAlphamaps
+            // per tree slot.
+            int alphaRes = _data.alphamapResolution;
+            int layerCount = _data.alphamapLayers;
+            if (ForestSplatLayer >= layerCount)
+            {
+                Debug.LogWarning($"[ProceduralTerrain] PaintTreesOnBrownGround: L_FOREST layer {ForestSplatLayer} not in alphamap ({layerCount} layers)");
+                return macroCenters;
+            }
+            float[,,] splat = _data.GetAlphamaps(0, 0, alphaRes, alphaRes);
+
+            var passGrid = PassabilityGrid.Instance;
+
+            // Snapshot existing tree instances so we can append.
+            var existing = _data.treeInstances;
+            int existingCount = existing != null ? existing.Length : 0;
+            var added = new List<TreeInstance>(2048);
+
+            // Macro-cell occupancy — one bool per ForestMacroCellSize-sized
+            // cell of the map. Flip true the first time any tree lands in
+            // a cell; the centre gets emitted once at the end.
+            int macroW = Mathf.CeilToInt(sizeX / ForestMacroCellSize);
+            int macroH = Mathf.CeilToInt(sizeZ / ForestMacroCellSize);
+            var macroOccupied = new bool[macroW * macroH];
+
+            // Step in world-space across the terrain rect. The grid uses a
+            // checkerboard half-offset on alternating rows so trees don't
+            // align in straight visual lines.
+            int placed = 0;
+            uint seedHash = unchecked((uint)seed * 0x9E3779B9u);
+            int rowIdx = 0;
+            for (float wz = terrainOriginZ + ForestTreeSpacing * 0.5f;
+                 wz < terrainOriginZ + sizeZ;
+                 wz += ForestTreeSpacing, rowIdx++)
+            {
+                float xOffset = (rowIdx & 1) == 0 ? 0f : ForestTreeSpacing * 0.5f;
+                for (float wx = terrainOriginX + ForestTreeSpacing * 0.5f + xOffset;
+                     wx < terrainOriginX + sizeX;
+                     wx += ForestTreeSpacing)
+                {
+                    // Per-cell deterministic hash for jitter + variant.
+                    uint h = seedHash
+                        ^ unchecked((uint)Mathf.RoundToInt(wx * 374.0f))
+                        ^ unchecked((uint)Mathf.RoundToInt(wz * 727.0f));
+                    h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
+
+                    float jx = ((h & 0xFFFF) / 65535f - 0.5f) * ForestTreeSpacing * 0.40f;
+                    float jz = (((h >> 16) & 0xFFFF) / 65535f - 0.5f) * ForestTreeSpacing * 0.40f;
+                    float jwx = wx + jx;
+                    float jwz = wz + jz;
+
+                    // Sample L_FOREST weight at the jittered world position.
+                    int ax = Mathf.Clamp(Mathf.FloorToInt((jwx - terrainOriginX) / sizeX * alphaRes), 0, alphaRes - 1);
+                    int az = Mathf.Clamp(Mathf.FloorToInt((jwz - terrainOriginZ) / sizeZ * alphaRes), 0, alphaRes - 1);
+                    float forestWeight = splat[az, ax, ForestSplatLayer];
+                    if (forestWeight < ForestSplatThreshold) continue;
+
+                    // Skip if below water (forest mask SHOULD already exclude
+                    // this, but defensive check).
+                    float wy = TerrainUtility.GetHeight(jwx, jwz);
+                    if (wy < waterHeight + 0.5f) continue;
+
+                    // Convert to terrain-normalised position for TreeInstance.
+                    float u = (jwx - terrainOriginX) / sizeX;
+                    float v = (jwz - terrainOriginZ) / sizeZ;
+                    if (u < 0f || u > 1f || v < 0f || v > 1f) continue;
+
+                    int proto = (int)((h >> 5) % (uint)protoCount);
+                    float scale = Mathf.Lerp(0.85f, 1.25f, ((h >> 11) & 0xFFF) / 4095f);
+
+                    added.Add(new TreeInstance
+                    {
+                        position = new Vector3(u, 0f, v),
+                        prototypeIndex = proto,
+                        widthScale = scale,
+                        heightScale = scale,
+                        color = Color.white,
+                        lightmapColor = Color.white,
+                    });
+                    placed++;
+
+                    // Mark a small block of PassabilityGrid cells around the
+                    // tree so units can't squeeze between trunks.
+                    if (passGrid != null)
+                        passGrid.BlockObstacle(new Vector3(jwx, wy, jwz), Mathf.Max(0.8f, passGrid.CellSize));
+
+                    // Mark the macro cell so the caller emits an ObstacleTag
+                    // entity for it.
+                    int mx = Mathf.Clamp(Mathf.FloorToInt((jwx - terrainOriginX) / ForestMacroCellSize), 0, macroW - 1);
+                    int mz = Mathf.Clamp(Mathf.FloorToInt((jwz - terrainOriginZ) / ForestMacroCellSize), 0, macroH - 1);
+                    macroOccupied[mz * macroW + mx] = true;
+                }
+            }
+
+            if (added.Count == 0)
+            {
+                Debug.LogWarning("[ProceduralTerrain] PaintTreesOnBrownGround placed 0 trees — splat L_FOREST coverage is empty or threshold too high");
+                return macroCenters;
+            }
+
+            // Flush the combined instances back in one call.
+            var combined = new TreeInstance[existingCount + added.Count];
+            if (existingCount > 0) System.Array.Copy(existing, combined, existingCount);
+            for (int i = 0; i < added.Count; i++) combined[existingCount + i] = added[i];
+            _data.SetTreeInstances(combined, snapToHeightmap: true);
+
+            // Emit one centre per occupied macro cell.
+            for (int mz = 0; mz < macroH; mz++)
+            {
+                float cz = terrainOriginZ + (mz + 0.5f) * ForestMacroCellSize;
+                for (int mx = 0; mx < macroW; mx++)
+                {
+                    if (!macroOccupied[mz * macroW + mx]) continue;
+                    float cx = terrainOriginX + (mx + 0.5f) * ForestMacroCellSize;
+                    macroCenters.Add(new Vector3(cx, TerrainUtility.GetHeight(cx, cz), cz));
+                }
+            }
+
+            Debug.Log($"[ProceduralTerrain] PaintTreesOnBrownGround → {placed} trees, {macroCenters.Count} macro cells (spacing {ForestTreeSpacing} m, threshold {ForestSplatThreshold})");
+            return macroCenters;
+        }
+
+        /// <summary>Macro-cell size used by PaintTreesOnBrownGround. Exposed
+        /// so the caller can size the matching NavMesh box obstacles.</summary>
+        public float ForestMacroCellSizeMeters => ForestMacroCellSize;
+
+        // Tree prefabs come from Resources/Prefabs/Nature/Trees. The folder
+        // is hand-curated — load every .prefab in it so dropping in more
+        // variants Just Works without code changes.
+        private GameObject[] _forestTreePrefabs;
+        private GameObject[] LoadForestTreePrefabs()
+        {
+            if (_forestTreePrefabs != null && _forestTreePrefabs.Length > 0)
+                return _forestTreePrefabs;
+
+            var loaded = Resources.LoadAll<GameObject>("Prefabs/Nature/Trees");
+            if (loaded == null || loaded.Length == 0) return null;
+            _forestTreePrefabs = loaded;
+            return _forestTreePrefabs;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // LEGACY ORGANIC TREE PLACEMENT (deprecated — kept for fallback only)
         // ═══════════════════════════════════════════════════════════════════════
 
         [Header("Trees")]

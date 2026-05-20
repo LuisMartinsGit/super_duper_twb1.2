@@ -136,12 +136,23 @@ namespace TheWaningBorder.Bootstrap
 
         private static float3 PickNearPatchCenter(float3 player, ref Unity.Mathematics.Random random)
         {
-            float angle = random.NextFloat(0f, math.PI * 2f);
-            float dist  = random.NextFloat(NearPatchMinDist, NearPatchMaxDist);
-            float x = player.x + math.cos(angle) * dist;
-            float z = player.z + math.sin(angle) * dist;
-            float y = TerrainUtility.GetHeight(x, z);
-            return new float3(x, y, z);
+            // Retry up to 16 times if the candidate lands on terrain the
+            // passability layer considers blocked. Falls back to the last
+            // sample so we never skip a player's near patch.
+            var passGrid = PassabilityGrid.Instance;
+            float3 last = float3.zero;
+            for (int attempt = 0; attempt < 16; attempt++)
+            {
+                float angle = random.NextFloat(0f, math.PI * 2f);
+                float dist  = random.NextFloat(NearPatchMinDist, NearPatchMaxDist);
+                float x = player.x + math.cos(angle) * dist;
+                float z = player.z + math.sin(angle) * dist;
+                float y = TerrainUtility.GetHeight(x, z);
+                last = new float3(x, y, z);
+                if (passGrid == null || passGrid.IsReachableByAllPlayersForRadius(last, PatchSpread + 1f))
+                    return last;
+            }
+            return last;
         }
 
         private static bool TryFindScatteredPatchCenter(
@@ -175,6 +186,13 @@ namespace TheWaningBorder.Bootstrap
                     float dX = (hR - hL) / (step * 2f);
                     float dZ = (hU - hD) / (step * 2f);
                     if (math.sqrt(dX * dX + dZ * dZ) > MaxSlope) continue;
+
+                    // Reachability check — patch centre must sit in the
+                    // connected region every player can reach so no patch
+                    // ends up walled off from any starting hall.
+                    var passGrid = PassabilityGrid.Instance;
+                    if (passGrid != null && !passGrid.IsReachableByAllPlayersForRadius(candidate, PatchSpread + 1f))
+                        continue;
                 }
 
                 bool tooCloseToPlayer = false;

@@ -29,20 +29,34 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         public static readonly List<(float3 center, float radius)> ForestPositions = new();
 
-        // Forest settings
+        // Forest settings. Tuned for the current heightmap (PlainY=8, hills
+        // cap ~20 m, mountain peaks ~30 m) — old 25-45 m band targeted a
+        // retired 90 m heightmap and never matched real terrain.
         private const int MinForestClusters = 10;
         private const int MaxForestClusters = 18;
+        // 12 m radius patches give the player big enough no-walk pockets to
+        // matter tactically without eating too much of the playable area.
+        // 18 patches × π × 12² ≈ 8 100 m² ≈ 13 % of a 250 m map.
         private const float ForestRadius = 12f;
-        private const float ForestMinHeight = 25f;
-        private const float ForestMaxHeight = 45f;
-        private const float ForestMaxSlope = 0.2f;
-        private const float ForestMinDistFromPlayers = 50f;
-        private const float ForestMinDistFromOther = 25f;
+        private const float ForestMinHeight = 5f;   // above water + beach
+        private const float ForestMaxHeight = 22f;  // hill belt — no forest on mountains
+        // 0.6 ≈ tan 31°. Wild-zone hill flanks easily hit ≈ 0.9 so 0.45 was
+        // rejecting almost every candidate. 0.6 still excludes cliffs but
+        // welcomes ordinary rolling hills, which is where forests belong.
+        private const float ForestMaxSlope = 0.6f;
+        // Must stay > Expansion radius (32 m) + a small clearance so forests
+        // don't pin to the edge of the build zone, but short enough that
+        // forests actually fit on a 250 m map between players that sit
+        // ~180 m apart on the diagonal.
+        private const float ForestMinDistFromPlayers = 38f;
+        private const float ForestMinDistFromOther = 26f;
 
-        // Individual tree obstacle settings
-        private const float TreeObstacleRadius = 0.75f; // 1.5 unit diameter cylinder per tree
+        // Per-tree settings — kept for the legacy procedural-forest renderer
+        // fallback only. The new path plants Unity terrain trees inside the
+        // disc; no per-tree ECS obstacle entity is created any more.
+        private const float TreeObstacleRadius = 0.75f;
         private const int MinTreesPerForest = 20;
-        private const int MaxTreesPerForest = 31; // exclusive upper bound → 20-30 trees
+        private const int MaxTreesPerForest = 31;
 
         // Rock settings
         private const int MinRockFormations = 6;
@@ -75,23 +89,31 @@ namespace TheWaningBorder.Bootstrap
             // Track placed obstacle positions to avoid overlap
             var placedPositions = new Unity.Collections.NativeList<float3>(32, Unity.Collections.Allocator.Temp);
 
-            // === SPAWN FORESTS ===
-            int forestCount = random.NextInt(MinForestClusters, MaxForestClusters + 1);
-            int forestsSpawned = 0;
-
-            for (int i = 0; i < forestCount; i++)
+            // === FORESTS: paint trees wherever the splat is brown ground ===
+            // No more random forest discs. ProceduralTerrain walks every
+            // brown-ground cell on the splatmap, plants a tree at lower
+            // density (~1.6 m spacing), blocks the matching passability
+            // cells, and returns one macro centre per ~5 m cell so we can
+            // emit a single ObstacleTag entity per centre. NavMeshManager
+            // picks those entities up via SyncBuildings and carves them
+            // out of the navmesh.
+            int forestMacroCount = 0;
+            var terrain = ProceduralTerrain.Instance;
+            if (terrain != null)
             {
-                if (TryFindPosition(
-                    ref random, spawnRange, playerPositions, placedPositions,
-                    ForestMinHeight, ForestMaxHeight, ForestMaxSlope, float.MinValue,
-                    ForestMinDistFromPlayers, ForestMinDistFromOther,
-                    out float3 pos))
+                var macroCenters = terrain.PaintTreesOnBrownGround();
+                float macroSize = terrain.ForestMacroCellSizeMeters;
+                float macroRadius = macroSize * 0.5f;
+                foreach (var c in macroCenters)
                 {
-                    CreateForestWithTrees(em, pos);
-                    placedPositions.Add(pos);
-                    forestsSpawned++;
+                    // One impassable obstacle per macro cell. Radius is half
+                    // the cell size so the box exactly fills the cell.
+                    CreateForestMacroObstacle(em, new float3(c.x, c.y, c.z), macroRadius);
+                    forestMacroCount++;
                 }
             }
+            int forestsSpawned = forestMacroCount;
+            int forestCount = forestMacroCount; // for the log below
 
             // === SPAWN ROCKS ===
             int rockCount = random.NextInt(MinRockFormations, MaxRockFormations + 1);
@@ -113,6 +135,10 @@ namespace TheWaningBorder.Bootstrap
 
             placedPositions.Dispose();
 
+            Debug.Log($"[ObstacleBootstrap] forests {forestsSpawned}/{forestCount}, rocks {rocksSpawned}/{rockCount} " +
+                      $"(map half {half}, range {spawnRange}, height {ForestMinHeight}..{ForestMaxHeight}, " +
+                      $"slope ≤ {ForestMaxSlope}, minPlayer {ForestMinDistFromPlayers})");
+
             // PR3 — flow-field invalidation removed. NavMeshManager picks up
             // the new building set via its own ECS sync.
 
@@ -133,7 +159,10 @@ namespace TheWaningBorder.Bootstrap
         {
             result = float3.zero;
 
-            for (int attempt = 0; attempt < 20; attempt++)
+            // Up from 20 → 60 attempts. The valid placement band on a 250 m
+            // map with 4 players, slope cap 0.6, and 38 m minDist is narrow
+            // enough that random sampling needs more shots to land.
+            for (int attempt = 0; attempt < 60; attempt++)
             {
                 float x = random.NextFloat(-spawnRange, spawnRange);
                 float z = random.NextFloat(-spawnRange, spawnRange);
@@ -201,70 +230,30 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
-        /// Create a forest: a visual root entity (no ObstacleTag) plus individual tree
-        /// obstacles on the passability grid. Trees use the same RNG as PresentationSpawnSystem
-        /// so blocked cells align with visual tree positions.
+        /// Spawn an ObstacleTag entity representing one macro cell of
+        /// brown-ground forest. NavMeshManager turns it into a Box source
+        /// at the cell's footprint. Passability cells were already blocked
+        /// inside ProceduralTerrain.PaintTreesOnBrownGround.
         /// </summary>
-        private static void CreateForestWithTrees(EntityManager em, float3 center)
+        private static void CreateForestMacroObstacle(EntityManager em, float3 center, float radius)
         {
-            // Create visual-only forest root (no ObstacleTag → UnitSeparationSystem ignores it)
-            var forestEntity = em.CreateEntity(
+            var entity = em.CreateEntity(
+                typeof(ObstacleTag),
                 typeof(LocalTransform),
-                typeof(Radius),
-                typeof(PresentationId)
+                typeof(Radius)
             );
+            em.SetComponentData(entity, LocalTransform.FromPosition(center));
+            em.SetComponentData(entity, new Radius { Value = radius });
 
-            em.SetComponentData(forestEntity, LocalTransform.FromPosition(center));
-            em.SetComponentData(forestEntity, new Radius { Value = ForestRadius });
-            em.SetComponentData(forestEntity, new PresentationId { Id = ForestPresentationId });
-
-            // Store for minimap rendering
-            ForestPositions.Add((center, ForestRadius));
-
-            // Generate tree positions with the same RNG seed as PresentationSpawnSystem
-            var treeRng = new System.Random(forestEntity.Index + 12345);
-            int treeCount = treeRng.Next(MinTreesPerForest, MaxTreesPerForest);
-
-            var grid = PassabilityGrid.Instance;
-
-            for (int t = 0; t < treeCount; t++)
-            {
-                // Position (matches PresentationSpawnSystem.CreateProceduralForest)
-                float angle = (float)(treeRng.NextDouble() * System.Math.PI * 2.0);
-                float dist = (float)(treeRng.NextDouble() * ForestRadius * 0.65f);
-                float offsetX = (float)System.Math.Cos(angle) * dist;
-                float offsetZ = (float)System.Math.Sin(angle) * dist;
-
-                // Advance RNG to stay in sync with presentation (treeHeight, trunkRadius, canopyRadius, greenVariation)
-                treeRng.NextDouble(); // treeHeight
-                treeRng.NextDouble(); // trunkRadius
-                treeRng.NextDouble(); // canopyRadius
-                treeRng.NextDouble(); // greenVariation
-
-                float3 treeWorldPos = new float3(
-                    center.x + offsetX,
-                    TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ),
-                    center.z + offsetZ
-                );
-
-                // Create individual tree obstacle entity for physical collision
-                var treeEntity = em.CreateEntity(
-                    typeof(ObstacleTag),
-                    typeof(LocalTransform),
-                    typeof(Radius)
-                );
-                em.SetComponentData(treeEntity, LocalTransform.FromPosition(treeWorldPos));
-                em.SetComponentData(treeEntity, new Radius { Value = TreeObstacleRadius });
-
-                // Block passability around each tree trunk.
-                // Use at least cellSize so every tree reliably blocks 1+ grid cells.
-                if (grid != null)
-                {
-                    float blockRadius = math.max(TreeObstacleRadius, grid.CellSize);
-                    grid.BlockObstacle(treeWorldPos, blockRadius);
-                }
-            }
+            // Track centre for the minimap dark-green tinting. Use the
+            // macro-cell radius so the minimap dot is the right size.
+            ForestPositions.Add((center, radius));
         }
+
+        // CreateForestWithTrees + the per-disc forest pipeline were removed
+        // in 2026-05. Forests are now driven by ProceduralTerrain.PaintTreesOnBrownGround,
+        // which walks the L_FOREST splat at 1.6 m spacing and returns macro
+        // cells consumed by CreateForestMacroObstacle above.
 
         /// <summary>
         /// Create an obstacle ECS entity with the minimal components needed.

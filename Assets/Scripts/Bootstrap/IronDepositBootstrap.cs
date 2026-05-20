@@ -113,18 +113,28 @@ namespace TheWaningBorder.Bootstrap
 
         /// <summary>
         /// Pick a random direction from <paramref name="player"/> at a random
-        /// distance in [NearPatchMinDist, NearPatchMaxDist]. No validation —
-        /// the spawn area is guaranteed clear of obstacles by spawn flatten,
-        /// and on FlatTestMap there are no water/slope concerns.
+        /// distance in [NearPatchMinDist, NearPatchMaxDist]. Retries up to 16
+        /// times if the candidate lands on terrain the passability layer
+        /// considers blocked (mountains can now appear close to the spawn ring
+        /// on small maps) — falls back to the last sample if every attempt
+        /// fails so we never skip a player's near patch.
         /// </summary>
         private static float3 PickNearPatchCenter(float3 player, ref Unity.Mathematics.Random random)
         {
-            float angle = random.NextFloat(0f, math.PI * 2f);
-            float dist  = random.NextFloat(NearPatchMinDist, NearPatchMaxDist);
-            float x = player.x + math.cos(angle) * dist;
-            float z = player.z + math.sin(angle) * dist;
-            float y = TerrainUtility.GetHeight(x, z);
-            return new float3(x, y, z);
+            var passGrid = PassabilityGrid.Instance;
+            float3 last = float3.zero;
+            for (int attempt = 0; attempt < 16; attempt++)
+            {
+                float angle = random.NextFloat(0f, math.PI * 2f);
+                float dist  = random.NextFloat(NearPatchMinDist, NearPatchMaxDist);
+                float x = player.x + math.cos(angle) * dist;
+                float z = player.z + math.sin(angle) * dist;
+                float y = TerrainUtility.GetHeight(x, z);
+                last = new float3(x, y, z);
+                if (passGrid == null || passGrid.IsReachableByAllPlayersForRadius(last, DepositRadius + 1f))
+                    return last;
+            }
+            return last;
         }
 
         /// <summary>
@@ -164,6 +174,13 @@ namespace TheWaningBorder.Bootstrap
                     float dX = (hR - hL) / (step * 2f);
                     float dZ = (hU - hD) / (step * 2f);
                     if (math.sqrt(dX * dX + dZ * dZ) > MaxSlope) continue;
+
+                    // Reachability check — deposit must sit in the connected
+                    // region every player can reach (rejects mountain pockets,
+                    // cliff tops, islands the hall is fenced off from).
+                    var passGrid = PassabilityGrid.Instance;
+                    if (passGrid != null && !passGrid.IsReachableByAllPlayersForRadius(candidate, DepositRadius + 1f))
+                        continue;
                 }
 
                 bool tooCloseToPlayer = false;
@@ -193,6 +210,10 @@ namespace TheWaningBorder.Bootstrap
         {
             var entity = em.CreateEntity(
                 typeof(IronMineTag),
+                // ObstacleTag — units route around the deposit on the
+                // passability grid AND the deposit's footprint is fed into
+                // NavMeshManager so pathfinding can't try to clip through it.
+                typeof(ObstacleTag),
                 typeof(IronDepositState),
                 typeof(LocalTransform),
                 typeof(Radius),
@@ -200,7 +221,9 @@ namespace TheWaningBorder.Bootstrap
             );
 
             em.SetComponentData(entity, LocalTransform.FromPosition(position));
-            em.SetComponentData(entity, new Radius { Value = DepositRadius });
+            // Visual is scaled +30 % from the prefab, so use the larger
+            // collision radius (1.5 m × 1.3) for both passability and navmesh.
+            em.SetComponentData(entity, new Radius { Value = DepositRadius * 1.3f });
             em.SetComponentData(entity, new PresentationId { Id = IronDepositPresentationId });
             em.SetComponentData(entity, new IronDepositState
             {
@@ -213,6 +236,14 @@ namespace TheWaningBorder.Bootstrap
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = 0
             });
+
+            // Block the passability grid cells under the deposit footprint
+            // so flow-fields and movement steer around it. NavMeshManager
+            // picks up the ObstacleTag entity in its SyncBuildings pass and
+            // carves a matching box source out of the navmesh.
+            var grid = PassabilityGrid.Instance;
+            if (grid != null)
+                grid.BlockObstacle(position, DepositRadius * 1.3f);
 
             return entity;
         }
