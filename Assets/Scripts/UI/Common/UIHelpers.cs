@@ -257,6 +257,7 @@ namespace TheWaningBorder.UI.Common
             gameObject.AddComponent<Panels.EntityInfoPanel>();
             gameObject.AddComponent<Panels.EntityActionPanel>();
             gameObject.AddComponent<Panels.CultureChoicePopup>();
+            gameObject.AddComponent<Panels.SectChoicePopup>();
             gameObject.AddComponent<Panels.TechTreePanel>();
             gameObject.AddComponent<HUD.FloatingHealthBars>();
             gameObject.AddComponent<HUD.PlayerNotificationSystem>();
@@ -331,6 +332,7 @@ namespace TheWaningBorder.UI.Common
             return Panels.EntityInfoPanel.IsPointerOver()
                 || Panels.EntityActionPanel.IsPointerOver()
                 || Panels.CultureChoicePopup.IsPointerOver()
+                || Panels.SectChoicePopup.IsPointerOver()
                 || Panels.TechTreePanel.IsPointerOver()
                 || SpellPanel.IsPointerOverPanel;
         }

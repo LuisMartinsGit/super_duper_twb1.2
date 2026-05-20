@@ -226,12 +226,24 @@ namespace TheWaningBorder.Presentation
             var current = EntityViewManager.Instance != null
                 ? EntityViewManager.Instance.GetView(e) : null;
 
-            // Register the new view BEFORE destroying the old one so other
-            // systems reading EntityViewManager mid-frame always see a valid
-            // GameObject (even for the brief in-frame window).
+            // Register the new view BEFORE the dissolve transition takes over
+            // so other systems reading EntityViewManager always see a valid
+            // GameObject during the brief overlap.
             EntityViewManager.Instance?.RegisterView(e, newGo);
             _registeredView[e] = newGo;
-            if (current != null) Destroy(current);
+
+            Color accent = _em.HasComponent<FactionTag>(e)
+                ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
+                : new Color(1f, 0.85f, 0.45f);
+
+            // Wave-driven dissolve: the old visual is eaten away from the
+            // base up while the new visual reveals along the same front.
+            // The transition driver destroys `current` when it completes.
+            BuildingDissolveTransition.Begin(current, newGo, duration: 1.5f, edgeColor: accent);
+
+            // Level-up flourish: a quick gold pulse / spark burst at the start
+            // of the dissolve gives the wave a clear "trigger" cue.
+            BuildingLevelUpEffect.Spawn(newGo, accent);
 
             Debug.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
         }

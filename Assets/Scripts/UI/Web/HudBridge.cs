@@ -173,7 +173,8 @@ namespace TheWaningBorder.UI.Web
             // queue-full guards entirely — orders were queued without spending
             // resources, so supplies (and iron/crystal) never decremented. The
             // IMGUI EntityActionPanel does this same dance; mirror it here.
-            if (selectionKind == "hall" || selectionKind == "barracks" || selectionKind == "shrine")
+            if (selectionKind == "hall" || selectionKind == "barracks" ||
+                selectionKind == "archery" || selectionKind == "shrine")
             {
                 var sel = Input.SelectionSystem.CurrentSelection;
                 if (sel == null || sel.Count == 0)
@@ -185,46 +186,112 @@ namespace TheWaningBorder.UI.Web
                 if (world == null || !world.IsCreated) return;
                 var em = world.EntityManager;
 
-                var trainBuilding = sel[0];
-                if (!em.Exists(trainBuilding)) return;
-
-                Faction faction = GameSettings.LocalPlayerFaction;
-                if (em.HasComponent<FactionTag>(trainBuilding))
-                    faction = em.GetComponentData<FactionTag>(trainBuilding).Value;
-
-                // Production-queue cap (mirrors EntityActionPanel).
-                if (Core.Commands.CommandRouter.IsProductionQueueFull(em, trainBuilding))
+                // Apply to every selected building that matches the type of
+                // the first one — clicking "Archer" with 3 Archery Ranges
+                // selected should queue an archer at each. Each iteration
+                // pays its own cost, so the loop stops cleanly when supplies
+                // / population run out.
+                var first = sel[0];
+                if (!em.Exists(first)) return;
+                int dispatched = 0, lastFailure = 0;
+                for (int idx = 0; idx < sel.Count; idx++)
                 {
-                    UI.HUD.PlayerNotificationSystem.Notify("Production queue full");
-                    return;
+                    var trainBuilding = sel[idx];
+                    if (!em.Exists(trainBuilding)) continue;
+                    // Same-type filter — match on whichever Tag the first
+                    // building carries (HallTag / BarracksTag / ArcheryRangeTag /
+                    // ShrineTag / TempleOfRidanTag).
+                    if (!SameTrainingType(em, first, trainBuilding)) continue;
+
+                    Faction faction = GameSettings.LocalPlayerFaction;
+                    if (em.HasComponent<FactionTag>(trainBuilding))
+                        faction = em.GetComponentData<FactionTag>(trainBuilding).Value;
+
+                    if (Core.Commands.CommandRouter.IsProductionQueueFull(em, trainBuilding))
+                    { lastFailure = 1; continue; }
+
+                    int popCost = TheWaningBorder.Economy.PopulationHelper.GetUnitPopulationCost(key);
+                    if (!TheWaningBorder.Economy.PopulationHelper.HasPopulationCapacity(faction, popCost))
+                    { lastFailure = 2; continue; }
+
+                    var baseCost = LookupUnitCost(key);
+                    var trainCost = TheWaningBorder.Economy.WarSectCostHelper
+                        .MilitaryDiscount(em, faction, key, baseCost);
+
+                    if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, trainCost))
+                    { lastFailure = 3; continue; }
+
+                    Core.Commands.CommandRouter.IssueTrain(em, trainBuilding, key);
+                    dispatched++;
                 }
 
-                // Population capacity check.
-                int popCost = TheWaningBorder.Economy.PopulationHelper.GetUnitPopulationCost(key);
-                if (!TheWaningBorder.Economy.PopulationHelper.HasPopulationCapacity(faction, popCost))
+                // Surface the most likely "why nothing happened" message when
+                // no building accepted the order.
+                if (dispatched == 0)
                 {
-                    UI.HUD.PlayerNotificationSystem.Notify("Population cap reached");
-                    return;
+                    switch (lastFailure)
+                    {
+                        case 1: UI.HUD.PlayerNotificationSystem.Notify("Production queue full"); break;
+                        case 2: UI.HUD.PlayerNotificationSystem.Notify("Population cap reached"); break;
+                        case 3: UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources"); break;
+                    }
                 }
-
-                // Look up cost and spend before queueing — supplies/iron/crystal
-                // should drop the moment the player commits the unit, identical
-                // to the legacy IMGUI flow.
-                var baseCost = LookupUnitCost(key);
-                var trainCost = TheWaningBorder.Economy.WarSectCostHelper
-                    .MilitaryDiscount(em, faction, key, baseCost);
-
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, trainCost))
-                {
-                    UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources");
-                    return;
-                }
-
-                Core.Commands.CommandRouter.IssueTrain(em, trainBuilding, key);
                 return;
             }
 
-            // Vault / research / military command routing — not wired yet.
+            // Military / multi: immediate-fire commands. Targeted ones
+            // (patrol, attack-move) need a follow-up ground click, which the
+            // web HUD can't drive directly — they're left as world-input
+            // commands the player issues via right-click instead.
+            if (selectionKind == "military" || selectionKind == "multi")
+            {
+                var sel = Input.SelectionSystem.CurrentSelection;
+                if (sel == null || sel.Count == 0) return;
+                var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (world == null || !world.IsCreated) return;
+                var em = world.EntityManager;
+                Faction localFaction = GameSettings.LocalPlayerFaction;
+
+                switch (key)
+                {
+                    case "stop":
+                        for (int i = 0; i < sel.Count; i++)
+                        {
+                            var e = sel[i];
+                            if (!em.Exists(e)) continue;
+                            if (em.HasComponent<FactionTag>(e) &&
+                                em.GetComponentData<FactionTag>(e).Value != localFaction) continue;
+                            Core.Commands.CommandRouter.IssueStop(em, e);
+                        }
+                        return;
+
+                    case "hold":
+                        for (int i = 0; i < sel.Count; i++)
+                        {
+                            var e = sel[i];
+                            if (!em.Exists(e)) continue;
+                            if (em.HasComponent<FactionTag>(e) &&
+                                em.GetComponentData<FactionTag>(e).Value != localFaction) continue;
+                            Core.Commands.CommandRouter.IssueHoldPosition(em, e);
+                        }
+                        return;
+
+                    case "patrol":
+                    case "attack":
+                    case "formation":
+                    case "retreat":
+                    case "special":
+                    case "stance":
+                        // These commands need a world-space target click or
+                        // sect-specific routing the HudBridge doesn't own.
+                        // Surface a hint so the player knows the button isn't
+                        // broken — it just needs a follow-up action.
+                        UI.HUD.PlayerNotificationSystem.Notify($"'{key}' must be issued via right-click on the world.");
+                        return;
+                }
+            }
+
+            // Anything else: not wired yet — log for triage.
             Debug.Log($"[HudBridge] actions:invoke {key} (kind={selectionKind}, binding TODO)");
         }
 
@@ -354,6 +421,293 @@ namespace TheWaningBorder.UI.Web
             PushSelection();
             PushCosts();   // cheap: bails out once TechTreeDB-sourced costs are sent
             PushCultureChoice();
+            PushBuilderState();
+            PushSectsVisibility();
+            PushSects();
+        }
+
+        // ─── Sects sidebar visibility ─────────────────────────────────────
+        // The React sects rail (HudFrontend/src/components/Sidebar.jsx) is
+        // hidden until the local faction owns a completed Temple of Ridan,
+        // mirroring the IMGUI ReligionHUD's gate. We push a tiny topic so the
+        // React side just toggles render — no game state needs to cross.
+        void PushSectsVisibility()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            bool visible = false;
+            var faction = GameSettings.LocalPlayerFaction;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleOfRidanTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using (var arr = q.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(arr[i]).Value != faction) continue;
+                    if (em.HasComponent<UnderConstruction>(arr[i])) continue;
+                    // Health-based double-check: a freshly created temple lands
+                    // on Health.Value = 1 until BuildingConstructionSystem ticks
+                    // it up. Require ≥ 80% so the sidebar appears once the
+                    // temple is functionally complete, not the frame it spawns.
+                    if (em.HasComponent<Health>(arr[i]))
+                    {
+                        var hp = em.GetComponentData<Health>(arr[i]);
+                        if (hp.Max <= 0 || hp.Value * 5 < hp.Max * 4) continue;
+                    }
+                    visible = true;
+                    break;
+                }
+            }
+
+            string json = visible ? "{\"visible\":true}" : "{\"visible\":false}";
+            PushIfChanged("sectsVisible", json);
+        }
+
+        // ─── Sects rail content ───────────────────────────────────────────
+        // Pushes a 6-entry array of sect rows for the React rail. One entry
+        // per chapel slot on the local faction's temple. Empty / building /
+        // adopted slots are tagged with a `state` field so the React component
+        // can render the right look (empty placeholder, progress label, or a
+        // full row with active/passive/level buttons).
+        //
+        // Adopted entries also carry the sect's display name, active + passive
+        // descriptions, and current lever levels so the rail mirrors what the
+        // IMGUI ReligionHUD shows. Icon mapping per sect mirrors the lore.
+        void PushSects()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            // Resolve the local faction's completed Temple of Ridan. Same gate
+            // as PushSectsVisibility — without a temple, we still push a clean
+            // 6-empty-slot array so the rail (if somehow visible) looks sane.
+            var faction = GameSettings.LocalPlayerFaction;
+            Entity temple = Entity.Null;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TempleOfRidanTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using (var arr = q.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(arr[i]).Value != faction) continue;
+                    if (em.HasComponent<UnderConstruction>(arr[i])) continue;
+                    temple = arr[i];
+                    break;
+                }
+            }
+
+            // Pull adoption state for level numbers on adopted rows.
+            SectAdoptionState adoption = default;
+            bool haveAdoption = false;
+            if (FactionEconomy.TryGetBank(em, faction, out var bank)
+                && em.HasComponent<SectAdoptionState>(bank))
+            {
+                adoption = em.GetComponentData<SectAdoptionState>(bank);
+                haveAdoption = true;
+            }
+
+            _sb.Clear();
+            _sb.Append('[');
+
+            for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
+            {
+                if (i > 0) _sb.Append(',');
+
+                byte state = 0;
+                string sectId = null;
+                int progress = 0;
+                if (temple != Entity.Null && em.HasBuffer<TempleChapelSlot>(temple))
+                {
+                    var slots = em.GetBuffer<TempleChapelSlot>(temple);
+                    if (i < slots.Length)
+                    {
+                        var s = slots[i];
+                        state = s.State;
+                        sectId = s.SectId.ToString();
+                        progress = s.BuildTime > 0 ? (int)(100f * s.BuildProgress / s.BuildTime) : 0;
+                    }
+                }
+
+                if (state == 0 || string.IsNullOrEmpty(sectId))
+                {
+                    _sb.Append("{\"key\":\"empty_").Append(i).Append("\",\"state\":\"empty\"}");
+                    continue;
+                }
+
+                string shortName = SectInfo.ShortName(sectId);
+
+                if (state == 1)
+                {
+                    _sb.Append("{\"key\":\"").Append(EscapeJson(sectId)).Append('_').Append(i)
+                       .Append("\",\"state\":\"building\",\"name\":\"")
+                       .Append(EscapeJson(shortName)).Append("\",\"progress\":").Append(progress).Append('}');
+                    continue;
+                }
+
+                // state == 2: adopted. Levels from PerSectState, descriptions
+                // from SectInfo, icon from a per-sect mapping.
+                byte passiveLv = 1, buildingLv = 1, unitLv = 1, activeLv = 1;
+                if (haveAdoption)
+                {
+                    var per = adoption.Get(sectId);
+                    passiveLv  = per.PassiveLevel;
+                    buildingLv = per.BuildingLevel;
+                    unitLv     = per.UnitLevel;
+                    activeLv   = per.ActivePowerLevel;
+                }
+                int totalLv = passiveLv + buildingLv + unitLv + activeLv; // 4..12
+                string activeIcon = SectIconKey(sectId);
+
+                _sb.Append("{\"key\":\"").Append(EscapeJson(sectId))
+                   .Append("\",\"state\":\"adopted\",\"name\":\"").Append(EscapeJson(shortName))
+                   .Append("\",\"level\":").Append(totalLv)
+                   .Append(",\"maxLevel\":12")
+                   .Append(",\"cost\":\"").Append(SectConfig.UpgradeCost(passiveLv) > 0
+                       ? SectConfig.UpgradeCost(passiveLv) + " RP"
+                       : "Maxed")
+                   .Append("\",\"active\":{\"icon\":\"").Append(activeIcon)
+                   .Append("\",\"label\":\"").Append(EscapeJson(ActiveLabelOf(sectId)))
+                   .Append("\",\"hint\":\"").Append(EscapeJson(SectInfo.ActivePowerDescription(sectId)))
+                   .Append("\"},\"passive\":{\"label\":\"").Append(EscapeJson(PassiveLabelOf(sectId)))
+                   .Append("\",\"hint\":\"").Append(EscapeJson(SectInfo.PassiveDescription(sectId)))
+                   .Append("\"}}");
+            }
+
+            _sb.Append(']');
+            PushIfChanged("sects", _sb.ToString());
+        }
+
+        // Per-sect icon mapping — uses the HexIcon kinds defined in Sidebar.jsx
+        // (castle, sword, rune, star, banner, scroll, eye). Picked thematically.
+        static string SectIconKey(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity   => "scroll",
+            SectConfig.Renewal     => "castle",
+            SectConfig.Fortitude   => "castle",
+            SectConfig.Reclamation => "castle",
+            SectConfig.Silence     => "eye",
+            SectConfig.Justice     => "sword",
+            SectConfig.Veneration  => "star",
+            SectConfig.Witness     => "eye",
+            SectConfig.War         => "sword",
+            SectConfig.Ash         => "star",
+            SectConfig.Ruin        => "banner",
+            SectConfig.Wrath       => "banner",
+            _                      => "rune",
+        };
+
+        // Short one-or-two-word names that fit the hex button kicker line.
+        static string ActiveLabelOf(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity   => "Reveal",
+            SectConfig.Renewal     => "Heal",
+            SectConfig.Fortitude   => "Bulwark",
+            SectConfig.Reclamation => "Reclaim",
+            SectConfig.Silence     => "Whisper-Wind",
+            SectConfig.Justice     => "Sentence",
+            SectConfig.Veneration  => "Litany",
+            SectConfig.Witness     => "Gaze",
+            SectConfig.War         => "Bloodfury",
+            SectConfig.Ash         => "Burning Ground",
+            SectConfig.Ruin        => "Profane Strike",
+            SectConfig.Wrath       => "Spawn Pyre",
+            _                      => "Active",
+        };
+
+        static string PassiveLabelOf(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity   => "Tally of the Lost",
+            SectConfig.Renewal     => "Hands That Mend",
+            SectConfig.Fortitude   => "Veiled Stone",
+            SectConfig.Reclamation => "Curse-Hardened",
+            SectConfig.Silence     => "Steadfast Vigil",
+            SectConfig.Justice     => "Marked for Sentence",
+            SectConfig.Veneration  => "Fervor",
+            SectConfig.Witness     => "All-Seeing",
+            SectConfig.War         => "Forged in Battle",
+            SectConfig.Ash         => "Pyre's Promise",
+            SectConfig.Ruin        => "Profane Hands",
+            SectConfig.Wrath       => "Spite of the Forsaken",
+            _                      => "Passive",
+        };
+
+        // Minimal JSON string escape — handles the characters that actually
+        // appear in our sect copy (backslash, quote, newline). Everything else
+        // in our generated descriptions is plain ASCII.
+        static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            if (s.IndexOfAny(new[] { '\\', '"', '\n', '\r', '\t' }) < 0) return s;
+            var sb = new System.Text.StringBuilder(s.Length + 8);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                switch (c)
+                {
+                    case '\\': sb.Append("\\\\"); break;
+                    case '"':  sb.Append("\\\""); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default:   sb.Append(c); break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        // ─── Builder stage ───────────────────────────────────────────────
+        // Reports which catalog the builder action panel should show:
+        //   start    → no special (Shrine/Vault/Keep) started yet — full 7-button menu with all specials
+        //   placing  → a special has been started (or completed) — basics only, specials gone
+        //   era2     → culture chosen and age-up complete — advanced post-age-up set
+        //
+        // Same Hall query the culture picker uses; we look at FactionProgress.Culture
+        // to detect age-up completion and BuildingFactory.GetFactionChoiceBuilding
+        // to detect "any special started" (returns non-null even when the
+        // choice is still under construction).
+        void PushBuilderState()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            if (_qHall == default)
+                _qHall = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<HallTag>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionProgress>());
+
+            var faction = GameSettings.LocalPlayerFaction;
+            byte currentCulture = Cultures.None;
+            using (var halls = _qHall.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < halls.Length; i++)
+                {
+                    if (em.GetComponentData<FactionTag>(halls[i]).Value != faction) continue;
+                    currentCulture = em.GetComponentData<FactionProgress>(halls[i]).Culture;
+                    break;
+                }
+            }
+
+            string stage;
+            if (currentCulture != Cultures.None)
+            {
+                stage = "era2";
+            }
+            else
+            {
+                // GetFactionChoiceBuilding returns the in-progress OR completed
+                // choice building id; null means none started yet.
+                bool anySpecial = TheWaningBorder.Entities.BuildingFactory
+                    .GetFactionChoiceBuilding(em, faction) != null;
+                stage = anySpecial ? "placing" : "start";
+            }
+
+            PushIfChanged("builderState", "{\"stage\":\"" + stage + "\"}");
         }
 
         // ─── Culture choice ──────────────────────────────────────────────
@@ -624,8 +978,16 @@ namespace TheWaningBorder.UI.Web
             _sb.Append('{');
             _sb.Append("\"population\":{\"value\":").Append(popCur)
                 .Append(",\"cap\":").Append(popMax).Append(",\"rate\":").Append(rates[RPop]).Append("},");
+            // Religion ("Religion Points") only exists after a culture is
+            // picked (Age 0 has no sects, so the bar would always read 0
+            // with no income source). The JSX panel reads `hidden` and skips
+            // the row entirely instead of showing a dead 0/999 counter.
+            bool religionHidden = !TryGetFactionCulture(em.Value, faction, out byte cultureForRel)
+                                  || cultureForRel == Cultures.None;
             _sb.Append("\"religion\":{\"value\":").Append(religion)
-                .Append(",\"cap\":0,\"rate\":").Append(rates[RRel]).Append("},");
+                .Append(",\"cap\":0,\"rate\":").Append(rates[RRel])
+                .Append(",\"hidden\":").Append(religionHidden ? "true" : "false")
+                .Append("},");
             _sb.Append("\"supplies\":{\"value\":").Append(r.Supplies)
                 .Append(",\"cap\":0,\"rate\":").Append(rates[RSup]).Append("},");
             _sb.Append("\"iron\":{\"value\":").Append(r.Iron)
@@ -715,7 +1077,17 @@ namespace TheWaningBorder.UI.Web
         // Reusable group accumulator — avoids per-tick allocations of a Dictionary
         // and KeyValuePairs while still grouping by display name. Cleared in-place.
         readonly Dictionary<string, SelGroup> _selGroups = new();
-        struct SelGroup { public int Count; public float HpSum; public float HpMaxSum; public bool IsBuilding; }
+        struct SelGroup
+        {
+            public int Count;
+            public float HpSum;
+            public float HpMaxSum;
+            public bool IsBuilding;
+            public Entity Representative;
+        }
+        // Filtered selection scratch list — survives across PushSelection calls
+        // to avoid GC churn at 4 Hz.
+        readonly System.Collections.Generic.List<Entity> _filteredSel = new();
 
         void PushSelection()
         {
@@ -730,100 +1102,40 @@ namespace TheWaningBorder.UI.Web
             if (em == null) return;
             var emm = em.Value;
 
-            if (sel.Count == 1)
-            {
-                var e = sel[0];
-                if (!emm.Exists(e)) { PushIfChanged("selection", "null"); return; }
-
-                var info = EntityInfoExtractor.GetDisplayInfo(e, emm);
-                bool isBuilding = emm.HasComponent<BuildingTag>(e);
-                Faction fac = emm.HasComponent<FactionTag>(e)
-                    ? emm.GetComponentData<FactionTag>(e).Value
-                    : Faction.Blue;
-                string tone = fac == GameSettings.LocalPlayerFaction ? "own" : "enemy";
-                int hpCur = info.CurrentHealth ?? 0;
-                int hpMax = Mathf.Max(1, info.MaxHealth ?? 0);
-
-                _sb.Clear();
-                _sb.Append("{\"kind\":\"single\",\"id\":").Append(e.Index)
-                    .Append(",\"name\":\"").Append(JsonEscape(info.Name ?? "Unit"))
-                    .Append("\",\"klass\":\"").Append(JsonEscape(isBuilding ? "Structure" : (info.Type ?? "Combatant")))
-                    .Append("\",\"portrait\":\"").Append(PortraitFor(info.Name, isBuilding))
-                    .Append("\",\"portraitTone\":\"").Append(tone).Append('"')
-                    .Append(",\"hp\":").Append(hpCur)
-                    .Append(",\"hpMax\":").Append(hpMax)
-                    .Append(",\"sh\":0,\"shMax\":0");
-                if (info.HasCombatStats)
-                {
-                    _sb.Append(",\"atk\":{\"value\":").Append(info.Attack ?? 0).Append(",\"kind\":\"Damage\"}")
-                        .Append(",\"def\":{\"value\":").Append(info.Defense ?? 0).Append(",\"kind\":\"Armor\"}")
-                        .Append(",\"spd\":{\"value\":").Append((info.Speed ?? 0f).ToString("F1", CultureInfo.InvariantCulture)).Append(",\"kind\":\"Move\"}");
-                }
-                else
-                {
-                    _sb.Append(",\"atk\":{\"value\":0,\"kind\":\"—\"}")
-                        .Append(",\"def\":{\"value\":0,\"kind\":\"—\"}")
-                        .Append(",\"spd\":{\"value\":0,\"kind\":\"—\"}");
-                }
-
-                // Building upgrade hint — `canUpgrade` and `upgradeCost` are read
-                // by the web HUD's selection panel to draw an Upgrade button.
-                bool canUpgrade = false;
-                int upgSupplies = 0, upgIron = 0, upgCrystal = 0, upgVeilsteel = 0, upgGlow = 0;
-                int upgNextLevel = 0;
-                if (isBuilding && fac == GameSettings.LocalPlayerFaction
-                    && emm.HasComponent<BuildingUpgradeable>(e)
-                    && !emm.HasComponent<BuildingUpgrading>(e)
-                    && !emm.HasComponent<UnderConstruction>(e))
-                {
-                    if (TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
-                            .TryGetNextCost(emm, e, out var upgCost, out byte nextLv))
-                    {
-                        canUpgrade = true;
-                        upgSupplies  = upgCost.Supplies;
-                        upgIron      = upgCost.Iron;
-                        upgCrystal   = upgCost.Crystal;
-                        upgVeilsteel = upgCost.Veilsteel;
-                        upgGlow      = upgCost.Glow;
-                        upgNextLevel = nextLv;
-                    }
-                }
-                _sb.Append(",\"canUpgrade\":").Append(canUpgrade ? "true" : "false");
-                if (canUpgrade)
-                {
-                    // upgradeCost must be a scalar string — the web HUD renders
-                    // it via {t.upgradeCost} inside a <span>, so an object payload
-                    // would trip React error #31 ("objects are not valid as a
-                    // React child"). Format as a compact "150s 50i" label and
-                    // expose the individual fields too for any future consumer
-                    // that wants structured access.
-                    _sb.Append(",\"upgradeNextLevel\":").Append(upgNextLevel);
-                    _sb.Append(",\"upgradeCost\":\"")
-                        .Append(JsonEscape(FormatCostShort(upgSupplies, upgIron, upgCrystal, upgVeilsteel, upgGlow)))
-                        .Append('"');
-                    _sb.Append(",\"upgradeCostBreakdown\":{")
-                        .Append("\"supplies\":").Append(upgSupplies)
-                        .Append(",\"iron\":").Append(upgIron)
-                        .Append(",\"crystal\":").Append(upgCrystal)
-                        .Append(",\"veilsteel\":").Append(upgVeilsteel)
-                        .Append(",\"glow\":").Append(upgGlow)
-                        .Append('}');
-                }
-                _sb.Append('}');
-                PushIfChanged("selection", _sb.ToString());
-                return;
-            }
-
-            // Multi: bucket by name.
-            _selGroups.Clear();
+            // Filter out battalion leaders — they carry an invisible dummy HP
+            // component, so the player must see the members instead. The
+            // SelectionSystem keeps the leader bundled with its members for
+            // command-dispatch purposes, but the HUD always summarises a
+            // battalion via the members themselves.
+            _filteredSel.Clear();
             for (int i = 0; i < sel.Count; i++)
             {
                 var e = sel[i];
                 if (!emm.Exists(e)) continue;
+                if (emm.HasComponent<BattalionLeader>(e)) continue;
+                _filteredSel.Add(e);
+            }
+            if (_filteredSel.Count == 0)
+            {
+                PushIfChanged("selection", "null");
+                return;
+            }
+
+            // Bucket by display name so 15 archers collapse into one group.
+            // This is the same pass used by both "single" (1 group) and
+            // "multi" (2+ groups) emit paths.
+            _selGroups.Clear();
+            for (int i = 0; i < _filteredSel.Count; i++)
+            {
+                var e = _filteredSel[i];
+                if (!emm.Exists(e)) continue;
                 var info = EntityInfoExtractor.GetDisplayInfo(e, emm);
                 string key = info.Name ?? "Unit";
                 bool isBld = emm.HasComponent<BuildingTag>(e);
-                _selGroups.TryGetValue(key, out var g);
+                if (!_selGroups.TryGetValue(key, out var g))
+                {
+                    g.Representative = e;
+                }
                 g.Count++;
                 g.HpSum += info.CurrentHealth ?? 0;
                 g.HpMaxSum += Mathf.Max(1, info.MaxHealth ?? 0);
@@ -831,6 +1143,19 @@ namespace TheWaningBorder.UI.Web
                 _selGroups[key] = g;
             }
 
+            // Same-type collapse: 1 group of N entities is presented as a
+            // SINGLE selection with `count` set so the Actions panel routes
+            // to the type-specific layout (archers → Archer actions, etc.)
+            // and applies orders to every entity in the group.
+            if (_selGroups.Count == 1)
+            {
+                var only = _selGroups.GetEnumerator();
+                only.MoveNext();
+                EmitSingle(emm, only.Current.Key, only.Current.Value);
+                return;
+            }
+
+            // True multi (2+ types): render the mixed-detachment card.
             _sb.Clear();
             _sb.Append("{\"kind\":\"multi\",\"units\":[");
             bool first = true;
@@ -849,6 +1174,187 @@ namespace TheWaningBorder.UI.Web
             }
             _sb.Append("]}");
             PushIfChanged("selection", _sb.ToString());
+        }
+
+        // Emit one "single" selection payload representing a same-type group.
+        // For solo entities Count==1 and the count field is omitted (the JSX
+        // shows it only when > 1). For groups, the representative entity
+        // sources the upgrade / training / class data so the action panel
+        // picks the right layout.
+        void EmitSingle(EntityManager emm, string displayName, SelGroup g)
+        {
+            var e = g.Representative;
+            var info = EntityInfoExtractor.GetDisplayInfo(e, emm);
+            bool isBuilding = emm.HasComponent<BuildingTag>(e);
+            Faction fac = emm.HasComponent<FactionTag>(e)
+                ? emm.GetComponentData<FactionTag>(e).Value
+                : Faction.Blue;
+            string tone = fac == GameSettings.LocalPlayerFaction ? "own" : "enemy";
+
+            // For groups, use the aggregate HP fraction instead of one
+            // entity's HP — that's the count-aware health the player wants.
+            int hpCur, hpMax;
+            if (g.Count > 1)
+            {
+                hpCur = (int)g.HpSum;
+                hpMax = (int)Mathf.Max(1f, g.HpMaxSum);
+            }
+            else
+            {
+                hpCur = info.CurrentHealth ?? 0;
+                hpMax = Mathf.Max(1, info.MaxHealth ?? 0);
+            }
+
+            _sb.Clear();
+            _sb.Append("{\"kind\":\"single\",\"id\":").Append(e.Index)
+                .Append(",\"name\":\"").Append(JsonEscape(displayName))
+                .Append("\",\"klass\":\"").Append(JsonEscape(isBuilding ? "Structure" : (info.Type ?? "Combatant")))
+                .Append("\",\"portrait\":\"").Append(PortraitFor(displayName, isBuilding))
+                .Append("\",\"portraitTone\":\"").Append(tone).Append('"')
+                .Append(",\"hp\":").Append(hpCur)
+                .Append(",\"hpMax\":").Append(hpMax)
+                .Append(",\"sh\":0,\"shMax\":0");
+            if (g.Count > 1) _sb.Append(",\"count\":").Append(g.Count);
+
+            if (info.HasCombatStats)
+            {
+                _sb.Append(",\"atk\":{\"value\":").Append(info.Attack ?? 0).Append(",\"kind\":\"Damage\"}")
+                    .Append(",\"def\":{\"value\":").Append(info.Defense ?? 0).Append(",\"kind\":\"Armor\"}")
+                    .Append(",\"spd\":{\"value\":").Append((info.Speed ?? 0f).ToString("F1", CultureInfo.InvariantCulture)).Append(",\"kind\":\"Move\"}");
+            }
+            else
+            {
+                _sb.Append(",\"atk\":{\"value\":0,\"kind\":\"—\"}")
+                    .Append(",\"def\":{\"value\":0,\"kind\":\"—\"}")
+                    .Append(",\"spd\":{\"value\":0,\"kind\":\"—\"}");
+            }
+
+            // Progress bar — buildings that are currently training a unit OR
+            // upgrading. The same payload feeds both the Selection panel's
+            // progress strip and the floating-bar progress under the
+            // health bar. progress.ratio is 0..1, progress.label is "Building
+            // Archer" / "Upgrading (lvl 2)" etc.
+            bool emittedProgress = false;
+            if (isBuilding)
+            {
+                if (emm.HasComponent<BuildingUpgrading>(e))
+                {
+                    var up = emm.GetComponentData<BuildingUpgrading>(e);
+                    if (up.Total > 0f)
+                    {
+                        float r = Mathf.Clamp01(up.Progress / up.Total);
+                        _sb.Append(",\"progress\":{\"ratio\":").Append(r.ToString("F3", CultureInfo.InvariantCulture))
+                            .Append(",\"label\":\"Upgrading (lvl ").Append(up.TargetLevel).Append(")\"")
+                            .Append(",\"kind\":\"upgrade\"}");
+                        emittedProgress = true;
+                    }
+                }
+                else if (emm.HasComponent<TrainingState>(e))
+                {
+                    var ts = emm.GetComponentData<TrainingState>(e);
+                    if (ts.Busy == 1 && ts.Total > 0f)
+                    {
+                        float r = Mathf.Clamp01((ts.Total - ts.Remaining) / ts.Total);
+                        // Peek at the front of the train queue for the unit name.
+                        string trainName = "Unit";
+                        if (emm.HasBuffer<TrainQueueItem>(e))
+                        {
+                            var buf = emm.GetBuffer<TrainQueueItem>(e);
+                            if (buf.Length > 0) trainName = buf[0].UnitId.ToString();
+                        }
+                        _sb.Append(",\"progress\":{\"ratio\":").Append(r.ToString("F3", CultureInfo.InvariantCulture))
+                            .Append(",\"label\":\"Training ").Append(JsonEscape(trainName)).Append("\"")
+                            .Append(",\"kind\":\"training\"}");
+                        emittedProgress = true;
+                    }
+                }
+            }
+            if (!emittedProgress) _sb.Append(",\"progress\":null");
+
+            // Building upgrade hint — surfaces an "Ascend" button. Hidden
+            // while an upgrade is already in flight (BuildingUpgrading) — the
+            // progress bar above tells the same story.
+            bool canUpgrade = false;
+            int upgSupplies = 0, upgIron = 0, upgCrystal = 0, upgVeilsteel = 0, upgGlow = 0;
+            int upgNextLevel = 0;
+            if (isBuilding && fac == GameSettings.LocalPlayerFaction
+                && emm.HasComponent<BuildingUpgradeable>(e)
+                && !emm.HasComponent<BuildingUpgrading>(e)
+                && !emm.HasComponent<UnderConstruction>(e))
+            {
+                if (TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
+                        .TryGetNextCost(emm, e, out var upgCost, out byte nextLv))
+                {
+                    canUpgrade = true;
+                    upgSupplies  = upgCost.Supplies;
+                    upgIron      = upgCost.Iron;
+                    upgCrystal   = upgCost.Crystal;
+                    upgVeilsteel = upgCost.Veilsteel;
+                    upgGlow      = upgCost.Glow;
+                    upgNextLevel = nextLv;
+                }
+            }
+            _sb.Append(",\"canUpgrade\":").Append(canUpgrade ? "true" : "false");
+            if (canUpgrade)
+            {
+                _sb.Append(",\"upgradeNextLevel\":").Append(upgNextLevel);
+                _sb.Append(",\"upgradeCost\":\"")
+                    .Append(JsonEscape(FormatCostShort(upgSupplies, upgIron, upgCrystal, upgVeilsteel, upgGlow)))
+                    .Append('"');
+                _sb.Append(",\"upgradeCostBreakdown\":{")
+                    .Append("\"supplies\":").Append(upgSupplies)
+                    .Append(",\"iron\":").Append(upgIron)
+                    .Append(",\"crystal\":").Append(upgCrystal)
+                    .Append(",\"veilsteel\":").Append(upgVeilsteel)
+                    .Append(",\"glow\":").Append(upgGlow)
+                    .Append('}');
+            }
+            _sb.Append('}');
+            PushIfChanged("selection", _sb.ToString());
+        }
+
+        // True when both entities share the same trainer tag (HallTag,
+        // BarracksTag, ArcheryRangeTag, ShrineTag, TempleOfRidanTag, etc.).
+        // Drives "apply training to every selected building of this type"
+        // dispatch — clicking "Archer" with 3 Archery Ranges selected fires
+        // the train order on each range, but ignores any non-Archery
+        // building that happened to be in the selection.
+        static bool SameTrainingType(EntityManager em, Entity a, Entity b)
+        {
+            if (em.HasComponent<HallTag>(a))         return em.HasComponent<HallTag>(b);
+            if (em.HasComponent<BarracksTag>(a))     return em.HasComponent<BarracksTag>(b);
+            if (em.HasComponent<ArcheryRangeTag>(a)) return em.HasComponent<ArcheryRangeTag>(b);
+            if (em.HasComponent<ShrineTag>(a))       return em.HasComponent<ShrineTag>(b);
+            if (em.HasComponent<TempleOfRidanTag>(a))return em.HasComponent<TempleOfRidanTag>(b);
+            return a.Index == b.Index;
+        }
+
+        // Look up the faction's culture via its Hall's FactionProgress. Returns
+        // false if no Hall exists yet (very early bootstrap). The HudBridge uses
+        // this to hide the Religion resource row before age-up, since no sects
+        // exist and the bar would always read 0.
+        bool TryGetFactionCulture(EntityManager em, Faction faction, out byte culture)
+        {
+            culture = Cultures.None;
+            // _qHall is lazy-initialised by other push methods (PushBuilderState,
+            // PushAgeUpProgress, PushSelection's culture sub-query). PushResources
+            // can fire before any of those during the first few frames, so
+            // ensure the query exists before we touch it — without this guard
+            // .ToEntityArray hits a default-struct NRE.
+            if (_qHall == default)
+                _qHall = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<HallTag>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<FactionProgress>());
+
+            using var halls = _qHall.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < halls.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(halls[i]).Value != faction) continue;
+                culture = em.GetComponentData<FactionProgress>(halls[i]).Culture;
+                return true;
+            }
+            return false;
         }
 
         // Mapping from display name → portrait kind known to Selection.jsx

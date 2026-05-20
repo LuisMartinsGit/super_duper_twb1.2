@@ -1,96 +1,115 @@
 // BuildingRiseData.cs
-// Stores per-child original local positions for staggered construction rise.
-// Attached to building GameObjects during construction by PresentationSpawnSystem.
+// Stores per-piece original local positions for sequential construction rise.
+// Pieces are ordered by ascending world Y at Init time and each gets its own
+// non-overlapping slot in the [0..1] progress range — only one piece moves
+// at a time, lowest first, top piece last.
 // Location: Assets/Scripts/Presentation/BuildingRiseData.cs
 
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheWaningBorder.Presentation
 {
-    /// <summary>
-    /// Tracks each child's original local Y so the construction animation
-    /// can raise pieces bottom-to-top. Lower pieces appear first.
-    /// </summary>
     public class BuildingRiseData : MonoBehaviour
     {
-        private Transform[] _children;
-        private float[] _originalLocalY;
-        private float _maxChildY;
+        private Transform[] _pieces;
+        private float[] _restLocalY;
+        private float[] _slotStart;       // when this piece begins its rise (in [0..1])
+        private float _slotWidth;         // duration of each piece's slot
         private bool _initialized;
+        private bool _underConstructionLastFrame;
 
-        // Spread factor: how much of the progress range each piece uses to transition
-        private const float TransitionWidth = 0.25f;
-
-        /// <summary>
-        /// Snapshot each direct child's local Y position.
-        /// Must be called once before ApplyRise.
-        /// </summary>
         public void Init()
         {
             if (_initialized) return;
             _initialized = true;
 
-            int count = transform.childCount;
-            _children = new Transform[count];
-            _originalLocalY = new float[count];
-            _maxChildY = 0.01f; // avoid division by zero
+            var collected = new List<Transform>();
+            for (int i = 0; i < transform.childCount; i++)
+                CollectPieces(transform.GetChild(i), collected);
 
-            for (int i = 0; i < count; i++)
+            int n = collected.Count;
+            _pieces = new Transform[n];
+            _restLocalY = new float[n];
+            _slotStart = new float[n];
+            if (n == 0) return;
+
+            var worldYs = new float[n];
+            for (int i = 0; i < n; i++)
             {
-                _children[i] = transform.GetChild(i);
-                _originalLocalY[i] = _children[i].localPosition.y;
-                if (_originalLocalY[i] > _maxChildY)
-                    _maxChildY = _originalLocalY[i];
+                _pieces[i] = collected[i];
+                _restLocalY[i] = collected[i].localPosition.y;
+                worldYs[i] = collected[i].position.y;
             }
+
+            // Rank pieces by ascending world Y so the lowest physical piece
+            // rises first and the highest finishes last. Each rank gets a
+            // non-overlapping slot of width 1/n in the construction progress.
+            var rankByPiece = new int[n];
+            var indices = new int[n];
+            for (int i = 0; i < n; i++) indices[i] = i;
+            System.Array.Sort(indices, (a, b) => worldYs[a].CompareTo(worldYs[b]));
+            for (int rank = 0; rank < n; rank++)
+                rankByPiece[indices[rank]] = rank;
+
+            _slotWidth = 1f / n;
+            for (int i = 0; i < n; i++)
+                _slotStart[i] = rankByPiece[i] * _slotWidth;
         }
 
-        /// <summary>
-        /// Position each child based on overall construction progress (0..1).
-        /// Lower children rise into place earlier, upper children later.
-        /// </summary>
-        /// <param name="ratio">Overall construction progress 0..1</param>
-        /// <param name="sinkDepth">How far below ground pieces start</param>
+        // Renderer-bearing transforms are pieces; pure grouping transforms
+        // (no Renderer, has children) recurse so FBX-wrapped prefabs animate
+        // per-mesh instead of as one rigid block.
+        private static void CollectPieces(Transform t, List<Transform> output)
+        {
+            bool hasOwnRenderer = t.GetComponent<Renderer>() != null;
+            if (hasOwnRenderer || t.childCount == 0)
+            {
+                output.Add(t);
+                return;
+            }
+            for (int i = 0; i < t.childCount; i++)
+                CollectPieces(t.GetChild(i), output);
+        }
+
+        /// <summary>Position each piece based on overall construction progress (0..1). One piece rises at a time.</summary>
         public void ApplyRise(float ratio, float sinkDepth)
         {
-            if (!_initialized || _children == null) return;
+            if (!_initialized || _pieces == null || _slotWidth <= 0f) return;
 
-            for (int i = 0; i < _children.Length; i++)
+            for (int i = 0; i < _pieces.Length; i++)
             {
-                if (_children[i] == null) continue;
+                var c = _pieces[i];
+                if (c == null) continue;
 
-                // Normalize this child's height to 0..1 range
-                float normalizedHeight = _originalLocalY[i] / _maxChildY;
+                float pieceProgress = Mathf.Clamp01((ratio - _slotStart[i]) / _slotWidth);
+                float eased = 1f - (1f - pieceProgress) * (1f - pieceProgress);
 
-                // Threshold: when this piece starts rising (lower pieces start earlier)
-                float threshold = normalizedHeight * (1f - TransitionWidth);
-
-                // Per-child progress: 0 = fully sunk, 1 = in place
-                float childProgress = Mathf.Clamp01((ratio - threshold) / TransitionWidth);
-
-                // Ease-out for a satisfying "settling into place" feel
-                float eased = 1f - (1f - childProgress) * (1f - childProgress);
-
-                // Apply Y offset: at childProgress=0, piece is sinkDepth below original
-                var localPos = _children[i].localPosition;
-                localPos.y = _originalLocalY[i] - sinkDepth * (1f - eased);
-                _children[i].localPosition = localPos;
+                var lp = c.localPosition;
+                lp.y = _restLocalY[i] - sinkDepth * (1f - eased);
+                c.localPosition = lp;
             }
+            _underConstructionLastFrame = true;
         }
 
         /// <summary>
-        /// Reset all children to their original positions (called on construction complete).
+        /// Snap pieces back to rest the first frame after construction ends.
+        /// Returns true exactly on that transition frame (so callers can fire
+        /// a one-shot completion effect), false otherwise.
         /// </summary>
-        public void ResetToOriginal()
+        public bool NotifyConstructionComplete()
         {
-            if (!_initialized || _children == null) return;
-
-            for (int i = 0; i < _children.Length; i++)
+            if (!_underConstructionLastFrame) return false;
+            _underConstructionLastFrame = false;
+            if (!_initialized || _pieces == null) return true;
+            for (int i = 0; i < _pieces.Length; i++)
             {
-                if (_children[i] == null) continue;
-                var localPos = _children[i].localPosition;
-                localPos.y = _originalLocalY[i];
-                _children[i].localPosition = localPos;
+                if (_pieces[i] == null) continue;
+                var lp = _pieces[i].localPosition;
+                lp.y = _restLocalY[i];
+                _pieces[i].localPosition = lp;
             }
+            return true;
         }
     }
 }
