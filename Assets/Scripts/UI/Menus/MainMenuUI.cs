@@ -34,9 +34,13 @@ namespace TheWaningBorder.UI.Menus
         private MultiplayerLobbyUI _multiplayerLobby;
         private OptionsMenuUI _optionsMenu;
 
-        // Styling — specialty cached locals (bold 16pt buttons + 24pt title; no Styles match)
+        // Styling — specialty cached locals (jade panel chrome,
+        // gold title, dim eyebrow + foot, gold tick-decorated rows).
         private GUIStyle _buttonStyle;
         private GUIStyle _titleStyle;
+        private GUIStyle _eyebrowStyle;
+        private GUIStyle _medallionStyle;
+        private GUIStyle _footStyle;
         private bool _stylesInitialized = false;
 
         // Background
@@ -153,43 +157,142 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawMainMenu()
         {
-            // 7 rows: Skirmish, Multiplayer, Campaign, Load, Scenarios,
-            // Options, Exit. Two of them are stubs (Campaign / Load).
+            // Mirrors the in-game pause-menu modal
+            // (HudFrontend/src/components/Menu.jsx → .hud-menu-modal):
+            // dark jade panel chrome, gold border + corner accents,
+            // green-gem medallion at the top of the chrome, eyebrow
+            // line + gold "ARMISTICE"-style title, the menu rows, then
+            // a foot caption. The southood + gem wash from
+            // DrawBackground stays underneath so the panel reads as
+            // floating above the same scene the lobby uses.
             const int rowCount = 7;
-            float totalH = TitleHeight + (ButtonHeight + ButtonSpacing) * rowCount + Padding * 2;
-            float startX = (Screen.width - ButtonWidth) * 0.5f;
-            float startY = (Screen.height - totalH) * 0.5f;
+            float listH = (ButtonHeight + ButtonSpacing) * rowCount;
+            float panelW = ButtonWidth + 60;
+            float panelH = 30 /*eyebrow gap*/ + TitleHeight + 14 + listH + Padding * 3 + 28 /*foot*/;
+            float panelX = (Screen.width - panelW) * 0.5f;
+            float panelY = (Screen.height - panelH) * 0.5f;
 
-            // Title — uses the same spaced-uppercase treatment the
-            // pause menu's "ARMISTICE / PAUSED" header has.
-            GUI.Label(new Rect(startX, startY, ButtonWidth, TitleHeight),
-                SpaceOut("THE WANING BORDER"), _titleStyle);
+            DrawJadePanel(new Rect(panelX, panelY, panelW, panelH));
 
-            float y = startY + TitleHeight + Padding;
+            float topPad = Padding;
+            float y = panelY + topPad;
+
+            // Top medallion — a single gold diamond stands in for the
+            // pause-menu's filigree medallion + green gem. Keeps the
+            // visual cue without needing texture assets.
+            GUI.Label(new Rect(panelX, y - 8, panelW, 20),
+                "<color=#3fbf9a>◆</color>", _medallionStyle);
+            y += 14;
+
+            // Eyebrow line (smaller, dim) — matches the
+            // .hud-menu-eyebrow "THE FIELD IS HELD" line above
+            // "ARMISTICE".
+            GUI.Label(new Rect(panelX, y, panelW, 18),
+                "ENTER THE BORDER", _eyebrowStyle);
+            y += 22;
+
+            // Title — gold, centered, no letter-spacing (IMGUI doesn't
+            // do CSS letter-spacing cleanly; the in-game version uses
+            // Cinzel which already has built-in spacing). Plain
+            // uppercase keeps the panel from forcing a wrap.
+            GUI.Label(new Rect(panelX, y, panelW, TitleHeight),
+                "THE WANING BORDER", _titleStyle);
+            y += TitleHeight - 6;
+
+            // Horizontal rule — gradient line, same colour as the
+            // pause menu's `linear-gradient(transparent, inlay, transparent)`.
+            DrawRule(new Rect(panelX + 24, y, panelW - 48, 1));
+            y += 8;
+
+            // Menu rows — centred horizontally inside the panel.
+            float startX = panelX + (panelW - ButtonWidth) * 0.5f;
 
             if (DrawMenuButton(startX, ref y, "Skirmish", "Single-player vs AI"))
                 _pendingState = MenuState.SkirmishLobby;
-
             if (DrawMenuButton(startX, ref y, "Multiplayer", "Lockstep network match"))
                 _pendingState = MenuState.MultiplayerLobby;
-
-            // Campaign — not yet implemented.
             DrawMenuButton(startX, ref y, "Campaign", "Coming soon", enabled: false);
-
-            // Load Game — depends on task-save-load-system-081. Visible
-            // here so the player sees the slot exists; greyed out until
-            // the save system ships.
             DrawMenuButton(startX, ref y, "Load Game", "Coming soon", enabled: false);
-
             if (DrawMenuButton(startX, ref y, "Scenarios", "Stress-test & showcase rooms"))
                 _pendingState = MenuState.Scenarios;
-
             if (DrawMenuButton(startX, ref y, "Options", "Sound, video, controls"))
                 _pendingState = MenuState.Options;
-
             if (DrawMenuButton(startX, ref y, "Exit", "Leave the keep"))
                 ExitGame();
+
+            // Foot line — mirrors the pause menu's "Esc to dismiss ·
+            // Autosave at every dawn" caption.
+            GUI.Label(new Rect(panelX, panelY + panelH - 24, panelW, 18),
+                "Hold fast · The border still wanes", _footStyle);
         }
+
+        // Solid dark-jade panel with a thin gold border and four small
+        // gold corner accents. Cheaper to draw than real filigree but
+        // reads as the same family of UI chrome.
+        private void DrawJadePanel(Rect r)
+        {
+            // Body — slightly more opaque than the in-game modal so the
+            // text inside stays readable on top of the southood wash.
+            var bodyTex = GetOrMakeSolid(ref _panelBodyTex,
+                new Color(JadeBase.r, JadeBase.g, JadeBase.b, 0.92f));
+            GUI.color = Color.white;
+            GUI.DrawTexture(r, bodyTex);
+
+            // Highlight at the top edge — a single brighter strip so
+            // the panel has a hint of light coming from above.
+            var topTex = GetOrMakeSolid(ref _panelTopTex,
+                new Color(JadeMid.r, JadeMid.g, JadeMid.b, 0.55f));
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width, 32f), topTex);
+
+            // Border — thin gold frame around the whole panel.
+            var borderTex = GetOrMakeSolid(ref _panelBorderTex, JadeAccent);
+            GUI.DrawTexture(new Rect(r.x,            r.y,             r.width, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.x,            r.yMax - 1,      r.width, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.x,            r.y,             1f, r.height), borderTex);
+            GUI.DrawTexture(new Rect(r.xMax - 1,     r.y,             1f, r.height), borderTex);
+
+            // Corner accents — short bracket strokes inside each corner
+            // (top-left, top-right, bottom-left, bottom-right) so the
+            // panel has the same "four marked corners" rhythm as the
+            // pause menu's filigree corners.
+            const float armLen = 14f;
+            const float inset  = 6f;
+            // Top-left
+            GUI.DrawTexture(new Rect(r.x + inset,         r.y + inset,         armLen, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.x + inset,         r.y + inset,         1f, armLen), borderTex);
+            // Top-right
+            GUI.DrawTexture(new Rect(r.xMax - inset - armLen, r.y + inset,     armLen, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.xMax - inset - 1,  r.y + inset,         1f, armLen), borderTex);
+            // Bottom-left
+            GUI.DrawTexture(new Rect(r.x + inset,         r.yMax - inset - 1,  armLen, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.x + inset,         r.yMax - inset - armLen, 1f, armLen), borderTex);
+            // Bottom-right
+            GUI.DrawTexture(new Rect(r.xMax - inset - armLen, r.yMax - inset - 1, armLen, 1f), borderTex);
+            GUI.DrawTexture(new Rect(r.xMax - inset - 1,  r.yMax - inset - armLen, 1f, armLen), borderTex);
+            GUI.color = Color.white;
+        }
+
+        private void DrawRule(Rect r)
+        {
+            var tex = GetOrMakeSolid(ref _ruleTex,
+                new Color(JadeAccent.r, JadeAccent.g, JadeAccent.b, 0.45f));
+            GUI.DrawTexture(r, tex);
+        }
+
+        // Cached single-pixel solid textures so we don't reallocate per
+        // frame. Slot is passed by ref so the field gets populated on
+        // first call and reused for every subsequent OnGUI.
+        private static Texture2D GetOrMakeSolid(ref Texture2D slot, Color c)
+        {
+            if (slot != null) return slot;
+            slot = Styles.MakeSolid(c);
+            return slot;
+        }
+
+        private static Texture2D _panelBodyTex;
+        private static Texture2D _panelTopTex;
+        private static Texture2D _panelBorderTex;
+        private static Texture2D _ruleTex;
 
         // ═══════════════════════════════════════════════════════════════════════
         // SCENARIOS (borderless, centered)
@@ -197,18 +300,34 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawScenarios()
         {
+            // Same panel chrome the main menu uses. The scroll view + a
+            // single back-row footer live inside.
             float maxVisibleButtons = 8;
             float scrollAreaH = (ButtonHeight + ButtonSpacing) * maxVisibleButtons;
-            float totalH = TitleHeight + Padding + scrollAreaH + Padding + ButtonHeight + Padding;
-            float startX = (Screen.width - ButtonWidth) * 0.5f;
-            float startY = (Screen.height - totalH) * 0.5f;
+            float panelW = ButtonWidth + 60;
+            float panelH = 30 + TitleHeight + 14 + scrollAreaH + ButtonHeight + Padding * 3 + 28;
+            float panelX = (Screen.width - panelW) * 0.5f;
+            float panelY = (Screen.height - panelH) * 0.5f;
 
-            // Title
-            GUI.Label(new Rect(startX, startY, ButtonWidth, TitleHeight),
+            DrawJadePanel(new Rect(panelX, panelY, panelW, panelH));
+
+            float y = panelY + Padding;
+            GUI.Label(new Rect(panelX, y - 8, panelW, 20),
+                "<color=#3fbf9a>◆</color>", _medallionStyle);
+            y += 14;
+            GUI.Label(new Rect(panelX, y, panelW, 18),
+                "TRAINING GROUNDS", _eyebrowStyle);
+            y += 22;
+            GUI.Label(new Rect(panelX, y, panelW, TitleHeight),
                 "SCENARIOS", _titleStyle);
+            y += TitleHeight - 6;
+            DrawRule(new Rect(panelX + 24, y, panelW - 48, 1));
+            y += 8;
+
+            float startX = panelX + (panelW - ButtonWidth) * 0.5f;
 
             // Scrollable area for scenario buttons
-            var scrollRect = new Rect(startX, startY + TitleHeight + Padding, ButtonWidth, scrollAreaH);
+            var scrollRect = new Rect(startX, y, ButtonWidth, scrollAreaH);
             var scenarios = new (string label, ScenarioType type)[]
             {
                 ("Large Melee Battle (6v6)", ScenarioType.LargeMelee),
@@ -227,28 +346,31 @@ namespace TheWaningBorder.UI.Menus
 
             _scenarioScrollPos = GUI.BeginScrollView(scrollRect, _scenarioScrollPos, viewRect);
 
-            float y = 0;
+            float ry = 0;
             for (int i = 0; i < scenarios.Length; i++)
             {
-                var btnRect = new Rect(0, y, ButtonWidth - 16, ButtonHeight);
+                var btnRect = new Rect(0, ry, ButtonWidth - 16, ButtonHeight);
                 // Long scenario labels — pre-build the rich-text row
-                // (jade tick + label + chevron, no hint subtitle) since
+                // (gold tick + label + chevron, no hint subtitle) since
                 // the sentence form would overflow if we letter-spaced
                 // it.
-                string display = $"<color=#3fbf9a>◆</color>   <b>{scenarios[i].label}</b>   <color=#3fbf9a>▸</color>";
+                string display = $"<color=#e8b84a>◆</color>   <b>{scenarios[i].label}</b>   <color=#e8b84a>▸</color>";
                 if (GUI.Button(btnRect, display, _buttonStyle))
                     _pendingScenario = scenarios[i].type;
-                y += ButtonHeight + ButtonSpacing;
+                ry += ButtonHeight + ButtonSpacing;
             }
 
             GUI.EndScrollView();
 
             // Back button below scroll area — uses the same pause-menu
             // row treatment as the main menu list.
-            float backY = scrollRect.yMax + Padding;
-            float backY_ref = backY;
-            if (DrawMenuButton(startX, ref backY_ref, "Back", "Return to main menu"))
+            float backY = scrollRect.yMax + 8f;
+            if (DrawMenuButton(startX, ref backY, "Back", "Return to main menu"))
                 _pendingState = MenuState.MainMenu;
+
+            // Foot caption
+            GUI.Label(new Rect(panelX, panelY + panelH - 24, panelW, 18),
+                "Stress the engine · find the edges", _footStyle);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -267,22 +389,26 @@ namespace TheWaningBorder.UI.Menus
             y += ButtonHeight + ButtonSpacing;
 
             // Rich-text payload — two lines:
-            //   ◆  LABEL  ▸           (label in silver, decorations in green)
+            //   ◆  LABEL  ▸           (decorations + label both gold)
             //   <italic dim hint>
-            // Mirrors the jade pause-menu rows: idle text is silver
-            // (#e6efea), decorations are jade-green (#3fbf9a), hover
-            // shifts the label to the bright accent. Letter-spaced via
-            // SpaceOut() since IMGUI can't do real CSS letter-spacing.
-            string spacedLabel = SpaceOut(label.ToUpperInvariant());
+            // Mirrors the in-game pause-menu rows
+            // (HudFrontend Menu.jsx .hud-menu-item-tick / -chevron):
+            // gold diamond + chevron, gold uppercase label, italic
+            // dim hint. Letter-spacing is dropped — IMGUI can't
+            // emulate CSS letter-spacing without collapsing word
+            // breaks (LOAD GAME → LOADGAME) so we just rely on
+            // ToUpperInvariant + the natural Cinzel-ish weight of
+            // the bold font instead.
+            string upperLabel = label.ToUpperInvariant();
             string display;
             if (string.IsNullOrEmpty(hint))
             {
-                display = $"<color=#3fbf9a>◆</color>   {spacedLabel}   <color=#3fbf9a>▸</color>";
+                display = $"<color=#e8b84a>◆</color>   <b>{upperLabel}</b>   <color=#e8b84a>▸</color>";
             }
             else
             {
                 display =
-                    $"<color=#3fbf9a>◆</color>   {spacedLabel}   <color=#3fbf9a>▸</color>\n" +
+                    $"<color=#e8b84a>◆</color>   <b>{upperLabel}</b>   <color=#e8b84a>▸</color>\n" +
                     $"<size=12><i><color=#cfd6d3aa>{hint}</color></i></size>";
             }
 
@@ -340,18 +466,51 @@ namespace TheWaningBorder.UI.Menus
             _buttonStyle.focused.background = null;
             _buttonStyle.focused.textColor  = _buttonStyle.normal.textColor;
 
-            // Title: spaced jade heading, mirrors the modal eyebrow
-            // colour treatment in the pause-menu (.hud-menu-eyebrow +
-            // .hud-menu-title use the accent over a gem backdrop). We
-            // tint the title with JadeGemHi instead of gold so the
-            // pre-game UI reads as obviously jade.
+            // Title: gold "ARMISTICE"-style heading. The in-game
+            // pause-menu's title is `theme.accent` (gold) with a faint
+            // text-shadow glow — IMGUI can't do text-shadow, but gold
+            // text on the dark-jade panel still reads as the same
+            // family.
             _titleStyle = new GUIStyle(Styles.Header)
             {
-                fontSize = 32,
+                fontSize = 30,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true,
+                fontStyle = FontStyle.Bold,
+            };
+            _titleStyle.normal.textColor = JadeAccent;
+
+            // Eyebrow — small dim caps line above the title, matches
+            // .hud-menu-eyebrow.
+            _eyebrowStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
                 richText = true,
             };
-            _titleStyle.normal.textColor = JadeGemHi;
+            _eyebrowStyle.normal.textColor = new Color(0.86f, 0.90f, 0.86f, 0.65f);
+
+            // Medallion stub — a single coloured glyph centered above
+            // the eyebrow. Replaces the pause menu's FiligreeMedallion
+            // graphic without needing texture work.
+            _medallionStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 18,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true,
+            };
+            _medallionStyle.normal.textColor = JadeGemHi;
+
+            // Foot — matches .hud-menu-foot (Cormorant italic dim).
+            _footStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Italic,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true,
+            };
+            _footStyle.normal.textColor = new Color(0.78f, 0.82f, 0.78f, 0.55f);
 
             _stylesInitialized = true;
         }
