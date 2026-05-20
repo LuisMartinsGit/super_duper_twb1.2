@@ -82,10 +82,11 @@ namespace TheWaningBorder.Data
 
         /// <summary>
         /// Per-chapel material cost (in addition to RP). Shared across all 12
-        /// chapels in Phase 2a. Values match the rough scale of Era-2 secondary
-        /// buildings — affordability guard is the RP economy, not resources.
+        /// chapels. Now demands Iron as well as Supplies + Crystal so adoption
+        /// matters as an economic commitment, not just an RP spend.
         /// </summary>
-        private static readonly Cost ChapelMaterialCost = Cost.Of(supplies: 200, crystal: 80);
+        public static readonly Cost ChapelMaterialCost =
+            Cost.Of(supplies: 250, crystal: 100, iron: 60);
 
         // Inject the 12 chapel entries into the dictionary at static-init time
         // so callers can use the same TryGet path as for any other building.

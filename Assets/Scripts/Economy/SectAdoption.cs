@@ -92,12 +92,14 @@ namespace TheWaningBorder.Economy
 
         /// <summary>
         /// Can <paramref name="faction"/> upgrade the given lever on <paramref name="sectId"/>?
-        /// Sets <paramref name="cost"/> on success.
+        /// Sets <paramref name="cost"/> (RP) and <paramref name="materialCost"/> on success.
         /// </summary>
         public static SectAdoptionResult CanUpgradeLever(
-            EntityManager em, Faction faction, string sectId, SectLeverKind lever, out int cost)
+            EntityManager em, Faction faction, string sectId, SectLeverKind lever,
+            out int cost, out TheWaningBorder.Core.Cost materialCost)
         {
             cost = 0;
+            materialCost = default;
             int idx = SectConfig.IndexOf(sectId);
             if (idx < 0) return SectAdoptionResult.UnknownSect;
 
@@ -132,12 +134,23 @@ namespace TheWaningBorder.Economy
 
             cost = SectConfig.UpgradeCost(level);
             if (cost < 0) return SectAdoptionResult.UnsupportedLeverState;
+            materialCost = SectConfig.UpgradeMaterialCost(level);
 
             if (!FactionReligionPointsHelper.CanAfford(em, faction, cost))
                 return SectAdoptionResult.NotEnoughRP;
+            if (!FactionEconomy.CanAfford(em, faction, materialCost))
+                return SectAdoptionResult.NotEnoughRP; // re-using enum for "can't pay"
 
             return SectAdoptionResult.Ok;
         }
+
+        /// <summary>
+        /// Back-compat overload used by callers that only care about the RP cost.
+        /// Forwards to the multi-resource version and discards the material cost.
+        /// </summary>
+        public static SectAdoptionResult CanUpgradeLever(
+            EntityManager em, Faction faction, string sectId, SectLeverKind lever, out int cost)
+            => CanUpgradeLever(em, faction, sectId, lever, out cost, out _);
 
         // ═══════════════════════════════════════════════════════════════════
         // MUTATIONS
@@ -243,16 +256,24 @@ namespace TheWaningBorder.Economy
 
         /// <summary>
         /// Try to upgrade a single lever by 1. Same validation as CanUpgradeLever;
-        /// on success deducts RP and bumps the lever level + stamps current age.
+        /// on success atomically deducts RP + materials and bumps the lever level
+        /// + stamps current age. If the material spend fails after the RP spend
+        /// succeeds, the RP is refunded so the player never loses one currency
+        /// without the upgrade applying.
         /// </summary>
         public static SectAdoptionResult TryUpgradeLever(
             EntityManager em, Faction faction, string sectId, SectLeverKind lever)
         {
-            var check = CanUpgradeLever(em, faction, sectId, lever, out int cost);
+            var check = CanUpgradeLever(em, faction, sectId, lever, out int cost, out var materialCost);
             if (check != SectAdoptionResult.Ok) return check;
 
             if (!FactionReligionPointsHelper.TrySpend(em, faction, cost))
                 return SectAdoptionResult.NotEnoughRP;
+            if (!FactionEconomy.Spend(em, faction, materialCost))
+            {
+                FactionReligionPointsHelper.Refund(em, faction, cost);
+                return SectAdoptionResult.NotEnoughRP;
+            }
 
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return SectAdoptionResult.BankMissing;
 
