@@ -806,7 +806,7 @@ namespace TheWaningBorder.UI
             return actions;
         }
 
-        private static List<ActionButton> GetTrainingActions(Entity entity, EntityManager em)
+        public static List<ActionButton> GetTrainingActions(Entity entity, EntityManager em)
         {
             var actions = new List<ActionButton>();
 

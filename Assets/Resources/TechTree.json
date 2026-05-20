@@ -120,7 +120,8 @@
                     "lineOfSight": 24,
                     "trains": [
                         "Builder",
-                        "Miner"
+                        "Miner",
+                        "Scout"
                     ],
                     "research": [
                         "Research_Era2",
@@ -193,9 +194,7 @@
                     "lineOfSight": 18,
                     "trains": [
                         "Swordsman",
-                        "Scout",
-                        "Alanthor_Sentinel",
-                        "Alanthor_Cataphract"
+                        "Alanthor_Sentinel"
                     ],
                     "research": [
                         "BasicDrills",
@@ -791,7 +790,7 @@
                             "hp": 90,
                             "speed": 3.0,
                             "trainingTime": 35.0,
-                            "minBuildingLevel": 4,
+                            "minBuildingLevel": 3,
                             "armorType": "ranged",
                             "damage": 0,
                             "damageType": "magic",
@@ -1132,6 +1131,7 @@
                             "class": "human_melee",
                             "hp": 150,
                             "speed": 5.8,
+                            "minBuildingLevel": 2,
                             "armorType": "infantry_heavy",
                             "damage": 14,
                             "damageType": "melee",
@@ -1177,6 +1177,7 @@
                             "class": "human_cavalry",
                             "hp": 160,
                             "speed": 7.0,
+                            "minBuildingLevel": 2,
                             "armorType": "cavalry",
                             "damage": 16,
                             "damageType": "melee",
@@ -1548,7 +1549,7 @@
                             "hp": 180,
                             "speed": 6.6,
                             "trainingTime": 25.0,
-                            "minBuildingLevel": 2,
+                            "minBuildingLevel": 1,
                             "armorType": "cavalry",
                             "damage": 20,
                             "damageType": "melee",

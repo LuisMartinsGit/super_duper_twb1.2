@@ -207,6 +207,14 @@ namespace TheWaningBorder.UI.Web
                     if (em.HasComponent<FactionTag>(trainBuilding))
                         faction = em.GetComponentData<FactionTag>(trainBuilding).Value;
 
+                    // Level gate — same authoritative check IssueTrain
+                    // does. Mirrored here so we don't spend resources on
+                    // a unit the building can't actually train; the JS
+                    // side normally hides under-level buttons but a
+                    // hotkey or stale state could still trigger one.
+                    if (!Core.Commands.CommandRouter.CanTrainAtBuilding(em, trainBuilding, key, out _, out _))
+                    { lastFailure = 4; continue; }
+
                     if (Core.Commands.CommandRouter.IsProductionQueueFull(em, trainBuilding))
                     { lastFailure = 1; continue; }
 
@@ -234,6 +242,7 @@ namespace TheWaningBorder.UI.Web
                         case 1: UI.HUD.PlayerNotificationSystem.Notify("Production queue full"); break;
                         case 2: UI.HUD.PlayerNotificationSystem.Notify("Population cap reached"); break;
                         case 3: UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources"); break;
+                        case 4: UI.HUD.PlayerNotificationSystem.Notify("Trainer building level too low"); break;
                     }
                 }
                 return;
@@ -1309,6 +1318,38 @@ namespace TheWaningBorder.UI.Web
                     .Append(",\"glow\":").Append(upgGlow)
                     .Append('}');
             }
+
+            // Training roster — only for own buildings. Single source of
+            // truth: EntityExtractors.GetTrainingActions applies the same
+            // culture + minBuildingLevel + cost filters the IMGUI panel
+            // uses. The JS frontend renders these directly instead of its
+            // own static TRAIN_* lists, so newly-unlocked units (e.g.
+            // Crossbowman at Practice Range L2) appear the moment the
+            // upgrade lands.
+            if (isBuilding && fac == GameSettings.LocalPlayerFaction)
+            {
+                var actions = TheWaningBorder.UI.EntityActionExtractor.GetTrainingActions(e, emm);
+                _sb.Append(",\"actions\":[");
+                for (int i = 0; i < actions.Count; i++)
+                {
+                    var a = actions[i];
+                    if (i > 0) _sb.Append(',');
+                    _sb.Append("{\"key\":\"").Append(JsonEscape(a.Id))
+                        .Append("\",\"label\":\"").Append(JsonEscape(a.Label))
+                        .Append("\",\"tooltip\":\"").Append(JsonEscape(a.Tooltip ?? string.Empty))
+                        .Append("\",\"enabled\":").Append(a.Enabled ? "true" : "false")
+                        .Append(",\"canAfford\":").Append(a.CanAfford ? "true" : "false")
+                        .Append(",\"cost\":{")
+                        .Append("\"supplies\":").Append(a.Cost.Supplies)
+                        .Append(",\"iron\":").Append(a.Cost.Iron)
+                        .Append(",\"crystal\":").Append(a.Cost.Crystal)
+                        .Append(",\"veilsteel\":").Append(a.Cost.Veilsteel)
+                        .Append(",\"glow\":").Append(a.Cost.Glow)
+                        .Append("}}");
+                }
+                _sb.Append(']');
+            }
+
             _sb.Append('}');
             PushIfChanged("selection", _sb.ToString());
         }

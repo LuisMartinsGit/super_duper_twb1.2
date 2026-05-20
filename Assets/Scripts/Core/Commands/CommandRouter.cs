@@ -643,6 +643,21 @@ namespace TheWaningBorder.Core.Commands
         {
             if (building == Entity.Null || !em.Exists(building)) return;
 
+            // Authoritative level gate. Local-player path surfaces the
+            // failure as a notification so the click feels intentional;
+            // AI / network paths drop silently (the issuer either has
+            // its own gating or shouldn't issue an invalid order in the
+            // first place).
+            if (!CanTrainAtBuilding(em, building, unitId, out int requiredLevel, out string buildingDisplay))
+            {
+                if (source == CommandSource.LocalPlayer)
+                {
+                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                        $"Requires Lv {requiredLevel} {buildingDisplay}");
+                }
+                return;
+            }
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueTrainForLockstep(em, building, unitId);
@@ -651,6 +666,79 @@ namespace TheWaningBorder.Core.Commands
             {
                 TrainCommandDirect(em, building, unitId);
             }
+        }
+
+        /// <summary>
+        /// Authoritative check: can this <paramref name="unitId"/> be queued
+        /// at this <paramref name="building"/> right now? Reads
+        /// <see cref="BuildingUpgradeState"/> (or <c>TempleLevel</c> for
+        /// Temple of Ridan) and compares to the unit's
+        /// <c>minBuildingLevel</c> from TechTreeDB. Returns true (with
+        /// <paramref name="requiredLevel"/>=1 and the building's display
+        /// name) when no gate applies — caller doesn't need to special-case
+        /// non-gated units.
+        /// </summary>
+        public static bool CanTrainAtBuilding(EntityManager em, Entity building, string unitId,
+            out int requiredLevel, out string buildingDisplay)
+        {
+            requiredLevel = 1;
+            buildingDisplay = "Building";
+
+            if (TechTreeDB.Instance == null) return true;
+            if (!TechTreeDB.Instance.TryGetUnit(unitId, out var unit)) return true;
+
+            int minLv = unit.minBuildingLevel < 1 ? 1 : unit.minBuildingLevel;
+            requiredLevel = minLv;
+            if (minLv <= 1) return true; // no gate to enforce
+
+            int currentLevel = 1;
+            if (em.HasComponent<BuildingUpgradeState>(building))
+            {
+                int lv = em.GetComponentData<BuildingUpgradeState>(building).Level;
+                if (lv > currentLevel) currentLevel = lv;
+            }
+            if (em.HasComponent<TempleLevel>(building))
+            {
+                int lv = em.GetComponentData<TempleLevel>(building).Level;
+                if (lv > currentLevel) currentLevel = lv;
+            }
+
+            // Resolve a nice display name for the notification — prefer the
+            // TechTreeDB building name, fall back to the trainer's tag.
+            string trainerId = ResolveBuildingIdForTrainer(em, building);
+            if (!string.IsNullOrEmpty(trainerId)
+                && TechTreeDB.Instance.TryGetBuilding(trainerId, out var bdef)
+                && !string.IsNullOrEmpty(bdef.name))
+            {
+                buildingDisplay = bdef.name;
+            }
+            else if (!string.IsNullOrEmpty(trainerId))
+            {
+                buildingDisplay = trainerId;
+            }
+
+            return currentLevel >= minLv;
+        }
+
+        // Match the trainer's Tag back to a string id usable for
+        // TechTreeDB lookups. Mirrors the chain UpgradeBuildingCommand
+        // uses, plus the culture-specific trainers.
+        private static string ResolveBuildingIdForTrainer(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<HallTag>(e))            return "Hall";
+            if (em.HasComponent<BarracksTag>(e))        return "Barracks";
+            if (em.HasComponent<ArcheryRangeTag>(e))    return "ArcheryRange";
+            // Alanthor_RoyalStable: building exists in TechTree.json but no
+            // ECS tag yet — task-068 deferred the factory wiring. Falls
+            // through to the empty-string default until shipped.
+            if (em.HasComponent<PracticeRangeTag>(e))   return "Alanthor_PracticeRange";
+            if (em.HasComponent<SiegeYardTag>(e))       return "Alanthor_SiegeYard";
+            if (em.HasComponent<LonghouseTag>(e))       return "Feraldis_Longhouse";
+            if (em.HasComponent<FerSiegeYardTag>(e))    return "Feraldis_SiegeYard";
+            if (em.HasComponent<BazaarTag>(e))          return "ThessarasBazaar";
+            if (em.HasComponent<SiegeWorkshopTag>(e))   return "Runai_SiegeWorkshop";
+            if (em.HasComponent<TempleOfRidanTag>(e))   return "TempleOfRidan";
+            return string.Empty;
         }
 
         // ─── Production-queue cap (combined train + research) ────────────
@@ -685,6 +773,11 @@ namespace TheWaningBorder.Core.Commands
         private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
             if (!em.HasBuffer<TrainQueueItem>(building)) return;
+            // Belt-and-suspenders: IssueTrain already filters above, but
+            // direct callers (post-lockstep apply, scripted spawns) hit
+            // this path bypass-style. Silent drop on level mismatch since
+            // the originating context already surfaced the failure.
+            if (!CanTrainAtBuilding(em, building, unitId, out _, out _)) return;
             // Reject when combined production queue would exceed the cap.
             if (IsProductionQueueFull(em, building))
             {

@@ -513,6 +513,12 @@ namespace TheWaningBorder.Multiplayer
                     if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
                     {
                         string unitId = cmd.BuildingId;
+                        // Authoritative level gate — same check IssueTrain
+                        // does on the originating peer. Drops silently on
+                        // mismatch (replay can't notify; the local peer
+                        // already heard about the rejection client-side).
+                        if (!CommandRouter.CanTrainAtBuilding(em, entity, unitId, out _, out _))
+                            break;
                         var queue = em.GetBuffer<TrainQueueItem>(entity);
                         queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
                     }
