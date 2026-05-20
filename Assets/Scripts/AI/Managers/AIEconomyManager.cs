@@ -191,25 +191,30 @@ namespace TheWaningBorder.AI
                     currentMiners++;
             }
 
-            // Count miners in training queue (not yet spawned)
+            // Count Workers in training queue (not yet spawned). Workers
+            // (formerly Builders) carry MinerTag so each new Worker also
+            // satisfies a miner slot; queue items live under "Builder".
             int queuedMiners = 0;
             foreach (var (factionTag, trainQueue) in SystemAPI.Query<RefRO<FactionTag>, DynamicBuffer<TrainQueueItem>>())
             {
                 if (factionTag.ValueRO.Value != faction) continue;
                 for (int i = 0; i < trainQueue.Length; i++)
                 {
-                    if (trainQueue[i].UnitId.Equals("Miner"))
+                    if (trainQueue[i].UnitId.Equals("Builder"))
                         queuedMiners++;
                 }
             }
 
-            // Count pending miner recruitment requests
+            // Count pending Worker recruitment requests (UnitClass.Economy
+            // is the Worker class; UnitClass.Miner branch is preserved
+            // for legacy callers but produces the same Worker entity).
             foreach (var (brainComp, recruitReqs) in SystemAPI.Query<RefRO<AIBrain>, DynamicBuffer<RecruitmentRequest>>())
             {
                 if (brainComp.ValueRO.Owner != faction) continue;
                 for (int i = 0; i < recruitReqs.Length; i++)
                 {
-                    if (recruitReqs[i].UnitType == UnitClass.Miner)
+                    if (recruitReqs[i].UnitType == UnitClass.Economy
+                        || recruitReqs[i].UnitType == UnitClass.Miner)
                         queuedMiners += recruitReqs[i].Quantity;
                 }
                 break;
@@ -309,11 +314,14 @@ namespace TheWaningBorder.AI
             {
                 if (brain.ValueRO.Owner != faction) continue;
 
+                // Builder + Miner unified into Worker — request the
+                // generic Economy unit; AIMilitaryManager maps that to
+                // the "Builder" trainable which also mines.
                 recruitReqs.Add(new RecruitmentRequest
                 {
-                    UnitType = UnitClass.Miner,
+                    UnitType = UnitClass.Economy,
                     Quantity = count,
-                    Priority = 7, // Same as builders — don't starve builder training
+                    Priority = 7,
                     RequestingManager = entity
                 });
 

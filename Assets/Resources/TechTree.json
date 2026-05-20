@@ -365,7 +365,7 @@
                     "speed": 6.0,
                     "trainingTime": 4.0,
                     "armorType": "infantry_light",
-                    "damage": 2,
+                    "damage": 0,
                     "damageType": "melee",
                     "defense": {
                         "melee": 0,

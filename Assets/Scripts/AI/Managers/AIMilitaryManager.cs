@@ -504,8 +504,12 @@ namespace TheWaningBorder.AI
                 UnitClass.Melee => "Swordsman",
                 UnitClass.Ranged => "Archer",
                 UnitClass.Siege => "Catapult",
+                // Builder + Miner unified into Worker (Complete.md §2.2).
+                // Both UnitClass branches resolve to the Builder factory
+                // which now also stamps MinerTag, so a single "Builder"
+                // train order satisfies either Economy or Miner needs.
                 UnitClass.Economy => "Builder",
-                UnitClass.Miner => "Miner",
+                UnitClass.Miner => "Builder",
                 UnitClass.Scout => "Scout",
                 _ => "Swordsman"
             };

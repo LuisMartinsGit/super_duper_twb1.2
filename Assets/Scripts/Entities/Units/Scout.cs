@@ -15,7 +15,12 @@ namespace TheWaningBorder.Entities
     {
         private const float DefaultHP = 40f;
         private const float DefaultSpeed = 6f;
-        private const float DefaultDamage = 3f;
+        // Scouts are vision-only — they reveal terrain but don't engage.
+        // Combined with the Damage<=0 short-circuit in TargetingSystem
+        // (the same gate that keeps Litharchs out of combat), this stops
+        // scouts from autonomously running into enemies they spot at the
+        // edge of their long line-of-sight.
+        private const float DefaultDamage = 0f;
         private const float DefaultLoS = 20f;
         private const int PresentationID = 206;
 

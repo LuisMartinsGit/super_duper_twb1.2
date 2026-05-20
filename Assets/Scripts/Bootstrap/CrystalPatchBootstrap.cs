@@ -7,6 +7,7 @@
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.World.Terrain;
 
@@ -94,7 +95,54 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
 
+            // Clear any forest macro-cell ObstacleTag entities (and their
+            // passability footprint) within the patch radius so the curse
+            // can take root on forested terrain. The painted trees stay
+            // visible — the only thing that goes away is the gameplay
+            // obstacle. Without this the patch lands but units / spread
+            // route around the forest entity that's still sitting on it.
+            ClearObstaclesAroundPoints(em, patchCenters, PatchSpread + 2f);
+
             patchCenters.Dispose();
+        }
+
+        // Destroy ObstacleTag entities (forest macro cells, rocks) and
+        // unblock the matching passability cells anywhere within
+        // <paramref name="clearRadius"/> of <paramref name="points"/>.
+        private static void ClearObstaclesAroundPoints(
+            EntityManager em,
+            Unity.Collections.NativeList<float3> points,
+            float clearRadius)
+        {
+            var query = em.CreateEntityQuery(
+                Unity.Entities.ComponentType.ReadOnly<ObstacleTag>(),
+                Unity.Entities.ComponentType.ReadOnly<LocalTransform>(),
+                Unity.Entities.ComponentType.ReadOnly<Radius>());
+            using var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var trs  = query.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var rds  = query.ToComponentDataArray<Radius>(Unity.Collections.Allocator.Temp);
+
+            var grid = PassabilityGrid.Instance;
+            var toDestroy = new Unity.Collections.NativeList<Entity>(Unity.Collections.Allocator.Temp);
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                float3 p = trs[i].Position;
+                float r = rds[i].Value;
+                for (int c = 0; c < points.Length; c++)
+                {
+                    if (math.distance(p, points[c]) <= clearRadius + r)
+                    {
+                        toDestroy.Add(ents[i]);
+                        if (grid != null) grid.UnblockObstacle(p, r + 1f);
+                        break;
+                    }
+                }
+            }
+
+            for (int i = 0; i < toDestroy.Length; i++)
+                em.DestroyEntity(toDestroy[i]);
+            toDestroy.Dispose();
         }
 
         /// <summary>

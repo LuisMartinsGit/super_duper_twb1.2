@@ -596,7 +596,10 @@ namespace TheWaningBorder.AI
                 int deficit = aiState.DesiredMiners - (aliveMin + queuedMin);
                 if (deficit > 0)
                 {
-                    TryTrainUnit(em, faction, "Miner");
+                    // Worker handles both build + mine since the merge —
+                    // train "Builder" (the unified factory), it carries
+                    // MinerTag too so it'll auto-find deposits.
+                    TryTrainUnit(em, faction, "Builder");
                 }
             }
         }
@@ -666,7 +669,12 @@ namespace TheWaningBorder.AI
                     string id = buffer[j].UnitId.ToString();
                     UnitClass cls = UnitFactory.GetUnitClass(id);
                     if (isCombat && IsCombatClass(cls)) n++;
-                    else if (isMiner && cls == UnitClass.Miner) n++;
+                    // Worker (formerly Builder + Miner) is UnitClass.Economy
+                    // since the merge but still counts as a miner slot —
+                    // every Worker carries MinerTag and can auto-find a
+                    // deposit. Without this branch the AI would chase
+                    // miners forever after training the unified unit.
+                    else if (isMiner && (cls == UnitClass.Miner || cls == UnitClass.Economy)) n++;
                 }
             }
             return n;

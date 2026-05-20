@@ -113,6 +113,16 @@ namespace TheWaningBorder.UI.Menus
             }
         }
 
+        // Jade-theme constants (mirror HudFrontend/src/components/themes.js
+        // .jade). Used by the menu/lobby/loading IMGUI styles so the
+        // pre-game UI matches the in-game pause-menu look.
+        public static readonly Color JadeBase   = new Color(0.043f, 0.122f, 0.102f, 1f);  // #0b1f1a
+        public static readonly Color JadeMid    = new Color(0.078f, 0.196f, 0.157f, 1f);  // #143228
+        public static readonly Color JadeGem    = new Color(0.114f, 0.416f, 0.333f, 1f);  // #1d6a55
+        public static readonly Color JadeGemHi  = new Color(0.247f, 0.749f, 0.604f, 1f);  // #3fbf9a
+        public static readonly Color JadeText   = new Color(0.902f, 0.937f, 0.918f, 1f);  // #e6efea
+        public static readonly Color JadeAccent = new Color(0.910f, 0.722f, 0.290f, 1f);  // #e8b84a
+
         private void DrawBackground()
         {
             if (_bgTexture == null) return;
@@ -123,9 +133,16 @@ namespace TheWaningBorder.UI.Menus
             // Static background — fit to screen, no pan or zoom
             GUI.DrawTexture(new Rect(0, 0, screenW, screenH), _bgTexture, ScaleMode.ScaleAndCrop);
 
-            // Subtle dark overlay for text readability — navy-tinted 0.35 alpha,
-            // intentionally NOT Styles.DrawDimOverlay (0.7 black would over-darken). See AD-2.
-            GUI.color = new Color(0f, 0f, 0.02f, 0.35f);
+            // Jade-tinted dim overlay — mirrors the pause-menu modal
+            // backdrop which uses hexAlpha(theme.gem, 0.38) over a
+            // radial gem-tinted gradient. Keeps the southood image
+            // readable underneath while pushing the entire pre-game UI
+            // into the in-game jade colour space.
+            GUI.color = new Color(JadeGem.r, JadeGem.g, JadeGem.b, 0.32f);
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
+            // Vignette darkening at the edges — softens the band where
+            // the southood image meets the wash.
+            GUI.color = new Color(0f, 0.04f, 0.02f, 0.28f);
             GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
             GUI.color = Color.white;
         }
@@ -215,9 +232,10 @@ namespace TheWaningBorder.UI.Menus
             {
                 var btnRect = new Rect(0, y, ButtonWidth - 16, ButtonHeight);
                 // Long scenario labels — pre-build the rich-text row
-                // (tick + label + chevron, no hint subtitle) since the
-                // sentence form would overflow if we letter-spaced it.
-                string display = $"<color=#d3a942>◆</color>   <b>{scenarios[i].label}</b>   <color=#d3a942>▸</color>";
+                // (jade tick + label + chevron, no hint subtitle) since
+                // the sentence form would overflow if we letter-spaced
+                // it.
+                string display = $"<color=#3fbf9a>◆</color>   <b>{scenarios[i].label}</b>   <color=#3fbf9a>▸</color>";
                 if (GUI.Button(btnRect, display, _buttonStyle))
                     _pendingScenario = scenarios[i].type;
                 y += ButtonHeight + ButtonSpacing;
@@ -249,22 +267,23 @@ namespace TheWaningBorder.UI.Menus
             y += ButtonHeight + ButtonSpacing;
 
             // Rich-text payload — two lines:
-            //   <gold bold label>     ▸
-            //   <dim italic hint>
-            // The trailing chevron and leading diamond tick are inlined
-            // as rich-text characters so a single GUI.Button hosts the
-            // entire row (no separate widgets to align).
+            //   ◆  LABEL  ▸           (label in silver, decorations in green)
+            //   <italic dim hint>
+            // Mirrors the jade pause-menu rows: idle text is silver
+            // (#e6efea), decorations are jade-green (#3fbf9a), hover
+            // shifts the label to the bright accent. Letter-spaced via
+            // SpaceOut() since IMGUI can't do real CSS letter-spacing.
             string spacedLabel = SpaceOut(label.ToUpperInvariant());
             string display;
             if (string.IsNullOrEmpty(hint))
             {
-                display = $"<color=#d3a942>◆</color>   {spacedLabel}   <color=#d3a942>▸</color>";
+                display = $"<color=#3fbf9a>◆</color>   {spacedLabel}   <color=#3fbf9a>▸</color>";
             }
             else
             {
                 display =
-                    $"<color=#d3a942>◆</color>   {spacedLabel}   <color=#d3a942>▸</color>\n" +
-                    $"<size=12><i><color=#ffffffaa>{hint}</color></i></size>";
+                    $"<color=#3fbf9a>◆</color>   {spacedLabel}   <color=#3fbf9a>▸</color>\n" +
+                    $"<size=12><i><color=#cfd6d3aa>{hint}</color></i></size>";
             }
 
             bool prevEnabled = GUI.enabled;
@@ -294,12 +313,12 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInitialized) return;
 
-            // Match the in-game pause-menu button look (HudFrontend
-            // Menu.jsx → .hud-menu-item). The row has no solid
-            // background; hover paints a subtle white tint band. Gold
-            // accent matches the in-game theme accent.
-            var btnHover  = Styles.MakeSolid(new Color(1f, 1f, 1f, 0.06f));
-            var btnActive = Styles.MakeSolid(new Color(1f, 1f, 1f, 0.10f));
+            // Jade pause-menu button look. Idle row is text-only over
+            // the southood + jade wash; hover paints a subtle jade-
+            // green band; label colour shifts silver → bright jade on
+            // hover, matching .hud-menu-item:hover .hud-menu-item-label.
+            var btnHover  = Styles.MakeSolid(new Color(JadeGem.r, JadeGem.g, JadeGem.b, 0.22f));
+            var btnActive = Styles.MakeSolid(new Color(JadeGemHi.r, JadeGemHi.g, JadeGemHi.b, 0.22f));
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
@@ -312,23 +331,27 @@ namespace TheWaningBorder.UI.Menus
                 padding = new RectOffset(22, 22, 6, 8),
                 wordWrap = false,
             };
-            _buttonStyle.normal.background = null; // transparent — keep the menu background visible
-            _buttonStyle.normal.textColor = Styles.HighlightColor;
-            _buttonStyle.hover.background = btnHover;
-            _buttonStyle.hover.textColor = new Color(1f, 0.92f, 0.55f);
-            _buttonStyle.active.background = btnActive;
-            _buttonStyle.active.textColor = new Color(1f, 0.95f, 0.65f);
+            _buttonStyle.normal.background = null;        // transparent — keep the southood + jade wash visible
+            _buttonStyle.normal.textColor   = JadeText;   // silver/off-white, matches .hud-menu-item-label
+            _buttonStyle.hover.background   = btnHover;
+            _buttonStyle.hover.textColor    = JadeGemHi;  // bright jade on hover, matches in-game accent glow
+            _buttonStyle.active.background  = btnActive;
+            _buttonStyle.active.textColor   = JadeGemHi;
             _buttonStyle.focused.background = null;
-            _buttonStyle.focused.textColor = _buttonStyle.normal.textColor;
+            _buttonStyle.focused.textColor  = _buttonStyle.normal.textColor;
 
-            // Title: larger spaced golden heading, mirrors the modal
-            // "PAUSED" / "ARMISTICE" treatment in the pause menu.
+            // Title: spaced jade heading, mirrors the modal eyebrow
+            // colour treatment in the pause-menu (.hud-menu-eyebrow +
+            // .hud-menu-title use the accent over a gem backdrop). We
+            // tint the title with JadeGemHi instead of gold so the
+            // pre-game UI reads as obviously jade.
             _titleStyle = new GUIStyle(Styles.Header)
             {
                 fontSize = 32,
                 alignment = TextAnchor.MiddleCenter,
                 richText = true,
             };
+            _titleStyle.normal.textColor = JadeGemHi;
 
             _stylesInitialized = true;
         }

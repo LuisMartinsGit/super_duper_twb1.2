@@ -895,11 +895,34 @@ namespace TheWaningBorder.UI.Web
             _sb.Clear();
             _sb.Append('{');
             bool first = true;
+
+            // 1. BuildCosts._byId is the AUTHORITATIVE building cost map
+            //    (Shrine / Vault / Keep, wall pieces, and culture-unique
+            //    buildings that don't have TechTreeDB entries all live
+            //    here). Emit it first; track which ids landed so the
+            //    fallback pass below skips them and we don't duplicate
+            //    JSON keys.
+            var emittedIds = new System.Collections.Generic.HashSet<string>();
+            foreach (var id in TheWaningBorder.Data.BuildCosts.AllBuildingIds)
+            {
+                if (string.IsNullOrEmpty(id)) continue;
+                if (!TheWaningBorder.Data.BuildCosts.TryGet(id, out var cost)) continue;
+                if (AppendCostEntryFromCost(id, cost, ref first))
+                    emittedIds.Add(id);
+            }
+
+            // 2. TechTreeDB buildings — only those NOT already covered
+            //    by BuildCosts above. Catches anything that lives in
+            //    JSON but hasn't been registered with BuildCosts.
             foreach (var b in db.GetAllBuildings())
             {
-                if (b == null || b.id == null) continue;
-                if (!AppendCostEntry(b.id, b.cost, ref first)) continue;
+                if (b == null || string.IsNullOrEmpty(b.id)) continue;
+                if (emittedIds.Contains(b.id)) continue;
+                AppendCostEntry(b.id, b.cost, ref first);
             }
+
+            // 3. TechTreeDB units (Worker / Swordsman / Archer / Scout
+            //    / culture variants etc.).
             foreach (var u in db.GetAllUnits())
             {
                 if (u == null || u.id == null) continue;
@@ -908,6 +931,27 @@ namespace TheWaningBorder.UI.Web
             _sb.Append('}');
             PushIfChanged("costs", _sb.ToString());
             _costsPushed = true;
+        }
+
+        // Variant that consumes the runtime Cost struct (the one
+        // BuildCosts._byId stores). Same JSON shape AppendCostEntry
+        // emits, just keyed off Cost instead of CostBlock so the
+        // building catalogue can re-use this without a wrapper alloc.
+        bool AppendCostEntryFromCost(string id, TheWaningBorder.Core.Cost c, ref bool first)
+        {
+            if (c.Supplies <= 0 && c.Iron <= 0 && c.Crystal <= 0 && c.Veilsteel <= 0 && c.Glow <= 0)
+                return false;
+            if (!first) _sb.Append(',');
+            first = false;
+            _sb.Append('"').Append(JsonEscape(id)).Append("\":{");
+            bool fieldFirst = true;
+            AppendField("supplies",  c.Supplies,  ref fieldFirst);
+            AppendField("iron",      c.Iron,      ref fieldFirst);
+            AppendField("crystal",   c.Crystal,   ref fieldFirst);
+            AppendField("veilsteel", c.Veilsteel, ref fieldFirst);
+            AppendField("glow",      c.Glow,      ref fieldFirst);
+            _sb.Append('}');
+            return true;
         }
 
         bool AppendCostEntry(string id, TheWaningBorder.Data.CostBlock c, ref bool first)

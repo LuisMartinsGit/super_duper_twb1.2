@@ -66,6 +66,17 @@ namespace TheWaningBorder.UI.Menus
         private Texture2D _colorSwatchTex;
         private bool _stylesInit = false;
 
+        // Jade-skin override scratch — saved at the top of OnGUI so we
+        // can restore the original GUI.skin.button after this lobby
+        // finishes drawing. Otherwise the jade tint persists into the
+        // game scene and stomps on the navy/gold styles used by the
+        // resource HUD + entity panels (IMGUI fallback path).
+        private GUIStyle _jadeBtn;
+        private GUIStyle _jadeWindow;
+        private GUIStyle _jadeBox;
+        private GUIStyleState _savedBtnNormal, _savedBtnHover, _savedBtnActive;
+        private GUIStyleState _savedWindowNormal, _savedBoxNormal;
+
         void OnEnable()
         {
             // Sync settings when entering lobby
@@ -90,7 +101,15 @@ namespace TheWaningBorder.UI.Menus
         {
             Styles.Initialize();
             InitStyles();
-            _windowRect = GUI.Window(10002, _windowRect, DrawWindow, "Skirmish Setup");
+            PushJadeSkin();
+            try
+            {
+                _windowRect = GUI.Window(10002, _windowRect, DrawWindow, "Skirmish Setup");
+            }
+            finally
+            {
+                PopJadeSkin();
+            }
 
             if (!string.IsNullOrEmpty(_error))
             {
@@ -714,6 +733,68 @@ namespace TheWaningBorder.UI.Menus
                 sb.Append($"P{i + 1}={slot.GetColorName()}");
             }
             return sb.ToString();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // JADE SKIN PUSH / POP
+        // ═══════════════════════════════════════════════════════════════
+        //
+        // The lobby uses GUI.skin.button + GUI.skin.window + GUI.skin.box
+        // for almost every widget. To match the in-game pause-menu look
+        // without rewriting every GUILayout.Button(...) call, we swap
+        // those three sub-styles with jade-tinted copies for the
+        // lifetime of this OnGUI call, then restore the originals on
+        // exit so the in-game IMGUI panels (resource HUD fallback,
+        // entity panel) keep their navy/gold styling when this scene
+        // unloads.
+
+        private void PushJadeSkin()
+        {
+            if (_jadeBtn == null) BuildJadeStyles();
+            _savedBtnNormal = GUI.skin.button.normal;
+            _savedBtnHover  = GUI.skin.button.hover;
+            _savedBtnActive = GUI.skin.button.active;
+            GUI.skin.button.normal = _jadeBtn.normal;
+            GUI.skin.button.hover  = _jadeBtn.hover;
+            GUI.skin.button.active = _jadeBtn.active;
+
+            _savedWindowNormal = GUI.skin.window.normal;
+            GUI.skin.window.normal = _jadeWindow.normal;
+
+            _savedBoxNormal = GUI.skin.box.normal;
+            GUI.skin.box.normal = _jadeBox.normal;
+        }
+
+        private void PopJadeSkin()
+        {
+            if (_savedBtnNormal != null) GUI.skin.button.normal = _savedBtnNormal;
+            if (_savedBtnHover  != null) GUI.skin.button.hover  = _savedBtnHover;
+            if (_savedBtnActive != null) GUI.skin.button.active = _savedBtnActive;
+            if (_savedWindowNormal != null) GUI.skin.window.normal = _savedWindowNormal;
+            if (_savedBoxNormal != null) GUI.skin.box.normal = _savedBoxNormal;
+        }
+
+        private void BuildJadeStyles()
+        {
+            // Idle = jade-mid panel tone, label silver. Hover = brighter
+            // jade with bright-jade text glow. Matches the HudFrontend
+            // pause-menu's row colour shift (silver → accent).
+            var btnNormalTex = Styles.MakeSolid(new Color(MainMenuUI.JadeMid.r,    MainMenuUI.JadeMid.g,    MainMenuUI.JadeMid.b,    0.70f));
+            var btnHoverTex  = Styles.MakeSolid(new Color(MainMenuUI.JadeGem.r,    MainMenuUI.JadeGem.g,    MainMenuUI.JadeGem.b,    0.85f));
+            var btnActiveTex = Styles.MakeSolid(new Color(MainMenuUI.JadeGemHi.r,  MainMenuUI.JadeGemHi.g,  MainMenuUI.JadeGemHi.b,  0.45f));
+
+            _jadeBtn = new GUIStyle();
+            _jadeBtn.normal = new GUIStyleState { background = btnNormalTex, textColor = MainMenuUI.JadeText };
+            _jadeBtn.hover  = new GUIStyleState { background = btnHoverTex,  textColor = MainMenuUI.JadeGemHi };
+            _jadeBtn.active = new GUIStyleState { background = btnActiveTex, textColor = MainMenuUI.JadeGemHi };
+
+            var windowTex = Styles.MakeSolid(new Color(MainMenuUI.JadeBase.r, MainMenuUI.JadeBase.g, MainMenuUI.JadeBase.b, 0.92f));
+            _jadeWindow = new GUIStyle();
+            _jadeWindow.normal = new GUIStyleState { background = windowTex, textColor = MainMenuUI.JadeGemHi };
+
+            var boxTex = Styles.MakeSolid(new Color(MainMenuUI.JadeMid.r, MainMenuUI.JadeMid.g, MainMenuUI.JadeMid.b, 0.6f));
+            _jadeBox = new GUIStyle();
+            _jadeBox.normal = new GUIStyleState { background = boxTex, textColor = MainMenuUI.JadeText };
         }
     }
 }

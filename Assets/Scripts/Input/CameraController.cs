@@ -221,9 +221,14 @@ namespace TheWaningBorder.Input
             // been positioned yet (e.g., by FocusCameraOnHall before Start runs).
             if (wasReparented && transform.position.sqrMagnitude < 0.1f)
             {
-                // Position rig at origin
                 transform.position = Vector3.zero;
-                transform.rotation = Quaternion.identity;
+                // Default Y yaw 45° — points the player's view toward the
+                // top-right (NE) corner of the map. Matches the rotated
+                // minimap diamond and the spec'd "facing the top corner of
+                // the map" framing. Without this, the rig defaults to
+                // Quaternion.identity (north-facing) and the player starts
+                // looking straight up the map instead of along the diagonal.
+                transform.rotation = Quaternion.Euler(0f, 45f, 0f);
             }
 
             // Always ensure arm and camera hierarchy is configured

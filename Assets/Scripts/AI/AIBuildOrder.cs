@@ -79,23 +79,23 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] EcoBoom =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(2),  // 6 miners → 2 on crystal for age-up
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Miner"),  // during ageup wait
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),  // during ageup wait
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -105,15 +105,15 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] Balanced =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(2),  // 6 miners → 2 on crystal
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
@@ -123,10 +123,10 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Archer"),
             BuildOrderStep.Build("ShrineOfAhridan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -137,17 +137,17 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] TechBoom =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(2),  // start crystal early — techs need it
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(3),  // 6 miners → ramp to 3 on crystal
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
@@ -159,10 +159,10 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Swordsman"),
             BuildOrderStep.Build("ShrineOfAhridan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -177,24 +177,24 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] Rush =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train("Swordsman"),    // Wave #1 (1 battalion)
             BuildOrderStep.LaunchAttack(1),       // → harass enemy miners
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train("Swordsman"),    // Wave #2 (1st batt)
             BuildOrderStep.Train("Swordsman"),    // Wave #2 (2nd batt)
             BuildOrderStep.LaunchAttack(2),       // → push, 2 fresh batts (+ wave-1 survivors)
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train("Swordsman"),    // Wave #3 (4 battalions)
@@ -207,8 +207,8 @@ namespace TheWaningBorder.AI
             BuildOrderStep.SetCrystalTarget(1),   // late switch — just enough for Shrine + age-up
             BuildOrderStep.Build("ShrineOfAhridan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -219,10 +219,10 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] Turtle =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
@@ -236,9 +236,9 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Archer"),
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(3),  // ramp for Temple + 2 Litharchs
             BuildOrderStep.Build("TempleOfRidan"),
             BuildOrderStep.Train("Litharch"),
@@ -253,15 +253,15 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
         public static readonly BuildOrderStep[] Defensive =
         {
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
             BuildOrderStep.SetCrystalTarget(2),  // 6 miners → 2 on crystal for techs + Vault
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
@@ -274,10 +274,10 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Archer"),
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
-            BuildOrderStep.Train("Miner"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Builder"),
         };
 
         /// <summary>

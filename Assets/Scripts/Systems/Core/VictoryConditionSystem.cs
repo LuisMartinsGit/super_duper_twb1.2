@@ -171,18 +171,39 @@ namespace TheWaningBorder.UI.HUD
                 GameStatsTracker.Instance.EndGame();
             }
 
+            // Result string. Missing braces on the original else-if let
+            // the VICTORY/DEFEAT line run unconditionally and overwrite
+            // the surrender "DEFEAT" path. Fixed by collapsing the two
+            // surrender branches into one ternary.
             string result;
             if (GameSettings.IsObserver)
+            {
                 result = $"{winner} WINS";
+            }
             else if (localPlayerDefeated)
+            {
                 result = "DEFEAT";
+            }
+            else
+            {
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
-
+            }
 
             EndGameButton.GameEndedBySystem = true;
 
+            // The IMGUI PostGameStatsUI is disabled while the web HUD is
+            // active (GameBootstrap sets legacyPostGame.enabled = false).
+            // Re-enable it so its OnGUI fires for the end-of-match
+            // banner + graphs. The web HUD owns in-match chrome; the
+            // post-game screen takes over once we're at game end.
+            if (PostGameStatsUI.Instance == null)
+            {
+                var go = new GameObject("PostGameStatsUI");
+                go.AddComponent<PostGameStatsUI>();
+            }
             if (PostGameStatsUI.Instance != null)
             {
+                PostGameStatsUI.Instance.enabled = true;
                 PostGameStatsUI.Instance.ShowWithResult(result, winner);
             }
         }
@@ -227,8 +248,19 @@ namespace TheWaningBorder.UI.HUD
 
             EndGameButton.GameEndedBySystem = true;
 
+            // Same re-enable + create-if-missing dance as TriggerGameEnd
+            // — the web HUD's PostGameStatsUI is disabled in-match, so
+            // we need to flip it on for the post-match overlay.
+            if (PostGameStatsUI.Instance == null)
+            {
+                var go = new GameObject("PostGameStatsUI");
+                go.AddComponent<PostGameStatsUI>();
+            }
             if (PostGameStatsUI.Instance != null)
+            {
+                PostGameStatsUI.Instance.enabled = true;
                 PostGameStatsUI.Instance.ShowWithResult(result, winner);
+            }
         }
 
         /// <summary>

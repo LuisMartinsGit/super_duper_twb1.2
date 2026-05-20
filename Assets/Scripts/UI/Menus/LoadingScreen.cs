@@ -22,11 +22,17 @@ namespace TheWaningBorder.UI.Menus
     {
         private static LoadingScreen _instance;
 
-        // Visual config — golden palette matches MainMenuUI's highlight tone
-        // (Styles.HighlightColor). Bar lives at the screen bottom.
-        private static readonly Color GoldFill    = new(0.92f, 0.74f, 0.30f, 1f);
-        private static readonly Color GoldEdge    = new(1.00f, 0.86f, 0.45f, 1f);
-        private static readonly Color BarTrack    = new(0.08f, 0.10f, 0.18f, 0.85f);
+        // Visual config — jade palette matches the in-game pause menu
+        // (HudFrontend Menu.jsx + .hud-menu-modal gem accents). Bar
+        // lives at the screen bottom; the dim overlay over the
+        // southood background uses the same gem-tinted wash that the
+        // main menu does.
+        // Original names kept (GoldFill / GoldEdge) to avoid touching
+        // call sites; renaming would be a wider edit with no win.
+        private static readonly Color GoldFill    = new(0.247f, 0.749f, 0.604f, 1f); // #3fbf9a — bright jade
+        private static readonly Color GoldEdge    = new(0.6f,   0.95f,  0.80f,  1f); // brighter jade glint
+        private static readonly Color BarTrack    = new(0.04f,  0.10f,  0.08f,  0.85f); // dark jade groove
+        private static readonly Color JadeWash    = new(0.114f, 0.416f, 0.333f, 0.32f);
         private const float BarHeight = 14f;          // px, full-width at the bottom
         private const float TipBandHeight = 110f;     // px, sits directly above the bar
         private const float TipCycleSeconds = 6f;
@@ -237,9 +243,13 @@ namespace TheWaningBorder.UI.Menus
                 GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
             }
 
-            // Subtle navy overlay so the tip text and bar contrast against
-            // the painted background — matches MainMenuUI's 0.35-alpha dim.
-            GUI.color = new Color(0f, 0f, 0.02f, 0.35f * _alpha);
+            // Jade-tinted dim overlay — matches the main menu's same
+            // gem-tinted wash so the southood reads as the same scene
+            // across menu → lobby → loading → in-game pause.
+            GUI.color = new Color(JadeWash.r, JadeWash.g, JadeWash.b, JadeWash.a * _alpha);
+            GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
+            // Slight black wash for legibility.
+            GUI.color = new Color(0f, 0.04f, 0.02f, 0.22f * _alpha);
             GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
             GUI.color = new Color(1f, 1f, 1f, _alpha);
 
@@ -299,22 +309,24 @@ namespace TheWaningBorder.UI.Menus
         {
             if (_stylesInit) return;
 
-            // Status — small, dim grey, centred.
+            // Status — small, silver-jade tinted, centred.
             _statusStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 12,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.78f, 0.78f, 0.80f, 0.85f) }
+                normal = { textColor = new Color(0.78f, 0.85f, 0.82f, 0.85f) }
             };
 
-            // Tip — larger, gold accent, centred, wraps on screen.
+            // Tip — larger, bright jade accent, centred, wraps on screen.
+            // Matches the in-game pause-menu accent colour so the tip
+            // band reads as the same UI family.
             _tipStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 18,
                 fontStyle = FontStyle.Italic,
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
-                normal = { textColor = new Color(0.95f, 0.90f, 0.70f, 1f) }
+                normal = { textColor = new Color(0.55f, 0.90f, 0.78f, 1f) }
             };
 
             _stylesInit = true;
