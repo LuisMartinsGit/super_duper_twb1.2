@@ -1,0 +1,23 @@
+{
+  "id": "task-per-battalion-upgrades-076",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 3,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (H9). EquipmentTierSystem applies upgrades faction-wide; doc requires per-battalion.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

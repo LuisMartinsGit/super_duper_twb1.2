@@ -1,0 +1,29 @@
+{
+  "id": "task-age0-techtree-alignment-065",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 10,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Authoritative Age 0 design now lives at docs/Design/Age_0.md. This task aligns code to that doc; doc supersedes code where they disagree (verified: Vault interest 25%/min, Worker = Builder+Miner merge taking the better stat of each).",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Full-sweep audit of docs/Design/Complete.md on 2026-05-19 surfaced additional Age 0 findings beyond the 10 phases (code default drift, TechTree.json HP/pop/LoS mismatches for GatherersHut and Hut, Archer minAttackRange 10 vs doc 1, GatherersHut income 90 vs doc 60 S/min, three-way cost drift between BuildCosts.cs/TechTree.json/doc, FiendstoneKeep mis-placed in Era 2 cultures section). Appended to task body. Sibling tasks 066-080 created for Age 1 + cross-cutting work.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

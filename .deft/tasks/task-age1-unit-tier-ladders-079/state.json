@@ -1,0 +1,23 @@
+{
+  "id": "task-age1-unit-tier-ladders-079",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 3,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19. Aggregates the missing L2/L3 ladder slots across all three Age 1 cultures — most are marked **(new)** TBD in the doc.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

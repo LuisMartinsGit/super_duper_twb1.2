@@ -1,6 +1,14 @@
 # Crystal Curse — Code Sweep + Redesigned Checklist v2 (Alanthor + neutral scope)
 
-This document captures the bug-sweep, structural fixes that shipped in this batch, and the redesigned test checklist. Feraldis-as-a-faction is deferred for testing; the Iconoclast (formerly Feraldis-Longhouse) is now reachable via TempleOfRidan Lv 4 in any faction.
+> ⚠ **Test checklist for shipped phases — not a design doc.** Game-design
+> truth lives in **[docs/Design/](Design/Overview.md)**. Where this checklist
+> references mechanics (e.g. "TempleOfRidan Lv 4"), the **Design folder
+> wins** — the 2026-05-19 design pass set Temple of Ridan to cap at L3,
+> not L4. The "L4" wording here was historically tied to a now-retired
+> spec-refinement stage. When re-running these tests against post-2026-05-19
+> code, treat any "Lv 4" reference as "L3 (fully levelled Temple)".
+
+This document captures the bug-sweep, structural fixes that shipped in this batch, and the redesigned test checklist. Feraldis-as-a-faction is deferred for testing; the Iconoclast (formerly Feraldis-Longhouse) is now reachable via TempleOfRidan **L3** ([docs/Design/Overview.md § Religious units](Design/Overview.md#religious-units--cross-faction-game-ender-tier)).
 
 ---
 
