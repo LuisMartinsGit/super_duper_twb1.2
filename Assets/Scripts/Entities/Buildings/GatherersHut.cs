@@ -62,7 +62,7 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("GatherersHut");
             em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.SetComponentData(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+            em.SetComponentData(entity, new SuppliesIncome { PerTick = 10f, Interval = 10f });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -100,7 +100,7 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("GatherersHut");
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+            ecb.AddComponent(entity, new SuppliesIncome { PerTick = 10f, Interval = 10f });
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

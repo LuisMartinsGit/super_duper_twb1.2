@@ -1,0 +1,36 @@
+{
+  "id": "task-rejected-stat-overrides-073",
+  "status": "completed",
+  "stage": "release",
+  "phase": 1,
+  "totalPhases": 1,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (H3 + H4). Two TechTree.json overrides that the design doc explicitly rejects.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Strip overrides",
+      "description": "TechTree.json: removed hp:1500 + provides.population:8 from Alanthor_PracticeRange; removed hp:1400 from Feraldis_Longhouse. BuildingFactory.cs: updated EM + ECB fallbacks for PracticeRange (660 HP, no PopulationProvider) and Longhouse (880 HP). GetPopulationProvided('Alanthor_PracticeRange') now returns 0.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "task_completed",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

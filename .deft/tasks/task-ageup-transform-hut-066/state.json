@@ -1,0 +1,45 @@
+{
+  "id": "task-ageup-transform-hut-066",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 3,
+  "totalPhases": 3,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit of docs/Design/Complete.md on 2026-05-19 (C1 + C5-partial + C7 + H11). Was originally proposed as task-age-up-transformations-066 in task-065's Out-of-Scope section.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Remove self-destruct + add culture switch",
+      "description": "AgeUpSystem: StartGathererHutSelfDestruct + StartHutSelfDestruct deleted. Per-culture dispatch stubs (TransformGathererHutsForCulture, TransformHutsForCulture) added to be filled in by Phase 2/3. Runai branch keeps RunaiPopOverride. No hut is destroyed by age-up anymore.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 3,
+      "title": "Feraldis persistence + House -> Raider auto-spawn",
+      "description": "BuildingConstructionSystem.CompleteConstruction spawns 1 Feraldis Raider when a HutTag building owned by a Feraldis-cultured faction finishes construction (L1). BuildingUpgradeSystem.OnUpdate spawns count==TargetLevel raiders on upgrade ticks (2 at L2, 3 at L3). Helpers use the same fan-out offset so raiders don't stack. Depends on task-067 FeraldisRaider unit (now landed).",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2 (Alanthor wall-anchor + Runai wagon-burst) deferred: requires design decisions not in the doc (wall ring radius/segment count, wagon stat block, decay curve shape, what 'unpack at Trade Post site' looks like UX-side). Recommend pairing with task-069 (Runai Trade Post split) and a design pass for the Alanthor wall-ring rules before implementation.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

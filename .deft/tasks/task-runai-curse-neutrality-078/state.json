@@ -1,0 +1,37 @@
+{
+  "id": "task-runai-curse-neutrality-078",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 1,
+  "totalPhases": 2,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (H10). Tech parses but no aggro-reduction system exists.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Tech + component",
+      "description": "Added Runai_CrystalNeutrality tech to TechTree.json (researchedAt: TradersHall, cost 200 S + 60 C). New Core/Components/FactionCurseAggroModifier.cs holds the per-faction Reduction value (0.0 baseline, 0.6 cap at L3). ResearchSystem hook to set the component when the tech lands is deferred to Phase 2 since it pairs with locating the curse-wave target picker.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2 (aggro picker hook) deferred: needs locating the curse-wave target picker in Systems/Creatures/ or Systems/Crystal/, and design alignment on whether the modifier is a flat probability subtract or a multiplicative weight. Depends on task-069 Phase 1 (TradersHall identity) being live for the researchedAt to resolve.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

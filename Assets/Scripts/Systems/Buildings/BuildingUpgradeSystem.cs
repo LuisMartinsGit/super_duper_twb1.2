@@ -72,6 +72,18 @@ namespace TheWaningBorder.Systems.Buildings
                 ApplyLevel(em, e, up.TargetLevel);
                 em.RemoveComponent<BuildingUpgrading>(e);
 
+                // task-066 Phase 3: Feraldis House upgrade ticks spawn raiders
+                // (2 at L2, 3 at L3). Initial L1 build is handled in
+                // BuildingConstructionSystem.CompleteConstruction.
+                if (em.HasComponent<HutTag>(e) && em.HasComponent<FactionTag>(e))
+                {
+                    var fac = em.GetComponentData<FactionTag>(e).Value;
+                    if (FactionColors.GetFactionCulture(fac) == Cultures.Feraldis && up.TargetLevel >= 2)
+                    {
+                        SpawnFeraldisRaiders(em, e, fac, count: up.TargetLevel);
+                    }
+                }
+
                 // Debug log so the upgrade pipeline is visible during
                 // playtesting. Identifies the building type by tag — same
                 // resolution the command helper uses.
@@ -124,6 +136,26 @@ namespace TheWaningBorder.Systems.Buildings
                 var pp = em.GetComponentData<PopulationProvider>(building);
                 pp.Amount = ups.BasePopulationProvider + BuildingUpgradeConfig.HutBonusPop[level];
                 em.SetComponentData(building, pp);
+            }
+        }
+
+        /// <summary>
+        /// Spawn N Feraldis Raider units near a House (Phase 3 of task-066).
+        /// Uses the same offset pattern as BuildingConstructionSystem.SpawnFeraldisRaidersAtHouse
+        /// so raiders fan out rather than stacking on the building footprint.
+        /// </summary>
+        private static void SpawnFeraldisRaiders(EntityManager em, Entity house, Faction faction, int count)
+        {
+            if (!em.HasComponent<LocalTransform>(house)) return;
+            Unity.Mathematics.float3 housePos = em.GetComponentData<LocalTransform>(house).Position;
+            for (int i = 0; i < count; i++)
+            {
+                float angle = (i / (float)Unity.Mathematics.math.max(count, 1)) * Unity.Mathematics.math.PI * 2f;
+                var offset = new Unity.Mathematics.float3(
+                    Unity.Mathematics.math.cos(angle) * 1.5f,
+                    0f,
+                    Unity.Mathematics.math.sin(angle) * 1.5f);
+                TheWaningBorder.Entities.FeraldisRaider.Create(em, housePos + offset, faction);
             }
         }
 

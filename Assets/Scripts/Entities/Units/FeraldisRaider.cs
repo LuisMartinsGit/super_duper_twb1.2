@@ -1,25 +1,30 @@
-// File: Assets/Scripts/Entities/Units/Swordsman.cs
+// File: Assets/Scripts/Entities/Units/FeraldisRaider.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using TheWaningBorder.Economy;
+
+/// <summary>Marker for Feraldis auto-spawned Raider units (uncontrollable skirmishers).</summary>
+public struct FeraldisRaiderTag : IComponentData { }
 
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Swordsman unit - melee infantry.
-    /// Primary frontline combat unit with good HP and damage.
-    /// Fix #219: EM/ECB share a single generic CreateInternal via IEntityCreator.
+    /// Feraldis Raider — uncontrollable infantry skirmisher.
+    /// Auto-spawned by Feraldis Houses per design §5.3 (Complete.md). The
+    /// player cannot select or command Raiders; an aggressive-patrol AI
+    /// drives them at the nearest enemy. Stat block: HP 80, speed 6.0,
+    /// light melee. No train button — spawn is driven by task-066 Phase 3.
     /// </summary>
-    public static class Swordsman
+    public static class FeraldisRaider
     {
-        private const float DefaultHP = 120f;
-        private const float DefaultSpeed = 5.5f;
-        private const float DefaultDamage = 12f;
-        private const float DefaultLoS = 10f;
-        private const float DefaultAttackCooldown = 1.2f;
+        // Defaults used if TechTreeDB lookup fails. Match docs/Design Complete.md §5.3.
+        private const float DefaultHP = 80f;
+        private const float DefaultSpeed = 6.0f;
+        private const float DefaultDamage = 8f;
+        private const float DefaultLoS = 16f;
+        private const float DefaultCooldown = 1.2f;
         private const float DefaultRadius = 0.5f;
-        private const int PresentationID = 201;
+        public const int PresentationID = 341;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);
@@ -34,18 +39,19 @@ namespace TheWaningBorder.Entities
             float speed = DefaultSpeed;
             float damage = DefaultDamage;
             float los = DefaultLoS;
-            float cooldown = DefaultAttackCooldown;
-            float radius = DefaultRadius;
+            float cooldown = DefaultCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Swordsman", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Feraldis_Raider", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;
                 if (def.damage > 0) damage = def.damage;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
+                if (def.attackCooldown > 0) cooldown = def.attackCooldown;
             }
 
             var entity = creator.CreateEntity();
+
             creator.AddComponent(entity, new PresentationId { Id = PresentationID });
             creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             creator.AddComponent(entity, new FactionTag { Value = faction });
@@ -56,13 +62,16 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
-            creator.AddComponent(entity, new Radius { Value = radius });
+            creator.AddComponent(entity, new Radius { Value = DefaultRadius });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
 
-            // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            creator.AddComponent(entity, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
+
+            // Player cannot select or command Feraldis Raiders; FeraldisRaiderPatrolSystem drives them.
+            creator.AddComponent<NotControllableTag>(entity);
+            creator.AddComponent<FeraldisRaiderTag>(entity);
 
             return entity;
         }

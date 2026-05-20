@@ -162,6 +162,12 @@ namespace TheWaningBorder.Input
             if (BuilderCommandPanel.SuppressClicksThisFrame)
                 return true;
 
+            // Web HUD: pointer over an interactive HTML region. See
+            // HudWebController.IsPointerOverWebHud for why this is needed —
+            // CEF and Unity don't share an input pipeline.
+            if (TheWaningBorder.UI.Web.HudWebController.IsPointerOverWebHud)
+                return true;
+
             // Block if mouse is over UI panels
             if (EntityInfoPanel.IsPointerOver() || EntityActionPanel.IsPointerOver())
                 return true;
@@ -382,6 +388,9 @@ namespace TheWaningBorder.Input
                 var e = ents[i];
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByPlayer(e)) continue; // Box select only own units
+
+                // Skip uncontrollable units (caravans, trade patrols, Feraldis Raiders)
+                if (_em.HasComponent<NotControllableTag>(e)) continue;
 
                 // Skip invisible battalion leaders (they have no visual bounds)
                 if (_em.HasComponent<BattalionLeader>(e)) continue;

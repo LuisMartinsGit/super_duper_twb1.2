@@ -1,0 +1,36 @@
+{
+  "id": "task-feraldis-instant-pop-spike-080",
+  "status": "completed",
+  "stage": "release",
+  "phase": 1,
+  "totalPhases": 1,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (H8). RunaiPopOverride exists; FeraldisPopOverride does not. Houses also still provide pop for Feraldis contrary to doc §5.1.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Component + age-up hook + house-pop gate",
+      "description": "Added FeraldisPopOverride marker in RunaiTradeComponents.cs. AgeUpSystem now stamps it on the Feraldis bank entity at age-up (mirrors Runai branch). PopulationSyncSystem treats both overrides identically. Hut.cs skips PopulationProvider when faction culture is Feraldis.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "task_completed",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

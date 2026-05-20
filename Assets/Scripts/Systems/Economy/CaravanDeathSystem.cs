@@ -59,7 +59,12 @@ namespace TheWaningBorder.Systems.Economy
                 if (lootSupplies > 0 || lootCrystal > 0)
                 {
                     Faction killerFaction = lastDamager.ValueRO.Value;
-                    FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootSupplies, crystal: lootCrystal));
+                    // Design §1.9: cargo only drops for Feraldis killers; Alanthor,
+                    // Runai friendly-fire, and Crystal-Curse PvE destroy it.
+                    if (FactionColors.GetFactionCulture(killerFaction) == Cultures.Feraldis)
+                    {
+                        FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootSupplies, crystal: lootCrystal));
+                    }
                 }
 
                 // DeathSystem will handle actual entity destruction

@@ -257,8 +257,6 @@ namespace TheWaningBorder.UI.Menus
                 _layout = SpawnLayout.Circle;
             if (GUILayout.Toggle(_layout == SpawnLayout.TwoSides, " Two Sides", "Button"))
                 _layout = SpawnLayout.TwoSides;
-            if (GUILayout.Toggle(_layout == SpawnLayout.Circle, " Free For All", "Button"))
-                _layout = SpawnLayout.Circle;
             GUILayout.EndHorizontal();
 
             // Two sides preset

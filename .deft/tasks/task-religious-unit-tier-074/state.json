@@ -1,0 +1,37 @@
+{
+  "id": "task-religious-unit-tier-074",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 1,
+  "totalPhases": 2,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (H5 + H6 + H7). Iconoclast unreachable due to L4 requirement, wrong pop, missing Veilsteel; Scholar cost trivially low; no singleton cap.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Stat / cost fixes",
+      "description": "Feraldis_Iconoclast: minBuildingLevel 4->3 (reachable at Temple L3), cost adds Veilsteel 30. Iconoclast.cs PopulationCost.Amount 4->1. Alanthor_Scholar: minBuildingLevel 4->3, cost raised from 120 S + 30 C to 300 S + 150 I + 100 C + 30 Vs to match game-ender tier (per task R4).",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2 (FactionUnitLimitSystem singleton cap) deferred: needs a new ECS system that checks alive+queued unit count per faction before training accepts the request, plus a UI toast path through HudBridge. Recommend pairing with task-063 phase 2 since religious units now route to Temple-hosted training.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

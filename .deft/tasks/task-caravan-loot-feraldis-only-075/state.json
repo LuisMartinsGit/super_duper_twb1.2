@@ -1,0 +1,36 @@
+{
+  "id": "task-caravan-loot-feraldis-only-075",
+  "status": "completed",
+  "stage": "release",
+  "phase": 1,
+  "totalPhases": 1,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C8). CaravanDeathSystem awards loot to any killer; doc §1.9 requires Feraldis-only.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Gate the award",
+      "description": "CaravanDeathSystem.cs:62 now gates FactionEconomy.Add behind FactionColors.GetFactionCulture(killerFaction) == Cultures.Feraldis. Non-Feraldis killers (Alanthor, Runai friendly fire, Crystal-Curse) destroy cargo with no resource transfer. R3 (Veilsteel shaving) deferred to task-070.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "task_completed",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

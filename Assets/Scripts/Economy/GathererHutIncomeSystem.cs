@@ -22,9 +22,10 @@ namespace TheWaningBorder.Economy
     public partial struct GathererHutIncomeSystem : ISystem
     {
         /// <summary>Radius of the resource gathering circle around each GathererHut.</summary>
-        public const float GatherRadius = 15f;
+        public const float GatherRadius = 19.5f;
 
-        private const float BasePerTick = 15f;     // 15 supplies per tick at 100% area
+        // Age_0.md: GathererHut emits 60 S/min at 100 % area.
+        private const float BasePerTick = 10f;     // 10 supplies per 10-s tick → 60 S/min
         private const float TickInterval = 10f;    // Tick every 10 seconds
         private const float UpdateInterval = 2f;   // Recalculate every 2 seconds
 
@@ -154,13 +155,25 @@ namespace TheWaningBorder.Economy
             float radiusSq = GatherRadius * GatherRadius;
             float2 hutPos2D = new float2(hutPos.x, hutPos.z);
 
-            // Determine cell scan bounds
+            // Determine cell scan bounds — clamped to the grid so we don't
+            // read out-of-range indices. The DENOMINATOR (totalCells) is
+            // computed below from the full circle area, NOT from the loop's
+            // iteration count, so a hut placed near the map edge can't get
+            // 100 % income just because its in-bounds cells happen to be all
+            // passable (BuildCommand.IsValidBuildPosition rejects out-of-bounds
+            // placement now, but this keeps the income calc honest even when
+            // pre-existing huts straddle the edge from older saves).
             int2 minCell = grid.WorldToCell(new float3(hutPos.x - GatherRadius, 0f, hutPos.z - GatherRadius));
             int2 maxCell = grid.WorldToCell(new float3(hutPos.x + GatherRadius, 0f, hutPos.z + GatherRadius));
             minCell = math.max(minCell, int2.zero);
             maxCell = math.min(maxCell, new int2(grid.Width - 1, grid.Height - 1));
 
-            int totalCells = 0;
+            // Total cells the gather circle WOULD cover at the configured
+            // cell size — denominator used by the final ratio.
+            float circleArea = math.PI * radiusSq;
+            float cellArea = grid.CellSize * grid.CellSize;
+            int totalCells = (int)math.max(1f, math.round(circleArea / cellArea));
+
             int freeCells = 0;
 
             for (int cy = minCell.y; cy <= maxCell.y; cy++)
@@ -177,7 +190,8 @@ namespace TheWaningBorder.Economy
                     if (dx * dx + dz * dz > radiusSq)
                         continue;
 
-                    totalCells++;
+                    // (totalCells is the full-circle denominator computed
+                    // above — we no longer count loop iterations here.)
 
                     // --- Exclusion 1: Terrain-blocked or building-blocked (Bug C) ---
                     byte cellValue = grid.GetCell(cell);
@@ -247,7 +261,8 @@ namespace TheWaningBorder.Economy
                 }
             }
 
-            if (totalCells == 0) return 0f;
+            // totalCells is fixed by the circle area so it's never zero; the
+            // denominator stays stable even if the hut is at the map edge.
             return (float)freeCells / totalCells;
         }
 

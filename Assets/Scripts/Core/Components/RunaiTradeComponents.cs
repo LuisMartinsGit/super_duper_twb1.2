@@ -84,6 +84,14 @@ public struct RunaiTraderState : IComponentData
 /// </summary>
 public struct RunaiPopOverride : IComponentData { }
 
+/// <summary>
+/// Tag on faction bank entity indicating Feraldis's 200-pop override.
+/// When present, PopulationSyncSystem sets Max to 200 regardless of housing.
+/// Added by AgeUpSystem on Feraldis culture selection. Per design §5.1,
+/// Houses do not contribute pop for Feraldis — they're raider-spawn buildings.
+/// </summary>
+public struct FeraldisPopOverride : IComponentData { }
+
 // ==================== Bazaar Wagon (Packed Form) ====================
 
 /// <summary>Marker for the wagon unit form of a packed Thessara's Bazaar.</summary>

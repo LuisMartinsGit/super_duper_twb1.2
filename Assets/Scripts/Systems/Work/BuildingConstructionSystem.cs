@@ -233,7 +233,7 @@ namespace TheWaningBorder.Systems.Work
             // Safety net: ensure GathererHuts have SuppliesIncome after completion
             if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<SuppliesIncome>(building))
             {
-                em.AddComponentData(building, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+                em.AddComponentData(building, new SuppliesIncome { PerTick = 10f, Interval = 10f });
             }
 
             // Apply deferred defense if present
@@ -280,9 +280,40 @@ namespace TheWaningBorder.Systems.Work
                 FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
             }
 
+            // task-066 Phase 3 / design §5.3: Feraldis Houses spawn raiders on
+            // construction completion (L1 = 1 raider). Upgrade ticks (L2/L3) are
+            // owned by FeraldisRaiderSpawnSystem, which watches BuildingLevel changes.
+            if (em.HasComponent<HutTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                if (FactionColors.GetFactionCulture(faction) == Cultures.Feraldis)
+                {
+                    SpawnFeraldisRaidersAtHouse(em, building, faction, count: 1);
+                }
+            }
+
             // task-063 phase 1: GrantTempleConstructionRP removed. The new design
             // grants RP only on age-up + Shrine completion + chapel completion.
             // Temple of Ridan finishing construction is no longer an RP source.
+        }
+
+        /// <summary>
+        /// Spawn N Feraldis Raider units at a House's position. Called on House
+        /// completion (Phase 3 of task-066). Raiders are uncontrollable and
+        /// driven by FeraldisRaiderPatrolSystem.
+        /// </summary>
+        private static void SpawnFeraldisRaidersAtHouse(EntityManager em, Entity house, Faction faction, int count)
+        {
+            if (!em.HasComponent<LocalTransform>(house)) return;
+
+            float3 housePos = em.GetComponentData<LocalTransform>(house).Position;
+            for (int i = 0; i < count; i++)
+            {
+                // Spread spawn positions slightly so raiders don't stack on creation.
+                float angle = (i / (float)math.max(count, 1)) * math.PI * 2f;
+                float3 offset = new float3(math.cos(angle) * 1.5f, 0f, math.sin(angle) * 1.5f);
+                TheWaningBorder.Entities.FeraldisRaider.Create(em, housePos + offset, faction);
+            }
         }
 
         /// <summary>

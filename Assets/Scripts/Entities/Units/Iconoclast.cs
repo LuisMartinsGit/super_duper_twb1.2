@@ -56,7 +56,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Radius { Value = IconoclastRadius });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 4 });
+            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

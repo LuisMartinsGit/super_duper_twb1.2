@@ -60,8 +60,8 @@ namespace TheWaningBorder.Systems.Training
                 maxPop.TryGetValue(fac, out int totalMax);
                 curPop.TryGetValue(fac, out int totalCur);
 
-                // Runai override: pop max is always 200
-                if (em.HasComponent<RunaiPopOverride>(entity))
+                // Runai / Feraldis override: pop max is always 200
+                if (em.HasComponent<RunaiPopOverride>(entity) || em.HasComponent<FeraldisPopOverride>(entity))
                     totalMax = FactionPopulation.AbsoluteMax;
 
                 // Clamp max to absolute cap

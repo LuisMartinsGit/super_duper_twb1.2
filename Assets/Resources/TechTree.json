@@ -138,7 +138,7 @@
                     "id": "Hut",
                     "name": "Hut",
                     "role": "Provides population",
-                    "hp": 350,
+                    "hp": 600,
                     "armorType": "structure_human",
                     "baseDefense": {
                         "melee": 2,
@@ -146,10 +146,10 @@
                         "siege": 0,
                         "magic": 0
                     },
-                    "lineOfSight": 12,
+                    "lineOfSight": 14,
                     "upgradesTo": "House",
                     "provides": {
-                        "population": 5
+                        "population": 10
                     },
                     "cost": {
                         "Supplies": 50
@@ -159,7 +159,7 @@
                     "id": "GatherersHut",
                     "name": "Gatherer's Hut",
                     "role": "Area resource trickle (no stacking)",
-                    "hp": 400,
+                    "hp": 800,
                     "radius": 0.5,
                     "armorType": "structure_human",
                     "baseDefense": {
@@ -400,7 +400,7 @@
                     },
                     "lineOfSight": 30,
                     "attackRange": 25.0,
-                    "minAttackRange": 10.0,
+                    "minAttackRange": 1.0,
                     "cost": {
                         "Supplies": 50,
                         "Iron": 25
@@ -919,6 +919,15 @@
                                 "Supplies": 160,
                                 "Crystal": 40
                             }
+                        },
+                        {
+                            "id": "Runai_CrystalNeutrality",
+                            "researchedAt": "TradersHall",
+                            "effect": "Crystal-Curse waves aggro Runai units less often (-20% per tier, stacks to -60% at L3). Runai walks the cursed lands without provoking them.",
+                            "cost": {
+                                "Supplies": 200,
+                                "Crystal": 60
+                            }
                         }
                     ]
                 },
@@ -1039,7 +1048,6 @@
                         {
                             "id": "Feraldis_Longhouse",
                             "name": "Longhouse",
-                            "hp": 1400,
                             "armorType": "structure_human",
                             "baseDefense": {
                                 "melee": 2,
@@ -1095,6 +1103,30 @@
                         }
                     ],
                     "units": [
+                        {
+                            "id": "Feraldis_Raider",
+                            "class": "human_melee",
+                            "hp": 80,
+                            "speed": 6.0,
+                            "armorType": "infantry_light",
+                            "damage": 8,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 16,
+                            "attackRange": 1.4,
+                            "attackCooldown": 1.2,
+                            "popCost": 1,
+                            "uncontrollable": true,
+                            "autoSpawn": "Feraldis_House",
+                            "cost": {
+                                "Supplies": 0
+                            }
+                        },
                         {
                             "id": "Feraldis_Berserker",
                             "class": "human_melee",
@@ -1191,7 +1223,7 @@
                             "hp": 280,
                             "speed": 3.2,
                             "trainingTime": 60.0,
-                            "minBuildingLevel": 4,
+                            "minBuildingLevel": 3,
                             "armorType": "infantry_heavy",
                             "damage": 0,
                             "damageType": "melee",
@@ -1208,7 +1240,8 @@
                             "cost": {
                                 "Supplies": 300,
                                 "Iron": 150,
-                                "Crystal": 100
+                                "Crystal": 100,
+                                "Veilsteel": 30
                             },
                             "notes": "Refinement v2: ENABLER unit. Strips NodeUntargetable from crystal nodes within IconoclastAuraRadius — other units do the damage. Cannot attack."
                         }
@@ -1222,8 +1255,9 @@
                             }
                         },
                         {
-                            "id": "Feraldis_IronFury",
-                            "effect": "Units can carry up to 5 Iron; each grants +2% attack (stacks).",
+                            "id": "Feraldis_VeilsteelFrenzy",
+                            "effect": "Military units carry Veilsteel shavings from kills (max 5); each grants +2% attack (stacks to +10%).",
+                            "researchAt": "WarHall",
                             "cost": {
                                 "Supplies": 120,
                                 "Iron": 40
@@ -1238,7 +1272,7 @@
                         "id": "KingsCourt",
                         "name": "King's Court",
                         "role": "Generates Supplies, global building techs",
-                        "hp": 2100,
+                        "hp": 2640,
                         "armorType": "structure_human",
                         "baseDefense": {
                             "melee": 2,
@@ -1285,7 +1319,7 @@
                             "lineOfSight": 10,
                             "role": "Compartment boundaries",
                             "cost": {
-                                "Supplies": 40,
+                                "Supplies": 50,
                                 "Iron": 20
                             }
                         },
@@ -1351,7 +1385,6 @@
                             "id": "Alanthor_PracticeRange",
                             "name": "Practice Range",
                             "role": "Train ranged infantry — Archers at L1, Crossbowmen at L2",
-                            "hp": 1500,
                             "armorType": "structure_human",
                             "baseDefense": {
                                 "melee": 2,
@@ -1364,9 +1397,6 @@
                                 "Archer",
                                 "Alanthor_Crossbowman"
                             ],
-                            "provides": {
-                                "population": 8
-                            },
                             "garrison": {
                                 "slots": 6,
                                 "arrowFire": true
@@ -1394,7 +1424,7 @@
                             ],
                             "cost": {
                                 "Supplies": 260,
-                                "Iron": 140,
+                                "Iron": 100,
                                 "Crystal": 60
                             }
                         },
@@ -1412,8 +1442,8 @@
                             },
                             "lineOfSight": 18,
                             "cost": {
-                                "Supplies": 180,
-                                "Iron": 60
+                                "Supplies": 220,
+                                "Iron": 100
                             }
                         },
                         {
@@ -1434,6 +1464,27 @@
                                 "Supplies": 200,
                                 "Iron": 60,
                                 "Crystal": 40
+                            }
+                        },
+                        {
+                            "id": "Alanthor_RoyalStable",
+                            "name": "Royal Stable",
+                            "role": "Heavy-cavalry trainer (Cataphract).",
+                            "hp": 1000,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "trains": [
+                                "Alanthor_Cataphract"
+                            ],
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 80
                             }
                         }
                     ],
@@ -1510,7 +1561,7 @@
                             "lineOfSight": 20,
                             "attackRange": 1.6,
                             "trainAt": [
-                                "Barracks"
+                                "Alanthor_RoyalStable"
                             ],
                             "cost": {
                                 "Supplies": 220,
@@ -1550,7 +1601,7 @@
                             "hp": 90,
                             "speed": 3.0,
                             "trainingTime": 30.0,
-                            "minBuildingLevel": 4,
+                            "minBuildingLevel": 3,
                             "armorType": "ranged",
                             "damage": 0,
                             "damageType": "magic",
@@ -1565,8 +1616,10 @@
                                 "TempleOfRidan"
                             ],
                             "cost": {
-                                "Supplies": 120,
-                                "Crystal": 30
+                                "Supplies": 300,
+                                "Iron": 150,
+                                "Crystal": 100,
+                                "Veilsteel": 30
                             },
                             "notes": "Channels Purification rituals on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Vulnerable — needs escort."
                         }

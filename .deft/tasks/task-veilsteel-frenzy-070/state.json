@@ -1,0 +1,37 @@
+{
+  "id": "task-veilsteel-frenzy-070",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 1,
+  "totalPhases": 3,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C6 critical). Tech still named Feraldis_IronFury, mentions Iron not Veilsteel, and no carry system exists at all.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Tech rename + component",
+      "description": "TechTree.json: Feraldis_IronFury renamed to Feraldis_VeilsteelFrenzy with description 'Military units carry Veilsteel shavings from kills (max 5); each grants +2% attack (stacks to +10%)' and researchAt: WarHall. New Core/Components/VeilsteelCarryComponent.cs defines VeilsteelCarry { byte Shavings } in global namespace.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phases 2-3 deferred: Phase 2 (kill-drop + attack-bonus systems) needs careful composition with existing UnitRankSystem + EquipmentTierSystem stamp/diff pattern to avoid double-applying multipliers. Phase 3 (research UI gate at WarHall) depends on task-071 cultured rename layer for the WarHall building identity. R6 (caravan-kill shaving award) requires adding LastAttackerEntity tracking to caravans, which is more invasive than this pass. Suggest implementing Phases 2-3 as a single PR once task-071 lands and a damage-multiplier composition design is locked.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

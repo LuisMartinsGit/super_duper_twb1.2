@@ -195,7 +195,7 @@ namespace TheWaningBorder.Entities
                 "Hall" => 20,
                 "Hut" => 10,
                 "ThessarasBazaar" => 40,
-                "Alanthor_PracticeRange" => 8,
+                "Alanthor_PracticeRange" => 0,
                 "KingsCourt" => 10,
                 "Feraldis_HuntingLodge" => 10,
                 "Feraldis_LoggingStation" => 10,
@@ -602,9 +602,10 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
             em.AddBuffer<ResearchQueueItem>(entity);
 
-            // Initialize 8 empty chapel slots (BFME2-style expansion plots)
+            // Initialize 6 empty chapel slots — one per ground decal around the
+            // Temple. Six matches SectConfig.MaxAdoptedSects (= the design cap).
             var slotBuffer = em.AddBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
             {
                 slotBuffer.Add(new TempleChapelSlot
                 {
@@ -853,13 +854,14 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateAlanthorPracticeRange(EntityManager em, float3 position, Faction faction)
         {
-            float hp = 1500f, los = 14f, radius = 1.5f;
+            // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
+            float hp = 660f, los = 14f, radius = 1.5f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
                 typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius),
-                typeof(TrainingState), typeof(PopulationProvider));
+                typeof(TrainingState));
             em.SetComponentData(entity, new PresentationId { Id = 355 });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
@@ -870,7 +872,6 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            em.SetComponentData(entity, new PopulationProvider { Amount = 8 });
             em.AddComponent<PracticeRangeTag>(entity);
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
@@ -967,7 +968,8 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static Entity CreateFeraldisLonghouse(EntityManager em, float3 position, Faction faction)
         {
-            float hp = 1400f, los = 14f, radius = 1.8f;
+            // Doc §5.7 #11: cultured Barracks — base 800 × 1.10 = 880 at L1.
+            float hp = 880f, los = 14f, radius = 1.8f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
@@ -1450,9 +1452,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
             ecb.AddBuffer<ResearchQueueItem>(entity);
 
-            // Initialize 8 empty chapel slots
+            // Initialize 6 empty chapel slots — matches SectConfig.MaxAdoptedSects.
             var slotBuffer = ecb.AddBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
             {
                 slotBuffer.Add(new TempleChapelSlot
                 {
@@ -1706,7 +1708,8 @@ namespace TheWaningBorder.Entities
 
         private static Entity CreateAlanthorPracticeRangeECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = 1500f, los = 14f, radius = 1.5f;
+            // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
+            float hp = 660f, los = 14f, radius = 1.5f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
@@ -1721,7 +1724,6 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            ecb.AddComponent(entity, new PopulationProvider { Amount = 8 });
             ecb.AddComponent<PracticeRangeTag>(entity);
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
@@ -1803,7 +1805,8 @@ namespace TheWaningBorder.Entities
 
         private static Entity CreateFeraldisLonghouseECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            float hp = 1400f, los = 14f, radius = 1.8f;
+            // Doc §5.7 #11: cultured Barracks — base 800 × 1.10 = 880 at L1.
+            float hp = 880f, los = 14f, radius = 1.8f;
             if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 

@@ -1,0 +1,35 @@
+{
+  "id": "task-cultured-rename-layer-071",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 1,
+  "totalPhases": 3,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C10 critical). All three cultures need Hall / Barracks / Archery Range renames + train-list restriction; current code is culture-agnostic except for two TechTree IDs.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phase 1 partial: created Core/Settings/CulturedBuildingNames.cs with static GetDisplayName(baseBuildingId, culture) lookup covering Hall/Barracks/ArcheryRange/Hut for all three cultures. Wiring into BuildingPrefabSwapSystem (stamp at age-up), EntityExtractors (selection header), and HudBridge (web HUD selection card) deferred to a follow-up pass. Helper is callable from anywhere.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phases 2-3 deferred. Phase 2 (train-list culture filter) touches BuildingFactory + TrainingSystem + BuildCommandPannel + EntityExtractors and needs design alignment with task-079 (Age-1 unit tier ladders). Phase 3 (culture-keyed upgrade costs) may turn out to be a no-op if doc 4.3 costs are uniform across cultures; needs a closer read of Complete.md before adding the per-culture switch to BuildingUpgradeConfig.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

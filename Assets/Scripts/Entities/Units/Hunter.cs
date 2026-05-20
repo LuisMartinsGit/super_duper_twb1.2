@@ -80,8 +80,8 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
-            // Combat type tags — Melee damage type (throwing axes), unarmored
-            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            // Combat type tags — throwing axes are ranged per design doc.
+            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 0 });
 

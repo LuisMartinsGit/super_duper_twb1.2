@@ -54,6 +54,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Ballista" => Ballista.Create(em, position, faction),
                 "Alanthor_Scholar" => Scholar.Create(em, position, faction),
                 // Feraldis culture units
+                "Feraldis_Raider" => FeraldisRaider.Create(em, position, faction),
                 "Feraldis_Hunter" => Hunter.Create(em, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
@@ -119,6 +120,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Ballista" => Ballista.Create(ecb, position, faction),
                 "Alanthor_Scholar" => Scholar.Create(ecb, position, faction),
                 // Feraldis culture units
+                "Feraldis_Raider" => FeraldisRaider.Create(ecb, position, faction),
                 "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(ecb, position, faction),
@@ -188,6 +190,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_Ballista" => UnitClass.Siege,
                 "Alanthor_Scholar" => UnitClass.Magic,
                 // Feraldis culture units
+                "Feraldis_Raider" => UnitClass.Melee,
                 "Feraldis_Hunter" => UnitClass.Ranged,
                 "Feraldis_WarboarRider" => UnitClass.Melee,
                 "Feraldis_SiegeRam" => UnitClass.Siege,
@@ -242,6 +245,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_Hunter" => 338,
                 "Feraldis_WarboarRider" => 339,
                 "Feraldis_SiegeRam" => 340,
+                "Feraldis_Raider" => 341,
                 "Feraldis_Iconoclast" => 386,
                 // Sect unique units
                 "Sect_ScarGuard" => 370,

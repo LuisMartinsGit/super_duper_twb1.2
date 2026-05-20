@@ -1,14 +1,52 @@
 {
   "id": "task-deepdive-backlog-2026-062",
   "stage": "implementation",
-  "phase": 1,
-  "total_phases": 4,
+  "phase": 4,
+  "totalPhases": 4,
   "status": "active",
+  "createdAt": "2026-05-03T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
   "events": [
     {
       "ts": "2026-05-03",
       "type": "consolidation",
       "note": "Consolidated remaining backlog from tasks 052-061 after PR #245 merged. Removed per-task files that have been folded in here."
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Gameplay-critical fixes (G-1..G-6)",
+      "commit": "PR #245 + #246",
+      "timestamp": "2026-05-04T00:00:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "Combat correctness (C-1..C-4)",
+      "commit": "PR #246",
+      "timestamp": "2026-05-04T00:00:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 3 (M-1..M-10 multiplayer determinism) deferred per user; pick up after rest of systems.",
+      "timestamp": "2026-05-04T00:00:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 4,
+      "title": "Quality / cleanup / perf (Q-1..Q-55)",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "note": "Opportunistic, not a single PR. PR #247-#250 have already landed ~25 of the 55 items inline."
+    },
+    {
+      "type": "decision",
+      "description": "2026-05-19: frontmatter synced. Task was at phase: 1 / priority: high but reality is phase 4 (cleanup) with phases 1-2 done and 3 deferred. Bumped to phase 4 / priority: normal.",
+      "timestamp": "2026-05-19T00:00:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "2026-05-19 sweep: Q-15 (dead SectMultipliers fields) - already removed in task-063 phase 1 sect demolition (no source code references found). Q-50 (SkirmishLobbyUI 'Free For All' duplicate button) - removed, kept Circle and Two Sides toggles. Q-43 source vague ('three places' without naming) - skip pending re-discovery. Remaining Q-* items left as opportunistic backlog.",
+      "timestamp": "2026-05-19T00:00:00Z"
     }
   ]
 }

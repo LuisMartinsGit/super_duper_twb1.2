@@ -11,9 +11,9 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Barracks
     {
-        // Default stats (used if TechTreeDB unavailable)
-        private const float DefaultHP = 600f;
-        private const float DefaultLoS = 14f;
+        // Default stats (used if TechTreeDB unavailable). Doc Age_0.md §Barracks.
+        private const float DefaultHP = 800f;
+        private const float DefaultLoS = 18f;
         private const float DefaultRadius = 0.8f;
         public const int PresentationID = 510;
 

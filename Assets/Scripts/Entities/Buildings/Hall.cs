@@ -14,7 +14,7 @@ namespace TheWaningBorder.Entities
     public static class Hall
     {
         private const float DefaultHP = 2400f;
-        private const float DefaultLoS = 35f;
+        private const float DefaultLoS = 24f;
         private const float DefaultSuppliesPerTick = 50f; // 50 supplies every 15 seconds
         private const float DefaultSuppliesInterval = 15f;
         private const float DefaultRadius = 2.0f;
