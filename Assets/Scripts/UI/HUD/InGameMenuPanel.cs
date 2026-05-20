@@ -372,6 +372,31 @@ namespace TheWaningBorder.UI.HUD
             statsUI.Show();
         }
 
+        /// <summary>
+        /// Tears down the running match (timeScale, RuntimeManagers, ECS
+        /// world) and loads the MainMenu scene. Made public so the web-HUD
+        /// bridge can route its "Quit to Main Menu" menu item through the
+        /// same teardown the IMGUI path uses.
+        /// </summary>
+        public static void QuitToMainMenu()
+        {
+            var instance = Object.FindFirstObjectByType<InGameMenuPanel>();
+            if (instance != null) instance.DoQuitToMenu();
+            else
+            {
+                // No panel instance to invoke through (e.g. web HUD active
+                // and IMGUI panel deactivated). Inline the same teardown.
+                Time.timeScale = 1f;
+                IsOpen = false;
+                GameBootstrap.Reset();
+                var managers = Object.FindFirstObjectByType<RuntimeManagers>();
+                if (managers != null) Object.Destroy(managers.gameObject);
+                var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (world != null && world.IsCreated) world.Dispose();
+                SceneManager.LoadScene("MainMenu");
+            }
+        }
+
         private void DoQuitToMenu()
         {
             // Restore time before transitioning

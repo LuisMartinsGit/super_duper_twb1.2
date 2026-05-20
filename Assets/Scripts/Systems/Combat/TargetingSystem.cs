@@ -262,6 +262,16 @@ namespace TheWaningBorder.Systems.Combat
                 // Skip units that already have an active target
                 if (target.ValueRO.Value != Entity.Null) continue;
 
+                // Damage gate — only units that actually deal damage
+                // engage enemies. Litharchs (and any future zero-damage
+                // support tier) sit idle in their formation slot until a
+                // tech upgrades their damage above 0. Without this, a
+                // Litharch with Damage=0 and a cooldown timer would still
+                // pursue every enemy in LOS and stand in melee range
+                // doing nothing — design rule per the spec sweep.
+                if (!em.HasComponent<Damage>(entity)) continue;
+                if (em.GetComponentData<Damage>(entity).Value <= 0) continue;
+
                 // Cache HasComponent results to avoid repeated lookups
                 bool hasAttackMove = em.HasComponent<AttackMoveTag>(entity);
                 bool hasPatrol = em.HasComponent<PatrolTag>(entity);

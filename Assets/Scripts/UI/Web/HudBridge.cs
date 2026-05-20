@@ -335,12 +335,27 @@ namespace TheWaningBorder.UI.Web
                     }
                     break;
 
-                // Save / Load are out-of-scope for this build (no save system yet).
-                // Settings — surface keybinds for now; full settings UI is a follow-up.
-                case "settings":
+                case "quit":
+                    // Quit to main menu — full teardown (timeScale, ECS world,
+                    // RuntimeManagers) then SceneManager.LoadScene("MainMenu").
+                    UI.HUD.InGameMenuPanel.QuitToMainMenu();
+                    break;
+
+                // Save / Load: hooks exist but the save system itself isn't
+                // implemented yet (tracked separately). The JS menu marks
+                // these items disabled so the user can't click here, but
+                // if a hotkey routes through, surface a notification rather
+                // than the silent-close that confused players before.
                 case "save":
                 case "load":
-                    Debug.Log($"[HudBridge] menu item '{key}' not implemented yet");
+                    UI.HUD.PlayerNotificationSystem.Notify("Save / Load coming soon");
+                    UI.HUD.InGameMenuPanel.Close();
+                    break;
+
+                // Settings — full settings UI is a follow-up. Same
+                // treatment: notify and close instead of silent-close.
+                case "settings":
+                    UI.HUD.PlayerNotificationSystem.Notify("Settings menu coming soon");
                     UI.HUD.InGameMenuPanel.Close();
                     break;
 

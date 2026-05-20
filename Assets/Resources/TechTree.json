@@ -120,7 +120,6 @@
                     "lineOfSight": 24,
                     "trains": [
                         "Builder",
-                        "Miner",
                         "Scout"
                     ],
                     "research": [
@@ -285,6 +284,7 @@
             "units": [
                 {
                     "id": "Builder",
+                    "name": "Worker",
                     "class": "human_support",
                     "hp": 60,
                     "speed": 4.0,
@@ -300,6 +300,7 @@
                     },
                     "lineOfSight": 14,
                     "buildSpeed": 1.0,
+                    "gatheringSpeed": 1.0,
                     "attackRange": 1.0,
                     "minAttackRange": 0.0,
                     "cost": {

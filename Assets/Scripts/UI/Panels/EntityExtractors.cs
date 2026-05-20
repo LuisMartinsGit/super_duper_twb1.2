@@ -333,9 +333,11 @@ namespace TheWaningBorder.UI
                 if (name != null) return name;
             }
 
-            // Legacy fallback for units without PresentationId
-            if (em.HasComponent<CanBuild>(entity)) return "Builder";
-            if (em.HasComponent<MinerTag>(entity)) return "Miner";
+            // Legacy fallback for units without PresentationId. Workers
+            // (formerly Builder + Miner) now share a single display name
+            // — the per-class branches just disambiguate combat units.
+            if (em.HasComponent<CanBuild>(entity)) return "Worker";
+            if (em.HasComponent<MinerTag>(entity)) return "Worker";
 
             if (em.HasComponent<UnitTag>(entity))
             {
@@ -347,8 +349,8 @@ namespace TheWaningBorder.UI
                     UnitClass.Scout => "Scout",
                     UnitClass.Support => "Litharch",
                     UnitClass.Siege => "Siege Unit",
-                    UnitClass.Economy => "Builder",
-                    UnitClass.Miner => "Miner",
+                    UnitClass.Economy => "Worker",
+                    UnitClass.Miner => "Worker",
                     _ => "Unit"
                 };
             }
@@ -364,11 +366,14 @@ namespace TheWaningBorder.UI
         {
             return pid switch
             {
-                // Era 1 core units
-                200 => "Builder",
+                // Era 1 core units. PID 200 (former Builder) + 203
+                // (former Miner) both render as "Worker" now that the
+                // two specialists are unified — existing entities loaded
+                // from older saves still display the new name.
+                200 => "Worker",
                 201 => "Swordsman",
                 202 => "Archer",
-                203 => "Miner",
+                203 => "Worker",
                 206 => "Scout",
                 207 => "Litharch",
                 210 => "Berserker",

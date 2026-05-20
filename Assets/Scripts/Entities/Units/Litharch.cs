@@ -27,14 +27,20 @@ namespace TheWaningBorder.Entities
 
         public const int PresentationID = 207;
 
-        // Default stats (used if TechTreeDB not available)
+        // Default stats (used if TechTreeDB not available).
+        //
+        // Damage starts at 0 per Complete.md §3.2 "Warrior priests": the
+        // Litharch has no melee attack until the Shrine tech unlocks it.
+        // Combined with the Damage<=0 short-circuit in TargetingSystem,
+        // this keeps Litharchs from autonomously pursuing and engaging
+        // enemies in their LOS — they stay in the back ranks healing.
         private const float DefaultHP = 60f;
         private const float DefaultSpeed = 3.5f;
-        private const float DefaultDamage = 5f;
+        private const float DefaultDamage = 0f;
         private const float DefaultLoS = 10f;
         private const float DefaultHealRate = 8f;      // HP healed per second
         private const float DefaultHealRange = 4f;     // Range to heal targets
-        private const float DefaultCooldown = 1.5f;    // Attack cooldown
+        private const float DefaultCooldown = 1.5f;    // Attack cooldown (active once damage > 0)
 
         // ═══════════════════════════════════════════════════════════════════════
         // FACTORY

@@ -145,15 +145,20 @@ namespace TheWaningBorder.Input
             ClampPositionToBounds(ref _targetPosition);
         }
 
+        // Locked-down camera controls — design decision: the RTS camera
+        // stays at a fixed angle / fixed zoom / fixed tilt, only its
+        // position pans. Scroll-wheel zoom, Q/E rotation, R/F tilt and
+        // WASD pan are all intentionally disabled.
+        //  • A used to mean "pan left" AND "attack-move". With WASD
+        //    disabled, A is now unambiguously attack-move (RTSInputManager).
+        //  • Default Y rotation comes from GameCamera (45° if UseWebHud).
+        // Player still pans via arrow keys / edge-scroll / middle-mouse-drag.
         void Update()
         {
-            HandleKeyboardMovement();
+            HandleArrowKeyMovement();
             HandleEdgeScrolling();
             HandleMousePan();
-            HandleRotation();
-            HandleTilt();
-            HandleZoom();
-            
+
             ApplySmoothMovement();
         }
         
@@ -224,12 +229,16 @@ namespace TheWaningBorder.Input
             // Always ensure arm and camera hierarchy is configured
             if (wasReparented)
             {
-                // Tilt arm downward
+                // Tilt arm downward — slightly higher pitch than the old 55°
+                // so the farther camera shows more ground without losing
+                // foreground readability.
                 _arm.localPosition = Vector3.zero;
-                _arm.localRotation = Quaternion.Euler(55f, 0f, 0f);
+                _arm.localRotation = Quaternion.Euler(60f, 0f, 0f);
 
-                // Position camera back from arm
-                _camTransform.localPosition = new Vector3(0f, 0f, -40f);
+                // Default camera distance bumped from 40 → 75. Zoom is
+                // disabled (#6), so this value is the final fixed distance
+                // the player sees from match start until they quit.
+                _camTransform.localPosition = new Vector3(0f, 0f, -75f);
                 _camTransform.localRotation = Quaternion.identity;
             }
         }
@@ -289,15 +298,19 @@ namespace TheWaningBorder.Input
         // MOVEMENT
         // ═══════════════════════════════════════════════════════════════════════
         
-        private void HandleKeyboardMovement()
+        // Arrow keys only — WASD removed so A no longer collides with the
+        // attack-move binding in RTSInputManager. Edge-scroll + middle-mouse
+        // drag still work; the arrow keys give keyboard pan without
+        // stomping on any unit command shortcut.
+        private void HandleArrowKeyMovement()
         {
             Vector3 input = Vector3.zero;
-            
-            if (UnityEngine.Input.GetKey(KeyCode.W)) input.z += 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.S)) input.z -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.A)) input.x -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.D)) input.x += 1f;
-            
+
+            if (UnityEngine.Input.GetKey(KeyCode.UpArrow))    input.z += 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.DownArrow))  input.z -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.LeftArrow))  input.x -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.RightArrow)) input.x += 1f;
+
             if (input.sqrMagnitude > 0.01f)
             {
                 _isMinimapPanning = false; // Cancel minimap pan on keyboard input
