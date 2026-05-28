@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Maps;
 using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
@@ -28,8 +29,6 @@ namespace TheWaningBorder.UI.Menus
     {
         public event Action OnBackPressed;
 
-        private const string GameSceneName = "Game";
-
         // Window layout
         private Rect _windowRect = new Rect(40, 40, 580, 720);
         private Vector2 _slotsScrollPos;
@@ -38,6 +37,7 @@ namespace TheWaningBorder.UI.Menus
         private LobbyTab _activeTab = LobbyTab.PlayerSetup;
 
         // Map settings
+        private int _selectedMapIndex = 0;
         private SpawnLayout _layout = GameSettings.SpawnLayout;
         private TwoSidesPreset _twoSides = GameSettings.TwoSides;
         private int _spawnSeed = GameSettings.SpawnSeed;
@@ -47,6 +47,7 @@ namespace TheWaningBorder.UI.Menus
         // Game settings
         private bool _maxResources = GameSettings.MaxStartingResources;
         private bool _crystalCurse = GameSettings.CrystalCurseEnabled;
+        private SkirmishStartAge _startAge = GameSettings.StartAge;
         private bool _sandbox = false;
         private bool _isObserver = false;
 
@@ -80,12 +81,14 @@ namespace TheWaningBorder.UI.Menus
         void OnEnable()
         {
             // Sync settings when entering lobby
+            _selectedMapIndex = MapRegistry.IndexOf(GameSettings.SelectedMapScene);
             _layout = GameSettings.SpawnLayout;
             _twoSides = GameSettings.TwoSides;
             // Randomize seed each time the lobby opens so every game is different
             _spawnSeed = UnityEngine.Random.Range(1, 99999);
             _fogOfWar = GameSettings.FogOfWarEnabled;
             _mapHalfSize = Mathf.Clamp(GameSettings.MapHalfSize, 64, 512);
+            _startAge = GameSettings.StartAge;
 
             // Reset modes
             _sandbox = false;
@@ -269,6 +272,37 @@ namespace TheWaningBorder.UI.Menus
 
         private void DrawMapSetupTab()
         {
+            // Map selection
+            GUILayout.Label("<b>Map</b>", _headerStyle);
+            var maps = MapRegistry.Maps;
+            for (int i = 0; i < maps.Count; i++)
+            {
+                bool isSelected = (i == _selectedMapIndex);
+                string label = isSelected
+                    ? $" ◆ {maps[i].DisplayName}"
+                    : $"   {maps[i].DisplayName}";
+                if (GUILayout.Toggle(isSelected, label, "Button"))
+                    _selectedMapIndex = i;
+            }
+
+            // Procedural-map settings only matter for the procedural map.
+            // Hand-authored maps ship with baked terrain and use marker-
+            // driven spawn positions, so the layout / seed / size controls
+            // below are inert and we dim them.
+            bool isProcedural = maps[_selectedMapIndex].IsProcedural;
+            if (!isProcedural)
+            {
+                GUILayout.Space(6);
+                GUILayout.Label(
+                    "<i>This is a hand-authored map. Spawn layout, seed, " +
+                    "and map size below are ignored — markers in the scene " +
+                    "drive player / resource / curse placement.</i>",
+                    _headerStyle);
+            }
+            GUILayout.Space(10);
+
+            GUI.enabled = isProcedural;
+
             // Spawn layout
             GUILayout.Label("<b>Spawn Layout</b>", _headerStyle);
             GUILayout.BeginHorizontal();
@@ -313,6 +347,8 @@ namespace TheWaningBorder.UI.Menus
             if (GUILayout.Button(" + ", GUILayout.Width(40)))
                 _mapHalfSize = Mathf.Min(512, _mapHalfSize + 16);
             GUILayout.EndHorizontal();
+
+            GUI.enabled = true;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -375,6 +411,39 @@ namespace TheWaningBorder.UI.Menus
                 : " Normal (400 Supplies, 150 Iron)");
             if (_sandbox) _maxResources = true;
             GUI.enabled = true;
+
+            GUILayout.Space(10);
+
+            // Start Age — pre-promotes every faction (human + AI) to the
+            // chosen age. Past Age 0 every faction becomes Alanthor with
+            // a level-matched Hall + Temple of Ridan and one random choice
+            // building (Shrine / Vault / Keep) placed nearby. Resources
+            // are stocked proportional to the chosen age. AIs jump
+            // straight into the post-build maintenance loop.
+            GUILayout.Label("<b>Start Age</b>", _headerStyle);
+            GUILayout.BeginHorizontal();
+            string[] ageLabels =
+            {
+                " Age 0 ",        // default
+                " Age 1 (Al) ",   // Alanthor L1
+                " Age 2 (Al) ",   // Alanthor L2
+                " Age 3 (Al) ",   // Alanthor L3
+            };
+            int ageIdx = (int)_startAge;
+            int newAgeIdx = GUILayout.SelectionGrid(ageIdx, ageLabels, 4, "Button");
+            if (newAgeIdx != ageIdx) _startAge = (SkirmishStartAge)newAgeIdx;
+            GUILayout.EndHorizontal();
+            // Inline hint for the picked option so the player knows what they
+            // get without consulting docs.
+            string ageHint = _startAge switch
+            {
+                SkirmishStartAge.Age0 => "  Default — Hall + 3 builders, no age-up.",
+                SkirmishStartAge.Age1 => "  Alanthor L1 — Temple L1 + 1 random choice building. +200 supplies, +50 iron.",
+                SkirmishStartAge.Age2 => "  Alanthor L2 — Temple L2 + 1 random choice building. +500/150/50 (sup/iron/crystal).",
+                SkirmishStartAge.Age3 => "  Alanthor L3 — Temple L3 + 1 random choice building. +1000/300/100/30 (sup/iron/crystal/veilsteel).",
+                _ => string.Empty,
+            };
+            GUILayout.Label(ageHint);
 
             GUILayout.Space(10);
 
@@ -658,6 +727,8 @@ namespace TheWaningBorder.UI.Menus
         private void StartGame()
         {
             // Apply settings
+            var selectedMap = MapRegistry.Maps[_selectedMapIndex];
+            GameSettings.SelectedMapScene = selectedMap.SceneName;
             GameSettings.SpawnLayout = _layout;
             GameSettings.TwoSides = _twoSides;
             GameSettings.SpawnSeed = _spawnSeed;
@@ -666,6 +737,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.MaxStartingResources = _maxResources;
             GameSettings.CrystalCurseEnabled = _crystalCurse;
             GameSettings.IsObserver = _isObserver;
+            GameSettings.StartAge = _startAge;
 
             if (_sandbox)
                 GameSettings.Mode = GameMode.Sandbox;
@@ -716,7 +788,7 @@ namespace TheWaningBorder.UI.Menus
 
             _error = null;
 
-            LoadingScreen.Show(GameSceneName);
+            LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
         /// <summary>

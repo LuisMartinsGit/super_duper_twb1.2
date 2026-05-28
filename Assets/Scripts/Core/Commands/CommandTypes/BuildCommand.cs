@@ -90,12 +90,12 @@ namespace TheWaningBorder.Core.Commands.Types
             float2 newMax = new float2(position.x + halfW, position.z + halfH);
 
             // 0. Map-bounds check — the building's footprint must fit entirely
-            //    inside the world rectangle. Without this, Gatherer's Huts
-            //    placed near the edge could pull their footprint off the map,
-            //    the income system would only sample the in-bounds cells of
-            //    the gather circle, and the resulting passable-cell ratio
-            //    would read as ~100% even though half the circle was empty
-            //    void outside the playable area.
+            //    inside the world rectangle. Bounds source priority:
+            //      1. ProceduralTerrain.Instance (procedural maps)
+            //      2. Unity Terrain.activeTerrain (hand-authored maps —
+            //         MapMagic terrain may sit at non-origin coords)
+            //      3. ±GameSettings.MapHalfSize box (early bootstrap / flat
+            //         test map fallback)
             var terrain = ProceduralTerrain.Instance;
             if (terrain != null)
             {
@@ -105,13 +105,22 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             else
             {
-                // Fallback when ProceduralTerrain hasn't published itself
-                // yet (e.g. early bootstrap / flat-test map). Use the
-                // GameSettings half-size as a symmetric bound around origin.
-                float half = GameSettings.MapHalfSize;
-                if (newMin.x < -half || newMin.y < -half ||
-                    newMax.x >  half || newMax.y >  half)
-                    return false;
+                var ut = UnityEngine.Terrain.activeTerrain;
+                if (ut != null && ut.terrainData != null)
+                {
+                    var origin = ut.transform.position;
+                    var size = ut.terrainData.size;
+                    if (newMin.x < origin.x || newMin.y < origin.z ||
+                        newMax.x > origin.x + size.x || newMax.y > origin.z + size.z)
+                        return false;
+                }
+                else
+                {
+                    float half = GameSettings.MapHalfSize;
+                    if (newMin.x < -half || newMin.y < -half ||
+                        newMax.x >  half || newMax.y >  half)
+                        return false;
+                }
             }
 
             // 1. Building overlap check (AABB-vs-AABB on XZ plane)

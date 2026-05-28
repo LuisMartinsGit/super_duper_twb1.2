@@ -20,6 +20,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Economy;
 using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Crystal
@@ -212,8 +213,18 @@ namespace TheWaningBorder.Systems.Crystal
                     completeCultures[i],
                     newOwner);
 
-                GlowPickup.Create(em, completePositions[i], RitualKind.Conversion,
-                    ConversionGlowYield);
+                // Secondary curse-location main nodes yield 1 RP directly to the
+                // converting faction instead of dropping a Glow pickup.
+                bool isSecondary = em.HasComponent<SecondaryCurseLocationTag>(node);
+                if (isSecondary)
+                {
+                    FactionReligionPointsHelper.Refund(em, newOwner, 1);
+                }
+                else
+                {
+                    GlowPickup.Create(em, completePositions[i], RitualKind.Conversion,
+                        ConversionGlowYield);
+                }
 
                 if (em.HasComponent<RitualState>(acolyte))       em.RemoveComponent<RitualState>(acolyte);
                 if (em.HasComponent<ConvertNodeCommand>(acolyte)) em.RemoveComponent<ConvertNodeCommand>(acolyte);
@@ -223,8 +234,9 @@ namespace TheWaningBorder.Systems.Crystal
                 // were attacking the ritual flip to the new owner's faction.
                 int flipped = FlipNearbyCurseDefenders(em, completePositions[i], newOwner);
 
-                Debug.Log($"[Conversion] complete — node converted by {newOwner}, " +
-                          $"{flipped} curse defenders flipped, Glow pickup spawned");
+                Debug.Log(isSecondary
+                    ? $"[Conversion] secondary node converted by {newOwner} — +1 RP, {flipped} defenders flipped"
+                    : $"[Conversion] complete — node converted by {newOwner}, {flipped} curse defenders flipped, Glow pickup spawned");
             }
 
             // Apply cancellations.

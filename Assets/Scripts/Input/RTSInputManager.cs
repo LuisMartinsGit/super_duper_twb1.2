@@ -476,16 +476,10 @@ namespace TheWaningBorder.Input
 
                 case TargetType.Ground:
                 default:
-                    // If miners are selected and click is near a deposit, gather instead of move
-                    if (capabilities.CanGather)
-                    {
-                        Entity nearbyDeposit = FindNearestResourceNearClick(clickWorld);
-                        if (nearbyDeposit != Entity.Null)
-                        {
-                            IssueGatherCommands(nearbyDeposit);
-                            break;
-                        }
-                    }
+                    // Ground clicks are always moves. Gather requires clicking
+                    // the deposit entity itself (handled by TargetType.Resource);
+                    // snapping nearby ground clicks to a gather order would make
+                    // it impossible to move workers to positions near a node.
                     IssueFormationMove(clickWorld);
                     break;
             }
@@ -1468,29 +1462,6 @@ namespace TheWaningBorder.Input
 
             ents.Dispose();
             return nearest;
-        }
-
-        /// <summary>
-        /// Searches for the nearest non-depleted resource deposit (iron mine or cadaver)
-        /// near the click position. Uses the first selected miner's LineOfSight radius
-        /// as the search range, or 30 units as a fallback.
-        /// </summary>
-        private Entity FindNearestResourceNearClick(float3 clickPos)
-        {
-            // Determine search radius from the first selected miner's LOS
-            float searchRadius = 30f;
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-                if (!_em.HasComponent<MinerTag>(e)) continue;
-
-                if (_em.HasComponent<LineOfSight>(e))
-                    searchRadius = _em.GetComponentData<LineOfSight>(e).Radius;
-                break;
-            }
-
-            return GatherCommandHelper.FindNearestDepositNearPosition(_em, clickPos, searchRadius);
         }
 
         // ═══════════════════════════════════════════════════════════════════════

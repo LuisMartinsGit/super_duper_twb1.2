@@ -1,0 +1,16 @@
+{
+  "id": "task-glow-once-per-node-gate-094",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T16:25:00Z",
+  "updatedAt": "2026-05-20T16:25:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §B.1 — Overview.md mandates Glow drops once per node (first state change only), but GlowFlowSystem has no per-node flag enforcing this. Re-conversion / re-cleanse would re-drop Glow under the current pipeline.",
+      "timestamp": "2026-05-20T16:25:00Z"
+    }
+  ]
+}

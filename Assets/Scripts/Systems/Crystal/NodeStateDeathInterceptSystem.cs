@@ -114,13 +114,19 @@ namespace TheWaningBorder.Systems.Crystal
                     victory.LastDestroyerCulture = killerCulture;
                 }
 
+                // Secondary curse nodes (born from over-grown resource patches)
+                // don't trigger the Feraldis Violent Extraction reward — their
+                // payout is a flat +1 RP to the killer, granted by
+                // CrystalDeathDropSystem when the entity actually dies.
+                bool isSecondary = EntityManager.HasComponent<SecondaryCurseLocationTag>(node);
+
                 // Feraldis Violent Extraction (spec §5.3): when the killing
                 // blow came from a Feraldis-aligned faction, the node erupts
                 // in a final massive curse wave + drops a Glow pickup. Other
                 // factions that bring a node to 0 HP still cause Destroyed
                 // (state machine is symmetric) but do NOT trigger the
                 // extraction reward — they didn't perform the ritual.
-                if (killerCulture == Cultures.Feraldis)
+                if (killerCulture == Cultures.Feraldis && !isSecondary)
                 {
                     SpawnFinalCurseWave(dyingPositions[i], killer);
                     GlowPickup.Create(EntityManager, dyingPositions[i],

@@ -151,6 +151,14 @@ public static class CultureConfig
     }
 
     /// <summary>
+    /// True if the culture is currently locked behind a "Coming Soon"
+    /// gate and cannot be adopted by the player. Single source of truth
+    /// for the IMGUI popup, the web HUD overlay, and the age-up guards.
+    /// </summary>
+    public static bool IsComingSoon(byte culture)
+        => culture == Cultures.Runai || culture == Cultures.Feraldis;
+
+    /// <summary>
     /// Get description for a culture.
     /// </summary>
     public static string GetDescription(byte culture)

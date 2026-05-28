@@ -4,9 +4,11 @@
 // Each segment spawns multiple small wall instances that block the passability grid.
 // Instances can be upgraded to towers (ranged attack) or gates (friendly-only passage).
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -132,6 +134,15 @@ namespace TheWaningBorder.Entities
             // Buffer for child instances
             em.AddBuffer<WallInstanceRef>(entity);
 
+            // task-109 Phase 4 / AD-5: segments must carry NetworkedEntity so
+            // lockstep payloads (Phase 6 Convert-to-Gate) can address them via
+            // the per-tick partitioned NetworkIdGenerator slot range.
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             // Update hub connection buffers
             if (em.HasBuffer<WallHubLink>(hubA))
             {
@@ -236,7 +247,105 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
+            // task-109 Phase 4 / AD-5: instances must carry NetworkedEntity so
+            // lockstep payloads (Phase 6 Convert-to-Gate focus instance) can
+            // resolve them across peers.
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             return entity;
+        }
+
+        /// <summary>
+        /// True if <paramref name="hubA"/> already has a <c>WallHubLink</c> entry
+        /// referencing <paramref name="hubB"/>. O(N) on the link-buffer length
+        /// (typically &lt; 8 per hub). Used by <c>WallAutoSegmentSystem</c> to
+        /// skip already-connected pairs and avoid duplicate segment formation.
+        /// </summary>
+        public static bool AreHubsConnected(EntityManager em, Entity hubA, Entity hubB)
+        {
+            if (!em.Exists(hubA) || !em.Exists(hubB)) return false;
+            if (!em.HasBuffer<WallHubLink>(hubA)) return false;
+            var links = em.GetBuffer<WallHubLink>(hubA);
+            for (int i = 0; i < links.Length; i++)
+            {
+                if (links[i].ConnectedHub == hubB) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Pick up to 5 contiguous wall instances along the segment, centred
+        /// on the <paramref name="focusInstance"/>. If
+        /// <paramref name="focusInstance"/> is <c>Entity.Null</c> OR not
+        /// present in the segment's <see cref="WallInstanceRef"/> buffer,
+        /// the segment midpoint is used as the centre. If the segment has
+        /// fewer than 5 instances, every live instance is returned
+        /// (cap-at-segment-length per task-109 Phase 1 / R5 — "short-segment
+        /// gates allowed").
+        ///
+        /// Caller owns the returned <see cref="NativeList{T}"/> and must
+        /// <c>Dispose</c> it. The list is populated with at most 5 entries.
+        /// Empty if the segment has no live instances or no
+        /// <c>WallInstanceRef</c> buffer.
+        ///
+        /// (task-109 phase 5)
+        /// </summary>
+        public static NativeList<Entity> PickGateRegionInstances(
+            EntityManager em,
+            Entity segment,
+            Entity focusInstance,
+            Allocator allocator)
+        {
+            var result = new NativeList<Entity>(5, allocator);
+
+            if (!em.Exists(segment) || !em.HasBuffer<WallInstanceRef>(segment))
+                return result;
+
+            var refs = em.GetBuffer<WallInstanceRef>(segment);
+            if (refs.Length == 0) return result;
+
+            // Resolve focus index. Default = midpoint of buffer.
+            int focusIdx = refs.Length / 2;
+            if (focusInstance != Entity.Null)
+            {
+                for (int i = 0; i < refs.Length; i++)
+                {
+                    if (refs[i].Instance == focusInstance)
+                    {
+                        focusIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // Short segment: return every live instance unconditionally
+            // (cap-at-segment-length per R5).
+            if (refs.Length <= 5)
+            {
+                for (int i = 0; i < refs.Length; i++)
+                {
+                    if (em.Exists(refs[i].Instance))
+                        result.Add(refs[i].Instance);
+                }
+                return result;
+            }
+
+            // Long segment: pick a 5-wide window centred on focusIdx, then
+            // re-anchor against either boundary so the window stays valid.
+            int lo = math.max(0, focusIdx - 2);
+            int hi = math.min(refs.Length - 1, lo + 4);
+            lo = math.max(0, hi - 4); // re-anchor if hi clamped
+
+            for (int i = lo; i <= hi; i++)
+            {
+                if (em.Exists(refs[i].Instance))
+                    result.Add(refs[i].Instance);
+            }
+            return result;
         }
     }
 }

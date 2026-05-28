@@ -82,6 +82,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),       // map vision so the AI can see what to attack
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
@@ -96,6 +97,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout", optional: true),  // second scout once economy is stable
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -108,6 +110,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),       // map vision before military commitment
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
@@ -127,6 +130,13 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout", optional: true),
+            // Commit the standing army at least once after age-up so the AI
+            // isn't a passive sandbag in a demo. The maintenance loop in
+            // SimpleAISystem takes over from here and keeps pushing waves.
+            BuildOrderStep.Train("Swordsman"),
+            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.LaunchAttack(2),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -140,6 +150,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),       // map vision while economy ramps
             BuildOrderStep.SetCrystalTarget(2),  // start crystal early — techs need it
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
@@ -163,6 +174,11 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            // Commit the upgraded army post-age-up so the tech investment
+            // actually shows up on the map. Maintenance loop continues
+            // pushing waves after this final step.
+            BuildOrderStep.Train("Swordsman"),
+            BuildOrderStep.LaunchAttack(2),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -179,6 +195,7 @@ namespace TheWaningBorder.AI
         {
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),         // find the enemy before sending the rush
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train("Swordsman"),    // Wave #1 (1 battalion)
@@ -223,6 +240,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),       // warn of incoming pressure
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
@@ -244,6 +262,11 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Litharch"),
             BuildOrderStep.Train("Litharch"),
             BuildOrderStep.AgeUpStep(),
+            // Turtle is defensive but still has a standing army — push it
+            // out at least once. Maintenance loop keeps the pressure on.
+            BuildOrderStep.Train("Swordsman"),
+            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.LaunchAttack(2),
         };
 
         // ─────────────────────────────────────────────────────────────────
@@ -256,6 +279,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            BuildOrderStep.Train("Scout"),       // map awareness before turtling
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
@@ -278,6 +302,12 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
             BuildOrderStep.Train("Builder"),
+            // Commit the Drilled+Armoured standing army at least once so the
+            // tech upgrades are visible on the map. Maintenance loop keeps
+            // sending fresh waves after this.
+            BuildOrderStep.Train("Swordsman"),
+            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.LaunchAttack(2),
         };
 
         /// <summary>
@@ -299,23 +329,30 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Maps a strategy to its preferred Age-2 culture. The SimpleAISystem
         /// passes this as the AgeUpState.Culture when it triggers age-up.
+        ///
+        /// DEMO BUILD: only Alanthor is shipping, so every strategy forces
+        /// Alanthor regardless of the random seed. The per-strategy branching
+        /// (Runai for TechBoom, Feraldis for Rush/Defensive, etc.) is kept as
+        /// commented reference for the post-demo restore.
         /// </summary>
-        public static byte CultureFor(AIStrategy strategy, uint randomSeed) => strategy switch
-        {
-            AIStrategy.EcoBoom    => (randomSeed & 1) == 0 ? Cultures.Runai : Cultures.Alanthor,
-            AIStrategy.Aggressive => CulturePicks[randomSeed % 3], // Balanced → random
-            AIStrategy.TechRush   => Cultures.Runai,               // TechBoom → Runai
-            AIStrategy.Rush       => Cultures.Feraldis,
-            AIStrategy.Defensive  => Cultures.Feraldis,
-            AIStrategy.Turtle     => Cultures.Alanthor,
-            _                     => Cultures.Runai,
-        };
+        public static byte CultureFor(AIStrategy strategy, uint randomSeed) => Cultures.Alanthor;
 
-        private static readonly byte[] CulturePicks =
-        {
-            Cultures.Runai,
-            Cultures.Alanthor,
-            Cultures.Feraldis,
-        };
+        // Post-demo: restore per-strategy culture selection.
+        // public static byte CultureFor(AIStrategy strategy, uint randomSeed) => strategy switch
+        // {
+        //     AIStrategy.EcoBoom    => (randomSeed & 1) == 0 ? Cultures.Runai : Cultures.Alanthor,
+        //     AIStrategy.Aggressive => CulturePicks[randomSeed % 3],
+        //     AIStrategy.TechRush   => Cultures.Runai,
+        //     AIStrategy.Rush       => Cultures.Feraldis,
+        //     AIStrategy.Defensive  => Cultures.Feraldis,
+        //     AIStrategy.Turtle     => Cultures.Alanthor,
+        //     _                     => Cultures.Runai,
+        // };
+        // private static readonly byte[] CulturePicks =
+        // {
+        //     Cultures.Runai,
+        //     Cultures.Alanthor,
+        //     Cultures.Feraldis,
+        // };
     }
 }

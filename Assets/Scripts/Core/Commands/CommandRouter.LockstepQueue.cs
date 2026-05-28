@@ -279,6 +279,79 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        // The HutConversionTarget byte enum packs into the existing int
+        // TargetEntityId field (0=None, 1=WallHub, 2=WatchTower). No schema
+        // change — ints round-trip exactly on serialize/deserialize.
+        // (task-109 phase 2 / AD-2)
+        private static void QueueConvertHutForLockstep(EntityManager em, Entity hut, HutConversionTarget target)
+        {
+            int hutId = GetNetworkId(em, hut);
+            if (hutId <= 0)
+            {
+                ConvertHutCommandHelper.Execute(em, hut, target);
+                return;
+            }
+
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.ConvertHut,
+                EntityNetworkId = hutId,
+                TargetEntityId = (int)(byte)target,
+            });
+        }
+
+        // task-109 phase 6: segment-id rides in EntityNetworkId and the
+        // optional focus-instance network id rides in TargetEntityId
+        // (0 = no focus, use the segment midpoint). Both fields are int —
+        // no schema change. Segments and instances both carry NetworkedEntity
+        // (added in AlanthorWall.CreateSegment / CreateInstance, Phase 4).
+        private static void QueueConvertSegmentToGateForLockstep(EntityManager em, Entity segment, Entity focusInstance)
+        {
+            int segId = GetNetworkId(em, segment);
+            if (segId <= 0)
+            {
+                // No network identity — singleplayer / pre-lockstep path.
+                ConvertSegmentToGateCommandHelper.Execute(em, segment, focusInstance);
+                return;
+            }
+
+            int focusId = focusInstance != Entity.Null
+                ? GetNetworkId(em, focusInstance)
+                : 0;
+            // focusId < 0 means the instance lacks a NetworkedEntity (older
+            // bootstrap path); pass 0 to fall back to the segment midpoint
+            // on the executing peer rather than scarier behaviour.
+            if (focusId < 0) focusId = 0;
+
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.ConvertSegmentToGate,
+                EntityNetworkId = segId,
+                TargetEntityId = focusId,
+            });
+        }
+
+        // The slot index rides in the existing int TargetEntityId field —
+        // there is no float-format risk in the Serialize/Deserialize path
+        // (ints round-trip exactly) and no schema bump is needed.
+        private static void QueueCancelTrainForLockstep(EntityManager em, Entity building, int slotIndex)
+        {
+            int buildingId = GetNetworkId(em, building);
+
+            if (buildingId <= 0)
+            {
+                CancelTrainCommandHelper.Execute(em, building, slotIndex);
+                return;
+            }
+
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.CancelTrain,
+                EntityNetworkId = buildingId,
+                TargetEntityId = slotIndex,
+            });
+        }
+
         private static void QueueAbilityForLockstep(EntityManager em, Entity unit, Entity target)
         {
             int unitId = GetNetworkId(em, unit);

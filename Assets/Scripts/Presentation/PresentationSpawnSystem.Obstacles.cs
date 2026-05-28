@@ -107,52 +107,86 @@ public partial class PresentationSpawnSystem
         return root;
     }
 
-    // Cached prefab — loaded once per session. Resources.Load is cheap on
-    // subsequent calls but holding the reference avoids the dictionary
-    // lookup per spawn.
-    private static GameObject _ironDepositPrefab;
+    // NV3D Shatter Stone (Metal Ores) wrapper prefabs — same pattern as the
+    // cadaver crystals: variants of MetalOre_3a/3b with Rigidbody/SphereCollider
+    // stripped, OreNode swapped to CadaverOreNode (reused — the subclass is
+    // generic to any Shatter Stone mineable), drops/respawn off. Loaded
+    // lazily on first iron-deposit spawn.
+    private static GameObject[] _ironDepositPrefabs;
+    private static readonly string[] IronDepositPrefabPaths =
+    {
+        "Prefabs/Iron/P_IronDeposit_3a",
+        "Prefabs/Iron/P_IronDeposit_3b",
+    };
+
+    /// <summary>Visual size multiplier applied on top of the ECS scale.</summary>
+    private const float IronDepositVisualBaseScale = 3f;
 
     /// <summary>
-    /// Spawn an iron deposit GameObject from the authored prefab at
-    /// Resources/Prefabs/Nature/IronDeposit, scaled +30 % from the prefab's
-    /// authored size. The prefab is the canonical visual now — the older
-    /// procedural sphere-cluster fallback runs only when the prefab is
-    /// missing from the build.
+    /// Spawn an iron deposit GameObject using one of the Shatter Stone
+    /// MetalOre prefab variants (3a / 3b). Variant is keyed on entity.Index
+    /// so it's deterministic across networked clients. The animator handles
+    /// the depletion shatter via the death-handoff in
+    /// PresentationSpawnSystem.CleanupDestroyedEntities. Falls back to the
+    /// legacy procedural mesh only if the Resources prefabs aren't found.
     /// </summary>
     private GameObject CreateProceduralIronDeposit(Vector3 center, Entity entity)
     {
-        if (_ironDepositPrefab == null)
-            _ironDepositPrefab = Resources.Load<GameObject>("Prefabs/Nature/IronDeposit");
+        if (_ironDepositPrefabs == null)
+        {
+            _ironDepositPrefabs = new GameObject[IronDepositPrefabPaths.Length];
+            for (int i = 0; i < IronDepositPrefabPaths.Length; i++)
+                _ironDepositPrefabs[i] = Resources.Load<GameObject>(IronDepositPrefabPaths[i]);
+        }
+
+        int variantIdx = Mathf.Abs(entity.Index) % _ironDepositPrefabs.Length;
+        var prefab = _ironDepositPrefabs[variantIdx];
 
         GameObject root;
-        if (_ironDepositPrefab != null)
+        if (prefab != null)
         {
-            root = Instantiate(_ironDepositPrefab, center, Quaternion.Euler(0f, (entity.Index * 47) % 360f, 0f));
+            // Randomise yaw per-deposit (kept from the previous procedural
+            // path) so adjacent deposits don't look stamped.
+            var rot = Quaternion.Euler(0f, (entity.Index * 47) % 360f, 0f);
+            root = Instantiate(prefab, center, rot);
             root.name = $"IronDeposit_{entity.Index}";
-            // +30 % over the prefab's authored scale.
-            root.transform.localScale *= 1.3f;
-
-            // Ensure a collider so units physically stop. The authored
-            // prefab may or may not have one — add a capsule sized to the
-            // deposit's grounded bounds if missing.
-            if (root.GetComponentInChildren<Collider>() == null)
-            {
-                var caps = root.AddComponent<CapsuleCollider>();
-                caps.radius = 1.0f * 1.3f;
-                caps.height = 2.0f * 1.3f;
-                caps.center = Vector3.up * 1f;
-            }
         }
         else
         {
-            // Fallback: original procedural sphere cluster, kept so missing
-            // prefab still renders SOMETHING rather than an empty deposit.
+            // Resources prefab missing — fall back so the deposit still
+            // renders something rather than nothing.
             root = CreateLegacyIronDepositMesh(center, entity);
         }
 
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
+        AttachIronSelectionAndAnimator(root, entity);
         return root;
+    }
+
+    private static void AttachIronSelectionAndAnimator(GameObject root, Entity entity)
+    {
+        // SyncTransforms multiplies LocalTransform.Scale by BaseScale, so
+        // the visual ends up at IronDepositVisualBaseScale × ECS scale.
+        var scaleTag = root.GetComponent<ProceduralScaleTag>();
+        if (scaleTag == null) scaleTag = root.AddComponent<ProceduralScaleTag>();
+        scaleTag.BaseScale = IronDepositVisualBaseScale;
+
+        // BoxCollider sized in WORLD units (3×2×3, centred y=1) — matches the
+        // legacy procedural deposit's footprint. The root's localScale
+        // applies on top, so we divide by BaseScale to get the intended
+        // world-space dimensions after scaling.
+        var boxCol = root.GetComponent<BoxCollider>();
+        if (boxCol == null) boxCol = root.AddComponent<BoxCollider>();
+        boxCol.size   = new Vector3(3f, 2f, 3f) / IronDepositVisualBaseScale;
+        boxCol.center = new Vector3(0f, 1f, 0f) / IronDepositVisualBaseScale;
+
+        var entityRef = root.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        // Reuse CadaverCrystalAnimator — it's generic to any OreNode-backed
+        // visual: no per-tick work, just fires Shatter() on death-handoff.
+        var anim = root.GetComponent<CadaverCrystalAnimator>();
+        if (anim == null) anim = root.AddComponent<CadaverCrystalAnimator>();
     }
 
     // Legacy procedural sphere-cluster — kept only as fallback if the

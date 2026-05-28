@@ -339,6 +339,9 @@ namespace TheWaningBorder.UI.Menus
                 ("Wall Siege (Walls vs Siege)", ScenarioType.WallSiege),
                 ("Sect Showcase (12 Sect Abilities)", ScenarioType.SectShowcase),
                 ("Building Showcase (every culture)", ScenarioType.BuildingShowcase),
+                ("Crystal Curse Combat Test", ScenarioType.CurseCombatTest),
+                ("Patrol Defense (6 Veilstingers vs Wave)", ScenarioType.PatrolDefense),
+                ("Alanthor vs Crystal Horde (6 batt. vs 50)", ScenarioType.AlanthorVsCrystal),
             };
 
             float contentH = (ButtonHeight + ButtonSpacing) * scenarios.Length;

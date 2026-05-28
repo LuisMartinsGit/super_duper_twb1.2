@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 42aeec0c5a8c695459beb18ec5387dc5
+VisualEffectImporter:
+  externalObjects: {}
+  serializedVersion: 1
+  template:
+    name: 
+    category: 
+    description: 
+    icon: {instanceID: 0}
+    thumbnail: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Beams & Energy/Visual Effects/UNI_ScorchingLance.vfx
+  uploadId: 855178

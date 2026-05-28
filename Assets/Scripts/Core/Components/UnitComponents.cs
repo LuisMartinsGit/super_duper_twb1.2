@@ -92,6 +92,21 @@ public struct CanBuild : IComponentData
 /// <summary>Marker tag for Archer units.</summary>
 public struct ArcherTag : IComponentData { }
 
+/// <summary>
+/// Marker tag for Crossbowman units (Era 1 Archery Range L2 tier — high damage,
+/// short range, slow rate of fire). Reuses ArcherState for the ranged combat
+/// state machine; the tag distinguishes them from baseline Archers for
+/// selection / extractor / population queries.
+/// </summary>
+public struct CrossbowmanTag : IComponentData { }
+
+/// <summary>
+/// Marker tag for Longbowman units (Era 1 Archery Range L3 tier — very long
+/// range and damage, very slow rate of fire). Reuses ArcherState for the
+/// ranged combat state machine.
+/// </summary>
+public struct LongbowmanTag : IComponentData { }
+
 /// <summary>Marker tag for Berserker units (converted from miners at Fiendstone Keep).</summary>
 public struct BerserkerTag : IComponentData { }
 
@@ -158,6 +173,10 @@ public struct MinerState : IComponentData
     public MinerWorkState State;     // Current work state
     public byte GatheringResource;   // 0=Iron, 1=Crystal
     public Entity DropoffTarget;     // Hall/GathererHut to return crystal to
+
+    // Last known position of a depleted node — used to auto-find a same-type
+    // replacement within AutoFindRadius after the original entity is destroyed.
+    public float3 LastDepositPos;
 
     // ---- Tech-modified stats ----
     /// <summary>

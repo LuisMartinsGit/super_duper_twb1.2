@@ -91,14 +91,20 @@ namespace TheWaningBorder.Core.Config
         public const int VeilstingerPresentationID = 321;
 
         // ==================== Godsplinter (Unit) ====================
+        // Godsplinter is now a long-range arcing siege bombardier:
+        // very long range (>2× Veilstinger's 24 m), high parabolic arc,
+        // single AOE-splash projectile per shot, slow rate of fire.
         public const float GodsplinterHP = 1440f;   // +20% from 1200
         public const float GodsplinterSpeed = 1.8f;
-        public const float GodsplinterDamage = 40f;
-        public const float GodsplinterLoS = 20f;
+        public const float GodsplinterDamage = 80f;  // single big shot, doubled from 40
+        public const float GodsplinterLoS = 60f;     // can see as far as it can shoot
         public const float GodsplinterRadius = 1.5f;
         public const float GodsplinterSiegeRange = 4f;
-        public const float GodsplinterLaserRange = 22f;
-        public const int GodsplinterLaserMaxTargets = 4;
+        public const float GodsplinterLaserRange = 60f;     // >2× Veilstinger MaxRange (24)
+        public const int   GodsplinterLaserMaxTargets = 1;  // single arcing AOE shot
+        public const float GodsplinterAoeRadius = 6f;       // splash damage radius on impact
+        public const float GodsplinterFireCooldown = 5.0f;  // slow cadence (was 2.0)
+        public const float GodsplinterArcFraction = 0.3f;   // shot peaks at ~30 % of horizontal distance
         public const int GodsplinterBuildCost = 500;
         public const int GodsplinterPresentationID = 322;
 

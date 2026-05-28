@@ -112,21 +112,58 @@ namespace TheWaningBorder.World.Terrain
 
         private System.Collections.IEnumerator WaitForTerrainAndBuild()
         {
-            while (ProceduralTerrain.Instance == null || !ProceduralTerrain.IsGenerationComplete)
+            // Wait for SOME terrain source to be ready — either ProceduralTerrain
+            // (procedural map) or an active Unity Terrain placed in the scene
+            // (hand-authored map; ProceduralTerrain.MarkExternalTerrainReady sets
+            // IsGenerationComplete = true in that path so the gate flips).
+            while (!ProceduralTerrain.IsGenerationComplete)
                 yield return null;
-
-            var pt = ProceduralTerrain.Instance;
 
             // Read configurable cell size (default 4 world units)
             _cellSize = GameSettings.PathfindingCellSize;
 
-            // Derive grid bounds from ProceduralTerrain world extents
-            float worldWidth = pt.worldMax.x - pt.worldMin.x;
-            float worldHeight = pt.worldMax.y - pt.worldMin.y;
+            var pt = ProceduralTerrain.Instance;
+            if (pt != null)
+            {
+                // Procedural map — bounds come from the generator.
+                float worldWidth = pt.worldMax.x - pt.worldMin.x;
+                float worldHeight = pt.worldMax.y - pt.worldMin.y;
 
-            _origin = new float3(pt.worldMin.x, 0f, pt.worldMin.y);
-            _width = Mathf.CeilToInt(worldWidth / _cellSize);
-            _height = Mathf.CeilToInt(worldHeight / _cellSize);
+                _origin = new float3(pt.worldMin.x, 0f, pt.worldMin.y);
+                _width = Mathf.CeilToInt(worldWidth / _cellSize);
+                _height = Mathf.CeilToInt(worldHeight / _cellSize);
+            }
+            else
+            {
+                // Hand-authored map — derive bounds from the active Unity
+                // Terrain (e.g. MapMagic output). Falls back to a generous
+                // ±GameSettings.MapHalfSize box if no terrain is active.
+                var ut = UnityEngine.Terrain.activeTerrain;
+                Vector3 origin;
+                Vector3 size;
+                if (ut != null && ut.terrainData != null)
+                {
+                    origin = ut.transform.position;
+                    size = ut.terrainData.size;
+                }
+                else
+                {
+                    int half = Mathf.Max(64, GameSettings.MapHalfSize);
+                    origin = new Vector3(-half, 0f, -half);
+                    size = new Vector3(half * 2f, 0f, half * 2f);
+                    Debug.LogWarning("[PassabilityGrid] no ProceduralTerrain AND no active Unity Terrain — " +
+                                     $"falling back to ±{half} box. Movement will work but the grid won't " +
+                                     "match any visible terrain.");
+                }
+
+                _origin = new float3(origin.x, 0f, origin.z);
+                _width = Mathf.CeilToInt(size.x / _cellSize);
+                _height = Mathf.CeilToInt(size.z / _cellSize);
+
+                Debug.Log($"[PassabilityGrid] non-procedural map — bounds from Unity Terrain: " +
+                          $"origin=({_origin.x:F0},{_origin.z:F0}) size=({size.x:F0}×{size.z:F0}) " +
+                          $"cells={_width}×{_height}");
+            }
 
             int totalCells = _width * _height;
             _cells = new NativeArray<byte>(totalCells, Allocator.Persistent);
@@ -342,7 +379,13 @@ namespace TheWaningBorder.World.Terrain
                     // Height fallback: if no region set exists (flat test
                     // map / legacy noise generator), keep the old elevation
                     // gate so towers and cliffs still block pathing.
-                    if (hCenter >= MountainHeight)
+                    // Skipped on hand-authored maps — ProceduralTerrain.Instance
+                    // is null there and the 24m threshold is calibrated for
+                    // the procedural map's ~30m max height. MapMagic / Unity
+                    // Terrain commonly go to 80m+, where this would wrongly
+                    // block every plateau. On those maps slope is the only
+                    // signal (and it's still applied below).
+                    if (ProceduralTerrain.Instance != null && hCenter >= MountainHeight)
                     {
                         _cells[y * _width + x] = TerrainBlocked;
                         continue;

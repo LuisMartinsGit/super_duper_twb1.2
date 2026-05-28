@@ -39,6 +39,9 @@ namespace TheWaningBorder.Core.Multiplayer
         ConvertNode = 17,        // CommandRouter.IssueConvertNode (acolyte + node)
         EquipmentUpgrade = 18,   // CommandRouter.IssueEquipmentUpgrade (faction + class + tier)
         GodPower = 19,           // CommandRouter.IssueGodPower (faction + targetPosition)
+        CancelTrain = 20,        // CommandRouter.IssueCancelTrain (building + slotIndex in TargetEntityId)
+        ConvertHut = 21,         // CommandRouter.IssueConvertHut (hut + HutConversionTarget byte in TargetEntityId)
+        ConvertSegmentToGate = 22, // CommandRouter.IssueConvertSegmentToGate (segment + focus-instance network id in TargetEntityId)
     }
 
     /// <summary>

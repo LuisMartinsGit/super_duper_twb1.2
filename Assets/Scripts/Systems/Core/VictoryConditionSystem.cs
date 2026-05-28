@@ -53,8 +53,13 @@ namespace TheWaningBorder.UI.HUD
 
             _gameStartTime = Time.time;
 
-            // Sandbox / BattalionTest mode: no victory conditions
-            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.BattalionTest)
+            // Sandbox / BattalionTest / Scenario mode: no victory conditions.
+            // Scenarios are sandboxed combat fixtures — the player should never
+            // get a victory or defeat banner just because one faction loses all
+            // its (often-zero) buildings.
+            if (GameSettings.IsSandbox
+                || GameSettings.Mode == GameMode.BattalionTest
+                || GameSettings.Mode == GameMode.Scenario)
             {
                 _initialized = false;
                 return;

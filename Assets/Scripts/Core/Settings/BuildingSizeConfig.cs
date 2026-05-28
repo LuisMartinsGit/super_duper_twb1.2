@@ -42,6 +42,7 @@ public static class BuildingSizeConfig
             "Alanthor_SiegeYard"=> new int2(3, 3),
             "KingsCourt"        => new int2(4, 4),
             "Alanthor_Crucible" => new int2(3, 3),
+            "Alanthor_RoyalStable" => new int2(3, 4),
 
             // Runai culture
             "Runai_Outpost"     => new int2(3, 3),

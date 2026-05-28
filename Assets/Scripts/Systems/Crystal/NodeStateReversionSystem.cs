@@ -46,6 +46,8 @@ namespace TheWaningBorder.Systems.Crystal
             // it after the iteration.
             var toRevert = new NativeList<Entity>(8, Allocator.Temp);
 
+            var em = EntityManager;
+
             foreach (var (stateRW, entity) in SystemAPI
                 .Query<RefRW<CrystalNodeState>>()
                 .WithAll<CrystalMainNodeTag>()
@@ -53,6 +55,15 @@ namespace TheWaningBorder.Systems.Crystal
             {
                 ref var s = ref stateRW.ValueRW;
                 if (s.State == NodeState.Active) continue;
+
+                // Secondary curse locations born from an over-grown resource patch
+                // do NOT respawn after being destroyed — they're a one-shot
+                // cleanup target, not a permanent fixture of the map.
+                if (s.State == NodeState.Destroyed
+                    && em.HasComponent<SecondaryCurseLocationTag>(entity))
+                {
+                    continue;
+                }
 
                 s.StateTimer += dt;
 

@@ -76,7 +76,8 @@ namespace TheWaningBorder.Entities
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                IsFiring = 0
+                IsFiring = 0,
+                NextGun = 0
             });
 
             // Combat type tags
@@ -139,7 +140,8 @@ namespace TheWaningBorder.Entities
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,
-                IsFiring = 0
+                IsFiring = 0,
+                NextGun = 0
             });
 
             // Combat type tags

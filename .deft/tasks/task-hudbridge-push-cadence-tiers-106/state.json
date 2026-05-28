@@ -1,0 +1,16 @@
+{
+  "id": "task-hudbridge-push-cadence-tiers-106",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:25:00Z",
+  "updatedAt": "2026-05-20T18:25:00Z",
+  "events": [
+    {
+      "type": "task_created",
+      "description": "Spun out from task-082 §D row 7 (HudBridge.Update fires 9 push helpers at 30 Hz unconditionally) + row 9 (JsonEscape per-call StringBuilder alloc). Same file, same push-path — single scope. Cross-refs task-090 for the query-consolidation half.",
+      "timestamp": "2026-05-20T18:25:00Z"
+    }
+  ]
+}

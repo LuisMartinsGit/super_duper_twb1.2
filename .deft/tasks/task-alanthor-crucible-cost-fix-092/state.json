@@ -1,0 +1,16 @@
+{
+  "id": "task-alanthor-crucible-cost-fix-092",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T16:25:00Z",
+  "updatedAt": "2026-05-20T16:25:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §B.4 — BuildCosts.cs requires 30 Veilsteel to build the Alanthor Crucible, but the Crucible is what produces Veilsteel. TechTree.json has a sane fallback (200 S + 60 I + 40 C); BuildCosts must reconcile.",
+      "timestamp": "2026-05-20T16:25:00Z"
+    }
+  ]
+}

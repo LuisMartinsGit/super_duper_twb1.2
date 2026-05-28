@@ -97,7 +97,7 @@ decisions stay relevant.
 
 | Faction | Hut transforms into… | Immediate Age-1 power-spike |
 |---------|---------------------|-----------------------------|
-| **Alanthor** | A wall-segment anchor that auto-fortifies a small radius around itself | Free pre-built wall ring around the player's base |
+| **Alanthor** | A **player-choice prompt on each hut** to convert to either a **Wall Hub** (anchors BFME2-style hub-and-segment walls with 5-instance gates) or a **Watch Tower** (stand-alone defensive tower) — see [Age_1_Alanthor.md § Wall System (BFME2 hub-and-segment)](Age_1_Alanthor.md#wall-system-bfme2-hub-and-segment) | A free conversion choice per hut — the player commits each hut's footprint to **denial of movement** (walls) or **field of view / arrow coverage** (towers) |
 | **Feraldis** | A **raider unit** that auto-patrols outward seeking targets | Roaming raiders that start generating damage-income immediately |
 | **Runai** | A **mobile caravan-wagon** the player deploys outward to plant the first trade post | Wagons output **full income while in transit** — age-up is Runai's peak income moment |
 

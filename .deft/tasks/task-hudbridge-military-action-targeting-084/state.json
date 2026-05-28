@@ -1,0 +1,23 @@
+{
+  "id": "task-hudbridge-military-action-targeting-084",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T15:45:00Z",
+  "updatedAt": "2026-05-20T15:45:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out from task-082 §A audit row. HudBridge military action buttons surface a 'use right-click' notification; surface exists but invoke path missing. Stub starts in scope stage.",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    }
+  ]
+}

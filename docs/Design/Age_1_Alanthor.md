@@ -229,27 +229,44 @@ No trainable units or tech.
 
 ---
 
-### Gatherer's Hut (Age 0 carryover) — transforms into wall-segment anchor
+### Gatherer's Hut (Age 0 carryover) — per-hut age-up choice (Wall Hub or Watch Tower)
 
-At age-up for **Alanthor**, each Gatherer's Hut **transforms in place into
-a wall-segment anchor** that auto-fortifies a small radius around itself
-(see [Overview.md § Age-up](Overview.md#age-up-transform-dont-replace)).
-This produces Alanthor's age-up power spike: **a free pre-built ring of
-walls around the player's existing footprint**, *exactly* matching wherever
-they invested in Age 0 huts. Every wall built *after* age-up costs supplies
-+ iron + builder time at the normal rate.
+> **Superseded by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The earlier "transforms into a wall-segment anchor that auto-fortifies a small radius" model is **retired**. The canonical mechanic is now the **per-hut player-choice prompt** described below; the full wall mechanic is specified in [§ Wall System (BFME2 hub-and-segment)](#wall-system-bfme2-hub-and-segment).
 
-The anchor is the seed of the Alanthor wall-economy mechanic — supplies
-generate from **closed compartments** ([§ Culture identity](#culture-identity)).
-A solo hut-anchor doesn't enclose anything on its own; the player must
-connect it with `Alanthor_Wall` segments to start earning. The pre-built
-auto-fortify radius gives the player a head start on at least one closed
-compartment near the Hall.
+At age-up for **Alanthor**, each Gatherer's Hut owned by the player gains
+a `GathererHutAgeUpChoice` marker (no automatic transformation, no
+auto-fortify radius). Selecting the hut surfaces a 2-button **Convert**
+action cluster in the ACTIONS panel:
 
-> **(spec gap)** Concrete numbers for the anchor: radius of the auto-built
-> wall ring, HP of the auto-segments (full Alanthor_Wall 900? half?
-> placeholder?), whether the segments can be deleted/rebuilt freely or are
-> locked to the anchor's footprint. Need playtest tuning.
+| Choice | Glyph | Result | Cost (supplies / iron) | Conversion time |
+|--------|-------|--------|------------------------|------------------|
+| **Convert to Wall Hub** | `castle` | Hut entity is destroyed; a fresh **Wall Hub** (`Alanthor_Wall`) is spawned at the hut's footprint. The hub immediately auto-forms segments to any other completed friendly hubs within `MaxAutoSegmentDistance` (see [§ Wall System](#wall-system-bfme2-hub-and-segment)). | **60 S + 40 I** | **5 s** |
+| **Convert to Watch Tower** | `eye` | Hut entity is destroyed; a fresh **Watch Tower** (`Alanthor_Tower`) is spawned at the hut's footprint. | **40 S + 30 I** *(discount vs the 140 S + 70 I fresh-build cost — the hut is being re-used)* | **5 s** |
+
+The conversion is **paid up-front, timed, no builder required** (matches
+the existing "instant-paid timer" pattern used elsewhere in the codebase).
+The hut continues generating its Age-0 gathering income **for the duration
+of the timer**; once the timer elapses, the hut entity is replaced by the
+chosen building.
+
+**The choice is per-hut, not faction-wide.** A typical Alanthor player ends
+up with a mix — three or four huts on the wall perimeter become Wall Hubs
+to anchor the compartment, one or two on inner / high-ground spots become
+Watch Towers for arrow coverage and far-LoS scouting.
+
+**If the player never picks** — the hut keeps the marker and continues
+generating Age-0 income indefinitely. There is **no timeout, no auto-
+default**. This is intentional: Alanthor's age-up does not force a
+re-planning beat; the player commits each hut on their own schedule.
+
+**Cancel** — once the timer starts, the conversion cannot be cancelled
+in v1 (matches the existing structure-construction model). The
+`GathererHutAgeUpChoice` marker disappears on click; the hut is in
+"converting" state until the timer elapses.
+
+**AI behaviour** — Alanthor AI in v1 does **not** convert its own huts to
+Wall Hubs (the AI wall-building path is deferred). AI huts retain their
+Age-0 gathering behaviour. See [§ Wall System / AI Behaviour](#ai-behaviour) for the rationale.
 
 ---
 
@@ -310,46 +327,24 @@ The same 4-tier per-battalion upgrade pattern as Garrison / Practice Range
 applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 **Veilstone barding** / **Glow-bonded barding**).
 
-### Alanthor Wall — `Alanthor_Wall`
+### Wall primitives (`Alanthor_Wall`, `Alanthor_WallTower`, `Alanthor_WallGate`, `Alanthor_Tower`)
+
+> **Superseded by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The four flat "build a Wall / Wall Tower / Wall Gate / Watch Tower" entries previously listed here are now organised under the canonical BFME2 hub-and-segment model. The **builder catalog** for Alanthor exposes only **two** of these directly: `Alanthor_Wall` (the **Wall Hub**) and `Alanthor_Tower` (the **Watch Tower**). `Alanthor_WallTower` and `Alanthor_WallGate` are **conversion-only**, never directly placeable — they are obtained by converting an existing wall instance / segment from its action panel. See the full spec in [§ Wall System (BFME2 hub-and-segment)](#wall-system-bfme2-hub-and-segment).
+
+### Watch Tower — `Alanthor_Tower` (canonical stat block)
 
 | Stat | Value |
 |------|-------|
-| HP | 900 |
-| LoS | 10 |
-| Defense (M/R/S/Mg) | 2 / 2 / 0 / 0 |
-| Build cost | 50 S + 20 I |
-| Role | Compartment boundary. Anchors the Alanthor economy: closed compartments earn supplies. |
-
-### Wall Tower — `Alanthor_WallTower`
-
-| Stat | Value |
-|------|-------|
-| HP | 500 |
-| LoS | 16 |
-| Defense | 2 / 3 / 0 / 0 |
-| Build cost | 60 S + 30 I |
-| Role | Wall instance upgraded to ranged tower. |
-
-### Wall Gate — `Alanthor_WallGate`
-
-| Stat | Value |
-|------|-------|
-| HP | 200 |
-| LoS | 8 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 40 S + 15 I |
-| Role | Wall instance upgraded to gate — auto-opens for friendlies. |
-
-### Watch Tower — `Alanthor_Tower`
-
-| Stat | Value |
-|------|-------|
-| HP | 950 |
+| HP | **250** |
 | LoS | **28** (longest in the Alanthor roster) |
-| Defense | 2 / 3 / 0 / 0 |
+| Defense (M/R/S/Mg) | 2 / 3 / 0 / 0 |
 | Garrison slots / arrow-fire | 4 / yes |
-| Build cost | 140 S + 70 I |
-| Role | Stand-alone defensive tower (not anchored to a wall). |
+| Build cost (fresh build via builder catalog) | 140 S + 70 I |
+| Build cost (via hut conversion — see Gatherer's Hut) | **40 S + 30 I** |
+| Conversion timer (from hut) | **5 s** |
+| Role | Stand-alone defensive tower (not anchored to a wall). The "field of view / arrow coverage" leg of the hut age-up choice. |
+
+> The earlier 950 HP value for Watch Tower is **rejected** — it overlapped the Wall Hub's defensive role and made towers tankier than walls. Watch Towers are now **soft long-range eyes** (28 LoS, 250 HP) — fragile but far-seeing.
 
 ### Siege Yard — `Alanthor_SiegeYard`
 
@@ -387,6 +382,231 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 > but you need Veilsteel to build a Crucible. Likely a code bug.
 > TechTree.json's 200 S + 60 I + 40 C cost makes more sense for the first
 > Crucible. Flag for fixing before this rule lands.
+
+---
+
+## Wall System (BFME2 hub-and-segment)
+
+> Canonicalised by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21). This is the **single canonical truth source** for the Alanthor wall mechanic. The previous "wall-segment anchor that auto-fortifies a small radius" and the per-instance "build a Wall / build a Wall Gate / build a Wall Tower" listings are retired (see the [Gatherer's Hut](#gatherers-hut-age-0-carryover--per-hut-age-up-choice-wall-hub-or-watch-tower) and [Wall primitives](#wall-primitives-alanthor_wall-alanthor_walltower-alanthor_wallgate-alanthor_tower) sections above for the superseded callouts).
+
+### Overview
+
+Alanthor walls follow the **Battle for Middle-earth II model**: the player
+places **Wall Hubs** (the only directly-buildable wall primitive), and the
+game **auto-forms segments** between any two friendly completed hubs whose
+world-space distance is below `MaxAutoSegmentDistance`. A segment is
+composed of N **wall instances** at fixed 2 m spacing (one tile each).
+**Gates** are obtained by **converting a segment** in-place: the conversion
+swaps 5 contiguous instances of the segment to gate cells (or all of them
+if the segment is shorter than 5). **Watch Towers** are a separate
+primitive — they can be built directly via the builder catalog, **or**
+obtained per-hut at age-up via the Gatherer's Hut conversion choice.
+
+This is the player-facing trade triangle:
+
+| Primitive | Built how | Role |
+|-----------|-----------|------|
+| **Wall Hub** | Directly via builder (catalog id `Alanthor_Wall`) OR via Gatherer's Hut conversion at age-up. Auto-forms segments to nearby completed hubs. | Compartment corner / wall anchor / boundary node. |
+| **Wall Segment** | **Auto-spawned** between two hubs within `MaxAutoSegmentDistance`. **Never directly placed.** | Composite entity owning the chain of instances; selectable for Convert-to-Gate / Convert-to-Tower. |
+| **Wall Instance** | **Auto-spawned** as part of a segment, one per 2 m. **Never directly placed.** | The individual 1×1-tile wall piece. Carries its own HP and presentation. |
+| **Wall Gate** | **Conversion-only** from a segment's action panel (5 contiguous instances become gate cells). **Never directly placed.** | Auto-passable for owning faction; auto-closed otherwise. |
+| **Wall Tower** | **Conversion-only** from a single wall instance's action panel. **Never directly placed.** | Ranged anti-infantry on a wall — taller LoS, garrison-fire. |
+| **Watch Tower** | Directly via builder (catalog id `Alanthor_Tower`) OR via Gatherer's Hut conversion at age-up. | Stand-alone, off-wall variant of the wall-tower idea. |
+
+> **Builder catalog contract.** Alanthor's Era-2 builder palette exposes
+> **only** `Alanthor_Wall` (rendered as "Wall Hub" with glyph `castle`)
+> and `Alanthor_Tower` (rendered as "Watch Tower" with glyph `eye`) as
+> wall-related primitives. `Alanthor_WallTower` and `Alanthor_WallGate`
+> are deliberately **omitted** from `BuildableBuildings` — a boot-time
+> assertion verifies this in code.
+
+### Wall Hub
+
+| Stat | Value |
+|------|-------|
+| HP | **400** |
+| LoS | 10 |
+| Defense (M/R/S/Mg) | 2 / 2 / 0 / 0 |
+| Build cost (direct, via builder) | **60 S + 40 I** |
+| Build cost (via hut conversion) | **60 S + 40 I** (same as direct) |
+| Conversion timer (from hut) | **5 s** |
+| Footprint | 1×1 tile (`BuildingSize` default) |
+| Construction | Requires builders, standard `AssignBuildersToConstruction` flow (direct build only — conversion path is instant-paid + timer). |
+| Hub-to-hub snap radius (`WallHubSnapDistance`) | **2 m** — placing a hub within 2 m of an existing hub reuses the existing hub instead of creating a degenerate overlapping pair. |
+| Auto-segment range (`MaxAutoSegmentDistance`) | **16 m** (8 tiles) — see [§ Wall Segment](#wall-segment). |
+| Role | The **only directly-placeable wall primitive**. Wall Hubs are the focal defensive structure: tankier than a tower, anchor for auto-formed segments, and the only way to seed a closed compartment. |
+
+> **Why 400 HP?** Hubs are the focal target of any wall siege — once a hub falls, all segments connected to it cascade-destroy (see § Hub destruction cascade). 400 HP positions the hub as roughly 2× a Watch Tower in toughness, while still well below a Hall (~2 400 HP). Concrete value finalises after playtest.
+
+### Wall Segment
+
+A wall segment is an **ECS entity in its own right** that owns a chain of
+wall-instance children. It carries no HP (its HP is the live sum of its
+instances' HP — see [§ Health bar treatment](#health-bar-treatment-segments-and-gates)), but it is the
+**selection target for the Convert-to-Gate action**.
+
+| Property | Value |
+|----------|-------|
+| Spawn rule | Auto-formed by `WallAutoSegmentSystem` (polled at **0.5 s**) when two friendly **completed** hubs are within `MaxAutoSegmentDistance` (= 16 m) and **not already connected** (via the `WallHubLink` buffer guard). |
+| Owning faction | Inherited from the two endpoint hubs (must match — auto-segments **never cross factions**). |
+| Endpoint hubs | Stored in the segment's components; segment dies if either endpoint hub dies (see § Hub destruction cascade). |
+| Selection behaviour | Clicking any **instance** of the segment resolves the selection to the **segment entity** (per [task-109 § E. Wall Network Selection](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md)). Clicking a **hub** selects the hub. |
+| Visual | Composite — rendered as the sum of its individual instance presentations. The segment entity itself has no presentation prefab. |
+| Determinism | Auto-formation iterates hub pairs in deterministic sort order (sort key: `(Entity.Index, Entity.Version)` of each endpoint) to keep lockstep clients in sync. |
+
+### Wall Instance
+
+A wall instance is the **2 m × 1 tile piece** that makes up a segment.
+Each instance is its own ECS entity with its own Health and presentation
+(presentation IDs 551 = wall, 553 = tower, 554 = gate).
+
+| Stat | Value |
+|------|-------|
+| HP | **80** |
+| LoS | 0 (inherits from the parent hub for selection-panel rollup; instances themselves do not see) |
+| Defense (M/R/S/Mg) | 2 / 2 / 0 / 0 (inherited from the hub line) |
+| Cost | **None — auto-spawned with the segment.** The player pays no per-instance cost; the gameplay cost is the hub placement itself. |
+| Spacing | **2 m** (one tile) — fixed by `AlanthorWall.InstanceSpacing`. |
+| Instance count per segment | `ceil((distance - 2 × HubInset) / 2)` — **linear with hub distance**, capped only by `MaxAutoSegmentDistance` (16 m → max 8 instances per segment). |
+| Selection behaviour | Click resolves to **parent segment**. Drag-select selects the instance individually. |
+| Conversion options | An instance can be **converted to a Wall Tower** individually (per-instance conversion). A run of 5 contiguous instances can be **converted to a Gate region** via the parent segment's action panel. |
+
+### Gate (5-instance composite)
+
+A gate is **not its own primitive** — it is a state applied to **5
+contiguous wall instances** of a segment. Conversion swaps each
+underlying instance's presentation from `551` (wall) to `554` (gate) and
+flags it with `WallGateTag`. A shared `WallGateGroup` component links the
+5 instances so they open and close in unison.
+
+| Property | Value |
+|----------|-------|
+| Width | **5 instances = 10 m** — wide enough for a battalion-formation traversal. |
+| HP (total) | **400** = 5 × 80 (computed from instances; gate is **not** a separate Health-bearing entity). |
+| Cost (single conversion) | **80 S** *flat* — single payment, not per-instance. (Resolves Open Q3: prefer flat over 5× per-instance for cost-clarity. PLAYTEST PLACEHOLDER: revisit if the gate ends up too cheap relative to a fresh wall ring.) |
+| Conversion timer | **8 s** (segment-level `WallSegmentUpgradeState`; matches the legacy per-instance gate timer from `EntityActionPanel.cs:1677`, kept canonical until playtest demands a change). |
+| Conversion builder | **None required** — conversion is instant-paid + timer, same as the hut → hub / tower flow. |
+| Short-segment behaviour | If the segment has **< 5 instances**, the gate becomes a **full-segment gate** (e.g. 3 instances → 3-cell gate). UI marks the card with an amber warning glyph: "Short segment — gate will span the full segment (N instances). Battalions wider than N may not fit." |
+| Owner-faction passability | **Always-open** for the owning faction (gate auto-opens when a friendly unit enters `WallGatePassabilitySystem.RegionDetectRadius = 6.0 m`, auto-closes when no friendlies are inside). **No manual open/close in v1.** |
+| Hostile passability | Hostiles cannot pass — the gate cells block pathing just like a wall instance when closed; the gate stays **closed for hostiles** regardless of approach distance. |
+| Region detection | All 5 gate cells share the same open/closed state via the `WallGateGroup` leader pattern — approaching from either end opens the whole region. Legacy 1-instance gates (no `WallGateGroup`) continue with the original 3.0 m radius for backward compatibility. |
+| Visual | 5 tiled `Alanthor_WallGate` (presentation 554) cells for now — a custom 5-cell wide-gate prefab can replace this later without spec churn (PLAYTEST PLACEHOLDER on visual identity). |
+
+> **Gate state UX in v1.** Gates are **always-passable for the owner**
+> when a friendly approaches; **always-closed otherwise.** There is **no
+> manual toggle button** in the action panel — the selection panel shows
+> a read-only `OPEN` / `CLOSED` pip in the eyebrow row. Manual toggle is
+> deferred (see [§ Open Items / Playtest Placeholders](#open-items--playtest-placeholders)).
+
+### Wall Tower
+
+A wall tower is **not its own primitive** — it is a state applied to a
+**single wall instance** that converts it into a ranged-attack tower
+sitting on top of the wall. (Unrelated to `Alanthor_Tower`, the stand-alone
+Watch Tower — see [§ Watch Tower](#watch-tower) below.)
+
+| Stat | Value |
+|------|-------|
+| HP | **500** (the converted instance jumps from 80 to 500 on completion) |
+| LoS | 16 |
+| Defense (M/R/S/Mg) | 2 / 3 / 0 / 0 |
+| Conversion cost | **60 S + 30 I** (single instance) |
+| Conversion timer | **10 s** (per-instance `WallUpgradeState`; matches legacy value, kept canonical) |
+| Conversion builder | **None required.** |
+| Visual | Presentation 553 (`Alanthor_WallTower`). |
+| Source | Per-instance action panel — click a wall instance, the action panel surfaces a "Convert to Tower" card. |
+
+### Watch Tower
+
+Same entity as the **stand-alone Watch Tower** primitive — defined in full
+in the [Watch Tower section](#watch-tower--alanthor_tower-canonical-stat-block) above. Key facts in the wall-system context:
+
+- Built **directly via the builder catalog** (`Alanthor_Tower`, cost 140 S + 70 I) — the standard route.
+- Built **via Gatherer's Hut conversion** at age-up (cost 40 S + 30 I, 5 s timer) — the discounted, hut-replacement route.
+- **Independent of walls.** A Watch Tower placed adjacent to a Wall Hub does **not** auto-merge with the wall — it stays a free-standing structure with its own footprint.
+
+### Gatherer's Hut Age-Up Choice (summary cross-link)
+
+Each owned Gatherer's Hut surfaces a 2-button **Convert** prompt at
+age-up (see [§ Gatherer's Hut](#gatherers-hut-age-0-carryover--per-hut-age-up-choice-wall-hub-or-watch-tower) above for the full spec):
+
+| Choice | Cost | Timer | Result |
+|--------|------|-------|--------|
+| **Convert to Wall Hub** | 60 S + 40 I | 5 s | Hut → Wall Hub at the same footprint |
+| **Convert to Watch Tower** | 40 S + 30 I | 5 s | Hut → Watch Tower at the same footprint |
+
+If the player ignores the prompt, the hut continues generating Age-0
+income indefinitely. No timeout, no auto-default.
+
+### Hub destruction cascade
+
+When a Wall Hub dies, all wall segments connected to it cascade-destroy
+**instantly** (no grace period). Each cascaded segment in turn destroys
+its instances. This is the existing `WallSegmentCleanupSystem` behaviour
+and is **canonical**. Rationale: instant cascade gives sieges a sharp
+decisive moment (kill the hub, the wall falls). A grace period would
+muddy the read.
+
+If a destroyed hub was the **only** endpoint connecting a compartment,
+the income from that compartment stops immediately (existing
+`WallEnclosureIncomeSystem` re-detects compartments per tick).
+
+### Auto-segment formation feedback
+
+Auto-segment spawn is **silent by default** — no popup, no toast, no
+minimap ping. A subtle **500 ms construction shimmer** plays along the
+line between the two hubs (reuses the existing wall-instance spawn cue).
+Audio: low-volume `construction_begin` SFX (reuses the existing
+wall-instance spawn SFX hook). Both effects honour
+`prefers-reduced-motion`: under reduced-motion, the instances pop in
+without animation.
+
+### Health bar treatment (segments and gates)
+
+| Selection | Bar shown |
+|-----------|-----------|
+| **Hub** | Standard `FloatingHealthBars` Health bar (existing). |
+| **Wall instance (individual)** | Standard per-instance world-space Health bar (existing). |
+| **Wall segment (clicked via instance)** | Selection panel renders **one aggregated bar** — `sum(instance.Hp) / sum(instance.HpMax)` with sub-text `<aliveCount> / <totalCount> intact`. Bar palette: green ≥ 50 %, amber 20–50 %, red < 20 %. The per-instance world-space bars still render. |
+| **Gate region (5 instances tagged WallGateTag)** | Same aggregated-bar treatment as a segment, label `Wall Gate`. No stacked-5-bar UI. |
+
+### AI Behaviour
+
+**Alanthor AI does not build walls in v1.** This is explicit:
+
+- `SimpleAISystem` skips Wall Hubs / Wall Segments / Wall Instances in its build-target / repair-target / attack-target enumerators.
+- The dead wall-building code in `AIEconomyManager.cs:627-756` (already `[DisableAutoCreation]`-orphaned) **stays dead** with a `task-109` comment marker so a future task can resurrect it.
+- `AIAlanthorEndgameSystem` remains `[DisableAutoCreation]`.
+- AI-owned Gatherer's Huts at age-up **do not** convert to Wall Hubs or Watch Towers — the AI keeps Age-0 gathering huts indefinitely.
+
+AI wall-building (strategic placement around Halls / resources / chokes) is a **separate follow-up task** that depends on the primitives canonicalised here.
+
+### Open Items / Playtest Placeholders
+
+Concrete numeric values pinned in this section come from the
+task-109 architecture pass (2026-05-21). The following are **PLAYTEST
+PLACEHOLDERs** — the spec is committed to a default value, but designers
+should revisit after first playtest:
+
+- **Wall Hub HP = 400.** Default reasoned as "2× a Watch Tower (250), well below a Hall (2 400)". If hubs feel too fragile / too tanky in playtest, rebalance.
+- **Gate conversion cost = 80 S flat.** Default reasoned as "single payment matches the player's mental model of one decisive structural change". If gates end up too cheap relative to building a fresh wall ring, switch to per-instance pricing (5 × 16 S = 80 S, or raise to 5 × 20 S = 100 S).
+- **Wall instance HP = 80** (gate total HP therefore = 400). Default reasoned as "individual instance dies in ~3 catapult hits; the chain forms the resilience". If sieges are too quick, raise to 100 (gate total 500).
+- **MaxAutoSegmentDistance = 16 m (8 instances).** Default reasoned as "long enough to wall a typical compartment in 2–3 hubs, short enough to force multiple hubs around a Hall". If players spam single-hub compartments, lower to 12 m.
+- **Conversion timer (hut → hub / tower) = 5 s.** Default reasoned as "visible-but-not-painful". Tune if playtest reveals the wait feels off.
+- **Conversion timer (segment → gate) = 8 s, (instance → tower) = 10 s.** Default kept from legacy code values. Tune as needed.
+- **Watch Tower visual identity for the 5-cell gate.** Currently the gate tiles the existing single-gate prefab 5 times. A bespoke 5-cell wide-gate prefab is **out of scope for task-109**; lands in a follow-up.
+- **Manual gate open/close toggle.** Deferred to v2 of the wall system; v1 is automatic-only. Selection panel shows a read-only `OPEN` / `CLOSED` pip.
+- **Network-select affordance** ("double-click any wall piece → select the entire connected network"). Deferred; drag-select handles the common case.
+- **Friendly right-click on owned wall** (repair / garrison / open-gate). **No-op in v1.** Re-evaluate if Phase 7 surfaces a unit-on-wall requirement.
+- **Hover-preview cost overlay** on the Gate card. Tooltip cost chips suffice; **no** additional Resource-panel ghost-deduction in v1.
+- **Hub-attention pulse persistence** (on huts carrying the `GathererHutAgeUpChoice` marker). **Stays forever** until the player commits or the hut dies — matches the "hut keeps generating Age-0 income indefinitely" rule.
+- **Cancel mid-conversion** (hut → hub / tower, segment → gate, instance → tower). **No cancel in v1** — matches the existing structure-construction model.
+
+### Cross-references
+
+- **UI / UX spec (full):** [task-109 § UI / UX Specification](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md).
+- **Code touchpoints:** `AlanthorWall.cs` (hub / segment / instance factories), `WallUpgradeSystem.cs` (conversion to gate / tower), `WallGatePassabilitySystem.cs` (friendly-detect open / close), `WallSegmentCleanupSystem.cs` (hub-death cascade), `WallEnclosureIncomeSystem.cs` (closed-compartment income), `WallAutoSegmentSystem.cs` (Phase 4, new — retroactive auto-formation).
+- **Wall-economy compartment yield** is unchanged from prior spec: `+8 Supplies per 10 u² closed compartment / min` via the `Alanthor_StoneLedgers` tech (PLAYTEST PLACEHOLDER, see [§ Cultured carryover buildings — KingsCourt techs](#existing-code-techs-that-need-re-homing-or-removal)).
 
 ---
 

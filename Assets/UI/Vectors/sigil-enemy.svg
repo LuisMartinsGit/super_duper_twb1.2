@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Enemy sigil: crowned skull silhouette. Port of ObjectiveIcon('enemy').
+     22×22 with content centered at (11,11). -->
+<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(11,11)">
+        <!-- Skull body -->
+        <path d="M -6 -1 Q -6 -7 0 -7 Q 6 -7 6 -1 L 6 3 Q 6 6 3 6 L -3 6 Q -6 6 -6 3 Z"
+              fill="#e8b84a" stroke="none" />
+        <!-- Crown notches above -->
+        <path d="M -6 -7 L -5 -9 L -3 -7 L -1 -10 L 1 -7 L 3 -10 L 5 -7 L 6 -7"
+              fill="none" stroke="#e8b84a" stroke-width="1.2" stroke-linejoin="round" />
+        <!-- Eye sockets -->
+        <circle cx="-2.5" cy="-2" r="1.4" fill="#020806" />
+        <circle cx="2.5"  cy="-2" r="1.4" fill="#020806" />
+        <!-- Jaw bar -->
+        <line x1="-3" y1="3.5" x2="3" y2="3.5" stroke="#020806" stroke-width="0.9" />
+    </g>
+</svg>

@@ -92,6 +92,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         // Alanthor culture buildings (procedurally generated)
         { 354, "Procedural/AlanthorTower" },                      // Alanthor_Tower
+        { 356, "Procedural/AlanthorRoyalStable" },                // Alanthor_RoyalStable
         { 357, "Procedural/AlanthorSiegeYard" },                  // Alanthor_SiegeYard
 
         // Feraldis culture buildings (procedurally generated)
@@ -226,7 +227,34 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (EntityViewManager.Instance.TryGetView(entity, out var go))
             {
                 EntityViewManager.Instance.UnregisterView(entity);
-                if (go != null) Destroy(go);
+                if (go != null)
+                {
+                    // task-cursed-ground-luminous-crystals-111 Iteration 2,
+                    // item 7 (recession death-handoff): if this GO is a
+                    // cursed-ground voxel cluster, let its
+                    // CurseBlockRecessionAnimator own the destruction —
+                    // it scales the blocks down + emits inward particles
+                    // over ~0.7 s before destroying the GO itself. Without
+                    // this hook the GO would vanish instantly on entity
+                    // destroy and the recession animation would never play.
+                    var recess = go.GetComponent<TheWaningBorder.Presentation.CurseBlockRecessionAnimator>();
+                    var cadaverAnim = go.GetComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
+                    if (recess != null)
+                    {
+                        recess.BeginDeath();
+                    }
+                    else if (cadaverAnim != null)
+                    {
+                        // Hand off to the Shatter Stone animator: it spawns
+                        // the asset's debris pieces (which outlive this GO,
+                        // they aren't parented) and owns the final Destroy.
+                        cadaverAnim.BeginDeath();
+                    }
+                    else
+                    {
+                        Destroy(go);
+                    }
+                }
             }
         }
     }
@@ -347,15 +375,22 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // dispatcher below — see CreateVault there. The local CreateProceduralVault
         // is now dead code (kept for reference, may be removed in a later cleanup).
 
-        // === CRYSTAL CURSE: tiles are DPS markers only — visual is painted
-        // once per node by CrystalSpreadSystem as an organic growing blob ===
+        // === CRYSTAL CURSE: per-tile glowing voxel block cluster (task-111
+        // Iteration 2 — SineVFX "Living Particles" reference).
+        // Replaces the previous invisible-marker GameObject (and the
+        // Iteration 1 shard-cluster geometry). Each tile spawns a 5×5
+        // voxel-block grid snapped to integer world coordinates so adjacent
+        // tiles tile seamlessly. The terrain splat below remains unchanged
+        // (it acts as the base "stain"). Material gradient: purple at the
+        // owning crystal node, sickly green at the outer ring. Block height
+        // is hashed from (gridX, gridZ) integer coords → multiplayer-safe.
+        // Cluster has a CurseBlockGrowthAnimator (item 5) that ramps blocks
+        // in over ~1 s and a dormant CurseBlockRecessionAnimator (item 7)
+        // that takes ownership on death-handoff from
+        // CleanupDestroyedEntities. ===
         if (presentationId == CursedGroundPresentationId)
         {
-            // Return a minimal hidden root so PresentationSpawnSystem tracks this entity
-            // (needed for cleanup when entity is destroyed, e.g. crystal node killed)
-            var go = new GameObject($"CursedGround_{entity.Index}");
-            go.transform.position = pos;
-            go.SetActive(false); // Invisible — terrain painting is the visual
+            var go = ProceduralCurseShardGenerator.Create(pos, entity, _em);
             return go;
         }
 
@@ -2888,80 +2923,88 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // CRYSTAL ENTITY PROCEDURAL GENERATION
     // ═══════════════════════════════════════════════════════════════════════
 
+    // ─── Shatter Stone wrapper prefabs (P_Cadaver_GemA/B/C) ──────────────
+    // Loaded lazily on first cadaver spawn. Each is a copy of the matching
+    // NV3D P_Gem4_* with Rigidbody/SphereCollider stripped and the OreNode
+    // component swapped to CadaverOreNode. Variant choice is keyed on
+    // entity.Index so the same visual is picked on every networked client
+    // (entity creation order is deterministic under lockstep). Index is not
+    // stable across editor session restarts — if a save/load system is
+    // added later it must persist the chosen variant per-cadaver.
+    private static GameObject[] _cadaverPrefabs;
+    private static readonly string[] CadaverPrefabPaths =
+    {
+        "Prefabs/Crystals/P_Cadaver_GemA",
+        "Prefabs/Crystals/P_Cadaver_GemB",
+        "Prefabs/Crystals/P_Cadaver_GemC",
+    };
+
     /// <summary>
-    /// Creates a procedural crystal loot pile visual for cadaver/death-drop entities.
-    /// Small cluster of glowing purple crystal shards on the ground, mineable by workers.
+    /// Spawns the visual for a cadaver / crystal-node ECS entity using one of
+    /// the Shatter Stone gem-cluster prefab variants. Adds a BoxCollider for
+    /// click selection (sized to match the previous procedural pile so
+    /// selection ergonomics carry over), an EntityReference for raycasting,
+    /// and a CadaverCrystalAnimator that drives wobble/shatter from
+    /// ECS mining events.
     /// </summary>
     private GameObject CreateProceduralCadaverLoot(Vector3 center, Entity entity)
     {
-        var root = new GameObject($"CrystalLoot_{entity.Index}");
-        root.transform.position = center;
-
-        var purpleBase = new Color(0.40f, 0.08f, 0.55f, 0.70f);
-        var greenTip   = new Color(0.06f, 0.28f, 0.10f, 0.55f);
-        var emPurple   = new Color(0.35f, 0.05f, 0.50f);
-
-        // Cluster of 4-6 bulbous crystal nubs. Sizes were ~2× smaller before
-        // and the entity transform's amount-driven scale (0.6..4.0) made low-
-        // amount cadavers nearly impossible to click. Doubled the shard
-        // dimensions + spread so the smallest cadaver is a comfortable
-        // selection target.
-        int shardCount = Random.Range(4, 7);
-        for (int i = 0; i < shardCount; i++)
+        if (_cadaverPrefabs == null)
         {
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            shard.name = $"Shard_{i}";
-            shard.transform.SetParent(root.transform);
-
-            float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
-            float dist = Random.Range(0.15f, 0.7f);
-            float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
-            float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-
-            // Bulbous eroded shape — bigger so the crystal pile reads from
-            // RTS camera distance and clicks land on the visual.
-            float height = Random.Range(0.6f, 1.2f);
-            float width = Random.Range(0.30f, 0.50f);
-            shard.transform.localPosition = new Vector3(x, height * 0.4f, z);
-            shard.transform.localScale = new Vector3(width, height, width);
-
-            float tiltAngle = Random.Range(5f, 25f);
-            shard.transform.localRotation = Quaternion.Euler(
-                Random.Range(-tiltAngle, tiltAngle),
-                angle + Random.Range(-30f, 30f),
-                Random.Range(-tiltAngle, tiltAngle));
-
-            DestroyCollider(shard);
-
-            float tipT = Random.Range(0.1f, 0.5f);
-            ApplyCrystalMaterial(shard, purpleBase, greenTip, emPurple, tipBlend: tipT);
+            _cadaverPrefabs = new GameObject[CadaverPrefabPaths.Length];
+            for (int i = 0; i < CadaverPrefabPaths.Length; i++)
+            {
+                _cadaverPrefabs[i] = Resources.Load<GameObject>(CadaverPrefabPaths[i]);
+            }
         }
 
-        // Point light for the pile — bumped intensity + range to match the
-        // larger silhouette.
-        var lightObj = new GameObject("LootGlow");
-        lightObj.transform.SetParent(root.transform, false);
-        lightObj.transform.localPosition = Vector3.up * 0.5f;
-        var pl = lightObj.AddComponent<Light>();
-        pl.type = LightType.Point;
-        pl.color = Color.white;
-        pl.intensity = 0.9f;
-        pl.range = 2.5f;
-        pl.shadows = LightShadows.None;
+        int variantIdx = Mathf.Abs(entity.Index) % _cadaverPrefabs.Length;
+        var prefab = _cadaverPrefabs[variantIdx];
+        if (prefab == null)
+        {
+            // Resource missing — fall back to a bare GameObject so the
+            // entity still has a selection target rather than throwing.
+            var fallback = new GameObject($"CrystalLoot_{entity.Index}_missing");
+            fallback.transform.position = center;
+            AttachCadaverSelectionAndAnimator(fallback, entity);
+            return fallback;
+        }
 
-        // Generous box collider for selection/raycasting. The smallest
-        // amount-driven scale is 0.6 (Cadaver.MinScale) so the effective
-        // collider after scaling is 1.5×1.2×1.5 m — comfortably clickable
-        // from the RTS camera. Iron deposits use 3×2×3 — match that ballpark.
-        var boxCol = root.AddComponent<BoxCollider>();
+        var root = Instantiate(prefab, center, Quaternion.identity);
+        root.name = $"CrystalLoot_{entity.Index}";
+
+        AttachCadaverSelectionAndAnimator(root, entity);
+        return root;
+    }
+
+    /// <summary>Visual size multiplier applied on top of the ECS amount-driven scale.</summary>
+    private const float CadaverVisualBaseScale = 6f;
+
+    private static void AttachCadaverSelectionAndAnimator(GameObject root, Entity entity)
+    {
+        // Make the cluster ~3× the bare Shatter Stone authoring size. SyncTransforms
+        // multiplies the ECS LocalTransform.Scale by ProceduralScaleTag.BaseScale,
+        // so this scales every cadaver uniformly while preserving the amount-driven
+        // size variation (Cadaver.MinScale=0.6 .. MaxScale=4.0).
+        var scaleTag = root.GetComponent<ProceduralScaleTag>();
+        if (scaleTag == null) scaleTag = root.AddComponent<ProceduralScaleTag>();
+        scaleTag.BaseScale = CadaverVisualBaseScale;
+
+        // Generous box collider for selection/raycasting. Sizing matches the
+        // previous procedural pile (Cadaver.MinScale=0.6 → effective 1.5×1.2×1.5;
+        // Iron deposits use 3×2×3 — same ballpark). Collider scales with the
+        // root transform so the click target grows with the new base scale.
+        var boxCol = root.GetComponent<BoxCollider>();
+        if (boxCol == null) boxCol = root.AddComponent<BoxCollider>();
         boxCol.size = new Vector3(2.5f, 2.0f, 2.5f);
         boxCol.center = Vector3.up * 1.0f;
 
-        // Add EntityReference for raycasting/selection
-        var entityRef = root.AddComponent<EntityReference>();
+        var entityRef = root.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        return root;
+        var anim = root.GetComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
+        if (anim == null) anim = root.AddComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
     }
 
     /// <summary>
@@ -3152,6 +3195,23 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         pointLight.intensity = presentationId == 310 ? 1.8f : 1.2f;
         pointLight.range = 3.5f * scale;
         pointLight.shadows = LightShadows.None;
+
+        // --- Ambient curse particle drift (task-111 phase 3) ---
+        // Only the main crystal node (PresentationID 310) gets ambient motes.
+        // Sub-nodes (Resource/Enforcement/Suppression/etc.) are visual accents
+        // and don't drive curse spread, so they don't need their own particle
+        // system. The particle GO is parented to the node root so it cleans
+        // up automatically when the entity is destroyed.
+        if (presentationId == 310)
+        {
+            var particleGo = ProceduralCurseParticleGenerator.Create(
+                root.transform.position, entity, _em);
+            if (particleGo != null)
+            {
+                particleGo.transform.SetParent(root.transform, worldPositionStays: false);
+                particleGo.transform.localPosition = Vector3.zero;
+            }
+        }
     }
 
     /// <summary>Helper to strip colliders off procedural primitives.</summary>

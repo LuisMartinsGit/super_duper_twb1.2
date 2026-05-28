@@ -61,6 +61,10 @@ namespace TheWaningBorder.Presentation
                 201 => CreateSwordsman(pos, entity),
                 202 => CreateArcher(pos, entity),
                 203 => CreateMiner(pos, entity),
+                // task-110: Era 1 Archery Range tier units reuse the Archer
+                // visual for v1; visual differentiation deferred to art pass.
+                204 => CreateArcher(pos, entity),   // Crossbowman (L2 tier)
+                205 => CreateArcher(pos, entity),   // Longbowman (L3 tier)
                 206 => CreateScout(pos, entity),
                 207 => CreateLitharch(pos, entity),
                 210 => CreateBerserker(pos, entity),

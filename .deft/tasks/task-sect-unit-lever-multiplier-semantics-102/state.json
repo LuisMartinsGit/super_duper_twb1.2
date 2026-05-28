@@ -1,0 +1,16 @@
+{
+  "id": "task-sect-unit-lever-multiplier-semantics-102",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.6 — SectUnitLeverSystem.ApplyDelta multiplier formula gives diff=1.75x when level goes 1->2 with HpMultiplier=1.5, ambiguous intent. Likely over-applies the buff vs design intent.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

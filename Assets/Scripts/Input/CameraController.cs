@@ -125,14 +125,29 @@ namespace TheWaningBorder.Input
             InitializeCameraRig();
             FindTerrain();
 
-            // Pull bounds from the lobby-selected map size so the camera
-            // can pan to the edge of the largest map (was hardcoded ±256
-            // and stopped short on Large + Custom-Large maps).
-            int half = GameSettings.MapHalfSize;
-            if (half > 0)
+            // Bounds priority:
+            //   1. Active Unity Terrain extents — covers hand-authored maps
+            //      whose terrain may sit far from origin (MapMagic etc.) and
+            //      whose size doesn't match the lobby's MapHalfSize.
+            //   2. Otherwise fall back to the lobby-selected MapHalfSize box.
+            //      (Procedural maps build their Terrain centred on the origin
+            //      with extents ±MapHalfSize, so the two match anyway.)
+            var ut = UnityEngine.Terrain.activeTerrain;
+            if (ut != null && ut.terrainData != null)
             {
-                worldMin = new Vector2(-half, -half);
-                worldMax = new Vector2( half,  half);
+                var origin = ut.transform.position;
+                var size = ut.terrainData.size;
+                worldMin = new Vector2(origin.x, origin.z);
+                worldMax = new Vector2(origin.x + size.x, origin.z + size.z);
+            }
+            else
+            {
+                int half = GameSettings.MapHalfSize;
+                if (half > 0)
+                {
+                    worldMin = new Vector2(-half, -half);
+                    worldMax = new Vector2( half,  half);
+                }
             }
 
             // Initialize from current state
@@ -231,21 +246,28 @@ namespace TheWaningBorder.Input
                 transform.rotation = Quaternion.Euler(0f, 45f, 0f);
             }
 
-            // Always ensure arm and camera hierarchy is configured
-            if (wasReparented)
-            {
-                // Tilt arm downward — slightly higher pitch than the old 55°
-                // so the farther camera shows more ground without losing
-                // foreground readability.
-                _arm.localPosition = Vector3.zero;
-                _arm.localRotation = Quaternion.Euler(60f, 0f, 0f);
+            // Always apply the RTS arm tilt + camera distance, regardless of
+            // whether we just reparented. Previously this block was gated on
+            // wasReparented, which meant a scene with a pre-configured Main
+            // Camera (e.g. a hand-authored map saved with the camera looking
+            // anywhere) would keep that camera's transform and the player
+            // would start with a broken view. The RTS view is a fixed mode —
+            // tilt the arm 60° down, place the camera 75m back along it,
+            // every game.
+            _arm.localPosition = Vector3.zero;
+            _arm.localRotation = Quaternion.Euler(60f, 0f, 0f);
+            // Arm length halved (75 → 37.5) per user feedback — the previous
+            // distance put the camera ~65 m above ground (75·sin(60°)) which
+            // read as "too high" on the larger hand-authored maps. 37.5 puts
+            // it at ~32 m above, still angled down, more typical RTS feel.
+            _camTransform.localPosition = new Vector3(0f, 0f, -37.5f);
+            _camTransform.localRotation = Quaternion.identity;
 
-                // Default camera distance bumped from 40 → 75. Zoom is
-                // disabled (#6), so this value is the final fixed distance
-                // the player sees from match start until they quit.
-                _camTransform.localPosition = new Vector3(0f, 0f, -75f);
-                _camTransform.localRotation = Quaternion.identity;
-            }
+            // Belt-and-suspenders: ensure followTerrain is on so the rig
+            // pivot tracks ground height every frame (the "snapped to
+            // ground + clearance + angled down" RTS behaviour). Without
+            // this the pivot floats at heightOffset above world origin.
+            followTerrain = true;
         }
         
         private void FindTerrain()

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Fantasy RTS HUD — explorations</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="themes.jsx"></script>
+<script type="text/babel" src="filigree.jsx"></script>
+<script type="text/babel" src="resources.jsx"></script>
+<script type="text/babel" src="minimap.jsx"></script>
+<script type="text/babel" src="menu.jsx"></script>
+<script type="text/babel" src="sidebar.jsx"></script>
+<script type="text/babel" src="actions.jsx"></script>
+<script type="text/babel" src="selection.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "ornament": "maximal",
+  "accent": "gold"
+}/*EDITMODE-END*/;
+
+function ObjectiveIcon({ kind, color, dim }) {
+  switch (kind) {
+    case 'curse':
+      // Ringed sigil with central dot and radial ticks — "node"
+      return (
+        <g transform="translate(11,11)">
+          <circle r="7" fill="none" stroke={color} strokeWidth="1.3" />
+          <circle r="3.5" fill="none" stroke={dim} strokeWidth="0.9" />
+          <circle r="1.4" fill={color} />
+          <g stroke={color} strokeWidth="1.3" strokeLinecap="round">
+            <line x1="0" y1="-10" x2="0" y2="-8" />
+            <line x1="0" y1="10"  x2="0" y2="8" />
+            <line x1="-10" y1="0" x2="-8" y2="0" />
+            <line x1="10" y1="0"  x2="8" y2="0" />
+          </g>
+        </g>
+      );
+    case 'enemy':
+      // Crowned skull silhouette — eyes + downward arc + crown notches
+      return (
+        <g transform="translate(11,11)">
+          <path d="M -6 -1 Q -6 -7 0 -7 Q 6 -7 6 -1 L 6 3 Q 6 6 3 6 L -3 6 Q -6 6 -6 3 Z"
+                fill={color} stroke="none" />
+          {/* crown notches above */}
+          <path d="M -6 -7 L -5 -9 L -3 -7 L -1 -10 L 1 -7 L 3 -10 L 5 -7 L 6 -7"
+                fill="none" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+          {/* eye sockets */}
+          <circle cx="-2.5" cy="-2" r="1.4" fill={dim} />
+          <circle cx="2.5"  cy="-2" r="1.4" fill={dim} />
+          {/* jaw bar */}
+          <line x1="-3" y1="3.5" x2="3" y2="3.5" stroke={dim} strokeWidth="0.9" />
+        </g>
+      );
+    default: return null;
+  }
+}
+
+function ObjectiveRow({ theme, iconKey, name, current, total }) {
+  return (
+    <div className="gv-obj-row" title={name}>
+      <div className="gv-obj-icon" style={{ filter: `drop-shadow(0 0 4px ${theme.accent}44)` }}>
+        <svg width="18" height="18" viewBox="0 0 22 22">
+          <ObjectiveIcon kind={iconKey} color={theme.accent} dim={theme.inlayShadow} />
+        </svg>
+      </div>
+      <div className="gv-obj-pips">
+        {Array.from({ length: total }, (_, i) => {
+          const on = i < current;
+          return (
+            <span
+              key={i}
+              className={`gv-pip ${on ? 'on' : ''}`}
+              style={{
+                background: on ? theme.accent : 'transparent',
+                borderColor: on ? theme.accent : theme.inlay,
+                boxShadow: on ? `0 0 5px ${theme.accent}` : 'none',
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="gv-obj-count" style={{ color: current > 0 ? theme.accent : theme.textDim }}>
+        {current}<span style={{ color: theme.textDim }}>/{total}</span>
+      </div>
+    </div>
+  );
+}
+
+function HudFrame({ themeKey, accentKey, ornament }) {
+  const theme = resolveTheme(themeKey, accentKey, ornament);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [selection, setSelection] = React.useState(null);
+  return (
+    <div className="artboard-host"
+         style={{
+           '--gv-bg': theme.bg,
+           '--gv-bg-mid': theme.baseMid,
+           '--theme-accent': theme.accent,
+         }}>
+      <div className="gv-root">
+        <div className="gv-bg" />
+
+        <MenuButton theme={theme} onOpen={() => setMenuOpen(true)} />
+
+        <div className="gv-objective">
+          <div className="gv-obj-eyebrow" style={{ color: theme.textDim }}>Objectives</div>
+          <div className="gv-obj-rule" style={{ background: `linear-gradient(90deg, transparent, ${theme.inlay}66, transparent)` }} />
+          <ObjectiveRow theme={theme} iconKey="curse" name="Purify curse nodes" current={1} total={6} />
+          <ObjectiveRow theme={theme} iconKey="enemy" name="Defeat enemy players" current={0} total={3} />
+        </div>
+
+        <SelectionTester theme={theme} value={selection} onChange={setSelection} />
+
+        <div className="gv-bl">
+          <Sidebar theme={theme} onItem={() => {}} />
+          <div className="gv-bl-row">
+            <ResourceCounter theme={theme} />
+            <SelectionPanel theme={theme} selection={selection} onUpgrade={() => {}} />
+            <ActionsPanel theme={theme} selection={selection} onAction={() => {}} />
+          </div>
+        </div>
+        <div className="gv-br">
+          <Minimap theme={theme} />
+        </div>
+
+        {menuOpen && (
+          <MenuOverlay
+            theme={theme}
+            onClose={() => setMenuOpen(false)}
+            onItem={(key) => {
+              if (key === 'resume') setMenuOpen(false);
+              /* other items: hook real handlers when ready */
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SELECTION_OPTIONS = [
+  { key: 'military', label: 'Select own military unit' },
+  { key: 'builder',  label: 'Select own builder' },
+  { key: 'building', label: 'Select own building' },
+  { key: 'multi',    label: 'Select multiple units' },
+  { key: 'enemy',    label: 'Select single enemy / nature unit' },
+];
+
+function SelectionTester({ theme, value, onChange }) {
+  return (
+    <div className="sel-tester">
+      <div className="sel-eyebrow" style={{ color: theme.textDim }}>Selection Stage</div>
+      <div className="sel-buttons">
+        {SELECTION_OPTIONS.map((opt) => {
+          const on = value === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              className={`sel-btn ${on ? 'on' : ''}`}
+              onClick={() => onChange(on ? null : opt.key)}
+              style={{
+                '--sb-base': theme.base,
+                '--sb-edge': theme.baseEdge,
+                '--sb-mid': theme.baseMid,
+                '--sb-inlay': theme.inlay,
+                '--sb-inlay-shadow': theme.inlayShadow,
+                '--sb-accent': theme.accent,
+                '--sb-text': theme.text,
+                '--sb-dim': theme.textDim,
+              }}
+            >
+              <span className="sel-btn-tick" />
+              <span className="sel-btn-label">{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HudFrameOriginal() { /* deprecated — kept to anchor diff */ }
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  return (
+    <>
+      <DesignCanvas
+        title="Fantasy RTS — HUD"
+        subtitle="Jade & silver · max filigree · gold accent"
+      >
+        <DCSection
+          id="hud"
+          title="HUD"
+          subtitle="Click the minimap to pan, right-click to ping. Hover a resource for its rate."
+        >
+          <DCArtboard
+            id="jade"
+            label="Jade & Silver"
+            width={1280}
+            height={720}
+          >
+            <HudFrame themeKey="jade" accentKey={t.accent} ornament={t.ornament} />
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Ornament" />
+        <TweakRadio
+          label="Filigree"
+          value={t.ornament}
+          options={['minimal', 'balanced', 'maximal']}
+          onChange={(v) => setTweak('ornament', v)}
+        />
+        <TweakSection label="Accent glow" />
+        <TweakColor
+          label="Override"
+          value={t.accent}
+          options={['theme', 'gold', 'ember', 'arcane', 'azure', 'verdant']}
+          onChange={(v) => setTweak('accent', v)}
+        />
+      </TweaksPanel>
+    </>
+  );
+}
+
+// Quick adapter: TweakColor renders <button>s based on hex strings or palette
+// arrays. We want it to handle a list of NAMED accents and show actual
+// swatch colors keyed off ACCENT_OPTIONS. Easiest: pre-map.
+const __OriginalTweakColor = window.TweakColor;
+window.TweakColor = function PatchedTweakColor({ options, value, onChange, ...rest }) {
+  // If options look like accent names, project them into [hex] tuples that
+  // include the name encoded in a hidden attribute.
+  const isNamed = Array.isArray(options) && options.every((o) => typeof o === 'string' && (o === 'theme' || ACCENT_OPTIONS[o]));
+  if (!isNamed) return <__OriginalTweakColor options={options} value={value} onChange={onChange} {...rest} />;
+  const palettes = options.map((name) => {
+    if (name === 'theme') return ['#9a8e76', '#5e574a', '#2c2a24'];
+    return [ACCENT_OPTIONS[name].accent, ACCENT_OPTIONS[name].accentSoft, '#1a1612'];
+  });
+  return (
+    <__OriginalTweakColor
+      options={palettes}
+      value={palettes[options.indexOf(value)] || palettes[0]}
+      onChange={(p) => {
+        const idx = palettes.findIndex((pp) => JSON.stringify(pp) === JSON.stringify(p));
+        onChange(options[idx === -1 ? 0 : idx]);
+      }}
+      {...rest}
+    />
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

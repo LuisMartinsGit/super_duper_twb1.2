@@ -1,0 +1,153 @@
+{
+  "id": "task-cursed-ground-luminous-crystals-111",
+  "status": "completed",
+  "stage": "release",
+  "phase": 4,
+  "totalPhases": 4,
+  "createdAt": "2026-05-21T11:30:00Z",
+  "updatedAt": "2026-05-21T16:30:00Z",
+  "events": [
+    {
+      "type": "decision",
+      "description": "User confirmed color palette (2026-05-21): sickly green-purple shift — purple/violet at tiles near the node center (#5C2A7A base, #9B5BE0 emission), sickly green/yellow-green at outer ring (#3D6B2A base, #7AC83A emission), continuous lerp across the cursed radius. Communicates 'spreading rot' directionally.",
+      "timestamp": "2026-05-21T11:30:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "User chose 'Plan only — don't write code yet' (2026-05-21). Task parked at scope stage with 3 phases (shards / hero lights / ambient particles) for iteration on the spec before implementation. Code implementation deferred to a follow-up session after user reviews the plan.",
+      "timestamp": "2026-05-21T11:30:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Root cause located: PresentationSpawnSystem.cs:352-360 returns an inactive GameObject for the CursedGroundPresentationId (311). Comment explicitly says 'Invisible — terrain painting is the visual.' This is why the cursed area reads as flat — no per-tile geometry. CrystalSpreadSystem.SpawnRingTiles correctly spawns the entities and CursedGroundDPS damage works; only the renderable is missing.",
+      "timestamp": "2026-05-21T11:30:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 1,
+      "title": "Procedural crystal shards on every tile (highest impact)",
+      "timestamp": "2026-05-21T12:00:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 1 implementation: chose hand-built 6-vertex/8-tri elongated octahedron mesh (vs. CreatePrimitive(Cube) scaled) because it reads more 'crystal shard' shape-wise and costs ~1/4 the vertex count. The mesh is built once and shared across every shard. Materials are bucketed into 5 gradient steps (inner→outer) and cached statically, so the entire cursed-area shard population batches into ~5 SetPass calls.",
+      "timestamp": "2026-05-21T12:25:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 1: RNG seeded from `(uint)Entity.Index ^ (uint)Entity.Version | 1u` via Unity.Mathematics.Random (the `| 1u` guards the seed-0 invalid case). UnityEngine.Random is NOT used — lockstep peers will produce identical shard configurations.",
+      "timestamp": "2026-05-21T12:25:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Procedural crystal shards on every tile (highest impact)",
+      "notes": "New file Assets/Scripts/Presentation/ProceduralCurseShardGenerator.cs (static class, Create(worldPos, tileEntity, em) entry). Modified Assets/Scripts/Presentation/PresentationSpawnSystem.cs lines ~350-360 to call the generator instead of returning an inactive GameObject. Each tile builds 4-6 elongated-octahedron shard GameObjects parented to a root; root has no collider so shards do not block click-selection. Shared 6-vertex mesh + 5 shared materials across the purple→green gradient (one material per bucket, not per tile). Reads OwnerNode + CrystalNode.SpreadRadius + LocalTransform off the node to drive the gradient; falls back to a 15 m radius if the node is missing. Determinism: seed = (uint)Index ^ (uint)Version | 1u via Unity.Mathematics.Random.",
+      "timestamp": "2026-05-21T12:30:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 2,
+      "title": "Hero-tile Point Lights (light emanation)",
+      "timestamp": "2026-05-21T12:45:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2: hero-light selection is `(tileEntity.Index % 10) == 0` AND `bucket <= 2` (the inner 3 of 5 gradient buckets). The modulo gate gives ~10% of tiles a light; the bucket gate confines lights to the inner half of the curse radius where they're visually meaningful. Combined, this caps the total hero-light count to roughly 15-25 per fully-spread node, comfortably under URP forward+'s per-camera light budget. No RNG — purely deterministic by Entity.Index, so lockstep peers see identical light placement.",
+      "timestamp": "2026-05-21T12:55:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2: bloom prerequisite is documented via a one-time `Debug.Log` (not LogWarning, to avoid spamming) on first shard spawn, gated by a static `_bloomNoticeFired` flag. We can't toggle URP Volume profiles from runtime code cleanly, so the notice asks the developer to verify Bloom is enabled in the active profile. Single fire per session keeps logs clean.",
+      "timestamp": "2026-05-21T12:55:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "Hero-tile Point Lights (light emanation)",
+      "notes": "Modified Assets/Scripts/Presentation/ProceduralCurseShardGenerator.cs only. Added hero-light branch at end of Create(): `(Entity.Index % 10) == 0 && bucket <= 2` selects roughly the inner 30% of tiles for a Point Light (type Point, range 2.5, intensity 1.5, shadows off, bounceIntensity 0, renderMode ForcePixel, localPos y=0.6 above the shard cluster). Light color sampled from the same purple→green gradient via new GetHeroLightColorForBucket(bucket) helper which lerps InnerEmission (#9B5BE0) → OuterEmission (#7AC83A) at bucket-centre t. Added one-time `Debug.Log` bloom prerequisite notice gated by `_bloomNoticeFired`. Determinism preserved — no UnityEngine.Random or Unity.Mathematics.Random in the hero-light path, just Entity.Index modulo + the static gradient-bucket value already computed for the shard material.",
+      "timestamp": "2026-05-21T13:00:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 3,
+      "title": "Ambient particle drift per crystal node",
+      "timestamp": "2026-05-21T13:15:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 3 spawn hook: chose to attach the ParticleSystem inside CreateCrystalNodeVisual (in PresentationSpawnSystem.cs) gated by `presentationId == 310` (CrystalMainNode), rather than from CrystalSpreadSystem. CrystalSpreadSystem is a Burst ISystem and can't touch managed GameObject/ParticleSystem code. The PresentationSpawnSystem path runs exactly once per node (when its visual is first built), and parenting to the node root means cleanup is automatic when the node entity dies — no per-system tracking required. Sub-nodes (Resource/Enforcement/etc., PresentationIDs 312-316) deliberately do NOT get particles; they're visual accents, not curse-spread sources.",
+      "timestamp": "2026-05-21T13:25:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 3 determinism note: ParticleSystem's built-in RNG (start position within the disc, exact velocity jitter, etc.) is NOT deterministic across peers. This is intentional and called out in the file header. Particles are purely cosmetic — no entity allocations, no commands, no gameplay impact. Lockstep does not care whether peer A's mote drifts 12cm left of peer B's. The shard placement (Phase 1) and hero-light placement (Phase 2) remain fully deterministic via Unity.Mathematics.Random seeded from Entity.Index.",
+      "timestamp": "2026-05-21T13:25:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 3,
+      "title": "Ambient particle drift per crystal node",
+      "notes": "New file Assets/Scripts/Presentation/ProceduralCurseParticleGenerator.cs (static class, Create(nodePos, nodeEntity, em) entry). Modified Assets/Scripts/Presentation/PresentationSpawnSystem.cs CreateCrystalNodeVisual to spawn + parent a ParticleSystem under the main crystal node root when presentationId == 310. Particle params: emission 4/sec, lifetime 4s (~16 alive), startSpeed 0.3, velocityOverLifetime.y 0.4 (upward drift), startSize 0.05-0.15, disc shape sized to CrystalNode.SpreadRadius × 0.9 (fallback 15m), color gradient purple #9B5BE0 → green #7AC83A across lifetime with alpha 0→0.85→0 fade. Shared additive material + procedural 32×32 white radial-falloff texture cached statically so every node's particles batch. Particle GO parented to node root, so cleanup is automatic — when the node entity dies, the GO and its children are destroyed.",
+      "timestamp": "2026-05-21T13:30:00Z"
+    },
+    {
+      "type": "release_completed",
+      "description": "Task task-cursed-ground-luminous-crystals-111 (Cursed-ground visual rework — Iteration 1) complete across 3 phases. Phase 1 — Procedural crystal shards on every tile (Assets/Scripts/Presentation/ProceduralCurseShardGenerator.cs): replaces the previous invisible-marker GameObject with 4-6 elongated-octahedron shards per cursed tile, sharing one mesh + 5 gradient-bucket materials (purple #9B5BE0 inner → green #7AC83A outer) driven by per-tile distance from the owning CrystalNode.SpreadRadius. Deterministic via Unity.Mathematics.Random seeded from Entity.Index ^ Version. Phase 2 — Hero-tile Point Lights (same file, added to Create): `(Entity.Index % 10) == 0 && bucket <= 2` selects roughly the inner 10% of tiles for a Point Light (range 2.5, intensity 1.5, shadows off) coloured from the same gradient. Caps at ~15-25 lights per fully-spread node, well under URP forward+'s per-camera budget. One-time Debug.Log notice on first spawn reminds devs to verify URP Bloom is enabled. Phase 3 — Ambient particle drift (Assets/Scripts/Presentation/ProceduralCurseParticleGenerator.cs): one purple-mote ParticleSystem per CrystalMainNode (PresentationID 310), parented to the node root for automatic cleanup. ~16 alive particles per node at 4/sec × 4s lifetime, slow upward drift, purple→green color shift across lifetime. Particle RNG is non-deterministic but cosmetic-only, so lockstep determinism is unaffected (documented in header). Files touched: 1 modified (PresentationSpawnSystem.cs — 2 hooks: line ~358 for shards, line ~3156 for particles), 2 new (the two procedural generators).",
+      "timestamp": "2026-05-21T13:30:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Iteration 2 spec captured in task.md (2026-05-21 later session). User shared a SineVFX 'Living Particles' asset screenshot as the target visual: voxel-grid blocks with emissive tops, dark side walls creating grid-line look, flowing brighter wavefronts. The Iteration 1 shape (radial starburst + scatter nubs + central dome) is wrong for this reference — even with the carpet density / splatmap filter / pulse retuning already done. Plan: rewrite ProceduralCurseShardGenerator → ProceduralCurseBlockGenerator (grid-aligned voxel blocks on integer world coords, deterministic per-cell heights, splatmap-filtered, existing pulse driver provides the wave) + 3 progression FX (block growth, tendril swarm, ambient swarm) + reverse-tendril recession FX. ~475 new + ~5 changed lines estimated across 4 new files + 2 modified.",
+      "timestamp": "2026-05-21T14:25:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "User-confirmed answers for Iteration 2 visual scope (2026-05-21): (a) progression FX = 'All three layered together' (tendril growth + crystal bloom + ambient swarm); (b) recession FX = 'Reverse tendrils — particles flow back toward the node centre, picking up shards as dust as they pass'.",
+      "timestamp": "2026-05-21T14:25:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "User chose 'Plan only — don't write code yet' for Iteration 2 (2026-05-21), same approach as the original task-111 creation. Task re-opened: status active, stage scope. Code lands in follow-up session after spec review.",
+      "timestamp": "2026-05-21T14:30:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 4,
+      "title": "Iteration 2 — voxel-grid pivot ('Living Particles' reference)",
+      "timestamp": "2026-05-21T15:30:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Iteration 2 file naming: kept class + filename ProceduralCurseShardGenerator.cs stable rather than renaming to ProceduralCurseBlockGenerator.cs as the spec suggested. Same rationale as the existing 'BuildCommandPannel.cs (known misspelling, kept for reference stability)' convention in CLAUDE.md — file/class rename in Unity carries .meta migration risk and call-site churn for zero functional benefit. Internal geometry is now a voxel-block grid; the class header doc has been rewritten to reflect the Iteration 2 model.",
+      "timestamp": "2026-05-21T15:45:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Iteration 2 open-question resolutions: (Q1 z-fight) static HashSet<int2> _claimedCells with cluster-owned release on animator destroy. (Q2 animator allocation) one growth animator + one recession animator per cluster ROOT (NOT per block). Growth animator self-destructs after 1 s; recession animator stays dormant until BeginDeath() fires. (Q3 material reuse) per-block bucket assignment is fine — each block computes its own bucket from its cell's distance to the node, picks the matching shared material; SRP batcher still batches per material. (Q4 recession cleanup) PSS-checks-for-animator approach: CleanupDestroyedEntities checks for CurseBlockRecessionAnimator before calling Destroy(go); if present, calls animator.BeginDeath() and skips immediate destruction. The animator owns final cleanup.",
+      "timestamp": "2026-05-21T15:50:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Iteration 2 determinism strategy: per-cell heights hashed from integer world-grid coords (cellHash = (gx * 374761393u) ^ (gz * 668265263u) | 1u) via Unity.Mathematics.Random — NOT seeded per tile. This guarantees adjacent tiles' shared cells produce IDENTICAL heights, which is what makes the seam-tiling work. Hero-light selection still uses Entity.Index % 10. Particle RNG (growth burst, recession stream, ambient drift) is non-deterministic but cosmetic-only — same trade as Iteration 1 Phase 3.",
+      "timestamp": "2026-05-21T15:55:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Iteration 2 outward-flow implementation (item 6): added an inner CurseNodeAmbientDirector MonoBehaviour to ProceduralCurseParticleGenerator.cs. It polls CrystalSpreadState.CurrentRingRadius every 0.25 s via the EntityManager. While expanding (ring < SpreadRadius × 0.95), velocityOverLifetime.radial is set to OutwardFlowSpeed (1.6 m/s) and the emission shape.radius tracks the current ring radius so motes spawn near the frontier. Once spread is complete, falls back to the Iteration 1 gentle-upward-drift idle field.",
+      "timestamp": "2026-05-21T16:00:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 4,
+      "title": "Iteration 2 — voxel-grid pivot ('Living Particles' reference)",
+      "notes": "Modified Assets/Scripts/Presentation/ProceduralCurseShardGenerator.cs (kept filename + class name for stability; ~530-line full rewrite into voxel-grid generator). Modified Assets/Scripts/Presentation/ProceduralCurseParticleGenerator.cs (~80 lines added — CurseNodeAmbientDirector inner MonoBehaviour for outward-flow during expansion). Modified Assets/Scripts/Presentation/PresentationSpawnSystem.cs (2 changes: updated cursed-ground spawn comment + added death-handoff branch in CleanupDestroyedEntities). New Assets/Scripts/Presentation/CurseBlockGrowthAnimator.cs (~210 lines — per-cluster growth animator with ease-out-back overshoot + single shared burst ParticleSystem). New Assets/Scripts/Presentation/CurseBlockRecessionAnimator.cs (~200 lines — per-cluster dormant recession animator triggered by PSS death-handoff). All 7 items implemented: (1) voxel grid generator [5×5 cells, 1.0m grid step, 0.85m block width snap to integer world coords]; (2) hash-based deterministic per-cell heights [inner 0.4-1.2m, outer 0.15-0.5m]; (3) splatmap filter [reused chunk-read from Iteration 1]; (4) pulse driver registration [unchanged]; (5) growth animation [1s ease-out-back + per-block particle burst at 90% progress]; (6) outward-flow ambient swarm [velocityOverLifetime.radial driven by CrystalSpreadState.CurrentRingRadius]; (7) reverse-tendril recession animation [0.7s scale-down + inward particle stream + cell-claim release]. Compiles cleanly (0 errors, only pre-existing warnings).",
+      "timestamp": "2026-05-21T16:25:00Z"
+    },
+    {
+      "type": "release_completed",
+      "description": "Task task-cursed-ground-luminous-crystals-111 Iteration 2 (voxel-grid pivot) complete. Cursed-ground tiles now spawn as 5×5-ish voxel-block grids snapped to integer world coordinates so adjacent tiles tile seamlessly into one continuous block field — matching the SineVFX 'Living Particles' reference the user shared. Per-cell heights are hashed from integer cell coords so shared cells across tiles produce identical heights (multiplayer-safe, seam-stable). Cells are deduplicated via a static HashSet so adjacent tiles' overlapping cells don't z-fight. Each new block animates in over 1s with ease-out-back overshoot + a small particle burst at the top. When tiles recede, blocks animate down to 0 over 0.7s + emit a small inward particle stream toward the owning node. Per-node ambient particles now flow radially outward while the curse is still spreading (CrystalSpreadState.CurrentRingRadius < SpreadRadius × 0.95), idling to gentle upward drift once fully spread. Recession death-handoff: PresentationSpawnSystem.CleanupDestroyedEntities checks for CurseBlockRecessionAnimator before destroying the GO; if present, calls animator.BeginDeath() and skips immediate Destroy — the animator owns final cleanup. Material count and renderer estimate: 5 shared materials (one per gradient bucket) + 1 shared cube mesh (Unity primitive) → ~5 SetPass calls for the entire cursed-area block population, regardless of node count. Files: 3 modified (ProceduralCurseShardGenerator.cs full rewrite, ProceduralCurseParticleGenerator.cs outward-flow director, PresentationSpawnSystem.cs comment + death-handoff), 2 new (CurseBlockGrowthAnimator.cs, CurseBlockRecessionAnimator.cs). Also touched Assembly-CSharp.csproj to register the two new files for build verification (Unity will regenerate on next editor open). Compiles cleanly in both Assembly-CSharp and Assembly-CSharp-Editor.",
+      "timestamp": "2026-05-21T16:30:00Z"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Input;
 using TheWaningBorder.UI.Menus;
@@ -48,17 +49,38 @@ namespace TheWaningBorder.Bootstrap
             // bar can repaint between heavy synchronous calls, and the
             // status text gives the player a sense of what's happening.
 
+            // Scan the active scene for design-time spawn markers (player
+            // starts, iron / crystal patches, curse nodes). Each spawn
+            // bootstrap below checks the registry and uses the marker list
+            // when present, otherwise falls back to its procedural path.
+            MapMarkerRegistry.Refresh();
+
             LoadingScreen.SetStatus("Spawning factions…");
             LoadingScreen.SetProgress(0.60f);
             yield return null;
             PlayerSpawnSystem.SpawnAllFactions();
+
+            // Apply the lobby's Start Age selection: pre-promote every
+            // faction to Alanthor at the chosen Hall/Temple level + one
+            // random choice building + scaled resource stockpile. No-op
+            // when StartAge == Age0. Runs after the Halls exist but
+            // before AIBootstrap creates brains, so AI factions see the
+            // promoted state on their first tick.
+            StartAgePromoter.PromoteAllFactions();
 
             LoadingScreen.SetStatus("Computing reachability…");
             LoadingScreen.SetProgress(0.66f);
             yield return null;
             ComputePlayerReachability();
 
-            if (!GameSettings.FlatTestMap)
+            // ObstacleBootstrap scatters forests + rocks across [-MapHalfSize,
+            // +MapHalfSize] using procedural heightmap / splat samples. On
+            // hand-authored maps the user has already placed their own
+            // vegetation via Unity Terrain tools, and the scatter range
+            // doesn't match the actual playable area anyway — skip it.
+            string activeSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (!GameSettings.FlatTestMap &&
+                TheWaningBorder.Core.Maps.MapRegistry.ShouldRunProceduralGeneration(activeSceneName))
             {
                 LoadingScreen.SetStatus("Placing forests & rocks…");
                 LoadingScreen.SetProgress(0.72f);

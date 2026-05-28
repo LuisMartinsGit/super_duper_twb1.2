@@ -23,7 +23,11 @@ namespace TheWaningBorder.Data
         private static readonly Dictionary<string, Cost> _byId = new()
         {
             // Era 1 - Core Buildings
-            { "Hall",           Cost.Of(supplies: 0) },                             // Starting building
+            // Starting Hall is spawned for free by PlayerSpawnSystem (doesn't
+            // consult this table). Cost applies only to additional Halls a
+            // builder places post-age-up — capped at 6 per faction in
+            // BuilderCommandPanel.SpawnSelectedBuilding.
+            { "Hall",           Cost.Of(supplies: 500, iron: 150, crystal: 50) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Resource dropoff
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
@@ -67,6 +71,7 @@ namespace TheWaningBorder.Data
             { "Alanthor_PracticeRange",  Cost.Of(supplies: 220, iron: 90) },
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
+            { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
 
             // task-063 phase 2a: chapel resource cost. Adoption RP cost is

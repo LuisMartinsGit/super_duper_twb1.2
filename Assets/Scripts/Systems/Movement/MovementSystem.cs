@@ -358,7 +358,9 @@ namespace TheWaningBorder.Systems.Movement
                     if (nmState.HasPath != 0)
                     {
                         var waypoints = em.GetBuffer<NavMeshWaypoint>(entity);
-                        if (nmState.CurrentWaypoint < waypoints.Length)
+                        bool corridorExhausted = nmState.CurrentWaypoint >= waypoints.Length;
+
+                        if (!corridorExhausted)
                         {
                             var wp = waypoints[nmState.CurrentWaypoint].Position;
                             float3 toWp = wp - pos;
@@ -376,12 +378,39 @@ namespace TheWaningBorder.Systems.Movement
                                     toWp.y = 0f;
                                     wpDist = math.length(toWp);
                                 }
-                                // else: corridor exhausted; fall through to direct-line
-                                // toward goal (DesiredDestination arrival check stops).
+                                else
+                                {
+                                    corridorExhausted = true;
+                                }
                             }
 
-                            if (wpDist > 1e-4f)
+                            if (!corridorExhausted && wpDist > 1e-4f)
                                 dir = toWp / wpDist;
+                        }
+
+                        if (corridorExhausted)
+                        {
+                            // Navmesh delivered us as close to the goal as it can.
+                            // The actual goal may be unreachable — a resource
+                            // deposit at the centre of an impassable cluster,
+                            // or a melee target standing inside its own
+                            // building footprint. Before this guard the code
+                            // fell through to direct-line steering, which
+                            // walked workers straight INTO iron / crystal
+                            // patches and got them stuck. Treat the navmesh
+                            // end as arrived: clear DesiredDestination and
+                            // let MiningSystem / TargetingSystem etc. pick
+                            // up from here (re-assign to a closer deposit
+                            // that's now within GatherRange, engage in
+                            // combat, idle, etc.).
+                            dd.ValueRW.Has = 0;
+                            if (em.HasComponent<UserMoveOrder>(entity))
+                                ecb.RemoveComponent<UserMoveOrder>(entity);
+                            if (em.HasComponent<AttackMoveTag>(entity))
+                                ecb.RemoveComponent<AttackMoveTag>(entity);
+                            if (em.HasComponent<FormationSpeedOverride>(entity))
+                                ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                            continue;
                         }
                     }
                     // No HasPath yet — keep direct-line dir as a placeholder.

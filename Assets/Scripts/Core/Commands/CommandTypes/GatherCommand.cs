@@ -130,66 +130,6 @@ namespace TheWaningBorder.Core.Commands.Types
         }
 
         /// <summary>
-        /// Find the nearest non-depleted resource deposit (iron mine or cadaver) within
-        /// a radius of a given world position. Used by input system for click-near-deposit.
-        /// </summary>
-        public static Entity FindNearestDepositNearPosition(EntityManager em, float3 position, float searchRadius)
-        {
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            // Search iron deposits
-            var ironQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<IronMineTag>(),
-                ComponentType.ReadOnly<IronDepositState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using (var ironEntities = ironQuery.ToEntityArray(Allocator.Temp))
-            using (var ironStates = ironQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp))
-            using (var ironTransforms = ironQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-            {
-                for (int i = 0; i < ironEntities.Length; i++)
-                {
-                    if (ironStates[i].Depleted == 1) continue;
-
-                    float dist = DistXZ(position, ironTransforms[i].Position);
-                    if (dist <= searchRadius && dist < nearestDist)
-                    {
-                        nearest = ironEntities[i];
-                        nearestDist = dist;
-                    }
-                }
-            }
-
-            // Search cadavers (crystal sources)
-            var cadaverQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CadaverTag>(),
-                ComponentType.ReadOnly<CadaverState>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using (var cadaverEntities = cadaverQuery.ToEntityArray(Allocator.Temp))
-            using (var cadaverStates = cadaverQuery.ToComponentDataArray<CadaverState>(Allocator.Temp))
-            using (var cadaverTransforms = cadaverQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-            {
-                for (int i = 0; i < cadaverEntities.Length; i++)
-                {
-                    if (cadaverStates[i].Depleted == 1) continue;
-
-                    float dist = DistXZ(position, cadaverTransforms[i].Position);
-                    if (dist <= searchRadius && dist < nearestDist)
-                    {
-                        nearest = cadaverEntities[i];
-                        nearestDist = dist;
-                    }
-                }
-            }
-
-            return nearest;
-        }
-
-        /// <summary>
         /// XZ-only (horizontal) distance -- ignores Y so terrain height doesn't break range checks.
         /// </summary>
         private static float DistXZ(float3 a, float3 b)

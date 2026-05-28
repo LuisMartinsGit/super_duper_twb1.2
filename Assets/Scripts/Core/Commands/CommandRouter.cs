@@ -669,6 +669,91 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
+        /// Cancel a training queue slot on a building, refunding the unit's
+        /// base cost to the building's faction. Slot 0 (the in-production
+        /// entry) is cancellable too — the helper clears
+        /// <see cref="TrainingState"/> timers so TrainingSystem promotes the
+        /// new slot 0 cleanly on the next tick.
+        /// </summary>
+        public static void IssueCancelTrain(EntityManager em, Entity building, int slotIndex,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (building == Entity.Null || !em.Exists(building)) return;
+            if (!em.HasComponent<TrainingState>(building)) return;
+            if (IsBlockedByNotControllable(em, building, source)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueCancelTrainForLockstep(em, building, slotIndex);
+            }
+            else
+            {
+                CancelTrainCommandHelper.Execute(em, building, slotIndex);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CONVERT HUT COMMANDS (Alanthor age-up choice — task-109 phase 2)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a "convert this Gatherer's Hut" command. Only meaningful on
+        /// a hut carrying <see cref="GathererHutAgeUpChoice"/> (added by
+        /// <c>AgeUpSystem</c> when an Alanthor-cultured faction ages up).
+        /// Routes through lockstep in multiplayer; executes the helper
+        /// directly in singleplayer.
+        /// </summary>
+        public static void IssueConvertHut(EntityManager em, Entity hut,
+            HutConversionTarget target, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (hut == Entity.Null || !em.Exists(hut)) return;
+            if (!em.HasComponent<GathererHutAgeUpChoice>(hut)) return;
+            if (IsBlockedByNotControllable(em, hut, source)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueConvertHutForLockstep(em, hut, target);
+            }
+            else
+            {
+                ConvertHutCommandHelper.Execute(em, hut, target);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CONVERT SEGMENT TO GATE COMMANDS (task-109 phase 6)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Issue a "convert this wall segment to a 5-wide gate" command.
+        /// Only meaningful on an entity carrying <see cref="WallSegmentTag"/>
+        /// with a <see cref="WallInstanceRef"/> buffer. The conversion takes
+        /// 8 seconds and costs 80 supplies flat (Phase 1 canonical). The
+        /// <paramref name="focusInstance"/> is the wall instance the player
+        /// clicked — it acts as the centre of the resulting 5-wide gate
+        /// region. Pass <see cref="Entity.Null"/> to use the segment
+        /// midpoint instead.
+        /// </summary>
+        public static void IssueConvertSegmentToGate(EntityManager em, Entity segment,
+            Entity focusInstance, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (segment == Entity.Null || !em.Exists(segment)) return;
+            if (!em.HasComponent<WallSegmentTag>(segment)) return;
+            // Idempotent: don't double-charge if the conversion is already running.
+            if (em.HasComponent<WallSegmentUpgradeState>(segment)) return;
+            if (IsBlockedByNotControllable(em, segment, source)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueConvertSegmentToGateForLockstep(em, segment, focusInstance);
+            }
+            else
+            {
+                ConvertSegmentToGateCommandHelper.Execute(em, segment, focusInstance);
+            }
+        }
+
+        /// <summary>
         /// Authoritative check: can this <paramref name="unitId"/> be queued
         /// at this <paramref name="building"/> right now? Reads
         /// <see cref="BuildingUpgradeState"/> (or <c>TempleLevel</c> for
@@ -728,9 +813,7 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<HallTag>(e))            return "Hall";
             if (em.HasComponent<BarracksTag>(e))        return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e))    return "ArcheryRange";
-            // Alanthor_RoyalStable: building exists in TechTree.json but no
-            // ECS tag yet — task-068 deferred the factory wiring. Falls
-            // through to the empty-string default until shipped.
+            if (em.HasComponent<RoyalStableTag>(e))     return "Alanthor_RoyalStable";
             if (em.HasComponent<PracticeRangeTag>(e))   return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(e))       return "Alanthor_SiegeYard";
             if (em.HasComponent<LonghouseTag>(e))       return "Feraldis_Longhouse";
@@ -843,6 +926,21 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
             }
 
+            // Builder-placed Halls (post-age-up expansion, capped at 6) inherit
+            // the faction's current culture so culture-driven queries that
+            // pick "the first hall" stay consistent — EntityActionExtractor and
+            // CultureChoicePopup both read FactionProgress off whichever Hall
+            // they hit first. Hall.Create stamps Culture=None unconditionally,
+            // so we override here. FactionColors.GetFactionCulture is
+            // deterministic across lockstep peers (set by AgeUpSystem during
+            // tick replay), so this works for both single-player and
+            // multiplayer paths.
+            if (buildingId == "Hall" && em.HasComponent<FactionProgress>(building))
+            {
+                byte culture = FactionColors.GetFactionCulture(faction);
+                em.SetComponentData(building, new FactionProgress { Culture = culture });
+            }
+
             return building;
         }
 
@@ -852,9 +950,11 @@ namespace TheWaningBorder.Core.Commands
             {
                 "Hut" => 15f,
                 "GatherersHut" => 20f,
+                "Hall" => 50f,
                 "Barracks" or "ArcheryRange" => 30f,
                 "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
                 "Alanthor_Smelter" or "Alanthor_PracticeRange" => 30f,
+                "Alanthor_RoyalStable" => 30f,
                 "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
                     or "Feraldis_Tower" or "Runai_Outpost" => 25f,
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,

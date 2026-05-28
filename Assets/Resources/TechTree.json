@@ -207,7 +207,7 @@
                 {
                     "id": "ArcheryRange",
                     "name": "Archery Range",
-                    "role": "Train ranged units",
+                    "role": "Train ranged units — Archer at L1, Crossbowman at L2, Longbowman at L3",
                     "hp": 600,
                     "armorType": "structure_human",
                     "baseDefense": {
@@ -218,7 +218,9 @@
                     },
                     "lineOfSight": 18,
                     "trains": [
-                        "Archer"
+                        "Archer",
+                        "Crossbowman",
+                        "Longbowman"
                     ],
                     "research": [],
                     "cost": {
@@ -406,6 +408,68 @@
                         "Iron": 25
                     },
                     "popCost": 1
+                },
+                {
+                    "id": "Crossbowman",
+                    "name": "Crossbowman",
+                    "class": "human_ranged",
+                    "hp": 70,
+                    "speed": 3.5,
+                    "trainingTime": 18.0,
+                    "minBuildingLevel": 2,
+                    "armorType": "ranged",
+                    "damage": 18,
+                    "damageType": "ranged",
+                    "attackCooldown": 3.0,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 22,
+                    "attackRange": 18.0,
+                    "minAttackRange": 6.0,
+                    "trainAt": [
+                        "ArcheryRange"
+                    ],
+                    "cost": {
+                        "Supplies": 40,
+                        "Iron": 35
+                    },
+                    "popCost": 1,
+                    "notes": "PLAYTEST PLACEHOLDER — Era 1 Archery Range L2 tier (task-110)."
+                },
+                {
+                    "id": "Longbowman",
+                    "name": "Longbowman",
+                    "class": "human_ranged",
+                    "hp": 55,
+                    "speed": 4.0,
+                    "trainingTime": 25.0,
+                    "minBuildingLevel": 3,
+                    "armorType": "ranged",
+                    "damage": 25,
+                    "damageType": "ranged",
+                    "attackCooldown": 3.5,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 35,
+                    "attackRange": 40.0,
+                    "minAttackRange": 12.0,
+                    "trainAt": [
+                        "ArcheryRange"
+                    ],
+                    "cost": {
+                        "Supplies": 50,
+                        "Iron": 40
+                    },
+                    "popCost": 1,
+                    "notes": "PLAYTEST PLACEHOLDER — Era 1 Archery Range L3 tier (task-110)."
                 },
                 {
                     "id": "Litharch",
@@ -1432,7 +1496,7 @@
                         },
                         {
                             "id": "Alanthor_Smelter",
-                            "name": "Smelter",
+                            "name": "Forge",
                             "role": "Iron processing (later Veilsteel input)",
                             "hp": 1200,
                             "armorType": "structure_human",

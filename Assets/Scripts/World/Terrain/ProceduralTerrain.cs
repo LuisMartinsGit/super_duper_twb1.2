@@ -195,6 +195,19 @@ namespace TheWaningBorder.World.Terrain
         // frames while the loading-screen is on-screen.
         public static bool IsGenerationComplete { get; private set; }
 
+        /// <summary>
+        /// Marks the procedural-generation gate as already complete for a
+        /// scene that ships with its own baked Unity Terrain (e.g. MapMagic
+        /// output on a hand-authored map). Call this in place of creating a
+        /// ProceduralTerrain component — SpawnDelayHelper's
+        /// TerrainUtility.IsReady() wait loop will fall through immediately
+        /// so the rest of the bootstrap pipeline can proceed.
+        /// </summary>
+        public static void MarkExternalTerrainReady()
+        {
+            IsGenerationComplete = true;
+        }
+
         void Awake()
         {
             // FAST path only — anything that takes more than ~1 ms must move
@@ -294,6 +307,13 @@ namespace TheWaningBorder.World.Terrain
             else
             {
                 SyncIslandsFromRegions(result.regions);
+                // ProceduralMapGen.BuildLayers ships 7 procedural layers and
+                // has no curse layer of its own. PaintCursedGround needs the
+                // curse layer present in terrainData.terrainLayers at runtime
+                // — append it here so CrystalSpreadSystem can paint cursed
+                // ground on the new map gen output the same way it did on
+                // the legacy splatmap path.
+                EnsureCurseLayerAppended();
             }
             yield return null;
 
@@ -553,6 +573,61 @@ namespace TheWaningBorder.World.Terrain
                 normalScale = 1.0f
             };
             return layer;
+        }
+
+        // Appends the curse layer to terrainData.terrainLayers when the new
+        // ProceduralMapGen pipeline has just rebuilt the layer set without
+        // one. Also grows the alphamap depth so CrystalSpreadSystem's
+        // PaintCursedGround can find the curse index at runtime.
+        void EnsureCurseLayerAppended()
+        {
+            if (_data == null) return;
+
+            if (curse == null)
+            {
+                float mapSize = worldMax.x - worldMin.x;
+                float tileSize = mapSize / textureTiling;
+                curse = TryBuildCurseLayerFromResources(tileSize);
+                if (curse == null)
+                {
+                    curse = CreateTerrainLayer("Curse", GenerateCurseTexture(0f, 0f), tileSize);
+                    curse.metallic = 0.7f;
+                    curse.smoothness = 0.85f;
+                }
+            }
+            if (curse == null) return;
+
+            var layers = _data.terrainLayers;
+            if (layers != null)
+            {
+                for (int i = 0; i < layers.Length; i++)
+                    if (layers[i] == curse) return; // already present
+            }
+            int oldLen = layers == null ? 0 : layers.Length;
+            var newLayers = new TerrainLayer[oldLen + 1];
+            for (int i = 0; i < oldLen; i++) newLayers[i] = layers[i];
+            newLayers[oldLen] = curse;
+            _data.terrainLayers = newLayers;
+
+            // Grow the alphamap depth to match. ProceduralSplat sized the
+            // splat array to alphamapLayers at build time (7); after the
+            // assignment above alphamapLayers is now 8 so the existing
+            // alphamap implicitly has the curse layer at weight 0 across
+            // the whole map. Force-refresh by re-reading + re-writing so
+            // the GPU upload picks up the new layer slot.
+            int alphaRes = _data.alphamapResolution;
+            var oldSplat = _data.GetAlphamaps(0, 0, alphaRes, alphaRes);
+            int oldDepth = oldSplat.GetLength(2);
+            int newDepth = newLayers.Length;
+            if (newDepth > oldDepth)
+            {
+                var newSplat = new float[alphaRes, alphaRes, newDepth];
+                for (int z = 0; z < alphaRes; z++)
+                    for (int x = 0; x < alphaRes; x++)
+                        for (int l = 0; l < oldDepth; l++)
+                            newSplat[z, x, l] = oldSplat[z, x, l];
+                _data.SetAlphamaps(0, 0, newSplat);
+            }
         }
 
         // ─── Curse ground from authored Crystal_ground textures ──────────────

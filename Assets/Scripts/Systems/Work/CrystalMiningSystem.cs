@@ -30,6 +30,7 @@ namespace TheWaningBorder.Systems.Work
         private const int MaxCarryAmount = 10;          // Deliver after accumulating 10
         private const float GatherRange = 5f;
         private const float DropoffRange = 6f;
+        private const float AutoFindRadius = 10f;       // Radius to auto-find next cadaver around a depleted node
 
         // Cached queries — created once in OnCreate, reused every frame
         private EntityQuery _hallDropoffQuery;
@@ -126,25 +127,33 @@ namespace TheWaningBorder.Systems.Work
 
         private void ProcessMovingToCadaver(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos)
         {
-            // Check if cadaver still exists or is depleted — auto-find next in LOS
+            // Check if cadaver still exists or is depleted — auto-find next nearby
             bool needNewTarget = false;
+            float3 searchCenter = pos;
             if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
             {
+                // Cadaver was destroyed (likely depleted by another miner) — fall
+                // back to the last known position captured in LastDepositPos.
                 needNewTarget = true;
+                if (!miner.LastDepositPos.Equals(float3.zero))
+                    searchCenter = miner.LastDepositPos;
             }
             else if (em.HasComponent<CadaverState>(miner.AssignedDeposit))
             {
                 var cadaverState = em.GetComponentData<CadaverState>(miner.AssignedDeposit);
                 if (cadaverState.Depleted == 1)
+                {
                     needNewTarget = true;
+                    searchCenter = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
+                    miner.LastDepositPos = searchCenter;
+                }
             }
 
             if (needNewTarget)
             {
-                // No cadaver in LOS — go idle as a crystal miner. The Idle handler
-                // will widen the search to the whole map next tick. We keep
+                // No cadaver in range — go idle as a crystal miner. We keep
                 // GatheringResource=1 so the miner stays committed to crystal.
-                if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
+                if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, searchCenter))
                 {
                     miner.State = MinerWorkState.Idle;
                     miner.AssignedDeposit = Entity.Null;
@@ -196,32 +205,23 @@ namespace TheWaningBorder.Systems.Work
             {
                 miner.GatherTimer = 0f;
 
-                // Check crystal node still exists and has crystal
-                if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
+                // Check crystal node still exists and has crystal. If it was
+                // destroyed by another miner exhausting it, the current miner
+                // is still standing where the cadaver was (within GatherRange)
+                // — use that as the search center for the next cadaver.
+                if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit)
+                    || !em.HasComponent<CadaverState>(miner.AssignedDeposit))
                 {
-                    // Node gone - deposit what we have or go idle
-                    // Cadaver gone — drop off what we carry, then Idle case will
-                    // re-search for a new cadaver. Crystal intent preserved.
-                    if (miner.CurrentLoad > 0)
-                    {
-                        miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
-                    }
-                    else
-                    {
-                        miner.State = MinerWorkState.Idle;
-                    }
-                    return;
-                }
+                    var minerPos = em.GetComponentData<LocalTransform>(entity).Position;
+                    miner.LastDepositPos = minerPos;
+                    miner.AssignedDeposit = Entity.Null;
 
-                if (!em.HasComponent<CadaverState>(miner.AssignedDeposit))
-                {
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
                         SetDropoffDestination(ref miner, em, ref ecb, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
-                    else
+                    else if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, miner.LastDepositPos))
                     {
                         miner.State = MinerWorkState.Idle;
                     }
@@ -244,6 +244,11 @@ namespace TheWaningBorder.Systems.Work
                 }
 
                 em.SetComponentData(miner.AssignedDeposit, cadaverState);
+
+                // Capture the cadaver's position before destruction so auto-find
+                // can search around where the depleted node was.
+                if (justDepleted)
+                    miner.LastDepositPos = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
 
                 // Destroy depleted cadaver via ECB (structural changes not allowed during iteration)
                 if (justDepleted && em.Exists(miner.AssignedDeposit))
@@ -268,11 +273,9 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // Node depleted and nothing to carry — try LOS search.
-                        // If none, go Idle but stay committed to crystal — the
-                        // Idle handler will widen the search next tick.
-                        var minerPos = em.GetComponentData<LocalTransform>(entity).Position;
-                        if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, minerPos))
+                        // Node depleted and nothing to carry — look for another
+                        // cadaver within AutoFindRadius of the depleted node.
+                        if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, miner.LastDepositPos))
                         {
                             miner.State = MinerWorkState.Idle;
                             miner.AssignedDeposit = Entity.Null;
@@ -356,11 +359,12 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    // Cadaver depleted — try LOS search. If none, go Idle but
-                    // stay a crystal miner; the Idle handler will widen the
-                    // search to the whole map next tick.
+                    // Cadaver depleted — auto-find another cadaver within
+                    // AutoFindRadius of where the depleted node was (not the
+                    // miner's current position at the dropoff).
                     miner.DropoffTarget = Entity.Null;
-                    if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, pos))
+                    float3 searchCenter = miner.LastDepositPos.Equals(float3.zero) ? pos : miner.LastDepositPos;
+                    if (!TryAssignNearestCadaver(ref miner, em, ref ecb, entity, searchCenter))
                     {
                         miner.State = MinerWorkState.Idle;
                         miner.AssignedDeposit = Entity.Null;
@@ -438,16 +442,13 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Find nearest non-depleted cadaver within the miner's line-of-sight range.
-        /// Assigns the miner to it and sets movement destination.
-        /// Returns true if a new cadaver was found.
+        /// Look for the nearest non-depleted cadaver within AutoFindRadius of
+        /// <paramref name="searchCenter"/> (typically the depleted node's
+        /// position). If found, assign the miner to it and set the move
+        /// destination. Returns true if a new cadaver was found.
         /// </summary>
-        private bool TryAssignNearestCadaver(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos)
+        private bool TryAssignNearestCadaver(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 searchCenter)
         {
-            float los = 10f;
-            if (em.HasComponent<LineOfSight>(entity))
-                los = em.GetComponentData<LineOfSight>(entity).Radius;
-
             using var cadavers = _cadaverQuery.ToEntityArray(Allocator.Temp);
             using var cadaverStates = _cadaverQuery.ToComponentDataArray<CadaverState>(Allocator.Temp);
             using var cadaverTransforms = _cadaverQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -461,8 +462,8 @@ namespace TheWaningBorder.Systems.Work
                 if (cadaverStates[i].Depleted == 1) continue;
                 if (cadaverStates[i].RemainingCrystal <= 0) continue;
 
-                float dist = DistXZ(pos, cadaverTransforms[i].Position);
-                if (dist <= los && dist < bestDist)
+                float dist = DistXZ(searchCenter, cadaverTransforms[i].Position);
+                if (dist <= AutoFindRadius && dist < bestDist)
                 {
                     bestDist = dist;
                     bestCadaver = cadavers[i];
@@ -479,8 +480,8 @@ namespace TheWaningBorder.Systems.Work
 
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
-                else
-                    ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+            else
+                ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
 
             return true;
         }

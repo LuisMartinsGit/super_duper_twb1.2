@@ -58,6 +58,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
                 "KingsCourt" => CreateKingsCourt(em, position, faction),
                 "Alanthor_Crucible" => CreateAlanthorCrucible(em, position, faction),
+                "Alanthor_RoyalStable" => RoyalStable.Create(em, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodge(em, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStation(em, position, faction),
@@ -114,6 +115,7 @@ namespace TheWaningBorder.Entities
                 "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
                 "KingsCourt" => CreateKingsCourtECB(ecb, position, faction),
                 "Alanthor_Crucible" => CreateAlanthorCrucibleECB(ecb, position, faction),
+                "Alanthor_RoyalStable" => RoyalStable.Create(ecb, position, faction),
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodgeECB(ecb, position, faction),
                 "Feraldis_LoggingStation" => CreateFeraldisLoggingStationECB(ecb, position, faction),
@@ -175,6 +177,7 @@ namespace TheWaningBorder.Entities
                 "Feraldis_SiegeYard" => 362,
                 "KingsCourt" => 363,
                 "Alanthor_Crucible" => 364,
+                "Alanthor_RoyalStable" => RoyalStable.PresentationID,
                 "Runai_Vault" => 365,
                 "Runai_VeilsteelFoundry" => 366,
                 "Feraldis_Foundry" => 367,

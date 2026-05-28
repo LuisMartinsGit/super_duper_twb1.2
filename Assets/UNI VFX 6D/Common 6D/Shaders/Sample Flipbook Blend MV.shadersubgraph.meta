@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 745d6bdcbe07b1047a6b3a1d9c6777a0
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 60072b568d64c40a485e0fc55012dc9f, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Common 6D/Shaders/Sample Flipbook Blend MV.shadersubgraph
+  uploadId: 855178

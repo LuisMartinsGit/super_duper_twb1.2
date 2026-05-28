@@ -9,6 +9,8 @@
 //
 // Location: Assets/Scripts/Bootstrap/BuildingPrefabPrewarm.cs
 
+// HUMAN REVIEW: DONE
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,13 +24,6 @@ namespace TheWaningBorder.Bootstrap
         // prefabs we're warming don't render to the player's main camera.
         // 30 is reserved for this — adjust if it collides with project layers.
         private const int PrewarmLayer = 30;
-
-        // Mirrors the variant grid in BuildingPrefabSwapSystem.BuildCandidatePaths.
-        // We over-enumerate cultures × levels × variants and let null-result
-        // Resources.Load tell us which combos exist on disk.
-        private static readonly string[] CultureCodes  = { "al", "ru", "fe" };
-        private static readonly int[]    Levels        = { 1, 2, 3 };
-        private static readonly int[]    HouseVariants = { 0, 1, 2 };
 
         /// <summary>
         /// Run the prewarm. Yields per-prefab so the LoadingScreen can update
@@ -44,15 +39,16 @@ namespace TheWaningBorder.Bootstrap
             const float ProgressEnd   = 0.99f;
             const float ProgressSpan  = ProgressEnd - ProgressStart;
 
-            LoadingScreen.SetStatus("Warming up prefabs…");
+            LoadingScreen.SetStatus("Loading Buildings...");
 
             var paths = CollectPaths();
             int total = paths.Count;
             if (total == 0) yield break;
 
             // Off-screen camera that renders only the prewarm layer.
-            var camGo = new GameObject("PrewarmCamera");
-            camGo.hideFlags = HideFlags.HideAndDontSave;
+            var camGo = new GameObject("PrewarmCamera"){
+                hideFlags = HideFlags.HideAndDontSave
+            };
             var cam = camGo.AddComponent<Camera>();
             cam.enabled         = false; // we trigger Render() manually
             cam.cullingMask     = 1 << PrewarmLayer;
@@ -129,29 +125,100 @@ namespace TheWaningBorder.Bootstrap
             const string root = "Prefabs/Buildings/";
             var paths = new List<string>(64);
 
+            #region BASE BUILDINGS LIST
             // Base prefabs (no culture / no level)
             paths.Add(root + "Hall");
             paths.Add(root + "Barracks");
             paths.Add(root + "Hut");
             paths.Add(root + "GatherersHut");
             paths.Add(root + "House");
+            paths.Add(root + "ShrineOfRidan");
+            paths.Add(root + "FiendstoneKeep");
+            paths.Add(root + "VaultOfAlmiérra");
 
-            // Per-culture, per-level swaps used by BuildingPrefabSwapSystem.
-            for (int c = 0; c < CultureCodes.Length; c++)
-            {
-                var code = CultureCodes[c];
-                for (int li = 0; li < Levels.Length; li++)
-                {
-                    int level = Levels[li];
-                    paths.Add(root + $"Hall_{code}_{level}");
-                    paths.Add(root + $"Barracks_{code}_{level}");
-                    paths.Add(root + $"house_{code}_{level}");
-                    foreach (var variant in HouseVariants)
-                    {
-                        if (variant > 0) paths.Add(root + $"house_{code}_{level}_{variant}");
-                    }
-                }
-            }
+            #endregion
+            #region ALANTHOR BUILDINGS LIST
+            // Alanthor Hall
+
+            paths.Add(root+"Hall_al_1");
+            paths.Add(root+"Hall_al_2");
+            paths.Add(root+"Hall_al_3");
+
+            // Alanthor Barracks
+
+            paths.Add(root+"Barracks_al_1");
+            paths.Add(root+"Barracks_al_2");
+            paths.Add(root+"Barracks_al_3");
+
+            // Alanthor Archety Range
+
+            paths.Add(root+"ArcheryRange_al_1");
+            paths.Add(root+"ArcheryRange_al_2");
+            paths.Add(root+"ArcheryRange_al_3");
+
+            // Alanthor House
+
+            paths.Add(root+"House_al_1_A");
+            paths.Add(root+"House_al_2_A");
+            paths.Add(root+"House_al_3_A");
+            paths.Add(root+"House_al_1_B");
+            paths.Add(root+"House_al_2_B");
+            paths.Add(root+"House_al_3_B");
+
+            // Alanthor Royal Stable
+
+            paths.Add(root+"RoyalStable_al_1");
+            paths.Add(root+"RoyalStable_al_2");
+            paths.Add(root+"RoyalStable_al_3");
+
+            // Alanthor Forge
+
+            paths.Add(root+"RoyalForge_al_1");
+            paths.Add(root+"RoyalForge_al_2");
+            paths.Add(root+"RoyalForge_al_3");
+
+            // Alanthor Temple of Ridan
+
+            paths.Add(root+"TempleOfRidan_al_1");
+            paths.Add(root+"TempleOfRidan_al_2");
+            paths.Add(root+"TempleOfRidan_al_3");
+            paths.Add(root+"TempleOfRidan_al_4");
+            paths.Add(root+"TempleOfRidan_al_5");
+
+            // Alanthor Walls
+
+            paths.Add(root+"WallHub_al_1");
+            paths.Add(root+"WallHub_al_2");
+            paths.Add(root+"WallHub_al_3");
+
+            paths.Add(root+"WallSegment_al_1");
+            paths.Add(root+"WallSegment_al_2");
+            paths.Add(root+"WallSegment_al_3");
+
+            paths.Add(root+"WallTower_al_1");
+            paths.Add(root+"WallTower_al_2");
+            paths.Add(root+"WallTower_al_3");
+
+            paths.Add(root+"WallEmplacement_al_1");
+            paths.Add(root+"WallEmplacement_al_2");
+            paths.Add(root+"WallEmplacement_al_3");
+
+            paths.Add(root+"WallGate_al_1");
+            paths.Add(root+"WallGate_al_2");
+            paths.Add(root+"WallGate_al_3");
+
+            #endregion
+            #region FERALDIS BUILDINGS LIST
+
+            #endregion
+            #region RUNAI BUILDINGS LIST
+
+            #endregion
+            #region SECT BUILDINGS LIST
+            #endregion
+
+            // TO DO: Add the first four sect chappels + unique buildings.
+
             return paths;
         }
 

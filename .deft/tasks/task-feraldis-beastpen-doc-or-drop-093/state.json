@@ -1,0 +1,16 @@
+{
+  "id": "task-feraldis-beastpen-doc-or-drop-093",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T16:25:00Z",
+  "updatedAt": "2026-05-20T16:25:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §B.6 — Feraldis_BeastPen has a BuildCosts entry but no factory, no TechTree.json entry, no Design-doc mention. Decide: doc it (e.g. Feraldis cavalry trainer paralleling Alanthor Royal Stable) or drop the BuildCosts entry.",
+      "timestamp": "2026-05-20T16:25:00Z"
+    }
+  ]
+}

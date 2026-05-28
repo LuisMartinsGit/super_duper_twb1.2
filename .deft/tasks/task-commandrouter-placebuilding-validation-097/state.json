@@ -1,0 +1,16 @@
+{
+  "id": "task-commandrouter-placebuilding-validation-097",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.4 — CommandRouter.IssuePlaceBuilding bypasses IsValidBuildPosition for non-UI callers, and BuildingFactory.Create falls through to CreateDefault on unknown ids. Two related gaps in the place-building command path.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

@@ -161,15 +161,40 @@ namespace TheWaningBorder.Systems.Work
 
         /// <summary>
         /// Per-culture transform of faction-owned Gatherer's Huts at age-up.
-        /// Alanthor → wall-segment anchor (Phase 2).
-        /// Runai    → caravan-wagon with income decay (Phase 2).
-        /// Feraldis → persists with income + raider-spawn tag (Phase 3).
-        /// Phase 1 (task-066): no destruction; behaviors are stubs.
+        /// Alanthor → tag each hut with <see cref="GathererHutAgeUpChoice"/>;
+        ///            the player then converts each hut individually into
+        ///            either a Wall Hub or a Watch Tower via the action panel
+        ///            (task-109 phase 2). Cost / timer canonicalised in
+        ///            docs/Design/Age_1_Alanthor.md.
+        /// Runai    → caravan-wagon with income decay (task-066 Phase 2 — stub).
+        /// Feraldis → persists with income + raider-spawn tag (task-066 Phase 3 — stub).
         /// </summary>
         private static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
-            // Phase 2/3 will dispatch culture-specific transform systems here.
-            // For Phase 1 the huts remain unchanged across age-up.
+            if (culture == Cultures.Alanthor)
+            {
+                // Tag every faction-owned Gatherer's Hut so the action panel
+                // surfaces the Convert-to-Wall-Hub / Convert-to-Watch-Tower
+                // choice. Idempotent — already-tagged huts and huts already
+                // mid-conversion are skipped (this method also fires from
+                // save-load paths in future tasks).
+                var query = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<GathererHutTag>(),
+                    ComponentType.ReadOnly<FactionTag>()
+                );
+                using var entities = query.ToEntityArray(Allocator.Temp);
+                using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    if (tags[i].Value != faction) continue;
+                    var e = entities[i];
+                    if (em.HasComponent<GathererHutAgeUpChoice>(e)) continue;
+                    if (em.HasComponent<GathererHutConverting>(e)) continue;
+                    em.AddComponent<GathererHutAgeUpChoice>(e);
+                }
+            }
+            // Runai / Feraldis branches are still stubs (task-066 phases 2/3).
         }
 
         /// <summary>

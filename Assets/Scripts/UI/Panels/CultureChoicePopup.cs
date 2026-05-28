@@ -92,6 +92,15 @@ namespace TheWaningBorder.UI.Panels
             var em = UnifiedUIManager.GetEntityManager();
             if (em.Equals(default(EntityManager))) return;
 
+            // Hard-block locked cultures. Defense in depth — the IMGUI
+            // column and web HUD card both disable the choose action,
+            // but a malformed bridge payload must not slip through.
+            if (CultureConfig.IsComingSoon(culture))
+            {
+                PlayerNotificationSystem.NotifyError($"{CultureConfig.GetName(culture)} is coming soon");
+                return;
+            }
+
             if (!FactionEconomy.Spend(em, _faction, CultureConfig.AgeUpCost))
             {
                 PlayerNotificationSystem.NotifyError("Not enough resources to advance");
@@ -220,8 +229,13 @@ namespace TheWaningBorder.UI.Panels
             string name = CultureConfig.GetName(culture);
             string desc = CultureConfig.GetDescription(culture);
             Texture2D image = GetCultureImage(culture);
+            bool locked = CultureConfig.IsComingSoon(culture);
 
             GUILayout.BeginVertical(GUILayout.Width(ColumnWidth));
+
+            // Locked columns render dimmed so the eye is pulled to playable ones.
+            Color prevTint = GUI.color;
+            if (locked) GUI.color = new Color(1f, 1f, 1f, 0.45f);
 
             // Culture illustration (or colored swatches if image missing)
             GUILayout.BeginHorizontal();
@@ -237,15 +251,15 @@ namespace TheWaningBorder.UI.Panels
                 // Fallback: colored swatches keyed to the culture's primary/secondary
                 // colours. Renders when Resources/Sprites/Cultures/<Name> is absent.
                 var swatchRect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
-                GUI.color = primary;
+                GUI.color = locked ? new Color(primary.r, primary.g, primary.b, 0.45f) : primary;
                 GUI.DrawTexture(swatchRect, Texture2D.whiteTexture);
 
                 GUILayout.Space(4);
 
                 var swatch2Rect = GUILayoutUtility.GetRect(SwatchSize, SwatchSize);
-                GUI.color = secondary;
+                GUI.color = locked ? new Color(secondary.r, secondary.g, secondary.b, 0.45f) : secondary;
                 GUI.DrawTexture(swatch2Rect, Texture2D.whiteTexture);
-                GUI.color = Color.white;
+                GUI.color = locked ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
             }
 
             GUILayout.FlexibleSpace();
@@ -263,11 +277,16 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.FlexibleSpace();
 
-            // Choose button
-            bool wasEnabled = GUI.enabled;
-            if (!canAfford) GUI.enabled = false;
+            // Restore tint before drawing the button so the disabled state's
+            // own greying isn't compounded with the column-wide dimming.
+            GUI.color = prevTint;
 
-            if (GUILayout.Button($"Choose {name}", _chooseStyle, GUILayout.Height(36)))
+            // Choose button — disabled when locked or unaffordable.
+            bool wasEnabled = GUI.enabled;
+            if (locked || !canAfford) GUI.enabled = false;
+
+            string buttonLabel = locked ? "Coming Soon" : $"Choose {name}";
+            if (GUILayout.Button(buttonLabel, _chooseStyle, GUILayout.Height(36)) && !locked)
             {
                 CommitAgeUp(culture);
             }
@@ -275,6 +294,46 @@ namespace TheWaningBorder.UI.Panels
             GUI.enabled = wasEnabled;
 
             GUILayout.EndVertical();
+
+            // "COMING SOON" ribbon across the locked column — drawn after
+            // EndVertical so it stacks above the dimmed content.
+            if (locked)
+            {
+                var columnRect = GUILayoutUtility.GetLastRect();
+                DrawComingSoonRibbon(columnRect);
+            }
+        }
+
+        // Diagonal-feel ribbon centered on the locked column. Uses solid
+        // bands rather than a rotated texture so it works without any
+        // shader/material setup and reads well at IMGUI scale.
+        private void DrawComingSoonRibbon(Rect columnRect)
+        {
+            const float ribbonHeight = 28f;
+            var ribbonRect = new Rect(
+                columnRect.x - 4f,
+                columnRect.y + columnRect.height * 0.5f - ribbonHeight * 0.5f,
+                columnRect.width + 8f,
+                ribbonHeight
+            );
+
+            Color prev = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.78f);
+            GUI.DrawTexture(ribbonRect, Texture2D.whiteTexture);
+            GUI.color = Styles.HighlightColor;
+            var topEdge = new Rect(ribbonRect.x, ribbonRect.y, ribbonRect.width, 1f);
+            var botEdge = new Rect(ribbonRect.x, ribbonRect.yMax - 1f, ribbonRect.width, 1f);
+            GUI.DrawTexture(topEdge, Texture2D.whiteTexture);
+            GUI.DrawTexture(botEdge, Texture2D.whiteTexture);
+            GUI.color = prev;
+
+            var prevAlign = _nameStyle.alignment;
+            var prevColor = _nameStyle.normal.textColor;
+            _nameStyle.alignment = TextAnchor.MiddleCenter;
+            _nameStyle.normal.textColor = Styles.HighlightColor;
+            GUI.Label(ribbonRect, "COMING SOON", _nameStyle);
+            _nameStyle.alignment = prevAlign;
+            _nameStyle.normal.textColor = prevColor;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -285,6 +344,12 @@ namespace TheWaningBorder.UI.Panels
         {
             var em = UnifiedUIManager.GetEntityManager();
             if (em.Equals(default(EntityManager))) return;
+
+            if (CultureConfig.IsComingSoon(culture))
+            {
+                PlayerNotificationSystem.NotifyError($"{CultureConfig.GetName(culture)} is coming soon");
+                return;
+            }
 
             // 1. Spend resources
             if (!FactionEconomy.Spend(em, _faction, CultureConfig.AgeUpCost))

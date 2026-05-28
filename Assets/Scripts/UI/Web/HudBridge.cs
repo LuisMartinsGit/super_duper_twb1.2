@@ -84,7 +84,14 @@ namespace TheWaningBorder.UI.Web
         {
             if (_jsMethodRegistered) return;
             if (_ctrl == null || _ctrl.Client == null) return;
-            if (!_ctrl.Client.IsConnected) return;
+            // Don't gate on IsConnected. RegisterJsMethod is a local-side
+            // insert into UWB's JsMethodManager map — no TCP traffic — so
+            // it works before the browser process has finished handshaking.
+            // The old gate produced a race: the HUD page would call
+            // uwb.ExecuteJsMethod("HudMessage", ...) on its first tick
+            // (most often "hud:ready") *before* the next HudBridge.Update
+            // fired with IsConnected=true, and UWB logged a
+            // MethodNotFoundException because nothing was registered yet.
             _ctrl.Client.RegisterJsMethod<HudMessageDto>("HudMessage", OnHudMessage);
             _jsMethodRegistered = true;
         }
@@ -131,6 +138,22 @@ namespace TheWaningBorder.UI.Web
                     HandleActionInvoke(m.PayloadJson);
                     break;
 
+                case "actions:cancelTrain":
+                    HandleCancelTrain(m.PayloadJson);
+                    break;
+
+                case "actions:convertHut":
+                    HandleConvertHut(m.PayloadJson);
+                    break;
+
+                case "actions:convertWallSegmentToGate":
+                    HandleConvertWallSegmentToGate(m.PayloadJson);
+                    break;
+
+                case "wall:previewGate":
+                    HandleWallPreviewGate(m.PayloadJson);
+                    break;
+
                 case "hud:capture":
                     // Pointer entered/left an interactive HUD region. Sets a
                     // flag the game-world input systems consult so a click on
@@ -174,7 +197,8 @@ namespace TheWaningBorder.UI.Web
             // resources, so supplies (and iron/crystal) never decremented. The
             // IMGUI EntityActionPanel does this same dance; mirror it here.
             if (selectionKind == "hall" || selectionKind == "barracks" ||
-                selectionKind == "archery" || selectionKind == "shrine")
+                selectionKind == "archery" || selectionKind == "shrine" ||
+                selectionKind == "stable")
             {
                 var sel = Input.SelectionSystem.CurrentSelection;
                 if (sel == null || sel.Count == 0)
@@ -300,8 +324,306 @@ namespace TheWaningBorder.UI.Web
                 }
             }
 
+            // Per-hub "Build Wall" action. The JSX layer surfaces the button
+            // on a selected wall hub (sel.wall.kind == "hub") and forwards
+            // the click through actions:invoke with key="BuildWall". We
+            // resolve the source hub from the current selection and enter
+            // hub-anchored placement mode.
+            if (key == "BuildWall")
+            {
+                var sel = Input.SelectionSystem.CurrentSelection;
+                if (sel == null || sel.Count == 0) return;
+                var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (world == null || !world.IsCreated) return;
+                var em = world.EntityManager;
+                var hub = sel[0];
+                if (!em.Exists(hub)) return;
+                if (!em.HasComponent<WallHubTag>(hub))
+                {
+                    UI.HUD.PlayerNotificationSystem.Notify("Select a wall hub to extend");
+                    return;
+                }
+                if (em.HasComponent<UnderConstruction>(hub))
+                {
+                    UI.HUD.PlayerNotificationSystem.Notify("Wait for the hub to finish building");
+                    return;
+                }
+                UI.Panels.BuilderCommandPanel.TriggerHubBuildWall(hub);
+                return;
+            }
+
             // Anything else: not wired yet — log for triage.
             Debug.Log($"[HudBridge] actions:invoke {key} (kind={selectionKind}, binding TODO)");
+        }
+
+        // Right-click on a training queue slot in the React Selection panel
+        // sends an actions:cancelTrain topic with {buildingId, slotIndex}.
+        // buildingId carries Entity.Index (matches the "id" field emitted by
+        // EmitSingle), slotIndex is 0..MaxProductionQueue-1.
+        //
+        // Routes through CommandRouter.IssueCancelTrain so the lockstep queue
+        // sees the cancellation — single-player and multiplayer share one
+        // path. The router applies the standard guard triad (em.Exists +
+        // HasComponent<TrainingState> + NotControllableTag filter) so this
+        // helper only owns selection resolution + payload parsing.
+        void HandleCancelTrain(string payloadJson)
+        {
+            var idStr   = QuickField(payloadJson, "buildingId");
+            var slotStr = QuickField(payloadJson, "slotIndex");
+            if (!int.TryParse(idStr, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out int entityIndex)) return;
+            if (!int.TryParse(slotStr, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out int slotIndex)) return;
+            if (slotIndex < 0 ||
+                slotIndex >= TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue) return;
+
+            var sel = Input.SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count == 0) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            // The JSX side renders the queue strip from the currently-selected
+            // building's payload, so the entity is guaranteed to live in the
+            // current selection. Match on Entity.Index — same shape EmitSingle
+            // emits.
+            Entity building = Entity.Null;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (sel[i].Index == entityIndex) { building = sel[i]; break; }
+            }
+            if (building == Entity.Null) return; // selection drifted mid-click
+
+            // Player-owned filter — refund must not credit an enemy faction.
+            // CommandRouter's NotControllableTag guard handles a different
+            // case (caravans/trade patrols), so we add the faction check here
+            // before the router call.
+            if (em.HasComponent<FactionTag>(building) &&
+                em.GetComponentData<FactionTag>(building).Value != GameSettings.LocalPlayerFaction)
+                return;
+
+            TheWaningBorder.Core.Commands.CommandRouter.IssueCancelTrain(em, building, slotIndex);
+        }
+
+        // Click on one of the two hut age-up cells (Wall Hub / Watch Tower)
+        // sends an actions:convertHut topic with {entityId, target}. The
+        // entityId is Entity.Index (same id field EmitSingle emits in the
+        // selection payload); target is the string "WallHub" | "WatchTower".
+        // (task-109 phase 2)
+        void HandleConvertHut(string payloadJson)
+        {
+            var idStr = QuickField(payloadJson, "entityId");
+            var targetStr = QuickField(payloadJson, "target");
+            if (!int.TryParse(idStr, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out int entityIndex)) return;
+            if (string.IsNullOrEmpty(targetStr)) return;
+
+            HutConversionTarget target = targetStr switch
+            {
+                "WallHub" => HutConversionTarget.WallHub,
+                "WatchTower" => HutConversionTarget.WatchTower,
+                _ => HutConversionTarget.None,
+            };
+            if (target == HutConversionTarget.None) return;
+
+            var sel = Input.SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count == 0) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            // Resolve the entity from the current selection by Entity.Index
+            // — same shape EmitSingle emits.
+            Entity hut = Entity.Null;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (sel[i].Index == entityIndex) { hut = sel[i]; break; }
+            }
+            if (hut == Entity.Null) return;
+
+            // Player-owned filter — the conversion charges the bank, so an
+            // enemy hut must not be hijacked from the local HUD.
+            if (em.HasComponent<FactionTag>(hut)
+                && em.GetComponentData<FactionTag>(hut).Value != GameSettings.LocalPlayerFaction)
+                return;
+
+            if (!em.HasComponent<GathererHutAgeUpChoice>(hut))
+            {
+                // Selection drifted or the player double-clicked through —
+                // surface a notify only if affordability would have blocked.
+                return;
+            }
+
+            // Affordability surface — IssueConvertHut also guards via Spend's
+            // return value, but the player gets a clearer message when we
+            // pre-check here.
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(hut))
+                faction = em.GetComponentData<FactionTag>(hut).Value;
+            var cost = TheWaningBorder.Core.Commands.Types.ConvertHutCommandHelper.ConversionCost;
+            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, cost))
+            {
+                UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources");
+                return;
+            }
+
+            TheWaningBorder.Core.Commands.CommandRouter.IssueConvertHut(em, hut, target);
+        }
+
+        // Click on the "Convert to Gate (Nx)" segment cell sends an
+        // actions:convertWallSegmentToGate topic with the segment + focus
+        // instance ids. The JSX side resolves both ids to Entity.Index values
+        // (same shape EmitSingle emits — the focus-instance comes from the
+        // segment selection's `focusInstanceId` field, which mirrors the
+        // last-clicked wall instance). Routes through
+        // CommandRouter.IssueConvertSegmentToGate so the lockstep queue
+        // sees the conversion. (task-109 phase 6)
+        void HandleConvertWallSegmentToGate(string payloadJson)
+        {
+            var segStr = QuickField(payloadJson, "segmentId");
+            var focusStr = QuickField(payloadJson, "focusInstanceId");
+            if (!int.TryParse(segStr, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out int segIndex)) return;
+            int focusIndex = 0;
+            int.TryParse(focusStr, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out focusIndex);
+
+            var sel = Input.SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count == 0) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            // Resolve the focus instance from the current selection by
+            // Entity.Index — same shape EmitSingle emits as `id`. The
+            // focus instance must be present in the selection (clicking
+            // a wall instance is what selected it).
+            Entity focus = Entity.Null;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (sel[i].Index == focusIndex) { focus = sel[i]; break; }
+            }
+
+            // Resolve the segment. The JSX side derives `segmentId` from the
+            // focus instance's parent — but we re-derive it here so a stale
+            // payload can't accidentally target the wrong segment.
+            Entity segment = Entity.Null;
+            if (focus != Entity.Null && em.HasComponent<WallInstanceParent>(focus))
+            {
+                segment = em.GetComponentData<WallInstanceParent>(focus).Segment;
+            }
+            // Fall back to the payload-supplied id if needed (e.g. the player
+            // drag-selected a segment directly — rare but possible).
+            if (segment == Entity.Null)
+            {
+                for (int i = 0; i < sel.Count; i++)
+                {
+                    if (sel[i].Index == segIndex && em.HasComponent<WallSegmentTag>(sel[i]))
+                    {
+                        segment = sel[i];
+                        break;
+                    }
+                }
+            }
+            if (segment == Entity.Null || !em.Exists(segment)) return;
+
+            // Player-owned filter — the conversion charges the bank, so an
+            // enemy wall must not be hijacked from the local HUD.
+            if (em.HasComponent<FactionTag>(segment)
+                && em.GetComponentData<FactionTag>(segment).Value != GameSettings.LocalPlayerFaction)
+                return;
+
+            // Affordability surface — IssueConvertSegmentToGate also guards
+            // via Spend's return value, but the player gets a clearer
+            // message when we pre-check here.
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(segment))
+                faction = em.GetComponentData<FactionTag>(segment).Value;
+            var cost = TheWaningBorder.Core.Commands.Types
+                .ConvertSegmentToGateCommandHelper.ConversionCost;
+            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, cost))
+            {
+                UI.HUD.PlayerNotificationSystem.NotifyError("Not enough resources");
+                return;
+            }
+
+            TheWaningBorder.Core.Commands.CommandRouter.IssueConvertSegmentToGate(em, segment, focus);
+        }
+
+        // Hover-preview on the "Convert to Gate" card. Toggles a presentation-
+        // only WallInstancePreviewTag on the 5 candidate instances that the
+        // conversion would replace. Pure local-client state — no lockstep
+        // involvement, no command routing, no cost. The presentation system
+        // reads the tag to rim those instances with the accent colour.
+        // (task-109 phase 6)
+        void HandleWallPreviewGate(string payloadJson)
+        {
+            var segStr = QuickField(payloadJson, "segmentId");
+            var focusStr = QuickField(payloadJson, "focusInstanceId");
+            var onStr = QuickField(payloadJson, "on");
+            int segIndex = 0, focusIndex = 0;
+            int.TryParse(segStr, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out segIndex);
+            int.TryParse(focusStr, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out focusIndex);
+            bool on = onStr == "true" || onStr == "1";
+
+            var sel = Input.SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count == 0) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            // Resolve the focus instance (the last-clicked wall) from the
+            // current selection. Walk WallInstanceParent up to its segment.
+            Entity focus = Entity.Null;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                if (sel[i].Index == focusIndex) { focus = sel[i]; break; }
+            }
+            Entity segment = Entity.Null;
+            if (focus != Entity.Null && em.HasComponent<WallInstanceParent>(focus))
+                segment = em.GetComponentData<WallInstanceParent>(focus).Segment;
+            if (segment == Entity.Null)
+            {
+                for (int i = 0; i < sel.Count; i++)
+                {
+                    if (sel[i].Index == segIndex && em.HasComponent<WallSegmentTag>(sel[i]))
+                    {
+                        segment = sel[i];
+                        break;
+                    }
+                }
+            }
+            if (segment == Entity.Null || !em.Exists(segment)) return;
+
+            // Walk the segment's WallInstanceRef buffer to find the 5
+            // candidate instances around the focus. PickGateRegionInstances
+            // handles short-segment (< 5) clamping + midpoint fallback when
+            // focus is Entity.Null.
+            var region = TheWaningBorder.Entities.AlanthorWall.PickGateRegionInstances(
+                em, segment, focus, Unity.Collections.Allocator.Temp);
+            try
+            {
+                for (int i = 0; i < region.Length; i++)
+                {
+                    var inst = region[i];
+                    if (!em.Exists(inst)) continue;
+                    bool has = em.HasComponent<WallInstancePreviewTag>(inst);
+                    if (on && !has)
+                    {
+                        em.AddComponent<WallInstancePreviewTag>(inst);
+                    }
+                    else if (!on && has)
+                    {
+                        em.RemoveComponent<WallInstancePreviewTag>(inst);
+                    }
+                }
+            }
+            finally
+            {
+                region.Dispose();
+            }
         }
 
         void HandleMenuItem(string payloadJson)
@@ -429,9 +751,17 @@ namespace TheWaningBorder.UI.Web
         void Update()
         {
             if (_ctrl == null) _ctrl = HudWebController.Instance;
+            // Register the JS method as soon as we can see the Client —
+            // BEFORE the IsReady gate. ReadySignalReceived can flip true
+            // between two Update ticks, in which case the page has already
+            // sent its first uwb.ExecuteJsMethod("HudMessage", ...) call
+            // (typically "hud:ready") and we'd log a MethodNotFoundException.
+            // RegisterJsMethod is a local map insert that's safe to call
+            // pre-handshake.
+            EnsureJsMethodRegistered();
+
             if (_ctrl == null || !_ctrl.IsReady) return;
 
-            EnsureJsMethodRegistered();
             EnsureQueriesBuilt();
 
             _accumCheap += Time.unscaledDeltaTime;
@@ -1046,15 +1376,13 @@ namespace TheWaningBorder.UI.Web
             _sb.Append('{');
             _sb.Append("\"population\":{\"value\":").Append(popCur)
                 .Append(",\"cap\":").Append(popMax).Append(",\"rate\":").Append(rates[RPop]).Append("},");
-            // Religion ("Religion Points") only exists after a culture is
-            // picked (Age 0 has no sects, so the bar would always read 0
-            // with no income source). The JSX panel reads `hidden` and skips
-            // the row entirely instead of showing a dead 0/999 counter.
-            bool religionHidden = !TryGetFactionCulture(em.Value, faction, out byte cultureForRel)
-                                  || cultureForRel == Cultures.None;
+            // Religion ("Religion Points") used to be hidden until a culture
+            // was picked, but players reported the row was missing entirely
+            // and didn't realize it would appear after age-up. Always show it
+            // now — pre-culture-pick it reads 0/0 which is honest about state.
             _sb.Append("\"religion\":{\"value\":").Append(religion)
                 .Append(",\"cap\":0,\"rate\":").Append(rates[RRel])
-                .Append(",\"hidden\":").Append(religionHidden ? "true" : "false")
+                .Append(",\"hidden\":false")
                 .Append("},");
             _sb.Append("\"supplies\":{\"value\":").Append(r.Supplies)
                 .Append(",\"cap\":0,\"rate\":").Append(rates[RSup]).Append("},");
@@ -1284,18 +1612,72 @@ namespace TheWaningBorder.UI.Web
                 .Append(",\"sh\":0,\"shMax\":0");
             if (g.Count > 1) _sb.Append(",\"count\":").Append(g.Count);
 
-            if (info.HasCombatStats)
+            // Combat stats — null-aware. Each cell is either a {value,kind}
+            // object or literal `null`. JSX renders a long-dash placeholder
+            // (sel.def?.value != null ? value : "—") so the player can tell
+            // "missing component" (null) apart from "component but zero" (0).
+            // info.HasCombatStats is intentionally NOT consulted here — the
+            // extractor's null vs non-null decision IS the contract.
+            _sb.Append(",\"atk\":");
+            AppendIntStatCell(info.Attack, "Damage");
+            _sb.Append(",\"def\":");
+            AppendIntStatCell(info.Defense, "Armor");
+            // Speed is null for buildings (extractor enforces). JSX collapses
+            // the third stat cell entirely when null via [data-entity-kind].
+            _sb.Append(",\"spd\":");
+            AppendFloatStatCell(info.Speed, "Move");
+
+            // entityKind — "unit" / "building" / "resource". Drives JSX
+            // conditional rendering (queue strip only for buildings,
+            // resource bar only for resource nodes, etc.).
+            _sb.Append(",\"entityKind\":\"")
+               .Append(JsonEscape(info.EntityKind ?? "unit")).Append('"');
+
+            // Yield row — Hut / Hall / GathererHut supplies-per-minute.
+            if (info.YieldPerMinute.HasValue)
             {
-                _sb.Append(",\"atk\":{\"value\":").Append(info.Attack ?? 0).Append(",\"kind\":\"Damage\"}")
-                    .Append(",\"def\":{\"value\":").Append(info.Defense ?? 0).Append(",\"kind\":\"Armor\"}")
-                    .Append(",\"spd\":{\"value\":").Append((info.Speed ?? 0f).ToString("F1", CultureInfo.InvariantCulture)).Append(",\"kind\":\"Move\"}");
+                _sb.Append(",\"yield\":{\"perMinute\":")
+                   .Append(info.YieldPerMinute.Value.ToString("F1", CultureInfo.InvariantCulture))
+                   .Append(",\"label\":\"supplies/min\"}");
             }
             else
             {
-                _sb.Append(",\"atk\":{\"value\":0,\"kind\":\"—\"}")
-                    .Append(",\"def\":{\"value\":0,\"kind\":\"—\"}")
-                    .Append(",\"spd\":{\"value\":0,\"kind\":\"—\"}");
+                _sb.Append(",\"yield\":null");
             }
+
+            // Resource depletion row — IronMineTag / CadaverTag etc.
+            // Always emit both keys so JSX can render the bar uniformly.
+            if (info.HasResourceInfo)
+            {
+                _sb.Append(",\"resourceRemaining\":").Append(info.ResourceRemaining)
+                   .Append(",\"resourceMax\":").Append(info.ResourceMax)
+                   .Append(",\"resource\":{\"remaining\":").Append(info.ResourceRemaining)
+                   .Append(",\"max\":").Append(info.ResourceMax)
+                   .Append(",\"label\":\"")
+                   .Append(JsonEscape(info.ResourceTypeName ?? "Resource"))
+                   .Append("\"}");
+            }
+            else
+            {
+                _sb.Append(",\"resourceRemaining\":null")
+                   .Append(",\"resourceMax\":null")
+                   .Append(",\"resource\":null");
+            }
+
+            // Training queue strip — always a 5-element array for buildings
+            // with a TrainingState, [] otherwise. Empty slots emit `null`
+            // so JSX can render placeholder squares while still binding
+            // index-to-slot deterministically (right-click sends slotIndex).
+            if (info.Queue != null && info.Queue.Length > 0)
+            {
+                AppendQueueJson(info.Queue);
+            }
+            else
+            {
+                _sb.Append(",\"queue\":[]");
+            }
+            _sb.Append(",\"queueCapacity\":")
+               .Append(info.QueueCapacity.HasValue ? info.QueueCapacity.Value : 0);
 
             // Progress bar — buildings that are currently training a unit OR
             // upgrading. The same payload feeds both the Selection panel's
@@ -1385,9 +1767,99 @@ namespace TheWaningBorder.UI.Web
             // own static TRAIN_* lists, so newly-unlocked units (e.g.
             // Crossbowman at Practice Range L2) appear the moment the
             // upgrade lands.
+            //
+            // The Alanthor age-up hut choice (task-109 phase 2) reuses this
+            // same `actions` array. EntityActionExtractor.GetActionInfo
+            // routes a hut tagged with GathererHutAgeUpChoice through
+            // ActionType.GathererHutAgeUpChoice and emits its two cells
+            // (ConvertToWallHub / ConvertToWatchTower).
+            string hutAgeUpKind = null; // "choice" | "converting" | null
+            float hutAgeUpRemaining = 0f, hutAgeUpTotal = 0f;
+            string hutAgeUpTarget = null;
+            // task-109 phase 6: wall-conversion payload — emitted when the
+            // selected entity is a wall instance the player can convert. The
+            // JSX side dispatches actions:convertWallSegmentToGate (click)
+            // and wall:previewGate (hover) using these ids.
+            string wallKind = null; // null | "instance" | "segment" | "converting"
+            int wallSegmentIndex = 0;
+            int wallFocusInstanceIndex = 0;
+            int wallSegmentInstanceCount = 0;
+            float wallSegmentUpgradeRemaining = 0f;
+            float wallSegmentUpgradeTotal = 0f;
             if (isBuilding && fac == GameSettings.LocalPlayerFaction)
             {
-                var actions = TheWaningBorder.UI.EntityActionExtractor.GetTrainingActions(e, emm);
+                var aInfo = TheWaningBorder.UI.EntityActionExtractor.GetActionInfo(e, emm);
+                System.Collections.Generic.List<TheWaningBorder.UI.ActionButton> actions;
+                if (aInfo.Type == TheWaningBorder.UI.ActionType.GathererHutAgeUpChoice)
+                {
+                    actions = aInfo.Actions ?? new System.Collections.Generic.List<TheWaningBorder.UI.ActionButton>();
+                    if (emm.HasComponent<GathererHutConverting>(e))
+                    {
+                        var conv = emm.GetComponentData<GathererHutConverting>(e);
+                        hutAgeUpKind = "converting";
+                        hutAgeUpRemaining = conv.Remaining;
+                        hutAgeUpTotal = conv.Total;
+                        hutAgeUpTarget = conv.Target == HutConversionTarget.WallHub
+                            ? "WallHub"
+                            : (conv.Target == HutConversionTarget.WatchTower ? "WatchTower" : "None");
+                    }
+                    else
+                    {
+                        hutAgeUpKind = "choice";
+                    }
+                }
+                else if (aInfo.Type == TheWaningBorder.UI.ActionType.HubBuildWall)
+                {
+                    // Per-hub Build Wall action. Borrow the existing "wall"
+                    // selection-kind payload so deriveSelectionKey on the JSX
+                    // side resolves to the wall ActionsPanel branch (which
+                    // already renders sel.actions). We just stamp kind="hub"
+                    // so the JSX can differentiate from instance/segment cases
+                    // and forward unknown action keys through actions:invoke.
+                    actions = aInfo.Actions ?? new System.Collections.Generic.List<TheWaningBorder.UI.ActionButton>();
+                    wallKind = "hub";
+                    wallSegmentIndex = e.Index;
+                    wallFocusInstanceIndex = e.Index;
+                }
+                else if (aInfo.Type == TheWaningBorder.UI.ActionType.WallInstanceUpgrade)
+                {
+                    actions = aInfo.Actions ?? new System.Collections.Generic.List<TheWaningBorder.UI.ActionButton>();
+                    // Resolve the parent segment so the JSX side has both ids
+                    // needed for actions:convertWallSegmentToGate and the
+                    // wall:previewGate hover dispatch.
+                    Entity wallSeg = Entity.Null;
+                    if (emm.HasComponent<WallInstanceParent>(e))
+                        wallSeg = emm.GetComponentData<WallInstanceParent>(e).Segment;
+                    wallFocusInstanceIndex = e.Index;
+                    if (emm.Exists(wallSeg))
+                    {
+                        wallSegmentIndex = wallSeg.Index;
+                        if (emm.HasBuffer<WallInstanceRef>(wallSeg))
+                            wallSegmentInstanceCount = emm.GetBuffer<WallInstanceRef>(wallSeg).Length;
+                        if (emm.HasComponent<WallSegmentUpgradeState>(wallSeg))
+                        {
+                            var u = emm.GetComponentData<WallSegmentUpgradeState>(wallSeg);
+                            wallSegmentUpgradeRemaining = u.Remaining;
+                            wallSegmentUpgradeTotal = u.Total;
+                            wallKind = "converting";
+                        }
+                        else
+                        {
+                            wallKind = "instance";
+                        }
+                    }
+                    else
+                    {
+                        // Orphaned instance — surface as "instance" so the
+                        // Tower button still works; the Gate button is
+                        // already pruned by the extractor in that case.
+                        wallKind = "instance";
+                    }
+                }
+                else
+                {
+                    actions = TheWaningBorder.UI.EntityActionExtractor.GetTrainingActions(e, emm);
+                }
                 _sb.Append(",\"actions\":[");
                 for (int i = 0; i < actions.Count; i++)
                 {
@@ -1409,8 +1881,113 @@ namespace TheWaningBorder.UI.Web
                 _sb.Append(']');
             }
 
+            // Hut age-up choice payload (task-109 phase 2). Emitted only on
+            // an Alanthor-owned hut carrying the age-up tag (or its active
+            // conversion timer). JSX uses this to flip the actions panel
+            // into the dedicated 2-cell layout / progress display.
+            if (hutAgeUpKind != null)
+            {
+                _sb.Append(",\"hutAgeUp\":{\"kind\":\"").Append(hutAgeUpKind).Append('"');
+                if (hutAgeUpKind == "converting")
+                {
+                    _sb.Append(",\"remaining\":").Append(hutAgeUpRemaining.ToString("F2", CultureInfo.InvariantCulture));
+                    _sb.Append(",\"total\":").Append(hutAgeUpTotal.ToString("F2", CultureInfo.InvariantCulture));
+                    _sb.Append(",\"target\":\"").Append(hutAgeUpTarget).Append('"');
+                }
+                _sb.Append('}');
+            }
+
+            // Wall instance / segment payload (task-109 phase 6). Carries
+            // the parent-segment id, the focused instance id, the segment's
+            // instance count (for the Gate (Nx) label / short-segment
+            // warning), and — while a conversion is in flight — the
+            // remaining timer so JSX can render a progress strip.
+            if (wallKind != null)
+            {
+                _sb.Append(",\"wall\":{\"kind\":\"").Append(wallKind).Append('"');
+                _sb.Append(",\"segmentId\":").Append(wallSegmentIndex);
+                _sb.Append(",\"focusInstanceId\":").Append(wallFocusInstanceIndex);
+                _sb.Append(",\"segmentInstanceCount\":").Append(wallSegmentInstanceCount);
+                _sb.Append(",\"gateWidth\":").Append(System.Math.Min(wallSegmentInstanceCount, 5));
+                _sb.Append(",\"shortSegment\":")
+                    .Append((wallSegmentInstanceCount > 0 && wallSegmentInstanceCount < 5) ? "true" : "false");
+                if (wallKind == "converting")
+                {
+                    _sb.Append(",\"remaining\":")
+                        .Append(wallSegmentUpgradeRemaining.ToString("F2", CultureInfo.InvariantCulture));
+                    _sb.Append(",\"total\":")
+                        .Append(wallSegmentUpgradeTotal.ToString("F2", CultureInfo.InvariantCulture));
+                }
+                _sb.Append('}');
+            }
+
             _sb.Append('}');
             PushIfChanged("selection", _sb.ToString());
+        }
+
+        // ─── Selection payload helpers (task-108 phase 2) ─────────────────
+        // Null-aware stat cell. Reuses the shared _sb so we never allocate
+        // per emit — same pattern as the inline atk/def block this replaces.
+
+        void AppendIntStatCell(int? value, string kindLabel)
+        {
+            if (value.HasValue)
+            {
+                _sb.Append("{\"value\":").Append(value.Value)
+                   .Append(",\"kind\":\"").Append(kindLabel).Append("\"}");
+            }
+            else
+            {
+                _sb.Append("null");
+            }
+        }
+
+        void AppendFloatStatCell(float? value, string kindLabel)
+        {
+            if (value.HasValue)
+            {
+                _sb.Append("{\"value\":")
+                   .Append(value.Value.ToString("F1", CultureInfo.InvariantCulture))
+                   .Append(",\"kind\":\"").Append(kindLabel).Append("\"}");
+            }
+            else
+            {
+                _sb.Append("null");
+            }
+        }
+
+        // Emit the queue field. Always 5 entries (CommandRouter.MaxProductionQueue):
+        // populated slots become {slotIndex, unitId, label, isInProduction,
+        // progress, refund:{...}}; empty slots are emitted as `null` so JSX
+        // can render placeholder squares while keeping array index ==
+        // slotIndex for the right-click cancel path.
+        void AppendQueueJson(EntityQueueSlot[] q)
+        {
+            _sb.Append(",\"queue\":[");
+            for (int i = 0; i < q.Length; i++)
+            {
+                if (i > 0) _sb.Append(',');
+                if (!q[i].Populated)
+                {
+                    _sb.Append("null");
+                    continue;
+                }
+                _sb.Append("{\"slotIndex\":").Append(i)
+                   .Append(",\"unitId\":\"").Append(JsonEscape(q[i].UnitId ?? string.Empty))
+                   .Append("\",\"label\":\"").Append(JsonEscape(q[i].DisplayName ?? string.Empty))
+                   .Append("\",\"isActive\":").Append(q[i].IsInProduction ? "true" : "false")
+                   .Append(",\"isInProduction\":").Append(q[i].IsInProduction ? "true" : "false")
+                   .Append(",\"progress\":")
+                       .Append(q[i].Progress.ToString("F3", CultureInfo.InvariantCulture))
+                   .Append(",\"refund\":{")
+                       .Append("\"supplies\":").Append(q[i].RefundSupplies)
+                       .Append(",\"iron\":").Append(q[i].RefundIron)
+                       .Append(",\"crystal\":").Append(q[i].RefundCrystal)
+                       .Append(",\"veilsteel\":").Append(q[i].RefundVeilsteel)
+                       .Append(",\"glow\":").Append(q[i].RefundGlow)
+                   .Append("}}");
+            }
+            _sb.Append(']');
         }
 
         // True when both entities share the same trainer tag (HallTag,
@@ -1426,6 +2003,7 @@ namespace TheWaningBorder.UI.Web
             if (em.HasComponent<ArcheryRangeTag>(a)) return em.HasComponent<ArcheryRangeTag>(b);
             if (em.HasComponent<ShrineTag>(a))       return em.HasComponent<ShrineTag>(b);
             if (em.HasComponent<TempleOfRidanTag>(a))return em.HasComponent<TempleOfRidanTag>(b);
+            if (em.HasComponent<RoyalStableTag>(a))  return em.HasComponent<RoyalStableTag>(b);
             return a.Index == b.Index;
         }
 

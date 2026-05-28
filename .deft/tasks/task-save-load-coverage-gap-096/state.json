@@ -1,0 +1,16 @@
+{
+  "id": "task-save-load-coverage-gap-096",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.3 — every IComponentData / IBufferElementData under Core/Components/ is currently MISSING because task-081 (save/load pipeline) has not yet landed. This task is the coverage gate that re-walks §C.3 after 081 ships.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

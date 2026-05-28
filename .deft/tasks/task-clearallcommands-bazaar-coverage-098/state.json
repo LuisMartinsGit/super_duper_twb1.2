@@ -1,0 +1,16 @@
+{
+  "id": "task-clearallcommands-bazaar-coverage-098",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.4 — CommandHelper.ClearAllCommands does not clear BazaarPackCommand or BazaarUnpackCommand, so overriding a packing wagon mid-pack leaves the pack command attached and the wagon re-packs on the next tick.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

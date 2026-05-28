@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Horizontal edge ornament — port of FiligreeEdge (level='maximal').
+     120×24 viewBox. Sits centered on the top/bottom edge of a panel.
+     USS scales the bottom variant with `scale: 1 -1`. -->
+<svg width="120" height="24" viewBox="0 0 120 24" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <g fill="none" stroke="#cfd6d3" stroke-width="1.3" stroke-linecap="round">
+        <!-- Central diamond gem -->
+        <path d="M 60 4 L 66 12 L 60 20 L 54 12 Z" stroke="#e8b84a" stroke-width="1.3" />
+        <path d="M 60 8 L 63 12 L 60 16 L 57 12 Z" stroke="#7f8e8a" stroke-width="0.78" />
+        <!-- Symmetric scrolls each side -->
+        <path d="M 54 12 Q 44 12 42 6" />
+        <path d="M 66 12 Q 76 12 78 6" />
+        <path d="M 54 12 Q 44 12 42 18" />
+        <path d="M 66 12 Q 76 12 78 18" />
+        <path d="M 42 6 Q 38 6 36 10" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 78 6 Q 82 6 84 10" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 42 18 Q 38 18 36 14" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 78 18 Q 82 18 84 14" stroke="#7f8e8a" stroke-width="0.91" />
+        <!-- End terminations -->
+        <path d="M 18 12 Q 26 12 30 6" />
+        <path d="M 102 12 Q 94 12 90 6" />
+        <path d="M 18 12 Q 26 12 30 18" />
+        <path d="M 102 12 Q 94 12 90 18" />
+        <circle cx="30" cy="6" r="1.2" fill="#e8b84a" stroke="none" />
+        <circle cx="90" cy="6" r="1.2" fill="#e8b84a" stroke="none" />
+        <circle cx="30" cy="18" r="1.2" fill="#e8b84a" stroke="none" />
+        <circle cx="90" cy="18" r="1.2" fill="#e8b84a" stroke="none" />
+        <!-- Outer terminations (maximal only) -->
+        <path d="M 6 12 Q 12 6 18 12" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 114 12 Q 108 6 102 12" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 6 12 Q 12 18 18 12" stroke="#7f8e8a" stroke-width="0.91" />
+        <path d="M 114 12 Q 108 18 102 12" stroke="#7f8e8a" stroke-width="0.91" />
+    </g>
+</svg>

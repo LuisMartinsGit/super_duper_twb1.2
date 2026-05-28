@@ -236,7 +236,21 @@ namespace TheWaningBorder.Systems.Combat
 
                             float3 midpoint = (startPos + targetPos) * 0.5f;
                             float horizontalDist = math.length(new float2(targetPos.x - startPos.x, targetPos.z - startPos.z));
-                            float dynamicArcHeight = ArcHeight * math.min(1f, horizontalDist / 15f);
+                            // HighArcProjectile overrides the default capped arc so
+                            // siege-class shots (Godsplinter, trebuchets, …) lob
+                            // dramatic high parabolas at long range. The default
+                            // path caps at ArcHeight=3 once horizontalDist≥15 m,
+                            // which reads as a flat shot at 50 m+ ranges.
+                            float dynamicArcHeight;
+                            if (em.HasComponent<HighArcProjectile>(entity))
+                            {
+                                var ha = em.GetComponentData<HighArcProjectile>(entity);
+                                dynamicArcHeight = horizontalDist * ha.ArcFraction;
+                            }
+                            else
+                            {
+                                dynamicArcHeight = ArcHeight * math.min(1f, horizontalDist / 15f);
+                            }
                             float3 controlPoint = midpoint + new float3(0, dynamicArcHeight, 0);
 
                             float oneMinusT = 1f - t;

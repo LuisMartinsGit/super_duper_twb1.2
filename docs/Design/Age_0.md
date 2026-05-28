@@ -109,8 +109,18 @@ lvl 0 form exists.
 Trains and upgrades ranged units. At age-up the Archery Range is **renamed
 and reskinned** to its cultured form (`Longbow Grounds` / `Arrowyard` /
 `Thrower Camp` — see [§ Age-up transitions](#age-up-transitions)); the
-cultured form then starts at lvl 1 and has its own upgrade ladder. In Age 0
-only the pre-culture lvl 0 form exists.
+cultured form then starts at lvl 1 and has its own upgrade ladder.
+
+Although the cultured upgrade ladder is an Age 1 affair, the Archery Range
+**also carries the `BuildingUpgradeable` component in Age 0** (see [task-064 audit](../../.deft/tasks/task-codebase-audit-064/task.md))
+so its **three building levels (lvl 1 / lvl 2 / lvl 3)** drive a **ranged
+unit ladder**. Each upgrade unlocks one new unit tier — the unit roster grows
+as the building grows. The unit ladder is logically a single block and is
+documented here in Age 0 even though levels 2 / 3 are typically reached after
+the culture pick.
+
+> See: `BuildingUpgradeable` system and `BuildingUpgradeConfig.TryGetCost`
+> for upgrade costs / durations.
 
 | Stat | Value |
 |------|-------|
@@ -119,11 +129,90 @@ only the pre-culture lvl 0 form exists.
 | Train-time multiplier | ×1.00 |
 | Build cost | 180 Supplies + 50 Iron |
 
+#### Unit ladder (by building level)
+
+| Building level | Unlocks | Role |
+|----------------|---------|------|
+| **Level 1** (base) | **Archer** | Generalist ranged unit (baseline). |
+| **Level 2** | **Crossbowman** | Slow heavy-hitter — high damage per shot, low fire rate. |
+| **Level 3** | **Longbowman** | Long-range sniper — outranges all other archers, slowest cooldown. |
+
+Implementation gating uses `minBuildingLevel: 2` / `minBuildingLevel: 3`
+on the training options.
+
 #### Trainable units
 
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Archer** | 15 s | 50 S + 25 I | 1 |
+Each unit is documented below with its full stat block. All numeric values
+are **PLAYTEST PLACEHOLDER** until validated through playtest.
+
+##### Archer — level 1 (baseline)
+
+The all-purpose ranged unit. Available the moment the Archery Range is built.
+Balanced fire rate, decent range, low cost. The yardstick the other two
+tiers are tuned against.
+
+| Field | Value |
+|------|-------|
+| Unlocked at | Archery Range **lvl 1** (base) |
+| HP | **60** *(PLAYTEST PLACEHOLDER)* |
+| Damage | **8** *(PLAYTEST PLACEHOLDER)* |
+| Min attack range | **10** *(PLAYTEST PLACEHOLDER)* |
+| Max attack range | **25** *(PLAYTEST PLACEHOLDER)* |
+| Cooldown | **1.5 s** *(PLAYTEST PLACEHOLDER)* |
+| Speed | **4** *(PLAYTEST PLACEHOLDER)* |
+| Line of Sight | **25** *(PLAYTEST PLACEHOLDER)* |
+| Population | **1** *(PLAYTEST PLACEHOLDER)* |
+| Cost | (existing — see Age 0 unit stat block below) |
+| Train time | (existing — see Age 0 unit stat block below) |
+
+> Note: the legacy Archer stat block further down this doc (see
+> [§ Archer](#archer)) lists the previous values (HP 90, Dmg 17, CD 2.0 s,
+> Speed 5.2, LoS 30). The values above are the **new PLAYTEST PLACEHOLDER**
+> proposal that ties Archer into the three-tier ladder — when these are
+> committed in code (task-110 Phase 2), the older block becomes stale and
+> should be reconciled.
+
+##### Crossbowman — level 2
+
+A slow, heavy crossbow shot. The Crossbowman trades fire rate and mobility
+for a single thumping bolt that punches through tough targets. Designed to
+shine against high-HP / heavy-armor units where the Archer's fast-but-light
+shots get blunted by defense rolls.
+
+| Field | Value |
+|------|-------|
+| Unlocked at | Archery Range **lvl 2** (`minBuildingLevel: 2`) |
+| HP | **70** *(PLAYTEST PLACEHOLDER)* |
+| Damage | **18** *(PLAYTEST PLACEHOLDER)* |
+| Min attack range | **6** *(PLAYTEST PLACEHOLDER)* |
+| Max attack range | **18** *(PLAYTEST PLACEHOLDER)* |
+| Cooldown | **3.0 s** *(PLAYTEST PLACEHOLDER)* |
+| Speed | **3.5** *(PLAYTEST PLACEHOLDER)* |
+| Line of Sight | **22** *(PLAYTEST PLACEHOLDER)* |
+| Population | **1** *(PLAYTEST PLACEHOLDER)* |
+| Cost | **40 Supplies + 35 Iron** *(PLAYTEST PLACEHOLDER)* |
+| Train time | **18 s** *(PLAYTEST PLACEHOLDER)* |
+
+##### Longbowman — level 3
+
+The long-range specialist. Slower than the Archer to ready a shot, but
+significantly outranges any other archer in the game and hits hard. A
+support-line unit — best protected by Spearmen and used to soften targets
+before the melee engagement closes.
+
+| Field | Value |
+|------|-------|
+| Unlocked at | Archery Range **lvl 3** (`minBuildingLevel: 3`) |
+| HP | **55** *(PLAYTEST PLACEHOLDER)* |
+| Damage | **25** *(PLAYTEST PLACEHOLDER)* |
+| Min attack range | **12** *(PLAYTEST PLACEHOLDER)* |
+| Max attack range | **40** *(PLAYTEST PLACEHOLDER)* |
+| Cooldown | **3.5 s** *(PLAYTEST PLACEHOLDER)* |
+| Speed | **4** *(PLAYTEST PLACEHOLDER)* |
+| Line of Sight | **35** *(PLAYTEST PLACEHOLDER)* |
+| Population | **1** *(PLAYTEST PLACEHOLDER)* |
+| Cost | **50 Supplies + 40 Iron** *(PLAYTEST PLACEHOLDER)* |
+| Train time | **25 s** *(PLAYTEST PLACEHOLDER)* |
 
 #### Researchable techs
 

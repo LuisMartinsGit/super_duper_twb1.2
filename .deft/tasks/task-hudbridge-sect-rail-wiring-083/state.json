@@ -1,0 +1,23 @@
+{
+  "id": "task-hudbridge-sect-rail-wiring-083",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T15:45:00Z",
+  "updatedAt": "2026-05-20T15:45:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out from task-082 §A audit row (Architecture & ECS hygiene). HudBridge sidebar:action topic is wired only as a Debug.Log — sect rail clicks have no route. Stub starts in scope stage; human reviews before activating.",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    }
+  ]
+}

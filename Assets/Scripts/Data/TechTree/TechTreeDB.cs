@@ -184,6 +184,8 @@ public sealed class TechTreeDB : MonoBehaviour
             ParseUnit(json, "Scout");
             ParseUnit(json, "Swordsman");
             ParseUnit(json, "Archer");
+            ParseUnit(json, "Crossbowman");   // task-110: Era 1 Archery Range L2 tier
+            ParseUnit(json, "Longbowman");    // task-110: Era 1 Archery Range L3 tier
             ParseUnit(json, "Litharch");
 
             // Parse Era 1 - Feraldis (if present)
@@ -580,11 +582,19 @@ public static class CombatModifiers
     }
 
     /// <summary>
+    /// Global damage scalar applied at the END of the damage pipeline. 0.5
+    /// halves all outgoing damage and gives the player more reaction time
+    /// (combat-pacing knob — adjust here to tune TTK across the whole game).
+    /// </summary>
+    public const float GlobalDamageMultiplier = 0.5f;
+
+    /// <summary>
     /// Full damage pipeline:
     ///   1. Type modifier   (damage type vs armor type matrix)
     ///   2. Height modifier  (attacker elevation advantage/disadvantage)
     ///   3. Crystal modifier (buff/debuff multiplier)
     ///   4. Defense reduction (diminishing returns: def / (def + 100))
+    ///   5. Global damage scalar (combat pacing — see GlobalDamageMultiplier)
     ///
     /// Returns at least 1 damage.
     /// </summary>
@@ -593,7 +603,9 @@ public static class CombatModifiers
     {
         float typeModifier  = GetModifier(dmgType, armorType);
         float defReduction  = 1f - (defenseValue / (float)(defenseValue + 100));
-        int   finalDmg      = (int)math.round(baseDamage * typeModifier * heightMod * crystalMod * defReduction);
+        int   finalDmg      = (int)math.round(
+            baseDamage * typeModifier * heightMod * crystalMod * defReduction
+            * GlobalDamageMultiplier);
         return math.max(1, finalDmg);
     }
 }

@@ -10,6 +10,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -43,9 +44,27 @@ namespace TheWaningBorder.Bootstrap
             PopulationHelper.ClearCache();
 
             int playerCount = GameSettings.TotalPlayers;
-            
+
             // Calculate spawn positions based on layout
             var positions = CalculateSpawnPositions(playerCount);
+
+            // Hand-authored maps: PlayerStartMarker components in the scene
+            // override the radial / two-sides layout for every faction that
+            // has a marker. Factions without a marker fall back to their
+            // calculated position so a partially-marked map still works.
+            bool useMarkers = MapMarkerRegistry.HasPlayerMarkers;
+            if (useMarkers)
+            {
+                var sb = new System.Text.StringBuilder("[PlayerSpawnSystem] markers found: ");
+                for (int mi = 0; mi < MapMarkerRegistry.PlayerStarts.Count; mi++)
+                {
+                    var m = MapMarkerRegistry.PlayerStarts[mi];
+                    if (m == null) continue;
+                    var p = m.WorldPosition;
+                    sb.Append($"{m.Faction}@({p.x:F0},{p.z:F0}) ");
+                }
+                Debug.Log(sb.ToString());
+            }
 
             for (int i = 0; i < playerCount; i++)
             {
@@ -62,7 +81,26 @@ namespace TheWaningBorder.Bootstrap
                 if (slot.Type == SlotType.Observer && !GameSettings.IsObserver) continue;
 
                 var faction = slot.Faction;
-                var spawnPos = positions[i];
+                float3 spawnPos = positions[i];
+
+                if (useMarkers)
+                {
+                    var marker = MapMarkerRegistry.FindPlayerMarker(faction);
+                    if (marker != null)
+                    {
+                        var p = marker.WorldPosition;
+                        spawnPos = new float3(p.x, p.y, p.z);
+                        Debug.Log($"[PlayerSpawnSystem] {faction} → marker at " +
+                                  $"({spawnPos.x:F0},{spawnPos.z:F0})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"[PlayerSpawnSystem] no PlayerStartMarker for {faction} — " +
+                            "falling back to procedural position. Add a marker for " +
+                            "this faction or remove the slot.");
+                    }
+                }
 
                 SpawnFactionBase(em, faction, spawnPos);
             }

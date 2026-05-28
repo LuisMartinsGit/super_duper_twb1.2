@@ -50,8 +50,9 @@ namespace TheWaningBorder.Bootstrap
 
         private static void OnSceneLoadedHandler(Scene scene, LoadSceneMode mode)
         {
-            // Only bootstrap the Game scene
-            if (!string.Equals(scene.name, "Game")) return;
+            // Only bootstrap registered gameplay scenes (the procedural
+            // "Game" scene + any hand-authored maps in MapRegistry).
+            if (!TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name)) return;
             if (_didSetupThisScene) return;
             _didSetupThisScene = true;
 
@@ -353,12 +354,106 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeWorld()
         {
-            // Create procedural terrain
-            var existingTerrain = Object.FindFirstObjectByType<ProceduralTerrain>();
-            if (existingTerrain == null)
+            // ─── Disable Unity.NetCode rate-managers ─────────────────────
+            // `com.unity.netcode` is in Packages/manifest.json but the
+            // project's multiplayer is actually its own lockstep layer
+            // (Assets/Scripts/Multiplayer/Lockstep). When NetCode is
+            // present but not driving a real client/server, its
+            // NetcodeClientRateManager gates SimulationSystemGroup on a
+            // network clock; without a connection that clock goes
+            // negative every frame, the log spams
+            // "Delta time was negative. To avoid undefined behaviour the
+            // frame is skipped", and every ECS system in the simulation
+            // group (movement, targeting, combat, projectiles…) silently
+            // stops ticking. Clearing the rate manager restores the
+            // default behaviour: tick once per Unity Update.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world != null && world.IsCreated)
             {
-                var terrainGO = new GameObject("ProceduralTerrain");
-                terrainGO.AddComponent<TheWaningBorder.World.Terrain.ProceduralTerrain>();
+                var simGroup = world.GetExistingSystemManaged<Unity.Entities.SimulationSystemGroup>();
+                if (simGroup != null) simGroup.RateManager = null;
+
+                var initGroup = world.GetExistingSystemManaged<Unity.Entities.InitializationSystemGroup>();
+                if (initGroup != null) initGroup.RateManager = null;
+
+                var presGroup = world.GetExistingSystemManaged<Unity.Entities.PresentationSystemGroup>();
+                if (presGroup != null) presGroup.RateManager = null;
+            }
+
+            // Decide whether this scene needs procedural terrain generation.
+            // Authoritative signal: does the scene ALREADY contain a Unity
+            // Terrain? If so, the designer baked one in (MapMagic etc.) and
+            // we MUST NOT spawn ProceduralTerrain on top — it would create a
+            // second TerrainData and stomp the user's splatmap / heightmap.
+            // The MapRegistry IsProcedural flag is only a hint / fallback for
+            // empty scenes; the actual terrain presence wins because Unicode
+            // normalization on accented scene names (yielLymwérra has the
+            // composed-vs-decomposed-é problem) can make registry string
+            // matches silently fail.
+            var activeScene = SceneManager.GetActiveScene();
+            var activeMap = TheWaningBorder.Core.Maps.MapRegistry.GetEntry(activeScene.name);
+            var bakedTerrain = UnityEngine.Terrain.activeTerrain;
+            bool hasBakedTerrain = bakedTerrain != null && bakedTerrain.terrainData != null;
+            bool wantProcedural = TheWaningBorder.Core.Maps.MapRegistry
+                .ShouldRunProceduralGeneration(activeScene.name);
+
+            Debug.Log($"[GameBootstrap] active scene: '{activeScene.name}' → " +
+                      $"map='{activeMap.DisplayName}' registryProcedural={activeMap.IsProcedural} " +
+                      $"hasBakedTerrain={hasBakedTerrain} → useProcedural={wantProcedural}");
+
+            if (hasBakedTerrain && activeMap.IsProcedural)
+            {
+                Debug.LogWarning("[GameBootstrap] scene has a baked Unity Terrain but MapRegistry " +
+                                 $"says '{activeMap.DisplayName}' is procedural. Likely Unicode " +
+                                 "mismatch between scene file name and the MapRegistry literal. " +
+                                 "Treating as non-procedural to preserve the baked terrain.");
+            }
+
+            var existingTerrain = Object.FindFirstObjectByType<ProceduralTerrain>();
+            if (wantProcedural)
+            {
+                if (existingTerrain == null)
+                {
+                    var terrainGO = new GameObject("ProceduralTerrain");
+                    terrainGO.AddComponent<TheWaningBorder.World.Terrain.ProceduralTerrain>();
+                }
+            }
+            else if (existingTerrain == null)
+            {
+                // Non-procedural: tell the bootstrap-wide ready gate that
+                // terrain is in place. TerrainUtility.IsReady() returns
+                // ProceduralTerrain.IsGenerationComplete, and SpawnDelayHelper
+                // blocks on it before spawning factions; without this flip
+                // the loading screen hangs forever.
+                TheWaningBorder.World.Terrain.ProceduralTerrain.MarkExternalTerrainReady();
+
+                if (!hasBakedTerrain)
+                {
+                    Debug.LogError("[GameBootstrap] non-procedural map has NO active Unity Terrain. " +
+                                   "Add a Unity Terrain (e.g. from MapMagic) to the scene.");
+                }
+                else
+                {
+                    var sz = bakedTerrain.terrainData.size;
+                    var tpos = bakedTerrain.transform.position;
+                    Debug.Log($"[GameBootstrap] using baked Unity Terrain '{bakedTerrain.name}' at " +
+                              $"{tpos} size {sz}");
+
+                    // Hand-authored maps don't go through the lobby slider that
+                    // sets GameSettings.MapHalfSize, so it stays at its 125 default
+                    // and FoW, camera limits, and procedural deposit ranges all
+                    // size for a 250m map at origin. Snap MapHalfSize to the
+                    // largest half-extent of the actual terrain so the FoW mesh
+                    // covers the playable area and the camera can pan to it.
+                    int half = Mathf.CeilToInt(Mathf.Max(
+                        Mathf.Max(Mathf.Abs(tpos.x), Mathf.Abs(tpos.x + sz.x)),
+                        Mathf.Max(Mathf.Abs(tpos.z), Mathf.Abs(tpos.z + sz.z))));
+                    if (half > GameSettings.MapHalfSize)
+                    {
+                        Debug.Log($"[GameBootstrap] MapHalfSize {GameSettings.MapHalfSize} -> {half} (from terrain bounds)");
+                        GameSettings.MapHalfSize = half;
+                    }
+                }
             }
 
             // Day-night cycle with directional sun + cloud shadows

@@ -6,6 +6,7 @@ using TheWaningBorder.Entities;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -26,6 +27,18 @@ namespace TheWaningBorder.Bootstrap
         // between water and a cliff edge.
         private const int MinPassableNeighbours = 6;     // out of 8 sampled
         private const float ConnectivityProbeRadius = 10f;
+
+        // Forest avoidance — reject candidates whose centre OR any of the 8
+        // sampled probe points sits on a forest splat cell. The cursed
+        // ground spreads ~15 m around the node and looks visually wrong
+        // overlapping Unity Terrain trees (the trees clip through the
+        // crystal shards and don't get destroyed by the spread). Picking
+        // a node centre that's clear of forest at the spawn-time radius
+        // gives the curse room to grow without obvious tree clip.
+        // Matches ProceduralTerrain.ForestSplatLayer / ForestSplatThreshold.
+        private const int ForestSplatLayerIndex = 3;
+        private const float ForestSplatRejectThreshold = 0.20f;
+        private const float ForestProbeRadius = 12f;
 
         /// <summary>
         /// Spawn crystal main nodes.
@@ -48,6 +61,17 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var em = world.EntityManager;
+
+            // Hand-authored maps: CurseNodeMarkers in the scene replace the
+            // procedural placement entirely. Curse-main balance is sensitive
+            // to position (forest avoidance, beach pockets, etc.), so manual
+            // placement is the recommended path for designed maps.
+            if (MapMarkerRegistry.HasCurseMarkers)
+            {
+                int spawned = SpawnCurseNodesFromMarkers(em);
+                EnsureCurseFactionState(em, spawned);
+                return spawned;
+            }
 
             var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xC7A5));
 
@@ -75,7 +99,7 @@ namespace TheWaningBorder.Bootstrap
                 for (int strict = 0; strict < 2 && !found; strict++)
                 {
                     bool useConnectivityGate = (strict == 0);
-                    int rejWater = 0, rejConnectivity = 0, rejPlayer = 0, rejNode = 0;
+                    int rejWater = 0, rejConnectivity = 0, rejPlayer = 0, rejNode = 0, rejForest = 0;
                     int sampledPassableSum = 0;
                     bool gridSeenNotNull = false;
 
@@ -109,6 +133,14 @@ namespace TheWaningBorder.Bootstrap
                             sampledPassableSum += passable;
                             if (passable < MinPassableNeighbours) { rejConnectivity++; continue; }
                         }
+
+                        // Forest avoidance — sample L_FOREST splat at the
+                        // candidate centre plus 8 ring points. If any reads
+                        // above threshold, the curse would clip Unity Terrain
+                        // trees on spread — reject. Active on BOTH strict
+                        // passes (we never want trees inside curse).
+                        if (IsOnOrNearForest(candidate))
+                        { rejForest++; continue; }
 
                         // Check distance from all player positions
                         bool tooCloseToPlayer = false;
@@ -145,7 +177,7 @@ namespace TheWaningBorder.Bootstrap
                             ? sampledPassableSum / (float)rejConnectivity : -1f;
                         Debug.LogWarning(
                             $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} strict pass failed — " +
-                            $"water={rejWater} connectivity={rejConnectivity} " +
+                            $"water={rejWater} connectivity={rejConnectivity} forest={rejForest} " +
                             $"player-too-close={rejPlayer} node-too-close={rejNode} " +
                             $"avgPassableSamples={avgPassable:F1}/8. " +
                             "Retrying without connectivity gate.");
@@ -154,7 +186,8 @@ namespace TheWaningBorder.Bootstrap
                     {
                         Debug.LogError(
                             $"[CrystalNodeBootstrap] node {n + 1}/{nodeCount} fallback pass also failed — " +
-                            $"water={rejWater} player-too-close={rejPlayer} node-too-close={rejNode}.");
+                            $"water={rejWater} forest={rejForest} " +
+                            $"player-too-close={rejPlayer} node-too-close={rejNode}.");
                     }
                 }
 
@@ -172,6 +205,81 @@ namespace TheWaningBorder.Bootstrap
 
             EnsureCurseFactionState(em, nodesSpawned);
             return nodesSpawned;
+        }
+
+        /// <summary>
+        /// Marker-driven path: one CrystalMainNode per CurseNodeMarker in
+        /// the scene, snapped to current terrain height. No gates — the
+        /// designer is responsible for placement.
+        /// </summary>
+        private static int SpawnCurseNodesFromMarkers(EntityManager em)
+        {
+            var markers = MapMarkerRegistry.CurseNodes;
+            int spawned = 0;
+            for (int i = 0; i < markers.Count; i++)
+            {
+                var m = markers[i];
+                if (m == null) continue;
+
+                var p = m.WorldPosition;
+                float y = TerrainUtility.GetHeight(p.x, p.z);
+                float3 pos = new float3(p.x, y, p.z);
+
+                CrystalMainNode.Create(em, pos);
+                spawned++;
+                Debug.Log($"[CrystalNodeBootstrap] (marker) placed node {spawned} at " +
+                          $"({pos.x:F0},{pos.z:F0})");
+            }
+            Debug.Log($"[CrystalNodeBootstrap] DONE (marker-driven) — nodesSpawned={spawned}");
+            return spawned;
+        }
+
+        /// <summary>
+        /// Samples the active terrain's L_FOREST splat weight at the
+        /// candidate position plus 8 ring points within
+        /// <see cref="ForestProbeRadius"/>. Returns true if ANY sample
+        /// exceeds <see cref="ForestSplatRejectThreshold"/> — meaning the
+        /// curse-spread area would clip Unity Terrain trees. Falls back
+        /// to false if no active terrain / no L_FOREST layer (legacy maps
+        /// without the new ProceduralSplat layer set).
+        /// </summary>
+        private static bool IsOnOrNearForest(float3 candidate)
+        {
+            var terrain = UnityEngine.Terrain.activeTerrain;
+            if (terrain == null || terrain.terrainData == null) return false;
+            var td = terrain.terrainData;
+            if (td.alphamapLayers <= ForestSplatLayerIndex) return false;
+
+            var tpos = terrain.transform.position;
+            int alphaRes = td.alphamapResolution;
+            float invSizeX = 1f / td.size.x;
+            float invSizeZ = 1f / td.size.z;
+
+            // Sample at centre + 8 ring points so we catch forest just
+            // outside the candidate centre too (the curse will spread to
+            // ForestProbeRadius within seconds of spawning).
+            for (int i = 0; i < 9; i++)
+            {
+                float sx, sz;
+                if (i == 0) { sx = candidate.x; sz = candidate.z; }
+                else
+                {
+                    float a = (i - 1) * (math.PI * 2f / 8f);
+                    sx = candidate.x + math.cos(a) * ForestProbeRadius;
+                    sz = candidate.z + math.sin(a) * ForestProbeRadius;
+                }
+
+                int ax = (int)((sx - tpos.x) * invSizeX * alphaRes);
+                int az = (int)((sz - tpos.z) * invSizeZ * alphaRes);
+                if (ax < 0 || az < 0 || ax >= alphaRes || az >= alphaRes) continue;
+
+                // One-cell read; allocates a small 1×1×layers array but
+                // this only fires during bootstrap, not per frame.
+                var splat = td.GetAlphamaps(ax, az, 1, 1);
+                if (splat[0, 0, ForestSplatLayerIndex] >= ForestSplatRejectThreshold)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

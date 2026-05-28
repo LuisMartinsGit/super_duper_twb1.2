@@ -24,6 +24,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Economy;
 using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Crystal
@@ -275,13 +276,22 @@ namespace TheWaningBorder.Systems.Crystal
                     completeCultures[i],
                     completeFactions[i]);
 
-                GlowPickup.Create(em, completePositions[i], RitualKind.Purification);
+                // Secondary curse-location main nodes yield 1 RP directly to the
+                // purifying faction instead of dropping a Glow pickup.
+                if (em.HasComponent<SecondaryCurseLocationTag>(node))
+                {
+                    FactionReligionPointsHelper.Refund(em, completeFactions[i], 1);
+                    Debug.Log($"[Purification] secondary node cleansed by {completeFactions[i]} — +1 RP");
+                }
+                else
+                {
+                    GlowPickup.Create(em, completePositions[i], RitualKind.Purification);
+                    Debug.Log($"[Purification] complete — node cleansed by {completeFactions[i]}, Glow pickup spawned");
+                }
 
                 if (em.HasComponent<RitualState>(scholar))   em.RemoveComponent<RitualState>(scholar);
                 if (em.HasComponent<PurifyCommand>(scholar)) em.RemoveComponent<PurifyCommand>(scholar);
                 if (em.HasComponent<ActiveRitualOnNode>(node)) em.RemoveComponent<ActiveRitualOnNode>(node);
-
-                Debug.Log($"[Purification] complete — node cleansed by {completeFactions[i]}, Glow pickup spawned");
             }
 
             // Apply cancellations

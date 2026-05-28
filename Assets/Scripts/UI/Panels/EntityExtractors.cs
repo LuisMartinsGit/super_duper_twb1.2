@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Collections;
 using TheWaningBorder.Core;
+using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.UI.Common;
@@ -25,22 +26,33 @@ namespace TheWaningBorder.UI
                 Type = "Entity",
                 Description = "",
                 Portrait = null,
+                // Null-by-default for stat fields per task-108 AD-3:
+                // null = "no component" (renders as "—"), 0 = "component present
+                // but value is zero" (renders as "0"). Health stays at 0 as the
+                // existing contract treats it as required for any entity with
+                // Health, and the panel guards via MaxHealth > 0.
                 CurrentHealth = 0,
                 MaxHealth = 0,
                 Faction = "Neutral",
                 HasCombatStats = false,
-                Attack = 0,
-                Defense = 0,
-                Speed = 0,
+                Attack = null,
+                Defense = null,
+                Speed = null,
                 HasResourceGeneration = false,
                 SuppliesPerMinute = 0,
                 IronPerMinute = 0,
                 CrystalPerMinute = 0,
                 VeilsteelPerMinute = 0,
-                GlowPerMinute = 0
+                GlowPerMinute = 0,
+                EntityKind = "unit",
+                YieldPerMinute = null,
+                QueueCapacity = null,
+                Queue = null
             };
 
             if (!em.Exists(entity)) return info;
+
+            bool isBuilding = em.HasComponent<BuildingTag>(entity);
 
             // Faction
             if (em.HasComponent<FactionTag>(entity))
@@ -54,28 +66,102 @@ namespace TheWaningBorder.UI
                 info.MaxHealth = (int)health.Max;
             }
 
-            // Combat stats
-            if (em.HasComponent<Damage>(entity))
+            // task-109 Phase 5: aggregated Health bar for wall segments and
+            // gate regions. Segments carry a placeholder Health{1,1} (they
+            // are data-only graph edges); the meaningful HP is the sum
+            // across the segment's WallInstanceRef buffer. We override the
+            // values here so the Selection panel shows ONE aggregate bar
+            // labelled "Wall Segment" (or "Wall Gate" when every member of
+            // the buffer carries WallGateRegionTag — Phase 6 will refine
+            // this with a dedicated label).
+            //
+            // Per-instance world-space floating bars (FloatingHealthBars)
+            // continue to render per-entity unchanged — this only affects
+            // the Selection-panel bar.
+            //
+            // Two surfaces hit the aggregate:
+            //   (a) segment selected directly (player double-clicked a
+            //       segment via the UI flow);
+            //   (b) instance selected and Phase 6 resolves it to its
+            //       parent segment for the action panel — but the
+            //       Selection panel still shows segment-aggregate when
+            //       the parent segment is the focus. We compute the
+            //       aggregate here for both cases by detecting segment
+            //       selection only; instance selection still shows the
+            //       per-instance bar so individual instance health is
+            //       still visible on click.
+            if (em.HasComponent<WallSegmentTag>(entity) && em.HasBuffer<WallInstanceRef>(entity))
+            {
+                var refs = em.GetBuffer<WallInstanceRef>(entity);
+                int sumHp = 0;
+                int sumMax = 0;
+                int alive = 0;
+                int total = refs.Length;
+                for (int i = 0; i < refs.Length; i++)
+                {
+                    var inst = refs[i].Instance;
+                    if (!em.Exists(inst)) continue;
+                    if (em.HasComponent<Health>(inst))
+                    {
+                        var h = em.GetComponentData<Health>(inst);
+                        sumHp += (int)h.Value;
+                        sumMax += (int)h.Max;
+                        if (h.Value > 0) alive++;
+                    }
+                }
+                // Only override when the aggregate is meaningful (avoid
+                // emitting "0 / 0" if the buffer is empty, which would
+                // make Selection.jsx render the bar as fully depleted).
+                if (sumMax > 0)
+                {
+                    info.CurrentHealth = sumHp;
+                    info.MaxHealth = sumMax;
+                    info.Description = (info.Description != null && info.Description.Length > 0)
+                        ? info.Description + $"\n{alive} / {total} intact"
+                        : $"{alive} / {total} intact";
+                }
+            }
+
+            // Combat stats (task-108 R5) — buildings read BuildingRangedAttack,
+            // non-buildings read the unit-style Damage component. Defense and
+            // Speed emit null when the component is absent so JSX can
+            // discriminate "—" (missing) from "0" (zero-valued).
+            if (isBuilding && em.HasComponent<BuildingRangedAttack>(entity))
+            {
+                info.HasCombatStats = true;
+                info.Attack = em.GetComponentData<BuildingRangedAttack>(entity).Damage;
+            }
+            else if (!isBuilding && em.HasComponent<Damage>(entity))
             {
                 info.HasCombatStats = true;
                 info.Attack = (int)em.GetComponentData<Damage>(entity).Value;
             }
+            // else: leave info.Attack null.
+
             if (em.HasComponent<Defense>(entity))
             {
                 info.HasCombatStats = true;
                 var def = em.GetComponentData<Defense>(entity);
                 info.Defense = (int)def.Melee; // or average of all defense types
             }
-            if (em.HasComponent<MoveSpeed>(entity))
+            // else: leave info.Defense null.
+
+            // Speed: hidden for buildings entirely (task-108 R5).
+            if (!isBuilding && em.HasComponent<MoveSpeed>(entity))
             {
                 info.Speed = em.GetComponentData<MoveSpeed>(entity).Value;
             }
+            // else: leave info.Speed null.
 
             // Resource generation
             if (em.HasComponent<SuppliesIncome>(entity))
             {
                 info.HasResourceGeneration = true;
-                info.SuppliesPerMinute = em.GetComponentData<SuppliesIncome>(entity).PerMinute;
+                var si = em.GetComponentData<SuppliesIncome>(entity);
+                info.SuppliesPerMinute = si.PerMinute;
+                // task-108 R2: surface per-minute supplies as a dedicated yield
+                // row for buildings (Hall trickle, GathererHut overlap yield).
+                if (isBuilding) info.YieldPerMinute = si.PerMinute;
             }
             if (em.HasComponent<IronIncome>(entity))
             {
@@ -163,7 +249,13 @@ namespace TheWaningBorder.UI
                 {
                     var depState = em.GetComponentData<IronDepositState>(entity);
                     info.ResourceRemaining = depState.RemainingIron;
-                    info.ResourceMax = 500;
+                    // task-108 R4: source max from the bootstrap-time InitialIron
+                    // (added in this task). Pre-task-108 saves load with
+                    // InitialIron == 0; fall back to RemainingIron so the bar
+                    // reads "N / N" (100% full) until the deposit is mined.
+                    info.ResourceMax = depState.InitialIron > 0
+                        ? depState.InitialIron
+                        : depState.RemainingIron;
                     info.ResourceTypeName = "Iron";
                     info.Description = depState.Depleted == 1 ? "Depleted" : "Active iron deposit";
                 }
@@ -266,7 +358,105 @@ namespace TheWaningBorder.UI
                 };
             }
 
+            // task-108 phase 1: EntityKind discriminator. Drives JSX conditional
+            // rendering (collapse speed cell for buildings, amber bar for resources).
+            if (isBuilding)
+            {
+                info.EntityKind = "building";
+            }
+            else if (em.HasComponent<IronMineTag>(entity) || em.HasComponent<CadaverTag>(entity))
+            {
+                info.EntityKind = "resource";
+            }
+            else
+            {
+                info.EntityKind = "unit";
+            }
+
+            // task-108 phase 1: training queue snapshot — 5-slot strip for any
+            // building with a TrainingState + TrainQueueItem buffer. Slot 0
+            // carries live progress when TrainingState.Busy == 1.
+            if (isBuilding
+                && em.HasComponent<TrainingState>(entity)
+                && em.HasBuffer<TrainQueueItem>(entity))
+            {
+                info.QueueCapacity = TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue;
+                info.Queue = BuildQueueSnapshot(entity, em, info.QueueCapacity.Value);
+            }
+
             return info;
+        }
+
+        /// <summary>
+        /// Build a fixed-length snapshot of a building's training queue for the
+        /// Web HUD selection topic. Always returns an array of length
+        /// <paramref name="capacity"/> (matches CommandRouter.MaxProductionQueue);
+        /// slots beyond the live buffer are marked Populated=false. Slot 0
+        /// carries TrainingState.Busy/Remaining-derived progress so the JSX
+        /// strip can render the in-production fill in lockstep with the
+        /// existing TrainingInfo.Progress field.
+        /// </summary>
+        private static EntityQueueSlot[] BuildQueueSnapshot(Entity e, EntityManager em, int capacity)
+        {
+            var arr = new EntityQueueSlot[capacity];
+            var buf = em.GetBuffer<TrainQueueItem>(e);
+            var ts = em.GetComponentData<TrainingState>(e);
+
+            // Total training time from TechTreeDB for slot 0 progress. Mirrors
+            // the existing TrainingInfo.Progress derivation in EntityActionExtractor.
+            float slot0Total = 1f;
+            if (buf.Length > 0)
+            {
+                string slot0Id = buf[0].UnitId.ToString();
+                if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(slot0Id, out var udef))
+                    slot0Total = udef.trainingTime > 0 ? udef.trainingTime : 1f;
+            }
+
+            for (int i = 0; i < capacity; i++)
+            {
+                if (i >= buf.Length)
+                {
+                    arr[i].Populated = false;
+                    continue;
+                }
+                string uid = buf[i].UnitId.ToString();
+                var cost = EntityActionExtractor.GetUnitCost(uid);
+                arr[i].Populated = true;
+                arr[i].UnitId = uid;
+                arr[i].DisplayName = ResolveUnitDisplayName(uid);
+                arr[i].RefundSupplies = cost.Supplies;
+                arr[i].RefundIron = cost.Iron;
+                arr[i].RefundCrystal = cost.Crystal;
+                arr[i].RefundVeilsteel = cost.Veilsteel;
+                arr[i].RefundGlow = cost.Glow;
+                arr[i].IsInProduction = (i == 0 && ts.Busy != 0);
+                if (arr[i].IsInProduction && slot0Total > 0f)
+                {
+                    float remaining = ts.Remaining > 0 ? ts.Remaining : 0f;
+                    float p = 1f - (remaining / slot0Total);
+                    if (p < 0f) p = 0f;
+                    else if (p > 1f) p = 1f;
+                    arr[i].Progress = p;
+                }
+                else
+                {
+                    arr[i].Progress = 0f;
+                }
+            }
+            return arr;
+        }
+
+        /// <summary>
+        /// Resolve a unit-id string (e.g. "Swordsman") to a human-readable
+        /// display name. Prefers TechTreeDB.unit.name; falls back to the
+        /// id itself when not registered.
+        /// </summary>
+        private static string ResolveUnitDisplayName(string unitId)
+        {
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var udef)
+                && !string.IsNullOrEmpty(udef.name))
+                return udef.name;
+            return unitId;
         }
 
         private static string GetBuildingName(Entity entity, EntityManager em)
@@ -282,7 +472,10 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "Temple of Ridan";
             if (em.HasComponent<VaultTag>(entity)) return "Vault of Almiérra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
-            if (em.HasComponent<SmelterTag>(entity)) return "Smelter";
+            // Display label changed Smelter → Forge per the user's UI request.
+            // The ECS tag, building id ("Alanthor_Smelter"), factory, and the
+            // ForgeStorage/ForgeConversionSystem pipeline are all unchanged.
+            if (em.HasComponent<SmelterTag>(entity)) return "Forge";
             if (em.HasComponent<WallHubTag>(entity)) return "Wall Hub";
             if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
             if (em.HasComponent<WallGateTag>(entity)) return "Wall Gate";
@@ -299,6 +492,7 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
             if (em.HasComponent<PracticeRangeTag>(entity)) return "Practice Range";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Royal Stable";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Hunting Lodge";
             if (em.HasComponent<LoggingStationTag>(entity)) return "Logging Station";
@@ -374,6 +568,9 @@ namespace TheWaningBorder.UI
                 201 => "Swordsman",
                 202 => "Archer",
                 203 => "Worker",
+                // task-110: Era 1 Archery Range tier units
+                204 => "Crossbowman",
+                205 => "Longbowman",
                 206 => "Scout",
                 207 => "Litharch",
                 210 => "Berserker",
@@ -544,13 +741,75 @@ namespace TheWaningBorder.UI
                 }
             }
 
-            // Check if this is an upgradeable wall instance (not already tower or gate)
+            // Per-hub "Build Wall" action — surfaces on any completed wall
+            // hub of the local faction. Clicking enters a hub-anchored
+            // placement mode (BuilderCommandPanel.TriggerHubBuildWall) that
+            // drops a new hub + auto-connecting segment with no builder
+            // and a 30 s self-build timer. Cost is paid up-front when the
+            // second hub is placed (not when the action button is shown),
+            // so the button stays enabled regardless of current resources;
+            // the placement step itself surfaces the "not enough resources"
+            // notification if the player can't actually afford it.
+            if (em.HasComponent<WallHubTag>(entity)
+                && !em.HasComponent<UnderConstruction>(entity)
+                && em.HasComponent<FactionTag>(entity)
+                && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
+            {
+                Cost hubCost = default;
+                BuildCosts.TryGet("Alanthor_Wall", out hubCost);
+                bool canAfford = FactionEconomy.CanAfford(em,
+                    GameSettings.LocalPlayerFaction, hubCost);
+
+                info.Type = ActionType.HubBuildWall;
+                info.Actions = new List<ActionButton>
+                {
+                    new ActionButton
+                    {
+                        Id = "BuildWall",
+                        Label = "Build Wall",
+                        Tooltip = "Place a connected wall hub. Auto-builds in 30s with no builder.",
+                        Enabled = true,
+                        Cost = hubCost,
+                        CanAfford = canAfford,
+                    }
+                };
+                return info;
+            }
+
+            // Check if this is an upgradeable wall instance (not already tower or gate).
+            // task-109 phase 6: per-segment conversion actions live here.
+            // Selection-panel data stays per-instance (clicking a wall shows the
+            // single wall's HP) but the ACTIONS panel resolves to the parent
+            // segment and surfaces:
+            //   - "Convert to Gate (Nx)" — 5-instance segment-level conversion
+            //     (Phase 5 WallSegmentUpgradeState path). N is the smaller of
+            //     the segment's instance count or 5.
+            //   - "Convert to Tower"     — single-instance legacy conversion
+            //     (per-instance WallUpgradeState path; unchanged).
+            // Instances that are already part of a gate region don't show
+            // further upgrade actions (already converted).
             if (em.HasComponent<WallInstanceTag>(entity) &&
                 !em.HasComponent<WallTowerTag>(entity) &&
                 !em.HasComponent<WallGateTag>(entity) &&
+                !em.HasComponent<WallGateRegionTag>(entity) &&
                 !em.HasComponent<UnderConstruction>(entity))
             {
                 info.Type = ActionType.WallInstanceUpgrade;
+                info.Actions = BuildSegmentConversionActions(entity, em);
+                return info;
+            }
+
+            // Alanthor age-up choice: Gatherer's Hut tagged with
+            // GathererHutAgeUpChoice surfaces two large action cells (Wall
+            // Hub / Watch Tower). Mid-conversion (GathererHutConverting) the
+            // same type renders an empty action list — the JSX side reads
+            // the progress data off the selection payload separately.
+            // (task-109 phase 2)
+            if (em.HasComponent<GathererHutAgeUpChoice>(entity)
+                || em.HasComponent<GathererHutConverting>(entity))
+            {
+                info.Type = ActionType.GathererHutAgeUpChoice;
+                info.Actions = GetHutAgeUpChoiceActions(entity, em);
                 return info;
             }
 
@@ -654,6 +913,170 @@ namespace TheWaningBorder.UI
         }
 
         /// <summary>
+        /// Build the two action cells surfaced on a Gatherer's Hut with the
+        /// age-up choice marker. Both cells share the same canonical cost
+        /// (40 supplies + 30 iron) and the same 5-second timer — only the
+        /// outcome differs. While mid-conversion (GathererHutConverting
+        /// present and the marker stripped) the helper returns an empty
+        /// list, so the panel collapses to a progress display only.
+        /// (task-109 phase 2)
+        /// </summary>
+        private static List<ActionButton> GetHutAgeUpChoiceActions(Entity entity, EntityManager em)
+        {
+            var actions = new List<ActionButton>();
+
+            // Mid-conversion → no buttons (cannot cancel in v1, per Phase 1
+            // canonical design).
+            if (em.HasComponent<GathererHutConverting>(entity))
+                return actions;
+
+            if (!em.HasComponent<GathererHutAgeUpChoice>(entity))
+                return actions;
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            var cost = TheWaningBorder.Core.Commands.Types.ConvertHutCommandHelper.ConversionCost;
+            bool canAfford = !em.Equals(default(EntityManager))
+                ? FactionEconomy.CanAfford(em, faction, cost)
+                : true;
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
+            actions.Add(new ActionButton
+            {
+                Id = "ConvertToWallHub",
+                Label = "Convert to Wall Hub",
+                Tooltip = BuildTooltip(
+                    "Convert to Wall Hub",
+                    "Replaces the hut with a Wall Hub. Adjacent hubs auto-link into wall segments.",
+                    cost,
+                    available,
+                    trainingTime: TheWaningBorder.Core.Commands.Types.ConvertHutCommandHelper.ConversionDuration
+                ),
+                Cost = cost,
+                Enabled = true,
+                CanAfford = canAfford,
+                Icon = null,
+            });
+
+            actions.Add(new ActionButton
+            {
+                Id = "ConvertToWatchTower",
+                Label = "Convert to Watch Tower",
+                Tooltip = BuildTooltip(
+                    "Convert to Watch Tower",
+                    "Replaces the hut with a stand-alone Alanthor Watch Tower (ranged defense).",
+                    cost,
+                    available,
+                    trainingTime: TheWaningBorder.Core.Commands.Types.ConvertHutCommandHelper.ConversionDuration
+                ),
+                Cost = cost,
+                Enabled = true,
+                CanAfford = canAfford,
+                Icon = null,
+            });
+
+            return actions;
+        }
+
+        /// <summary>
+        /// Build the action cells surfaced when the player selects a wall
+        /// instance. Per task-109 Phase 6 the action panel resolves an
+        /// instance click to its parent segment and presents:
+        ///   - "Convert to Gate (Nx)" — segment-level 5-instance conversion
+        ///     (task-109 Phase 5 path). N is min(instance count, 5); a short
+        ///     segment is allowed but the label communicates the shortened
+        ///     gate width and the helper surfaces a warning suffix.
+        ///   - "Convert to Tower"     — per-instance legacy conversion
+        ///     (single-instance WallUpgradeState path; cost from BuildCosts).
+        /// Mid-conversion (parent segment carries WallSegmentUpgradeState)
+        /// the Gate button drops out — only the Tower stays. (task-109 phase 6)
+        /// </summary>
+        private static List<ActionButton> BuildSegmentConversionActions(Entity entity, EntityManager em)
+        {
+            var actions = new List<ActionButton>();
+            if (!em.HasComponent<WallInstanceTag>(entity)) return actions;
+
+            Faction faction = GameSettings.LocalPlayerFaction;
+            if (em.HasComponent<FactionTag>(entity))
+                faction = em.GetComponentData<FactionTag>(entity).Value;
+
+            Cost available = GetFactionResourcesAsCost(em, faction);
+
+            // Resolve parent segment to derive the gate width label.
+            Entity segment = Entity.Null;
+            if (em.HasComponent<WallInstanceParent>(entity))
+                segment = em.GetComponentData<WallInstanceParent>(entity).Segment;
+            int segmentInstanceCount = 0;
+            if (em.Exists(segment) && em.HasBuffer<WallInstanceRef>(segment))
+                segmentInstanceCount = em.GetBuffer<WallInstanceRef>(segment).Length;
+            int gateWidth = segmentInstanceCount > 0 ? System.Math.Min(segmentInstanceCount, 5) : 5;
+            bool shortSegment = segmentInstanceCount > 0 && segmentInstanceCount < 5;
+            bool segmentConverting = em.Exists(segment) && em.HasComponent<WallSegmentUpgradeState>(segment);
+
+            // Gate cell — segment-level conversion. Drops out while the
+            // segment is mid-conversion (no double-charge / double-stack).
+            if (!segmentConverting)
+            {
+                var gateCost = TheWaningBorder.Core.Commands.Types
+                    .ConvertSegmentToGateCommandHelper.ConversionCost;
+                bool canAffordGate = !em.Equals(default(EntityManager))
+                    ? FactionEconomy.CanAfford(em, faction, gateCost)
+                    : true;
+                string gateLabel = $"Convert to Gate ({gateWidth}x)";
+                string gateSubtitle = shortSegment
+                    ? $"Short segment — gate will span {gateWidth} instances. Battalions wider than {gateWidth} may not fit."
+                    : "5-instance opening. Battalions in line formation can path through.";
+
+                actions.Add(new ActionButton
+                {
+                    Id = "WallSegmentToGate",
+                    Label = gateLabel,
+                    Tooltip = BuildTooltip(
+                        gateLabel,
+                        gateSubtitle,
+                        gateCost,
+                        available,
+                        trainingTime: TheWaningBorder.Core.Commands.Types
+                            .ConvertSegmentToGateCommandHelper.ConversionDuration
+                    ),
+                    Cost = gateCost,
+                    Enabled = true,
+                    CanAfford = canAffordGate,
+                    Icon = null,
+                });
+            }
+
+            // Tower cell — per-instance legacy conversion (unchanged from
+            // the IMGUI reference at EntityActionPanel.cs:1641-1660).
+            if (TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_WallTower", out var towerCost))
+            {
+                bool canAffordTower = !em.Equals(default(EntityManager))
+                    ? FactionEconomy.CanAfford(em, faction, towerCost)
+                    : true;
+                actions.Add(new ActionButton
+                {
+                    Id = "WallInstanceToTower",
+                    Label = "Convert to Tower",
+                    Tooltip = BuildTooltip(
+                        "Convert to Tower",
+                        "Reinforces this wall section into a watchtower (ranged defense).",
+                        towerCost,
+                        available,
+                        trainingTime: 10f
+                    ),
+                    Cost = towerCost,
+                    Enabled = true,
+                    CanAfford = canAffordTower,
+                    Icon = null,
+                });
+            }
+
+            return actions;
+        }
+
+        /// <summary>
         /// Get the current faction resources as a Cost for rich tooltip formatting.
         /// </summary>
         private static Cost GetFactionResourcesAsCost(EntityManager em, Faction faction)
@@ -697,19 +1120,47 @@ namespace TheWaningBorder.UI
         }
 
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
+        //
+        // task-109: Alanthor wall primitives — only "Alanthor_Wall" (hub) and "Alanthor_Tower"
+        //           (standalone watch tower) are placeable. "Alanthor_WallTower" and
+        //           "Alanthor_WallGate" are CONVERSION-ONLY (segment selection → Convert
+        //           to Tower / Convert to Gate). They MUST NOT appear in this HashSet.
+        //           See docs/Design/Age_1_Alanthor.md § Wall System (BFME2 hub-and-segment)
+        //           and the static-ctor Debug.Assert guard below.
         private static readonly HashSet<string> BuildableBuildings = new()
         {
             "Hut", "GatherersHut", "Barracks", "ArcheryRange", "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep",
             "TempleOfRidan",
+            // Additional Halls — culture-gated (post-age-up only) and capped at
+            // 6 per faction. The 6-cap and culture gate are enforced inside
+            // GetBuildingActions; the runtime cap fallback lives in
+            // BuilderCommandPanel.SpawnSelectedBuilding.
+            "Hall",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings
-            "Alanthor_Tower", "Alanthor_PracticeRange", "Alanthor_SiegeYard",
+            "Alanthor_Tower", "Alanthor_PracticeRange", "Alanthor_SiegeYard", "Alanthor_RoyalStable", "Alanthor_Crucible",
             // Feraldis culture buildings
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation", "Feraldis_Longhouse",
             "Feraldis_Tower", "Feraldis_SiegeYard"
         };
+
+        // task-109: defensive boot-time guard. If a future PR accidentally adds
+        // "Alanthor_WallTower" or "Alanthor_WallGate" to BuildableBuildings, this
+        // static constructor will fire a Debug.Assert at first class touch (which
+        // happens during the first build-action extraction on the local player
+        // builder). Keeping the assertion close to the HashSet declaration makes
+        // the contract self-documenting.
+        static EntityActionExtractor()
+        {
+            UnityEngine.Debug.Assert(
+                !BuildableBuildings.Contains("Alanthor_WallTower"),
+                "task-109: Alanthor_WallTower must remain conversion-only (segment → Convert to Tower). Do not add it to BuildableBuildings.");
+            UnityEngine.Debug.Assert(
+                !BuildableBuildings.Contains("Alanthor_WallGate"),
+                "task-109: Alanthor_WallGate must remain conversion-only (segment → Convert to Gate). Do not add it to BuildableBuildings.");
+        }
 
         private static List<ActionButton> GetBuildingActions()
         {
@@ -748,6 +1199,16 @@ namespace TheWaningBorder.UI
             // Get current resources for rich tooltip coloring
             Cost available = GetFactionResourcesAsCost(em, faction);
 
+            // Per-faction caps — counted once so we don't re-query inside the
+            // building loop. Halls cap at 6 (post-age-up expansion); Temple of
+            // Ridan caps at 1.
+            int hallCount = !em.Equals(default(EntityManager))
+                ? BuildingFactory.GetFactionBuildingCount<HallTag>(em, faction) : 0;
+            int templeCount = !em.Equals(default(EntityManager))
+                ? BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) : 0;
+            const int HallCap = 6;
+            const int TempleCap = 1;
+
             if (TechTreeDB.Instance != null)
             {
                 foreach (var building in TechTreeDB.Instance.GetAllBuildings())
@@ -758,6 +1219,18 @@ namespace TheWaningBorder.UI
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
+
+                    // Hall: post-age-up expansion, capped at 6 per faction.
+                    // Hide entirely pre-age-up (no Hall button until you've
+                    // picked a culture) and once the cap is reached.
+                    if (building.id == "Hall")
+                    {
+                        if (factionCulture == Cultures.None) continue;
+                        if (hallCount >= HallCap) continue;
+                    }
+
+                    // Temple of Ridan: one per faction.
+                    if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
 
                     // Data-driven culture gating: buildings with culture prefix require that culture
                     byte requiredCulture = GetRequiredCulture(building.id);
@@ -1251,6 +1724,7 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<PracticeRangeTag>(entity)) return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
+            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
             if (em.HasComponent<LoggingStationTag>(entity)) return "Feraldis_LoggingStation";

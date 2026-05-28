@@ -100,6 +100,7 @@ namespace TheWaningBorder.World.Minimap
         private EntityQuery _buildingsQ;
         private EntityQuery _obstaclesQ;
         private EntityQuery _ironDepositsQ;
+        private EntityQuery _cadaversQ;
         private EntityQuery _ritualSitesQ;
         private EntityQuery _glowPickupsQ;
 
@@ -138,10 +139,25 @@ namespace TheWaningBorder.World.Minimap
             }
             else
             {
-                // Adapt to map size when FoW is disabled
-                int half = GameSettings.MapHalfSize;
-                worldMin = new Vector2(-half, -half);
-                worldMax = new Vector2(half, half);
+                // No FoW. Prefer the active Unity Terrain's actual bounds so
+                // hand-authored maps (whose terrain may sit at world coords
+                // far from origin — MapMagic etc.) render correctly. Only
+                // fall back to the [-MapHalfSize, +MapHalfSize] box when no
+                // terrain exists yet.
+                var ut = UnityEngine.Terrain.activeTerrain;
+                if (ut != null && ut.terrainData != null)
+                {
+                    var origin = ut.transform.position;
+                    var size = ut.terrainData.size;
+                    worldMin = new Vector2(origin.x, origin.z);
+                    worldMax = new Vector2(origin.x + size.x, origin.z + size.z);
+                }
+                else
+                {
+                    int half = GameSettings.MapHalfSize;
+                    worldMin = new Vector2(-half, -half);
+                    worldMax = new Vector2(half, half);
+                }
             }
 
             if (GameSettings.IsMultiplayer)
@@ -201,12 +217,34 @@ namespace TheWaningBorder.World.Minimap
                 ComponentType.ReadOnly<LocalTransform>());
 
             _obstaclesQ = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<ObstacleTag>(),
-                ComponentType.ReadOnly<PresentationId>(),
-                ComponentType.ReadOnly<LocalTransform>());
+                new EntityQueryDesc
+                {
+                    All = new[]
+                    {
+                        ComponentType.ReadOnly<ObstacleTag>(),
+                        ComponentType.ReadOnly<PresentationId>(),
+                        ComponentType.ReadOnly<LocalTransform>(),
+                    },
+                    // Iron deposits and crystal cadavers also carry ObstacleTag
+                    // (so the navmesh carves them) and PresentationId — without
+                    // these excludes the minimap rock-blip pass would render
+                    // every resource node as a grey rock on top of its
+                    // proper iron / crystal colour drawn just below.
+                    None = new[]
+                    {
+                        ComponentType.ReadOnly<IronMineTag>(),
+                        ComponentType.ReadOnly<CadaverTag>(),
+                    },
+                });
 
             _ironDepositsQ = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<IronMineTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+
+            // Cadaver crystal nodes — the mineable patches placed by
+            // CrystalPatchBootstrap. Always visible (same treatment as iron).
+            _cadaversQ = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<CadaverTag>(),
                 ComponentType.ReadOnly<LocalTransform>());
 
             // Ritual broadcast markers (spec §5.1) + Glow pickup markers.
@@ -581,6 +619,21 @@ namespace TheWaningBorder.World.Minimap
                     var pos = xfs[i].Position;
                     int2 p = WorldToPixel(pos);
                     DrawDisc(p.x, p.y, 2, ironColor);
+                }
+            }
+
+            // Draw cadaver crystal nodes (curse purple) — always visible.
+            // Same 2 px radius as iron so single nodes are subtle but packed
+            // patches read as a dense purple blob on the minimap.
+            using (var xfs = _cadaversQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            {
+                Color crystalColor = new Color(0.55f, 0.25f, 0.85f);
+
+                for (int i = 0; i < xfs.Length; i++)
+                {
+                    var pos = xfs[i].Position;
+                    int2 p = WorldToPixel(pos);
+                    DrawDisc(p.x, p.y, 2, crystalColor);
                 }
             }
 

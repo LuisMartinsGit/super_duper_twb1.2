@@ -1,0 +1,16 @@
+{
+  "id": "task-static-helper-query-caching-107",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:25:00Z",
+  "updatedAt": "2026-05-20T18:25:00Z",
+  "events": [
+    {
+      "type": "task_created",
+      "description": "Spun out from task-082 §D row 10 — private static helpers (TrainingSystem.FindFactionDropOff, AgeUpSystem.HasFactionTemple) that create EntityQuery handles on every call. Scope includes auditing all `private static` methods under Systems/ for the same anti-pattern.",
+      "timestamp": "2026-05-20T18:25:00Z"
+    }
+  ]
+}

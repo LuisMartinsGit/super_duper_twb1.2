@@ -524,6 +524,37 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                case LockstepCommandType.CancelTrain:
+                    if (entity != Entity.Null)
+                    {
+                        int cancelSlot = cmd.TargetEntityId;
+                        CancelTrainCommandHelper.Execute(em, entity, cancelSlot);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed CancelTrain slot={cancelSlot} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertHut:
+                    if (entity != Entity.Null)
+                    {
+                        var convertTarget = (HutConversionTarget)(byte)(cmd.TargetEntityId & 0xFF);
+                        ConvertHutCommandHelper.Execute(em, entity, convertTarget);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertHut target={convertTarget} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertSegmentToGate:
+                    if (entity != Entity.Null)
+                    {
+                        // TargetEntityId carries the focus-instance network id
+                        // (0 = no focus → fallback to segment midpoint).
+                        Entity focus = cmd.TargetEntityId != 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId)
+                            : Entity.Null;
+                        ConvertSegmentToGateCommandHelper.Execute(em, entity, focus);
+                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertSegmentToGate from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
                 case LockstepCommandType.PlaceBuilding:
                     {
                         Faction buildFaction = (Faction)cmd.EntityNetworkId;

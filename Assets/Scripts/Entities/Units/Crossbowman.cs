@@ -7,102 +7,44 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Crossbowman unit - Alanthor culture ranged infantry.
-    /// Shorter range than archers but compensates with higher damage and faster fire rate.
-    /// Heavily armored. Uses ArcherState for ranged aim/retreat behavior.
+    /// Crossbowman unit — Era 1 Archery Range L2 tier (task-110).
+    ///
+    /// Slow but heavy-hitting ranged infantry. Mirrors Archer.cs structure
+    /// (single CreateInternal goes through IEntityCreator so EM and ECB paths
+    /// share one implementation) and reuses ArcherState for the aim / fire /
+    /// retreat state machine — the Crossbowman is a stat profile, not a new
+    /// behaviour.
+    ///
+    /// Distinct from <see cref="AlanthorCrossbowman"/>, which is the Alanthor
+    /// cultural variant trained at the Alanthor Practice Range.
     /// </summary>
     public static class Crossbowman
     {
-        // Default stats (used if TechTreeDB unavailable)
-        private const float DefaultHP = 100f;
+        // Default stats (used if TechTreeDB unavailable). Values mirror the
+        // PLAYTEST PLACEHOLDER stat block in TechTree.json + Age_0.md.
+        private const float DefaultHP = 70f;
         private const float DefaultSpeed = 3.5f;
-        private const float DefaultDamage = 20f;
-        private const float DefaultLoS = 20f;
-        private const float DefaultMinRange = 4f;
+        private const float DefaultDamage = 18f;
+        private const float DefaultLoS = 22f;
+        private const float DefaultMinRange = 6f;
         private const float DefaultMaxRange = 18f;
-        private const float DefaultCooldown = 1.2f;
-        private const float DefaultAimTime = 0.35f;
-        private const int PresentationID = 335;
+        private const float DefaultCooldown = 3.0f;
+        private const float DefaultAimTime = 0.5f;
+        private const int PresentationID = 204;  // Archer=202; sit next to it.
 
-        /// <summary>
-        /// Create Crossbowman using EntityManager.
-        /// </summary>
+        /// <summary>Create Crossbowman using EntityManager.</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float minRange = DefaultMinRange;
-            float maxRange = DefaultMaxRange;
-            float cooldown = DefaultCooldown;
+            => CreateInternal(new EmCreator(em), position, faction);
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Alanthor_Crossbowman", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.speed > 0) speed = def.speed;
-                if (def.damage > 0) damage = def.damage;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-                if (def.minAttackRange > 0) minRange = def.minAttackRange;
-                if (def.attackRange > 0) maxRange = def.attackRange;
-                if (def.attackCooldown > 0) cooldown = def.attackCooldown;
-            }
-
-            var entity = em.CreateEntity(
-                typeof(PresentationId),
-                typeof(LocalTransform),
-                typeof(FactionTag),
-                typeof(UnitTag),
-                typeof(ArcherTag),
-                typeof(Health),
-                typeof(MoveSpeed),
-                typeof(Damage),
-                typeof(LineOfSight),
-                typeof(ArcherState),
-                typeof(Target),
-                typeof(Radius),
-                typeof(AttackCooldown),
-                typeof(PopulationCost)
-            );
-
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new UnitTag { Class = UnitClass.Ranged });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new MoveSpeed { Value = speed });
-            em.SetComponentData(entity, new Damage { Value = (int)damage });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Target { Value = Entity.Null });
-            em.SetComponentData(entity, new Radius { Value = 0.5f });
-            em.SetComponentData(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            em.SetComponentData(entity, new PopulationCost { Amount = 2 });
-
-            // Archer-specific state for ranged behavior
-            em.SetComponentData(entity, new ArcherState
-            {
-                AimTimer = 0,
-                AimTimeRequired = DefaultAimTime,
-                CooldownTimer = 0,
-                MinRange = minRange,
-                MaxRange = maxRange,
-                IsRetreating = 0,
-                IsFiring = 0
-            });
-
-            // Combat type tags - armored ranged unit
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 0 });
-
-            return entity;
-        }
-
-        /// <summary>
-        /// Create Crossbowman using EntityCommandBuffer for deferred creation.
-        /// </summary>
+        /// <summary>Create Crossbowman using EntityCommandBuffer for deferred creation.</summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
+            => CreateInternal(new EcbCreator(ecb), position, faction);
+
+        private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
+            where TCreator : struct, IEntityCreator
         {
+            // Load stats from TechTreeDB (PLAYTEST PLACEHOLDER values land in
+            // TechTree.json under id "Crossbowman").
             float hp = DefaultHP;
             float speed = DefaultSpeed;
             float damage = DefaultDamage;
@@ -111,7 +53,7 @@ namespace TheWaningBorder.Entities
             float maxRange = DefaultMaxRange;
             float cooldown = DefaultCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Alanthor_Crossbowman", out var def))
+            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crossbowman", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;
@@ -122,24 +64,25 @@ namespace TheWaningBorder.Entities
                 if (def.attackCooldown > 0) cooldown = def.attackCooldown;
             }
 
-            var entity = ecb.CreateEntity();
+            var entity = creator.CreateEntity();
+            creator.AddComponent(entity, new PresentationId { Id = PresentationID });
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            creator.AddComponent(entity, new FactionTag { Value = faction });
+            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Ranged });
+            creator.AddComponent<ArcherTag>(entity);          // shared ranged state machine
+            creator.AddComponent<CrossbowmanTag>(entity);     // task-110 distinguishing tag
+            creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            creator.AddComponent(entity, new MoveSpeed { Value = speed });
+            creator.AddComponent(entity, new Damage { Value = (int)damage });
+            creator.AddComponent(entity, new LineOfSight { Radius = los });
+            creator.AddComponent(entity, new Target { Value = Entity.Null });
+            creator.AddComponent(entity, new Radius { Value = 0.5f });
+            creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
+            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Ranged });
-            ecb.AddComponent<ArcherTag>(entity);
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new MoveSpeed { Value = speed });
-            ecb.AddComponent(entity, new Damage { Value = (int)damage });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Target { Value = Entity.Null });
-            ecb.AddComponent(entity, new Radius { Value = 0.5f });
-            ecb.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            ecb.AddComponent(entity, new PopulationCost { Amount = 2 });
-
-            // Archer-specific state for ranged behavior
-            ecb.AddComponent(entity, new ArcherState
+            // Reuse ArcherState — Crossbowman is a stat profile, not a new
+            // behaviour. The aim/fire/retreat machine works identically.
+            creator.AddComponent(entity, new ArcherState
             {
                 AimTimer = 0,
                 AimTimeRequired = DefaultAimTime,
@@ -150,12 +93,13 @@ namespace TheWaningBorder.Entities
                 IsFiring = 0
             });
 
-            // Combat type tags - armored ranged unit
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 0 });
+            // Combat type tags — same shape as Archer for v1.
+            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 1, Siege = 0, Magic = 0 });
 
             return entity;
         }
     }
+    // CrossbowmanTag is defined in Core/Components/UnitComponents.cs (global namespace)
 }

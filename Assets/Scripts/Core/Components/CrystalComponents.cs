@@ -130,6 +130,30 @@ public struct OwnerNode : IComponentData
 public struct CadaverTag : IComponentData { }
 
 /// <summary>
+/// Pending crystal pile from curse-unit deaths. When a curse unit (CrystalUnitTag)
+/// dies, a pile is created or merged at its death position with TimerRemaining = 30s.
+/// Subsequent curse-unit deaths within Cadaver.MergeRadius coalesce into the same
+/// pile and reset its timer. On expiry, the pile's Amount is divided across all
+/// existing crystal patches on the map (see CursePendingPileSystem).
+/// </summary>
+public struct CursePendingPile : IComponentData
+{
+    public int Amount;
+    public float TimerRemaining;
+}
+
+/// <summary>
+/// Marks a crystal main node OR sub-node as a "secondary" curse location — one
+/// that spawned because a resource patch grew past the 45-node threshold (see
+/// CursePendingPileSystem.PatchConvertNodeThreshold). Secondary nodes yield
+/// 1 Religion Point (FactionReligionPoints) to the acting faction on
+/// pacification / conversion / destruction (instead of the normal Glow pickup)
+/// and do NOT respawn after being destroyed (NodeStateReversionSystem skips
+/// the Destroyed→Active regrowth for tagged entities).
+/// </summary>
+public struct SecondaryCurseLocationTag : IComponentData { }
+
+/// <summary>
 /// Crystal resource state for a crystal-node entity (legacy "Cadaver" name —
 /// the type is named after creature deaths but the entity is a static crystal
 /// node that exists until fully mined). Nodes do NOT decay; they persist
@@ -163,6 +187,8 @@ public struct VeilstingerState : IComponentData
     public float MinRange;
     public float MaxRange;
     public byte IsFiring;
+    /// <summary>0 = next shot from left gun, 1 = next shot from right gun. Toggles on each fire.</summary>
+    public byte NextGun;
 }
 
 /// <summary>
@@ -232,6 +258,21 @@ public struct CursedGroundReceding : IComponentData
 /// (glowing beam) instead of the default arrow model.
 /// </summary>
 public struct LaserProjectileTag : IComponentData { }
+
+/// <summary>
+/// Marks a projectile as a Veilstinger missile — picks the small arcane
+/// missile visual and triggers the impact-explosion VFX on destruction.
+/// Veilstinger projectiles use the Bezier arrow path (arched, auto-hit),
+/// not the laser straight-line path.
+/// </summary>
+public struct VeilstingerProjectileTag : IComponentData { }
+
+/// <summary>
+/// Marks a projectile as a Godsplinter laser — picks the mega arcane
+/// missile visual. Coexists with LaserProjectileTag (Godsplinter uses
+/// the straight-line laser path; this tag just swaps the visual).
+/// </summary>
+public struct GodsplinterProjectileTag : IComponentData { }
 
 // ==================== Crystal Buff / Debuff ====================
 

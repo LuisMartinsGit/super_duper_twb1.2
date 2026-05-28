@@ -207,6 +207,8 @@ namespace TheWaningBorder.Economy
                 "Miner" => 1,
                 "Scout" => 1,
                 "Archer" => 1,
+                "Crossbowman" => 1,   // task-110: Era 1 Archery Range L2 tier
+                "Longbowman" => 1,    // task-110: Era 1 Archery Range L3 tier
                 "Swordsman" => 1,
                 "Litharch" => 1,
                 

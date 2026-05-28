@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimap backplate: engraved diamond bezel. Port of the mockup's
+     "Backplate diamond" section in Game HUD/minimap.jsx (lines 283-314, maximal). -->
+<svg width="320" height="320" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <radialGradient id="mmBack" cx="50%" cy="42%" r="60%">
+            <stop offset="0%"   stop-color="#143228" />
+            <stop offset="70%"  stop-color="#0b1f1a" />
+            <stop offset="100%" stop-color="#04100b" />
+        </radialGradient>
+        <linearGradient id="mmBezel" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#cfd6d3" stop-opacity="0.95" />
+            <stop offset="50%"  stop-color="#7f8e8a" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#cfd6d3" stop-opacity="0.95" />
+        </linearGradient>
+    </defs>
+    <!-- Outer plate diamond -->
+    <polygon points="160,4 316,160 160,316 4,160"
+             fill="url(#mmBack)" stroke="url(#mmBezel)" stroke-width="2" />
+    <!-- Second engraved ring -->
+    <polygon points="160,14 306,160 160,306 14,160"
+             fill="none" stroke="#020806" stroke-width="1" opacity="0.9" />
+    <polygon points="160,18 302,160 160,302 18,160"
+             fill="none" stroke="#cfd6d3" stroke-width="0.7" opacity="0.5" />
+    <!-- Gold tip studs -->
+    <g fill="#e8b84a" stroke="#020806" stroke-width="0.5">
+        <circle cx="160" cy="4"   r="3" />
+        <circle cx="316" cy="160" r="3" />
+        <circle cx="160" cy="316" r="3" />
+        <circle cx="4"   cy="160" r="3" />
+    </g>
+</svg>

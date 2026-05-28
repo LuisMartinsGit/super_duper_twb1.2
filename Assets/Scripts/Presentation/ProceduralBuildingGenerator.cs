@@ -55,6 +55,7 @@ namespace TheWaningBorder.Presentation
 
                 // Alanthor culture buildings
                 354 => CreateAlanthorTower(pos, entity),
+                356 => CreateAlanthorRoyalStable(pos, entity),
                 357 => CreateAlanthorSiegeYard(pos, entity),
                 363 => CreateKingsCourt(pos, entity),
                 364 => CreateAlanthorCrucible(pos, entity),
@@ -97,7 +98,7 @@ namespace TheWaningBorder.Presentation
         {
             // Runai: 350-353, 365-366, 352 (Bazaar)
             if ((id >= 350 && id <= 353) || id == 365 || id == 366) return Cultures.Runai;
-            // Alanthor: 354, 356, 357, 363 (KingsCourt), 364 (Crucible)
+            // Alanthor: 354 (Tower), 356 (RoyalStable), 357 (SiegeYard), 363 (KingsCourt), 364 (Crucible)
             if (id == 354 || id == 356 || id == 357 || id == 363 || id == 364) return Cultures.Alanthor;
             // Feraldis: 358-362, 367
             if ((id >= 358 && id <= 362) || id == 367) return Cultures.Feraldis;
@@ -2192,6 +2193,70 @@ namespace TheWaningBorder.Presentation
             // Ballista under construction (on ground)
             Prim(PrimitiveType.Cube, "BallistaFrame", root.transform,
                 new Vector3(1.0f, 0.25f, 0f), new Vector3(1.0f, 0.3f, 0.6f), AlanthorTrim * 0.7f);
+
+            return root;
+        }
+
+        /// <summary>
+        /// Alanthor Royal Stable: long low stable with pitched roof, fence
+        /// paddock, and a corner watch tower. Reads as a cavalry house from
+        /// camera distance — distinct silhouette from Barracks and SiegeYard.
+        /// </summary>
+        private static GameObject CreateAlanthorRoyalStable(Vector3 pos, Entity entity)
+        {
+            var root = new GameObject($"AlanthorRoyalStable_{entity.Index}");
+            root.transform.position = pos;
+
+            // Stone foundation
+            Prim(PrimitiveType.Cube, "Base", root.transform,
+                new Vector3(0f, 0.05f, 0f), new Vector3(3.6f, 0.1f, 2.6f), AlanthorTrim);
+
+            // Long stable barn — wide, low
+            Prim(PrimitiveType.Cube, "Barn", root.transform,
+                new Vector3(0f, 0.9f, 0f), new Vector3(3.4f, 1.5f, 2.2f), AlanthorWall);
+
+            // Pitched gabled roof — two angled slabs meeting at a ridge
+            PrimRot(PrimitiveType.Cube, "RoofL", root.transform,
+                new Vector3(0f, 2.0f, -0.55f), new Vector3(3.6f, 0.15f, 1.4f),
+                Quaternion.Euler(28f, 0f, 0f), AlanthorRoof);
+            PrimRot(PrimitiveType.Cube, "RoofR", root.transform,
+                new Vector3(0f, 2.0f, 0.55f), new Vector3(3.6f, 0.15f, 1.4f),
+                Quaternion.Euler(-28f, 0f, 0f), AlanthorRoof);
+
+            // Roof ridge beam
+            Prim(PrimitiveType.Cube, "Ridge", root.transform,
+                new Vector3(0f, 2.45f, 0f), new Vector3(3.6f, 0.08f, 0.1f), AlanthorTrim);
+
+            // Three stall doors along the long face
+            for (int i = 0; i < 3; i++)
+            {
+                float x = -1.0f + i * 1.0f;
+                Prim(PrimitiveType.Cube, $"StallDoor_{i}", root.transform,
+                    new Vector3(x, 0.55f, 1.1f), new Vector3(0.55f, 0.95f, 0.08f),
+                    AlanthorTrim * 0.85f);
+                // Hinge stones
+                Prim(PrimitiveType.Cube, $"Hinge_{i}", root.transform,
+                    new Vector3(x, 1.1f, 1.16f), new Vector3(0.6f, 0.08f, 0.03f),
+                    AlanthorTrim);
+            }
+
+            // Paddock fence behind the stable (suggests cavalry yard)
+            for (int i = 0; i < 5; i++)
+            {
+                float x = -1.4f + i * 0.7f;
+                Prim(PrimitiveType.Cylinder, $"FencePost_{i}", root.transform,
+                    new Vector3(x, 0.5f, -1.4f), new Vector3(0.06f, 0.5f, 0.06f), AlanthorTrim);
+            }
+            // Top rail
+            Prim(PrimitiveType.Cube, "FenceRail", root.transform,
+                new Vector3(0f, 0.85f, -1.4f), new Vector3(3.0f, 0.05f, 0.06f), AlanthorTrim);
+
+            // Small corner watchpost — a cavalry stable in the Alanthor capital
+            // would have a guard tower.
+            Prim(PrimitiveType.Cube, "WatchPost", root.transform,
+                new Vector3(1.65f, 1.5f, -0.95f), new Vector3(0.7f, 2.0f, 0.7f), AlanthorWall);
+            Prim(PrimitiveType.Cube, "WatchRoof", root.transform,
+                new Vector3(1.65f, 2.55f, -0.95f), new Vector3(0.85f, 0.15f, 0.85f), AlanthorRoof);
 
             return root;
         }

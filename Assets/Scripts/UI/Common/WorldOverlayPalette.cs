@@ -80,6 +80,15 @@ namespace TheWaningBorder.UI.Common
         /// <summary>Critical bar — used at &lt;30% HP.</summary>
         public static readonly Color HealthLow    = new Color(0.910f, 0.290f, 0.220f, 1.0f); // red
 
+        /// <summary>
+        /// Resource depletion bar — amber, used by FloatingHealthBars for iron
+        /// deposits and crystal cadavers in place of the green health bar
+        /// (task-108 Phase 5). Matches the panel-side `.sel-bar-resource__fill`
+        /// gradient anchor (#d97a2e) so the world-space bar and the selection
+        /// panel bar read as the same channel of information.
+        /// </summary>
+        public static readonly Color32 ResourceDepletion = new Color32(0xd9, 0x7a, 0x2e, 0xff);
+
         // ─── Friend / foe color tints for overlay markers ─────────────────
         /// <summary>Allied tint for unit indicator rings, rally points, etc.</summary>
         public static readonly Color AlliedTint = new Color(0.247f, 0.749f, 0.604f, 1.0f); // gem-bright

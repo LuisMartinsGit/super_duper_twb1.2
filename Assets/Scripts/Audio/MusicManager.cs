@@ -121,7 +121,7 @@ namespace TheWaningBorder.Audio
             // replaced the first, so menu music played in-game and game music
             // never played. The Menu scene worked by accident (only the second
             // line fired). (task-059 F-2 / MB-30)
-            if (string.Equals(sceneName, "Game"))
+            if (TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(sceneName))
                 CrossfadeTo(_gameClip);
             else
                 CrossfadeTo(_menuClip);

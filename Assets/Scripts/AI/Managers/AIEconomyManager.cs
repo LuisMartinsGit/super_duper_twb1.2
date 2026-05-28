@@ -611,6 +611,18 @@ namespace TheWaningBorder.AI
         /// <summary>Distance from Hall for the wall perimeter.</summary>
         private const float WallPerimeterRadius = 18f;
 
+        // task-109 Phase 7 / AD-6: this wall-AI block remains [DisableAutoCreation]
+        // (see the class-level attribute at the top of the file) and is
+        // intentionally not woken. v1 of the BFME2 wall rework explicitly
+        // defers AI wall construction — SimpleAISystem doesn't build walls
+        // for Alanthor, and the SimpleAISystem.TryBuildBuilding entry guard
+        // explicitly rejects "Alanthor_Wall" so a stray build-order entry
+        // can't slip through. If a future task reactivates this block, it
+        // must (a) update docs/Design/Age_1_Alanthor.md § AI Behaviour
+        // first, (b) port the placement contract to use
+        // AlanthorWall.CreateHub via SimpleAISystem instead of the
+        // BuildRequest buffer pipeline below, and (c) drop the entry
+        // guard in SimpleAISystem.TryBuildBuilding.
         /// <summary>
         /// Alanthor AI: build a defensive wall perimeter around the base.
         /// Places hubs in a hexagonal ring around the Hall, then connects them with segments.

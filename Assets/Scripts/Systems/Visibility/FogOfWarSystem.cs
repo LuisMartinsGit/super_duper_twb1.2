@@ -230,14 +230,42 @@ namespace TheWaningBorder.Systems.Visibility
                             }
                         }
                     }
+
+                    // Stealth: an enemy unit with StealthTag stays hidden inside
+                    // our vision area unless one of our units is within proximity
+                    // (mirrors TargetingSystem's 3u reveal — keeps "I can shoot it"
+                    // and "I can see it" consistent).
+                    if (isVisible && em.HasComponent<StealthTag>(entity))
+                    {
+                        const float StealthProximityRevealSq = 3f * 3f;
+                        bool revealedByProximity = false;
+                        for (int pi = 0; pi < playerCount; pi++)
+                        {
+                            float dx = position.x - playerPositions[pi].x;
+                            float dz = position.z - playerPositions[pi].z;
+                            if (dx * dx + dz * dz <= StealthProximityRevealSq)
+                            {
+                                revealedByProximity = true;
+                                break;
+                            }
+                        }
+                        if (!revealedByProximity) isVisible = false;
+                    }
+
                     gameObject.SetActive(isVisible);
                     continue;
                 }
 
-                // Enemy/neutral buildings
+                // Enemy/neutral static entities (buildings, deposits, curse
+                // structures — anything without UnitTag). Three-state visibility:
+                //   currently visible              -> show normally
+                //   previously revealed, not visible -> show as ghost (last-seen)
+                //   never revealed                 -> hide entirely
+                // Previously the ghost branch required isBuilding, which made
+                // iron / crystal deposits and any non-BuildingTag static entity
+                // vanish for good once they left vision — fixed here.
                 if (isVisible)
                 {
-                    // Currently visible - show normally
                     gameObject.SetActive(true);
                     if (renderer != null)
                     {
@@ -247,9 +275,9 @@ namespace TheWaningBorder.Systems.Visibility
                         renderer.SetPropertyBlock(mpb);
                     }
                 }
-                else if (isBuilding && isRevealed)
+                else if (isRevealed)
                 {
-                    // Previously seen building - show as ghost
+                    // Previously seen — show as ghost (last-seen state).
                     gameObject.SetActive(true);
                     if (renderer != null)
                     {
@@ -263,7 +291,7 @@ namespace TheWaningBorder.Systems.Visibility
                 }
                 else
                 {
-                    // Never seen or unit out of sight - hide
+                    // Never seen — hide.
                     gameObject.SetActive(false);
                 }
             }
