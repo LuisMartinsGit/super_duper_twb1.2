@@ -131,50 +131,15 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static float3 EnsureValidSpawnPosition(float3 position)
         {
-            // Get terrain height
+            // Snap to terrain height.
             float y = TerrainUtility.GetHeight(position.x, position.z);
-            
-            // Check if position is on land (using ProceduralTerrain if available)
-            var terrain = ProceduralTerrain.Instance;
-            if (terrain != null && terrain.IsInWater(new Vector3(position.x, y, position.z)))
-            {
-                // Try to find nearby land
-                var nearestIsland = terrain.GetNearestIsland(new Vector3(position.x, y, position.z));
-                if (nearestIsland.HasValue)
-                {
-                    var island = nearestIsland.Value;
-                    Vector2 dir = new Vector2(position.x, position.z) - island.Center;
-                    if (dir.magnitude > 0.1f)
-                    {
-                        dir = dir.normalized;
-                        // Move toward island center
-                        float safeDist = island.Radius * 0.5f;
-                        position.x = island.Center.x + dir.x * safeDist;
-                        position.z = island.Center.y + dir.y * safeDist;
-                        y = TerrainUtility.GetHeight(position.x, position.z);
-                    }
-                }
-            }
-
             return new float3(position.x, y, position.z);
         }
 
         private static float3[] CalculateSpawnPositions(int playerCount)
         {
-            // Try to use island-aware spawning from ProceduralTerrain
-            var terrain = ProceduralTerrain.Instance;
-            if (terrain != null && terrain.Islands.Count > 0)
-            {
-                var positions3D = terrain.GetMultiplayerSpawnPositions(playerCount);
-                var result = new float3[playerCount];
-                for (int i = 0; i < playerCount; i++)
-                {
-                    result[i] = new float3(positions3D[i].x, positions3D[i].y, positions3D[i].z);
-                }
-                return result;
-            }
-
-            // Fallback to layout-based spawning
+            // Hand-authored maps use PlayerStartMarkers (applied by the caller);
+            // this layout is only the fallback for unmarked factions.
             return CalculateLayoutSpawnPositions(playerCount);
         }
 

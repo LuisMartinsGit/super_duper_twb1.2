@@ -73,20 +73,8 @@ namespace TheWaningBorder.Bootstrap
             yield return null;
             ComputePlayerReachability();
 
-            // ObstacleBootstrap scatters forests + rocks across [-MapHalfSize,
-            // +MapHalfSize] using procedural heightmap / splat samples. On
-            // hand-authored maps the user has already placed their own
-            // vegetation via Unity Terrain tools, and the scatter range
-            // doesn't match the actual playable area anyway — skip it.
-            string activeSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            if (!GameSettings.FlatTestMap &&
-                TheWaningBorder.Core.Maps.MapRegistry.ShouldRunProceduralGeneration(activeSceneName))
-            {
-                LoadingScreen.SetStatus("Placing forests & rocks…");
-                LoadingScreen.SetProgress(0.72f);
-                yield return null;
-                ObstacleBootstrap.SpawnObstacles();
-            }
+            // Forests / rocks on hand-authored maps come from the scene's own
+            // Unity Terrain vegetation, not a procedural scatter pass.
 
             LoadingScreen.SetStatus("Placing iron deposits…");
             LoadingScreen.SetProgress(0.78f);

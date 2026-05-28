@@ -46,9 +46,9 @@ namespace TheWaningBorder.Core.Maps
     public static class MapRegistry
     {
         // Order matters — index 0 is the default selection.
+        // Procedural generation has been removed; only hand-authored maps remain.
         public static readonly IReadOnlyList<MapEntry> Maps = new[]
         {
-            new MapEntry("Procedural (Default)", "Game",          procedural: true),
             new MapEntry("Yiel Lymwérra",        "yielLymwérra",  procedural: false),
         };
 

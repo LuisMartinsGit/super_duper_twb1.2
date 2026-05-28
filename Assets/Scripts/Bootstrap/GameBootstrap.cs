@@ -394,65 +394,41 @@ namespace TheWaningBorder.Bootstrap
             var activeMap = TheWaningBorder.Core.Maps.MapRegistry.GetEntry(activeScene.name);
             var bakedTerrain = UnityEngine.Terrain.activeTerrain;
             bool hasBakedTerrain = bakedTerrain != null && bakedTerrain.terrainData != null;
-            bool wantProcedural = TheWaningBorder.Core.Maps.MapRegistry
-                .ShouldRunProceduralGeneration(activeScene.name);
 
             Debug.Log($"[GameBootstrap] active scene: '{activeScene.name}' → " +
-                      $"map='{activeMap.DisplayName}' registryProcedural={activeMap.IsProcedural} " +
-                      $"hasBakedTerrain={hasBakedTerrain} → useProcedural={wantProcedural}");
+                      $"map='{activeMap.DisplayName}' hasBakedTerrain={hasBakedTerrain}");
 
-            if (hasBakedTerrain && activeMap.IsProcedural)
+            // Hand-authored maps only. The scene ships its own baked Unity
+            // Terrain (MapMagic etc.). Flip the bootstrap-wide ready gate so
+            // SpawnDelayHelper / TerrainUtility.IsReady() fall through, then
+            // size the world to the actual terrain bounds.
+            TheWaningBorder.World.Terrain.ProceduralTerrain.MarkExternalTerrainReady();
+
+            if (!hasBakedTerrain)
             {
-                Debug.LogWarning("[GameBootstrap] scene has a baked Unity Terrain but MapRegistry " +
-                                 $"says '{activeMap.DisplayName}' is procedural. Likely Unicode " +
-                                 "mismatch between scene file name and the MapRegistry literal. " +
-                                 "Treating as non-procedural to preserve the baked terrain.");
+                Debug.LogError("[GameBootstrap] map has NO active Unity Terrain. " +
+                               "Add a Unity Terrain (e.g. from MapMagic) to the scene.");
             }
-
-            var existingTerrain = Object.FindFirstObjectByType<ProceduralTerrain>();
-            if (wantProcedural)
+            else
             {
-                if (existingTerrain == null)
-                {
-                    var terrainGO = new GameObject("ProceduralTerrain");
-                    terrainGO.AddComponent<TheWaningBorder.World.Terrain.ProceduralTerrain>();
-                }
-            }
-            else if (existingTerrain == null)
-            {
-                // Non-procedural: tell the bootstrap-wide ready gate that
-                // terrain is in place. TerrainUtility.IsReady() returns
-                // ProceduralTerrain.IsGenerationComplete, and SpawnDelayHelper
-                // blocks on it before spawning factions; without this flip
-                // the loading screen hangs forever.
-                TheWaningBorder.World.Terrain.ProceduralTerrain.MarkExternalTerrainReady();
+                var sz = bakedTerrain.terrainData.size;
+                var tpos = bakedTerrain.transform.position;
+                Debug.Log($"[GameBootstrap] using baked Unity Terrain '{bakedTerrain.name}' at " +
+                          $"{tpos} size {sz}");
 
-                if (!hasBakedTerrain)
+                // Hand-authored maps don't go through the lobby slider that
+                // sets GameSettings.MapHalfSize, so it stays at its 125 default
+                // and FoW, camera limits, and deposit ranges all size for a
+                // 250m map at origin. Snap MapHalfSize to the largest
+                // half-extent of the actual terrain so the FoW mesh covers the
+                // playable area and the camera can pan to it.
+                int half = Mathf.CeilToInt(Mathf.Max(
+                    Mathf.Max(Mathf.Abs(tpos.x), Mathf.Abs(tpos.x + sz.x)),
+                    Mathf.Max(Mathf.Abs(tpos.z), Mathf.Abs(tpos.z + sz.z))));
+                if (half > GameSettings.MapHalfSize)
                 {
-                    Debug.LogError("[GameBootstrap] non-procedural map has NO active Unity Terrain. " +
-                                   "Add a Unity Terrain (e.g. from MapMagic) to the scene.");
-                }
-                else
-                {
-                    var sz = bakedTerrain.terrainData.size;
-                    var tpos = bakedTerrain.transform.position;
-                    Debug.Log($"[GameBootstrap] using baked Unity Terrain '{bakedTerrain.name}' at " +
-                              $"{tpos} size {sz}");
-
-                    // Hand-authored maps don't go through the lobby slider that
-                    // sets GameSettings.MapHalfSize, so it stays at its 125 default
-                    // and FoW, camera limits, and procedural deposit ranges all
-                    // size for a 250m map at origin. Snap MapHalfSize to the
-                    // largest half-extent of the actual terrain so the FoW mesh
-                    // covers the playable area and the camera can pan to it.
-                    int half = Mathf.CeilToInt(Mathf.Max(
-                        Mathf.Max(Mathf.Abs(tpos.x), Mathf.Abs(tpos.x + sz.x)),
-                        Mathf.Max(Mathf.Abs(tpos.z), Mathf.Abs(tpos.z + sz.z))));
-                    if (half > GameSettings.MapHalfSize)
-                    {
-                        Debug.Log($"[GameBootstrap] MapHalfSize {GameSettings.MapHalfSize} -> {half} (from terrain bounds)");
-                        GameSettings.MapHalfSize = half;
-                    }
+                    Debug.Log($"[GameBootstrap] MapHalfSize {GameSettings.MapHalfSize} -> {half} (from terrain bounds)");
+                    GameSettings.MapHalfSize = half;
                 }
             }
 
@@ -471,18 +447,8 @@ namespace TheWaningBorder.Bootstrap
                 gridGO.AddComponent<PassabilityGrid>();
             }
 
-            // Debug overlay — gizmo that paints the passability grid in
-            // Scene/Game view. Visible by default; F9 toggles it off.
-            if (Object.FindFirstObjectByType<TerrainPassabilityGizmo>() == null)
-            {
-                var gizmoGO = new GameObject("TerrainPassabilityGizmo");
-                gizmoGO.AddComponent<TerrainPassabilityGizmo>();
-            }
-
-            // PR3 — flow-field manager removed; navmesh is the only path source.
-
-            // NavMeshManager: bakes Unity's runtime navmesh from terrain and
-            // the ECS building set; owns RequestPath / SnapToNavMesh.
+            // NavMeshManager: adopts the scene's pre-baked navmesh (hand-crafted
+            // maps) and owns RequestPath / SnapToNavMesh.
             var existingNMM = Object.FindFirstObjectByType<NavMeshManager>();
             if (existingNMM == null)
             {
