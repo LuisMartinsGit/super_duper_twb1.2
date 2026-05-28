@@ -334,14 +334,6 @@ namespace TheWaningBorder.World.Terrain
         /// </summary>
         private void GenerateFromTerrain()
         {
-            // Cache the mountain-mask seed once per bake. ProceduralMapGen
-            // stores the FINAL seed it used (which may differ from the
-            // initial seed after retry) so we sample the exact same mask
-            // the heightmap composer used.
-            var mapSet = TheWaningBorder.World.Maps.ProceduralMapGen.Current;
-            bool mapActive = mapSet != null;
-            int mapSeed = mapActive ? mapSet.seed : 0;
-
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -360,36 +352,11 @@ namespace TheWaningBorder.World.Terrain
                         continue;
                     }
 
-                    // Mountain mask: cells inside the procedural mountain
-                    // region are impassable by data, not by slope. The check
-                    // routes through ProceduralHeightmap.IsMountainBlocked so
-                    // it ALSO respects the composer's region-distance gate:
-                    // a flat cell inside a PlayerStart whose FBM mask happens
-                    // to be > 0.35 must NOT be blocked, because the composer
-                    // doesn't raise a mountain there either. The earlier
-                    // mask-only check was rejecting building placement on
-                    // randomly-coincident FBM peaks inside player spawns.
-                    if (mapActive && TheWaningBorder.World.Maps.ProceduralHeightmap
-                            .IsMountainBlocked(mapSeed, mapSet, wx, wz, MountainMaskThreshold))
-                    {
-                        _cells[y * _width + x] = TerrainBlocked;
-                        continue;
-                    }
-
-                    // Height fallback: if no region set exists (flat test
-                    // map / legacy noise generator), keep the old elevation
-                    // gate so towers and cliffs still block pathing.
-                    // Skipped on hand-authored maps — ProceduralTerrain.Instance
-                    // is null there and the 24m threshold is calibrated for
-                    // the procedural map's ~30m max height. MapMagic / Unity
-                    // Terrain commonly go to 80m+, where this would wrongly
-                    // block every plateau. On those maps slope is the only
-                    // signal (and it's still applied below).
-                    if (ProceduralTerrain.Instance != null && hCenter >= MountainHeight)
-                    {
-                        _cells[y * _width + x] = TerrainBlocked;
-                        continue;
-                    }
+                    // Mountain / cliff blocking is handled entirely by the
+                    // slope check below. Hand-authored Unity Terrain commonly
+                    // climbs to 80m+, so the old absolute-height gate (tuned
+                    // for the ~30m procedural heightmap) would wrongly block
+                    // every plateau — slope is the only elevation signal here.
 
                     // 4-point slope check (matches MovementSystem exactly)
                     float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);

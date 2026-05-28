@@ -165,17 +165,14 @@ public static class GameSettings
     /// <summary>
     /// Scene name of the map to load when the lobby starts a match. Must
     /// match an entry in <see cref="TheWaningBorder.Core.Maps.MapRegistry"/>
-    /// AND be present in File → Build Settings → Scenes in Build. Default
-    /// is "Game" — the procedural map.
+    /// AND be present in File → Build Settings → Scenes in Build. Defaults to
+    /// the registry's default (only) hand-authored map.
     /// </summary>
-    public static string SelectedMapScene = "Game";
+    public static string SelectedMapScene =
+        TheWaningBorder.Core.Maps.MapRegistry.Default.SceneName;
 
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
     public static int MapHalfSize = 125;
-
-    /// <summary>Which procedural archetype the map generator uses.</summary>
-    public static TheWaningBorder.World.Maps.MapArchetype MapArchetype =
-        TheWaningBorder.World.Maps.MapArchetype.Plain;
 
     /// <summary>Whether fog of war is enabled.</summary>
     public static bool FogOfWarEnabled = false;
