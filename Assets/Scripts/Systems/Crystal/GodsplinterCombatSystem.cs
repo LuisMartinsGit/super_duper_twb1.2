@@ -1,6 +1,7 @@
 // File: Assets/Scripts/Systems/Crystal/GodsplinterCombatSystem.cs
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Systems.Combat;
 using static TheWaningBorder.Core.Config.CrystalConstants;
@@ -277,9 +278,5 @@ namespace TheWaningBorder.Systems.Crystal
             ecb.AddComponent<GodsplinterProjectileTag>(shell);
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }

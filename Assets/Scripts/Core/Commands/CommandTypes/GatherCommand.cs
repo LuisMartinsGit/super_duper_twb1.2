@@ -5,6 +5,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Systems.Movement;
 
@@ -132,10 +133,6 @@ namespace TheWaningBorder.Core.Commands.Types
         /// <summary>
         /// XZ-only (horizontal) distance -- ignores Y so terrain height doesn't break range checks.
         /// </summary>
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
 
         private static void SetupGather(EntityManager em, Entity miner, Entity resourceNode, Entity depositLocation)
         {

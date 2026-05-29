@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core;
@@ -235,9 +236,5 @@ namespace TheWaningBorder.Systems.Work
             return null;
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }
