@@ -232,6 +232,9 @@ namespace TheWaningBorder.Core.Multiplayer
                 // Pre-lockstep bootstrap mode
                 if (_bootstrapNextId >= BOOTSTRAP_RESERVE)
                 {
+                    UnityEngine.Debug.LogError(
+                        $"[NetworkIdGenerator] Bootstrap ID range exhausted (>= {BOOTSTRAP_RESERVE}); " +
+                        "further IDs collide with tick-aligned IDs and will desync multiplayer.");
                 }
                 return _bootstrapNextId++;
             }
@@ -241,6 +244,9 @@ namespace TheWaningBorder.Core.Multiplayer
             _nextIdInTick++;
             if (_nextIdInTick >= SLOTS_PER_TICK)
             {
+                UnityEngine.Debug.LogError(
+                    $"[NetworkIdGenerator] More than {SLOTS_PER_TICK} spawns in one tick; " +
+                    "IDs now collide with the next tick's range and will desync multiplayer.");
             }
             return id;
         }
