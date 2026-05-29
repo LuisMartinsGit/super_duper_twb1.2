@@ -391,6 +391,9 @@ namespace TheWaningBorder.UI.HUD
                 GameBootstrap.Reset();
                 var managers = Object.FindFirstObjectByType<RuntimeManagers>();
                 if (managers != null) Object.Destroy(managers.gameObject);
+                // Close AI log file handles before the world is torn down (world
+                // disposal frees the AIBrain entities but not the managed loggers).
+                TheWaningBorder.AI.AIBootstrap.CleanupAllAI();
                 var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
                 if (world != null && world.IsCreated) world.Dispose();
                 SceneManager.LoadScene("MainMenu");
@@ -410,6 +413,10 @@ namespace TheWaningBorder.UI.HUD
             var managers = Object.FindFirstObjectByType<RuntimeManagers>();
             if (managers != null)
                 Destroy(managers.gameObject);
+
+            // Close AI log file handles before the world is torn down (world
+            // disposal frees the AIBrain entities but not the managed loggers).
+            TheWaningBorder.AI.AIBootstrap.CleanupAllAI();
 
             // Clean up ECS world
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
