@@ -420,13 +420,13 @@ This is the player-facing trade triangle:
 > are deliberately **omitted** from `BuildableBuildings` — a boot-time
 > assertion verifies this in code.
 
-### Walkable Ramparts, Stairs & Garrison (2026-05-29 rework)
+### Walkable Ramparts, Doors & Garrison (2026-05-29 rework)
 
 > **This subsection is canonical and supersedes the *geometry* and
 > *walkability* of the thin-wall model below.** Walls are no longer a
 > 1-tile-thick impassable line: they are **battalion-wide walkable
-> ramparts** that owned units can march along, climb via internal stairs,
-> and garrison. The **hub-and-segment topology, HP, cascade, gate
+> ramparts** that owned units can march along, climb via hub/tower/gate
+> doors, and garrison. The **hub-and-segment topology, HP, cascade, gate
 > open/close, compartment-economy, and conversion rules are unchanged** —
 > only the dimensions and the new "on-wall" movement layer are added here.
 > All numbers are **playtest placeholders**.
@@ -438,39 +438,44 @@ This is the player-facing trade triangle:
 | Deck **walkable width** (across the wall) | ~0.8 m | **8 m** | Battalion corridor is 7 m (`BattalionAgentRadius` 3.5 m); 8 m leaves clearance for the outer garrison rank inside the parapets. |
 | Total footprint width (incl. parapets) | ~1.1 m | **~9 m** | 8 m deck + ~0.5 m parapet each side. Widens the passability/obstacle footprint → re-check placement spacing and `WallEnclosureIncomeSystem` compartment detection. |
 | Module length (along the wall) | 2 m | **4 m** | Fewer, longer modules ("segments longer and wider"). `AlanthorWall.InstanceSpacing` 2 m → 4 m. |
-| Deck surface height (where units stand) | n/a | **4 m** | Outer parapet to ~5.5 m, inner parapet to ~5.0 m (units shoot over the outer crenellations). |
-| Hub footprint | ~2.4 m drum | **~9 m** square plinth w/ stair core | Must be ≥ deck width so the deck lands flush on the hub. |
-| Stair ramp width | n/a | **3 m** | Inside hubs/towers/gates; see Stairs below. |
+| Deck surface height (where units stand) | n/a | **4 m** | **Symmetrical** crenellated parapets to ~5.4 m on **both** edges — no inner/outer face. |
+| Hub footprint | ~2.4 m drum | **~9 m** square w/ doors | Must be ≥ deck width so the deck lands flush on the hub. |
+| Access | n/a | **doors** (ground + deck) | On hubs / towers / gates only; see Doors below. Plain instances have no access. |
 
 #### Walkability & the navmesh
 
 - The **deck top is baked as a walkable navmesh surface at y≈4**, instead of
   the current "every wall piece is an obstacle box" treatment in
   `NavMeshManager`. The ground navmesh is unchanged.
-- The deck connects to the ground **only through the internal stairs** (see
-  below). Everywhere else the rampart's outer face is still an impassable
-  cliff — enemies can't walk up the side.
-- **Stairs are modelled as a navmesh-walkable *ramp* (a slope under the
-  agent's max-slope), NOT a Unity off-mesh link.** A continuous walkable
-  ramp lets `NavMesh.CalculatePath` route up/down naturally and keeps the
-  custom (deterministic, non-`NavMeshAgent`) `MovementSystem` working
-  without bespoke link-traversal code. One ramp core per **hub, wall
-  tower, and gate**; plain wall instances have no access point.
+- The deck is its **own navmesh island**: vertical faces are cliffs (rejected
+  by the slope budget), so enemies can't walk up the side and there is **no
+  foot route from the ground to the deck except through a door**.
 
-#### Getting on / off the wall (movement model)
+#### Getting on / off the wall — doors (2026-05-30)
 
-- **Ascend on order.** When a friendly unit/battalion is given a move order
-  whose destination samples onto a rampart deck, it paths (ground navmesh)
-  to the nearest stair core, climbs the ramp, and continues along the deck.
-- **Descend on order.** A move order to a ground destination routes the
-  on-wall unit back down the nearest stair core to the ground.
-- The custom `MovementSystem` currently steers in XZ and snaps Y to terrain
-  height; it must instead **follow the navmesh path's Y** (sampled from the
-  baked mesh) whenever the unit is on a deck/ramp, falling back to terrain
-  height only on the ground navmesh. Navmesh height sampling is
-  deterministic, so lockstep stays in sync.
-- Hostiles never gain wall access in v1 (gates closed; no enemy stairs
-  pathing). On-wall combat reuses normal targeting/range.
+> **Supersedes the earlier navmesh-ramp idea.** A walkable ramp could not be
+> made to reliably connect the ground and deck navmesh islands — units
+> bee-lined into the wall base instead of climbing — so access is now via
+> **doors** with a deterministic teleport bridging the two islands.
+
+- **Hubs, wall towers, and wall gates each have two doors:** a **ground door**
+  on the inner face and a **deck door** on the deck above it. Plain wall
+  instances have no door (no access point).
+- **Ascend on order.** A move order whose destination is on a deck routes the
+  unit (ground navmesh) to the nearest structure's **ground door**; on arrival
+  it **emerges from that structure's deck door** and continues along the deck.
+- **Descend on order.** A move order to the ground routes an on-wall unit to
+  the nearest **deck door**; it emerges at the **ground door** and proceeds.
+- The ground↔deck transition is a **deterministic teleport** through the
+  structure (lockstep-safe: structures + units visited in entity-id order).
+  `WallDoorAccessSystem` owns this.
+- On the deck, `MovementSystem` **follows the navmesh path's Y** instead of
+  snapping to terrain, so units stand at deck height (deterministic sampling).
+- Hostiles never gain wall access in v1 (gates closed; no enemy door routing).
+
+> **Optional, not yet built: buildable access ramps.** A separate ramp
+> *building* placeable only when snapped to a wall, giving an easy on-foot
+> route to the deck (BFME2 fortress-wall style) as an alternative to doors.
 
 #### Garrison ranks
 
@@ -487,14 +492,15 @@ This is the player-facing trade triangle:
 | Concern | File |
 |---------|------|
 | Instance/hub/gate footprint + module length | [`AlanthorWall.cs`](../../Assets/Scripts/Entities/Buildings/AlanthorWall.cs) (`InstanceSpacing`, `BuildingSize`, hub footprint) |
-| Deck + parapet + internal ramp geometry | [`PresentationSpawnSystem.Walls.cs`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.Walls.cs) |
-| Decks/ramps baked **walkable** (not obstacle); deck navmesh region | [`NavMeshManager.cs`](../../Assets/Scripts/Systems/Movement/NavMeshManager.cs) |
-| Elevation-aware path-Y following + ascend/descend | [`MovementSystem.cs`](../../Assets/Scripts/Systems/Movement/MovementSystem.cs) |
-| Garrison-rank placement (new) | new on-wall formation helper |
+| Deck + symmetrical parapets + door geometry | [`PresentationSpawnSystem.Walls.cs`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.Walls.cs) |
+| Deck baked **walkable** as its own island (no ramp sources) | [`NavMeshManager.cs`](../../Assets/Scripts/Systems/Movement/NavMeshManager.cs) |
+| Door routing + ground↔deck teleport | [`WallDoorAccessSystem.cs`](../../Assets/Scripts/Systems/Movement/WallDoorAccessSystem.cs) |
+| On-deck path-Y following | [`MovementSystem.cs`](../../Assets/Scripts/Systems/Movement/MovementSystem.cs) |
+| Garrison-rank placement | [`WallGarrisonSystem.cs`](../../Assets/Scripts/Systems/Buildings/WallGarrisonSystem.cs) |
 
-> **Verification is editor-only.** Geometry (deck width, ramp slope,
-> parapet height), navmesh connectivity (units actually reach the deck via
-> stairs and not the open face), and on-wall steering all require Unity
+> **Verification is editor-only.** Geometry (deck width, door placement,
+> parapet height), the deck navmesh island, the door teleport (units reach
+> the deck via a door and not the open face), and on-wall steering all require Unity
 > play-testing — they cannot be validated from source review.
 
 ### Wall Hub
