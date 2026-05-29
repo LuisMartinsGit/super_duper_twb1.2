@@ -131,6 +131,10 @@ namespace TheWaningBorder.UI.Panels
                 case ActionType.BazaarWagonUnpack:
                     DrawBazaarWagonPanel(entity);
                     break;
+
+                case ActionType.HubBuildWall:
+                    DrawHubBuildWallPanel(entity, actionInfo);
+                    break;
             }
 
             } // end try
@@ -276,6 +280,48 @@ namespace TheWaningBorder.UI.Panels
                 BuilderCommandPanel.TriggerBuildingPlacement(button.Id);
             }, overrideButtonSize: 55f);
 
+            GUI.enabled = true;
+
+            GUILayout.EndArea();
+        }
+
+        // Per-hub "Build Wall" action. Mirrors the building-placement panel but the
+        // click enters hub-anchored wall-extend placement (TriggerHubBuildWall):
+        // drop a new hub + auto-connecting segment that self-builds in 30 s, or snap
+        // onto an existing hub to build just the connecting segment.
+        private void DrawHubBuildWallPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            GUILayout.Label(BuilderCommandPanel.IsPlacingBuilding
+                ? "Left-click to place hub (snaps to nearby hubs), Right/Esc to cancel"
+                : "Extend Wall", _headerStyle);
+            GUILayout.Space(8);
+
+            GUI.enabled = !BuilderCommandPanel.IsPlacingBuilding;
+            DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+            {
+                BuilderCommandPanel.TriggerHubBuildWall(entity);
+            }, overrideButtonSize: 55f);
             GUI.enabled = true;
 
             GUILayout.EndArea();

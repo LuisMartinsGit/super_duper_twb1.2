@@ -79,6 +79,11 @@ namespace TheWaningBorder.UI.Panels
         /// AutoConstructionSystem ticks Progress at 1.0/s.</summary>
         private const float WallExtendBuildSeconds = 30f;
 
+        /// <summary>Build-Wall click within this distance of an existing friendly hub
+        /// snaps onto it: reuse the hub and build only the connecting segment (no new
+        /// hub, no hub cost). ~ the hub's own half-width so clicking on a hub snaps.</summary>
+        private const float HubSnapRadius = 6f;
+
         // Placement validity
         private bool _placementValid = true;
 
@@ -735,22 +740,38 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
-            if (!FactionEconomy.Spend(_em, fac, cost))
+            // Snap: a click near an existing friendly hub (other than the source)
+            // reuses that hub and builds ONLY the connecting segment — no new hub,
+            // no hub cost. Otherwise place + pay for a new self-building hub.
+            Entity hub = FindNearestHubForSnap(pos, fac, _wallExtendSourceHub);
+            if (hub != Entity.Null)
             {
-                PlayerNotificationSystem.NotifyError("Not enough resources");
-                return;
+                if (AlanthorWall.AreHubsConnected(_em, _wallExtendSourceHub, hub))
+                {
+                    PlayerNotificationSystem.NotifyError("Those hubs are already connected");
+                    _wallExtendSourceHub = Entity.Null;
+                    return;
+                }
             }
-
-            // New hub — auto-construct, no builder, 30s.
-            Entity hub = AlanthorWall.CreateHub(_em, pos, fac);
-            _em.AddComponentData(hub,
-                new UnderConstruction { Progress = 0f, Total = WallExtendBuildSeconds });
-            _em.AddComponent<AutoConstructTag>(hub);
-            if (_em.HasComponent<Health>(hub))
+            else
             {
-                var hp = _em.GetComponentData<Health>(hub);
-                _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
+                if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+                if (!FactionEconomy.Spend(_em, fac, cost))
+                {
+                    PlayerNotificationSystem.NotifyError("Not enough resources");
+                    return;
+                }
+
+                // New hub — auto-construct, no builder, 30s.
+                hub = AlanthorWall.CreateHub(_em, pos, fac);
+                _em.AddComponentData(hub,
+                    new UnderConstruction { Progress = 0f, Total = WallExtendBuildSeconds });
+                _em.AddComponent<AutoConstructTag>(hub);
+                if (_em.HasComponent<Health>(hub))
+                {
+                    var hp = _em.GetComponentData<Health>(hub);
+                    _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
+                }
             }
 
             // Segment — CreateSegment also spawns the wall instances along the
@@ -795,6 +816,33 @@ namespace TheWaningBorder.UI.Panels
             // Single-shot action — clear the anchor so the next Build Wall
             // click on a hub starts fresh.
             _wallExtendSourceHub = Entity.Null;
+        }
+
+        /// <summary>
+        /// Nearest friendly Wall Hub to <paramref name="pos"/> within
+        /// <see cref="HubSnapRadius"/>, excluding <paramref name="exclude"/>.
+        /// Returns Entity.Null when none is in range (caller places a fresh hub).
+        /// </summary>
+        private Entity FindNearestHubForSnap(float3 pos, Faction fac, Entity exclude)
+        {
+            var q = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<WallHubTag>(),
+                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            Entity best = Entity.Null;
+            float bestSq = HubSnapRadius * HubSnapRadius;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                if (e == exclude) continue;
+                if (_em.GetComponentData<FactionTag>(e).Value != fac) continue;
+                var hpos = _em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
+                float dx = pos.x - hpos.x, dz = pos.z - hpos.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestSq) { bestSq = d; best = e; }
+            }
+            return best;
         }
 
         /// <summary>
