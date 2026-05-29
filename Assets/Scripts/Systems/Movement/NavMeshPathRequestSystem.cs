@@ -36,6 +36,7 @@ namespace TheWaningBorder.Systems.Movement
 
         private NavMeshPath _scratchPath;
         private EntityQuery _unitQuery;
+        private int _lastDbgFrame;
 
         protected override void OnCreate()
         {
@@ -105,7 +106,18 @@ namespace TheWaningBorder.Systems.Movement
                 var toW = new Vector3(state.LastRequestedGoal.x,
                     state.LastRequestedGoal.y, state.LastRequestedGoal.z);
 
-                bool ok = nmm.RequestPath(fromW, toW, _scratchPath);
+                // Battalion leaders path on the wider battalion navmesh so the
+                // route keeps clearance for the whole formation; everything else
+                // uses the unit navmesh. If the wider mesh can't map this
+                // leader's endpoints (near an eroded edge), fall back to the
+                // unit mesh so the leader still moves.
+                bool isLeader = em.HasComponent<BattalionLeader>(entity);
+                bool ok = isLeader
+                    ? nmm.RequestPathBattalion(fromW, toW, _scratchPath)
+                    : nmm.RequestPath(fromW, toW, _scratchPath);
+                if (isLeader && !ok)
+                    ok = nmm.RequestPath(fromW, toW, _scratchPath);
+
                 var waypoints = em.GetBuffer<NavMeshWaypoint>(entity);
                 waypoints.Clear();
 

@@ -25,6 +25,11 @@ namespace TheWaningBorder.Core.Commands.Types
     /// </summary>
     public static class MoveCommandHelper
     {
+        // How far an off-navmesh move target may be from the navmesh and still
+        // be pulled onto it. Beyond this the click is left as-is (the navmesh
+        // confinement / fallback gate keep the unit on the surface anyway).
+        internal const float MoveTargetSnapRadius = 30f;
+
         /// <summary>
         /// Execute a move command on a unit.
         /// Clears conflicting commands and sets up movement state.
@@ -35,6 +40,17 @@ namespace TheWaningBorder.Core.Commands.Types
 
             // Battalion members are positioned by BattalionSyncSystem — never give them movement state
             if (em.HasComponent<BattalionMemberData>(unit)) return;
+
+            // Snap the destination onto the navmesh. An off-navmesh click (water,
+            // cliff, inside an obstacle) would otherwise fail to produce a path,
+            // dropping the unit into straight-line steering that ignores the
+            // navmesh. Snapping to the nearest navmesh point guarantees
+            // NavMeshPathRequestSystem can compute a real corridor that routes
+            // around obstacles / unpathable areas. On-navmesh clicks are
+            // unchanged (they sample to themselves).
+            var nmm = NavMeshManager.Instance;
+            if (nmm != null && nmm.IsBaked)
+                destination = nmm.SnapToNavMesh(destination, MoveTargetSnapRadius);
 
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);

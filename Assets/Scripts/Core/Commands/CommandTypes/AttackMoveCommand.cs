@@ -37,6 +37,13 @@ namespace TheWaningBorder.Core.Commands.Types
             // Battalion members are positioned by BattalionSyncSystem — never give them movement state
             if (em.HasComponent<BattalionMemberData>(unit)) return;
 
+            // Snap onto the navmesh so the path query gets a reachable target and
+            // routes around obstacles instead of straight-lining (see
+            // MoveCommandHelper for the rationale).
+            var nmm = NavMeshManager.Instance;
+            if (nmm != null && nmm.IsBaked)
+                destination = nmm.SnapToNavMesh(destination, MoveCommandHelper.MoveTargetSnapRadius);
+
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
 
