@@ -53,12 +53,34 @@ namespace TheWaningBorder.Systems.Movement
         // climb (0.4 m) so the navmesh treats it as a real obstacle.
         private const float BuildingSourceHeight = 5f;
 
+        // How a building contributes geometry to the bake.
+        //  Generic   — axis-aligned full-height box (acts as an obstacle: tall
+        //              walkable box whose steep sides the slope budget rejects).
+        //  WallBody  — oriented solid box up to the deck height; its flat top
+        //              becomes the walkable rampart deck. Sides stay cliffs.
+        //  WallDeck  — gate: a thin walkable slab at deck height only, so the
+        //              ground tunnel underneath stays open (pass-through).
+        private enum SourceKind : byte { Generic, WallBody, WallDeck }
+
+        // Walkable-rampart navmesh constants (mirror PresentationSpawnSystem.Walls
+        // + AlanthorWall). The ramp slope (atan(DeckHeight/RampRun) ≈ 26.6°) sits
+        // under _settings.agentSlope (30°) so the bake treats it as walkable.
+        private const float WallDeckHeight = 4f;
+        private const float WallW_NM       = 9f; // wall width across (matches AlanthorWall.WallWidth)
+        private const float WallRampRun    = 8f;
+        private const float WallRampWidth  = 3f;
+        private const float WallRampDeckX  = 4f; // deck-edge X where the ramp tops out (inner side)
+
         // Internal record per known building so we can detect set changes
         // without rebuilding every tick.
         private struct BuildingRecord
         {
             public Vector3 Position;
             public Vector2 Size;
+            public Quaternion Rotation;
+            public float Height;
+            public SourceKind Kind;
+            public bool RampHost; // hub/tower/gate → also emit a ramp up to the deck
         }
 
         private NavMeshData _data;
@@ -310,14 +332,6 @@ namespace TheWaningBorder.Systems.Movement
             for (int i = 0; i < entities.Length; i++)
             {
                 var e = entities[i];
-                // Wall gates are walk-through-able. Skip them from the
-                // navmesh stamp so units can path through ally gates.
-                // (The friend/foe gate logic in WallGatePassabilitySystem
-                // is gameplay, not pathing — combat handles enemies on
-                // contact. A per-faction navmesh layer would let us close
-                // the gate for enemies cleanly; that's a future tile-set
-                // extension.)
-                if (em.HasComponent<WallGateTag>(e)) continue;
                 var t = em.GetComponentData<LocalTransform>(e);
                 Vector2 sz;
                 if (em.HasComponent<BuildingSize>(e))
@@ -335,10 +349,36 @@ namespace TheWaningBorder.Systems.Movement
                     sz = new Vector2(1f, 1f);
                 }
 
+                // Walkable-rampart classification. Walls become oriented walkable
+                // decks at WallDeckHeight (their flat top is the walkway); hubs/
+                // towers/gates also host a ramp up to the deck. Gates emit only a
+                // thin deck slab so the ground tunnel underneath stays passable.
+                var kind = SourceKind.Generic;
+                float height = BuildingSourceHeight;
+                bool rampHost = false;
+                var rot = Quaternion.identity;
+                if (em.HasComponent<WallTag>(e))
+                {
+                    rot = (Quaternion)t.Rotation;
+                    height = WallDeckHeight;
+                    bool isGate  = em.HasComponent<WallGateTag>(e);
+                    bool isHub   = em.HasComponent<WallHubTag>(e);
+                    bool isTower = em.HasComponent<WallTowerTag>(e);
+                    kind = isGate ? SourceKind.WallDeck : SourceKind.WallBody;
+                    rampHost = isGate || isHub || isTower;
+                    // Hub deck is square and at least the full wall width so the
+                    // adjacent segment decks meet across it.
+                    if (isHub) sz = new Vector2(WallW_NM, WallW_NM);
+                }
+
                 current[e] = new BuildingRecord
                 {
                     Position = new Vector3(t.Position.x, t.Position.y, t.Position.z),
                     Size = sz,
+                    Rotation = rot,
+                    Height = height,
+                    Kind = kind,
+                    RampHost = rampHost,
                 };
             }
 
@@ -356,6 +396,10 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     Position = new Vector3(t.Position.x, t.Position.y, t.Position.z),
                     Size = new Vector2(edge, edge),
+                    Rotation = Quaternion.identity,
+                    Height = BuildingSourceHeight,
+                    Kind = SourceKind.Generic,
+                    RampHost = false,
                 };
             }
 
@@ -378,7 +422,10 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     if (!_knownBuildings.TryGetValue(kvp.Key, out var prev)
                         || (prev.Position - kvp.Value.Position).sqrMagnitude > 0.01f
-                        || prev.Size != kvp.Value.Size)
+                        || prev.Size != kvp.Value.Size
+                        || prev.Kind != kvp.Value.Kind          // e.g. instance→tower / segment→gate
+                        || prev.RampHost != kvp.Value.RampHost
+                        || Quaternion.Angle(prev.Rotation, kvp.Value.Rotation) > 1f)
                     {
                         changed = true;
                         break;
@@ -395,19 +442,87 @@ namespace TheWaningBorder.Systems.Movement
             if (_sources.Count > 1) _sources.RemoveRange(1, _sources.Count - 1);
             foreach (var kvp in current)
             {
-                var rec = kvp.Value;
-                _sources.Add(new NavMeshBuildSource
-                {
-                    shape = NavMeshBuildSourceShape.Box,
-                    transform = Matrix4x4.TRS(
-                        rec.Position + new Vector3(0f, BuildingSourceHeight * 0.5f, 0f),
-                        Quaternion.identity,
-                        Vector3.one),
-                    size = new Vector3(rec.Size.x, BuildingSourceHeight, rec.Size.y),
-                    area = 0,
-                });
+                AddBuildingSources(kvp.Value);
             }
             return true;
+        }
+
+        // Emits the navmesh source(s) for one building record. Generic buildings
+        // get a single axis-aligned obstacle box; wall pieces get an oriented
+        // walkable deck (+ a ramp for hubs/towers/gates) so units can march on top
+        // and climb up/down — see docs/Design/Age_1_Alanthor.md § Walkable Ramparts.
+        private void AddBuildingSources(BuildingRecord rec)
+        {
+            switch (rec.Kind)
+            {
+                case SourceKind.Generic:
+                    _sources.Add(new NavMeshBuildSource
+                    {
+                        shape = NavMeshBuildSourceShape.Box,
+                        transform = Matrix4x4.TRS(
+                            rec.Position + new Vector3(0f, rec.Height * 0.5f, 0f),
+                            Quaternion.identity, Vector3.one),
+                        size = new Vector3(rec.Size.x, rec.Height, rec.Size.y),
+                        area = 0,
+                    });
+                    break;
+
+                case SourceKind.WallBody:
+                    // Oriented solid box up to the deck height; flat top = walkway,
+                    // sides stay cliffs (rejected by the 30° slope budget). Walls
+                    // only yaw, so the deck stays level (rotation about Y).
+                    _sources.Add(new NavMeshBuildSource
+                    {
+                        shape = NavMeshBuildSourceShape.Box,
+                        transform = Matrix4x4.TRS(
+                            rec.Position + new Vector3(0f, rec.Height * 0.5f, 0f),
+                            rec.Rotation, Vector3.one),
+                        size = new Vector3(rec.Size.x, rec.Height, rec.Size.y),
+                        area = 0,
+                    });
+                    break;
+
+                case SourceKind.WallDeck:
+                    // Gate: thin walkable slab at deck height only; the ground tunnel
+                    // underneath stays open so units pass through the gate.
+                    const float slabT = 0.5f;
+                    _sources.Add(new NavMeshBuildSource
+                    {
+                        shape = NavMeshBuildSourceShape.Box,
+                        transform = Matrix4x4.TRS(
+                            rec.Position + new Vector3(0f, rec.Height - slabT * 0.5f, 0f),
+                            rec.Rotation, Vector3.one),
+                        size = new Vector3(rec.Size.x, slabT, rec.Size.y),
+                        area = 0,
+                    });
+                    break;
+            }
+
+            if (rec.RampHost) AddRampSource(rec);
+        }
+
+        // Tilted walkable slab from the ground up to the deck rim on the inner
+        // (-X) face — the "stairs". Mirrors PresentationSpawnSystem.Walls.AddWallRamp
+        // so the navmesh ramp sits under the visual one.
+        private void AddRampSource(BuildingRecord rec)
+        {
+            Vector3 deckEdge  = new Vector3(-WallRampDeckX, WallDeckHeight, 0f);
+            Vector3 groundEnd = deckEdge + new Vector3(-WallRampRun, -WallDeckHeight, 0f);
+            Vector3 fwd       = (deckEdge - groundEnd).normalized; // up-slope
+            float slabLen     = (deckEdge - groundEnd).magnitude;
+            Vector3 midLocal  = (deckEdge + groundEnd) * 0.5f;
+            Quaternion slabRotLocal = Quaternion.LookRotation(fwd, Vector3.up);
+
+            _sources.Add(new NavMeshBuildSource
+            {
+                shape = NavMeshBuildSourceShape.Box,
+                transform = Matrix4x4.TRS(
+                    rec.Position + rec.Rotation * midLocal,
+                    rec.Rotation * slabRotLocal,
+                    Vector3.one),
+                size = new Vector3(WallRampWidth, 0.3f, slabLen),
+                area = 0,
+            });
         }
 
         private IEnumerator Rebuild()

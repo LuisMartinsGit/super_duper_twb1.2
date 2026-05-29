@@ -40,7 +40,9 @@ public partial class PresentationSpawnSystem
     private const float InnerParapetTop = 4.9f;
     private const float ModuleLen      = 4f;    // along Z (matches AlanthorWall.InstanceSpacing)
     private const float RampWidth      = 3f;
-    private const float RampRun        = 6f;    // horizontal run → ~34° slope at 4 m rise (walkable)
+    // 8 m run at 4 m rise → ~26.6° slope, under the navmesh agentSlope budget (30°)
+    // so the bake (W2) treats the ramp as walkable rather than a cliff.
+    private const float RampRun        = 8f;
 
     private static GameObject WallPrim(PrimitiveType type, string name, Transform parent,
         Vector3 localPos, Vector3 localScale, Color color, float metallic = 0f, float smoothness = 0.3f)
@@ -427,7 +429,8 @@ public partial class PresentationSpawnSystem
                 new Vector3(WallW * 0.5f - 0.27f, yy, 0f), Vector3.one * 0.12f, WallIron, metallic: 0.7f);
         }
 
-        AddWallRamp(root.transform, new Vector3(-(DeckWalkHalf), DeckTop, jambHalf + 0.5f), new Vector3(-1f, 0f, 0f));
+        // Inner-side ramp up to the deck (local z=0 to match the navmesh ramp source).
+        AddWallRamp(root.transform, new Vector3(-(DeckWalkHalf), DeckTop, 0f), new Vector3(-1f, 0f, 0f));
 
         WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
             new Vector3(WallW * 0.5f + 0.03f, 2.3f, 0f), new Vector3(0.04f, 1.4f, 0.9f), Color.white);
