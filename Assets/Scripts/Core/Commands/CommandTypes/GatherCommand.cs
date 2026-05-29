@@ -130,10 +130,6 @@ namespace TheWaningBorder.Core.Commands.Types
             return nearest;
         }
 
-        /// <summary>
-        /// XZ-only (horizontal) distance -- ignores Y so terrain height doesn't break range checks.
-        /// </summary>
-
         private static void SetupGather(EntityManager em, Entity miner, Entity resourceNode, Entity depositLocation)
         {
             var cmd = new GatherCommand

@@ -486,9 +486,5 @@ namespace TheWaningBorder.Systems.Work
 
             return true;
         }
-
-        /// <summary>
-        /// XZ-only (horizontal) distance — ignores Y so terrain height doesn't break range checks.
-        /// </summary>
     }
 }

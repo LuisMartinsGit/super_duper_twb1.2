@@ -504,9 +504,5 @@ namespace TheWaningBorder.Systems.Work
             miner.State = MinerWorkState.MovingToDeposit;
             em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
         }
-
-        /// <summary>
-        /// XZ-only (horizontal) distance — ignores Y so terrain height doesn't break range checks.
-        /// </summary>
     }
 }
