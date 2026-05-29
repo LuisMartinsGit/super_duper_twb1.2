@@ -233,46 +233,20 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private static Entity FindNearestDropoff(EntityManager em, float3 pos, Faction fac)
         {
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            // Search Halls
             var hallQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<HallTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.Exclude<UnderConstruction>()
             );
-            using var halls = hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < halls.Length; i++)
-            {
-                if (hallFactions[i].Value != fac) continue;
-                float dist = DistXZ(pos, hallTransforms[i].Position);
-                if (dist < nearestDist) { nearest = halls[i]; nearestDist = dist; }
-            }
-
-            // Search GathererHuts
             var hutQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<GathererHutTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.Exclude<UnderConstruction>()
             );
-            using var huts = hutQuery.ToEntityArray(Allocator.Temp);
-            using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            for (int i = 0; i < huts.Length; i++)
-            {
-                if (hutFactions[i].Value != fac) continue;
-                float dist = DistXZ(pos, hutTransforms[i].Position);
-                if (dist < nearestDist) { nearest = huts[i]; nearestDist = dist; }
-            }
-
-            return nearest;
+            return DropoffQuery.FindNearest(pos, fac, hallQuery, hutQuery);
         }
 
         private static void SetDestination(EntityManager em, EntityCommandBuffer ecb,

@@ -381,41 +381,8 @@ namespace TheWaningBorder.Systems.Work
             ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity minerEntity,
             Faction fac, EntityQuery hallQuery, EntityQuery hutQuery)
         {
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
             float3 minerPos = em.GetComponentData<LocalTransform>(minerEntity).Position;
-
-            // Search for Halls (exclude under-construction)
-            using var halls = hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < halls.Length; i++)
-            {
-                if (hallFactions[i].Value != fac) continue;
-                float dist = DistXZ(minerPos, hallTransforms[i].Position);
-                if (dist < nearestDist)
-                {
-                    nearest = halls[i];
-                    nearestDist = dist;
-                }
-            }
-
-            // Search for GathererHuts (exclude under-construction)
-            using var huts = hutQuery.ToEntityArray(Allocator.Temp);
-            using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < huts.Length; i++)
-            {
-                if (hutFactions[i].Value != fac) continue;
-                float dist = DistXZ(minerPos, hutTransforms[i].Position);
-                if (dist < nearestDist)
-                {
-                    nearest = huts[i];
-                    nearestDist = dist;
-                }
-            }
+            Entity nearest = DropoffQuery.FindNearest(minerPos, fac, hallQuery, hutQuery);
 
             miner.DropoffTarget = nearest;
 
