@@ -84,9 +84,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
-            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            // Walkable-rampart hub: a full-width (9 m) square footprint so the deck
+            // matches the segments and so build-range / selection use the real size.
+            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)WallWidth });
+            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

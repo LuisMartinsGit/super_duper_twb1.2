@@ -104,8 +104,13 @@ namespace TheWaningBorder.Systems.Work
                 // Get site position
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
                 float dist = DistXZ(bPos, sitePos);
+                // Measure to the building's edge, not its centre, so builders can
+                // construct large footprints (e.g. the 9 m wall hub, which blocks the
+                // navmesh well beyond BuildRange of the centre).
+                float reach = BuildRange + (em.HasComponent<Radius>(site)
+                    ? em.GetComponentData<Radius>(site).Value : 0f);
 
-                if (dist > BuildRange)
+                if (dist > reach)
                 {
                     // Move toward site
                     if (em.HasComponent<DesiredDestination>(builder))
@@ -395,9 +400,13 @@ namespace TheWaningBorder.Systems.Work
                 var targetPos = buildCmd.ValueRO.Position;
                 var targetBuilding = buildCmd.ValueRO.TargetBuilding;
                 var dist = DistXZ(myPos, targetPos);
+                // Reach to the building edge so large footprints (9 m wall hub) are
+                // buildable from where the navmesh lets a builder stand.
+                float reach = BuildRange + (targetBuilding != Entity.Null && em.HasComponent<Radius>(targetBuilding)
+                    ? em.GetComponentData<Radius>(targetBuilding).Value : 0f);
 
                 // Move to build site if not in range
-                if (dist > BuildRange)
+                if (dist > reach)
                 {
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
