@@ -59,7 +59,7 @@ namespace TheWaningBorder.Systems.Buildings
 
                 if (firstTick)
                 {
-                    UnityEngine.Debug.Log(
+                    TWBLog.Log(
                         $"[Upgrade] tick — entity {e.Index}, progress {up.Progress:F1}/{up.Total:F1}, target L{up.TargetLevel}");
                 }
 
@@ -95,7 +95,7 @@ namespace TheWaningBorder.Systems.Buildings
                              :  em.HasComponent<HutTag>(e)      ? "Hut"
                              :                                    "Building";
                     var fac = em.GetComponentData<FactionTag>(e).Value;
-                    UnityEngine.Debug.Log(
+                    TWBLog.Log(
                         $"[Upgrade] {fac} {id} → L{up.TargetLevel}");
                 }
             }

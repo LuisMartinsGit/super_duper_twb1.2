@@ -211,7 +211,7 @@ namespace TheWaningBorder.Presentation
             if (!_bloomNoticeFired)
             {
                 _bloomNoticeFired = true;
-                Debug.Log(
+                TWBLog.Log(
                     "[CurseBlocks] First cursed-ground voxel block spawned. " +
                     "Verify URP Bloom is enabled in the active Volume profile — " +
                     "emission without bloom reads flat.");

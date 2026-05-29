@@ -975,7 +975,7 @@ namespace TheWaningBorder.UI.Panels
                 bool localOwned = hasFaction && sFac == GameSettings.LocalPlayerFaction;
                 byte lvl = em.HasComponent<BuildingUpgradeState>(entity)
                     ? em.GetComponentData<BuildingUpgradeState>(entity).Level : (byte)0;
-                Debug.Log($"[Upgrade] selected entity {entity.Index}: " +
+                TWBLog.Log($"[Upgrade] selected entity {entity.Index}: " +
                           $"upgradeable={upgradeable} faction={sFac} local={localOwned} level={lvl}");
             }
 
@@ -1023,9 +1023,9 @@ namespace TheWaningBorder.UI.Panels
 
                 if (clicked)
                 {
-                    Debug.Log($"[Upgrade] click — entity {entity.Index}, target L{nextLevel}, cost {costLabel}");
+                    TWBLog.Log($"[Upgrade] click — entity {entity.Index}, target L{nextLevel}, cost {costLabel}");
                     var result = UpgradeBuildingCommandHelper.Execute(em, entity);
-                    Debug.Log($"[Upgrade] result = {result}");
+                    TWBLog.Log($"[Upgrade] result = {result}");
                     _upgradeFeedback = FeedbackFor(result);
                     _upgradeFeedbackUntil = Time.realtimeSinceStartup + BuildingUpgradeFeedbackTimeout;
                 }

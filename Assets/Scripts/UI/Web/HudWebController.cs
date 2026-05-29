@@ -158,7 +158,7 @@ namespace TheWaningBorder.UI.Web
             _client.initialUrl = "about:blank";
             _hudUrl = ResolveHudUrl();
             _client.OnClientConnected += OnBrowserConnected;
-            Debug.Log($"[HudWebController] HUD URL will be: {_hudUrl}");
+            TWBLog.Log($"[HudWebController] HUD URL will be: {_hudUrl}");
         }
 
         string _hudUrl;
@@ -177,7 +177,7 @@ namespace TheWaningBorder.UI.Web
                 _client.Resolution = new VoltstroStudios.UnityWebBrowser.Shared.Resolution(wantW, wantH);
             }
 
-            Debug.Log($"[HudWebController] LoadUrl → {_hudUrl}");
+            TWBLog.Log($"[HudWebController] LoadUrl → {_hudUrl}");
             _client.LoadUrl(_hudUrl);
         }
 

@@ -429,20 +429,20 @@ namespace TheWaningBorder.Multiplayer
             {
                 case LockstepCommandType.Move:
                     MoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Move from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Move from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Attack:
                     if (targetEntity != Entity.Null)
                     {
                         AttackCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Attack from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Attack from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Stop:
                     CommandHelper.ClearAllCommands(em, entity);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Stop from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Stop from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Gather:
@@ -450,21 +450,21 @@ namespace TheWaningBorder.Multiplayer
                     if (targetEntity != Entity.Null)
                     {
                         GatherCommandHelper.Execute(em, entity, targetEntity, depositEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Build:
                     Entity buildTarget = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
                     BuildCommandHelper.Execute(em, entity, buildTarget, cmd.BuildingId, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Build from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Build from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Heal:
                     if (targetEntity != Entity.Null)
                     {
                         HealCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Heal from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Heal from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -474,20 +474,20 @@ namespace TheWaningBorder.Multiplayer
                         if (!em.HasComponent<RallyPoint>(entity))
                             em.AddComponent<RallyPoint>(entity);
                         em.SetComponentData(entity, new RallyPoint { Position = cmd.TargetPosition, Has = 1 });
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.AttackMove:
                     AttackMoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Repair:
                     if (targetEntity != Entity.Null)
                     {
                         RepairCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -495,18 +495,18 @@ namespace TheWaningBorder.Multiplayer
                     if (targetEntity != Entity.Null)
                     {
                         ConvertCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Patrol:
                     PatrolCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.HoldPosition:
                     HoldPositionCommandHelper.Execute(em, entity);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Train:
@@ -529,7 +529,7 @@ namespace TheWaningBorder.Multiplayer
                     {
                         int cancelSlot = cmd.TargetEntityId;
                         CancelTrainCommandHelper.Execute(em, entity, cancelSlot);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed CancelTrain slot={cancelSlot} from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed CancelTrain slot={cancelSlot} from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -538,7 +538,7 @@ namespace TheWaningBorder.Multiplayer
                     {
                         var convertTarget = (HutConversionTarget)(byte)(cmd.TargetEntityId & 0xFF);
                         ConvertHutCommandHelper.Execute(em, entity, convertTarget);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertHut target={convertTarget} from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertHut target={convertTarget} from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -551,7 +551,7 @@ namespace TheWaningBorder.Multiplayer
                             ? FindEntityByNetworkId(cmd.TargetEntityId)
                             : Entity.Null;
                         ConvertSegmentToGateCommandHelper.Execute(em, entity, focus);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertSegmentToGate from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertSegmentToGate from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -573,7 +573,7 @@ namespace TheWaningBorder.Multiplayer
                             ? FindEntityByNetworkId(cmd.EntityNetworkId)
                             : Entity.Null;
                         CommandRouter.IssueAbilityDirect(em, entity, abilityTarget);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -581,7 +581,7 @@ namespace TheWaningBorder.Multiplayer
                     if (entity != Entity.Null && targetEntity != Entity.Null)
                     {
                         CommandRouter.IssuePurifyDirect(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Purify from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Purify from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -589,7 +589,7 @@ namespace TheWaningBorder.Multiplayer
                     if (entity != Entity.Null && targetEntity != Entity.Null)
                     {
                         CommandRouter.IssueConvertNodeDirect(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed ConvertNode from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertNode from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -599,7 +599,7 @@ namespace TheWaningBorder.Multiplayer
                         UnitClass cls = (UnitClass)(byte)(cmd.TargetEntityId & 0xFF);
                         EquipmentTier tier = (EquipmentTier)(byte)((cmd.TargetEntityId >> 8) & 0xFF);
                         CommandRouter.IssueEquipmentUpgradeDirect(em, caster, cls, tier);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed EquipmentUpgrade {caster}/{cls}->{tier} from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed EquipmentUpgrade {caster}/{cls}->{tier} from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -607,7 +607,7 @@ namespace TheWaningBorder.Multiplayer
                     {
                         Faction caster = (Faction)cmd.EntityNetworkId;
                         CommandRouter.IssueGodPowerDirect(em, caster, cmd.TargetPosition);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed GodPower {caster} from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed GodPower {caster} from player {cmd.PlayerIndex}");
                     }
                     break;
             }

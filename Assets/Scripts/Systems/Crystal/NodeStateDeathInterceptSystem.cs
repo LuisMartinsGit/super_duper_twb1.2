@@ -132,7 +132,7 @@ namespace TheWaningBorder.Systems.Crystal
                     GlowPickup.Create(EntityManager, dyingPositions[i],
                         RitualKind.ViolentExtraction,
                         ViolentExtractionGlowYield);
-                    Debug.Log($"[ViolentExtraction] node destroyed by {killer} (Feraldis) — final wave + Glow pickup spawned");
+                    TWBLog.Log($"[ViolentExtraction] node destroyed by {killer} (Feraldis) — final wave + Glow pickup spawned");
                 }
             }
 

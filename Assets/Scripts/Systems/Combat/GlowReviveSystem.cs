@@ -84,7 +84,7 @@ namespace TheWaningBorder.Systems.Combat
                     em.SetComponentData(entity, sb);
                 }
 
-                Debug.Log($"[GlowRevive] {faction.ValueRO.Value} Glow unit revived at {revived}/{healthRW.ValueRO.Max} HP — cooldown {EquipmentTierConfig.GlowReviveCooldownSec:F0}s");
+                TWBLog.Log($"[GlowRevive] {faction.ValueRO.Value} Glow unit revived at {revived}/{healthRW.ValueRO.Max} HP — cooldown {EquipmentTierConfig.GlowReviveCooldownSec:F0}s");
             }
 
             ecb.Playback(em);

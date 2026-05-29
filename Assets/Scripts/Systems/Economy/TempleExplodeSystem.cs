@@ -91,7 +91,7 @@ namespace TheWaningBorder.Systems.Economy
                 int stored = explodeAmounts[e];
                 int damage = (int)math.ceil(stored * GlowReliquaryExplodeDamagePerGlow);
 
-                Debug.Log($"[TempleExplode] {owner}'s Temple detonates with {stored} stored Glow ({damage} damage in {GlowReliquaryExplodeRadius:F0}u)");
+                TWBLog.Log($"[TempleExplode] {owner}'s Temple detonates with {stored} stored Glow ({damage} damage in {GlowReliquaryExplodeRadius:F0}u)");
 
                 for (int v = 0; v < victimEnts.Length; v++)
                 {

@@ -53,7 +53,7 @@ namespace TheWaningBorder.Systems.Crystal
             if (em.Exists(node) && em.HasComponent<ActiveRitualOnNode>(node))
                 em.RemoveComponent<ActiveRitualOnNode>(node);
 
-            Debug.Log($"[Purification] cancelled — {reason}");
+            TWBLog.Log($"[Purification] cancelled — {reason}");
         }
 
         protected override void OnUpdate()
@@ -250,7 +250,7 @@ namespace TheWaningBorder.Systems.Crystal
                 if (em.HasComponent<DesiredDestination>(scholar))
                     em.SetComponentData(scholar, new DesiredDestination { Has = 0 });
 
-                Debug.Log($"[Purification] channeling started by {f} on node");
+                TWBLog.Log($"[Purification] channeling started by {f} on node");
             }
 
             // Apply Phase 1 moves (set destination toward target node)
@@ -281,12 +281,12 @@ namespace TheWaningBorder.Systems.Crystal
                 if (em.HasComponent<SecondaryCurseLocationTag>(node))
                 {
                     FactionReligionPointsHelper.Refund(em, completeFactions[i], 1);
-                    Debug.Log($"[Purification] secondary node cleansed by {completeFactions[i]} — +1 RP");
+                    TWBLog.Log($"[Purification] secondary node cleansed by {completeFactions[i]} — +1 RP");
                 }
                 else
                 {
                     GlowPickup.Create(em, completePositions[i], RitualKind.Purification);
-                    Debug.Log($"[Purification] complete — node cleansed by {completeFactions[i]}, Glow pickup spawned");
+                    TWBLog.Log($"[Purification] complete — node cleansed by {completeFactions[i]}, Glow pickup spawned");
                 }
 
                 if (em.HasComponent<RitualState>(scholar))   em.RemoveComponent<RitualState>(scholar);

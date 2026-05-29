@@ -96,7 +96,7 @@ namespace TheWaningBorder.Systems.Buildings
                 }
 
                 BuildingUpgradeSystem.ApplyLevel(em, e, 1);
-                UnityEngine.Debug.Log(
+                TWBLog.Log(
                     $"[Upgrade] auto-L1 — {faction} entity {e.Index} (culture picked)");
             }
         }

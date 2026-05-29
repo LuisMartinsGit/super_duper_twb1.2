@@ -88,7 +88,7 @@ namespace TheWaningBorder.Systems.Economy
                 gpsRW.ValueRW.CooldownRemaining = newCooldown;
                 gpsRW.ValueRW.CastCount += 1;
 
-                Debug.Log($"[GodPower] {pending.ValueRO.Caster} cast — {storedGlow} stored Glow → " +
+                TWBLog.Log($"[GodPower] {pending.ValueRO.Caster} cast — {storedGlow} stored Glow → " +
                           $"cooldown {newCooldown:F1}s (×{multiplier:F2} of {gpsRW.ValueRO.BaseCooldown:F0}s)");
 
                 pendingEnts.Add(entity);
@@ -190,7 +190,7 @@ namespace TheWaningBorder.Systems.Economy
                 em.SetComponentData(ents[v], h);
                 healed++;
             }
-            Debug.Log($"[GodPower:Alanthor Sanctify] healed {healed} allies for {healPerUnit} HP each");
+            TWBLog.Log($"[GodPower:Alanthor Sanctify] healed {healed} allies for {healPerUnit} HP each");
         }
 
         /// <summary>
@@ -223,7 +223,7 @@ namespace TheWaningBorder.Systems.Economy
                 em.SetComponentData(ents[v], h);
                 hit++;
             }
-            Debug.Log($"[GodPower:Feraldis Pyre] hit {hit} non-{caster} targets, {damage} base damage");
+            TWBLog.Log($"[GodPower:Feraldis Pyre] hit {hit} non-{caster} targets, {damage} base damage");
         }
 
         /// <summary>
@@ -271,7 +271,7 @@ namespace TheWaningBorder.Systems.Economy
                 }
                 buffed++;
             }
-            Debug.Log($"[GodPower:Runai Veil Ward] buffed {buffed} allies for {duration:F1}s");
+            TWBLog.Log($"[GodPower:Runai Veil Ward] buffed {buffed} allies for {duration:F1}s");
         }
 
         /// <summary>Pre-culture-commit fallback: generic AOE damage.</summary>
@@ -300,7 +300,7 @@ namespace TheWaningBorder.Systems.Economy
                 em.SetComponentData(ents[v], h);
                 hit++;
             }
-            Debug.Log($"[GodPower:Generic] hit {hit} non-{caster} targets");
+            TWBLog.Log($"[GodPower:Generic] hit {hit} non-{caster} targets");
         }
     }
 }

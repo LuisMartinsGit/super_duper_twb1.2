@@ -107,7 +107,7 @@ namespace TheWaningBorder.Systems.Economy
 
                 int supplies = (int)math.max(1, damageInWindow * SuppliesPerHp);
                 FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: supplies));
-                Debug.Log($"[FeraldisLowHp] {killerFaction} earned {supplies} Supplies from low-HP damage");
+                TWBLog.Log($"[FeraldisLowHp] {killerFaction} earned {supplies} Supplies from low-HP damage");
             }
 
             cultureOf.Dispose();

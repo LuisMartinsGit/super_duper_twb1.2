@@ -18,4 +18,7 @@ public static class TWBLog
 {
     [Conditional("TWB_VERBOSE")]
     public static void Log(object message) => UnityEngine.Debug.Log(message);
+
+    [Conditional("TWB_VERBOSE")]
+    public static void Log(object message, UnityEngine.Object context) => UnityEngine.Debug.Log(message, context);
 }

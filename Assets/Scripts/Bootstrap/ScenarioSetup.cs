@@ -815,7 +815,7 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
 
-            UnityEngine.Debug.Log($"[ScenarioSetup] seeded {placed}-node resource patch at ({center.x:F1}, {center.z:F1}) — one curse-unit death will tip it past {placed + 1}.");
+            TWBLog.Log($"[ScenarioSetup] seeded {placed}-node resource patch at ({center.x:F1}, {center.z:F1}) — one curse-unit death will tip it past {placed + 1}.");
 
             static void PlaceNode(EntityManager em, float3 center, float ox, float oz)
             {

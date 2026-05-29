@@ -39,7 +39,7 @@ namespace TheWaningBorder.Systems.Crystal
             if (em.Exists(node) && em.HasComponent<ActiveRitualOnNode>(node))
                 em.RemoveComponent<ActiveRitualOnNode>(node);
 
-            Debug.Log($"[Conversion] cancelled — {reason}");
+            TWBLog.Log($"[Conversion] cancelled — {reason}");
         }
 
         protected override void OnUpdate()
@@ -186,7 +186,7 @@ namespace TheWaningBorder.Systems.Crystal
                 if (em.HasComponent<DesiredDestination>(acolyte))
                     em.SetComponentData(acolyte, new DesiredDestination { Has = 0 });
 
-                Debug.Log($"[Conversion] channeling started by {f} on node");
+                TWBLog.Log($"[Conversion] channeling started by {f} on node");
             }
 
             // Phase 1 apply: moves.
@@ -234,7 +234,7 @@ namespace TheWaningBorder.Systems.Crystal
                 // were attacking the ritual flip to the new owner's faction.
                 int flipped = FlipNearbyCurseDefenders(em, completePositions[i], newOwner);
 
-                Debug.Log(isSecondary
+                TWBLog.Log(isSecondary
                     ? $"[Conversion] secondary node converted by {newOwner} — +1 RP, {flipped} defenders flipped"
                     : $"[Conversion] complete — node converted by {newOwner}, {flipped} curse defenders flipped, Glow pickup spawned");
             }

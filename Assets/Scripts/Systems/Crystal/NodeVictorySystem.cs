@@ -145,7 +145,7 @@ namespace TheWaningBorder.Systems.Crystal
             // sharing is a follow-up — for now first match wins.
             Faction winner = FirstFactionOfCulture(culture);
 
-            Debug.Log($"[NodeVictorySystem] Node victory triggered — " +
+            TWBLog.Log($"[NodeVictorySystem] Node victory triggered — " +
                       $"culture={CultureName(culture)} winner={winner}");
 
             if (VictoryConditionSystem.Instance != null)

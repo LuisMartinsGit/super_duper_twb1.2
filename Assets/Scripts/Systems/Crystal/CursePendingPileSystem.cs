@@ -364,7 +364,7 @@ namespace TheWaningBorder.Systems.Crystal
             em.AddComponent<SecondaryCurseLocationTag>(suppress);
             em.AddComponentData(suppress, new LastDamagedByFaction { Value = Faction.Curse });
 
-            UnityEngine.Debug.Log($"[CursePendingPileSystem] resource patch grew to {patchNodes.Count} nodes — converted to secondary curse location at ({centroid.x:F1}, {centroid.z:F1})");
+            TWBLog.Log($"[CursePendingPileSystem] resource patch grew to {patchNodes.Count} nodes — converted to secondary curse location at ({centroid.x:F1}, {centroid.z:F1})");
         }
 
         private static float3 OffsetOnRing(float3 centroid, float angle, float radius)

@@ -160,7 +160,7 @@ namespace TheWaningBorder.World.Terrain
                 _width = Mathf.CeilToInt(size.x / _cellSize);
                 _height = Mathf.CeilToInt(size.z / _cellSize);
 
-                Debug.Log($"[PassabilityGrid] non-procedural map — bounds from Unity Terrain: " +
+                TWBLog.Log($"[PassabilityGrid] non-procedural map — bounds from Unity Terrain: " +
                           $"origin=({_origin.x:F0},{_origin.z:F0}) size=({size.x:F0}×{size.z:F0}) " +
                           $"cells={_width}×{_height}");
             }

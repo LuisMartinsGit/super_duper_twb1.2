@@ -47,7 +47,7 @@ namespace TheWaningBorder.Systems.Economy
             }
             for (int i = 0; i < expiredPickups.Length; i++)
             {
-                Debug.Log($"[Glow] pickup despawned (timeout)");
+                TWBLog.Log($"[Glow] pickup despawned (timeout)");
                 em.DestroyEntity(expiredPickups[i]);
             }
             expiredPickups.Dispose();
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Systems.Economy
 
                         state.Attuner = unitEnts[i];
                         state.AttunementProgress = 0f;
-                        Debug.Log($"[Glow] {unitFactions[i].Value} unit begins attuning ({GlowPickupAttunementTime:F0}s)");
+                        TWBLog.Log($"[Glow] {unitFactions[i].Value} unit begins attuning ({GlowPickupAttunementTime:F0}s)");
                         break;
                     }
                 }
@@ -167,7 +167,7 @@ namespace TheWaningBorder.Systems.Economy
 
                     Faction f = em.HasComponent<FactionTag>(unit)
                         ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
-                    Debug.Log($"[Glow] {f} attunement complete — picked up {amount} Glow (carrying {merged.Amount})");
+                    TWBLog.Log($"[Glow] {f} attunement complete — picked up {amount} Glow (carrying {merged.Amount})");
                 }
                 if (em.Exists(claimedPickups[i]))
                     em.DestroyEntity(claimedPickups[i]);
@@ -228,7 +228,7 @@ namespace TheWaningBorder.Systems.Economy
                         carrierRW.ValueRW.Amount = 0;
                         ecb.RemoveComponent<GlowCarrier>(unitEntity);
 
-                        Debug.Log($"[Glow] {f} deposited {delivered} Glow at Temple of Ridan (stored: {stored.Amount})");
+                        TWBLog.Log($"[Glow] {f} deposited {delivered} Glow at Temple of Ridan (stored: {stored.Amount})");
                         break;
                     }
                 }
@@ -259,7 +259,7 @@ namespace TheWaningBorder.Systems.Economy
                 GlowPickup.Create(em, dropPositions[i], dropSources[i], dropAmounts[i]);
                 if (em.HasComponent<GlowCarrier>(dropList[i]))
                     em.RemoveComponent<GlowCarrier>(dropList[i]);
-                Debug.Log($"[Glow] carrier died — dropped {dropAmounts[i]} Glow at pickup");
+                TWBLog.Log($"[Glow] carrier died — dropped {dropAmounts[i]} Glow at pickup");
             }
             dropList.Dispose();
             dropPositions.Dispose();

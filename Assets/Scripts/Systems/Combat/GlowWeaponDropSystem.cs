@@ -69,7 +69,7 @@ namespace TheWaningBorder.Systems.Combat
                     new UnitEquipmentApplied { Value = EquipmentTier.Base });
                 if (em.HasComponent<UnitTierOverride>(dropEntities[i]))
                     em.RemoveComponent<UnitTierOverride>(dropEntities[i]);
-                Debug.Log($"[GlowWeapon] {dropClasses[i]} dropped a Glow weapon");
+                TWBLog.Log($"[GlowWeapon] {dropClasses[i]} dropped a Glow weapon");
             }
 
             dropPositions.Dispose();
@@ -153,7 +153,7 @@ namespace TheWaningBorder.Systems.Combat
 
                         state.Attuner = unitEnts[i];
                         state.AttunementProgress = 0f;
-                        Debug.Log($"[GlowWeapon] {unitFactions[i].Value} unit begins attuning");
+                        TWBLog.Log($"[GlowWeapon] {unitFactions[i].Value} unit begins attuning");
                         break;
                     }
                 }
@@ -173,7 +173,7 @@ namespace TheWaningBorder.Systems.Combat
             // Apply expirations + claims after the loop.
             for (int i = 0; i < expiredWeapons.Length; i++)
             {
-                Debug.Log($"[GlowWeapon] pickup despawned (timeout)");
+                TWBLog.Log($"[GlowWeapon] pickup despawned (timeout)");
                 em.DestroyEntity(expiredWeapons[i]);
             }
 
@@ -188,7 +188,7 @@ namespace TheWaningBorder.Systems.Combat
                         em.SetComponentData(claimer, ovr);
                     else
                         em.AddComponentData(claimer, ovr);
-                    Debug.Log($"[GlowWeapon] claimed — unit upgraded to Glow tier");
+                    TWBLog.Log($"[GlowWeapon] claimed — unit upgraded to Glow tier");
                 }
                 if (em.Exists(weapon))
                     em.DestroyEntity(weapon);

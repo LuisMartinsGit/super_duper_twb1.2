@@ -196,7 +196,7 @@ namespace TheWaningBorder.Presentation
             if (LogReplacementStats)
             {
                 float pct = pixels.Length > 0 ? (100f * replaced / pixels.Length) : 0f;
-                Debug.Log($"[BuildingFactionColorMarker] '{source.name}' " +
+                TWBLog.Log($"[BuildingFactionColorMarker] '{source.name}' " +
                           $"{source.width}×{source.height}: {replaced}/{pixels.Length} pixels matched " +
                           $"(~{pct:F1}%) — Marker={Marker}, Tol²={ToleranceSquared:F4}");
             }

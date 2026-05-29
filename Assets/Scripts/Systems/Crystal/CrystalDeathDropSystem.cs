@@ -108,7 +108,7 @@ namespace TheWaningBorder.Systems.Crystal
                 var killer = secondaryKillers[i];
                 if (killer == Faction.Curse) continue;  // unattributed kills don't reward RP
                 FactionReligionPointsHelper.Refund(em, killer, 1);
-                Debug.Log($"[CrystalDeathDropSystem] secondary curse node destroyed by {killer} — +1 RP");
+                TWBLog.Log($"[CrystalDeathDropSystem] secondary curse node destroyed by {killer} — +1 RP");
             }
 
             unitPilePositions.Dispose();

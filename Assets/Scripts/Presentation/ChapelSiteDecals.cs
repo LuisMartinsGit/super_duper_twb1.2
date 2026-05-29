@@ -144,7 +144,7 @@ namespace TheWaningBorder.Presentation
         void BuildDecals(Vector3 templeCentre)
         {
             ClearDecals();
-            Debug.Log($"[ChapelSiteDecals] Building {_decals.Length} decals around temple at {templeCentre} " +
+            TWBLog.Log($"[ChapelSiteDecals] Building {_decals.Length} decals around temple at {templeCentre} " +
                       $"(ring radius {RingRadiusMeters}m, decal size {DecalSize}m, elevation +{DecalHeight}m)");
             for (int i = 0; i < _decals.Length; i++)
             {

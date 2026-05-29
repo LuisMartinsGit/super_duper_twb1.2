@@ -44,7 +44,7 @@ namespace TheWaningBorder.World.MapMarkers
             _crystal.AddRange(Object.FindObjectsByType<CrystalPatchMarker>(FindObjectsSortMode.None));
             _curse.AddRange(Object.FindObjectsByType<CurseNodeMarker>(FindObjectsSortMode.None));
 
-            Debug.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
+            TWBLog.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
                       $"iron={_iron.Count} crystal={_crystal.Count} curse={_curse.Count}");
         }
 

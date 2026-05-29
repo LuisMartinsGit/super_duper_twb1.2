@@ -127,7 +127,7 @@ namespace TheWaningBorder.UI.Web
 
                 case "sidebar:action":
                     // SECTS-BINDING-TODO — route to sect adoption/levelup/cast handlers
-                    Debug.Log($"[HudBridge] sidebar:action {m.PayloadJson} (binding TODO)");
+                    TWBLog.Log($"[HudBridge] sidebar:action {m.PayloadJson} (binding TODO)");
                     break;
 
                 case "selection:upgrade":
@@ -203,7 +203,7 @@ namespace TheWaningBorder.UI.Web
                 var sel = Input.SelectionSystem.CurrentSelection;
                 if (sel == null || sel.Count == 0)
                 {
-                    Debug.Log("[HudBridge] actions:invoke train: nothing selected");
+                    TWBLog.Log("[HudBridge] actions:invoke train: nothing selected");
                     return;
                 }
                 var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
@@ -353,7 +353,7 @@ namespace TheWaningBorder.UI.Web
             }
 
             // Anything else: not wired yet — log for triage.
-            Debug.Log($"[HudBridge] actions:invoke {key} (kind={selectionKind}, binding TODO)");
+            TWBLog.Log($"[HudBridge] actions:invoke {key} (kind={selectionKind}, binding TODO)");
         }
 
         // Right-click on a training queue slot in the React Selection panel
@@ -682,7 +682,7 @@ namespace TheWaningBorder.UI.Web
                     break;
 
                 default:
-                    Debug.Log($"[HudBridge] menu item '{key}' clicked (no handler)");
+                    TWBLog.Log($"[HudBridge] menu item '{key}' clicked (no handler)");
                     UI.HUD.InGameMenuPanel.Close();
                     break;
             }
@@ -708,7 +708,7 @@ namespace TheWaningBorder.UI.Web
             // BuildingUpgradeable), not inside the Commands.Types namespace.
             if (result != UpgradeBuildingResult.Ok)
             {
-                Debug.Log($"[HudBridge] selection:upgrade failed: {result}");
+                TWBLog.Log($"[HudBridge] selection:upgrade failed: {result}");
             }
         }
 

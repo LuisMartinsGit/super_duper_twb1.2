@@ -44,7 +44,7 @@ namespace TheWaningBorder.AI
             _writers.Clear();
             _initialized = true;
 
-            Debug.Log($"[AILogger] Logs folder: {Path.GetFullPath(_logFolder)}");
+            TWBLog.Log($"[AILogger] Logs folder: {Path.GetFullPath(_logFolder)}");
         }
 
         /// <summary>
