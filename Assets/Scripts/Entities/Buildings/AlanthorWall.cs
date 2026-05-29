@@ -25,14 +25,19 @@ namespace TheWaningBorder.Entities
         public const int TowerPresentationID = 553;
         public const int GatePresentationID = 554;
 
-        /// <summary>Spacing between wall instances in meters.</summary>
-        public const float InstanceSpacing = 2f;
+        /// <summary>Length of each wall module along the wall, in meters.
+        /// Walkable-rampart rework: modules are longer (4 m) than the old 2 m
+        /// thin-wall tiles. See docs/Design/Age_1_Alanthor.md § Walkable Ramparts.</summary>
+        public const float InstanceSpacing = 4f;
 
-        /// <summary>Inset from each hub center to avoid overlapping hub footprint.</summary>
-        // Reduced from 1.0 to 0.5 so the first/last wall instance edge slips
-        // under the hub plinth (radius ~0.78) — closes the visible gap between
-        // the wall row and the hub tower.
-        private const float HubInset = 0.5f;
+        /// <summary>Walkable-rampart cross-section, in meters (canonical spec values).</summary>
+        public const float WallWidth = 9f;     // total footprint across the wall (X)
+        public const float DeckHeight = 4f;    // walkable deck surface height (units stand here)
+
+        /// <summary>Inset from each hub center to the first wall module, in meters.
+        /// Half the wall width so a module's near edge meets the hub footprint
+        /// instead of overlapping the hub core.</summary>
+        private const float HubInset = WallWidth * 0.5f;
 
         // Hub defaults (loaded from TechTreeDB "Alanthor_Wall" when available)
         private const float DefaultHubHP = 600f;
@@ -240,8 +245,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)DefaultInstanceHP, Max = (int)DefaultInstanceHP });
             em.SetComponentData(entity, new LineOfSight { Radius = DefaultInstanceLoS });
-            em.SetComponentData(entity, new BuildingSize { Width = 1, Height = 1 });
-            em.SetComponentData(entity, new Radius { Value = 0.5f });
+            // Walkable-rampart footprint: WallWidth across, one module long.
+            // (W2 converts this from a navmesh obstacle into a walkable deck.)
+            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)InstanceSpacing });
+            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
             em.SetComponentData(entity, new WallInstanceParent { Segment = parentSegment });
 
             // Combat type tags
