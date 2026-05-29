@@ -138,28 +138,6 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Check if a faction has a Temple of Ridan (completed or under construction).
-        /// </summary>
-        private static bool HasFactionTemple(EntityManager em, Faction faction)
-        {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TempleTag>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value == faction)
-                    return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Per-culture transform of faction-owned Gatherer's Huts at age-up.
         /// Alanthor → tag each hut with <see cref="GathererHutAgeUpChoice"/>;
         ///            the player then converts each hut individually into
