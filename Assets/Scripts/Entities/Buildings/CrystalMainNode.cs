@@ -66,6 +66,15 @@ namespace TheWaningBorder.Entities
                 BuildTimer = 0f,
                 Phase = 0
             });
+            // Mirror the ECB Create overload so both paths initialize this
+            // explicitly (currently all-zero; keeps them from silently diverging
+            // if the ECB defaults ever change).
+            em.SetComponentData(entity, new CrystalTrainingState
+            {
+                TrainingUnitType = 0,
+                TimeRemaining = 0f,
+                TotalTime = 0f
+            });
             em.SetComponentData(entity, new CrystalResourceValue
             {
                 BuildCost = MainNodeBuildCost

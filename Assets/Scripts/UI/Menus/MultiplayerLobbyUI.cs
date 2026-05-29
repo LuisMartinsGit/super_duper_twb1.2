@@ -402,6 +402,7 @@ namespace TheWaningBorder.UI.Menus
                     // (task-060 F-5)
                     if (isHost)
                         CycleSlotColor(index);
+                    else
                         SendColorChange(index);
                 }
             }

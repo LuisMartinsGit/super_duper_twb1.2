@@ -111,6 +111,7 @@ namespace TheWaningBorder.Systems.Crystal
             uint seed;
             if (GameSettings.IsMultiplayer && LockstepServiceLocator.IsActive)
                 seed = (uint)(LockstepServiceLocator.Instance.CurrentTick * 4217 + GameSettings.SpawnSeed + 99);
+            else
                 seed = (uint)(World.Time.ElapsedTime * 1000 + GameSettings.SpawnSeed + 99);
             var random = new Unity.Mathematics.Random(math.max(1, seed));
 

@@ -239,6 +239,7 @@ namespace TheWaningBorder.World.FogOfWar
 
             if (_tex == null)
                 _tex = new Texture2D(_w, _h, TextureFormat.Alpha8, false, true);
+            else
                 _tex.Reinitialize(_w, _h);
 
             _tex.wrapMode = TextureWrapMode.Clamp;

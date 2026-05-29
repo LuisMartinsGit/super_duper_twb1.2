@@ -63,6 +63,7 @@ namespace TheWaningBorder.Economy
                     var key = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(key, out var existing))
                         suppliesPerFaction[key] = existing + amount;
+                    else
                         suppliesPerFaction.TryAdd(key, amount);
                 }
             }
