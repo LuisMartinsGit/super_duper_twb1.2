@@ -10,6 +10,8 @@ namespace TheWaningBorder.Entities
     /// Crystalling unit - fast, weak melee crystal swarm unit.
     /// Cheap crystal-cost melee infantry for the Crystal faction (Faction.Curse).
     /// No population cost - crystal faction uses crystal resource economy.
+    ///
+    /// Fix #219: the two Create overloads share one generic CreateInternal via IEntityCreator.
     /// </summary>
     public static class Crystalling
     {
@@ -17,72 +19,16 @@ namespace TheWaningBorder.Entities
         /// Create Crystalling using EntityManager.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = CrystallingHP;
-            float speed = CrystallingSpeed;
-            float damage = CrystallingDamage;
-            float los = CrystallingLoS;
-            float cooldown = CrystallingAttackCooldown;
-            float radius = CrystallingRadius;
-
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crystalling", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.speed > 0) speed = def.speed;
-                if (def.damage > 0) damage = def.damage;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-                if (def.attackCooldown > 0) cooldown = def.attackCooldown;
-            }
-
-            var entity = em.CreateEntity(
-                typeof(PresentationId),
-                typeof(LocalTransform),
-                typeof(FactionTag),
-                typeof(UnitTag),
-                typeof(CrystalTag),
-                typeof(CrystalUnitTag),
-                typeof(Health),
-                typeof(MoveSpeed),
-                typeof(Damage),
-                typeof(AttackCooldown),
-                typeof(LineOfSight),
-                typeof(Target),
-                typeof(Radius),
-                typeof(CrystalResourceValue)
-            );
-
-            em.SetComponentData(entity, new PresentationId { Id = CrystallingPresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new UnitTag { Class = UnitClass.Melee });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new MoveSpeed { Value = speed });
-            em.SetComponentData(entity, new Damage { Value = (int)damage });
-            em.SetComponentData(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            em.SetComponentData(entity, new Target { Value = Entity.Null });
-            em.SetComponentData(entity, new Radius { Value = radius });
-            em.SetComponentData(entity, new CrystalResourceValue { BuildCost = CrystallingBuildCost });
-
-            // Combat type tags
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Siege });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
-            em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
-
-            // Pre-allocate DesiredDestination so MeleeCombatSystem (which queues
-            // an AddComponent if missing) and CrystalAISystem (which adds it
-            // immediately via em) don't both record AddComponent in the same
-            // frame and clobber EndSimulationECB on playback. Has=0 means "no
-            // active destination" — semantically identical to no component.
-            em.AddComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
-
-            return entity;
-        }
+            => CreateInternal(new EmCreator(em), position, faction);
 
         /// <summary>
         /// Create Crystalling using EntityCommandBuffer for deferred creation.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
+            => CreateInternal(new EcbCreator(ecb), position, faction);
+
+        private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
+            where TCreator : struct, IEntityCreator
         {
             float hp = CrystallingHP;
             float speed = CrystallingSpeed;
@@ -100,31 +46,31 @@ namespace TheWaningBorder.Entities
                 if (def.attackCooldown > 0) cooldown = def.attackCooldown;
             }
 
-            var entity = ecb.CreateEntity();
+            var entity = creator.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = CrystallingPresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
-            ecb.AddComponent<CrystalTag>(entity);
-            ecb.AddComponent<CrystalUnitTag>(entity);
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new MoveSpeed { Value = speed });
-            ecb.AddComponent(entity, new Damage { Value = (int)damage });
-            ecb.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            ecb.AddComponent(entity, new Target { Value = Entity.Null });
-            ecb.AddComponent(entity, new Radius { Value = radius });
-            ecb.AddComponent(entity, new CrystalResourceValue { BuildCost = CrystallingBuildCost });
+            creator.AddComponent(entity, new PresentationId { Id = CrystallingPresentationID });
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            creator.AddComponent(entity, new FactionTag { Value = faction });
+            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
+            creator.AddComponent<CrystalTag>(entity);
+            creator.AddComponent<CrystalUnitTag>(entity);
+            creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            creator.AddComponent(entity, new MoveSpeed { Value = speed });
+            creator.AddComponent(entity, new Damage { Value = (int)damage });
+            creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
+            creator.AddComponent(entity, new LineOfSight { Radius = los });
+            creator.AddComponent(entity, new Target { Value = Entity.Null });
+            creator.AddComponent(entity, new Radius { Value = radius });
+            creator.AddComponent(entity, new CrystalResourceValue { BuildCost = CrystallingBuildCost });
 
             // Combat type tags
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
-            ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
+            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            creator.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 1 });
 
             // Pre-allocate DesiredDestination — see comment in EntityManager
             // overload above for the race rationale.
-            ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             return entity;
         }

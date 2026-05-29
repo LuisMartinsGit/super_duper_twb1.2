@@ -15,6 +15,9 @@ using Unity.Transforms;
 
 namespace TheWaningBorder.Entities
 {
+    /// <summary>
+    /// Fix #219: the two Create overloads share one generic CreateInternal via IEntityCreator.
+    /// </summary>
     public static class RoyalStable
     {
         // Defaults used when TechTreeDB is unavailable. Live values come
@@ -24,56 +27,13 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 356;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = DefaultHP;
-            float los = DefaultLoS;
-
-            if (TechTreeDB.Instance != null
-                && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-            }
-
-            var entity = em.CreateEntity(
-                typeof(PresentationId),
-                typeof(LocalTransform),
-                typeof(FactionTag),
-                typeof(BuildingTag),
-                typeof(RoyalStableTag),
-                typeof(Health),
-                typeof(LineOfSight),
-                typeof(TrainingState),
-                typeof(Radius),
-                typeof(BuildingSize)
-            );
-
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(
-                position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_RoyalStable");
-            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-
-            em.AddBuffer<TrainQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint
-            {
-                Position = position + new float3(3f, 0, 3f),
-                Has = 1
-            });
-
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponent<BuildingUpgradeable>(entity);
-
-            return entity;
-        }
+            => CreateInternal(new EmCreator(em), position, faction);
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
+            => CreateInternal(new EcbCreator(ecb), position, faction);
+
+        private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
+            where TCreator : struct, IEntityCreator
         {
             float hp = DefaultHP;
             float los = DefaultLoS;
@@ -85,30 +45,30 @@ namespace TheWaningBorder.Entities
                 if (def.lineOfSight > 0) los = def.lineOfSight;
             }
 
-            var entity = ecb.CreateEntity();
+            var entity = creator.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(
+            creator.AddComponent(entity, new PresentationId { Id = PresentationID });
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(
                 position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent<RoyalStableTag>(entity);
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            creator.AddComponent(entity, new FactionTag { Value = faction });
+            creator.AddComponent(entity, new BuildingTag { IsBase = 0 });
+            creator.AddComponent<RoyalStableTag>(entity);
+            creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            creator.AddComponent(entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("Alanthor_RoyalStable");
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
-            ecb.AddBuffer<TrainQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint
+            creator.AddBuffer<TrainQueueItem>(entity);
+            creator.AddComponent(entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),
                 Has = 1
             });
 
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent<BuildingUpgradeable>(entity);
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            creator.AddComponent<BuildingUpgradeable>(entity);
 
             return entity;
         }
