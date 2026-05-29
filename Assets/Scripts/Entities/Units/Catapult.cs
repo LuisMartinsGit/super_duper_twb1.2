@@ -27,7 +27,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultAimTime = 1.2f;
         private const float DefaultRadius = 0.8f;
         private const float DefaultAOERadius = 3.0f;
-        private const int PresentationID = 334;
+        private const int PresentationID = 333;  // ProceduralUnitGenerator maps 333=>Catapult, 334=>Sentinel
 
         /// <summary>Create Catapult using EntityManager.</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
