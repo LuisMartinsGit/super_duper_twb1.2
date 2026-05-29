@@ -58,7 +58,9 @@ namespace TheWaningBorder.Presentation
             {
                 // Era 1 Base Units
                 200 => CreateBuilder(pos, entity),
-                201 => CreateSwordsman(pos, entity),
+                // 201 (Swordsman) is built by SoldierModelBuilder upstream in
+                // PresentationSpawnSystem (the canonical swordsman visual), so it
+                // never reaches this generator.
                 202 => CreateArcher(pos, entity),
                 203 => CreateMiner(pos, entity),
                 // task-110: Era 1 Archery Range tier units reuse the Archer
@@ -243,46 +245,6 @@ namespace TheWaningBorder.Presentation
             PrimRot(PrimitiveType.Cube, "HammerHead", root.transform,
                 new Vector3(0.2f, 0.33f, 0f), new Vector3(0.06f, 0.04f, 0.04f),
                 Quaternion.Euler(0f, 0f, -30f), Metal, 0.6f, 0.5f);
-
-            return root;
-        }
-
-        /// <summary>Swordsman (201): Medium figure with sword blade and small shield. ~0.5 units tall.</summary>
-        private static GameObject CreateSwordsman(Vector3 pos, Entity entity)
-        {
-            var root = new GameObject($"Swordsman_{entity.Index}");
-            root.transform.position = pos;
-
-            // Body (armored torso)
-            Prim(PrimitiveType.Cube, "Body", root.transform,
-                new Vector3(0f, 0.2f, 0f), new Vector3(0.16f, 0.22f, 0.1f), White);
-
-            // Head
-            Prim(PrimitiveType.Sphere, "Head", root.transform,
-                new Vector3(0f, 0.38f, 0f), new Vector3(0.11f, 0.11f, 0.11f), Skin);
-
-            // Helmet crest (small cube on top)
-            Prim(PrimitiveType.Cube, "Helmet", root.transform,
-                new Vector3(0f, 0.45f, 0f), new Vector3(0.04f, 0.04f, 0.1f), Metal, 0.5f, 0.5f);
-
-            // Legs
-            Prim(PrimitiveType.Cube, "LegL", root.transform,
-                new Vector3(-0.04f, 0.04f, 0f), new Vector3(0.06f, 0.1f, 0.06f), White);
-            Prim(PrimitiveType.Cube, "LegR", root.transform,
-                new Vector3(0.04f, 0.04f, 0f), new Vector3(0.06f, 0.1f, 0.06f), White);
-
-            // Sword blade (thin tall cube on right side)
-            PrimRot(PrimitiveType.Cube, "SwordBlade", root.transform,
-                new Vector3(0.14f, 0.3f, 0f), new Vector3(0.02f, 0.22f, 0.04f),
-                Quaternion.Euler(0f, 0f, -10f), Metal, 0.7f, 0.6f);
-
-            // Sword guard (tiny cube)
-            Prim(PrimitiveType.Cube, "SwordGuard", root.transform,
-                new Vector3(0.12f, 0.2f, 0f), new Vector3(0.06f, 0.015f, 0.015f), DarkMetal, 0.5f, 0.4f);
-
-            // Shield (flat cube on left arm)
-            Prim(PrimitiveType.Cube, "Shield", root.transform,
-                new Vector3(-0.13f, 0.22f, 0f), new Vector3(0.03f, 0.14f, 0.1f), White);
 
             return root;
         }
