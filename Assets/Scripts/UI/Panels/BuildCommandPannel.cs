@@ -858,9 +858,13 @@ namespace TheWaningBorder.UI.Panels
             var instance = FindFirstObjectByType<BuilderCommandPanel>();
             if (instance == null) return;
 
-            instance._wallExtendSourceHub = sourceHub;
+            // Order matters: StartPlacement() calls CancelPlacement(), which resets
+            // _wallExtendSourceHub to Entity.Null. Set the anchor AFTER so it
+            // survives — otherwise the click commit sees a null source and bails
+            // ("Source hub no longer exists"), clearing the preview without building.
             instance._currentBuild = BuildType.WallExtend;
             instance.StartPlacement();
+            instance._wallExtendSourceHub = sourceHub;
             SuppressClicksThisFrame = true;
         }
 
