@@ -1063,7 +1063,7 @@ function ActionsPanel({ theme, selection, onAction, resources, costs, builderSta
     selection === 'military'  ? 'Orders'       :
     selection === 'enemy'     ? 'Target'       :
     selection === 'hutAgeUp'  ? 'Age-Up Choice':
-    selection === 'wall'      ? 'Wall Segment' :
+    selection === 'wall'      ? (wall && wall.kind === 'hub' ? 'Wall Hub' : 'Wall Segment') :
     'Actions';
 
   return (
@@ -1150,10 +1150,11 @@ function deriveSelectionKey(sel) {
     if (sel.hutAgeUp && (sel.hutAgeUp.kind === 'choice' || sel.hutAgeUp.kind === 'converting')) {
       return 'hutAgeUp';
     }
-    // Wall instance / segment conversion (task-109 phase 6). Tested before
-    // the building name match so a selected wall instance jumps to the
-    // dedicated Gate / Tower layout instead of the generic 'building' card.
-    if (sel.wall && (sel.wall.kind === 'instance' || sel.wall.kind === 'segment' || sel.wall.kind === 'converting')) {
+    // Wall instance / segment conversion (task-109 phase 6) AND the per-hub
+    // "Build Wall" action (kind === 'hub'). Tested before the building name
+    // match so a selected wall piece jumps to the dedicated Gate / Tower /
+    // Build-Wall layout instead of the generic 'building' card.
+    if (sel.wall && (sel.wall.kind === 'instance' || sel.wall.kind === 'segment' || sel.wall.kind === 'converting' || sel.wall.kind === 'hub')) {
       return 'wall';
     }
     const name = (sel.name || '').toLowerCase();
