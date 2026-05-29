@@ -287,12 +287,5 @@ namespace TheWaningBorder.Economy
             return false;
         }
         
-        /// <summary>
-        /// Get a formatted display string for resources.
-        /// </summary>
-        public static string GetDisplayString(FactionResources res)
-        {
-            return $"📦{res.Supplies} ⚙️{res.Iron} 💎{res.Crystal} ⚫{res.Veilsteel} ✨{res.Glow}";
-        }
     }
 }

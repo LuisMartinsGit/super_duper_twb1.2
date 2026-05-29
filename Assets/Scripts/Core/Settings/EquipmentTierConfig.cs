@@ -50,20 +50,6 @@ namespace TheWaningBorder.Core.Settings
             };
         }
 
-        /// <summary>
-        /// Seconds it takes to research a tier upgrade (placeholder — the
-        /// research-system wiring is a follow-up slice; the upgrade applies
-        /// immediately for now).
-        /// </summary>
-        public static float ResearchTime(EquipmentTier to) => to switch
-        {
-            EquipmentTier.Iron      => 45f,
-            EquipmentTier.Crystal   => 60f,
-            EquipmentTier.Veilsteel => 75f,
-            EquipmentTier.Glow      => 90f,
-            _ => 0f,
-        };
-
         // ==================== Shield bar (spec §4.2-§4.4) ====================
 
         /// <summary>
