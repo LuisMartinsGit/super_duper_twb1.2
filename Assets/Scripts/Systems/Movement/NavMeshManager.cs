@@ -251,7 +251,7 @@ namespace TheWaningBorder.Systems.Movement
             _isBaked = true;
 
             int triCount = NavMesh.CalculateTriangulation().indices.Length / 3;
-            Debug.Log($"[NavMeshManager] Runtime-baked navmesh from terrain '{terrain.name}' " +
+            TWBLog.Log($"[NavMeshManager] Runtime-baked navmesh from terrain '{terrain.name}' " +
                       $"(agent radius {_settings.agentRadius}, slope {_settings.agentSlope}°, " +
                       $"climb {_settings.agentClimb}) → {triCount} tris draped on the terrain.");
 
@@ -264,7 +264,7 @@ namespace TheWaningBorder.Systems.Movement
             while (!bop.isDone) yield return null;
             _isBaking = false;
             _battalionBaked = true;
-            Debug.Log($"[NavMeshManager] Battalion navmesh baked (agent type {_battalionAgentTypeId}, radius {BattalionAgentRadius} m).");
+            TWBLog.Log($"[NavMeshManager] Battalion navmesh baked (agent type {_battalionAgentTypeId}, radius {BattalionAgentRadius} m).");
         }
 
         private void Update()

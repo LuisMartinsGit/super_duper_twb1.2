@@ -66,10 +66,10 @@ namespace TheWaningBorder.Bootstrap
 
                 CrystalMainNode.Create(em, pos);
                 spawned++;
-                Debug.Log($"[CrystalNodeBootstrap] (marker) placed node {spawned} at " +
+                TWBLog.Log($"[CrystalNodeBootstrap] (marker) placed node {spawned} at " +
                           $"({pos.x:F0},{pos.z:F0})");
             }
-            Debug.Log($"[CrystalNodeBootstrap] DONE (marker-driven) — nodesSpawned={spawned}");
+            TWBLog.Log($"[CrystalNodeBootstrap] DONE (marker-driven) — nodesSpawned={spawned}");
             return spawned;
         }
 

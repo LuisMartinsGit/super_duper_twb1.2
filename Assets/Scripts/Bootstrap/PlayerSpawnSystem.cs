@@ -63,7 +63,7 @@ namespace TheWaningBorder.Bootstrap
                     var p = m.WorldPosition;
                     sb.Append($"{m.Faction}@({p.x:F0},{p.z:F0}) ");
                 }
-                Debug.Log(sb.ToString());
+                TWBLog.Log(sb.ToString());
             }
 
             for (int i = 0; i < playerCount; i++)
@@ -90,7 +90,7 @@ namespace TheWaningBorder.Bootstrap
                     {
                         var p = marker.WorldPosition;
                         spawnPos = new float3(p.x, p.y, p.z);
-                        Debug.Log($"[PlayerSpawnSystem] {faction} → marker at " +
+                        TWBLog.Log($"[PlayerSpawnSystem] {faction} → marker at " +
                                   $"({spawnPos.x:F0},{spawnPos.z:F0})");
                     }
                     else

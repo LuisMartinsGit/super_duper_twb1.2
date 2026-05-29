@@ -67,7 +67,7 @@ namespace TheWaningBorder.Presentation
         {
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated) _em = _world.EntityManager;
-            Debug.Log("[BuildingPrefabSwap] system attached + ready (scan every "
+            TWBLog.Log("[BuildingPrefabSwap] system attached + ready (scan every "
                 + ScanInterval + "s)");
         }
 
@@ -133,7 +133,7 @@ namespace TheWaningBorder.Presentation
                         ? EntityViewManager.Instance.GetView(e) : null;
                     if (current != lastReg)
                     {
-                        Debug.Log($"[BuildingPrefabSwap] view clobbered for entity {e.Index} — re-swapping");
+                        TWBLog.Log($"[BuildingPrefabSwap] view clobbered for entity {e.Index} — re-swapping");
                         _lastLevel.Remove(e);
                         _registeredView.Remove(e);
                     }
@@ -157,14 +157,14 @@ namespace TheWaningBorder.Presentation
             string buildingId = ResolveBuildingId(e);
             if (string.IsNullOrEmpty(buildingId))
             {
-                Debug.Log($"[BuildingPrefabSwap] skip entity {e.Index}: not Hall/Barracks/Hut");
+                TWBLog.Log($"[BuildingPrefabSwap] skip entity {e.Index}: not Hall/Barracks/Hut");
                 return;
             }
 
             byte culture = ReadCulture(e);
             if (culture == Cultures.None)
             {
-                Debug.Log($"[BuildingPrefabSwap] skip {buildingId} entity {e.Index}: faction has no culture");
+                TWBLog.Log($"[BuildingPrefabSwap] skip {buildingId} entity {e.Index}: faction has no culture");
                 return;
             }
             string code = BuildingUpgradeConfig.CultureCode(culture);
@@ -175,7 +175,7 @@ namespace TheWaningBorder.Presentation
             var prefab = ResolvePrefab(buildingId, code, level, variant, out string resolvedPath);
             if (prefab == null)
             {
-                Debug.Log($"[BuildingPrefabSwap] no prefab found for {buildingId}_{code}_{level}" +
+                TWBLog.Log($"[BuildingPrefabSwap] no prefab found for {buildingId}_{code}_{level}" +
                           (variant > 0 ? $"_{variant}" : "") + " — keeping procedural visual");
                 return;
             }
@@ -245,7 +245,7 @@ namespace TheWaningBorder.Presentation
             // of the dissolve gives the wave a clear "trigger" cue.
             BuildingLevelUpEffect.Spawn(newGo, accent);
 
-            Debug.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
+            TWBLog.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
         }
 
         private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant,

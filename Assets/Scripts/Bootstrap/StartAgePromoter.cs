@@ -164,7 +164,7 @@ namespace TheWaningBorder.Bootstrap
             if (PresentationSpawnSystem.Instance != null)
                 PresentationSpawnSystem.Instance.RefreshFactionVisuals(faction);
 
-            Debug.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} (Alanthor). " +
+            TWBLog.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} (Alanthor). " +
                       $"Hall L{targetLevel}, Temple L{targetLevel}, choice: {chosen}");
         }
 

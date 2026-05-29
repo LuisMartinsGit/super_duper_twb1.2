@@ -395,7 +395,7 @@ namespace TheWaningBorder.Bootstrap
             var bakedTerrain = UnityEngine.Terrain.activeTerrain;
             bool hasBakedTerrain = bakedTerrain != null && bakedTerrain.terrainData != null;
 
-            Debug.Log($"[GameBootstrap] active scene: '{activeScene.name}' → " +
+            TWBLog.Log($"[GameBootstrap] active scene: '{activeScene.name}' → " +
                       $"map='{activeMap.DisplayName}' hasBakedTerrain={hasBakedTerrain}");
 
             // Hand-authored maps only. The scene ships its own baked Unity
@@ -413,7 +413,7 @@ namespace TheWaningBorder.Bootstrap
             {
                 var sz = bakedTerrain.terrainData.size;
                 var tpos = bakedTerrain.transform.position;
-                Debug.Log($"[GameBootstrap] using baked Unity Terrain '{bakedTerrain.name}' at " +
+                TWBLog.Log($"[GameBootstrap] using baked Unity Terrain '{bakedTerrain.name}' at " +
                           $"{tpos} size {sz}");
 
                 // Hand-authored maps don't go through the lobby slider that
@@ -427,7 +427,7 @@ namespace TheWaningBorder.Bootstrap
                     Mathf.Max(Mathf.Abs(tpos.z), Mathf.Abs(tpos.z + sz.z))));
                 if (half > GameSettings.MapHalfSize)
                 {
-                    Debug.Log($"[GameBootstrap] MapHalfSize {GameSettings.MapHalfSize} -> {half} (from terrain bounds)");
+                    TWBLog.Log($"[GameBootstrap] MapHalfSize {GameSettings.MapHalfSize} -> {half} (from terrain bounds)");
                     GameSettings.MapHalfSize = half;
                 }
             }

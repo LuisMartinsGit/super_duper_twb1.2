@@ -120,7 +120,7 @@ namespace TheWaningBorder.UI.HUD
             {
                 if (!shiftHeld)
                 {
-                    Debug.Log("[FormationDragPreview] right-mouse-DOWN detected");
+                    TWBLog.Log("[FormationDragPreview] right-mouse-DOWN detected");
                     BeginRightMouseTracking();
                 }
             }
@@ -140,7 +140,7 @@ namespace TheWaningBorder.UI.HUD
                     // Tell RTSInputManager to skip its mouse-up handler this frame.
                     // We run BEFORE it, so the flag is already set when it runs.
                     SuppressNextRightClick = true;
-                    Debug.Log($"[FormationDragPreview] applied preview to {_previewLeaders.Count} leaders, thinness={_previewThinness:0.00}");
+                    TWBLog.Log($"[FormationDragPreview] applied preview to {_previewLeaders.Count} leaders, thinness={_previewThinness:0.00}");
                 }
                 EndRightMouseTracking();
             }
@@ -152,12 +152,12 @@ namespace TheWaningBorder.UI.HUD
             var sel = SelectionSystem.CurrentSelection;
             if (sel == null || sel.Count == 0)
             {
-                Debug.Log("[FormationDragPreview] no selection — preview disabled");
+                TWBLog.Log("[FormationDragPreview] no selection — preview disabled");
                 return;
             }
             if (!TryGetClickWorld(out var click))
             {
-                Debug.Log("[FormationDragPreview] click raycast failed — preview disabled");
+                TWBLog.Log("[FormationDragPreview] click raycast failed — preview disabled");
                 return;
             }
 
@@ -182,7 +182,7 @@ namespace TheWaningBorder.UI.HUD
 
             if (_previewLeaders.Count == 0)
             {
-                Debug.Log("[FormationDragPreview] no movable leaders in selection — preview disabled");
+                TWBLog.Log("[FormationDragPreview] no movable leaders in selection — preview disabled");
                 return;
             }
 
@@ -207,7 +207,7 @@ namespace TheWaningBorder.UI.HUD
                 {
                     _previewActive = true;
                     SuppressNextRightClick = true; // tell RTSInputManager to skip mouse-up
-                    Debug.Log($"[FormationDragPreview] preview activated — leaders: {_previewLeaders.Count}");
+                    TWBLog.Log($"[FormationDragPreview] preview activated — leaders: {_previewLeaders.Count}");
                 }
                 else
                 {
