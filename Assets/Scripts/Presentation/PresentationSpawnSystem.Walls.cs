@@ -101,50 +101,34 @@ public partial class PresentationSpawnSystem
     }
 
     /// <summary>
-    /// External straight ramp ("stairs") from the ground up to the deck, leaning
-    /// against a structure's inner face. <paramref name="deckEdgeLocal"/> is the
-    /// top of the ramp at the deck rim (y≈DeckTop); the ramp runs outward along
-    /// <paramref name="outwardDirLocal"/> for RampRun meters down to the ground.
-    /// Built as a single continuous slab so the navmesh bake (W2) can climb it.
+    /// Ground-level + deck-level doors on the structure's inner (-X) face. Units
+    /// ordered onto the wall enter the ground door and emerge at the deck door —
+    /// WallDoorAccessSystem bridges the two navmesh levels. Visual only; the
+    /// access teleport works off computed door positions, not these meshes.
     /// </summary>
-    private void AddWallRamp(Transform parent, Vector3 deckEdgeLocal, Vector3 outwardDirLocal)
+    private void AddWallDoors(Transform parent)
     {
-        outwardDirLocal = outwardDirLocal.normalized;
-        Vector3 groundEnd = deckEdgeLocal + outwardDirLocal * RampRun;
-        groundEnd.y = 0f;
+        // Ground door: dark recessed frame + wooden door on the inner face.
+        WallPrim(PrimitiveType.Cube, "GroundDoorFrame", parent,
+            new Vector3(-(WallW * 0.5f) + 0.02f, 1.35f, 0f),
+            new Vector3(0.22f, 2.8f, 2.5f), WallStoneDark);
+        WallPrim(PrimitiveType.Cube, "GroundDoor", parent,
+            new Vector3(-(WallW * 0.5f) + 0.08f, 1.2f, 0f),
+            new Vector3(0.3f, 2.4f, 2.0f), WallWood, smoothness: 0.2f);
 
-        Vector3 upSlope = (deckEdgeLocal - groundEnd);          // from ground up to deck
-        float slabLen = upSlope.magnitude;
-        Vector3 fwd = upSlope.normalized;
-        Vector3 mid = (deckEdgeLocal + groundEnd) * 0.5f;
-
-        Quaternion rot = Quaternion.LookRotation(fwd, Vector3.up);
-        // Cube length is along local +Z (fwd = up-slope), width along local X.
-        WallPrimRot(PrimitiveType.Cube, "RampSlab", parent, mid,
-            new Vector3(RampWidth, 0.30f, slabLen), rot, WallStone, smoothness: 0.2f);
-
-        // Step ridges on top of the slab for a stair read (purely visual).
-        int steps = 7;
-        for (int i = 0; i < steps; i++)
-        {
-            float t = (i + 0.5f) / steps;
-            Vector3 sp = Vector3.Lerp(groundEnd, deckEdgeLocal, t) + Vector3.up * 0.16f;
-            WallPrimRot(PrimitiveType.Cube, $"Step_{i}", parent, sp,
-                new Vector3(RampWidth, 0.10f, 0.35f), rot, WallStoneDark);
-        }
-
-        // Low side rails so the ramp reads as enclosed stairs.
-        Vector3 side = Vector3.Cross(Vector3.up, fwd).normalized * (RampWidth * 0.5f);
-        WallPrimRot(PrimitiveType.Cube, "RampRailA", parent, mid + side + Vector3.up * 0.35f,
-            new Vector3(0.18f, 0.7f, slabLen), rot, WallStone);
-        WallPrimRot(PrimitiveType.Cube, "RampRailB", parent, mid - side + Vector3.up * 0.35f,
-            new Vector3(0.18f, 0.7f, slabLen), rot, WallStone);
+        // Deck door: framed opening in the inner parapet where units emerge.
+        WallPrim(PrimitiveType.Cube, "DeckDoorFrame", parent,
+            new Vector3(-(DeckWalkHalf + 0.20f), DeckTop + 0.7f, 0f),
+            new Vector3(0.6f, 1.5f, 2.2f), WallStoneDark);
+        WallPrim(PrimitiveType.Cube, "DeckDoor", parent,
+            new Vector3(-(DeckWalkHalf + 0.16f), DeckTop + 0.6f, 0f),
+            new Vector3(0.3f, 1.2f, 1.8f), WallWood, smoothness: 0.2f);
     }
 
     /// <summary>Outer (crenellated) + inner (waist-high) parapet running the full
     /// module length along Z, plus the marble deck slab. Shared by instance/gate/
     /// tower decks so the walkway reads continuously.</summary>
-    private void AddDeckAndParapets(Transform parent, float lengthZ, bool outerCrenellations)
+    private void AddDeckAndParapets(Transform parent, float lengthZ, bool crenellations)
     {
         // Marble walkable deck slab.
         WallPrim(PrimitiveType.Cube, "Deck", parent,
@@ -152,25 +136,25 @@ public partial class PresentationSpawnSystem
             new Vector3(DeckWalkHalf * 2f + 0.4f, DeckThickness, lengthZ + 0.05f),
             WallMarble, smoothness: 0.45f);
 
-        // Outer parapet base (+X edge).
-        WallPrim(PrimitiveType.Cube, "OuterParapet", parent,
-            new Vector3(DeckWalkHalf + 0.25f, DeckTop + 0.5f, 0f),
-            new Vector3(0.5f, 1.0f, lengthZ), WallStone);
-
-        // Inner parapet (waist-high, -X edge) so units don't read as falling off.
-        WallPrim(PrimitiveType.Cube, "InnerParapet", parent,
-            new Vector3(-(DeckWalkHalf + 0.20f), DeckTop + (InnerParapetTop - DeckTop) * 0.5f, 0f),
-            new Vector3(0.4f, InnerParapetTop - DeckTop, lengthZ), WallStone);
-
-        if (outerCrenellations)
+        // Symmetrical parapets: identical crenellated walls on BOTH edges (+X and
+        // -X) so the rampart reads the same from either side (no inner/outer face).
+        for (int s = -1; s <= 1; s += 2)
         {
-            int merlons = Mathf.Max(2, Mathf.RoundToInt(lengthZ / 1.3f));
-            for (int i = 0; i < merlons; i++)
+            string side = s < 0 ? "Inner" : "Outer";
+            WallPrim(PrimitiveType.Cube, $"{side}Parapet", parent,
+                new Vector3(s * (DeckWalkHalf + 0.25f), DeckTop + 0.5f, 0f),
+                new Vector3(0.5f, 1.0f, lengthZ), WallStone);
+
+            if (crenellations)
             {
-                float zz = -lengthZ * 0.5f + lengthZ * (i + 0.5f) / merlons;
-                WallPrim(PrimitiveType.Cube, $"Merlon_{i}", parent,
-                    new Vector3(DeckWalkHalf + 0.30f, OuterParapetTop - 0.25f, zz),
-                    new Vector3(0.55f, 0.55f, 0.6f), WallStone);
+                int merlons = Mathf.Max(2, Mathf.RoundToInt(lengthZ / 1.3f));
+                for (int i = 0; i < merlons; i++)
+                {
+                    float zz = -lengthZ * 0.5f + lengthZ * (i + 0.5f) / merlons;
+                    WallPrim(PrimitiveType.Cube, $"Merlon_{side}_{i}", parent,
+                        new Vector3(s * (DeckWalkHalf + 0.30f), OuterParapetTop - 0.25f, zz),
+                        new Vector3(0.55f, 0.55f, 0.6f), WallStone);
+                }
             }
         }
     }
@@ -312,8 +296,8 @@ public partial class PresentationSpawnSystem
                 new Vector3(0.45f, 0.5f, 0.45f), Quaternion.Euler(0f, i * 45f, 0f), WallStone);
         }
 
-        // External ramp up to the deck on the -X (inner) side.
-        AddWallRamp(root.transform, new Vector3(-(WallW * 0.5f - 0.5f), DeckTop, 0f), new Vector3(-1f, 0f, 0f));
+        // Ground + deck doors on the inner side (units enter/emerge here).
+        AddWallDoors(root.transform);
 
         WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
             new Vector3(0f, DeckTop + 0.9f, 1.75f), new Vector3(0.7f, 1.3f, 0.04f), Color.white);
@@ -367,7 +351,7 @@ public partial class PresentationSpawnSystem
                 new Vector3(0.1f, 0.6f, 0.1f), Quaternion.Euler(0f, i * 90f, 0f), WallStoneDark);
         }
 
-        AddWallRamp(root.transform, new Vector3(-(DeckWalkHalf), DeckTop, 0f), new Vector3(-1f, 0f, 0f));
+        AddWallDoors(root.transform);
 
         WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
             new Vector3(WallW * 0.5f + 0.03f, 2.3f, 0f), new Vector3(0.04f, 1.5f, 0.9f), Color.white);
@@ -429,8 +413,8 @@ public partial class PresentationSpawnSystem
                 new Vector3(WallW * 0.5f - 0.27f, yy, 0f), Vector3.one * 0.12f, WallIron, metallic: 0.7f);
         }
 
-        // Inner-side ramp up to the deck (local z=0 to match the navmesh ramp source).
-        AddWallRamp(root.transform, new Vector3(-(DeckWalkHalf), DeckTop, 0f), new Vector3(-1f, 0f, 0f));
+        // Ground + deck doors on the inner side (units enter/emerge here).
+        AddWallDoors(root.transform);
 
         WallPrim(PrimitiveType.Cube, "Stripe_Banner", root.transform,
             new Vector3(WallW * 0.5f + 0.03f, 2.3f, 0f), new Vector3(0.04f, 1.4f, 0.9f), Color.white);

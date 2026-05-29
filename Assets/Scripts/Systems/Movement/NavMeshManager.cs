@@ -498,7 +498,10 @@ namespace TheWaningBorder.Systems.Movement
                     break;
             }
 
-            if (rec.RampHost) AddRampSource(rec);
+            // No ramp source: wall-top access is via doors (WallDoorAccessSystem
+            // teleports units between a structure's ground and deck doors), so the
+            // deck is intentionally its own navmesh island, unreachable on foot
+            // except through a door. (rec.RampHost is retained for diagnostics.)
         }
 
         // Tilted walkable slab from the ground up to the deck rim on the inner
