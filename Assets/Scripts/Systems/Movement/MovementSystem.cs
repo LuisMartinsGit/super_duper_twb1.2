@@ -39,6 +39,10 @@ namespace TheWaningBorder.Systems.Movement
         private const float TurnSpeed = 8f; // radians per second (~460 deg/s)
         private const float MaxWalkableSlope = 0.55f; // terrain slope above this blocks movement
         private const float SlopeCheckStep = 1.5f;    // distance between height samples for slope estimation
+        // Radius for the per-step navmesh height probe that lets units ride wall
+        // ramps/decks (deck at y~4) instead of being snapped to terrain. Kept small
+        // so a unit on the ground next to a wall doesn't snap up to the deck 4 m above.
+        private const float NavHeightSnapRadius = 2f;
         // Max distance a fallback (no-navmesh-path) step may be off the navmesh
         // before it's blocked. Slack covers the agent-radius erosion at navmesh
         // edges; anything further (cliffs, water, steep ground the bake excluded)
@@ -631,7 +635,21 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     terrainY = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
                 }
-                nextPos.y = terrainY;
+
+                // Ride the navmesh surface so units climb wall ramps and march on
+                // the deck (y~4) instead of being yanked to terrain height. Probe
+                // near the unit's CURRENT height so it picks the surface it's
+                // actually on (ground / ramp / deck); off the navmesh, fall back to
+                // terrain. (Perf: one SamplePosition per moving unit per frame —
+                // gate to wall-adjacent units if profiling flags it.)
+                float snapY = terrainY;
+                var heightProbe = new UnityEngine.Vector3(nextPos.x, t.Position.y, nextPos.z);
+                if (UnityEngine.AI.NavMesh.SamplePosition(
+                        heightProbe, out var navHit, NavHeightSnapRadius, UnityEngine.AI.NavMesh.AllAreas))
+                {
+                    snapY = navHit.position.y;
+                }
+                nextPos.y = snapY;
 
                 t.Position = nextPos;
                 xf.ValueRW = t;
