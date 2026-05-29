@@ -30,67 +30,39 @@ namespace TheWaningBorder.Entities
         /// <param name="originalBazaarMaxHP">The Bazaar's max HP (for unpacking)</param>
         public static Entity Create(EntityManager em, float3 position, Faction faction,
             int currentHP, int originalBazaarMaxHP)
-        {
-            var entity = em.CreateEntity(
-                typeof(PresentationId),
-                typeof(LocalTransform),
-                typeof(FactionTag),
-                typeof(UnitTag),
-                typeof(Health),
-                typeof(MoveSpeed),
-                typeof(LineOfSight),
-                typeof(Radius),
-                typeof(PopulationCost),
-                typeof(DesiredDestination)
-            );
-
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new UnitTag { Class = UnitClass.Economy });
-            em.SetComponentData(entity, new Health { Value = currentHP, Max = MaxHP });
-            em.SetComponentData(entity, new MoveSpeed { Value = DefaultSpeed });
-            em.SetComponentData(entity, new LineOfSight { Radius = DefaultLoS });
-            em.SetComponentData(entity, new Radius { Value = DefaultRadius });
-            em.SetComponentData(entity, new PopulationCost { Amount = 0 });
-            em.SetComponentData(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
-
-            // Wagon-specific components
-            em.AddComponent<BazaarWagonTag>(entity);
-            em.AddComponentData(entity, new BazaarWagonState
-            {
-                OriginalMaxHP = originalBazaarMaxHP
-            });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-
-            return entity;
-        }
+            => CreateInternal(new EmCreator(em), position, faction, currentHP, originalBazaarMaxHP);
 
         /// <summary>
         /// Create a Bazaar Wagon using EntityCommandBuffer for deferred creation.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction,
             int currentHP, int originalBazaarMaxHP)
+            => CreateInternal(new EcbCreator(ecb), position, faction, currentHP, originalBazaarMaxHP);
+
+        private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction,
+            int currentHP, int originalBazaarMaxHP)
+            where TCreator : struct, IEntityCreator
         {
-            var entity = ecb.CreateEntity();
+            var entity = creator.CreateEntity();
 
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new UnitTag { Class = UnitClass.Economy });
-            ecb.AddComponent(entity, new Health { Value = currentHP, Max = MaxHP });
-            ecb.AddComponent(entity, new MoveSpeed { Value = DefaultSpeed });
-            ecb.AddComponent(entity, new LineOfSight { Radius = DefaultLoS });
-            ecb.AddComponent(entity, new Radius { Value = DefaultRadius });
-            ecb.AddComponent(entity, new PopulationCost { Amount = 0 });
-            ecb.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+            creator.AddComponent(entity, new PresentationId { Id = PresentationID });
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            creator.AddComponent(entity, new FactionTag { Value = faction });
+            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Economy });
+            creator.AddComponent(entity, new Health { Value = currentHP, Max = MaxHP });
+            creator.AddComponent(entity, new MoveSpeed { Value = DefaultSpeed });
+            creator.AddComponent(entity, new LineOfSight { Radius = DefaultLoS });
+            creator.AddComponent(entity, new Radius { Value = DefaultRadius });
+            creator.AddComponent(entity, new PopulationCost { Amount = 0 });
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
-            ecb.AddComponent<BazaarWagonTag>(entity);
-            ecb.AddComponent(entity, new BazaarWagonState
+            // Wagon-specific components
+            creator.AddComponent<BazaarWagonTag>(entity);
+            creator.AddComponent(entity, new BazaarWagonState
             {
                 OriginalMaxHP = originalBazaarMaxHP
             });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
