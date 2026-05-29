@@ -1,37 +1,31 @@
 // NavMeshManager.cs
 //
-// Single source of navmesh pathing. Exposes RequestPath / SnapToNavMesh
-// (wrapping NavMesh.CalculatePath / SamplePosition) and runs in one of two
-// modes, chosen at startup from whether the scene is procedural:
+// Single source of navmesh pathing. Exposes RequestPath / RequestPathBattalion
+// / SnapToNavMesh (wrapping NavMesh.CalculatePath / SamplePosition).
 //
-//  - Procedural maps (no hand-authored terrain): runtime-bakes the navmesh
-//    from the procedural Terrain on startup, then incrementally re-bakes
-//    whenever the ECS building/obstacle set changes.
+// Runtime-bakes the navmesh from the active Unity Terrain heightmap on startup
+// (RemoveAllNavMeshData first, so any stale scene NavMeshSurface is discarded —
+// a pre-baked surface tends to capture the wrong / a flat off-terrain tile),
+// then incrementally re-bakes whenever the ECS building/obstacle set changes.
 //
-//  - Hand-crafted maps (a baked NavMeshSurface ships in the scene, e.g. a
-//    MapMagic terrain): adopts that pre-baked navmesh as-is (no runtime
-//    bake — re-baking only knows the Terrain heightmap + ECS boxes, so it
-//    would flatten the surface over hand-placed cliffs/props and units
-//    would walk through them). Dynamic buildings carve the pre-baked
-//    surface via NavMeshObstacle components instead of re-baking.
+// Two navmeshes are maintained from the same sources:
+//  - Unit navmesh (default agent type 0): radius ~ unit size.
+//  - Battalion navmesh (runtime-created agent type, wider radius = battalion
+//    half-width) for battalion leaders, so a formation routes around gaps too
+//    narrow to hold it.
 //
-// Architecture (procedural mode):
-//  - Terrain: NavMeshBuildSource of shape Terrain. Single source covering
-//    the whole procedural terrain.
-//  - Buildings: one Box source per BuildingTag entity, sized from
-//    BuildingSize (or Radius for legacy buildings). Synced every
-//    RebuildInterval seconds; rebuilt only when the source set changes.
+// Architecture:
+//  - Terrain: NavMeshBuildSource of shape Terrain covering the whole map.
+//  - Buildings/obstacles: one Box source per BuildingTag/ObstacleTag entity,
+//    sized from BuildingSize (or Radius). Synced every RebuildInterval; rebuilt
+//    only when the source set changes.
 //  - Walls / wall instances are included since they carry BuildingTag.
-//  - Forests / rocks are NOT yet integrated — left to a follow-up.
 //
 // Implementation notes:
-//  - Uses NavMeshBuilder.UpdateNavMeshDataAsync so the bake doesn't
-//    block the main thread on big rebuilds.
-//  - Holds one shared NavMeshDataInstance for the whole world; we don't
-//    yet split into tiles. Per-tile incremental updates can be a later
-//    optimisation.
-//  - Default agent (GetSettingsByID(0)): radius 0.5 m, height 2 m, slope
-//    45°, step 0.4 m — matches our typical units.
+//  - Uses NavMeshBuilder.UpdateNavMeshDataAsync so the bake doesn't block the
+//    main thread on big rebuilds.
+//  - Agent slope is tightened to 30° and climb to 0.3 m so steep terrain bakes
+//    as impassable (holes the path routes around).
 //
 // Location: Assets/Scripts/Systems/Movement/NavMeshManager.cs
 
@@ -95,21 +89,6 @@ namespace TheWaningBorder.Systems.Movement
         private bool _battalionSettingsCreated;
         private bool _battalionBaked;
 
-        // External (hand-crafted) map mode. When the scene ships its own
-        // baked navmesh (NavMeshSurface / Navigation-static bake on a
-        // hand-authored MapMagic terrain), we MUST NOT runtime-bake over it:
-        // the runtime bake only knows the Terrain heightmap + ECS building
-        // boxes, so it flattens the navmesh over hand-placed cliffs / props
-        // and units walk straight through them. Instead we use the scene's
-        // pre-baked navmesh as-is and carve dynamic buildings into it with
-        // NavMeshObstacle components (cheaper than a full re-bake and it
-        // respects the author's bake settings). Procedural maps keep the
-        // runtime-bake path unchanged.
-        private bool _external;
-        private readonly Dictionary<Entity, GameObject> _carvers =
-            new Dictionary<Entity, GameObject>(64);
-        private readonly List<Entity> _removeScratch = new List<Entity>(16);
-
         public bool IsBaked => _isBaked;
         public bool IsBaking => _isBaking;
 
@@ -158,9 +137,6 @@ namespace TheWaningBorder.Systems.Movement
                 try { NavMesh.RemoveSettings(_battalionAgentTypeId); } catch { /* already gone */ }
                 _battalionSettingsCreated = false;
             }
-            foreach (var kvp in _carvers)
-                if (kvp.Value != null) Destroy(kvp.Value);
-            _carvers.Clear();
             if (Instance == this) Instance = null;
         }
 
@@ -173,158 +149,13 @@ namespace TheWaningBorder.Systems.Movement
         {
             yield return null;
 
-            // The scene's pre-baked NavMeshSurface baked the flat water plane
-            // (Y is constant, ~6–15 m below the terrain surface) instead of the
-            // hilly terrain — its 10° agent slope rejected the terrain, leaving
-            // only the flat water as "walkable". A flat navmesh has no holes, so
-            // CalculatePath returns straight lines and units never route around
-            // anything. So we ignore that surface and BUILD the navmesh at
-            // runtime from the Unity Terrain heightmap, which is guaranteed to
-            // drape the terrain. Re-bakes on building/obstacle changes via the
-            // SyncBuildings path (so _external stays false).
-            _external = false;
+            // Build the navmesh at runtime from the Unity Terrain heightmap so it
+            // drapes the terrain. We deliberately ignore any pre-baked
+            // NavMeshSurface in the scene — it captured a flat off-terrain tile
+            // (constant Y, no holes), which makes CalculatePath return straight
+            // lines. Re-bakes on building/obstacle changes via the SyncBuildings
+            // path; RemoveAllNavMeshData (in InitialBake) clears the stale surface.
             yield return StartCoroutine(InitialBake());
-        }
-
-        // Non-procedural map: adopt the scene's pre-baked navmesh instead of
-        // building our own. Wait until that navmesh is registered (the
-        // NavMeshSurface enables it on scene load) and flip IsBaked so the
-        // path pipeline (NavMeshPathRequestSystem) starts running against it.
-        // Logs verbosely because every common failure here (no surface,
-        // wrong agent type) presents identically in-game: units ignore the
-        // navmesh and walk in straight lines.
-        private IEnumerator InitialAttachExternal()
-        {
-            var sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            Debug.Log($"[NavMeshManager] Hand-crafted map '{sceneName}': adopting the scene's " +
-                      "pre-baked NavMesh (runtime re-bake disabled; buildings carve via NavMeshObstacle).");
-
-            // The query API (RequestPath / SnapToNavMesh) uses the DEFAULT
-            // agent (id 0). The scene's NavMeshSurface MUST be baked for that
-            // same agent or every query silently fails. Dump the agent table.
-            int agentCount = NavMesh.GetSettingsCount();
-            for (int i = 0; i < agentCount; i++)
-            {
-                var s = NavMesh.GetSettingsByIndex(i);
-                Debug.Log($"[NavMeshManager] agentType[{i}] id={s.agentTypeID} " +
-                          $"radius={s.agentRadius} height={s.agentHeight} slope={s.agentSlope} climb={s.agentClimb}");
-            }
-
-            float waited = 0f;
-            int triCount;
-            while ((triCount = NavMesh.CalculateTriangulation().indices.Length / 3) == 0)
-            {
-                waited += Time.deltaTime;
-                if (waited > 30f)
-                {
-                    Debug.LogError(
-                        $"[NavMeshManager] No baked NavMesh loaded for '{sceneName}' after 30s. " +
-                        "Add a NavMeshSurface to the terrain (Agent Type = Humanoid), bake it, " +
-                        "and make sure the GameObject is active. Pathfinding is DISABLED — units " +
-                        "move in straight lines through every obstacle.");
-                    yield break;
-                }
-                yield return null;
-            }
-
-            _isBaked = true;
-            Debug.Log($"[NavMeshManager] NavMesh loaded for '{sceneName}': {triCount} triangles.");
-
-            // Probe whether the DEFAULT agent (id 0) can query this navmesh.
-            // IMPORTANT: probe at an actual navmesh VERTEX, not the map centre.
-            // The centre can sit in a non-walkable gap (e.g. a steep area the
-            // agent's Max Slope excludes), giving a false "can't sample" even
-            // when the agent type is correct. Sampling at a known vertex only
-            // fails if the agent genuinely can't read this navmesh.
-            var tri = NavMesh.CalculateTriangulation();
-            if (tri.vertices != null && tri.vertices.Length > 0)
-            {
-                var min = tri.vertices[0];
-                var max = tri.vertices[0];
-                for (int i = 1; i < tri.vertices.Length; i++)
-                {
-                    min = Vector3.Min(min, tri.vertices[i]);
-                    max = Vector3.Max(max, tri.vertices[i]);
-                }
-                var span = max - min;
-
-                var vertex = tri.vertices[tri.vertices.Length / 2];
-                bool hit = NavMesh.SamplePosition(vertex, out _, 5f, NavMesh.AllAreas);
-                if (hit)
-                    Debug.Log($"[NavMeshManager] Default agent CAN sample the navmesh (probed a real " +
-                              $"vertex) — agent type is correct. Coverage span ≈ {span.x:F0}×{span.z:F0} m " +
-                              $"over {triCount} tris. If units still ignore it the navmesh is too sparse: " +
-                              "raise the agent's Max Slope (10° is very low — try 30–45°) and/or lower " +
-                              "Radius, then re-bake the NavMeshSurface.");
-                else
-                    Debug.LogError($"[NavMeshManager] Default agent CANNOT sample even a known navmesh " +
-                                   $"vertex ({triCount} tris) — genuine agent-type mismatch. Set the " +
-                                   "NavMeshSurface Agent Type to the project's id-0 (Humanoid) agent and re-bake.");
-            }
-
-            // Hard numbers: wait for units to spawn, then measure how much of the
-            // terrain the navmesh actually covers and how many live units are
-            // standing ON it. Distinguishes "navmesh doesn't cover where units
-            // are" (a bake problem) from "units ignore a good navmesh" (a mover
-            // problem) — no more guessing from screenshots.
-            yield return new WaitForSeconds(3f);
-            ReportCoverage();
-        }
-
-        private void ReportCoverage()
-        {
-            var terrain = TheWaningBorder.World.Terrain.TerrainUtility.GetActiveTerrain();
-            if (terrain == null || terrain.terrainData == null) return;
-            var origin = terrain.transform.position;
-            var size = terrain.terrainData.size;
-
-            const int N = 60;
-            int near = 0, far = 0, total = 0;
-            double sumNavY = 0, sumTerrY = 0; int ySamples = 0;
-            for (int gz = 0; gz < N; gz++)
-            for (int gx = 0; gx < N; gx++)
-            {
-                float wx = origin.x + (gx + 0.5f) / N * size.x;
-                float wz = origin.z + (gz + 0.5f) / N * size.z;
-                float wy = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(wx, wz);
-                total++;
-                // Tight check: is there navmesh AT the terrain surface here?
-                if (NavMesh.SamplePosition(new Vector3(wx, wy, wz), out _, 3f, NavMesh.AllAreas)) near++;
-                // Loose check: is there navmesh in this XZ column at ANY height?
-                if (NavMesh.SamplePosition(new Vector3(wx, wy, wz), out var farHit, 200f, NavMesh.AllAreas))
-                {
-                    far++;
-                    sumNavY += farHit.position.y;
-                    sumTerrY += wy;
-                    ySamples++;
-                }
-            }
-            Debug.Log($"[NavMeshManager] COVERAGE: {near}/{total} points have navmesh at the terrain surface (±3m); " +
-                      $"{far}/{total} have navmesh in the XZ column at ANY height. " +
-                      (ySamples > 0
-                        ? $"Avg navmesh Y = {sumNavY / ySamples:F1} vs terrain Y = {sumTerrY / ySamples:F1} " +
-                          $"(navmesh is {((sumNavY - sumTerrY) / ySamples):F1} m off the terrain surface on average)."
-                        : "No navmesh found in any column."));
-
-            var world = EntityWorld.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return;
-            var em = world.EntityManager;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            int onMesh = 0;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                if (NavMesh.SamplePosition(new Vector3(p.x, p.y, p.z), out _, 3f, NavMesh.AllAreas)) onMesh++;
-            }
-            if (ents.Length > 0 && onMesh == 0)
-                Debug.LogError($"[NavMeshManager] UNITS: 0/{ents.Length} are on the navmesh — every unit is " +
-                               "OFF it. The navmesh does not cover where units stand, so nothing can confine " +
-                               "or path them. This is a BAKE-COVERAGE problem, not a mover problem.");
-            else
-                Debug.Log($"[NavMeshManager] UNITS: {onMesh}/{ents.Length} are on the navmesh.");
         }
 
         private IEnumerator InitialBake()
@@ -444,21 +275,15 @@ namespace TheWaningBorder.Systems.Movement
             if (_rebuildTimer < RebuildInterval) return;
             _rebuildTimer = 0f;
 
-            if (_external)
-            {
-                // Pre-baked map: carve buildings with NavMeshObstacles, no bake.
-                SyncCarvers();
-            }
-            else if (SyncBuildings())
-            {
+            // Re-bake (unit + battalion navmeshes) when the building/obstacle set changes.
+            if (SyncBuildings())
                 StartCoroutine(Rebuild());
-            }
         }
 
         // Walks the ECS world for the obstacle set (buildings + ObstacleTag
-        // map features) and returns one BuildingRecord per entity. Shared by
-        // both the runtime-bake path (SyncBuildings) and the pre-baked carving
-        // path (SyncCarvers). Returns null if the ECS world isn't ready yet.
+        // map features) and returns one BuildingRecord per entity, consumed by
+        // SyncBuildings to drive the re-bake. Returns null if the ECS world
+        // isn't ready yet.
         private Dictionary<Entity, BuildingRecord> BuildCurrentRecords()
         {
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -597,71 +422,6 @@ namespace TheWaningBorder.Systems.Movement
                 while (!bop.isDone) yield return null;
             }
             _isBaking = false;
-        }
-
-        // Pre-baked-map carving: reconcile the live building/obstacle set
-        // against a pool of NavMeshObstacle GameObjects. Each carver cuts a
-        // box-shaped hole in the scene's pre-baked navmesh so units path
-        // around player-built structures and map obstacles — without ever
-        // re-baking the (author-tuned) surface.
-        private void SyncCarvers()
-        {
-            var current = BuildCurrentRecords();
-            if (current == null) return;
-
-            // Remove carvers whose entity no longer exists.
-            _removeScratch.Clear();
-            foreach (var kvp in _carvers)
-                if (!current.ContainsKey(kvp.Key)) _removeScratch.Add(kvp.Key);
-            for (int i = 0; i < _removeScratch.Count; i++)
-            {
-                var key = _removeScratch[i];
-                if (_carvers.TryGetValue(key, out var go) && go != null) Destroy(go);
-                _carvers.Remove(key);
-            }
-
-            // Add new carvers; update any that moved or resized.
-            foreach (var kvp in current)
-            {
-                if (_carvers.TryGetValue(kvp.Key, out var go) && go != null)
-                {
-                    if (!_knownBuildings.TryGetValue(kvp.Key, out var prev)
-                        || (prev.Position - kvp.Value.Position).sqrMagnitude > 0.01f
-                        || prev.Size != kvp.Value.Size)
-                    {
-                        go.transform.position = kvp.Value.Position;
-                        var obs = go.GetComponent<NavMeshObstacle>();
-                        if (obs != null)
-                            obs.size = new Vector3(kvp.Value.Size.x, BuildingSourceHeight, kvp.Value.Size.y);
-                    }
-                }
-                else
-                {
-                    _carvers[kvp.Key] = CreateCarver(kvp.Value);
-                }
-            }
-
-            _knownBuildings = current;
-        }
-
-        private GameObject CreateCarver(BuildingRecord rec)
-        {
-            var go = new GameObject("NavCarver");
-            go.transform.SetParent(transform, worldPositionStays: false);
-            go.transform.position = rec.Position;
-
-            var obs = go.AddComponent<NavMeshObstacle>();
-            obs.shape = NavMeshObstacleShape.Box;
-            // Buildings are stationary once placed; carveOnlyStationary lets
-            // Unity defer the (cheap) carve until the obstacle settles and
-            // skips per-frame work afterwards.
-            obs.carveOnlyStationary = true;
-            obs.carving = true;
-            obs.center = Vector3.zero;
-            // Box spans BuildingSourceHeight tall, centred on the footprint, so
-            // it overlaps the navmesh surface regardless of small height noise.
-            obs.size = new Vector3(rec.Size.x, BuildingSourceHeight, rec.Size.y);
-            return go;
         }
 
         // ──────────────────────────────────────────────────────────────────
