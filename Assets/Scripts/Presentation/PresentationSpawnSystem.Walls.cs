@@ -181,7 +181,7 @@ public partial class PresentationSpawnSystem
         WallPrim(PrimitiveType.Cube, "Course2", root.transform,
             new Vector3(0f, 2.4f, 0f), new Vector3(WallW + 0.06f, 0.06f, ModuleLen + 0.08f), WallStoneDark);
 
-        AddDeckAndParapets(root.transform, ModuleLen, outerCrenellations: true);
+        AddDeckAndParapets(root.transform, ModuleLen, crenellations: true);
 
         // Arrow slits in the outer parapet.
         WallPrim(PrimitiveType.Cube, "ArrowSlit_A", root.transform,
@@ -326,7 +326,7 @@ public partial class PresentationSpawnSystem
             new Vector3(0f, BodyTop * 0.5f, 0f),
             new Vector3(WallW, BodyTop, ModuleLen + 0.05f), WallStone);
 
-        AddDeckAndParapets(root.transform, ModuleLen, outerCrenellations: false);
+        AddDeckAndParapets(root.transform, ModuleLen, crenellations: false);
 
         // Archer turret on the outer half of the deck.
         WallPrim(PrimitiveType.Cylinder, "Turret", root.transform,
@@ -400,7 +400,7 @@ public partial class PresentationSpawnSystem
             new Vector3(0f, BodyTop - 0.4f, 0f), new Vector3(WallW, 0.8f, openHalfZ * 2f), WallStone);
 
         // Deck bridges the full module over the tunnel.
-        AddDeckAndParapets(root.transform, ModuleLen, outerCrenellations: true);
+        AddDeckAndParapets(root.transform, ModuleLen, crenellations: true);
 
         // Wooden gate door on the OUTER mouth of the tunnel (blocks hostiles).
         WallPrim(PrimitiveType.Cube, "GateDoor", root.transform,
