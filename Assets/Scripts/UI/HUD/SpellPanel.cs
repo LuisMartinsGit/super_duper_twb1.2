@@ -176,6 +176,7 @@ namespace TheWaningBorder.UI.HUD
                 {
                     if (isActive)
                         castSystem.CancelTargeting();
+                    else
                         castSystem.BeginTargeting(humanFaction, spell);
                 }
             }

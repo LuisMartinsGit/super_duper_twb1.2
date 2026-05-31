@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e693e6643d1ff044898ef09c4352e96a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Common 6D/Demo Files/UNI_Skybox.mat
+  uploadId: 855178

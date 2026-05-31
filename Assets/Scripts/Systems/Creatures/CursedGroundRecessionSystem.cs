@@ -41,6 +41,9 @@ namespace TheWaningBorder.Systems.Creatures
             // --- Phase 1: Detect orphaned cursed ground tiles ---
             // If OwnerNode entity no longer exists, the parent node was destroyed.
             // Tag these tiles for recession with random stagger over RecessionDuration.
+            // Also recede when the owner is in Cleansed or Destroyed state —
+            // the curse is no longer projected even though the node entity
+            // persists. Converted nodes keep their curse (Runai-allied).
             foreach (var (ownerNode, transform, entity) in SystemAPI
                 .Query<RefRO<OwnerNode>, RefRO<LocalTransform>>()
                 .WithAll<CursedGroundTag>()
@@ -49,9 +52,17 @@ namespace TheWaningBorder.Systems.Creatures
             {
                 Entity owner = ownerNode.ValueRO.Value;
 
-                // Owner still alive — skip
-                if (owner != Entity.Null && em.Exists(owner) && em.HasComponent<CrystalNode>(owner))
-                    continue;
+                bool ownerAlive = owner != Entity.Null && em.Exists(owner)
+                    && em.HasComponent<CrystalNode>(owner);
+
+                bool ownerProjectsCurse = ownerAlive;
+                if (ownerAlive && em.HasComponent<CrystalNodeState>(owner))
+                {
+                    var st = em.GetComponentData<CrystalNodeState>(owner).State;
+                    ownerProjectsCurse = (st == NodeState.Active || st == NodeState.Converted);
+                }
+
+                if (ownerProjectsCurse) continue;
 
                 // Owner is dead — this tile is orphaned.
                 // Stagger destruction across the full recession duration using a

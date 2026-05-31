@@ -1,0 +1,16 @@
+{
+  "id": "task-feraldis-hut-terrain-yields-095",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T16:25:00Z",
+  "updatedAt": "2026-05-20T16:25:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §B.6 — Hunting Lodge / Logging Station +30 % terrain-yield bonus from Age_1_Feraldis.md is not implemented; both buildings emit the same trickle as the base hut regardless of placement.",
+      "timestamp": "2026-05-20T16:25:00Z"
+    }
+  ]
+}

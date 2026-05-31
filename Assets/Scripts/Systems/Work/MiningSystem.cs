@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
@@ -41,6 +42,7 @@ namespace TheWaningBorder.Systems.Work
         private const int MaxCarryAmount = 10;          // Deliver after accumulating 10
         private const float GatherRange = 5f;           // How close miner needs to be to mine
         private const float DropoffRange = 6f;          // How close to dropoff to deposit
+        private const float AutoFindRadius = 10f;       // Radius to auto-find next same-type deposit around a depleted node
 
         // Cached queries — created once in OnCreate, reused every frame
         private EntityQuery _hallDropoffQuery;
@@ -119,7 +121,7 @@ namespace TheWaningBorder.Systems.Work
                         break;
 
                     case MinerWorkState.Gathering:
-                        ProcessGatheringState(ref miner, em, entity, pos, fac, dt);
+                        ProcessGatheringState(ref miner, em, ecb, entity, pos, fac, dt);
                         break;
 
                     case MinerWorkState.ReturningToBase:
@@ -187,18 +189,22 @@ namespace TheWaningBorder.Systems.Work
                 var depState = em.GetComponentData<IronDepositState>(miner.AssignedDeposit);
                 if (depState.Depleted == 1)
                 {
-                    // Deposit depleted while moving — drop off what we have or go idle
+                    // Capture the depleted node's position so we can auto-find a
+                    // replacement near it, regardless of where we are now.
+                    miner.LastDepositPos = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
+                    miner.AssignedDeposit = Entity.Null;
+
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
-                        miner.AssignedDeposit = Entity.Null;
                         var fac = em.GetComponentData<FactionTag>(entity).Value;
                         SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
                     }
                     else
                     {
-                        miner.State = MinerWorkState.Idle;
-                        miner.AssignedDeposit = Entity.Null;
+                        // Nothing to deposit — look for another iron deposit
+                        // within AutoFindRadius of where the depleted node was.
+                        TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
                     }
                     return;
                 }
@@ -238,7 +244,7 @@ namespace TheWaningBorder.Systems.Work
             }
         }
 
-        private void ProcessGatheringState(ref MinerState miner, EntityManager em, Entity entity, float3 pos, Faction fac, float dt)
+        private void ProcessGatheringState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac, float dt)
         {
             miner.GatherTimer += dt;
 
@@ -251,24 +257,15 @@ namespace TheWaningBorder.Systems.Work
             {
                 miner.GatherTimer = 0f;
 
-                // Check deposit still exists
-                if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
+                // Check deposit still exists. If it was destroyed by another miner
+                // exhausting it, the current miner is still standing where the
+                // node was (within GatherRange) — use that as the search center.
+                if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit)
+                    || !em.HasComponent<IronDepositState>(miner.AssignedDeposit))
                 {
-                    if (miner.CurrentLoad > 0)
-                    {
-                        miner.State = MinerWorkState.ReturningToBase;
-                        SetDropoffDestination(ref miner, em, entity, fac, _hallDropoffQuery, _hutDropoffQuery);
-                    }
-                    else
-                    {
-                        miner.State = MinerWorkState.Idle;
-                        miner.AssignedDeposit = Entity.Null;
-                    }
-                    return;
-                }
+                    miner.LastDepositPos = pos;
+                    miner.AssignedDeposit = Entity.Null;
 
-                if (!em.HasComponent<IronDepositState>(miner.AssignedDeposit))
-                {
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
@@ -276,8 +273,7 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        miner.State = MinerWorkState.Idle;
-                        miner.AssignedDeposit = Entity.Null;
+                        TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
                     }
                     return;
                 }
@@ -289,13 +285,35 @@ namespace TheWaningBorder.Systems.Work
                 depState.RemainingIron -= toGather;
                 miner.CurrentLoad += toGather;
 
+                bool justDepleted = false;
                 if (depState.RemainingIron <= 0)
                 {
                     depState.RemainingIron = 0;
                     depState.Depleted = 1;
+                    justDepleted = true;
                 }
 
                 em.SetComponentData(miner.AssignedDeposit, depState);
+
+                // Capture the node's position before destroying it so
+                // auto-find can search around the depleted node's location.
+                float3 depletedPos = float3.zero;
+                if (justDepleted)
+                    depletedPos = em.GetComponentData<LocalTransform>(miner.AssignedDeposit).Position;
+
+                // When a deposit just depleted: destroy its entity so the
+                // visual (mesh + ObstacleTag + collider) collapses off the
+                // map. Mirrors CrystalMiningSystem's cadaver-cleanup pattern
+                // (CrystalMiningSystem.cs:249-254). Other miners holding a
+                // stale AssignedDeposit reference will fall through the
+                // !em.HasComponent<IronDepositState> guard above and
+                // re-route to a new deposit on their next tick.
+                if (justDepleted && em.Exists(miner.AssignedDeposit))
+                {
+                    if (em.HasComponent<PresentationId>(miner.AssignedDeposit))
+                        ecb.RemoveComponent<PresentationId>(miner.AssignedDeposit);
+                    ecb.DestroyEntity(miner.AssignedDeposit);
+                }
 
                 // Check if full or deposit depleted (carry capacity includes tech bonus)
                 int effectiveMaxCarry = MaxCarryAmount + miner.CarryCapacityBonus;
@@ -304,6 +322,12 @@ namespace TheWaningBorder.Systems.Work
 
                 if (isFull || depositDepleted)
                 {
+                    if (depositDepleted)
+                    {
+                        miner.LastDepositPos = depletedPos;
+                        miner.AssignedDeposit = Entity.Null;
+                    }
+
                     if (miner.CurrentLoad > 0)
                     {
                         miner.State = MinerWorkState.ReturningToBase;
@@ -311,9 +335,9 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        // Deposit depleted and nothing to carry
-                        miner.State = MinerWorkState.Idle;
-                        miner.AssignedDeposit = Entity.Null;
+                        // Deposit depleted and nothing to carry — look for another
+                        // iron deposit within AutoFindRadius of the depleted node.
+                        TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
                     }
                 }
                 // else: keep gathering (stay in Gathering state)
@@ -378,25 +402,10 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    // Deposit depleted - try to find new deposit within LOS
-                    float los = em.HasComponent<LineOfSight>(entity)
-                        ? em.GetComponentData<LineOfSight>(entity).Radius
-                        : 10f;
-
-                    Entity nearbyDeposit = FindNearestDepositWithinRange(em, pos, los, _ironDepositQuery);
-                    if (nearbyDeposit != Entity.Null)
-                    {
-                        miner.AssignedDeposit = nearbyDeposit;
-                        miner.State = MinerWorkState.MovingToDeposit;
-                        var newPos = em.GetComponentData<LocalTransform>(nearbyDeposit).Position;
-                        em.SetComponentData(entity, new DesiredDestination { Position = newPos, Has = 1 });
-                    }
-                    else
-                    {
-                        // No deposit in LOS — go idle
-                        miner.State = MinerWorkState.Idle;
-                        miner.AssignedDeposit = Entity.Null;
-                    }
+                    // Deposit depleted — auto-find another iron deposit within
+                    // AutoFindRadius of where the depleted node was (not the
+                    // miner's current position at the dropoff).
+                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
                 }
             }
         }
@@ -408,41 +417,8 @@ namespace TheWaningBorder.Systems.Work
             ref MinerState miner, EntityManager em, Entity minerEntity,
             Faction fac, EntityQuery hallQuery, EntityQuery hutQuery)
         {
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
             float3 minerPos = em.GetComponentData<LocalTransform>(minerEntity).Position;
-
-            // Search for Halls (exclude under-construction)
-            using var halls = hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < halls.Length; i++)
-            {
-                if (hallFactions[i].Value != fac) continue;
-                float dist = DistXZ(minerPos, hallTransforms[i].Position);
-                if (dist < nearestDist)
-                {
-                    nearest = halls[i];
-                    nearestDist = dist;
-                }
-            }
-
-            // Search for GathererHuts (exclude under-construction)
-            using var huts = hutQuery.ToEntityArray(Allocator.Temp);
-            using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < huts.Length; i++)
-            {
-                if (hutFactions[i].Value != fac) continue;
-                float dist = DistXZ(minerPos, hutTransforms[i].Position);
-                if (dist < nearestDist)
-                {
-                    nearest = huts[i];
-                    nearestDist = dist;
-                }
-            }
+            Entity nearest = DropoffQuery.FindNearest(minerPos, fac, hallQuery, hutQuery);
 
             miner.DropoffTarget = nearest;
 
@@ -456,38 +432,44 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Find the nearest non-depleted iron deposit within a specific range (for LOS-based auto-find).
+        /// Look for the nearest non-depleted iron deposit within AutoFindRadius
+        /// of <paramref name="searchCenter"/> (typically the depleted node's
+        /// position). If found, assign the miner to it, set the move destination,
+        /// and transition to MovingToDeposit. Otherwise transition to Idle.
         /// </summary>
-        private static Entity FindNearestDepositWithinRange(EntityManager em, float3 pos, float maxRange, EntityQuery depositQuery)
+        private void TryAssignNearestIronDeposit(ref MinerState miner, EntityManager em, Entity entity, float3 searchCenter)
         {
-            using var deposits = depositQuery.ToEntityArray(Allocator.Temp);
-            using var states = depositQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
-            using var transforms = depositQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var deposits = _ironDepositQuery.ToEntityArray(Allocator.Temp);
+            using var states = _ironDepositQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
+            using var transforms = _ironDepositQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
+            Entity bestDeposit = Entity.Null;
+            float bestDist = float.MaxValue;
+            float3 bestPos = float3.zero;
 
             for (int i = 0; i < deposits.Length; i++)
             {
                 if (states[i].Depleted == 1) continue;
 
-                float dist = DistXZ(pos, transforms[i].Position);
-                if (dist < nearestDist && dist <= maxRange)
+                float dist = DistXZ(searchCenter, transforms[i].Position);
+                if (dist <= AutoFindRadius && dist < bestDist)
                 {
-                    nearest = deposits[i];
-                    nearestDist = dist;
+                    bestDeposit = deposits[i];
+                    bestDist = dist;
+                    bestPos = transforms[i].Position;
                 }
             }
 
-            return nearest;
-        }
+            if (bestDeposit == Entity.Null)
+            {
+                miner.State = MinerWorkState.Idle;
+                miner.AssignedDeposit = Entity.Null;
+                return;
+            }
 
-        /// <summary>
-        /// XZ-only (horizontal) distance — ignores Y so terrain height doesn't break range checks.
-        /// </summary>
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
+            miner.AssignedDeposit = bestDeposit;
+            miner.State = MinerWorkState.MovingToDeposit;
+            em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
         }
     }
 }

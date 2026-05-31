@@ -1,0 +1,23 @@
+{
+  "id": "task-ai-endgame-runai-feraldis-088",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T15:45:00Z",
+  "updatedAt": "2026-05-20T15:45:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out from task-082 §A audit row. Only Alanthor has a culture-specific Age-2 endgame driver; Runai and Feraldis AI go idle after the SimpleAISystem build order. Stub starts in scope so human picks per-culture-system vs generalised-driver pattern.",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    }
+  ]
+}

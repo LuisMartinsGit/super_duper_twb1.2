@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 87461bbf3ca35424487d5f1bb4390a05
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4890085278179872738
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Beams & Energy/ScenesURP/DemoLightingSettings.lighting
+  uploadId: 855178

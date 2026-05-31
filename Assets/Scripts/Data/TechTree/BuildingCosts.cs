@@ -23,11 +23,16 @@ namespace TheWaningBorder.Data
         private static readonly Dictionary<string, Cost> _byId = new()
         {
             // Era 1 - Core Buildings
-            { "Hall",           Cost.Of(supplies: 0) },                             // Starting building
+            // Starting Hall is spawned for free by PlayerSpawnSystem (doesn't
+            // consult this table). Cost applies only to additional Halls a
+            // builder places post-age-up — capped at 6 per faction in
+            // BuilderCommandPanel.SpawnSelectedBuilding.
+            { "Hall",           Cost.Of(supplies: 500, iron: 150, crystal: 50) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Resource dropoff
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
-            
+            { "ArcheryRange",   Cost.Of(supplies: 180, iron: 50) },                 // Ranged training
+
             // Era 1 - Religious/Magic Buildings
             { "Shrine",            Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (alias)
             { "ShrineOfAhridan",   Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (choice building)
@@ -63,10 +68,10 @@ namespace TheWaningBorder.Data
             { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
             { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
-            { "Alanthor_Garrison",       Cost.Of(supplies: 220, iron: 90) },
-            { "Alanthor_Stable",    Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+            { "Alanthor_PracticeRange",  Cost.Of(supplies: 220, iron: 90) },
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
             { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
+            { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
             { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
 
             // task-063 phase 2a: chapel resource cost. Adoption RP cost is
@@ -82,10 +87,11 @@ namespace TheWaningBorder.Data
 
         /// <summary>
         /// Per-chapel material cost (in addition to RP). Shared across all 12
-        /// chapels in Phase 2a. Values match the rough scale of Era-2 secondary
-        /// buildings — affordability guard is the RP economy, not resources.
+        /// chapels. Now demands Iron as well as Supplies + Crystal so adoption
+        /// matters as an economic commitment, not just an RP spend.
         /// </summary>
-        private static readonly Cost ChapelMaterialCost = Cost.Of(supplies: 200, crystal: 80);
+        public static readonly Cost ChapelMaterialCost =
+            Cost.Of(supplies: 250, crystal: 100, iron: 60);
 
         // Inject the 12 chapel entries into the dictionary at static-init time
         // so callers can use the same TryGet path as for any other building.
@@ -185,8 +191,7 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<CrucibleTag>(entity)) return "Alanthor_Crucible";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
-            if (em.HasComponent<GarrisonTag>(entity)) return "Alanthor_Garrison";
-            if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_Stable";
+            if (em.HasComponent<PracticeRangeTag>(entity)) return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
 
             // Feraldis

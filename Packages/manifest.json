@@ -1,4 +1,15 @@
 {
+  "scopedRegistries": [
+    {
+      "name": "Voltstro UPR",
+      "url": "https://upr.voltstro.dev/",
+      "scopes": [
+        "dev.voltstro",
+        "org.nuget",
+        "com.cysharp.unitask"
+      ]
+    }
+  ],
   "dependencies": {
     "com.unity.ai.navigation": "2.0.8",
     "com.unity.collab-proxy": "2.8.2",
@@ -14,11 +25,17 @@
     "com.unity.postprocessing": "3.5.0",
     "com.unity.render-pipelines.universal": "17.0.3",
     "com.unity.shadergraph": "17.0.3",
+    "com.unity.splines": "2.7.2",
     "com.unity.test-framework": "1.4.5",
     "com.unity.timeline": "1.8.7",
     "com.unity.ugui": "2.0.0",
+    "com.unity.vectorgraphics": "2.0.0-preview.24",
+    "com.unity.visualeffectgraph": "17.0.3",
     "com.unity.visualscripting": "1.9.5",
     "com.veriorpies.parrelsync": "https://github.com/VeriorPies/ParrelSync.git?path=/ParrelSync",
+    "dev.voltstro.unitywebbrowser": "2.2.8",
+    "dev.voltstro.unitywebbrowser.engine.cef": "2.2.8",
+    "dev.voltstro.unitywebbrowser.engine.cef.win.x64": "2.2.8",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",

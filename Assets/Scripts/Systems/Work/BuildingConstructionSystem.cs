@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Economy;
@@ -103,8 +104,13 @@ namespace TheWaningBorder.Systems.Work
                 // Get site position
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
                 float dist = DistXZ(bPos, sitePos);
+                // Measure to the building's edge, not its centre, so builders can
+                // construct large footprints (e.g. the 9 m wall hub, which blocks the
+                // navmesh well beyond BuildRange of the centre).
+                float reach = BuildRange + (em.HasComponent<Radius>(site)
+                    ? em.GetComponentData<Radius>(site).Value : 0f);
 
-                if (dist > BuildRange)
+                if (dist > reach)
                 {
                     // Move toward site
                     if (em.HasComponent<DesiredDestination>(builder))
@@ -233,7 +239,7 @@ namespace TheWaningBorder.Systems.Work
             // Safety net: ensure GathererHuts have SuppliesIncome after completion
             if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<SuppliesIncome>(building))
             {
-                em.AddComponentData(building, new SuppliesIncome { PerTick = 15f, Interval = 10f });
+                em.AddComponentData(building, new SuppliesIncome { PerTick = 10f, Interval = 10f });
             }
 
             // Apply deferred defense if present
@@ -270,18 +276,50 @@ namespace TheWaningBorder.Systems.Work
             // FactionReligionPointsHelper rather than the legacy
             // ReligionPoints { Value } singleton path.
             //
-            // ChapelSmallTag is the existing ECS marker on the Shrine. Phase 2
-            // will introduce 12 distinct chapel buildings for the actual sect
-            // adoption mechanism — those are NOT this code path.
-            if (em.HasComponent<ChapelSmallTag>(building) && em.HasComponent<FactionTag>(building))
+            // BuildingFactory tags Shrine entities with ShrineTag (not the
+            // earlier-design ChapelSmallTag marker), so gate the bonus on
+            // ShrineTag — the previous check matched nothing on real Shrines
+            // and never awarded the +1 RP grant.
+            if (em.HasComponent<ShrineTag>(building) && em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
                 FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
             }
 
+            // task-066 Phase 3 / design §5.3: Feraldis Houses spawn raiders on
+            // construction completion (L1 = 1 raider). Upgrade ticks (L2/L3) are
+            // owned by FeraldisRaiderSpawnSystem, which watches BuildingLevel changes.
+            if (em.HasComponent<HutTag>(building) && em.HasComponent<FactionTag>(building))
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                if (FactionColors.GetFactionCulture(faction) == Cultures.Feraldis)
+                {
+                    SpawnFeraldisRaidersAtHouse(em, building, faction, count: 1);
+                }
+            }
+
             // task-063 phase 1: GrantTempleConstructionRP removed. The new design
             // grants RP only on age-up + Shrine completion + chapel completion.
             // Temple of Ridan finishing construction is no longer an RP source.
+        }
+
+        /// <summary>
+        /// Spawn N Feraldis Raider units at a House's position. Called on House
+        /// completion (Phase 3 of task-066). Raiders are uncontrollable and
+        /// driven by FeraldisRaiderPatrolSystem.
+        /// </summary>
+        private static void SpawnFeraldisRaidersAtHouse(EntityManager em, Entity house, Faction faction, int count)
+        {
+            if (!em.HasComponent<LocalTransform>(house)) return;
+
+            float3 housePos = em.GetComponentData<LocalTransform>(house).Position;
+            for (int i = 0; i < count; i++)
+            {
+                // Spread spawn positions slightly so raiders don't stack on creation.
+                float angle = (i / (float)math.max(count, 1)) * math.PI * 2f;
+                float3 offset = new float3(math.cos(angle) * 1.5f, 0f, math.sin(angle) * 1.5f);
+                TheWaningBorder.Entities.FeraldisRaider.Create(em, housePos + offset, faction);
+            }
         }
 
         /// <summary>
@@ -319,10 +357,6 @@ namespace TheWaningBorder.Systems.Work
             return nearest;
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 
     /// <summary>
@@ -366,9 +400,13 @@ namespace TheWaningBorder.Systems.Work
                 var targetPos = buildCmd.ValueRO.Position;
                 var targetBuilding = buildCmd.ValueRO.TargetBuilding;
                 var dist = DistXZ(myPos, targetPos);
+                // Reach to the building edge so large footprints (9 m wall hub) are
+                // buildable from where the navmesh lets a builder stand.
+                float reach = BuildRange + (targetBuilding != Entity.Null && em.HasComponent<Radius>(targetBuilding)
+                    ? em.GetComponentData<Radius>(targetBuilding).Value : 0f);
 
                 // Move to build site if not in range
-                if (dist > BuildRange)
+                if (dist > reach)
                 {
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
@@ -438,10 +476,6 @@ namespace TheWaningBorder.Systems.Work
             }
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
 
         /// <summary>
         /// Find the nearest building with UnderConstruction within searchRadius of position.

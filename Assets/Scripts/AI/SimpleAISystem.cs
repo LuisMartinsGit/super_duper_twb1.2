@@ -20,7 +20,9 @@ using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.World.FogOfWar;
 using TheWaningBorder.World.Terrain;
+using UnityEngine;
 
 namespace TheWaningBorder.AI
 {
@@ -100,9 +102,23 @@ namespace TheWaningBorder.AI
                 // priority on the train queue and resources.
                 ReplaceLostUnits(em, brain.Owner, aiState);
 
+                // Wander each idle Scout to a random map point so they actually
+                // reveal terrain. Cheap when nothing to do (every scout that
+                // already has a destination is skipped). Required complement to
+                // the fog-of-war filter on ChooseAttackTarget — without scouts
+                // expanding the AI's vision, FindClosestEnemyOf returns Null
+                // and the AI never attacks.
+                PatrolWithScouts(em, brain.Owner);
+
                 var buildOrder = AIBuildOrder.For(brain.Strategy);
                 if (aiState.StepIndex >= buildOrder.Length)
                 {
+                    // Build order finished. Keep the AI alive: top up the army,
+                    // train replacement workers, and keep pushing attacks at
+                    // the nearest enemy (player economy or curse hive).
+                    // Without this every non-Rush strategy goes idle the moment
+                    // it ages up.
+                    RunMaintenanceLoop(em, brain.Owner, ref aiState);
                     em.SetComponentData(brainEntity, aiState);
                     continue;
                 }
@@ -169,12 +185,17 @@ namespace TheWaningBorder.AI
                 aiState.DesiredMilitary++;
                 aiState.LastMilitaryUnit = new FixedString64Bytes(unitId);
             }
-            else if (cls == UnitClass.Miner)
+            else if (cls == UnitClass.Miner || cls == UnitClass.Economy)
             {
+                // Worker unification: "Builder" trains as UnitClass.Economy but
+                // carries MinerTag and acts as a miner. Without counting Economy
+                // here, DesiredMiners never increments — ReplaceLostUnits would
+                // see deficit=0 and stop replacing dead workers, gutting the
+                // post-fight economy. (worker-unification fix)
                 aiState.DesiredMiners++;
             }
-            // Builders/Scout/Support not auto-replaced for now — none of the
-            // current build orders rely on them surviving in the same way.
+            // Scout/Support not auto-replaced for now — none of the current
+            // build orders rely on them surviving in the same way.
         }
 
         /// <summary>
@@ -208,7 +229,8 @@ namespace TheWaningBorder.AI
             if (!em.HasBuffer<TrainQueueItem>(trainer)) return false;
 
             var queue = em.GetBuffer<TrainQueueItem>(trainer);
-            if (queue.Length >= MaxTrainQueue) return false;
+            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer)) return false;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
@@ -247,6 +269,20 @@ namespace TheWaningBorder.AI
         {
             if (TechTreeDB.Instance == null) return false;
             if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var def) || def == null) return false;
+
+            // task-109 Phase 7 / AD-6 / R9: SimpleAISystem must never try to
+            // place wall primitives. Alanthor AI does NOT build walls in v1
+            // of the BFME2 rework — wall construction is deferred to a
+            // follow-up task. This guard is a safety net so a future
+            // AIBuildOrder entry that accidentally lists "Alanthor_Wall"
+            // (or any wall-related id) doesn't propagate through the build
+            // pipeline. The same skip is applied below in the existing-
+            // building iteration so wall pieces never become target
+            // candidates for AI repair/attack actions either.
+            if (buildingId == "Alanthor_Wall"
+                || buildingId == "Alanthor_WallTower"
+                || buildingId == "Alanthor_WallGate")
+                return false;
 
             // Choice-buildings are limited to one per faction.
             if (BuildingFactory.IsChoiceBuilding(buildingId))
@@ -495,7 +531,8 @@ namespace TheWaningBorder.AI
             if (!em.HasBuffer<ResearchQueueItem>(bldg)) return false;
 
             var queue = em.GetBuffer<ResearchQueueItem>(bldg);
-            if (queue.Length >= MaxTrainQueue) return false;
+            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, bldg)) return false;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
@@ -594,7 +631,10 @@ namespace TheWaningBorder.AI
                 int deficit = aiState.DesiredMiners - (aliveMin + queuedMin);
                 if (deficit > 0)
                 {
-                    TryTrainUnit(em, faction, "Miner");
+                    // Worker handles both build + mine since the merge —
+                    // train "Builder" (the unified factory), it carries
+                    // MinerTag too so it'll auto-find deposits.
+                    TryTrainUnit(em, faction, "Builder");
                 }
             }
         }
@@ -664,7 +704,12 @@ namespace TheWaningBorder.AI
                     string id = buffer[j].UnitId.ToString();
                     UnitClass cls = UnitFactory.GetUnitClass(id);
                     if (isCombat && IsCombatClass(cls)) n++;
-                    else if (isMiner && cls == UnitClass.Miner) n++;
+                    // Worker (formerly Builder + Miner) is UnitClass.Economy
+                    // since the merge but still counts as a miner slot —
+                    // every Worker carries MinerTag and can auto-find a
+                    // deposit. Without this branch the AI would chase
+                    // miners forever after training the unified unit.
+                    else if (isMiner && (cls == UnitClass.Miner || cls == UnitClass.Economy)) n++;
                 }
             }
             return n;
@@ -738,23 +783,170 @@ namespace TheWaningBorder.AI
                 || c == UnitClass.Siege || c == UnitClass.Magic;
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // MAINTENANCE LOOP (post build-order)
+        // ─────────────────────────────────────────────────────────────────
+
+        // Floors the maintenance loop keeps the AI at after its build order
+        // finishes. They only RAISE the existing build-order targets — never
+        // lower them, so a strategy that already wants more keeps its targets.
+        private const int MaintenanceMilitaryFloor   = 8;
+        private const int MaintenanceMinerFloor      = 6;
+        private const int MaintenanceAttackThreshold = 2;
+
         /// <summary>
-        /// Pick the closest enemy economy target by priority:
-        /// Miners → GathererHuts → Halls. Distance is measured from
-        /// <paramref name="originPos"/> (the AI's Hall) so the army marches
-        /// toward the nearest enemy first instead of crossing the map.
+        /// Once the build order is exhausted (StepIndex past the end), keep
+        /// the AI productive: top up the army to the maintenance floor, keep
+        /// workers alive, and push every assembled wave at the nearest enemy
+        /// (player economy or curse hive — ChooseAttackTarget handles both).
+        ///
+        /// Without this loop, every non-Rush strategy ends its build order
+        /// after age-up and the AI stops issuing orders entirely — no army
+        /// growth, no attacks. For the Alanthor demo we want the AI to
+        /// keep pressuring the player and the curse indefinitely.
+        ///
+        /// ReplaceLostUnits already trains <c>LastMilitaryUnit</c> when the
+        /// army falls short of <c>DesiredMilitary</c>, and "Builder" when
+        /// miners are short of <c>DesiredMiners</c>. We just bump those
+        /// targets and seed <c>LastMilitaryUnit</c> when a strategy ended
+        /// without training military (e.g. EcoBoom).
+        /// </summary>
+        private void RunMaintenanceLoop(EntityManager em, Faction faction, ref SimpleAIState aiState)
+        {
+            // Strategies that finished without ever training military leave
+            // LastMilitaryUnit empty. Default to Swordsman so ReplaceLostUnits
+            // has a template to call TryTrainUnit with.
+            if (aiState.LastMilitaryUnit.IsEmpty)
+                aiState.LastMilitaryUnit = new FixedString64Bytes("Swordsman");
+
+            // Raise the maintenance floors. Never reduce — a strategy that
+            // already trained 12 miners keeps that target.
+            if (aiState.DesiredMilitary < MaintenanceMilitaryFloor)
+                aiState.DesiredMilitary = MaintenanceMilitaryFloor;
+            if (aiState.DesiredMiners < MaintenanceMinerFloor)
+                aiState.DesiredMiners = MaintenanceMinerFloor;
+
+            // EcoBoom ends without a Barracks — without one ReplaceLostUnits
+            // can never actually queue military. Place one. (TryBuildBuilding
+            // pre-flights an idle Worker and the resources, so the call is
+            // safe to retry every tick until it succeeds.)
+            if (FindFactionBuilding<BarracksTag>(em, faction) == Entity.Null)
+                TryBuildBuilding(em, faction, "Barracks");
+
+            // Push assembled units at the nearest enemy. TryLaunchAttack is a
+            // no-op when fewer than the threshold are idle or when no target
+            // is visible — safe to call every tick.
+            TryLaunchAttack(em, faction, MaintenanceAttackThreshold);
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SCOUT PATROL
+        // ─────────────────────────────────────────────────────────────────
+
+        // Scouts have Damage=0 so the TargetingSystem damage-gate keeps them
+        // out of combat; the build order trains them but never sends them
+        // anywhere. Without an explicit roaming order they sit on the spawn
+        // tile and reveal nothing. This routine picks a fresh random
+        // destination for any scout that's idle or has arrived at its last
+        // assignment, sweeping the AI's vision across the map.
+        //
+        // Squared arrival radius. Anything closer than this to its current
+        // destination is treated as "arrived" and gets a new waypoint.
+        private const float ScoutArrivalRadiusSq = 16f; // 4 world units.
+
+        private void PatrolWithScouts(EntityManager em, Faction faction)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<DesiredDestination>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs  = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var dds  = q.ToComponentDataArray<DesiredDestination>(Allocator.Temp);
+
+            int half = GameSettings.MapHalfSize;
+            // Pull in slightly from the edge so scouts don't try to walk into
+            // the map boundary (passability grid clamps these anyway).
+            float reach = half * 0.9f;
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (tags[i].Class != UnitClass.Scout) continue;
+
+                // Construction / death intermediate states.
+                if (!em.Exists(ents[i])) continue;
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+
+                var dd  = dds[i];
+                var pos = xfs[i].Position;
+
+                bool needsNewDest;
+                if (dd.Has == 0)
+                {
+                    needsNewDest = true;
+                }
+                else
+                {
+                    float dx = dd.Position.x - pos.x;
+                    float dz = dd.Position.z - pos.z;
+                    needsNewDest = (dx * dx + dz * dz) < ScoutArrivalRadiusSq;
+                }
+                if (!needsNewDest) continue;
+
+                float rx = (NextRandFloat01() * 2f - 1f) * reach;
+                float rz = (NextRandFloat01() * 2f - 1f) * reach;
+                em.SetComponentData(ents[i], new DesiredDestination
+                {
+                    Position = new float3(rx, 0f, rz),
+                    Has = 1
+                });
+            }
+        }
+
+        /// <summary>
+        /// Pick the closest enemy target by priority:
+        /// Miners → GathererHuts → Crystal hives → Crystal sub-nodes → Halls.
+        /// Distance is measured from <paramref name="originPos"/> (the AI's
+        /// Hall) so the army marches toward the nearest enemy first.
+        ///
+        /// Curse targets (CrystalMainNodeTag, CrystalSubNodeTag) live under
+        /// Faction.Curse — they pass the !=myFaction filter automatically and
+        /// give the AI something to chew on even when no enemy player base
+        /// has been scouted yet. Main nodes are higher priority than sub-nodes
+        /// (killing a hive rolls back the curse spread).
+        ///
+        /// Fog of war: AI must respect the same visibility rules the human
+        /// player has. Miners are mobile and require *current* visibility
+        /// (the AI can chase what its scouts / military see right now).
+        /// Static targets (GHuts, Halls, Crystal nodes) only need *revealed*
+        /// visibility — once seen they're known targets (matches the "explored
+        /// ghost" rule for buildings), so the AI can march toward a last-seen
+        /// hive even after the scout moves on.
         /// </summary>
         private static Entity ChooseAttackTarget(EntityManager em, Faction myFaction, float3 originPos)
         {
-            Entity t = FindClosestEnemyOf<MinerTag>(em, myFaction, originPos);
+            // 1. Visible enemy miners — most actionable raid target.
+            Entity t = FindClosestEnemyOf<MinerTag>(em, myFaction, originPos, requireCurrentVisibility: true);
             if (t != Entity.Null) return t;
-            t = FindClosestEnemyOf<GathererHutTag>(em, myFaction, originPos);
+            // 2. Revealed enemy economy buildings.
+            t = FindClosestEnemyOf<GathererHutTag>(em, myFaction, originPos, requireCurrentVisibility: false);
             if (t != Entity.Null) return t;
-            return FindClosestEnemyOf<HallTag>(em, myFaction, originPos);
+            // 3. Curse hives — high-value, killing one rolls back the spread.
+            t = FindClosestEnemyOf<CrystalMainNodeTag>(em, myFaction, originPos, requireCurrentVisibility: false);
+            if (t != Entity.Null) return t;
+            // 4. Curse sub-nodes — cleanup.
+            t = FindClosestEnemyOf<CrystalSubNodeTag>(em, myFaction, originPos, requireCurrentVisibility: false);
+            if (t != Entity.Null) return t;
+            // 5. Enemy Halls — finisher.
+            return FindClosestEnemyOf<HallTag>(em, myFaction, originPos, requireCurrentVisibility: false);
         }
 
         private static Entity FindClosestEnemyOf<TTag>(
-            EntityManager em, Faction myFaction, float3 originPos)
+            EntityManager em, Faction myFaction, float3 originPos, bool requireCurrentVisibility)
             where TTag : unmanaged, IComponentData
         {
             var q = em.CreateEntityQuery(
@@ -765,6 +957,11 @@ namespace TheWaningBorder.AI
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
+            // FogOfWarManager may be null when fog is disabled (Observer mode,
+            // or future modes). In that case treat everything as visible —
+            // matches the human player's behaviour with fog off.
+            var fogMgr = FogOfWarManager.Instance;
+
             Entity best = Entity.Null;
             float bestDist = float.MaxValue;
             for (int i = 0; i < ents.Length; i++)
@@ -774,6 +971,16 @@ namespace TheWaningBorder.AI
                 // wouldn't have UnderConstruction). Easier to detect by checking
                 // the component than to add a separate query exclusion.
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+
+                if (fogMgr != null)
+                {
+                    Vector3 pos = (Vector3)xfs[i].Position;
+                    bool seen = requireCurrentVisibility
+                        ? fogMgr.IsVisible(myFaction, pos)
+                        : fogMgr.IsRevealed(myFaction, pos);
+                    if (!seen) continue;
+                }
+
                 float dx = xfs[i].Position.x - originPos.x;
                 float dz = xfs[i].Position.z - originPos.z;
                 float d = dx * dx + dz * dz;
@@ -806,13 +1013,16 @@ namespace TheWaningBorder.AI
         private static bool FactionHasChoiceBuilding(EntityManager em, Faction faction)
         {
             // Choice buildings carry ChoiceBuildingTag (set by BuildingFactory for
-            // ShrineOfAhridan / VaultOfAlmierra / FiendstoneKeep). TempleOfRidan
-            // is also valid for AgeUp prereq per TechTree.json — fall through to
-            // BuildingFactory.GetFactionChoiceBuilding for the canonical answer.
-            var existing = BuildingFactory.GetFactionChoiceBuilding(em, faction);
+            // ShrineOfAhridan / VaultOfAlmierra / FiendstoneKeep). The AI age-up
+            // gate must require a COMPLETED choice building — the canonical
+            // helper that excludes UnderConstruction is
+            // GetCompletedFactionChoiceBuilding. (Player + AI gates were both
+            // counting under-construction choice buildings before the fix.)
+            var existing = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction);
             if (existing != null) return true;
 
-            // Also accept TempleOfRidan even though it isn't a "choice" building.
+            // Also accept a completed TempleOfRidan even though it isn't a
+            // "choice" building per ChoiceBuildingIds.
             Entity temple = FindFactionBuilding<TempleTag>(em, faction);
             return temple != Entity.Null && !em.HasComponent<UnderConstruction>(temple);
         }

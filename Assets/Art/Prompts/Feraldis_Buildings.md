@@ -1,5 +1,10 @@
 # Feraldis Building Prompts
 
+> ⚠ **Visual prompts only.** Building roster + mechanics live in
+> **[docs/Design/Age_1_Feraldis.md](../../../docs/Design/Age_1_Feraldis.md)**
+> and are the truth source. Several items in this file no longer match the
+> design (see "Roster deltas" at the bottom).
+
 > **Culture Identity:** Bloodthirsty warband that wields arcane magic. Architecture is massive, angular, and oppressive — deep-carved stone fortresses with sharp angled features, countless spires, and dark arcane energy. Dwarven stone masonry meets dark elf underdark aesthetics. Colors: crimson red fabric/glowing runes, dark grey stone with obsidian accents.
 
 ---
@@ -63,3 +68,55 @@ Isometric low-poly RTS building. A large angular stone compound for constructing
 - **Scale hierarchy:** Fiendstone Keep > Hall/Longhouse > Barracks/Siege Yard > Hunting Lodge/Logging Station > Gatherers Hut > Hut
 - **Lighting:** Deep crimson/violet arcane glow from within, angry orange forge-light, violet-red brazier flame
 - **Key distinction from Alanthor:** Where Alanthor is square and refined, Feraldis is angular and aggressive. Alanthor has arches; Feraldis has trapezoidal openings. Alanthor has flat crenellations; Feraldis has blade-like merlons and spires everywhere.
+
+---
+
+## Roster deltas vs [docs/Design/Age_1_Feraldis.md](../../../docs/Design/Age_1_Feraldis.md)
+
+### ⚙ Hut (Feraldis) — **role changed: raider-spawn building, 0 pop**
+
+Feraldis pop is set to the 200 cap instantly at age-up — Houses are no
+longer a pop source. The visual prompt still applies, but every build /
+upgrade of a Feraldis House now **spawns autonomous Raider units** that
+attack the closest enemy. Consider adding raider-related visual hooks
+(arrow-slits with arrows nocked, war-totems outside the door, etc.).
+
+### ⚙ Hall (Feraldis) → **War Hall**
+
+The cultured Hall renames to **War Hall** at age-up — same entity as the
+Age 0 Hall, just visually reskinned. Hosts Pillage + Veilsteel Frenzy
+techs. The existing "Hall (Feraldis style)" prompt covers this.
+
+### ⚙ Barracks (Feraldis) → **Longhouse**
+
+The cultured Barracks renames to **Longhouse** at age-up. The existing
+Longhouse prompt above is the cultured form; the Age 0 pre-culture
+Barracks has its own neutral aesthetic.
+
+### ⚠ Thrower Camp — **missing prompt** (cultured Archery Range)
+
+No prompt exists for the cultured Feraldis Archery Range. Suggested
+direction: open-air angular stone arena with raised platforms for
+throwers, racks of barbed javelins and throwing axes, bonfire-pit
+weapons-blessing area, totems carved with hunt-runes.
+
+### ⚠ Fiend Foundry — **missing prompt** (Feraldis Veilsteel forge)
+
+No prompt exists. Suggested direction: smaller scale than Alanthor's
+Crucible / Smelter (Feraldis Veilsteel forging uses fewer inputs per
+Q#8), but with a violent blood-magic edge — quenching troughs that hiss
+red instead of steam, war-runes carved on the bellows, obsidian-clad
+crucibles, dark forge fire.
+
+### ✓ Hunting Lodge / Logging Station
+
+Both prompts exist and match the design. Note that the design splits
+them by terrain bonus: **Hunting Lodge → +30 % near mountains**,
+**Logging Station → +30 % near trees**. Visual prompts should subtly
+hint at the preferred terrain (mountain trophies for the Lodge, stacked
+timber for the Station).
+
+### ✓ Longhouse / Totem Tower / Siege Yard / Fiendstone Keep
+
+All match the design. Longhouse art should evoke the **batch training**
+mechanic (5 / 10 warriors marching out at once) and the **+10 pop** role.

@@ -4,9 +4,11 @@
 // Each segment spawns multiple small wall instances that block the passability grid.
 // Instances can be upgraded to towers (ranged attack) or gates (friendly-only passage).
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Entities
 {
@@ -23,14 +25,19 @@ namespace TheWaningBorder.Entities
         public const int TowerPresentationID = 553;
         public const int GatePresentationID = 554;
 
-        /// <summary>Spacing between wall instances in meters.</summary>
-        public const float InstanceSpacing = 2f;
+        /// <summary>Length of each wall module along the wall, in meters.
+        /// Walkable-rampart rework: modules are longer (4 m) than the old 2 m
+        /// thin-wall tiles. See docs/Design/Age_1_Alanthor.md § Walkable Ramparts.</summary>
+        public const float InstanceSpacing = 4f;
 
-        /// <summary>Inset from each hub center to avoid overlapping hub footprint.</summary>
-        // Reduced from 1.0 to 0.5 so the first/last wall instance edge slips
-        // under the hub plinth (radius ~0.78) — closes the visible gap between
-        // the wall row and the hub tower.
-        private const float HubInset = 0.5f;
+        /// <summary>Walkable-rampart cross-section, in meters (canonical spec values).</summary>
+        public const float WallWidth = 9f;     // total footprint across the wall (X)
+        public const float DeckHeight = 4f;    // walkable deck surface height (units stand here)
+
+        /// <summary>Inset from each hub center to the first wall module, in meters.
+        /// Half the wall width so a module's near edge meets the hub footprint
+        /// instead of overlapping the hub core.</summary>
+        private const float HubInset = WallWidth * 0.5f;
 
         // Hub defaults (loaded from TechTreeDB "Alanthor_Wall" when available)
         private const float DefaultHubHP = 600f;
@@ -77,9 +84,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
-            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            // Walkable-rampart hub: a full-width (9 m) square footprint so the deck
+            // matches the segments and so build-range / selection use the real size.
+            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)WallWidth });
+            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -131,6 +139,15 @@ namespace TheWaningBorder.Entities
 
             // Buffer for child instances
             em.AddBuffer<WallInstanceRef>(entity);
+
+            // task-109 Phase 4 / AD-5: segments must carry NetworkedEntity so
+            // lockstep payloads (Phase 6 Convert-to-Gate) can address them via
+            // the per-tick partitioned NetworkIdGenerator slot range.
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
 
             // Update hub connection buffers
             if (em.HasBuffer<WallHubLink>(hubA))
@@ -229,14 +246,114 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)DefaultInstanceHP, Max = (int)DefaultInstanceHP });
             em.SetComponentData(entity, new LineOfSight { Radius = DefaultInstanceLoS });
-            em.SetComponentData(entity, new BuildingSize { Width = 1, Height = 1 });
-            em.SetComponentData(entity, new Radius { Value = 0.5f });
+            // Walkable-rampart footprint: WallWidth across, one module long.
+            // (W2 converts this from a navmesh obstacle into a walkable deck.)
+            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)InstanceSpacing });
+            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
             em.SetComponentData(entity, new WallInstanceParent { Segment = parentSegment });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
+            // task-109 Phase 4 / AD-5: instances must carry NetworkedEntity so
+            // lockstep payloads (Phase 6 Convert-to-Gate focus instance) can
+            // resolve them across peers.
+            em.AddComponentData(entity, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
             return entity;
+        }
+
+        /// <summary>
+        /// True if <paramref name="hubA"/> already has a <c>WallHubLink</c> entry
+        /// referencing <paramref name="hubB"/>. O(N) on the link-buffer length
+        /// (typically &lt; 8 per hub). Used by <c>WallAutoSegmentSystem</c> to
+        /// skip already-connected pairs and avoid duplicate segment formation.
+        /// </summary>
+        public static bool AreHubsConnected(EntityManager em, Entity hubA, Entity hubB)
+        {
+            if (!em.Exists(hubA) || !em.Exists(hubB)) return false;
+            if (!em.HasBuffer<WallHubLink>(hubA)) return false;
+            var links = em.GetBuffer<WallHubLink>(hubA);
+            for (int i = 0; i < links.Length; i++)
+            {
+                if (links[i].ConnectedHub == hubB) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Pick up to 5 contiguous wall instances along the segment, centred
+        /// on the <paramref name="focusInstance"/>. If
+        /// <paramref name="focusInstance"/> is <c>Entity.Null</c> OR not
+        /// present in the segment's <see cref="WallInstanceRef"/> buffer,
+        /// the segment midpoint is used as the centre. If the segment has
+        /// fewer than 5 instances, every live instance is returned
+        /// (cap-at-segment-length per task-109 Phase 1 / R5 — "short-segment
+        /// gates allowed").
+        ///
+        /// Caller owns the returned <see cref="NativeList{T}"/> and must
+        /// <c>Dispose</c> it. The list is populated with at most 5 entries.
+        /// Empty if the segment has no live instances or no
+        /// <c>WallInstanceRef</c> buffer.
+        ///
+        /// (task-109 phase 5)
+        /// </summary>
+        public static NativeList<Entity> PickGateRegionInstances(
+            EntityManager em,
+            Entity segment,
+            Entity focusInstance,
+            Allocator allocator)
+        {
+            var result = new NativeList<Entity>(5, allocator);
+
+            if (!em.Exists(segment) || !em.HasBuffer<WallInstanceRef>(segment))
+                return result;
+
+            var refs = em.GetBuffer<WallInstanceRef>(segment);
+            if (refs.Length == 0) return result;
+
+            // Resolve focus index. Default = midpoint of buffer.
+            int focusIdx = refs.Length / 2;
+            if (focusInstance != Entity.Null)
+            {
+                for (int i = 0; i < refs.Length; i++)
+                {
+                    if (refs[i].Instance == focusInstance)
+                    {
+                        focusIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // Short segment: return every live instance unconditionally
+            // (cap-at-segment-length per R5).
+            if (refs.Length <= 5)
+            {
+                for (int i = 0; i < refs.Length; i++)
+                {
+                    if (em.Exists(refs[i].Instance))
+                        result.Add(refs[i].Instance);
+                }
+                return result;
+            }
+
+            // Long segment: pick a 5-wide window centred on focusIdx, then
+            // re-anchor against either boundary so the window stays valid.
+            int lo = math.max(0, focusIdx - 2);
+            int hi = math.min(refs.Length - 1, lo + 4);
+            lo = math.max(0, hi - 4); // re-anchor if hi clamped
+
+            for (int i = lo; i <= hi; i++)
+            {
+                if (em.Exists(refs[i].Instance))
+                    result.Add(refs[i].Instance);
+            }
+            return result;
         }
     }
 }

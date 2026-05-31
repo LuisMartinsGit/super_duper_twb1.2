@@ -10,6 +10,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -43,9 +44,27 @@ namespace TheWaningBorder.Bootstrap
             PopulationHelper.ClearCache();
 
             int playerCount = GameSettings.TotalPlayers;
-            
+
             // Calculate spawn positions based on layout
             var positions = CalculateSpawnPositions(playerCount);
+
+            // Hand-authored maps: PlayerStartMarker components in the scene
+            // override the radial / two-sides layout for every faction that
+            // has a marker. Factions without a marker fall back to their
+            // calculated position so a partially-marked map still works.
+            bool useMarkers = MapMarkerRegistry.HasPlayerMarkers;
+            if (useMarkers)
+            {
+                var sb = new System.Text.StringBuilder("[PlayerSpawnSystem] markers found: ");
+                for (int mi = 0; mi < MapMarkerRegistry.PlayerStarts.Count; mi++)
+                {
+                    var m = MapMarkerRegistry.PlayerStarts[mi];
+                    if (m == null) continue;
+                    var p = m.WorldPosition;
+                    sb.Append($"{m.Faction}@({p.x:F0},{p.z:F0}) ");
+                }
+                TWBLog.Log(sb.ToString());
+            }
 
             for (int i = 0; i < playerCount; i++)
             {
@@ -62,7 +81,26 @@ namespace TheWaningBorder.Bootstrap
                 if (slot.Type == SlotType.Observer && !GameSettings.IsObserver) continue;
 
                 var faction = slot.Faction;
-                var spawnPos = positions[i];
+                float3 spawnPos = positions[i];
+
+                if (useMarkers)
+                {
+                    var marker = MapMarkerRegistry.FindPlayerMarker(faction);
+                    if (marker != null)
+                    {
+                        var p = marker.WorldPosition;
+                        spawnPos = new float3(p.x, p.y, p.z);
+                        TWBLog.Log($"[PlayerSpawnSystem] {faction} → marker at " +
+                                  $"({spawnPos.x:F0},{spawnPos.z:F0})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"[PlayerSpawnSystem] no PlayerStartMarker for {faction} — " +
+                            "falling back to procedural position. Add a marker for " +
+                            "this faction or remove the slot.");
+                    }
+                }
 
                 SpawnFactionBase(em, faction, spawnPos);
             }
@@ -93,50 +131,15 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static float3 EnsureValidSpawnPosition(float3 position)
         {
-            // Get terrain height
+            // Snap to terrain height.
             float y = TerrainUtility.GetHeight(position.x, position.z);
-            
-            // Check if position is on land (using ProceduralTerrain if available)
-            var terrain = ProceduralTerrain.Instance;
-            if (terrain != null && terrain.IsInWater(new Vector3(position.x, y, position.z)))
-            {
-                // Try to find nearby land
-                var nearestIsland = terrain.GetNearestIsland(new Vector3(position.x, y, position.z));
-                if (nearestIsland.HasValue)
-                {
-                    var island = nearestIsland.Value;
-                    Vector2 dir = new Vector2(position.x, position.z) - island.Center;
-                    if (dir.magnitude > 0.1f)
-                    {
-                        dir = dir.normalized;
-                        // Move toward island center
-                        float safeDist = island.Radius * 0.5f;
-                        position.x = island.Center.x + dir.x * safeDist;
-                        position.z = island.Center.y + dir.y * safeDist;
-                        y = TerrainUtility.GetHeight(position.x, position.z);
-                    }
-                }
-            }
-
             return new float3(position.x, y, position.z);
         }
 
         private static float3[] CalculateSpawnPositions(int playerCount)
         {
-            // Try to use island-aware spawning from ProceduralTerrain
-            var terrain = ProceduralTerrain.Instance;
-            if (terrain != null && terrain.Islands.Count > 0)
-            {
-                var positions3D = terrain.GetMultiplayerSpawnPositions(playerCount);
-                var result = new float3[playerCount];
-                for (int i = 0; i < playerCount; i++)
-                {
-                    result[i] = new float3(positions3D[i].x, positions3D[i].y, positions3D[i].z);
-                }
-                return result;
-            }
-
-            // Fallback to layout-based spawning
+            // Hand-authored maps use PlayerStartMarkers (applied by the caller);
+            // this layout is only the fallback for unmarked factions.
             return CalculateLayoutSpawnPositions(playerCount);
         }
 

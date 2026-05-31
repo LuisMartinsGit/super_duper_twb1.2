@@ -88,11 +88,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 351, "Procedural/RunaiTradeHub" },                      // Runai_TradeHub
         { 352, "Procedural/RunaiBazaar" },                        // ThessarasBazaar
         { 353, "Procedural/RunaiSiegeWorkshop" },                 // Runai_SiegeWorkshop
-        { 355, "Procedural/RunaiTradingPost_or_AlanthorGarrison" }, // Shared ID
+        { 355, "Procedural/RunaiTradingPost_or_AlanthorPracticeRange" }, // Shared ID
 
         // Alanthor culture buildings (procedurally generated)
         { 354, "Procedural/AlanthorTower" },                      // Alanthor_Tower
-        { 356, "Procedural/AlanthorStable" },                     // Alanthor_Stable
+        { 356, "Procedural/AlanthorRoyalStable" },                // Alanthor_RoyalStable
         { 357, "Procedural/AlanthorSiegeYard" },                  // Alanthor_SiegeYard
 
         // Feraldis culture buildings (procedurally generated)
@@ -131,6 +131,24 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
     /// <summary>Presentation ID for cursed ground tiles.</summary>
     private const int CursedGroundPresentationId = 311;
+
+    // Building model orientation offset. Authoring convention: building
+    // prefabs + procedural meshes face -Z, but the default RTS camera
+    // looks at +Z, so visuals need a 180° Y-rotation to face the camera.
+    // ECS LocalTransform.Rotation stays clean (mouse-wheel yaw); the
+    // offset is applied only when writing the GameObject rotation.
+    private static readonly Quaternion BuildingVisualOffsetY180 = Quaternion.Euler(0f, 180f, 0f);
+
+    /// <summary>
+    /// Apply the +180° Y visual offset for any entity with BuildingTag.
+    /// Units pass through unchanged.
+    /// </summary>
+    private Quaternion VisualRotation(Entity entity, Quaternion entityRot)
+    {
+        if (_em.HasComponent<BuildingTag>(entity))
+            return entityRot * BuildingVisualOffsetY180;
+        return entityRot;
+    }
 
     // Fallback prefabs if specific one not found
     private GameObject _fallbackUnitPrefab;
@@ -209,7 +227,34 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (EntityViewManager.Instance.TryGetView(entity, out var go))
             {
                 EntityViewManager.Instance.UnregisterView(entity);
-                if (go != null) Destroy(go);
+                if (go != null)
+                {
+                    // task-cursed-ground-luminous-crystals-111 Iteration 2,
+                    // item 7 (recession death-handoff): if this GO is a
+                    // cursed-ground voxel cluster, let its
+                    // CurseBlockRecessionAnimator own the destruction —
+                    // it scales the blocks down + emits inward particles
+                    // over ~0.7 s before destroying the GO itself. Without
+                    // this hook the GO would vanish instantly on entity
+                    // destroy and the recession animation would never play.
+                    var recess = go.GetComponent<TheWaningBorder.Presentation.CurseBlockRecessionAnimator>();
+                    var cadaverAnim = go.GetComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
+                    if (recess != null)
+                    {
+                        recess.BeginDeath();
+                    }
+                    else if (cadaverAnim != null)
+                    {
+                        // Hand off to the Shatter Stone animator: it spawns
+                        // the asset's debris pieces (which outlive this GO,
+                        // they aren't parented) and owns the final Destroy.
+                        cadaverAnim.BeginDeath();
+                    }
+                    else
+                    {
+                        Destroy(go);
+                    }
+                }
             }
         }
     }
@@ -297,16 +342,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.InstancePresentationID)
         {
             var go = CreateProceduralWallInstance(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.TowerPresentationID)
         {
             var go = CreateProceduralWallTower(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.GatePresentationID)
         {
             var go = CreateProceduralWallGate(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -314,6 +362,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.Smelter.PresentationID)
         {
             var go = CreateProceduralSmelter(pos, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -326,15 +375,22 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // dispatcher below — see CreateVault there. The local CreateProceduralVault
         // is now dead code (kept for reference, may be removed in a later cleanup).
 
-        // === CRYSTAL CURSE: tiles are DPS markers only — visual is painted
-        // once per node by CrystalSpreadSystem as an organic growing blob ===
+        // === CRYSTAL CURSE: per-tile glowing voxel block cluster (task-111
+        // Iteration 2 — SineVFX "Living Particles" reference).
+        // Replaces the previous invisible-marker GameObject (and the
+        // Iteration 1 shard-cluster geometry). Each tile spawns a 5×5
+        // voxel-block grid snapped to integer world coordinates so adjacent
+        // tiles tile seamlessly. The terrain splat below remains unchanged
+        // (it acts as the base "stain"). Material gradient: purple at the
+        // owning crystal node, sickly green at the outer ring. Block height
+        // is hashed from (gridX, gridZ) integer coords → multiplayer-safe.
+        // Cluster has a CurseBlockGrowthAnimator (item 5) that ramps blocks
+        // in over ~1 s and a dormant CurseBlockRecessionAnimator (item 7)
+        // that takes ownership on death-handoff from
+        // CleanupDestroyedEntities. ===
         if (presentationId == CursedGroundPresentationId)
         {
-            // Return a minimal hidden root so PresentationSpawnSystem tracks this entity
-            // (needed for cleanup when entity is destroyed, e.g. crystal node killed)
-            var go = new GameObject($"CursedGround_{entity.Index}");
-            go.transform.position = pos;
-            go.SetActive(false); // Invisible — terrain painting is the visual
+            var go = ProceduralCurseShardGenerator.Create(pos, entity, _em);
             return go;
         }
 
@@ -358,6 +414,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId >= 310 && presentationId <= 316 && presentationId != 311)
         {
             var go = CreateProceduralCrystalEntity(pos, presentationId, entity);
+            AttachConstructionAnimation(go);
             return go;
         }
 
@@ -370,12 +427,82 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             buildingCulture = FactionColors.GetFactionCulture(faction);
         }
 
-        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Garrison
+        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Practice Range
         if (presentationId == 355)
         {
-            bool isAlanthor = _em.HasComponent<GarrisonTag>(entity);
+            bool isAlanthor = _em.HasComponent<PracticeRangeTag>(entity);
             var go355 = ProceduralBuildingGenerator.Create355(pos, entity, isAlanthor);
             if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
+        }
+
+        // === BUILDING PREFABS (Hall / Barracks / Hut, level 0 OR 1) ===
+        //
+        // After age-up, all newly placed/spawned Hall/Barracks/Hut go straight
+        // to the L1 culture prefab — no L0 visual flash during construction
+        // followed by a 1-second delayed swap. Pre age-up, falls back to the
+        // base prefab; if neither is present, falls through to procedural.
+        //
+        // The L1 path also stamps BuildingUpgradeState.Level=1 + applies the
+        // L1 stat scaling so HP / train speed / attack rate match the
+        // visual immediately. BuildingPrefabSwapSystem is told the entity
+        // is already at L1 so it doesn't redundantly re-instantiate.
+        {
+            string buildingId = presentationId switch
+            {
+                100 => "Hall",
+                102 => "Hut",
+                510 => "Barracks",
+                511 => "Barracks", // ArcheryRange reuses Barracks visual (copy-of-Barracks)
+                _   => null,
+            };
+
+            // Try L1 first when faction has a culture.
+            GameObject buildingPrefab = null;
+            byte spawnLevel = 0;
+            if (buildingId != null && _em.HasComponent<FactionTag>(entity))
+            {
+                var faction = _em.GetComponentData<FactionTag>(entity).Value;
+                byte culture = FactionColors.GetFactionCulture(faction);
+                if (culture != Cultures.None && BuildingPrefabSwapSystem.Instance != null)
+                {
+                    int variant = (buildingId == "Hut") ? 1 + (Mathf.Abs(entity.Index) % 2) : 0;
+                    buildingPrefab = BuildingPrefabSwapSystem.Instance.TryLoadLevel1Prefab(
+                        buildingId, culture, variant, out _);
+                    if (buildingPrefab != null) spawnLevel = 1;
+                }
+            }
+
+            // Fall back to L0 base prefab.
+            if (buildingPrefab == null)
+                buildingPrefab = TryLoadBaseBuildingPrefab(presentationId);
+
+            if (buildingPrefab != null)
+            {
+                // FinishProceduralBuilding writes the final visual rotation
+                // (with the +180° building offset) — we just position here.
+                var go = Instantiate(buildingPrefab, pos, Quaternion.identity);
+                go.SetActive(true);
+                go.name = $"Entity_{entity.Index}_{buildingId}_L{spawnLevel}";
+                // Preserve the prefab's authored scale through SyncTransforms.
+                var ps = buildingPrefab.transform.localScale;
+                float baseScale = (ps.x + ps.y + ps.z) / 3f;
+                if (baseScale > 0.001f)
+                {
+                    var tag = go.AddComponent<ProceduralScaleTag>();
+                    tag.BaseScale = baseScale;
+                    go.transform.localScale = Vector3.one * transform.Scale * baseScale;
+                }
+                var finished = FinishProceduralBuilding(go, entity, transform);
+
+                // If we spawned the L1 prefab, sync the ECS state so the
+                // upgrade pipeline doesn't try to swap again on its next scan.
+                if (spawnLevel == 1)
+                {
+                    EnsureBuildingUpgradeStateAtLevel1(entity);
+                    BuildingPrefabSwapSystem.Instance.RegisterPreSwapped(entity, finished, level: 1);
+                }
+                return finished;
+            }
         }
 
         // Try procedural generation for all known building types
@@ -423,7 +550,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         goInst.SetActive(true); // Ensure active (fallback prefabs are stored inactive)
         goInst.name = $"Entity_{entity.Index}_{presentationId}";
         goInst.transform.position = pos;
-        goInst.transform.rotation = transform.Rotation;
+        goInst.transform.rotation = VisualRotation(entity, transform.Rotation);
         goInst.transform.localScale = Vector3.one * transform.Scale;
 
         // Ensure a collider exists for raycasting/selection
@@ -563,7 +690,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private GameObject FinishProceduralBuilding(GameObject go, Entity entity, LocalTransform transform)
     {
         go.name = $"Entity_{entity.Index}_{(_em.HasComponent<PresentationId>(entity) ? _em.GetComponentData<PresentationId>(entity).Id : 0)}";
-        go.transform.rotation = transform.Rotation;
+        go.transform.rotation = VisualRotation(entity, transform.Rotation);
         go.transform.localScale = Vector3.one * transform.Scale;
 
         // Add aggregate collider sized to actual visual bounds (not entity Radius).
@@ -589,6 +716,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // Convert world bounds to local space
                 col.center = go.transform.InverseTransformPoint(bounds.center);
                 col.size = bounds.size; // already in world scale, local scale is 1
+
+                // Cache the visual extent so SyncTransforms can sink the building
+                // fully underground during construction. Pivot may sit above the
+                // ground (authored prefabs often anchor at base centre, but some
+                // sit higher), so include any positive max-y on top of size.y.
+                float visualHeight = bounds.size.y +
+                    Mathf.Max(0f, bounds.max.y - go.transform.position.y);
+                if (visualHeight > 0f)
+                {
+                    var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
+                            ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    sink.Value = visualHeight + 0.5f; // small pad keeps the tip below
+                }
             }
             else
             {
@@ -610,7 +750,138 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // but still need the faction banner for player identity)
         ApplyFactionBannerOnly(go, entity);
 
+        // Authored prefabs paint team-color regions with a flat marker hue
+        // (default pure blue). Replace with the faction color at runtime so
+        // each player's buildings carry their lobby color. Procedural
+        // buildings have no marker materials so this is a no-op for them.
+        if (_em.HasComponent<FactionTag>(entity))
+        {
+            var fac = _em.GetComponentData<FactionTag>(entity).Value;
+            BuildingFactionColorMarker.Apply(go, FactionColors.Get(fac));
+        }
+
+        // Snapshot the visual hierarchy for the staggered construction rise.
+        // Done last so the faction banner pole/flag are included in the pieces.
+        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        rise.Init();
+
         return go;
+    }
+
+    /// <summary>
+    /// Attach the sink-depth tag (sized to actual renderer bounds) and the
+    /// rise-animation snapshot to a procedural visual that doesn't pass
+    /// through FinishProceduralBuilding — walls, towers, gates, smelter,
+    /// curse nodes. Idempotent: safe to call repeatedly.
+    /// </summary>
+    private static void AttachConstructionAnimation(GameObject go)
+    {
+        if (go == null) return;
+
+        var renderers = go.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            var bounds = renderers[0].bounds;
+            for (int r = 1; r < renderers.Length; r++)
+                bounds.Encapsulate(renderers[r].bounds);
+            float visualHeight = bounds.size.y +
+                Mathf.Max(0f, bounds.max.y - go.transform.position.y);
+            if (visualHeight > 0f)
+            {
+                var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
+                        ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                sink.Value = visualHeight + 0.5f;
+            }
+        }
+
+        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        rise.Init();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // BASE BUILDING PREFAB LOOKUP (Hall / Barracks / Hut / GatherersHut, level 0)
+    // ──────────────────────────────────────────────────────────────────
+
+    // Cached Resources lookups so we don't re-resolve every spawn. null
+    // entries mean "negative cache — no prefab exists at this path".
+    private readonly System.Collections.Generic.Dictionary<int, GameObject> _baseBuildingPrefabCache = new();
+    private readonly System.Collections.Generic.HashSet<int> _baseBuildingPrefabNegativeCache = new();
+
+    /// <summary>
+    /// Look up the level-0 hand-authored prefab for Hall / Barracks / Hut / GatherersHut.
+    /// Returns null if no prefab is present at the canonical path — caller
+    /// falls back to procedural generation.
+    /// </summary>
+    private GameObject TryLoadBaseBuildingPrefab(int presentationId)
+    {
+        if (_baseBuildingPrefabCache.TryGetValue(presentationId, out var cached))
+            return cached;
+        if (_baseBuildingPrefabNegativeCache.Contains(presentationId)) return null;
+
+        string path = presentationId switch
+        {
+            100 => "Prefabs/Buildings/Hall",         // Hall.PresentationID
+            101 => "Prefabs/Buildings/GatherersHut", // GatherersHut.PresentationID — single prefab, no culture/level variants
+            102 => "Prefabs/Buildings/Hut",          // Hut.PresentationID
+            510 => "Prefabs/Buildings/Barracks",     // Barracks.PresentationID
+            511 => "Prefabs/Buildings/Barracks",     // ArcheryRange reuses Barracks visual
+            _   => null,
+        };
+        if (path == null)
+        {
+            _baseBuildingPrefabNegativeCache.Add(presentationId);
+            return null;
+        }
+
+        var loaded = Resources.Load<GameObject>(path);
+        if (loaded == null)
+        {
+            _baseBuildingPrefabNegativeCache.Add(presentationId);
+            return null;
+        }
+        _baseBuildingPrefabCache[presentationId] = loaded;
+        return loaded;
+    }
+
+    /// <summary>
+    /// Stamp BuildingUpgradeState{Level=1} on a freshly-spawned post-age-up
+    /// building and apply the L1 stat scaling. Captures base stats first
+    /// the same way the manual upgrade command does, so any later
+    /// L1→L2/L3 upgrade recomputes idempotently from the original values.
+    /// </summary>
+    private void EnsureBuildingUpgradeStateAtLevel1(Entity entity)
+    {
+        if (_em.HasComponent<BuildingUpgradeState>(entity))
+        {
+            // Already stamped. If somehow at L0, bump to L1; if already at
+            // L1+, leave it alone (covers reload / save-restore paths).
+            var existing = _em.GetComponentData<BuildingUpgradeState>(entity);
+            if (existing.Level >= 1) return;
+            TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
+                .ApplyLevel(_em, entity, 1);
+            return;
+        }
+
+        // Capture base stats once.
+        int baseHp = _em.HasComponent<Health>(entity)
+            ? _em.GetComponentData<Health>(entity).Max : 0;
+        float baseAtkCd = _em.HasComponent<BuildingRangedAttack>(entity)
+            ? _em.GetComponentData<BuildingRangedAttack>(entity).Cooldown : 0f;
+        int basePop = _em.HasComponent<TheWaningBorder.Economy.PopulationProvider>(entity)
+            ? _em.GetComponentData<TheWaningBorder.Economy.PopulationProvider>(entity).Amount : 0;
+
+        _em.AddComponentData(entity, new BuildingUpgradeState
+        {
+            Level                  = 0,
+            BaseHpMax              = baseHp,
+            BaseAttackCooldown     = baseAtkCd,
+            BasePopulationProvider = basePop,
+        });
+
+        TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
+            .ApplyLevel(_em, entity, 1);
     }
 
     /// <summary>
@@ -777,12 +1048,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 continue;
             }
 
-            // Destroy old visual
-            if (EntityViewManager.Instance.TryGetView(entity, out var oldGo) && oldGo != null)
+            // Capture the old visual for the dissolve transition (if any).
+            // Do NOT destroy it here — BuildingDissolveTransition takes
+            // ownership and destroys it once the wave completes.
+            GameObject oldGo = null;
+            if (EntityViewManager.Instance.TryGetView(entity, out var existing) && existing != null)
             {
+                oldGo = existing;
                 EntityViewManager.Instance.UnregisterView(entity);
                 _spawnedEntities.Remove(entity);
-                Destroy(oldGo);
             }
 
             // Respawn through the canonical entry point so procedural and
@@ -792,6 +1066,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (newGo != null)
             {
                 EntityViewManager.Instance.RegisterView(entity, newGo);
+                _spawnedEntities.Add(entity);
+
+                // Wave dissolve from old culture-neutral visual to the new
+                // culture-specific one. Faction-tinted edge glow.
+                Color accent = FactionColors.Get(faction);
+                BuildingDissolveTransition.Begin(oldGo, newGo, duration: 1.5f, edgeColor: accent);
+            }
+            else if (oldGo != null)
+            {
+                // No new visual was produced — keep the old one rather than
+                // leaving the entity invisible.
+                EntityViewManager.Instance.RegisterView(entity, oldGo);
                 _spawnedEntities.Add(entity);
             }
         }
@@ -818,20 +1104,44 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 var pos = (Vector3)transforms[i].Position;
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
-                // Construction rising animation: buildings start below ground and rise
+                // Construction rising animation: pieces start below ground and
+                // rise into place bottom-to-top via BuildingRiseData. Falls back
+                // to a rigid root sink for visuals that don't have rise data
+                // attached (e.g. mid-construction prefab swap before re-init).
                 if (em.HasValue && em.Value.HasComponent<UnderConstruction>(entities[i]))
                 {
                     var uc = em.Value.GetComponentData<UnderConstruction>(entities[i]);
                     float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
-                    // Sink depth based on building radius (taller buildings sink more)
-                    float sinkDepth = em.Value.HasComponent<Radius>(entities[i])
-                        ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
-                        : 3f;
-                    pos.y -= sinkDepth * (1f - ratio);
+                    var sinkTag = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    float sinkDepth = (sinkTag != null && sinkTag.Value > 0f)
+                        ? sinkTag.Value
+                        : (em.Value.HasComponent<Radius>(entities[i])
+                            ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
+                            : 3f);
+
+                    var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                    if (rise != null)
+                        rise.ApplyRise(ratio, sinkDepth);
+                    else
+                        pos.y -= sinkDepth * (1f - ratio);
+                }
+                else
+                {
+                    // Just exited UnderConstruction: snap pieces back to rest
+                    // once and fire the same flourish used for level-up swaps
+                    // so the transition reads clearly to the player.
+                    var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                    if (rise != null && rise.NotifyConstructionComplete())
+                    {
+                        Color accent = em.HasValue && em.Value.HasComponent<FactionTag>(entities[i])
+                            ? FactionColors.Get(em.Value.GetComponentData<FactionTag>(entities[i]).Value)
+                            : new Color(1f, 0.85f, 0.45f);
+                        TheWaningBorder.Presentation.BuildingLevelUpEffect.Spawn(go, accent);
+                    }
                 }
 
                 go.transform.position = pos;
-                go.transform.rotation = transforms[i].Rotation;
+                go.transform.rotation = VisualRotation(entities[i], transforms[i].Rotation);
                 // Respect procedural unit base scale (ProceduralScaleTag)
                 var scaleTag = go.GetComponent<ProceduralScaleTag>();
                 float baseScale = (scaleTag != null) ? scaleTag.BaseScale : 1f;
@@ -875,107 +1185,153 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Create a smelter/forge: a dark metallic cube base with a chimney (cylinder) on top.
-    /// Uses warm orange-red tones to suggest heat/metalworking.
+    /// Create a large forge: stone-block plinth with a tile-roofed forge hall,
+    /// a tall main stack plus a smaller side flue, two glowing furnace mouths,
+    /// a heavy iron-banded anvil with hammer, a quench barrel, and a bellows.
     /// </summary>
     private GameObject CreateProceduralSmelter(Vector3 center, Entity entity)
     {
-        var root = new GameObject($"Smelter_{entity.Index}");
+        var root = new GameObject($"Forge_{entity.Index}");
         root.transform.position = center;
 
-        // Colors
-        var darkMetal = new Color(0.22f, 0.20f, 0.18f);
-        var warmStone = new Color(0.40f, 0.30f, 0.22f);
-        var chimneyGrey = new Color(0.30f, 0.28f, 0.26f);
-        var embers = new Color(0.8f, 0.3f, 0.1f);
+        // Palette — slightly cooler stone, warmer roof, bright embers.
+        var stone      = new Color(0.46f, 0.40f, 0.34f);
+        var stoneDark  = new Color(0.32f, 0.28f, 0.24f);
+        var roofTile   = new Color(0.55f, 0.30f, 0.20f);
+        var beam       = new Color(0.30f, 0.20f, 0.13f);
+        var iron       = new Color(0.18f, 0.17f, 0.16f);
+        var brass      = new Color(0.66f, 0.50f, 0.20f);
+        var leather    = new Color(0.42f, 0.26f, 0.16f);
+        var embers     = new Color(0.95f, 0.45f, 0.10f);
+        var water      = new Color(0.25f, 0.32f, 0.42f);
 
-        // Main building body (cube)
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.name = "SmelterBody";
-        body.transform.SetParent(root.transform, false);
-        body.transform.localPosition = Vector3.up * 1.25f;
-        body.transform.localScale = new Vector3(2.5f, 2.5f, 2.5f);
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        var bodyRenderer = body.GetComponent<Renderer>();
-        if (bodyRenderer != null)
+        System.Func<PrimitiveType, string, Vector3, Vector3, Quaternion, Color, float, float, bool, GameObject>
+        Make = (type, name, lp, ls, lr, color, metal, smooth, glow) =>
         {
-            bodyRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            bodyRenderer.material.color = warmStone;
-            if (bodyRenderer.material.HasProperty("_Metallic"))
-                bodyRenderer.material.SetFloat("_Metallic", 0.3f);
-        }
-        var bodyCol = body.GetComponent<Collider>();
-        if (bodyCol != null) Destroy(bodyCol);
-
-        // Chimney (tall cylinder)
-        var chimney = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        chimney.name = "Chimney";
-        chimney.transform.SetParent(root.transform, false);
-        chimney.transform.localPosition = new Vector3(0.6f, 3.5f, 0.6f);
-        chimney.transform.localScale = new Vector3(0.6f, 1.5f, 0.6f);
-
-        var chimneyRenderer = chimney.GetComponent<Renderer>();
-        if (chimneyRenderer != null)
-        {
-            chimneyRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            chimneyRenderer.material.color = chimneyGrey;
-            if (chimneyRenderer.material.HasProperty("_Metallic"))
-                chimneyRenderer.material.SetFloat("_Metallic", 0.5f);
-        }
-        var chimneyCol = chimney.GetComponent<Collider>();
-        if (chimneyCol != null) Destroy(chimneyCol);
-
-        // Forge opening (small glowing cube at front)
-        var forgeOpening = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        forgeOpening.name = "ForgeOpening";
-        forgeOpening.transform.SetParent(root.transform, false);
-        forgeOpening.transform.localPosition = new Vector3(0f, 0.5f, 1.3f);
-        forgeOpening.transform.localScale = new Vector3(0.8f, 0.7f, 0.2f);
-
-        var openingRenderer = forgeOpening.GetComponent<Renderer>();
-        if (openingRenderer != null)
-        {
-            openingRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            openingRenderer.material.color = embers;
-            if (openingRenderer.material.HasProperty("_EmissionColor"))
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(root.transform, false);
+            go.transform.localPosition = lp;
+            go.transform.localRotation = lr;
+            go.transform.localScale = ls;
+            var r = go.GetComponent<Renderer>();
+            if (r != null)
             {
-                openingRenderer.material.EnableKeyword("_EMISSION");
-                openingRenderer.material.SetColor("_EmissionColor", embers * 0.5f);
+                r.material = new Material(shader);
+                r.material.color = color;
+                if (r.material.HasProperty("_Metallic"))   r.material.SetFloat("_Metallic", metal);
+                if (r.material.HasProperty("_Smoothness")) r.material.SetFloat("_Smoothness", smooth);
+                if (glow && r.material.HasProperty("_EmissionColor"))
+                {
+                    r.material.EnableKeyword("_EMISSION");
+                    r.material.SetColor("_EmissionColor", color * 1.6f);
+                }
             }
-        }
-        var openingCol = forgeOpening.GetComponent<Collider>();
-        if (openingCol != null) Destroy(openingCol);
+            var c = go.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+            return go;
+        };
 
-        // Anvil (small dark cube in front)
-        var anvil = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        anvil.name = "Anvil";
-        anvil.transform.SetParent(root.transform, false);
-        anvil.transform.localPosition = new Vector3(0f, 0.3f, 2.0f);
-        anvil.transform.localScale = new Vector3(0.5f, 0.6f, 0.4f);
+        // Plinth + dirt-darker apron at the front working area.
+        Make(PrimitiveType.Cube, "Plinth", new Vector3(0f, 0.20f, 0f),
+            new Vector3(4.6f, 0.40f, 4.0f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+        Make(PrimitiveType.Cube, "Apron",  new Vector3(0f, 0.06f, 1.95f),
+            new Vector3(4.4f, 0.05f, 1.6f), Quaternion.identity, stoneDark * 0.85f, 0.05f, 0.10f, false);
 
-        var anvilRenderer = anvil.GetComponent<Renderer>();
-        if (anvilRenderer != null)
+        // Main forge hall body (the furnace block).
+        Make(PrimitiveType.Cube, "Hall",   new Vector3(0f, 1.65f, -0.6f),
+            new Vector3(4.0f, 2.40f, 2.4f), Quaternion.identity, stone, 0.10f, 0.15f, false);
+        // Stone course / belt running around the hall.
+        Make(PrimitiveType.Cube, "Course", new Vector3(0f, 1.35f, -0.6f),
+            new Vector3(4.10f, 0.10f, 2.50f), Quaternion.identity, stoneDark, 0.10f, 0.15f, false);
+
+        // Pitched tile roof — two angled slabs meeting at the ridge.
+        Make(PrimitiveType.Cube, "RoofL",  new Vector3(-1.10f, 3.30f, -0.6f),
+            new Vector3(2.40f, 0.18f, 2.80f), Quaternion.Euler(0f, 0f,  18f), roofTile, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cube, "RoofR",  new Vector3( 1.10f, 3.30f, -0.6f),
+            new Vector3(2.40f, 0.18f, 2.80f), Quaternion.Euler(0f, 0f, -18f), roofTile, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cube, "Ridge",  new Vector3(0f, 3.65f, -0.6f),
+            new Vector3(0.30f, 0.10f, 2.85f), Quaternion.identity, stoneDark, 0.10f, 0.20f, false);
+        // Front beam under the roof eaves — exposed timber.
+        Make(PrimitiveType.Cube, "Eave",   new Vector3(0f, 2.95f, 0.65f),
+            new Vector3(4.20f, 0.18f, 0.18f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "EaveBack", new Vector3(0f, 2.95f, -1.85f),
+            new Vector3(4.20f, 0.18f, 0.18f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+
+        // Main chimney stack — wide stone block with capstone on top.
+        Make(PrimitiveType.Cube,     "StackBase", new Vector3(-0.95f, 4.10f, -0.6f),
+            new Vector3(0.95f, 1.30f, 0.95f), Quaternion.identity, stone, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube,     "StackUpper", new Vector3(-0.95f, 5.20f, -0.6f),
+            new Vector3(0.80f, 0.90f, 0.80f), Quaternion.identity, stoneDark, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube,     "StackCap", new Vector3(-0.95f, 5.75f, -0.6f),
+            new Vector3(1.00f, 0.10f, 1.00f), Quaternion.identity, stone, 0.05f, 0.20f, false);
+        Make(PrimitiveType.Cylinder, "StackPipe", new Vector3(-0.95f, 5.95f, -0.6f),
+            new Vector3(0.40f, 0.30f, 0.40f), Quaternion.identity, iron, 0.50f, 0.30f, false);
+
+        // Smaller secondary flue on the other side.
+        Make(PrimitiveType.Cylinder, "FlueA", new Vector3(1.25f, 4.25f, -0.6f),
+            new Vector3(0.45f, 1.10f, 0.45f), Quaternion.identity, iron, 0.45f, 0.30f, false);
+        Make(PrimitiveType.Cylinder, "FlueCap", new Vector3(1.25f, 5.50f, -0.6f),
+            new Vector3(0.55f, 0.10f, 0.55f), Quaternion.identity, iron * 0.8f, 0.50f, 0.30f, false);
+
+        // Twin furnace mouths on the front face — bright emissive embers.
+        for (int i = 0; i < 2; i++)
         {
-            anvilRenderer.material = new Material(
-                Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            anvilRenderer.material.color = darkMetal;
-            if (anvilRenderer.material.HasProperty("_Metallic"))
-                anvilRenderer.material.SetFloat("_Metallic", 0.7f);
-            if (anvilRenderer.material.HasProperty("_Smoothness"))
-                anvilRenderer.material.SetFloat("_Smoothness", 0.4f);
+            float mx = (i == 0 ? -1.05f : 1.05f);
+            // Stone arch frame around each opening.
+            Make(PrimitiveType.Cube, $"ArchTop_{i}", new Vector3(mx, 1.90f, 0.62f),
+                new Vector3(1.30f, 0.20f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            Make(PrimitiveType.Cube, $"ArchL_{i}", new Vector3(mx - 0.55f, 1.30f, 0.62f),
+                new Vector3(0.20f, 1.40f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            Make(PrimitiveType.Cube, $"ArchR_{i}", new Vector3(mx + 0.55f, 1.30f, 0.62f),
+                new Vector3(0.20f, 1.40f, 0.10f), Quaternion.identity, stoneDark, 0.05f, 0.15f, false);
+            // Glowing furnace mouth.
+            Make(PrimitiveType.Cube, $"Mouth_{i}", new Vector3(mx, 1.20f, 0.66f),
+                new Vector3(0.95f, 1.20f, 0.06f), Quaternion.identity, embers, 0.0f, 0.05f, true);
         }
-        var anvilCol = anvil.GetComponent<Collider>();
-        if (anvilCol != null) Destroy(anvilCol);
 
-        // Single collider for entire building
+        // Iron-banded anvil on its stump in the front working area.
+        Make(PrimitiveType.Cylinder, "AnvilStump", new Vector3(-0.9f, 0.55f, 1.85f),
+            new Vector3(0.55f, 0.55f, 0.55f), Quaternion.identity, beam, 0.05f, 0.15f, false);
+        Make(PrimitiveType.Cube, "AnvilBody", new Vector3(-0.9f, 1.05f, 1.85f),
+            new Vector3(0.85f, 0.30f, 0.40f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+        Make(PrimitiveType.Cube, "AnvilHorn", new Vector3(-0.45f, 1.05f, 1.85f),
+            new Vector3(0.45f, 0.20f, 0.30f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+        Make(PrimitiveType.Cube, "AnvilWaist", new Vector3(-0.9f, 0.85f, 1.85f),
+            new Vector3(0.55f, 0.15f, 0.30f), Quaternion.identity, iron * 0.85f, 0.85f, 0.50f, false);
+        // Hammer leaning on the anvil.
+        Make(PrimitiveType.Cylinder, "HammerHaft", new Vector3(-0.55f, 1.30f, 1.85f),
+            new Vector3(0.05f, 0.45f, 0.05f), Quaternion.Euler(0f, 0f, 35f), beam, 0.10f, 0.20f, false);
+        Make(PrimitiveType.Cube, "HammerHead", new Vector3(-0.30f, 1.55f, 1.85f),
+            new Vector3(0.18f, 0.18f, 0.30f), Quaternion.identity, iron, 0.85f, 0.50f, false);
+
+        // Quench barrel (water-filled wooden cask).
+        Make(PrimitiveType.Cylinder, "QuenchStaves", new Vector3(0.95f, 0.85f, 1.85f),
+            new Vector3(0.70f, 0.55f, 0.70f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cylinder, "QuenchHoopT", new Vector3(0.95f, 1.30f, 1.85f),
+            new Vector3(0.74f, 0.04f, 0.74f), Quaternion.identity, iron, 0.50f, 0.40f, false);
+        Make(PrimitiveType.Cylinder, "QuenchHoopB", new Vector3(0.95f, 0.50f, 1.85f),
+            new Vector3(0.74f, 0.04f, 0.74f), Quaternion.identity, iron, 0.50f, 0.40f, false);
+        Make(PrimitiveType.Cylinder, "QuenchWater", new Vector3(0.95f, 1.36f, 1.85f),
+            new Vector3(0.62f, 0.02f, 0.62f), Quaternion.identity, water, 0.10f, 0.85f, false);
+
+        // Side bellows: triangular wood + leather, brass nozzle pointing into the furnace.
+        Make(PrimitiveType.Cube, "BellowsTop", new Vector3(2.55f, 1.60f, -0.10f),
+            new Vector3(0.12f, 0.20f, 1.30f), Quaternion.Euler(0f, 0f, -8f), beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "BellowsBag", new Vector3(2.55f, 1.30f, -0.10f),
+            new Vector3(0.10f, 0.55f, 1.20f), Quaternion.Euler(0f, 0f, -3f), leather, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cube, "BellowsBot", new Vector3(2.55f, 1.00f, -0.10f),
+            new Vector3(0.12f, 0.20f, 1.10f), Quaternion.identity, beam, 0.05f, 0.10f, false);
+        Make(PrimitiveType.Cylinder, "BellowsNozzle", new Vector3(2.20f, 1.30f, 0.55f),
+            new Vector3(0.08f, 0.40f, 0.08f), Quaternion.Euler(0f, 0f, 90f), brass, 0.80f, 0.50f, false);
+
+        // Single collider for selection / placement bounds — sized to footprint.
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(3f, 5f, 3f);
-        boxCol.center = Vector3.up * 2f;
+        boxCol.size = new Vector3(4.8f, 6.2f, 4.4f);
+        boxCol.center = Vector3.up * 3.1f;
 
-        // Add EntityReference
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
@@ -2567,71 +2923,88 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // CRYSTAL ENTITY PROCEDURAL GENERATION
     // ═══════════════════════════════════════════════════════════════════════
 
+    // ─── Shatter Stone wrapper prefabs (P_Cadaver_GemA/B/C) ──────────────
+    // Loaded lazily on first cadaver spawn. Each is a copy of the matching
+    // NV3D P_Gem4_* with Rigidbody/SphereCollider stripped and the OreNode
+    // component swapped to CadaverOreNode. Variant choice is keyed on
+    // entity.Index so the same visual is picked on every networked client
+    // (entity creation order is deterministic under lockstep). Index is not
+    // stable across editor session restarts — if a save/load system is
+    // added later it must persist the chosen variant per-cadaver.
+    private static GameObject[] _cadaverPrefabs;
+    private static readonly string[] CadaverPrefabPaths =
+    {
+        "Prefabs/Crystals/P_Cadaver_GemA",
+        "Prefabs/Crystals/P_Cadaver_GemB",
+        "Prefabs/Crystals/P_Cadaver_GemC",
+    };
+
     /// <summary>
-    /// Creates a procedural crystal loot pile visual for cadaver/death-drop entities.
-    /// Small cluster of glowing purple crystal shards on the ground, mineable by workers.
+    /// Spawns the visual for a cadaver / crystal-node ECS entity using one of
+    /// the Shatter Stone gem-cluster prefab variants. Adds a BoxCollider for
+    /// click selection (sized to match the previous procedural pile so
+    /// selection ergonomics carry over), an EntityReference for raycasting,
+    /// and a CadaverCrystalAnimator that drives wobble/shatter from
+    /// ECS mining events.
     /// </summary>
     private GameObject CreateProceduralCadaverLoot(Vector3 center, Entity entity)
     {
-        var root = new GameObject($"CrystalLoot_{entity.Index}");
-        root.transform.position = center;
-
-        var purpleBase = new Color(0.40f, 0.08f, 0.55f, 0.70f);
-        var greenTip   = new Color(0.06f, 0.28f, 0.10f, 0.55f);
-        var emPurple   = new Color(0.35f, 0.05f, 0.50f);
-
-        // Small cluster of 3-5 bulbous crystal nubs (spheres)
-        int shardCount = Random.Range(3, 6);
-        for (int i = 0; i < shardCount; i++)
+        if (_cadaverPrefabs == null)
         {
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            shard.name = $"Shard_{i}";
-            shard.transform.SetParent(root.transform);
-
-            float angle = (i / (float)shardCount) * 360f + Random.Range(-20f, 20f);
-            float dist = Random.Range(0.05f, 0.3f);
-            float x = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
-            float z = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-
-            // Bulbous eroded shape — short and wide spheres
-            float height = Random.Range(0.25f, 0.55f);
-            float width = Random.Range(0.12f, 0.22f);
-            shard.transform.localPosition = new Vector3(x, height * 0.4f, z);
-            shard.transform.localScale = new Vector3(width, height, width);
-
-            float tiltAngle = Random.Range(5f, 25f);
-            shard.transform.localRotation = Quaternion.Euler(
-                Random.Range(-tiltAngle, tiltAngle),
-                angle + Random.Range(-30f, 30f),
-                Random.Range(-tiltAngle, tiltAngle));
-
-            DestroyCollider(shard);
-
-            float tipT = Random.Range(0.1f, 0.5f);
-            ApplyCrystalMaterial(shard, purpleBase, greenTip, emPurple, tipBlend: tipT);
+            _cadaverPrefabs = new GameObject[CadaverPrefabPaths.Length];
+            for (int i = 0; i < CadaverPrefabPaths.Length; i++)
+            {
+                _cadaverPrefabs[i] = Resources.Load<GameObject>(CadaverPrefabPaths[i]);
+            }
         }
 
-        // Tiny point light for the loot pile
-        var lightObj = new GameObject("LootGlow");
-        lightObj.transform.SetParent(root.transform, false);
-        lightObj.transform.localPosition = Vector3.up * 0.25f;
-        var pl = lightObj.AddComponent<Light>();
-        pl.type = LightType.Point;
-        pl.color = Color.white;
-        pl.intensity = 0.6f;
-        pl.range = 1.2f;
-        pl.shadows = LightShadows.None;
+        int variantIdx = Mathf.Abs(entity.Index) % _cadaverPrefabs.Length;
+        var prefab = _cadaverPrefabs[variantIdx];
+        if (prefab == null)
+        {
+            // Resource missing — fall back to a bare GameObject so the
+            // entity still has a selection target rather than throwing.
+            var fallback = new GameObject($"CrystalLoot_{entity.Index}_missing");
+            fallback.transform.position = center;
+            AttachCadaverSelectionAndAnimator(fallback, entity);
+            return fallback;
+        }
 
-        // Add a box collider to the root for selection/raycasting
-        var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(0.8f, 0.6f, 0.8f);
-        boxCol.center = Vector3.up * 0.3f;
+        var root = Instantiate(prefab, center, Quaternion.identity);
+        root.name = $"CrystalLoot_{entity.Index}";
 
-        // Add EntityReference for raycasting/selection
-        var entityRef = root.AddComponent<EntityReference>();
+        AttachCadaverSelectionAndAnimator(root, entity);
+        return root;
+    }
+
+    /// <summary>Visual size multiplier applied on top of the ECS amount-driven scale.</summary>
+    private const float CadaverVisualBaseScale = 6f;
+
+    private static void AttachCadaverSelectionAndAnimator(GameObject root, Entity entity)
+    {
+        // Make the cluster ~3× the bare Shatter Stone authoring size. SyncTransforms
+        // multiplies the ECS LocalTransform.Scale by ProceduralScaleTag.BaseScale,
+        // so this scales every cadaver uniformly while preserving the amount-driven
+        // size variation (Cadaver.MinScale=0.6 .. MaxScale=4.0).
+        var scaleTag = root.GetComponent<ProceduralScaleTag>();
+        if (scaleTag == null) scaleTag = root.AddComponent<ProceduralScaleTag>();
+        scaleTag.BaseScale = CadaverVisualBaseScale;
+
+        // Generous box collider for selection/raycasting. Sizing matches the
+        // previous procedural pile (Cadaver.MinScale=0.6 → effective 1.5×1.2×1.5;
+        // Iron deposits use 3×2×3 — same ballpark). Collider scales with the
+        // root transform so the click target grows with the new base scale.
+        var boxCol = root.GetComponent<BoxCollider>();
+        if (boxCol == null) boxCol = root.AddComponent<BoxCollider>();
+        boxCol.size = new Vector3(2.5f, 2.0f, 2.5f);
+        boxCol.center = Vector3.up * 1.0f;
+
+        var entityRef = root.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        return root;
+        var anim = root.GetComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
+        if (anim == null) anim = root.AddComponent<TheWaningBorder.Presentation.CadaverCrystalAnimator>();
     }
 
     /// <summary>
@@ -2716,9 +3089,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Create a crystal node/building visual: large bulbous, eroded crystals with purple base
-    /// fading to dark green tips.  Translucent, reflective material with dim purple emission
-    /// and a white point light at the core.
+    /// Create a crystal node/building visual: a cluster of tall, jagged spires
+    /// (procedurally faceted meshes — flat shaded, polygonal sides, taper to
+    /// an irregular apex). Purple base fading to dark green tips with a white
+    /// point light at the core.
     /// </summary>
     private void CreateCrystalNodeVisual(GameObject root, int presentationId, Color coreColor, Color glowColor, Entity entity)
     {
@@ -2731,39 +3105,45 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         var rng = new System.Random(entity.Index + presentationId);
 
-        // --- Central dominant crystal (tall bulbous sphere, stretched vertically) ---
-        var mainCrystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        mainCrystal.name = "MainCrystal";
+        // --- Central dominant spire (tall jagged spike) ---
+        float mainHeight = 4.2f * scale;
+        var mainCrystal = BuildCrystalSpire(
+            "MainCrystal",
+            height: mainHeight,
+            baseRadius: 0.55f * scale,
+            sides: 6,
+            rings: 4,
+            jaggedness: 0.30f,
+            rng: rng);
         mainCrystal.transform.SetParent(root.transform, false);
-        float mainHeight = 2.8f * scale;
-        mainCrystal.transform.localPosition = Vector3.up * (mainHeight * 0.45f);
-        mainCrystal.transform.localScale = new Vector3(1.1f * scale, mainHeight, 0.95f * scale);
+        mainCrystal.transform.localPosition = Vector3.zero;
         mainCrystal.transform.localRotation = Quaternion.Euler(
             (float)rng.NextDouble() * 6f - 3f, (float)rng.NextDouble() * 360f,
             (float)rng.NextDouble() * 6f - 3f);
         ApplyCrystalMaterial(mainCrystal, purpleBase, greenTip, emissionPurple, tipBlend: 0.65f);
-        DestroyCollider(mainCrystal);
 
-        // --- Secondary bulbous crystals (leaning outward) ---
+        // --- Secondary spires (leaning outward) ---
         int secondaryCount = presentationId == 310 ? 4 : 2;
         for (int i = 0; i < secondaryCount; i++)
         {
             float angle = (i / (float)secondaryCount) * 360f + (float)rng.NextDouble() * 40f;
             float dist  = (0.55f + (float)rng.NextDouble() * 0.35f) * scale;
-            float h     = 1.4f + (float)rng.NextDouble() * 1.0f;
+            float h     = (2.2f + (float)rng.NextDouble() * 1.4f) * scale;
 
-            var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            crystal.name = $"Crystal_{i}";
+            var crystal = BuildCrystalSpire(
+                $"Crystal_{i}",
+                height: h,
+                baseRadius: (0.30f + (float)rng.NextDouble() * 0.15f) * scale,
+                sides: 5,
+                rings: 3,
+                jaggedness: 0.35f,
+                rng: rng);
             crystal.transform.SetParent(root.transform, false);
             float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-            crystal.transform.localPosition = new Vector3(px, h * 0.4f * scale, pz);
-            crystal.transform.localScale = new Vector3(
-                (0.55f + (float)rng.NextDouble() * 0.25f) * scale,
-                h * scale,
-                (0.50f + (float)rng.NextDouble() * 0.20f) * scale);
-            // Lean outward from center for organic feel
-            float lean = 10f + (float)rng.NextDouble() * 20f;
+            crystal.transform.localPosition = new Vector3(px, 0f, pz);
+            // Lean outward — apex tilts away from the cluster center.
+            float lean = 12f + (float)rng.NextDouble() * 18f;
             crystal.transform.localRotation = Quaternion.Euler(
                 Mathf.Cos(angle * Mathf.Deg2Rad) * lean,
                 angle + (float)rng.NextDouble() * 30f,
@@ -2771,27 +3151,28 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             float tipT = 0.4f + (float)rng.NextDouble() * 0.4f;
             ApplyCrystalMaterial(crystal, purpleBase, greenTip, emissionPurple, tipBlend: tipT);
-            DestroyCollider(crystal);
         }
 
-        // --- Small eroded nub clusters at the base ---
+        // --- Small jagged shards at the base ---
         int nubCount = presentationId == 310 ? 6 : 3;
         for (int i = 0; i < nubCount; i++)
         {
             float angle = (float)rng.NextDouble() * 360f;
-            float dist  = (0.3f + (float)rng.NextDouble() * 0.8f) * scale;
-            float nubH  = 0.25f + (float)rng.NextDouble() * 0.45f;
+            float dist  = (0.4f + (float)rng.NextDouble() * 0.9f) * scale;
+            float nubH  = (0.6f + (float)rng.NextDouble() * 0.7f) * scale;
 
-            var nub = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            nub.name = $"Nub_{i}";
+            var nub = BuildCrystalSpire(
+                $"Nub_{i}",
+                height: nubH,
+                baseRadius: (0.16f + (float)rng.NextDouble() * 0.10f) * scale,
+                sides: 4,
+                rings: 2,
+                jaggedness: 0.40f,
+                rng: rng);
             nub.transform.SetParent(root.transform, false);
             float px = Mathf.Cos(angle * Mathf.Deg2Rad) * dist;
             float pz = Mathf.Sin(angle * Mathf.Deg2Rad) * dist;
-            nub.transform.localPosition = new Vector3(px, nubH * 0.35f * scale, pz);
-            nub.transform.localScale = new Vector3(
-                (0.25f + (float)rng.NextDouble() * 0.20f) * scale,
-                nubH * scale,
-                (0.25f + (float)rng.NextDouble() * 0.20f) * scale);
+            nub.transform.localPosition = new Vector3(px, 0f, pz);
             nub.transform.localRotation = Quaternion.Euler(
                 (float)rng.NextDouble() * 30f - 15f,
                 (float)rng.NextDouble() * 360f,
@@ -2799,19 +3180,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             // Nubs are more purple (base region), less green blend
             ApplyCrystalMaterial(nub, purpleBase, greenTip, emissionPurple, tipBlend: 0.15f);
-            DestroyCollider(nub);
         }
 
-        // --- Ground stain / base disc ---
-        var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        basePlate.name = "BasePlate";
-        basePlate.transform.SetParent(root.transform, false);
-        basePlate.transform.localPosition = Vector3.up * 0.04f;
-        basePlate.transform.localScale = new Vector3(1.8f * scale, 0.04f, 1.8f * scale);
-        var darkBase = purpleBase * 0.3f;
-        darkBase.a = 0.85f;
-        ApplyCrystalMaterial(basePlate, darkBase, darkBase, emissionPurple * 0.15f, tipBlend: 0f);
-        DestroyCollider(basePlate);
+        // (Ground-stain base disc removed — the cursed-ground splat painted
+        // by CrystalSpreadSystem now provides the dark stain underneath.)
 
         // --- White point light inside the crystal cluster ---
         var lightObj = new GameObject("CrystalCoreLight");
@@ -2823,6 +3195,23 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         pointLight.intensity = presentationId == 310 ? 1.8f : 1.2f;
         pointLight.range = 3.5f * scale;
         pointLight.shadows = LightShadows.None;
+
+        // --- Ambient curse particle drift (task-111 phase 3) ---
+        // Only the main crystal node (PresentationID 310) gets ambient motes.
+        // Sub-nodes (Resource/Enforcement/Suppression/etc.) are visual accents
+        // and don't drive curse spread, so they don't need their own particle
+        // system. The particle GO is parented to the node root so it cleans
+        // up automatically when the entity is destroyed.
+        if (presentationId == 310)
+        {
+            var particleGo = ProceduralCurseParticleGenerator.Create(
+                root.transform.position, entity, _em);
+            if (particleGo != null)
+            {
+                particleGo.transform.SetParent(root.transform, worldPositionStays: false);
+                particleGo.transform.localPosition = Vector3.zero;
+            }
+        }
     }
 
     /// <summary>Helper to strip colliders off procedural primitives.</summary>
@@ -2830,6 +3219,119 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         var col = go.GetComponent<Collider>();
         if (col != null) Destroy(col);
+    }
+
+    /// <summary>
+    /// Build a faceted crystal-spire GameObject with MeshFilter + MeshRenderer
+    /// attached. Polygonal cross-section taper from a base ring to a single
+    /// apex at the top, with each ring vertex randomly perturbed for jagged
+    /// edges. Vertices are split per-triangle so URP/Lit flat-shades each
+    /// facet (no smoothing across edges) — the shape reads as crystalline
+    /// rather than rounded.
+    ///
+    /// Parameters:
+    ///   sides      — polygonal divisions around the vertical axis (4-8 looks best).
+    ///   rings      — vertical ring stages between base and apex (2-5).
+    ///   jaggedness — 0..1 random radial perturbation factor per vertex.
+    /// </summary>
+    private static GameObject BuildCrystalSpire(string name, float height, float baseRadius,
+        int sides, int rings, float jaggedness, System.Random rng)
+    {
+        if (sides < 3) sides = 3;
+        if (rings < 1) rings = 1;
+
+        var smoothVerts = new List<Vector3>();
+        var smoothTris = new List<int>();
+
+        // Build vertical rings, base (r=0) → near-apex (r=rings).
+        var ringIdx = new int[rings + 1, sides];
+        for (int r = 0; r <= rings; r++)
+        {
+            float t = r / (float)rings;
+            float y = height * t;
+            // Quadratic taper: stays full near the base, narrows aggressively
+            // near the top so the silhouette reads as a spire, not a cone.
+            float radius = baseRadius * (1f - 0.85f * (t * t));
+            // Twist each ring so opposing facets don't form long flat strips.
+            float ringTwist = (float)rng.NextDouble() * (Mathf.PI / sides);
+            for (int s = 0; s < sides; s++)
+            {
+                float angle = ringTwist + s * (Mathf.PI * 2f / sides);
+                float jag = 1f + ((float)rng.NextDouble() - 0.5f) * jaggedness;
+                float ax = Mathf.Cos(angle) * radius * jag;
+                float az = Mathf.Sin(angle) * radius * jag;
+                ringIdx[r, s] = smoothVerts.Count;
+                smoothVerts.Add(new Vector3(ax, y, az));
+            }
+        }
+
+        // Apex point — slightly off-center for asymmetry.
+        int apexIdx = smoothVerts.Count;
+        smoothVerts.Add(new Vector3(
+            ((float)rng.NextDouble() - 0.5f) * baseRadius * 0.20f,
+            height * 1.04f,
+            ((float)rng.NextDouble() - 0.5f) * baseRadius * 0.20f));
+
+        // Side quads between rings (two triangles each).
+        for (int r = 0; r < rings; r++)
+        {
+            for (int s = 0; s < sides; s++)
+            {
+                int s2 = (s + 1) % sides;
+                int a = ringIdx[r, s];
+                int b = ringIdx[r, s2];
+                int c = ringIdx[r + 1, s];
+                int d = ringIdx[r + 1, s2];
+                smoothTris.Add(a); smoothTris.Add(c); smoothTris.Add(b);
+                smoothTris.Add(b); smoothTris.Add(c); smoothTris.Add(d);
+            }
+        }
+
+        // Cap to apex from the top ring.
+        int topRing = rings;
+        for (int s = 0; s < sides; s++)
+        {
+            int s2 = (s + 1) % sides;
+            smoothTris.Add(ringIdx[topRing, s]);
+            smoothTris.Add(apexIdx);
+            smoothTris.Add(ringIdx[topRing, s2]);
+        }
+
+        // Bottom cap (closed base disc) so the spire isn't see-through from
+        // below when the camera tilts low. Triangle fan around the centroid.
+        int baseCenterIdx = smoothVerts.Count;
+        smoothVerts.Add(new Vector3(0f, 0f, 0f));
+        for (int s = 0; s < sides; s++)
+        {
+            int s2 = (s + 1) % sides;
+            smoothTris.Add(baseCenterIdx);
+            smoothTris.Add(ringIdx[0, s2]);
+            smoothTris.Add(ringIdx[0, s]);
+        }
+
+        // Flat-shade by giving every triangle its own three vertices. Each
+        // face then gets a unique normal and the spire reads as faceted.
+        var srcVerts = smoothVerts.ToArray();
+        var srcTris = smoothTris.ToArray();
+        var flatVerts = new Vector3[srcTris.Length];
+        var flatTris = new int[srcTris.Length];
+        for (int i = 0; i < srcTris.Length; i++)
+        {
+            flatVerts[i] = srcVerts[srcTris[i]];
+            flatTris[i] = i;
+        }
+
+        var mesh = new Mesh { name = $"{name}_SpireMesh" };
+        mesh.vertices = flatVerts;
+        mesh.triangles = flatTris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        var go = new GameObject(name);
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>();
+        return go;
     }
 
     /// <summary>

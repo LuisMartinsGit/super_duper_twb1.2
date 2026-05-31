@@ -24,6 +24,7 @@ public static class BuildingSizeConfig
             "Hut"               => new int2(3, 3),
             "GatherersHut"      => new int2(2, 2),
             "Barracks"          => new int2(3, 4),
+            "ArcheryRange"      => new int2(3, 4),
 
             // Era 1 Advanced / Choice
             "ShrineOfRidan"     => new int2(3, 3),
@@ -37,11 +38,11 @@ public static class BuildingSizeConfig
             // Alanthor culture
             "Alanthor_Smelter"  => new int2(3, 3),
             "Alanthor_Tower"    => new int2(2, 2),
-            "Alanthor_Garrison" => new int2(3, 4),
-            "Alanthor_Stable"   => new int2(4, 3),
+            "Alanthor_PracticeRange" => new int2(3, 4),
             "Alanthor_SiegeYard"=> new int2(3, 3),
             "KingsCourt"        => new int2(4, 4),
             "Alanthor_Crucible" => new int2(3, 3),
+            "Alanthor_RoyalStable" => new int2(3, 4),
 
             // Runai culture
             "Runai_Outpost"     => new int2(3, 3),

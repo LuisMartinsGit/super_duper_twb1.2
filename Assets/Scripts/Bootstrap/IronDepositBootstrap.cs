@@ -1,54 +1,31 @@
 // File: Assets/Scripts/Bootstrap/IronDepositBootstrap.cs
-// Spawns iron ore as patches (clusters) instead of single scattered deposits.
-// Each player gets one patch close to their Hall plus several patches scattered
-// across the map. Replaces the earlier "scatter N deposits with min-distance
-// from players" loop, which formed an obvious ring around each spawn.
+// Spawns iron ore as patches (clusters) driven by IronPatchMarker components
+// placed in the hand-authored map scene. Each marker spawns one patch
+// (hex-grid or random cluster) at its position.
 
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
-    /// Spawns iron deposits in patches. Each patch = a tight cluster of N
-    /// deposits players can mine without ferrying miners across the map.
-    ///
-    /// Layout per player:
-    /// - 1 NEAR patch close to the Hall (within NearPatchMinDist..MaxDist)
-    /// - <see cref="ScatteredPatchesPerPlayer"/> patches scattered across the
-    ///   map, with min-distance gates so patches don't overlap and stay out of
-    ///   spawn footprints.
+    /// Spawns iron deposits in patches from scene markers. Each patch = a tight
+    /// cluster of N deposits players can mine without ferrying miners across the
+    /// map. Placement is fully marker-driven (hand-authored maps only).
     /// </summary>
     public static class IronDepositBootstrap
     {
         // Presentation ID (must match PresentationSpawnSystem)
         public const int IronDepositPresentationId = 402;
 
-        // Per-deposit settings
+        // Per-deposit settings.
         private const float DepositRadius = 1.5f;
-        private const int IronPerDeposit = 500;
-
-        // Patch settings
-        private const int DepositsPerPatch = 3;            // 3 deposits per cluster
-        private const float PatchSpread = 4f;              // deposits within 4u of patch center
-
-        // NEAR patch (one per player)
-        private const float NearPatchMinDist = 22f;        // outside Hall footprint (~20u)
-        private const float NearPatchMaxDist = 32f;        // close enough to mine without long walks
-
-        // SCATTERED patches
-        private const int ScatteredPatchesPerPlayer = 4;
-        private const float ScatteredMinDistFromPlayer = 50f;
-        private const float MinDistBetweenPatchCenters = 24f;
-
-        // Heightmap constraints (only enforced when NOT FlatTestMap)
-        private const float MinHeight = 23f;               // above shoreline
-        private const float MaxHeight = 85f;
-        private const float MaxSlope = 0.6f;               // not on cliffs
+        private const int IronPerDeposit = 50;
 
         public static void SpawnIronDeposits()
         {
@@ -58,52 +35,96 @@ namespace TheWaningBorder.Bootstrap
             var em = world.EntityManager;
             var random = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xDEAD));
 
-            var playerPositions = GetPlayerPositions(em);
-            int half = GameSettings.MapHalfSize;
-            float spawnRange = half * 0.85f;
-
-            // Track placed patch centers so scattered patches don't overlap them
-            // (or each other) and form visible clusters across the map.
-            var patchCenters = new Unity.Collections.NativeList<float3>(
-                playerPositions.Length * (1 + ScatteredPatchesPerPlayer),
-                Unity.Collections.Allocator.Temp);
-
-            // 1. NEAR patches — one per player. Always succeed (we picked the
-            //    direction from the player ourselves; no validation step).
-            for (int p = 0; p < playerPositions.Length; p++)
+            if (!MapMarkerRegistry.HasIronMarkers)
             {
-                float3 center = PickNearPatchCenter(playerPositions[p], ref random);
-                SpawnIronPatch(em, center, ref random);
-                patchCenters.Add(center);
+                Debug.LogWarning("[IronDepositBootstrap] no IronPatchMarker in the scene — " +
+                                 "no iron deposits will spawn. Place markers in the map.");
+                return;
             }
 
-            // 2. SCATTERED patches — N per player, gated by distance and terrain.
-            int scatteredCount = playerPositions.Length * ScatteredPatchesPerPlayer;
-            for (int i = 0; i < scatteredCount; i++)
-            {
-                if (TryFindScatteredPatchCenter(ref random, spawnRange,
-                        playerPositions, patchCenters, out float3 center))
-                {
-                    SpawnIronPatch(em, center, ref random);
-                    patchCenters.Add(center);
-                }
-            }
-
-            patchCenters.Dispose();
+            // IronPatchMarkers in the scene drive placement. We seed RNG from
+            // SpawnSeed so the jitter / shuffle inside each patch is
+            // deterministic across re-loads.
+            SpawnIronFromMarkers(em, ref random);
         }
 
         /// <summary>
-        /// Place <see cref="DepositsPerPatch"/> deposits jittered within
-        /// <see cref="PatchSpread"/> of <paramref name="center"/>. Snaps each to
-        /// terrain height. No water/slope check — patch centers were already
-        /// validated upstream.
+        /// Spawn one iron patch per IronPatchMarker in the scene, honouring its
+        /// DepositCount, Spread, and Layout.
         /// </summary>
-        private static void SpawnIronPatch(EntityManager em, float3 center, ref Unity.Mathematics.Random random)
+        private static void SpawnIronFromMarkers(EntityManager em, ref Unity.Mathematics.Random random)
         {
-            for (int i = 0; i < DepositsPerPatch; i++)
+            var markers = MapMarkerRegistry.IronPatches;
+            for (int i = 0; i < markers.Count; i++)
+            {
+                var m = markers[i];
+                if (m == null) continue;
+
+                var p = m.WorldPosition;
+                float y = TerrainUtility.GetHeight(p.x, p.z);
+                float3 center = new float3(p.x, y, p.z);
+
+                if (m.Layout == PatchLayout.HexGrid)
+                    SpawnIronPatchHex(em, center, m.DepositCount, m.Spread, ref random);
+                else
+                    SpawnIronPatchRandom(em, center, m.DepositCount, m.Spread, ref random);
+            }
+        }
+
+        /// <summary>
+        /// Hex-grid spawn for a marker-driven patch — deposits placed on a hex
+        /// grid with per-cell jitter, taking deposit count + spread from the
+        /// marker.
+        /// </summary>
+        private static void SpawnIronPatchHex(EntityManager em, float3 center,
+            int depositCount, float spread, ref Unity.Mathematics.Random random)
+        {
+            // Pick a ring count large enough to fit depositCount with some
+            // shuffle headroom. 1+6+12+18+24 = 61 slots at 4 rings, plenty
+            // for typical patch sizes.
+            int rings = depositCount <= 7  ? 1 :
+                        depositCount <= 19 ? 2 :
+                        depositCount <= 37 ? 3 : 4;
+            float spacing = spread / Mathf.Max(1, rings);
+            float jitter  = spacing * 0.30f;
+
+            var slots = new Unity.Collections.NativeList<float2>(64, Unity.Collections.Allocator.Temp);
+            GenerateHexSlots(rings, spacing, slots);
+
+            // Fisher-Yates shuffle.
+            for (int i = slots.Length - 1; i > 0; i--)
+            {
+                int j = random.NextInt(0, i + 1);
+                float2 tmp = slots[i];
+                slots[i] = slots[j];
+                slots[j] = tmp;
+            }
+
+            int placeCount = math.min(depositCount, slots.Length);
+            for (int i = 0; i < placeCount; i++)
+            {
+                float2 slot = slots[i];
+                float jx = random.NextFloat(-jitter, jitter);
+                float jz = random.NextFloat(-jitter, jitter);
+                float x = center.x + slot.x + jx;
+                float z = center.z + slot.y + jz;
+                float y = TerrainUtility.GetHeight(x, z);
+                CreateIronDepositEntity(em, new float3(x, y, z));
+            }
+
+            slots.Dispose();
+        }
+
+        /// <summary>
+        /// Random-cluster spawn for a marker-driven patch.
+        /// </summary>
+        private static void SpawnIronPatchRandom(EntityManager em, float3 center,
+            int depositCount, float spread, ref Unity.Mathematics.Random random)
+        {
+            for (int i = 0; i < depositCount; i++)
             {
                 float angle = random.NextFloat(0f, math.PI * 2f);
-                float dist  = random.NextFloat(0f, PatchSpread);
+                float dist  = random.NextFloat(0f, spread);
                 float x = center.x + math.cos(angle) * dist;
                 float z = center.z + math.sin(angle) * dist;
                 float y = TerrainUtility.GetHeight(x, z);
@@ -111,88 +132,54 @@ namespace TheWaningBorder.Bootstrap
             }
         }
 
-        /// <summary>
-        /// Pick a random direction from <paramref name="player"/> at a random
-        /// distance in [NearPatchMinDist, NearPatchMaxDist]. No validation —
-        /// the spawn area is guaranteed clear of obstacles by spawn flatten,
-        /// and on FlatTestMap there are no water/slope concerns.
-        /// </summary>
-        private static float3 PickNearPatchCenter(float3 player, ref Unity.Mathematics.Random random)
+        // Axial-coordinate neighbour directions for hex-grid traversal.
+        // Walked in this order they trace each ring once around the centre.
+        private static readonly int[,] HexDirs = new int[,]
         {
-            float angle = random.NextFloat(0f, math.PI * 2f);
-            float dist  = random.NextFloat(NearPatchMinDist, NearPatchMaxDist);
-            float x = player.x + math.cos(angle) * dist;
-            float z = player.z + math.sin(angle) * dist;
-            float y = TerrainUtility.GetHeight(x, z);
-            return new float3(x, y, z);
-        }
+            {  1,  0 }, {  1, -1 }, {  0, -1 },
+            { -1,  0 }, { -1,  1 }, {  0,  1 }
+        };
 
         /// <summary>
-        /// Pick a random position on the map for a scattered patch, ensuring
-        /// minimum distance from all players and from already-placed patches.
-        /// On non-flat maps, also rejects water and out-of-band heights.
+        /// Fills <paramref name="output"/> with the cartesian positions of
+        /// every cell in a hex grid of <paramref name="maxRings"/> rings,
+        /// starting from the centre cell (ring 0). Output is centred on the
+        /// origin — the caller offsets to the patch position.
         /// </summary>
-        private static bool TryFindScatteredPatchCenter(
-            ref Unity.Mathematics.Random random,
-            float spawnRange,
-            float3[] playerPositions,
-            Unity.Collections.NativeList<float3> patchCenters,
-            out float3 result)
+        private static void GenerateHexSlots(
+            int maxRings,
+            float spacing,
+            Unity.Collections.NativeList<float2> output)
         {
-            result = float3.zero;
-            bool isFlat = GameSettings.FlatTestMap;
-            var terrain = ProceduralTerrain.Instance;
+            output.Add(float2.zero);
+            const float SQRT3_OVER_2 = 0.8660254f;
 
-            for (int attempt = 0; attempt < 40; attempt++)
+            for (int ring = 1; ring <= maxRings; ring++)
             {
-                float x = random.NextFloat(-spawnRange, spawnRange);
-                float z = random.NextFloat(-spawnRange, spawnRange);
-                float y = TerrainUtility.GetHeight(x, z);
-                float3 candidate = new float3(x, y, z);
-
-                if (!isFlat)
+                int q = -ring;
+                int r = ring;
+                for (int side = 0; side < 6; side++)
                 {
-                    if (terrain != null && terrain.IsInWater(new Vector3(x, y, z))) continue;
-                    if (y < MinHeight || y > MaxHeight) continue;
-
-                    // Slope check (skip cliffs).
-                    float step = 2f;
-                    float hL = TerrainUtility.GetHeight(x - step, z);
-                    float hR = TerrainUtility.GetHeight(x + step, z);
-                    float hD = TerrainUtility.GetHeight(x, z - step);
-                    float hU = TerrainUtility.GetHeight(x, z + step);
-                    float dX = (hR - hL) / (step * 2f);
-                    float dZ = (hU - hD) / (step * 2f);
-                    if (math.sqrt(dX * dX + dZ * dZ) > MaxSlope) continue;
+                    for (int step = 0; step < ring; step++)
+                    {
+                        float x = spacing * (q + r * 0.5f);
+                        float z = spacing * r * SQRT3_OVER_2;
+                        output.Add(new float2(x, z));
+                        q += HexDirs[side, 0];
+                        r += HexDirs[side, 1];
+                    }
                 }
-
-                bool tooCloseToPlayer = false;
-                for (int p = 0; p < playerPositions.Length; p++)
-                {
-                    if (math.distance(candidate, playerPositions[p]) < ScatteredMinDistFromPlayer)
-                    { tooCloseToPlayer = true; break; }
-                }
-                if (tooCloseToPlayer) continue;
-
-                bool tooCloseToPatch = false;
-                for (int o = 0; o < patchCenters.Length; o++)
-                {
-                    if (math.distance(candidate, patchCenters[o]) < MinDistBetweenPatchCenters)
-                    { tooCloseToPatch = true; break; }
-                }
-                if (tooCloseToPatch) continue;
-
-                result = candidate;
-                return true;
             }
-
-            return false;
         }
 
         private static Entity CreateIronDepositEntity(EntityManager em, float3 position)
         {
             var entity = em.CreateEntity(
                 typeof(IronMineTag),
+                // ObstacleTag — units route around the deposit on the
+                // passability grid AND the deposit's footprint is fed into
+                // NavMeshManager so pathfinding can't try to clip through it.
+                typeof(ObstacleTag),
                 typeof(IronDepositState),
                 typeof(LocalTransform),
                 typeof(Radius),
@@ -200,11 +187,14 @@ namespace TheWaningBorder.Bootstrap
             );
 
             em.SetComponentData(entity, LocalTransform.FromPosition(position));
-            em.SetComponentData(entity, new Radius { Value = DepositRadius });
+            // Visual is scaled +30 % from the prefab, so use the larger
+            // collision radius (1.5 m × 1.3) for both passability and navmesh.
+            em.SetComponentData(entity, new Radius { Value = DepositRadius * 1.3f });
             em.SetComponentData(entity, new PresentationId { Id = IronDepositPresentationId });
             em.SetComponentData(entity, new IronDepositState
             {
                 RemainingIron = IronPerDeposit,
+                InitialIron = IronPerDeposit,
                 Depleted = 0
             });
 
@@ -214,46 +204,14 @@ namespace TheWaningBorder.Bootstrap
                 SpawnTick = 0
             });
 
+            // Block the passability grid cells under the deposit footprint
+            // so movement steers around it. NavMeshManager picks up the
+            // ObstacleTag entity and carves a matching box out of the navmesh.
+            var grid = PassabilityGrid.Instance;
+            if (grid != null)
+                grid.BlockObstacle(position, DepositRadius * 1.3f);
+
             return entity;
-        }
-
-        /// <summary>
-        /// Get player positions from existing Halls, or estimate from spawn layout.
-        /// </summary>
-        private static float3[] GetPlayerPositions(EntityManager em)
-        {
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
-
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-
-            if (hallTransforms.Length > 0)
-            {
-                var positions = new float3[hallTransforms.Length];
-                for (int i = 0; i < hallTransforms.Length; i++)
-                    positions[i] = hallTransforms[i].Position;
-                return positions;
-            }
-
-            // Fallback: estimate from player count
-            int playerCount = GameSettings.TotalPlayers;
-            int half = GameSettings.MapHalfSize;
-            float spawnRadius = half * 0.5f;
-            var fallback = new float3[playerCount];
-
-            for (int i = 0; i < playerCount; i++)
-            {
-                float angle = (i / (float)playerCount) * math.PI * 2f;
-                fallback[i] = new float3(
-                    math.cos(angle) * spawnRadius,
-                    0f,
-                    math.sin(angle) * spawnRadius
-                );
-            }
-
-            return fallback;
         }
     }
 }

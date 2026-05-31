@@ -165,6 +165,11 @@ namespace TheWaningBorder.UI.Panels
             // has picked a culture. Click triggers UpgradeBuildingCommandHelper.
             DrawUpgradeButton();
 
+            // Self-destruct countdown progress bar — shown on Gatherer's Huts
+            // and Huts after Alanthor age-up. Reads SelfDestructTimer added by
+            // AgeUpSystem. Bar fills as TimeRemaining approaches zero.
+            DrawSelfDestructProgress();
+
             GUILayout.Space(10);
 
             // Stats section
@@ -880,9 +885,13 @@ namespace TheWaningBorder.UI.Panels
 
         /// <summary>
         /// Check if pointer is over this panel.
+        /// When this IMGUI panel is suspended by GameplayUIController (UI Toolkit
+        /// migration), the new jade panels report through GameplayUIController.IsPointerOverHUD
+        /// so the input system continues to block world clicks correctly.
         /// </summary>
         public static bool IsPointerOver()
         {
+            if (TheWaningBorder.UI.GameplayUIController.IsPointerOverHUD) return true;
             if (!PanelVisible) return false;
             var mousePos = UnityEngine.Input.mousePosition;
             var screenRect = new Rect(
@@ -892,6 +901,43 @@ namespace TheWaningBorder.UI.Panels
                 PanelRect.height
             );
             return screenRect.Contains(mousePos);
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // SELF-DESTRUCT COUNTDOWN
+        // ──────────────────────────────────────────────────────────────────
+
+        // Renders a red progress bar when the selected building has a
+        // SelfDestructTimer (Gatherer's Huts / Huts after Alanthor age-up).
+        // Fill represents time elapsed — the bar grows as destruction nears.
+        private void DrawSelfDestructProgress()
+        {
+            var entity = UnifiedUIManager.GetFirstSelectedEntity();
+            var em = UnifiedUIManager.GetEntityManager();
+            if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
+            if (!em.Exists(entity)) return;
+            if (!em.HasComponent<SelfDestructTimer>(entity)) return;
+
+            var t = em.GetComponentData<SelfDestructTimer>(entity);
+            float duration = t.Duration > 0f ? t.Duration : 120f;
+            float remaining = Mathf.Max(0f, t.TimeRemaining);
+            float elapsed = duration - remaining;
+            float pct = Mathf.Clamp01(elapsed / duration);
+
+            GUILayout.Space(6);
+            GUILayout.Label($"Self-destruct in {(int)remaining}s  ({Mathf.RoundToInt(pct * 100f)}%)",
+                Styles.Label);
+
+            var barRect = GUILayoutUtility.GetRect(0, 14, GUILayout.ExpandWidth(true));
+            GUI.color = new Color(0.15f, 0.05f, 0.08f, 1f);
+            GUI.DrawTexture(barRect, Texture2D.whiteTexture);
+
+            // Red fill — grows as destruction approaches.
+            var fillRect = new Rect(barRect.x, barRect.y, barRect.width * pct, barRect.height);
+            GUI.color = new Color(0.85f, 0.25f, 0.25f, 1f);
+            GUI.DrawTexture(fillRect, Texture2D.whiteTexture);
+
+            GUI.color = Color.white;
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -905,12 +951,34 @@ namespace TheWaningBorder.UI.Panels
         private float _upgradeFeedbackUntil;
         private const float BuildingUpgradeFeedbackTimeout = 3f;
 
+        // Diagnostic: log the eligibility outcome ONCE per entity so we
+        // can see in the console which gate (Upgradeable / Faction / etc.)
+        // is rejecting an upgrade attempt without spamming every frame.
+        private Entity _lastDiagEntity = Entity.Null;
+        private string _lastDiagOutcome;
+
         private void DrawUpgradeButton()
         {
             var entity = UnifiedUIManager.GetFirstSelectedEntity();
             var em = UnifiedUIManager.GetEntityManager();
             if (entity == Entity.Null || em.Equals(default(EntityManager))) return;
             if (!em.Exists(entity)) return;
+
+            // Diagnostic: log once when selection changes, so the console
+            // tells us whether the button is being suppressed.
+            if (entity != _lastDiagEntity)
+            {
+                _lastDiagEntity = entity;
+                bool upgradeable = em.HasComponent<BuildingUpgradeable>(entity);
+                bool hasFaction  = em.HasComponent<FactionTag>(entity);
+                Faction sFac = hasFaction ? em.GetComponentData<FactionTag>(entity).Value : (Faction)255;
+                bool localOwned = hasFaction && sFac == GameSettings.LocalPlayerFaction;
+                byte lvl = em.HasComponent<BuildingUpgradeState>(entity)
+                    ? em.GetComponentData<BuildingUpgradeState>(entity).Level : (byte)0;
+                TWBLog.Log($"[Upgrade] selected entity {entity.Index}: " +
+                          $"upgradeable={upgradeable} faction={sFac} local={localOwned} level={lvl}");
+            }
+
             if (!em.HasComponent<BuildingUpgradeable>(entity)) return;
 
             // Local-player only — no upgrade button on enemy buildings.
@@ -944,10 +1012,20 @@ namespace TheWaningBorder.UI.Panels
                 out var cost, out byte nextLevel))
             {
                 string costLabel = FormatCost(cost);
+                bool canAfford = TheWaningBorder.Economy.FactionEconomy.CanAfford(em, fac, cost);
+
+                bool wasEnabled = GUI.enabled;
+                if (!canAfford) GUI.enabled = false;
+
                 bool clicked = GUILayout.Button($"Upgrade to L{nextLevel} — {costLabel}");
+
+                GUI.enabled = wasEnabled;
+
                 if (clicked)
                 {
+                    TWBLog.Log($"[Upgrade] click — entity {entity.Index}, target L{nextLevel}, cost {costLabel}");
                     var result = UpgradeBuildingCommandHelper.Execute(em, entity);
+                    TWBLog.Log($"[Upgrade] result = {result}");
                     _upgradeFeedback = FeedbackFor(result);
                     _upgradeFeedbackUntil = Time.realtimeSinceStartup + BuildingUpgradeFeedbackTimeout;
                 }

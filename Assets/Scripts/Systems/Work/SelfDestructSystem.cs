@@ -90,15 +90,10 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private static string GetBuildingId(EntityManager em, Entity entity)
         {
-            if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
-            if (em.HasComponent<HallTag>(entity)) return "Hall";
-            if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
-            if (em.HasComponent<HutTag>(entity)) return "Hut";
-            if (em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
-            if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
-            if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
-            if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
-            return null;
+            // Delegate to the canonical entity->building-id mapping. BuildCosts is the
+            // single source of truth and explicitly names this system as a reader, so
+            // self-destruct refunds now cover every building type it knows.
+            return TheWaningBorder.Data.BuildCosts.IdFromEntity(em, entity);
         }
     }
 }

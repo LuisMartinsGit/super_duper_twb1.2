@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c38561edbe1d8034e8b700cb28542e83
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 354454
+  packageName: Terrain Edge Wall
+  packageVersion: 1.0.0
+  assetPath: Assets/Gen90Software/TerrainEdgeWall/_Demo/TerrainSideLayers.mat
+  uploadId: 844672

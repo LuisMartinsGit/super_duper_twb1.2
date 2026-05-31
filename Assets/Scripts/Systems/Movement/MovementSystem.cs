@@ -39,6 +39,15 @@ namespace TheWaningBorder.Systems.Movement
         private const float TurnSpeed = 8f; // radians per second (~460 deg/s)
         private const float MaxWalkableSlope = 0.55f; // terrain slope above this blocks movement
         private const float SlopeCheckStep = 1.5f;    // distance between height samples for slope estimation
+        // Radius for the per-step navmesh height probe that lets units ride wall
+        // ramps/decks (deck at y~4) instead of being snapped to terrain. Kept small
+        // so a unit on the ground next to a wall doesn't snap up to the deck 4 m above.
+        private const float NavHeightSnapRadius = 2f;
+        // Max distance a fallback (no-navmesh-path) step may be off the navmesh
+        // before it's blocked. Slack covers the agent-radius erosion at navmesh
+        // edges; anything further (cliffs, water, steep ground the bake excluded)
+        // is rejected so units can't straight-line off the navmesh surface.
+        private const float NavStepTolerance = 2f;
 
         /// <summary>Minimum squared distance between cached and current destination to trigger a new request.</summary>
         private const float DestChangedThresholdSq = 0.01f; // 0.1 world units
@@ -351,14 +360,18 @@ namespace TheWaningBorder.Systems.Movement
                 // PR3 — navmesh is the only path source. Walk the corridor
                 // computed by NavMeshPathRequestSystem; fall back to direct-
                 // line until the first request resolves.
+                bool followingNavCorridor = false;
                 if (em.HasComponent<NavMeshPathfollowState>(entity)
                     && em.HasBuffer<NavMeshWaypoint>(entity))
                 {
                     var nmState = em.GetComponentData<NavMeshPathfollowState>(entity);
                     if (nmState.HasPath != 0)
                     {
+                        followingNavCorridor = true;
                         var waypoints = em.GetBuffer<NavMeshWaypoint>(entity);
-                        if (nmState.CurrentWaypoint < waypoints.Length)
+                        bool corridorExhausted = nmState.CurrentWaypoint >= waypoints.Length;
+
+                        if (!corridorExhausted)
                         {
                             var wp = waypoints[nmState.CurrentWaypoint].Position;
                             float3 toWp = wp - pos;
@@ -376,12 +389,39 @@ namespace TheWaningBorder.Systems.Movement
                                     toWp.y = 0f;
                                     wpDist = math.length(toWp);
                                 }
-                                // else: corridor exhausted; fall through to direct-line
-                                // toward goal (DesiredDestination arrival check stops).
+                                else
+                                {
+                                    corridorExhausted = true;
+                                }
                             }
 
-                            if (wpDist > 1e-4f)
+                            if (!corridorExhausted && wpDist > 1e-4f)
                                 dir = toWp / wpDist;
+                        }
+
+                        if (corridorExhausted)
+                        {
+                            // Navmesh delivered us as close to the goal as it can.
+                            // The actual goal may be unreachable — a resource
+                            // deposit at the centre of an impassable cluster,
+                            // or a melee target standing inside its own
+                            // building footprint. Before this guard the code
+                            // fell through to direct-line steering, which
+                            // walked workers straight INTO iron / crystal
+                            // patches and got them stuck. Treat the navmesh
+                            // end as arrived: clear DesiredDestination and
+                            // let MiningSystem / TargetingSystem etc. pick
+                            // up from here (re-assign to a closer deposit
+                            // that's now within GatherRange, engage in
+                            // combat, idle, etc.).
+                            dd.ValueRW.Has = 0;
+                            if (em.HasComponent<UserMoveOrder>(entity))
+                                ecb.RemoveComponent<UserMoveOrder>(entity);
+                            if (em.HasComponent<AttackMoveTag>(entity))
+                                ecb.RemoveComponent<AttackMoveTag>(entity);
+                            if (em.HasComponent<FormationSpeedOverride>(entity))
+                                ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                            continue;
                         }
                     }
                     // No HasPath yet — keep direct-line dir as a placeholder.
@@ -435,6 +475,23 @@ namespace TheWaningBorder.Systems.Movement
                 // (wall-enclosure income, spawn placement, building
                 // placement validation) but is no longer consulted here.
                 if (passGrid != null) nextCell = passGrid.WorldToCell(nextPos);
+
+                // === NAVMESH GATE (fallback steering only) ===
+                // When the unit isn't following a resolved navmesh corridor this
+                // frame, `dir` is a straight-line placeholder aimed at the goal.
+                // Don't let that placeholder step OFF the navmesh — onto mesh
+                // cliffs, water, or steep ground the bake excluded (the terrain-
+                // height slope check below is blind to mesh obstacles). The
+                // navmesh is the authority for where units may go; if the step
+                // leaves it, block — stuck-handling cancels the order if the goal
+                // is genuinely off-navmesh. Corridor-followers are already on
+                // valid navmesh, so they skip this (avoids edge jitter).
+                if (!followingNavCorridor && !blocked
+                    && !UnityEngine.AI.NavMesh.SamplePosition(
+                        nextPos, out _, NavStepTolerance, UnityEngine.AI.NavMesh.AllAreas))
+                {
+                    blocked = true;
+                }
 
                 // === SLOPE CHECK with terrain height caching ===
                 // Cache terrain height per cell: if the unit's next position is in the same
@@ -578,7 +635,21 @@ namespace TheWaningBorder.Systems.Movement
                 {
                     terrainY = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
                 }
-                nextPos.y = terrainY;
+
+                // Ride the navmesh surface so units climb wall ramps and march on
+                // the deck (y~4) instead of being yanked to terrain height. Probe
+                // near the unit's CURRENT height so it picks the surface it's
+                // actually on (ground / ramp / deck); off the navmesh, fall back to
+                // terrain. (Perf: one SamplePosition per moving unit per frame —
+                // gate to wall-adjacent units if profiling flags it.)
+                float snapY = terrainY;
+                var heightProbe = new UnityEngine.Vector3(nextPos.x, t.Position.y, nextPos.z);
+                if (UnityEngine.AI.NavMesh.SamplePosition(
+                        heightProbe, out var navHit, NavHeightSnapRadius, UnityEngine.AI.NavMesh.AllAreas))
+                {
+                    snapY = navHit.position.y;
+                }
+                nextPos.y = snapY;
 
                 t.Position = nextPos;
                 xf.ValueRW = t;

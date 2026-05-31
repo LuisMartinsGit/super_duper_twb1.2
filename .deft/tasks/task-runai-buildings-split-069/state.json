@@ -1,0 +1,23 @@
+{
+  "id": "task-runai-buildings-split-069",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 4,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C3 + C4 + H1 + H2). Consolidates four related Runai building cleanups: Bazaar/Hall split, Grazing Grounds add, Runai_Vault retirement, PackBazaar/PackAndMove retirement.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

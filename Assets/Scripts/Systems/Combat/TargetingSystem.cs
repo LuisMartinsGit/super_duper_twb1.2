@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
 
@@ -62,10 +63,12 @@ namespace TheWaningBorder.Systems.Combat
             ProcessAttackCommands(ref state, ref ecb);
 
             // Build enemy arrays ONCE for both auto-acquire and return-to-guard phases
-            // Exclude BattalionLeader — invisible entities with 1 HP must not be targetable
+            // Exclude BattalionLeader — invisible entities with 1 HP must not be targetable.
+            // Exclude NodeUntargetable — crystal nodes are immune to targeting unless
+            // an Iconoclast is in aura range (IconoclastAuraSystem toggles the tag).
             var enemyQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, FactionTag, Health>()
-                .WithNone<BattalionLeader>()
+                .WithNone<BattalionLeader, NodeUntargetable>()
                 .Build();
 
             using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
@@ -87,15 +90,39 @@ namespace TheWaningBorder.Systems.Combat
                 spatialMap.Add(cell, i);
             }
 
+            // Per-target attacker count — spreads attackers across multiple
+            // enemies so rank 2 of a melee column picks a different enemy than
+            // rank 1 instead of queuing up behind it. Snapshot built from
+            // existing Target components, then incremented in-place as we
+            // assign new targets during this OnUpdate so the same enemy can't
+            // be re-picked once it hits MaxAttackersPerEnemy.
+            var attackerCount = new NativeHashMap<Entity, int>(
+                math.max(16, allEnemies.Length), Allocator.Temp);
+            var attackerSnapshotQuery = SystemAPI.QueryBuilder()
+                .WithAll<Target, UnitTag>()
+                .Build();
+            using (var attackerTgts = attackerSnapshotQuery.ToComponentDataArray<Target>(Allocator.Temp))
+            {
+                for (int i = 0; i < attackerTgts.Length; i++)
+                {
+                    var t = attackerTgts[i].Value;
+                    if (t == Entity.Null) continue;
+                    if (attackerCount.TryGetValue(t, out int c)) attackerCount[t] = c + 1;
+                    else attackerCount.Add(t, 1);
+                }
+            }
+
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
             // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
+            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap, ref attackerCount);
 
             // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
             // =============================================================================
             ProcessReturnToGuard(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap);
+
+            attackerCount.Dispose();
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -112,11 +139,14 @@ namespace TheWaningBorder.Systems.Combat
         private void InitializeCombatComponents(ref SystemState state, ref EntityCommandBuffer ecb)
         {
             // Initialize GuardPoint for units that don't have one
-            // Skip battalion members — they are positioned by BattalionSyncSystem, not movement
+            // Skip battalion members — they are positioned by BattalionSyncSystem, not movement.
+            // Skip curse units — long-range hunters driven by CrystalAISystem wave dispatch;
+            // the 20m guard leash below would yank them home mid-march.
             foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
                 .WithNone<GuardPoint>()
                 .WithNone<BattalionMemberData>()
+                .WithNone<CrystalUnitTag>()
                 .WithEntityAccess())
             {
                 ecb.AddComponent(entity, new GuardPoint
@@ -225,20 +255,38 @@ namespace TheWaningBorder.Systems.Combat
                 // Set target component (Target always present on combat units)
                 ecb.SetComponent(entity, new Target { Value = target });
 
-                // Clear destination when attacking — but NOT for battalion leaders,
-                // who need DesiredDestination to march the formation toward the enemy
-                if (em.HasComponent<DesiredDestination>(entity) && !em.HasComponent<BattalionLeader>(entity))
+                // Clear destination when attacking — but NOT for battalion leaders
+                // (who need DesiredDestination to march the formation toward the
+                // enemy) and NOT for Veilstingers (they fire while moving — handled
+                // inside VeilstingerCombatSystem, which keeps their movement intact
+                // and only writes a destination on retreat/chase branches).
+                if (em.HasComponent<DesiredDestination>(entity)
+                    && !em.HasComponent<BattalionLeader>(entity)
+                    && !em.HasComponent<VeilstingerState>(entity))
                 {
                     ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                 }
             }
         }
 
+        // Cap how many MELEE attackers can target the same enemy at once.
+        // Once the cap is hit, overflow melee attackers pick a different
+        // nearby enemy and walk around the front-line clump to reach it.
+        // Falls back to absolute-nearest if no under-cap enemy sits within
+        // SpreadDistRatio × nearest, so units don't trek across the map to
+        // attack a distant under-cap target when a saturated one is right
+        // in front of them.
+        // Does NOT apply to ranged/siege units — they fire from afar and
+        // don't physically clump, so concentrating fire is fine.
+        private const int MaxAttackersPerEnemy = 8;
+        private const float SpreadDistRatio = 1.5f;
+
         [BurstCompile]
         private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
             NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
-            NativeParallelMultiHashMap<int2, int> spatialMap)
+            NativeParallelMultiHashMap<int2, int> spatialMap,
+            ref NativeHashMap<Entity, int> attackerCount)
         {
             var em = state.EntityManager;
 
@@ -256,6 +304,26 @@ namespace TheWaningBorder.Systems.Combat
             {
                 // Skip units that already have an active target
                 if (target.ValueRO.Value != Entity.Null) continue;
+
+                // Scouts are vision-only by design. Even if a future tech /
+                // TechTreeDB entry ever bumps their Damage above 0, they
+                // must NEVER auto-engage — they are the AI's and player's
+                // sole map-vision tool and the AI patrol loop relies on
+                // them staying alive. Explicit class check guarantees this
+                // regardless of the damage value below.
+                if (em.HasComponent<UnitTag>(entity) &&
+                    em.GetComponentData<UnitTag>(entity).Class == UnitClass.Scout)
+                    continue;
+
+                // Damage gate — only units that actually deal damage
+                // engage enemies. Litharchs (and any future zero-damage
+                // support tier) sit idle in their formation slot until a
+                // tech upgrades their damage above 0. Without this, a
+                // Litharch with Damage=0 and a cooldown timer would still
+                // pursue every enemy in LOS and stand in melee range
+                // doing nothing — design rule per the spec sweep.
+                if (!em.HasComponent<Damage>(entity)) continue;
+                if (em.GetComponentData<Damage>(entity).Value <= 0) continue;
 
                 // Cache HasComponent results to avoid repeated lookups
                 bool hasAttackMove = em.HasComponent<AttackMoveTag>(entity);
@@ -435,9 +503,22 @@ namespace TheWaningBorder.Systems.Combat
                     // Aggressive: no guard distance check — fall through to enemy scan
                 }
 
-                // ── Priority scan: prefer enemies from the same battalion we were ordered to attack ──
+                // Two-pass scan throughout: track both absolute-nearest enemy
+                // ("anyBest") and nearest under-cap enemy ("underBest"). Pick
+                // under-cap only when (a) the attacker is melee (ranged/siege
+                // don't physically clump, so they always pick nearest), AND
+                // (b) the under-cap candidate is within SpreadDistRatio of
+                // anyBest (so we don't march 50m to attack a far-away target
+                // when a saturated one is right in front of us). Otherwise
+                // fall back to anyBest — overflow attackers will dogpile.
+                bool isMelee = !em.HasComponent<UnitTag>(entity)
+                    || em.GetComponentData<UnitTag>(entity).Class == UnitClass.Melee;
+
                 Entity bestTarget = Entity.Null;
-                float bestDist = float.MaxValue;
+                Entity underBest = Entity.Null;
+                float underBestDist = float.MaxValue;
+                Entity anyBest = Entity.Null;
+                float anyBestDist = float.MaxValue;
 
                 if (isBattalionMember)
                 {
@@ -457,12 +538,20 @@ namespace TheWaningBorder.Systems.Combat
                                 if (!em.HasComponent<LocalTransform>(enemy)) continue;
                                 var enemyPos = em.GetComponentData<LocalTransform>(enemy).Position;
                                 var dist = DistXZ(myPos, enemyPos);
-                                if (dist <= los && dist < bestDist)
+                                if (dist > los) continue;
+
+                                if (dist < anyBestDist) { anyBest = enemy; anyBestDist = dist; }
+                                if (isMelee)
                                 {
-                                    bestTarget = enemy;
-                                    bestDist = dist;
+                                    int curCount = attackerCount.TryGetValue(enemy, out int cv) ? cv : 0;
+                                    if (curCount < MaxAttackersPerEnemy && dist < underBestDist)
+                                    {
+                                        underBest = enemy;
+                                        underBestDist = dist;
+                                    }
                                 }
                             }
+                            bestTarget = PickSpreadOrNearest(underBest, underBestDist, anyBest, anyBestDist);
                         }
                     }
                 }
@@ -471,6 +560,13 @@ namespace TheWaningBorder.Systems.Combat
                 // Visit only cells within LOS instead of iterating all enemies.
                 if (bestTarget == Entity.Null)
                 {
+                    // Reset best trackers — priority scan was either skipped (not
+                    // a battalion member) or empty (no enemy battalion left alive).
+                    underBest = Entity.Null;
+                    underBestDist = float.MaxValue;
+                    anyBest = Entity.Null;
+                    anyBestDist = float.MaxValue;
+
                     int radius = (int)math.ceil(los / TargetingCellSize);
                     var myCell = new int2(
                         (int)math.floor(myPos.x / TargetingCellSize),
@@ -489,19 +585,37 @@ namespace TheWaningBorder.Systems.Combat
 
                                 var enemyPos = allEnemyTransforms[i].Position;
                                 var dist = DistXZ(myPos, enemyPos);
+                                if (dist > los) continue;
 
                                 // Skip stealthed enemies unless within proximity reveal range (3u)
                                 if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
                                     continue;
 
-                                if (dist <= los && dist < bestDist)
+                                if (dist < anyBestDist) { anyBest = allEnemies[i]; anyBestDist = dist; }
+                                if (isMelee)
                                 {
-                                    bestTarget = allEnemies[i];
-                                    bestDist = dist;
+                                    int curCount = attackerCount.TryGetValue(allEnemies[i], out int cv) ? cv : 0;
+                                    if (curCount < MaxAttackersPerEnemy && dist < underBestDist)
+                                    {
+                                        underBest = allEnemies[i];
+                                        underBestDist = dist;
+                                    }
                                 }
                             } while (spatialMap.TryGetNextValue(out i, ref it));
                         }
                     }
+
+                    bestTarget = PickSpreadOrNearest(underBest, underBestDist, anyBest, anyBestDist);
+                }
+
+                // Record the assignment so the next iteration in this same
+                // AutoAcquireTargets pass sees the updated count (prevents two
+                // simultaneously-assigned attackers from both picking the same
+                // enemy because both saw count=0).
+                if (bestTarget != Entity.Null)
+                {
+                    int prev = attackerCount.TryGetValue(bestTarget, out int pv) ? pv : 0;
+                    attackerCount[bestTarget] = prev + 1;
                 }
 
                 if (bestTarget != Entity.Null && em.Exists(bestTarget))
@@ -799,9 +913,23 @@ namespace TheWaningBorder.Systems.Combat
             }
         }
 
-        private static float DistXZ(float3 a, float3 b)
+        /// <summary>
+        /// Returns underBest if it's a valid candidate within SpreadDistRatio of
+        /// anyBest's distance, otherwise falls back to anyBest. Keeps overflow
+        /// attackers from trekking far across the map just to honour the cap —
+        /// they'll dogpile a nearby capped enemy if no reasonable alternative
+        /// is in range.
+        /// </summary>
+        private static Entity PickSpreadOrNearest(Entity underBest, float underBestDist,
+            Entity anyBest, float anyBestDist)
         {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
+            if (underBest == Entity.Null) return anyBest;
+            if (anyBest == Entity.Null) return underBest;
+            // underBest is by definition >= anyBest. Only accept it if the
+            // detour cost is within SpreadDistRatio of nearest.
+            if (underBestDist <= anyBestDist * SpreadDistRatio) return underBest;
+            return anyBest;
         }
+
     }
 }

@@ -1,0 +1,23 @@
+{
+  "id": "task-codebase-audit-064",
+  "status": "completed",
+  "stage": "release",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-18T16:44:46Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "decision",
+      "description": "Re-verified audit findings against HEAD (commit 9e5baf2) on 2026-05-19. Resolved: CreateProceduralForest deleted, BuildableBuildings expanded with Alanthor_Tower + ThessarasBazaar + Runai_TradingPost, SmartMilitaryDrag re-confirmed live (audit was wrong on that row). Still applicable: SECTS-BINDING-TODO in HudBridge, Feraldis_Hunter orphan, unplaceable culture buildings, dead UseNavMesh flag, IMGUI suspend list. Cross-references added pointing the RoyalStable mockup to task-068 and the Runai_Vault unplaceable row to task-069.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "task_completed",
+      "description": "Audit-only task: catalogued findings, anchored each to file+reason, triaged into Drop/Wire/Fix/Park columns. Per task body, deletions land as follow-up tasks (068 RoyalStable, 069 Runai_Vault retirement, 070 VeilsteelForge). Acceptance criteria all satisfied; nothing left to do under this task.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

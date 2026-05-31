@@ -48,6 +48,56 @@ public struct EntityDisplayInfo
     public int ResourceRemaining;
     public int ResourceMax;
     public string ResourceTypeName;       // "Iron" or "Crystal"
+
+    // ─── task-108 phase 1 additions ────────────────────────────────────────
+    /// <summary>
+    /// Coarse classification — "unit", "building", or "resource". Drives JSX
+    /// conditional rendering (collapse the speed cell for buildings, route
+    /// resource nodes to the depletion bar, etc.). Falls back to "unit" if
+    /// the extractor can't tag the entity.
+    /// </summary>
+    public string EntityKind;
+
+    /// <summary>
+    /// Per-minute supplies yield for buildings carrying SuppliesIncome
+    /// (Hall trickle, GathererHut yield). Null for entities without a
+    /// SuppliesIncome component or for non-buildings.
+    /// </summary>
+    public float? YieldPerMinute;
+
+    /// <summary>
+    /// Capacity of the training queue (matches CommandRouter.MaxProductionQueue).
+    /// Null when the entity has no TrainingState.
+    /// </summary>
+    public int? QueueCapacity;
+
+    /// <summary>
+    /// Snapshot of the training queue. Always exactly <see cref="QueueCapacity"/>
+    /// long when populated, with empty trailing slots marked Populated=false.
+    /// Null when the entity has no TrainingState.
+    /// </summary>
+    public EntityQueueSlot[] Queue;
+}
+
+/// <summary>
+/// One slot in a building's training queue snapshot (task-108 phase 1).
+/// Carries the unit id, the refund cost (full unit cost, mirroring the
+/// existing IMGUI CancelQueueItem behaviour), and per-slot progress data
+/// — Progress and IsInProduction are only meaningful for slot 0 when the
+/// building's TrainingState.Busy == 1.
+/// </summary>
+public struct EntityQueueSlot
+{
+    public bool Populated;
+    public string UnitId;
+    public string DisplayName;
+    public int RefundSupplies;
+    public int RefundIron;
+    public int RefundCrystal;
+    public int RefundVeilsteel;
+    public int RefundGlow;
+    public float Progress;
+    public bool IsInProduction;
 }
 
     /// <summary>
@@ -74,7 +124,22 @@ public struct EntityDisplayInfo
         TempleUpgrade,
         BattalionStance,
         WallInstanceUpgrade,
-        BazaarWagonUnpack
+        BazaarWagonUnpack,
+        // task-109 phase 2 — per-hut age-up choice (Wall Hub / Watch Tower).
+        // Surfaces two large ActionButton items on Alanthor-owned Gatherer's
+        // Huts tagged with GathererHutAgeUpChoice. While the hut is mid-
+        // conversion (GathererHutConverting present) the same ActionType is
+        // emitted with no actions and a progress payload on EntityActionInfo.
+        GathererHutAgeUpChoice,
+        /// <summary>
+        /// Per-hub "Build Wall" action surfaced on a completed wall hub of
+        /// the local faction. Clicking enters a hub-anchored placement mode
+        /// (BuilderCommandPanel.TriggerHubBuildWall) that drops a new hub +
+        /// auto-connecting segment, both self-constructing in 30 s with no
+        /// builder dispatch. The first hub itself is still placed via a
+        /// builder using the regular BuildingPlacement path.
+        /// </summary>
+        HubBuildWall
     }
 
     /// <summary>

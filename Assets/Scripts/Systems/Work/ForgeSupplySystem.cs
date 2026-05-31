@@ -4,6 +4,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
@@ -37,6 +38,9 @@ namespace TheWaningBorder.Systems.Work
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
+            // Defer all structural changes (Add/Remove component) so we
+            // don't violate "no structural changes while iterating entities".
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             foreach (var (order, minerState, transform, faction, entity) in SystemAPI
                 .Query<RefRW<ForgeSupplyOrder>, RefRW<MinerState>, RefRO<LocalTransform>, RefRO<FactionTag>>()
@@ -52,7 +56,7 @@ namespace TheWaningBorder.Systems.Work
                 if (em.HasComponent<UserMoveOrder>(entity))
                 {
                     // Player issued move: clear forge supply, keep load, go idle
-                    em.RemoveComponent<ForgeSupplyOrder>(entity);
+                    ecb.RemoveComponent<ForgeSupplyOrder>(entity);
                     miner.State = MinerWorkState.Idle;
                     miner.AssignedDeposit = Entity.Null;
                     miner.DropoffTarget = Entity.Null;
@@ -62,7 +66,7 @@ namespace TheWaningBorder.Systems.Work
                 // Validate forge still exists
                 if (supply.Forge == Entity.Null || !em.Exists(supply.Forge))
                 {
-                    em.RemoveComponent<ForgeSupplyOrder>(entity);
+                    ecb.RemoveComponent<ForgeSupplyOrder>(entity);
                     miner.State = MinerWorkState.Idle;
                     continue;
                 }
@@ -70,7 +74,7 @@ namespace TheWaningBorder.Systems.Work
                 // Validate forge still has ForgeStorage (not destroyed/changed)
                 if (!em.HasComponent<ForgeStorage>(supply.Forge))
                 {
-                    em.RemoveComponent<ForgeSupplyOrder>(entity);
+                    ecb.RemoveComponent<ForgeSupplyOrder>(entity);
                     miner.State = MinerWorkState.Idle;
                     continue;
                 }
@@ -78,18 +82,21 @@ namespace TheWaningBorder.Systems.Work
                 switch (supply.Phase)
                 {
                     case 0: // GoingToPickup
-                        ProcessPickupPhase(ref supply, ref miner, em, entity, pos, fac);
+                        ProcessPickupPhase(ref supply, ref miner, em, ecb, entity, pos, fac);
                         break;
 
                     case 1: // DeliveringToForge
-                        ProcessDeliveryPhase(ref supply, ref miner, em, entity, pos, fac);
+                        ProcessDeliveryPhase(ref supply, ref miner, em, ecb, entity, pos, fac);
                         break;
                 }
             }
+
+            ecb.Playback(em);
+            ecb.Dispose();
         }
 
         private void ProcessPickupPhase(ref ForgeSupplyOrder supply, ref MinerState miner,
-            EntityManager em, Entity entity, float3 pos, Faction fac)
+            EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac)
         {
             // Find pickup location (nearest Hall or GathererHut)
             if (miner.DropoffTarget == Entity.Null || !em.Exists(miner.DropoffTarget))
@@ -103,7 +110,7 @@ namespace TheWaningBorder.Systems.Work
 
                 // Move to pickup
                 var pickupPos = em.GetComponentData<LocalTransform>(miner.DropoffTarget).Position;
-                SetDestination(em, entity, pickupPos);
+                SetDestination(em, ecb, entity, pickupPos);
             }
 
             // Check if at pickup
@@ -139,19 +146,19 @@ namespace TheWaningBorder.Systems.Work
 
                 // Move to forge
                 var forgePos = em.GetComponentData<LocalTransform>(supply.Forge).Position;
-                SetDestination(em, entity, forgePos);
+                SetDestination(em, ecb, entity, forgePos);
             }
         }
 
         private void ProcessDeliveryPhase(ref ForgeSupplyOrder supply, ref MinerState miner,
-            EntityManager em, Entity entity, float3 pos, Faction fac)
+            EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac)
         {
             // Validate forge still exists
             if (supply.Forge == Entity.Null || !em.Exists(supply.Forge) ||
                 !em.HasComponent<ForgeStorage>(supply.Forge))
             {
                 // Forge destroyed — keep load, go idle
-                em.RemoveComponent<ForgeSupplyOrder>(entity);
+                ecb.RemoveComponent<ForgeSupplyOrder>(entity);
                 miner.State = MinerWorkState.Idle;
                 return;
             }
@@ -162,7 +169,7 @@ namespace TheWaningBorder.Systems.Work
             // Keep moving toward forge
             if (dist > DeliveryRange)
             {
-                SetDestination(em, entity, forgePos);
+                SetDestination(em, ecb, entity, forgePos);
                 return;
             }
 
@@ -226,54 +233,29 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private static Entity FindNearestDropoff(EntityManager em, float3 pos, Faction fac)
         {
-            Entity nearest = Entity.Null;
-            float nearestDist = float.MaxValue;
-
-            // Search Halls
             var hallQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<HallTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.Exclude<UnderConstruction>()
             );
-            using var halls = hallQuery.ToEntityArray(Allocator.Temp);
-            using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < halls.Length; i++)
-            {
-                if (hallFactions[i].Value != fac) continue;
-                float dist = DistXZ(pos, hallTransforms[i].Position);
-                if (dist < nearestDist) { nearest = halls[i]; nearestDist = dist; }
-            }
-
-            // Search GathererHuts
             var hutQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<GathererHutTag>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.Exclude<UnderConstruction>()
             );
-            using var huts = hutQuery.ToEntityArray(Allocator.Temp);
-            using var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            for (int i = 0; i < huts.Length; i++)
-            {
-                if (hutFactions[i].Value != fac) continue;
-                float dist = DistXZ(pos, hutTransforms[i].Position);
-                if (dist < nearestDist) { nearest = huts[i]; nearestDist = dist; }
-            }
-
-            return nearest;
+            return DropoffQuery.FindNearest(pos, fac, hallQuery, hutQuery);
         }
 
-        private static void SetDestination(EntityManager em, Entity entity, float3 target)
+        private static void SetDestination(EntityManager em, EntityCommandBuffer ecb,
+            Entity entity, float3 target)
         {
             if (em.HasComponent<DesiredDestination>(entity))
                 em.SetComponentData(entity, new DesiredDestination { Position = target, Has = 1 });
-                else
-                    em.AddComponentData(entity, new DesiredDestination { Position = target, Has = 1 });
+            else
+                ecb.AddComponent(entity, new DesiredDestination { Position = target, Has = 1 });
         }
 
         private static void StopMoving(EntityManager em, Entity entity)
@@ -282,9 +264,5 @@ namespace TheWaningBorder.Systems.Work
                 em.SetComponentData(entity, new DesiredDestination { Has = 0 });
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }

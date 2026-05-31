@@ -7,9 +7,15 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Builder unit - can construct buildings.
-    /// Economy class unit with CanBuild component.
-    /// Fix #219: EM/ECB share a single generic CreateInternal via IEntityCreator.
+    /// Worker unit (code id <c>Builder</c> for backward compatibility) — can
+    /// both construct buildings and mine resource deposits. Per
+    /// docs/Design/Complete.md §2.2 "Worker — Unified Builder + Miner", the
+    /// two former specialist units now share one factory: every Worker
+    /// carries <see cref="CanBuild"/>, <see cref="MinerTag"/>, and
+    /// <see cref="MinerState"/> so the same entity swaps between gather
+    /// orders and build orders without re-training. The legacy
+    /// <see cref="Miner"/> factory is preserved for entities loaded from
+    /// older saves, but new spawns route through here.
     /// </summary>
     public static class Builder
     {
@@ -58,6 +64,24 @@ namespace TheWaningBorder.Entities
             // can move without a structural-change side-effect at first
             // dispatch. Mirrors Miner.cs:54-58. (task-062 G-3)
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
+            // Worker = Builder + Miner. Add MinerTag + MinerState so the
+            // same entity can be issued a gather order and MiningSystem
+            // picks it up. Without these, gather right-clicks on a deposit
+            // would no-op because the targeting/mining systems filter on
+            // MinerTag.
+            creator.AddComponent<MinerTag>(entity);
+            creator.AddComponent(entity, new MinerState
+            {
+                AssignedDeposit = Entity.Null,
+                CurrentLoad = 0,
+                GatherTimer = 0f,
+                State = MinerWorkState.Idle,
+                GatheringResource = 0,
+                DropoffTarget = Entity.Null,
+                GatherSpeedMultiplier = 1.0f,
+                CarryCapacityBonus = 0
+            });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

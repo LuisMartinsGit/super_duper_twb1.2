@@ -207,6 +207,8 @@ namespace TheWaningBorder.Economy
                 "Miner" => 1,
                 "Scout" => 1,
                 "Archer" => 1,
+                "Crossbowman" => 1,   // task-110: Era 1 Archery Range L2 tier
+                "Longbowman" => 1,    // task-110: Era 1 Archery Range L3 tier
                 "Swordsman" => 1,
                 "Litharch" => 1,
                 
@@ -215,18 +217,21 @@ namespace TheWaningBorder.Economy
                 "Runai_Skirmisher" => 1,
                 "Runai_Raider" => 1,
                 "Runai_Catapult" => 2,
+                "Runai_Acolyte" => 2,
 
                 // Feraldis units
                 "Feraldis_Berserker" => 1,
                 "Feraldis_Hunter" => 1,
                 "Feraldis_WarboarRider" => 1,
                 "Feraldis_SiegeRam" => 2,
+                "Feraldis_Iconoclast" => 4,    // High-value Lv 3 unit, spec refinement #1
 
                 // Alanthor units
                 "Alanthor_Sentinel" => 1,
                 "Alanthor_Crossbowman" => 1,
                 "Alanthor_Cataphract" => 2,
                 "Alanthor_Ballista" => 2,
+                "Alanthor_Scholar" => 2,    // Investment unit — scarcer than line infantry
 
                 // Default for unknown units
                 _ => 1

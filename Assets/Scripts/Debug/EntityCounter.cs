@@ -9,7 +9,7 @@ public class DebugEntityCounter : MonoBehaviour
         if (UnityEngine.Input.GetKeyDown(KeyCode.F1))
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null) { Debug.Log("No ECS World!"); return; }
+            if (world == null) { TWBLog.Log("No ECS World!"); return; }
             
             var em = world.EntityManager;
             
@@ -17,7 +17,7 @@ public class DebugEntityCounter : MonoBehaviour
             var buildings = em.CreateEntityQuery(typeof(BuildingTag)).CalculateEntityCount();
             var halls = em.CreateEntityQuery(typeof(HallTag)).CalculateEntityCount();
             
-            Debug.Log($"[DEBUG] Units: {units}, Buildings: {buildings}, Halls: {halls}");
+            TWBLog.Log($"[DEBUG] Units: {units}, Buildings: {buildings}, Halls: {halls}");
         }
     }
 }

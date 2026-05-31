@@ -1,0 +1,182 @@
+{
+  "id": "task-profound-code-review-082",
+  "status": "completed",
+  "stage": "release",
+  "phase": 4,
+  "totalPhases": 4,
+  "createdAt": "2026-05-20T14:17:22Z",
+  "updatedAt": "2026-05-20T19:00:00Z",
+  "events": [
+    {
+      "type": "decision",
+      "description": "Scoped as audit-only: implementation stage writes findings into task.md and spins out child tasks per finding, mirroring task-codebase-audit-064. No production code or Design-doc edits land under 082.",
+      "timestamp": "2026-05-20T14:35:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Four phases, one per review axis (Architecture & ECS hygiene, Code-vs-Design drift, Correctness & bug surface, Performance hot spots). Each phase's Files section lists directories/docs it audits, not files it edits.",
+      "timestamp": "2026-05-20T14:35:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Acceptance gates require file:line anchors + triage column on every row, save/load component coverage enumerated against Core/Components/, performance rows measured-or-tagged (no hand-waving), and explicit cross-reference against task-065 (Age 0) and the 13 open Age 1 / sect / drift tasks so 082 does not duplicate their backlog.",
+      "timestamp": "2026-05-20T14:35:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "design",
+      "timestamp": "2026-05-20T14:35:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Report schema fixed: task-064 baseline table (Surface|Item|Issue|File:line|Triage) extended per section — §B adds Doc-ref + Cross-ref task; §C adds Severity (crash/wrong-result/degraded/edge-only); §D adds Measured? (concrete cost or needs-measurement). Triage vocabulary locked to drop/wire/fix/park/spin-out. Each section ends with a four-bucket Triage summary (Drop now / Wire or decide / Fix soon / Park). Child task stubs link back to parent row, inherit file:line anchor, carry type: bug|improvement|task, and start in scope stage so the human confirms before work begins. Anchors are VS Code clickable relative links; TechTree.json uses key-path link text with no line.",
+      "timestamp": "2026-05-20T15:05:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "architecture",
+      "timestamp": "2026-05-20T15:05:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Technical approach fixed: four phases run data-first then orchestration (components → commands → systems → seam → AI), Grep recipes locked per phase (SystemBase/ISystem enumeration, EntityManager.GetComponent guard check, IComponentData enumeration for save/load coverage, LINQ/allocation patterns for perf), Phase 1 component list is reused by Phase 3 save/load row, Phase 4 runs last because measurement is most expensive, all needs-measurement rows roll into one perf-measurement child task instead of one task per row, no production code or Design-doc edits land under 082.",
+      "timestamp": "2026-05-20T15:35:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "implementation",
+      "timestamp": "2026-05-20T15:35:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_started",
+      "phase": 1,
+      "title": "Architecture & ECS hygiene audit",
+      "timestamp": "2026-05-20T15:40:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Architecture & ECS hygiene audit",
+      "notes": "§A populated with 19 finding rows. Triage buckets: Drop now 0, Wire or decide 2, Fix soon 11 (consolidated into 8 child tasks; rows that share an underlying refactor are subsumed under a single stub), Park 6. Child tasks spun out: 083-090 (HudBridge sect rail, HudBridge military targeting, AI managers removal, namespace cohesion, CommandRouter lockstep drift, AI endgame Runai/Feraldis, ECS query caching hot systems, HudBridge query consolidation).",
+      "timestamp": "2026-05-20T16:05:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 2,
+      "title": "Code-vs-Design drift audit",
+      "timestamp": "2026-05-20T16:10:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "Code-vs-Design drift audit",
+      "notes": "§B populated with 53 finding rows across six subsections (B.1 Overview, B.2 Tech_Tree, B.3 Age_0, B.4 Alanthor, B.5 Runai, B.6 Feraldis). Triage buckets: Drop now 0, Wire or decide 3 (consolidated under task-091 BuildableBuildings completeness), Fix soon 6 (4 new child tasks plus 2 cross-refs), Park 10. New child tasks spun out: 091 (buildables-hashset-completeness), 092 (alanthor-crucible-cost-fix), 093 (feraldis-beastpen-doc-or-drop), 094 (glow-once-per-node-gate), 095 (feraldis-hut-terrain-yields). Vast majority of rows (23) cross-ref existing alignment tasks 065-080 and graduate to no new stub. Top three drifts: (1) per-battalion upgrade mechanic absent and entire 4-tier weapon/arrow/tools ladders missing from TechTree.json — covered by 065/076/079; (2) Hut age-up transformations (wagon-burst / wall-anchor / raider-spawn) unimplemented — covered by 066/067; (3) Vault interest model is 3 % flat in code vs 25/50/75/100 % tiered design — covered by 065.",
+      "timestamp": "2026-05-20T16:30:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 3,
+      "title": "Correctness & bug surface audit",
+      "timestamp": "2026-05-20T16:35:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 3,
+      "title": "Correctness & bug surface audit",
+      "notes": "§C populated across six subsections (C.1 null/ref hazards, C.2 ECS structural-change ordering, C.3 save/load component coverage [AC anchor — all 247 declarations across 23 files tagged MISSING pending task-081], C.4 command-router edges, C.5 AI brain stalls, C.6 lockstep determinism). Triage buckets: Drop now 0, Wire or decide 0, Fix soon 11 (7 new child tasks 096-102, 4 subsumed under existing 085/087), Park 12. Severity distribution: 1 crash candidate (LockstepCommand.Serialize CommandIndex missing — 099, treated as wrong-result/fix because behavior is wrong, not throw), 5 wrong-result (097 placement validation, 098 bazaar coverage, 099 lockstep CommandIndex, 100 lockstep MTU, 102 sect-lever HP semantics — plus AIScoutingBehavior bracket bug subsumed under 085), 4 degraded (101 AI launchattack + UnderConstruction, 102 sect HP over-application), rest edge-only. Save/load coverage gap rolled into single task-096. Top three correctness findings: (1) Lockstep CommandIndex serialization gap (099) — silent multiplayer desync on multi-command ticks; (2) IssuePlaceBuilding bypasses position+id validation (097) — non-UI callers can place on water/cliff or spawn placeholder buildings; (3) AI TryLaunchAttack doesn't refresh target on death (101) — attack waves wander toward dead targets. Note that the API overloaded during stub-creation; the 7 child stubs (096-102) were created manually after the agent finished writing §C content into task.md.",
+      "timestamp": "2026-05-20T18:05:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 4,
+      "title": "Performance hot spots audit",
+      "timestamp": "2026-05-20T18:10:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 4,
+      "title": "Performance hot spots audit",
+      "notes": "§D populated with 18 finding rows. Measured? buckets: measured 0, needs-measurement 7 (rows 1/3/6/7/11/13/18 — all rolled into single task-103 perf-measurement-backlog), n/a — static analysis 11. Triage buckets: Drop now 0, Wire or decide 0, Fix soon 12 (4 new child tasks 104-107, 2 cross-ref task-089, 1 cross-ref task-090, 1 roll-into task-103, 4 subsumed under sibling tasks), Park 6 (3 exemplars: ProjectileSystem cached query, UnitSeparationSystem 10-Hz throttle, BattalionSyncSystem persistent NativeArrays + MiningSystem cached queries + NavMeshManager 0.5s rebuild + SectActivePowerSystem). New child stubs: 103 (perf-measurement-backlog roll-up), 104 (presentation-sync-component-cache — rows 3+4), 105 (fog-visibility-sync-perf — row 5), 106 (hudbridge-push-cadence-tiers — rows 7+9), 107 (static-helper-query-caching — row 10). Top three findings by static-analysis severity: (1) PresentationSpawnSystem.SyncTransforms ~72k GetComponent calls/sec for visual placement (task-104); (2) FogVisibilitySyncSystem per-frame FindFirstObjectByType + 3 uncached queries + per-entity MaterialPropertyBlock alloc (~24k MPB/sec) (task-105); (3) BuildingCombatSystem per-tick query + per-building O(N) target scan with per-building NativeList alloc (task-089 cross-ref). Phase 4 complete — stage stays at implementation until autopilot advances to review.",
+      "timestamp": "2026-05-20T18:30:00Z"
+    },
+    {
+      "type": "review_completed",
+      "verdict": "approve",
+      "summary": "All nine acceptance criteria pass. Sections A/B/C/D populated (A=19, B=76 actual table rows across six subsections though phase-4 note recorded 53, C=24 findings + 22-file save/load enumeration, D=18). Every row carries Assets/Scripts/.../File.cs#LNNN or docs/Design/<doc>.md or TechTree.json anchor + drop/wire/fix/park/spin-out triage column. Every Age-0 §B row cross-references task-065. §C.3 enumerates all 23 component files / 247 declarations by name + file and tags each MISSING pending task-081. §D rows are either needs-measurement-tagged or n/a-static-analysis with concrete static cost (e.g. 72k GetComponent/sec, 24k MaterialPropertyBlock/sec). Each section ends with a Drop/Wire/Fix/Park triage summary. All 25 child stubs (083-107) exist with task.md + state.json — manually-created C-section stubs (096-102) are well-formed and not corrupted; no duplicate IDs. Git diff confined to .deft/tasks/ — no Assets/Scripts, docs/Design, HudFrontend, or ProjectSettings changes (the EditorBuildSettings.asset mod predates this task). Minor notes (non-blocking): (a) §B subsection row count (76) exceeds the phase-2 completion note (53) — the audit went deeper than reported in state.json; (b) child task source: field varies across spin-out / task-profound-code-review-082 / parent-task-082 — SCHEMA itself only formally allows manual/imported/roadmap, so this is project-wide convention drift, not a task-082 regression; (c) stub_created vs task_created event-type split between manual C-stubs and D-stubs — both convey the same intent.",
+      "timestamp": "2026-05-20T18:45:00Z"
+    },
+    {
+      "type": "release_completed",
+      "summary": "Audit task complete. §A=19 rows, §B=76 rows across six subsections, §C=24 findings + 247-component save/load enumeration across 23 files, §D=18 rows. 25 child tasks spun out (083-107) covering architecture, design drift, correctness, and performance follow-ups. Audit Summary section appended to task.md. No production code changes — audit-only task per scope decision.",
+      "release_notes": {
+        "child_tasks": [
+          "task-hudbridge-sect-rail-wiring-083",
+          "task-hudbridge-military-action-targeting-084",
+          "task-ai-managers-removal-085",
+          "task-combat-system-namespace-cohesion-086",
+          "task-commandrouter-lockstep-drift-087",
+          "task-ai-endgame-runai-feraldis-088",
+          "task-ecs-query-caching-hot-systems-089",
+          "task-hudbridge-query-consolidation-090",
+          "task-buildables-hashset-completeness-091",
+          "task-alanthor-crucible-cost-fix-092",
+          "task-feraldis-beastpen-doc-or-drop-093",
+          "task-glow-once-per-node-gate-094",
+          "task-feraldis-hut-terrain-yields-095",
+          "task-save-load-coverage-gap-096",
+          "task-commandrouter-placebuilding-validation-097",
+          "task-clearallcommands-bazaar-coverage-098",
+          "task-lockstep-command-index-serialization-099",
+          "task-lockstep-tick-payload-mtu-100",
+          "task-ai-launchattack-target-refresh-101",
+          "task-sect-unit-lever-multiplier-semantics-102",
+          "task-perf-measurement-backlog-103",
+          "task-presentation-sync-component-cache-104",
+          "task-fog-visibility-sync-perf-105",
+          "task-hudbridge-push-cadence-tiers-106",
+          "task-static-helper-query-caching-107"
+        ],
+        "biggest_followup": "task-save-load-coverage-gap-096 — all 247 component declarations across 23 files tagged MISSING until task-081 (save/load pipeline) ships.",
+        "cross_referenced_alignment_tasks": [
+          "task-age0-techtree-alignment-065",
+          "task-ageup-transform-hut-066",
+          "task-feraldis-raider-rebuild-067",
+          "task-alanthor-royal-stable-068",
+          "task-runai-buildings-split-069",
+          "task-veilsteel-frenzy-070",
+          "task-cultured-rename-layer-071",
+          "task-trader-warriors-072",
+          "task-rejected-stat-overrides-073",
+          "task-religious-unit-tier-074",
+          "task-caravan-loot-feraldis-only-075",
+          "task-per-battalion-upgrades-076",
+          "task-runai-curse-neutrality-078",
+          "task-age1-unit-tier-ladders-079",
+          "task-feraldis-instant-pop-spike-080"
+        ]
+      },
+      "checklist": [
+        { "ac": "§A/§B/§C/§D sections each populated with at least one row", "status": "passed" },
+        { "ac": "Every row carries file-and-line anchor", "status": "passed" },
+        { "ac": "Every row carries drop/wire/fix/park/spin-out triage column", "status": "passed" },
+        { "ac": "§B cross-references task-065 for every Age 0 row", "status": "passed" },
+        { "ac": "§C save/load coverage enumerated component-by-component against Core/Components/", "status": "passed" },
+        { "ac": "§D rows include measured cost or needs-measurement tag", "status": "passed" },
+        { "ac": "Each section ends with Drop/Wire/Fix/Park triage summary", "status": "passed" },
+        { "ac": "Child task stubs created for every Fix soon / Wire or decide row", "status": "passed" },
+        { "ac": "No git diff outside .deft/tasks/task-profound-code-review-082/ and its child stubs", "status": "passed" }
+      ],
+      "timestamp": "2026-05-20T19:00:00Z"
+    },
+    {
+      "type": "status_changed",
+      "status": "completed",
+      "stage": "release",
+      "timestamp": "2026-05-20T19:00:00Z",
+      "actor": null
+    }
+  ]
+}

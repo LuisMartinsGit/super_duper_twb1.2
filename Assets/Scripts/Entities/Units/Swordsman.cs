@@ -14,7 +14,7 @@ namespace TheWaningBorder.Entities
     public static class Swordsman
     {
         private const float DefaultHP = 120f;
-        private const float DefaultSpeed = 3.5f;
+        private const float DefaultSpeed = 5.5f;
         private const float DefaultDamage = 12f;
         private const float DefaultLoS = 10f;
         private const float DefaultAttackCooldown = 1.2f;

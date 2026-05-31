@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 4c346f145bc2dfc4cad7ed240a870fba
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 291300
+  packageName: 'Shatter Stone: Stylized Gemstones'
+  packageVersion: 1.2
+  assetPath: Assets/NV3D/Shatter Stone/Stylized Gemstones/Shaders/SS_Gemstone.shader
+  uploadId: 765279

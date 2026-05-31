@@ -1,0 +1,16 @@
+{
+  "id": "task-perf-measurement-backlog-103",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:25:00Z",
+  "updatedAt": "2026-05-20T18:25:00Z",
+  "events": [
+    {
+      "type": "task_created",
+      "description": "Spun out from task-082 §D as the single roll-up for all `needs-measurement` rows (TargetingSystem, PresentationSpawnSystem.SyncTransforms, FogOfWarSystem, HudBridge.Update, FeraldisRaiderPatrolSystem, SectActivePowerSystem, TerrainUtility.GetHeight). One profiling pass hits every row; results graduate or park each row back in §D.",
+      "timestamp": "2026-05-20T18:25:00Z"
+    }
+  ]
+}

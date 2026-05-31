@@ -30,7 +30,22 @@ namespace TheWaningBorder.World.Terrain
 
         private const float MaxWalkableSlope = 0.55f;
         private const float SlopeCheckStep = 1.5f;
-        private const float WaterHeight = 20f;
+        // Matches ProceduralMapGen's waterPlaneY (2.5m). Earlier value (20m)
+        // pre-dated the procedural generator and was leftover from a legacy
+        // terrain where land sat ~30m up — on the current generator it
+        // flagged every PlainY=8m cell as below-water, leaving only
+        // mountains as "passable" terrain.
+        private const float WaterHeight = 4.0f;
+        // Any terrain whose elevation exceeds this (world units) is treated as
+        // mountain — impassable regardless of local slope. With mountain peaks
+        // capped at ~25m above PlainY (8m), threshold 24m gates the upper
+        // half of mountain bulk without touching hills (which peak ~20m).
+        private const float MountainHeight = 24f;
+        // Cells whose mountain-region mask exceeds this are unconditionally
+        // impassable — the heightmap composer uses the same mask to place
+        // the soft dome, so this gates the entire massif by data instead of
+        // by guessing from height/slope.
+        private const float MountainMaskThreshold = 0.35f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // CELL VALUES
@@ -46,6 +61,12 @@ namespace TheWaningBorder.World.Terrain
         // ═══════════════════════════════════════════════════════════════════════
 
         private NativeArray<byte> _cells;
+        // Per-cell reachable mask. 1 = reachable from every player's start
+        // (BFS intersection). Built once by ComputePlayerReachability after
+        // halls spawn; used by resource bootstraps to guarantee deposits sit
+        // in a region that pathing can reach from any player.
+        private NativeArray<byte> _reachable;
+        private bool _reachabilityComputed;
         private int _width;
         private int _height;
         private float _cellSize;
@@ -81,28 +102,73 @@ namespace TheWaningBorder.World.Terrain
 
         void Start()
         {
-            var pt = ProceduralTerrain.Instance;
-            if (pt == null)
-            {
-                return;
-            }
+            // Defer to a coroutine so we run AFTER ProceduralTerrain has
+            // finished its async heightmap generation. The old code sampled
+            // an empty heightmap (all zeros) when Start fired immediately
+            // after the Awake stampede, and every cell came out as "below
+            // water → terrain-blocked".
+            StartCoroutine(WaitForTerrainAndBuild());
+        }
+
+        private System.Collections.IEnumerator WaitForTerrainAndBuild()
+        {
+            // Wait for SOME terrain source to be ready — either ProceduralTerrain
+            // (procedural map) or an active Unity Terrain placed in the scene
+            // (hand-authored map; ProceduralTerrain.MarkExternalTerrainReady sets
+            // IsGenerationComplete = true in that path so the gate flips).
+            while (!ProceduralTerrain.IsGenerationComplete)
+                yield return null;
 
             // Read configurable cell size (default 4 world units)
             _cellSize = GameSettings.PathfindingCellSize;
 
-            // Derive grid bounds from ProceduralTerrain world extents
-            float worldWidth = pt.worldMax.x - pt.worldMin.x;
-            float worldHeight = pt.worldMax.y - pt.worldMin.y;
+            var pt = ProceduralTerrain.Instance;
+            if (pt != null)
+            {
+                // Procedural map — bounds come from the generator.
+                float worldWidth = pt.worldMax.x - pt.worldMin.x;
+                float worldHeight = pt.worldMax.y - pt.worldMin.y;
 
-            _origin = new float3(pt.worldMin.x, 0f, pt.worldMin.y);
-            _width = Mathf.CeilToInt(worldWidth / _cellSize);
-            _height = Mathf.CeilToInt(worldHeight / _cellSize);
+                _origin = new float3(pt.worldMin.x, 0f, pt.worldMin.y);
+                _width = Mathf.CeilToInt(worldWidth / _cellSize);
+                _height = Mathf.CeilToInt(worldHeight / _cellSize);
+            }
+            else
+            {
+                // Hand-authored map — derive bounds from the active Unity
+                // Terrain (e.g. MapMagic output). Falls back to a generous
+                // ±GameSettings.MapHalfSize box if no terrain is active.
+                var ut = UnityEngine.Terrain.activeTerrain;
+                Vector3 origin;
+                Vector3 size;
+                if (ut != null && ut.terrainData != null)
+                {
+                    origin = ut.transform.position;
+                    size = ut.terrainData.size;
+                }
+                else
+                {
+                    int half = Mathf.Max(64, GameSettings.MapHalfSize);
+                    origin = new Vector3(-half, 0f, -half);
+                    size = new Vector3(half * 2f, 0f, half * 2f);
+                    Debug.LogWarning("[PassabilityGrid] no ProceduralTerrain AND no active Unity Terrain — " +
+                                     $"falling back to ±{half} box. Movement will work but the grid won't " +
+                                     "match any visible terrain.");
+                }
+
+                _origin = new float3(origin.x, 0f, origin.z);
+                _width = Mathf.CeilToInt(size.x / _cellSize);
+                _height = Mathf.CeilToInt(size.z / _cellSize);
+
+                TWBLog.Log($"[PassabilityGrid] non-procedural map — bounds from Unity Terrain: " +
+                          $"origin=({_origin.x:F0},{_origin.z:F0}) size=({size.x:F0}×{size.z:F0}) " +
+                          $"cells={_width}×{_height}");
+            }
 
             int totalCells = _width * _height;
             _cells = new NativeArray<byte>(totalCells, Allocator.Persistent);
 
             GenerateFromTerrain();
-
         }
 
         void OnDestroy()
@@ -110,8 +176,151 @@ namespace TheWaningBorder.World.Terrain
             if (_cells.IsCreated)
                 _cells.Dispose();
 
+            if (_reachable.IsCreated)
+                _reachable.Dispose();
+
             if (Instance == this)
                 Instance = null;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PLAYER REACHABILITY
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>True once <see cref="ComputePlayerReachability"/> has run.</summary>
+        public bool IsReachabilityReady => _reachabilityComputed;
+
+        /// <summary>
+        /// Flood-fill from each player position and store the intersection
+        /// (cells reachable by EVERY player) in <see cref="_reachable"/>.
+        /// Must be called after halls spawn so the player positions are real.
+        /// Building footprints are treated as passable for the BFS so a hall's
+        /// own cell doesn't dead-end the flood.
+        /// </summary>
+        public void ComputePlayerReachability(float3[] playerPositions)
+        {
+            if (!_cells.IsCreated || playerPositions == null || playerPositions.Length == 0)
+                return;
+
+            int total = _width * _height;
+            if (!_reachable.IsCreated)
+                _reachable = new NativeArray<byte>(total, Allocator.Persistent);
+
+            // Start with everything "reachable"; AND-in each player's BFS result.
+            for (int i = 0; i < total; i++) _reachable[i] = 1;
+
+            var perPlayer = new NativeArray<byte>(total, Allocator.Temp);
+            var queue = new System.Collections.Generic.Queue<int2>(256);
+
+            for (int p = 0; p < playerPositions.Length; p++)
+            {
+                for (int i = 0; i < total; i++) perPlayer[i] = 0;
+
+                int2 start = NearestReachableCell(WorldToCell(playerPositions[p]));
+                if (start.x < 0)
+                {
+                    // Player has no neighbouring passable cell — treat them as
+                    // reaching nowhere; the intersection collapses to zero.
+                    for (int i = 0; i < total; i++) _reachable[i] = 0;
+                    break;
+                }
+
+                queue.Clear();
+                queue.Enqueue(start);
+                perPlayer[start.y * _width + start.x] = 1;
+
+                while (queue.Count > 0)
+                {
+                    int2 c = queue.Dequeue();
+                    TryEnqueueNeighbour(c.x + 1, c.y, perPlayer, queue);
+                    TryEnqueueNeighbour(c.x - 1, c.y, perPlayer, queue);
+                    TryEnqueueNeighbour(c.x, c.y + 1, perPlayer, queue);
+                    TryEnqueueNeighbour(c.x, c.y - 1, perPlayer, queue);
+                }
+
+                for (int i = 0; i < total; i++)
+                    _reachable[i] = (byte)(_reachable[i] & perPlayer[i]);
+            }
+
+            perPlayer.Dispose();
+            _reachabilityComputed = true;
+        }
+
+        // Spiral-search outward from a starting cell for the first one that
+        // pathing considers walkable. Returns int2(-1, -1) if nothing within
+        // a reasonable radius is reachable.
+        private int2 NearestReachableCell(int2 from)
+        {
+            if (IsBfsPassable(from)) return from;
+            int maxR = math.max(_width, _height);
+            for (int r = 1; r <= maxR; r++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    int y = from.y + dy;
+                    if (y < 0 || y >= _height) continue;
+                    int absDy = math.abs(dy);
+                    int absDx = r - absDy;
+                    if (absDx < 0) continue;
+                    int xLeft  = from.x - absDx;
+                    int xRight = from.x + absDx;
+                    if (xLeft  >= 0 && xLeft  < _width && IsBfsPassable(new int2(xLeft, y)))
+                        return new int2(xLeft, y);
+                    if (xRight != xLeft && xRight >= 0 && xRight < _width && IsBfsPassable(new int2(xRight, y)))
+                        return new int2(xRight, y);
+                }
+            }
+            return new int2(-1, -1);
+        }
+
+        private bool IsBfsPassable(int2 cell)
+        {
+            if (cell.x < 0 || cell.x >= _width || cell.y < 0 || cell.y >= _height) return false;
+            byte v = _cells[cell.y * _width + cell.x];
+            // Treat BuildingBlocked as passable for the player-reachability
+            // flood so a hall's own footprint doesn't trap the search.
+            return v == Passable || v == BuildingBlocked;
+        }
+
+        private void TryEnqueueNeighbour(int x, int y, NativeArray<byte> visited,
+                                         System.Collections.Generic.Queue<int2> queue)
+        {
+            if (x < 0 || x >= _width || y < 0 || y >= _height) return;
+            int idx = y * _width + x;
+            if (visited[idx] != 0) return;
+            byte v = _cells[idx];
+            if (v != Passable && v != BuildingBlocked) return;
+            visited[idx] = 1;
+            queue.Enqueue(new int2(x, y));
+        }
+
+        /// <summary>
+        /// True if the cell at <paramref name="worldPos"/> is in the connected
+        /// region every player can reach. Falls back to plain passability if
+        /// reachability hasn't been computed yet (so callers don't need to
+        /// branch on bootstrap order).
+        /// </summary>
+        public bool IsReachableByAllPlayers(float3 worldPos)
+        {
+            if (!_reachabilityComputed || !_reachable.IsCreated)
+                return IsPassable(worldPos);
+            int2 cell = WorldToCell(worldPos);
+            if (cell.x < 0 || cell.x >= _width || cell.y < 0 || cell.y >= _height) return false;
+            return _reachable[cell.y * _width + cell.x] != 0;
+        }
+
+        /// <summary>
+        /// Radius-aware variant: the centre cell and four cardinal samples on
+        /// the agent's boundary must all be in the common connected region.
+        /// </summary>
+        public bool IsReachableByAllPlayersForRadius(float3 worldPos, float radius)
+        {
+            if (!IsReachableByAllPlayers(worldPos)) return false;
+            if (radius <= 0f) return true;
+            return IsReachableByAllPlayers(worldPos + new float3(radius, 0f, 0f))
+                && IsReachableByAllPlayers(worldPos + new float3(-radius, 0f, 0f))
+                && IsReachableByAllPlayers(worldPos + new float3(0f, 0f, radius))
+                && IsReachableByAllPlayers(worldPos + new float3(0f, 0f, -radius));
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -142,6 +351,12 @@ namespace TheWaningBorder.World.Terrain
                         _cells[y * _width + x] = TerrainBlocked;
                         continue;
                     }
+
+                    // Mountain / cliff blocking is handled entirely by the
+                    // slope check below. Hand-authored Unity Terrain commonly
+                    // climbs to 80m+, so the old absolute-height gate (tuned
+                    // for the ~30m procedural heightmap) would wrongly block
+                    // every plateau — slope is the only elevation signal here.
 
                     // 4-point slope check (matches MovementSystem exactly)
                     float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);

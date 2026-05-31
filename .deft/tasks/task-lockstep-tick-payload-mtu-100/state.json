@@ -1,0 +1,16 @@
+{
+  "id": "task-lockstep-tick-payload-mtu-100",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.6 — LockstepManager.BroadcastTick packs every command for a tick into one UDP datagram. High command bursts (50+ commands) approach the UDP MTU and lost fragments lose the whole tick. Silent desync risk on burst-action moments over lossy networks.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

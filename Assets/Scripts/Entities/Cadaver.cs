@@ -21,7 +21,7 @@ namespace TheWaningBorder.Entities
     public static class Cadaver
     {
         public const int DefaultCrystal = 300;
-        public const float MergeRadius = 1f;
+        public const float MergeRadius = 4f;
 
         private const int PresentationID = 301;
 
@@ -93,7 +93,15 @@ namespace TheWaningBorder.Entities
                 typeof(LocalTransform),
                 typeof(CadaverTag),
                 typeof(CadaverState),
-                typeof(Radius)
+                typeof(Radius),
+                // ObstacleTag so NavMeshManager carves the cadaver into the
+                // navmesh — without this, workers walk *through* crystal
+                // patches in straight lines (iron deposits have always
+                // carved). Matches the iron-deposit treatment in
+                // IronDepositBootstrap.CreateIronDepositEntity. The
+                // corridor-exhausted guard in MovementSystem stops workers
+                // from direct-lining into the cluster centre once carved.
+                typeof(ObstacleTag)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
@@ -132,6 +140,9 @@ namespace TheWaningBorder.Entities
                 Depleted = 0
             });
             ecb.AddComponent(entity, new Radius { Value = radius });
+            // Mirror the EntityManager path above — see comment there for
+            // why cadavers carry ObstacleTag.
+            ecb.AddComponent<ObstacleTag>(entity);
 
             ecb.AddComponent(entity, new NetworkedEntity
             {

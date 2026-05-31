@@ -89,6 +89,40 @@ namespace TheWaningBorder.Core.Commands.Types
             float2 newMin = new float2(position.x - halfW, position.z - halfH);
             float2 newMax = new float2(position.x + halfW, position.z + halfH);
 
+            // 0. Map-bounds check — the building's footprint must fit entirely
+            //    inside the world rectangle. Bounds source priority:
+            //      1. ProceduralTerrain.Instance (procedural maps)
+            //      2. Unity Terrain.activeTerrain (hand-authored maps —
+            //         MapMagic terrain may sit at non-origin coords)
+            //      3. ±GameSettings.MapHalfSize box (early bootstrap / flat
+            //         test map fallback)
+            var terrain = ProceduralTerrain.Instance;
+            if (terrain != null)
+            {
+                if (newMin.x < terrain.worldMin.x || newMin.y < terrain.worldMin.y ||
+                    newMax.x > terrain.worldMax.x || newMax.y > terrain.worldMax.y)
+                    return false;
+            }
+            else
+            {
+                var ut = UnityEngine.Terrain.activeTerrain;
+                if (ut != null && ut.terrainData != null)
+                {
+                    var origin = ut.transform.position;
+                    var size = ut.terrainData.size;
+                    if (newMin.x < origin.x || newMin.y < origin.z ||
+                        newMax.x > origin.x + size.x || newMax.y > origin.z + size.z)
+                        return false;
+                }
+                else
+                {
+                    float half = GameSettings.MapHalfSize;
+                    if (newMin.x < -half || newMin.y < -half ||
+                        newMax.x >  half || newMax.y >  half)
+                        return false;
+                }
+            }
+
             // 1. Building overlap check (AABB-vs-AABB on XZ plane)
             var buildingQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),

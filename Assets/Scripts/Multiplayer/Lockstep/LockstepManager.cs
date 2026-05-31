@@ -400,10 +400,14 @@ namespace TheWaningBorder.Multiplayer
             var em = world.EntityManager;
 
             // PlaceBuilding and Train don't require an existing entity lookup —
-            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building
+            // PlaceBuilding creates a new entity, Train uses EntityNetworkId for the building.
+            // GodPower + EquipmentUpgrade pack the caster faction into
+            // EntityNetworkId, not a real entity id, so they skip the lookup too.
             Entity entity = Entity.Null;
             bool needsEntity = cmd.Type != LockstepCommandType.SetRally
-                            && cmd.Type != LockstepCommandType.PlaceBuilding;
+                            && cmd.Type != LockstepCommandType.PlaceBuilding
+                            && cmd.Type != LockstepCommandType.GodPower
+                            && cmd.Type != LockstepCommandType.EquipmentUpgrade;
 
             if (needsEntity)
             {
@@ -425,20 +429,20 @@ namespace TheWaningBorder.Multiplayer
             {
                 case LockstepCommandType.Move:
                     MoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Move from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Move from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Attack:
                     if (targetEntity != Entity.Null)
                     {
                         AttackCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Attack from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Attack from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Stop:
                     CommandHelper.ClearAllCommands(em, entity);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Stop from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Stop from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Gather:
@@ -446,21 +450,21 @@ namespace TheWaningBorder.Multiplayer
                     if (targetEntity != Entity.Null)
                     {
                         GatherCommandHelper.Execute(em, entity, targetEntity, depositEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Build:
                     Entity buildTarget = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
                     BuildCommandHelper.Execute(em, entity, buildTarget, cmd.BuildingId, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Build from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Build from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Heal:
                     if (targetEntity != Entity.Null)
                     {
                         HealCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Heal from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Heal from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -470,20 +474,20 @@ namespace TheWaningBorder.Multiplayer
                         if (!em.HasComponent<RallyPoint>(entity))
                             em.AddComponent<RallyPoint>(entity);
                         em.SetComponentData(entity, new RallyPoint { Position = cmd.TargetPosition, Has = 1 });
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.AttackMove:
                     AttackMoveCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed AttackMove from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Repair:
                     if (targetEntity != Entity.Null)
                     {
                         RepairCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Repair from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -491,26 +495,63 @@ namespace TheWaningBorder.Multiplayer
                     if (targetEntity != Entity.Null)
                     {
                         ConvertCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Convert from player {cmd.PlayerIndex}");
                     }
                     break;
 
                 case LockstepCommandType.Patrol:
                     PatrolCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Patrol from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.HoldPosition:
                     HoldPositionCommandHelper.Execute(em, entity);
-                    if (LogCommands) Debug.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Train:
                     if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
                     {
                         string unitId = cmd.BuildingId;
+                        // Authoritative level gate — same check IssueTrain
+                        // does on the originating peer. Drops silently on
+                        // mismatch (replay can't notify; the local peer
+                        // already heard about the rejection client-side).
+                        if (!CommandRouter.CanTrainAtBuilding(em, entity, unitId, out _, out _))
+                            break;
                         var queue = em.GetBuffer<TrainQueueItem>(entity);
                         queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+                    }
+                    break;
+
+                case LockstepCommandType.CancelTrain:
+                    if (entity != Entity.Null)
+                    {
+                        int cancelSlot = cmd.TargetEntityId;
+                        CancelTrainCommandHelper.Execute(em, entity, cancelSlot);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed CancelTrain slot={cancelSlot} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertHut:
+                    if (entity != Entity.Null)
+                    {
+                        var convertTarget = (HutConversionTarget)(byte)(cmd.TargetEntityId & 0xFF);
+                        ConvertHutCommandHelper.Execute(em, entity, convertTarget);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertHut target={convertTarget} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertSegmentToGate:
+                    if (entity != Entity.Null)
+                    {
+                        // TargetEntityId carries the focus-instance network id
+                        // (0 = no focus → fallback to segment midpoint).
+                        Entity focus = cmd.TargetEntityId != 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId)
+                            : Entity.Null;
+                        ConvertSegmentToGateCommandHelper.Execute(em, entity, focus);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertSegmentToGate from player {cmd.PlayerIndex}");
                     }
                     break;
 
@@ -532,7 +573,41 @@ namespace TheWaningBorder.Multiplayer
                             ? FindEntityByNetworkId(cmd.EntityNetworkId)
                             : Entity.Null;
                         CommandRouter.IssueAbilityDirect(em, entity, abilityTarget);
-                        if (LogCommands) Debug.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Purify:
+                    if (entity != Entity.Null && targetEntity != Entity.Null)
+                    {
+                        CommandRouter.IssuePurifyDirect(em, entity, targetEntity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Purify from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ConvertNode:
+                    if (entity != Entity.Null && targetEntity != Entity.Null)
+                    {
+                        CommandRouter.IssueConvertNodeDirect(em, entity, targetEntity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ConvertNode from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.EquipmentUpgrade:
+                    {
+                        Faction caster = (Faction)cmd.EntityNetworkId;
+                        UnitClass cls = (UnitClass)(byte)(cmd.TargetEntityId & 0xFF);
+                        EquipmentTier tier = (EquipmentTier)(byte)((cmd.TargetEntityId >> 8) & 0xFF);
+                        CommandRouter.IssueEquipmentUpgradeDirect(em, caster, cls, tier);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed EquipmentUpgrade {caster}/{cls}->{tier} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.GodPower:
+                    {
+                        Faction caster = (Faction)cmd.EntityNetworkId;
+                        CommandRouter.IssueGodPowerDirect(em, caster, cmd.TargetPosition);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed GodPower {caster} from player {cmd.PlayerIndex}");
                     }
                     break;
             }

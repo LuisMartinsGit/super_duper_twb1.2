@@ -21,7 +21,13 @@ namespace TheWaningBorder.World.Terrain
         public static bool IsReady()
         {
             var terrain = UnityEngine.Terrain.activeTerrain;
-            return terrain != null && terrain.terrainData != null;
+            if (terrain == null || terrain.terrainData == null) return false;
+            // Also require the procedural generation coroutine to have
+            // finished — ProceduralTerrain.Awake now creates the Terrain
+            // GameObject fast and the heavy heightmap/erosion/texture pass
+            // runs in a Start() coroutine. Without this gate, callers like
+            // SpawnDelayHelper would proceed against an empty heightmap.
+            return ProceduralTerrain.IsGenerationComplete;
         }
 
         /// <summary>
@@ -30,7 +36,8 @@ namespace TheWaningBorder.World.Terrain
         public static bool IsReady(out UnityEngine.Terrain terrain)
         {
             terrain = UnityEngine.Terrain.activeTerrain;
-            return terrain != null && terrain.terrainData != null;
+            if (terrain == null || terrain.terrainData == null) return false;
+            return ProceduralTerrain.IsGenerationComplete;
         }
 
         /// <summary>

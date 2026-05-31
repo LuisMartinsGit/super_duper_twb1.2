@@ -1,0 +1,16 @@
+{
+  "id": "task-presentation-sync-component-cache-104",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:25:00Z",
+  "updatedAt": "2026-05-20T18:25:00Z",
+  "events": [
+    {
+      "type": "task_created",
+      "description": "Spun out from task-082 §D row 3 (PresentationSpawnSystem.SyncTransforms per-entity GetComponent hot loop) and row 4 (CleanupDestroyedEntities per-frame List alloc). Both findings live in the same file and the same Update() tick — single task scope.",
+      "timestamp": "2026-05-20T18:25:00Z"
+    }
+  ]
+}

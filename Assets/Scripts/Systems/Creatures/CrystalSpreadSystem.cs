@@ -70,9 +70,13 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // === Main Node Spread ===
+            // Skip nodes that are still under construction — wait until the
+            // staggered rise animation finishes before they begin cursing the
+            // ground around them.
             foreach (var (crystalNode, spreadState, nodeLevel, transform, entity) in SystemAPI
                 .Query<RefRO<CrystalNode>, RefRW<CrystalSpreadState>, RefRW<CrystalNodeLevel>, RefRO<LocalTransform>>()
                 .WithAll<CrystalMainNodeTag>()
+                .WithNone<UnderConstruction>()
                 .WithEntityAccess())
             {
                 if (crystalNode.ValueRO.Enabled == 0) continue;
@@ -119,10 +123,11 @@ namespace TheWaningBorder.Systems.Creatures
             }
 
             // === Resource Sub-Node Spread ===
+            // Same UnderConstruction skip as the main-node loop above.
             foreach (var (crystalNode, spreadState, transform, subTag, entity) in SystemAPI
                 .Query<RefRO<CrystalNode>, RefRW<CrystalSpreadState>, RefRO<LocalTransform>, RefRO<CrystalSubNodeTag>>()
                 .WithAll<CrystalSubNodeTag>()
-                .WithNone<CrystalMainNodeTag>()
+                .WithNone<CrystalMainNodeTag, UnderConstruction>()
                 .WithEntityAccess())
             {
                 // Only Resource sub-nodes spread cursed ground

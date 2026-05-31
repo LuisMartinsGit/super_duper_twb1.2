@@ -4,6 +4,34 @@
 Unity 6 (6000.0.37f1) RTS game using DOTS/ECS (Entities 1.3.14) with hybrid MonoBehaviour UI.
 C# source code lives in `Assets/Scripts/` organized by domain modules.
 
+## Game-design truth source
+
+**[docs/Design/](docs/Design/Overview.md) is the canonical truth source** for
+every game-design decision — units, buildings, costs, techs, factions,
+ages, Glow rules, religious-unit tier, per-battalion upgrade pattern,
+Runai trade lanes, Feraldis raider houses, Alanthor walls, sect framing.
+
+When the **code** and the **Design folder** disagree, the Design folder
+wins; the code is being progressively aligned through tasks in
+[.deft/tasks/](. deft/tasks/) (notably
+[task-age0-techtree-alignment-065](.deft/tasks/task-age0-techtree-alignment-065/task.md)).
+Do **not** introduce new mechanics, balance values, or design changes
+without updating the Design folder first.
+
+| Doc | Scope |
+|-----|-------|
+| [docs/Design/Overview.md](docs/Design/Overview.md) | Cross-faction framing — two-age structure, movement axis, age-up transformations, per-battalion upgrades, Glow economy, religious-unit tier, population model, caravan-death rule, Petriarchy |
+| [docs/Design/Tech_Tree.md](docs/Design/Tech_Tree.md) | At-a-glance Mermaid charts of every building, unit, and tech across Age 0 and the three cultures |
+| [docs/Design/Age_0.md](docs/Design/Age_0.md) | Pre-culture Age 0 — every building / unit / tech / cost |
+| [docs/Design/Age_1_Alanthor.md](docs/Design/Age_1_Alanthor.md) | Alanthor (defense focus) Age 1 tree |
+| [docs/Design/Age_1_Runai.md](docs/Design/Age_1_Runai.md) | Runai (economy / movement focus) Age 1 tree |
+| [docs/Design/Age_1_Feraldis.md](docs/Design/Age_1_Feraldis.md) | Feraldis (military focus) Age 1 tree |
+
+Player-facing UX (controls, hotkeys, AI personalities, multiplayer) lives
+in [GAME_MANUAL.md](GAME_MANUAL.md). Code-level runtime reference (what
+the code currently does, often pre-design-pass) lives in
+[docs/Technical_Reference.md](docs/Technical_Reference.md).
+
 ## Architecture
 
 ### ECS (Data-Oriented)

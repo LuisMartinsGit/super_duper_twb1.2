@@ -133,6 +133,15 @@ namespace TheWaningBorder.Input
                 return true;
             }
 
+            // Web HUD: while the pointer hovers an interactive HTML element
+            // (button / panel / sidebar handle), block game-world input so the
+            // same click doesn't ALSO deselect units or fire orders. CEF runs
+            // in a separate process so its event capture can't suppress
+            // Unity's input on its own — we mirror the state explicitly via
+            // the `hud:capture` bridge topic.
+            if (TheWaningBorder.UI.Web.HudWebController.IsPointerOverWebHud)
+                return true;
+
             // Block if mouse is over UI panels
             if (EntityActionPanel.IsPointerOver() || EntityInfoPanel.IsPointerOver())
                 return true;
@@ -297,6 +306,10 @@ namespace TheWaningBorder.Input
         
         private void HandleRightClick()
         {
+            // God-power targeting hook removed alongside GodPowerHUD —
+            // sect Fire buttons in ReligionHUD don't use a mouse-targeting
+            // mode (they fire at a fixed target / self position).
+
             // Drag-to-preview formation: when the user has held right-mouse and
             // dragged, FormationDragPreview takes over. Skip the instant move.
             if (TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick)
@@ -392,7 +405,17 @@ namespace TheWaningBorder.Input
             // If ONLY owned buildings are selected and right-clicking ground, set rally point
             if (targetType == TargetType.Ground && HasOnlyOwnedBuildings())
             {
-                SetRallyPoints(clickWorld);
+                SetRallyPoints(clickWorld, Entity.Null);
+                return;
+            }
+
+            // Same flow but with a resource as the rally target — newly
+            // trained miners auto-gather it on spawn (TrainingSystem reads
+            // RallyPoint.TargetEntity). Lets the player point a Hall at a
+            // crystal / iron deposit and walk away.
+            if (targetType == TargetType.Resource && HasOnlyOwnedBuildings())
+            {
+                SetRallyPoints(clickWorld, target);
                 return;
             }
 
@@ -401,6 +424,21 @@ namespace TheWaningBorder.Input
             switch (targetType)
             {
                 case TargetType.Enemy:
+                    // Scholar + Active crystal main node → Purify ritual.
+                    // Falls through to Attack if the scholar isn't selected
+                    // or the node is no longer Active (Cleansed/Converted/
+                    // Destroyed nodes don't accept purification).
+                    if (capabilities.CanPurify && IsActiveCrystalMainNode(target))
+                    {
+                        IssuePurifyCommands(target);
+                        break;
+                    }
+                    // Acolyte + Active crystal main node → Conversion ritual.
+                    if (capabilities.CanConvertNode && IsActiveCrystalMainNode(target))
+                    {
+                        IssueConvertNodeCommands(target);
+                        break;
+                    }
                     if (capabilities.CanAttack)
                         IssueAttackCommands(target);
                     break;
@@ -438,16 +476,10 @@ namespace TheWaningBorder.Input
 
                 case TargetType.Ground:
                 default:
-                    // If miners are selected and click is near a deposit, gather instead of move
-                    if (capabilities.CanGather)
-                    {
-                        Entity nearbyDeposit = FindNearestResourceNearClick(clickWorld);
-                        if (nearbyDeposit != Entity.Null)
-                        {
-                            IssueGatherCommands(nearbyDeposit);
-                            break;
-                        }
-                    }
+                    // Ground clicks are always moves. Gather requires clicking
+                    // the deposit entity itself (handled by TargetType.Resource);
+                    // snapping nearby ground clicks to a gather order would make
+                    // it impossible to move workers to positions near a node.
                     IssueFormationMove(clickWorld);
                     break;
             }
@@ -529,7 +561,7 @@ namespace TheWaningBorder.Input
             }
         }
 
-        private void SetRallyPoints(float3 position)
+        private void SetRallyPoints(float3 position, Entity targetEntity)
         {
             foreach (var e in SelectionSystem.CurrentSelection)
             {
@@ -537,8 +569,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<BuildingTag>(e)) continue;
 
-                CommandRouter.SetRallyPoint(_em, e, position, CommandSource.LocalPlayer);
-
+                CommandRouter.SetRallyPoint(_em, e, position, targetEntity, CommandSource.LocalPlayer);
             }
         }
 
@@ -568,6 +599,52 @@ namespace TheWaningBorder.Input
                 if (!CanHeal(e)) continue;
 
                 CommandRouter.IssueHeal(_em, e, target, CommandSource.LocalPlayer);
+            }
+        }
+
+        /// <summary>
+        /// True when the right-click target is a crystal main node currently
+        /// in the Active state — the only state that accepts Purification.
+        /// </summary>
+        private bool IsActiveCrystalMainNode(Entity target)
+        {
+            if (target == Entity.Null || !_em.Exists(target)) return false;
+            if (!_em.HasComponent<CrystalMainNodeTag>(target)) return false;
+            if (!_em.HasComponent<CrystalNodeState>(target)) return false;
+            return _em.GetComponentData<CrystalNodeState>(target).State == NodeState.Active;
+        }
+
+        /// <summary>
+        /// Issue IssuePurify on every scholar in the current selection
+        /// targeting the same node. Non-scholars in the selection ignore the
+        /// click (they don't fall back to Attack from here — the right-click
+        /// handler treated the click as a Purify intent).
+        /// </summary>
+        private void IssuePurifyCommands(Entity node)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (!_em.HasComponent<ScholarTag>(e)) continue;
+
+                CommandRouter.IssuePurify(_em, e, node, CommandSource.LocalPlayer);
+            }
+        }
+
+        /// <summary>
+        /// Issue IssueConvertNode on every acolyte in the current selection.
+        /// Same one-target semantics as IssuePurifyCommands.
+        /// </summary>
+        private void IssueConvertNodeCommands(Entity node)
+        {
+            foreach (var e in SelectionSystem.CurrentSelection)
+            {
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByLocalPlayer(e)) continue;
+                if (!_em.HasComponent<AcolyteTag>(e)) continue;
+
+                CommandRouter.IssueConvertNode(_em, e, node, CommandSource.LocalPlayer);
             }
         }
 
@@ -1200,6 +1277,8 @@ namespace TheWaningBorder.Input
             public bool CanGather;
             public bool CanHeal;
             public bool CanBuildRepair;
+            public bool CanPurify;
+            public bool CanConvertNode;
         }
 
         private UnitCapabilities DetermineCapabilities()
@@ -1226,6 +1305,14 @@ namespace TheWaningBorder.Input
                 // Can build/repair if is a builder
                 if (_em.HasComponent<CanBuild>(e))
                     caps.CanBuildRepair = true;
+
+                // Scholar can channel Purification on Active crystal main nodes.
+                if (_em.HasComponent<ScholarTag>(e))
+                    caps.CanPurify = true;
+
+                // Acolyte can channel Conversion on Active crystal main nodes.
+                if (_em.HasComponent<AcolyteTag>(e))
+                    caps.CanConvertNode = true;
             }
 
             return caps;
@@ -1375,29 +1462,6 @@ namespace TheWaningBorder.Input
 
             ents.Dispose();
             return nearest;
-        }
-
-        /// <summary>
-        /// Searches for the nearest non-depleted resource deposit (iron mine or cadaver)
-        /// near the click position. Uses the first selected miner's LineOfSight radius
-        /// as the search range, or 30 units as a fallback.
-        /// </summary>
-        private Entity FindNearestResourceNearClick(float3 clickPos)
-        {
-            // Determine search radius from the first selected miner's LOS
-            float searchRadius = 30f;
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-                if (!_em.HasComponent<MinerTag>(e)) continue;
-
-                if (_em.HasComponent<LineOfSight>(e))
-                    searchRadius = _em.GetComponentData<LineOfSight>(e).Radius;
-                break;
-            }
-
-            return GatherCommandHelper.FindNearestDepositNearPosition(_em, clickPos, searchRadius);
         }
 
         // ═══════════════════════════════════════════════════════════════════════

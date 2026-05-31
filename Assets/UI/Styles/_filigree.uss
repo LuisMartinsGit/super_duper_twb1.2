@@ -1,0 +1,81 @@
+/* _filigree.uss
+   Corner ornaments + decorative dividers.
+   Phase 1: SVG-backed.
+
+   How callers compose this:
+     <VisualElement class="tw-panel">
+       <VisualElement class="tw-corner tw-corner-tl" picking-mode="Ignore" />
+       <VisualElement class="tw-corner tw-corner-tr" picking-mode="Ignore" />
+       <VisualElement class="tw-corner tw-corner-bl" picking-mode="Ignore" />
+       <VisualElement class="tw-corner tw-corner-br" picking-mode="Ignore" />
+       ... content ...
+     </VisualElement>
+
+   The four .tw-corner-* variants flip a single SVG source via USS `scale`:
+     -tl  →   1  1  (identity)
+     -tr  →  -1  1  (horizontal flip)
+     -bl  →   1 -1  (vertical flip)
+     -br  →  -1 -1  (both)
+*/
+
+.tw-corner {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    background-image: url("project://database/Assets/UI/Vectors/corner-filigree.svg");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.tw-corner-tl { left: -8px; top: -8px; }
+.tw-corner-tr { right: -8px; top: -8px; scale: -1 1; }
+.tw-corner-bl { left: -8px; bottom: -8px; scale: 1 -1; }
+.tw-corner-br { right: -8px; bottom: -8px; scale: -1 -1; }
+
+/* Horizontal edge ornament — centered on a panel's top/bottom edge.
+   Default = top variant; use .tw-edge-bottom to flip. */
+.tw-edge {
+    position: absolute;
+    height: 18px;
+    width: 180px;
+    background-image: url("project://database/Assets/UI/Vectors/edge-filigree.svg");
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.tw-edge-top {
+    top: -12px;
+    left: 50%;
+    translate: -90px 0;
+}
+
+.tw-edge-bottom {
+    bottom: -12px;
+    left: 50%;
+    translate: -90px 0;
+    scale: 1 -1;
+}
+
+/* Section divider with a small gem in the middle.
+   Stays USS-drawn (1px line + rotated square) — cheap, identical to mockup. */
+.tw-divider {
+    flex-direction: row;
+    align-items: center;
+    height: 8px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.tw-divider-line {
+    flex-grow: 1;
+    height: 1px;
+    background-color: var(--tw-inlay);
+    opacity: 0.4;
+}
+
+.tw-divider-gem {
+    width: 6px;
+    height: 6px;
+    rotate: 45deg;
+    background-color: var(--tw-accent);
+    margin-left: 4px;
+    margin-right: 4px;
+}

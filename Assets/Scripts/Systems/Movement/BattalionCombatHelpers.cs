@@ -6,6 +6,7 @@
 // BattalionSyncSystem can still own the per-frame member-position cache
 // without round-tripping state through components.
 
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -204,6 +205,16 @@ namespace TheWaningBorder.Systems.Movement
             return s;
         }
 
+        // Cap how many MELEE attackers can share a single enemy. Once the cap
+        // is hit, overflow members pick the next-nearest enemy and naturally
+        // walk around the front-line clump to engage. Only applies to melee
+        // — the ranged branch already random-spreads across the enemy
+        // battalion via a hash of (leader, member-index).
+        // SpreadDistRatio guards against members trekking far to a distant
+        // under-cap target when a saturated one is right in front of them.
+        private const int MeleeMaxAttackersPerEnemy = 8;
+        private const float MeleeSpreadDistRatio = 1.5f;
+
         private static void AssignPerMemberTargets(
             EntityManager em,
             Entity leaderEntity,
@@ -236,6 +247,26 @@ namespace TheWaningBorder.Systems.Movement
                             && em.HasComponent<Health>(enemy) && em.GetComponentData<Health>(enemy).Value > 0)
                             livingEnemyCount++;
                     }
+                }
+            }
+
+            // Build a per-enemy attacker count from our own members' current
+            // targets so we can spread overflow attackers off the front rank.
+            // Includes external attackers too (other battalions targeting the
+            // same enemy battalion) so cross-battalion stacking is also capped.
+            var attackerCount = new Dictionary<Entity, int>();
+            if (enemyIsBattalion)
+            {
+                // Count current targeters across the entire world — picks up
+                // both our own members and any allies already engaged.
+                var q = em.CreateEntityQuery(ComponentType.ReadOnly<Target>(), ComponentType.ReadOnly<UnitTag>());
+                using var qTargets = q.ToComponentDataArray<Target>(Allocator.Temp);
+                for (int qi = 0; qi < qTargets.Length; qi++)
+                {
+                    var tv = qTargets[qi].Value;
+                    if (tv == Entity.Null) continue;
+                    attackerCount.TryGetValue(tv, out int prev);
+                    attackerCount[tv] = prev + 1;
                 }
             }
 
@@ -272,8 +303,18 @@ namespace TheWaningBorder.Systems.Movement
                     }
                     else
                     {
-                        // Melee: assign nearest enemy from battalion
-                        float bestD = float.MaxValue;
+                        // Melee: prefer nearest enemy NOT already at the attacker
+                        // cap (rank 2 picks a different enemy than rank 1 so they
+                        // walk around the front-line clump). Only accept the
+                        // under-cap candidate if it's within MeleeSpreadDistRatio
+                        // of absolute nearest — otherwise dogpile nearest rather
+                        // than trek across the field. Fall back to absolute
+                        // nearest if every candidate is saturated.
+                        float underBestD = float.MaxValue;
+                        Entity underBest = Entity.Null;
+                        float anyBestD = float.MaxValue;
+                        Entity anyBest = Entity.Null;
+
                         for (int ei = 0; ei < enemyBuf.Length; ei++)
                         {
                             var enemy = enemyBuf[ei].Value;
@@ -284,7 +325,27 @@ namespace TheWaningBorder.Systems.Movement
                             float3 diff = ePos - memberPos[i];
                             diff.y = 0;
                             float d = math.lengthsq(diff);
-                            if (d < bestD) { bestD = d; assignedTarget = enemy; }
+
+                            if (d < anyBestD) { anyBestD = d; anyBest = enemy; }
+                            attackerCount.TryGetValue(enemy, out int curC);
+                            if (curC < MeleeMaxAttackersPerEnemy && d < underBestD)
+                            {
+                                underBestD = d;
+                                underBest = enemy;
+                            }
+                        }
+
+                        // Distance comparisons here are squared, so the ratio
+                        // also gets squared for an equivalent threshold.
+                        const float ratioSq = MeleeSpreadDistRatio * MeleeSpreadDistRatio;
+                        if (underBest != Entity.Null
+                            && (anyBest == Entity.Null || underBestD <= anyBestD * ratioSq))
+                        {
+                            assignedTarget = underBest;
+                        }
+                        else
+                        {
+                            assignedTarget = anyBest;
                         }
                     }
                 }
@@ -295,7 +356,13 @@ namespace TheWaningBorder.Systems.Movement
                 }
 
                 if (assignedTarget != Entity.Null)
+                {
                     em.SetComponentData(members[i], new Target { Value = assignedTarget });
+                    // Track for subsequent members in this same pass so members
+                    // 2 and 3 don't both pile on what was just assigned to 1.
+                    attackerCount.TryGetValue(assignedTarget, out int prev);
+                    attackerCount[assignedTarget] = prev + 1;
+                }
             }
         }
     }

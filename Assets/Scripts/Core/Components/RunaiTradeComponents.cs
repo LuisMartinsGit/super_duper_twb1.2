@@ -84,6 +84,14 @@ public struct RunaiTraderState : IComponentData
 /// </summary>
 public struct RunaiPopOverride : IComponentData { }
 
+/// <summary>
+/// Tag on faction bank entity indicating Feraldis's 200-pop override.
+/// When present, PopulationSyncSystem sets Max to 200 regardless of housing.
+/// Added by AgeUpSystem on Feraldis culture selection. Per design §5.1,
+/// Houses do not contribute pop for Feraldis — they're raider-spawn buildings.
+/// </summary>
+public struct FeraldisPopOverride : IComponentData { }
+
 // ==================== Bazaar Wagon (Packed Form) ====================
 
 /// <summary>Marker for the wagon unit form of a packed Thessara's Bazaar.</summary>
@@ -105,3 +113,25 @@ public struct BazaarPackCommand : IComponentData { }
 
 /// <summary>Command to unpack a wagon unit back into a Bazaar building. Consumed by BazaarPackSystem.</summary>
 public struct BazaarUnpackCommand : IComponentData { }
+
+// ==================== Patrol Alert / Threat Detection (spec §7.4) ====================
+
+/// <summary>
+/// Spec §7.4 (Sins of a Solar Empire 2 TEC borrow): when enemy units
+/// engage within range of a trade lane, nearby patrols become
+/// player-controllable; returns to autonomous when combat ends.
+///
+/// Present on every TradePatrolData entity. PatrolThreatDetectionSystem
+/// flips IsAlert based on hostile proximity; while IsAlert == 1 the
+/// patrol has its NotControllableTag stripped so RTSInputManager can
+/// route commands to it. Returns to autonomous when no hostile has
+/// been within range for PatrolAlertTimeout seconds.
+/// </summary>
+public struct PatrolAlertState : IComponentData
+{
+    /// <summary>1 = currently alerted (controllable), 0 = autonomous.</summary>
+    public byte IsAlert;
+
+    /// <summary>Seconds since the last hostile sighting in range. Counts up while peaceful.</summary>
+    public float PeacefulSeconds;
+}

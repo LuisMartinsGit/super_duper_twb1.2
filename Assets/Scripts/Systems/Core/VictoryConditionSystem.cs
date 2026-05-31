@@ -53,8 +53,13 @@ namespace TheWaningBorder.UI.HUD
 
             _gameStartTime = Time.time;
 
-            // Sandbox / BattalionTest mode: no victory conditions
-            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.BattalionTest)
+            // Sandbox / BattalionTest / Scenario mode: no victory conditions.
+            // Scenarios are sandboxed combat fixtures — the player should never
+            // get a victory or defeat banner just because one faction loses all
+            // its (often-zero) buildings.
+            if (GameSettings.IsSandbox
+                || GameSettings.Mode == GameMode.BattalionTest
+                || GameSettings.Mode == GameMode.Scenario)
             {
                 _initialized = false;
                 return;
@@ -171,18 +176,94 @@ namespace TheWaningBorder.UI.HUD
                 GameStatsTracker.Instance.EndGame();
             }
 
+            // Result string. Missing braces on the original else-if let
+            // the VICTORY/DEFEAT line run unconditionally and overwrite
+            // the surrender "DEFEAT" path. Fixed by collapsing the two
+            // surrender branches into one ternary.
             string result;
             if (GameSettings.IsObserver)
+            {
                 result = $"{winner} WINS";
+            }
             else if (localPlayerDefeated)
+            {
                 result = "DEFEAT";
+            }
+            else
+            {
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
-
+            }
 
             EndGameButton.GameEndedBySystem = true;
 
+            // The IMGUI PostGameStatsUI is disabled while the web HUD is
+            // active (GameBootstrap sets legacyPostGame.enabled = false).
+            // Re-enable it so its OnGUI fires for the end-of-match
+            // banner + graphs. The web HUD owns in-match chrome; the
+            // post-game screen takes over once we're at game end.
+            if (PostGameStatsUI.Instance == null)
+            {
+                var go = new GameObject("PostGameStatsUI");
+                go.AddComponent<PostGameStatsUI>();
+            }
             if (PostGameStatsUI.Instance != null)
             {
+                PostGameStatsUI.Instance.enabled = true;
+                PostGameStatsUI.Instance.ShowWithResult(result, winner);
+            }
+        }
+
+        /// <summary>
+        /// Called by NodeVictorySystem when a culture wins by node victory
+        /// (Alanthor cleanse-all-hold, Runai convert-all-hold, Feraldis
+        /// destroy-all-instant). Posts the appropriate VICTORY / DEFEAT
+        /// banner from the local player's perspective.
+        /// </summary>
+        public void TriggerNodeVictory(byte culture, Faction winner)
+        {
+            if (_gameOver) return;
+
+            string cultureName = culture switch
+            {
+                Cultures.Runai    => "RUNAI",
+                Cultures.Alanthor => "ALANTHOR",
+                Cultures.Feraldis => "FERALDIS",
+                _ => $"Culture {culture}",
+            };
+
+            _gameOver = true;
+
+            if (GameStatsTracker.Instance != null)
+                GameStatsTracker.Instance.EndGame();
+
+            string result;
+            if (GameSettings.IsObserver)
+            {
+                result = $"{cultureName} WINS (node victory)";
+            }
+            else
+            {
+                // Local player wins if their faction is the representative —
+                // a follow-up will resolve shared-culture team wins properly.
+                bool localWins = winner == GameSettings.LocalPlayerFaction;
+                result = localWins
+                    ? $"VICTORY — {cultureName} node win"
+                    : $"DEFEAT — {cultureName} node win";
+            }
+
+            EndGameButton.GameEndedBySystem = true;
+
+            // Same re-enable + create-if-missing dance as TriggerGameEnd
+            // — the web HUD's PostGameStatsUI is disabled in-match, so
+            // we need to flip it on for the post-match overlay.
+            if (PostGameStatsUI.Instance == null)
+            {
+                var go = new GameObject("PostGameStatsUI");
+                go.AddComponent<PostGameStatsUI>();
+            }
+            if (PostGameStatsUI.Instance != null)
+            {
+                PostGameStatsUI.Instance.enabled = true;
                 PostGameStatsUI.Instance.ShowWithResult(result, winner);
             }
         }

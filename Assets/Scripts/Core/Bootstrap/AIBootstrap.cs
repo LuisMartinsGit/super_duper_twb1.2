@@ -212,11 +212,26 @@ namespace TheWaningBorder.AI
             em.AddComponentData(brainEntity, new FactionTag { Value = faction });
 
             // SimpleAISystem state — build-order step pointer + think timer.
+            // When the lobby pre-promoted every faction (StartAge > 0),
+            // skip the entire Age-1 build order and drop straight into the
+            // maintenance loop: ReplaceLostUnits keeps the army at floor,
+            // and TryLaunchAttack pushes idle units at the nearest enemy.
+            // StartAgePromoter has already placed the Hall + Temple + choice
+            // building, so the AI has no early-game milestones left to hit.
+            int initialStepIndex = 0;
+            byte ageUpIssued = 0;
+            if (GameSettings.StartAge != SkirmishStartAge.Age0)
+            {
+                // Any step index past the longest build order (~30 steps)
+                // triggers the maintenance branch in SimpleAISystem.OnUpdate.
+                initialStepIndex = int.MaxValue;
+                ageUpIssued = 1; // already aged up — don't try to trigger again
+            }
             em.AddComponentData(brainEntity, new SimpleAIState
             {
-                StepIndex = 0,
+                StepIndex = initialStepIndex,
                 ThinkTimer = 0f,           // fire on first update
-                AgeUpIssued = 0,
+                AgeUpIssued = ageUpIssued,
                 CrystalMinerTarget = 0,    // raised by SetCrystalTarget steps in the build order
                 DesiredMilitary = 0,       // bumped by each successful military Train step
                 DesiredMiners = 0,         // bumped by each successful Miner Train step

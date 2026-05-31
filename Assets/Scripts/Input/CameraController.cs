@@ -66,6 +66,9 @@ namespace TheWaningBorder.Input
         public float heightDamping = 0.1f;
         
         [Header("World Bounds")]
+        // Defaults are placeholders; Start() pulls the real bounds from
+        // GameSettings.MapHalfSize so the camera can reach the edge of
+        // whatever map the lobby selected (largest preset goes to ±512).
         public Vector2 worldMin = new Vector2(-256, -256);
         public Vector2 worldMax = new Vector2(256, 256);
         
@@ -121,7 +124,32 @@ namespace TheWaningBorder.Input
         {
             InitializeCameraRig();
             FindTerrain();
-            
+
+            // Bounds priority:
+            //   1. Active Unity Terrain extents — covers hand-authored maps
+            //      whose terrain may sit far from origin (MapMagic etc.) and
+            //      whose size doesn't match the lobby's MapHalfSize.
+            //   2. Otherwise fall back to the lobby-selected MapHalfSize box.
+            //      (Procedural maps build their Terrain centred on the origin
+            //      with extents ±MapHalfSize, so the two match anyway.)
+            var ut = UnityEngine.Terrain.activeTerrain;
+            if (ut != null && ut.terrainData != null)
+            {
+                var origin = ut.transform.position;
+                var size = ut.terrainData.size;
+                worldMin = new Vector2(origin.x, origin.z);
+                worldMax = new Vector2(origin.x + size.x, origin.z + size.z);
+            }
+            else
+            {
+                int half = GameSettings.MapHalfSize;
+                if (half > 0)
+                {
+                    worldMin = new Vector2(-half, -half);
+                    worldMax = new Vector2( half,  half);
+                }
+            }
+
             // Initialize from current state
             _targetPosition = transform.position;
             _currentZoom = _targetZoom = _camTransform.localPosition.magnitude;
@@ -132,15 +160,20 @@ namespace TheWaningBorder.Input
             ClampPositionToBounds(ref _targetPosition);
         }
 
+        // Locked-down camera controls — design decision: the RTS camera
+        // stays at a fixed angle / fixed zoom / fixed tilt, only its
+        // position pans. Scroll-wheel zoom, Q/E rotation, R/F tilt and
+        // WASD pan are all intentionally disabled.
+        //  • A used to mean "pan left" AND "attack-move". With WASD
+        //    disabled, A is now unambiguously attack-move (RTSInputManager).
+        //  • Default Y rotation comes from GameCamera (45° if UseWebHud).
+        // Player still pans via arrow keys / edge-scroll / middle-mouse-drag.
         void Update()
         {
-            HandleKeyboardMovement();
+            HandleArrowKeyMovement();
             HandleEdgeScrolling();
             HandleMousePan();
-            HandleRotation();
-            HandleTilt();
-            HandleZoom();
-            
+
             ApplySmoothMovement();
         }
         
@@ -167,6 +200,18 @@ namespace TheWaningBorder.Input
                 }
             }
 
+            // Belt-and-suspenders AudioListener guarantee — if we adopted an
+            // existing Camera.main (lobby scene's, for instance) it may not
+            // carry an AudioListener of its own, and Unity then spams "no
+            // audio listeners in the scene" every frame. Add one if neither
+            // the adopted camera nor anything else in the scene has one.
+            if (mainCamera != null && mainCamera.GetComponent<AudioListener>() == null)
+            {
+                var existing = Object.FindFirstObjectByType<AudioListener>();
+                if (existing == null)
+                    mainCamera.gameObject.AddComponent<AudioListener>();
+            }
+
             _camTransform = mainCamera.transform;
 
             // Create arm if needed
@@ -191,22 +236,38 @@ namespace TheWaningBorder.Input
             // been positioned yet (e.g., by FocusCameraOnHall before Start runs).
             if (wasReparented && transform.position.sqrMagnitude < 0.1f)
             {
-                // Position rig at origin
                 transform.position = Vector3.zero;
-                transform.rotation = Quaternion.identity;
+                // Default Y yaw 45° — points the player's view toward the
+                // top-right (NE) corner of the map. Matches the rotated
+                // minimap diamond and the spec'd "facing the top corner of
+                // the map" framing. Without this, the rig defaults to
+                // Quaternion.identity (north-facing) and the player starts
+                // looking straight up the map instead of along the diagonal.
+                transform.rotation = Quaternion.Euler(0f, 45f, 0f);
             }
 
-            // Always ensure arm and camera hierarchy is configured
-            if (wasReparented)
-            {
-                // Tilt arm downward
-                _arm.localPosition = Vector3.zero;
-                _arm.localRotation = Quaternion.Euler(55f, 0f, 0f);
+            // Always apply the RTS arm tilt + camera distance, regardless of
+            // whether we just reparented. Previously this block was gated on
+            // wasReparented, which meant a scene with a pre-configured Main
+            // Camera (e.g. a hand-authored map saved with the camera looking
+            // anywhere) would keep that camera's transform and the player
+            // would start with a broken view. The RTS view is a fixed mode —
+            // tilt the arm 60° down, place the camera 75m back along it,
+            // every game.
+            _arm.localPosition = Vector3.zero;
+            _arm.localRotation = Quaternion.Euler(60f, 0f, 0f);
+            // Arm length halved (75 → 37.5) per user feedback — the previous
+            // distance put the camera ~65 m above ground (75·sin(60°)) which
+            // read as "too high" on the larger hand-authored maps. 37.5 puts
+            // it at ~32 m above, still angled down, more typical RTS feel.
+            _camTransform.localPosition = new Vector3(0f, 0f, -37.5f);
+            _camTransform.localRotation = Quaternion.identity;
 
-                // Position camera back from arm
-                _camTransform.localPosition = new Vector3(0f, 0f, -40f);
-                _camTransform.localRotation = Quaternion.identity;
-            }
+            // Belt-and-suspenders: ensure followTerrain is on so the rig
+            // pivot tracks ground height every frame (the "snapped to
+            // ground + clearance + angled down" RTS behaviour). Without
+            // this the pivot floats at heightOffset above world origin.
+            followTerrain = true;
         }
         
         private void FindTerrain()
@@ -264,15 +325,19 @@ namespace TheWaningBorder.Input
         // MOVEMENT
         // ═══════════════════════════════════════════════════════════════════════
         
-        private void HandleKeyboardMovement()
+        // Arrow keys only — WASD removed so A no longer collides with the
+        // attack-move binding in RTSInputManager. Edge-scroll + middle-mouse
+        // drag still work; the arrow keys give keyboard pan without
+        // stomping on any unit command shortcut.
+        private void HandleArrowKeyMovement()
         {
             Vector3 input = Vector3.zero;
-            
-            if (UnityEngine.Input.GetKey(KeyCode.W)) input.z += 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.S)) input.z -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.A)) input.x -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.D)) input.x += 1f;
-            
+
+            if (UnityEngine.Input.GetKey(KeyCode.UpArrow))    input.z += 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.DownArrow))  input.z -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.LeftArrow))  input.x -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.RightArrow)) input.x += 1f;
+
             if (input.sqrMagnitude > 0.01f)
             {
                 _isMinimapPanning = false; // Cancel minimap pan on keyboard input

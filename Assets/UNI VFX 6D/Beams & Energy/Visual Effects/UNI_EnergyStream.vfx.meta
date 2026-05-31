@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 27e46b04667c37849b1ecefa4ab9b842
+VisualEffectImporter:
+  externalObjects: {}
+  serializedVersion: 1
+  template:
+    name: 
+    category: 
+    description: 
+    icon: {instanceID: 0}
+    thumbnail: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Beams & Energy/Visual Effects/UNI_EnergyStream.vfx
+  uploadId: 855178

@@ -1,5 +1,10 @@
 # Runai Building Prompts
 
+> ⚠ **Visual prompts only.** Building roster + mechanics live in
+> **[docs/Design/Age_1_Runai.md](../../../docs/Design/Age_1_Runai.md)**
+> and are the truth source. Several items in this file no longer match the
+> design (see "Roster deltas" at the bottom).
+
 > **Culture Identity:** Nomadic traders. Architecture is Arabic-inspired — flowing curves, horseshoe arches, ornate geometric tile work, open-air courtyards, domed roofs, wind towers, and sun-bleached sandstone. Colors: cyan fabric/banners/awnings, sandstone walls.
 
 ---
@@ -61,3 +66,56 @@ Isometric low-poly RTS building. A large open-air sandstone workshop compound fo
 - **Shared motifs:** Horseshoe arches, geometric tile mosaics, mashrabiya screens, wind catchers, stepped merlons, star-and-polygon patterns
 - **Scale hierarchy:** Thessara's Bazaar > Hall/Trade Hub > Barracks/Siege Workshop > Outpost/Trading Post/Gatherers Hut > Hut
 - **Lighting:** Warm golden desert light, bronze lantern glow, teal copper reflections
+
+---
+
+## Roster deltas vs [docs/Design/Age_1_Runai.md](../../../docs/Design/Age_1_Runai.md)
+
+Refer to the Design doc for authoritative names + roles. Visual prompts in
+this file are still useful, but the roster has shifted:
+
+### ❌ Hut (Runai) — **does not exist in Age 1**
+
+Runai has **no House at all**. At age-up, full population is set to the
+200 cap instantly; any standing Age-0 Houses are removed. The "Hut"
+prompt above can still be used for the Age 0 pre-culture House (which has
+its own neutral aesthetic before culture pick), but no Runai-tinted House
+should ship.
+
+### ⚙ Hall (Runai) → **Trader's Hall**
+
+The cultured Hall renames to **Trader's Hall** at age-up. It only trains
+Worker + Scout — all Runai military training moves to Route Guard /
+Arrowyard / Grazing Grounds (see below).
+
+### ⚙ Barracks (Runai) → **Route Guard**
+
+The cultured Barracks renames to **Route Guard** at age-up. Trains the
+3-tier infantry ladder (Spearman / L2 infantry / L3 infantry).
+
+### ⚠ Arrowyard — **missing prompt** (cultured Archery Range)
+
+No prompt exists for the cultured Runai Archery Range. Suggested
+direction: same Arabic-inspired sandstone aesthetic as Barracks /
+Trader's Hall, with archery targets, hanging quivers of decorated arrows,
+and a long open-air firing arcade.
+
+### ⚠ Grazing Grounds — **missing prompt** (NEW Age 1 building)
+
+No prompt exists for the new Runai cavalry trainer. Suggested direction:
+open-air paddock + tents for camels and warhorses; rounded oasis pools,
+hitching posts, low decorative walls; cyan canopies over training rings;
+arabesque-carved gateposts.
+
+### ⚙ Thessara's Bazaar — **repurposed**
+
+Still a unique Runai building, but no longer the cultured Hall and no
+longer trains units. Now hosts **trade-lane upgrade research** only. The
+existing "grand bazaar palace" visual still fits the role.
+
+### ⚙ Trading Post / Outpost
+
+The Design doc has **Outpost** (trade-route anchor + vision pylon) and
+**Trade Hub** (caravan + trader-warrior spawner). The "Trading Post"
+prompt in this file describes a building between those two scales —
+treat it as a building variant of the Outpost for visual development.

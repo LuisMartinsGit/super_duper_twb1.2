@@ -42,6 +42,13 @@ namespace TheWaningBorder.Presentation
         // null means "definitely-missing" — checked positively too.
         private readonly Dictionary<string, GameObject> _prefabCache = new();
 
+        // What GameObject we last registered with EntityViewManager for
+        // each entity. If on the next scan EntityViewManager's view is a
+        // DIFFERENT GameObject, our swap got clobbered (e.g.
+        // PresentationSpawnSystem.RefreshFactionVisuals respawned
+        // procedurally during age-up completion) and we need to re-swap.
+        private readonly Dictionary<Entity, GameObject> _registeredView = new();
+
         // Throttle the scan — upgrades take 20-45s, no need to poll every
         // frame. 0.5s feels instant after the upgrade completes.
         private const float ScanInterval = 0.5f;
@@ -60,9 +67,38 @@ namespace TheWaningBorder.Presentation
         {
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated) _em = _world.EntityManager;
+            TWBLog.Log("[BuildingPrefabSwap] system attached + ready (scan every "
+                + ScanInterval + "s)");
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
+
+        /// <summary>
+        /// External pre-registration: PresentationSpawnSystem can spawn an
+        /// L1 prefab directly when the faction has already aged up, then
+        /// call this so the swap system's caches stay in sync — otherwise
+        /// the next scan would detect "level 0 cached, level 1 expected"
+        /// and re-instantiate the same prefab. Idempotent.
+        /// </summary>
+        public void RegisterPreSwapped(Entity entity, GameObject view, byte level)
+        {
+            if (entity == Entity.Null || view == null) return;
+            _registeredView[entity] = view;
+            _lastLevel[entity] = level;
+        }
+
+        /// <summary>
+        /// Look up the level-1 prefab path for a building so external
+        /// callers (PresentationSpawnSystem) can use the same lookup
+        /// ladder as the swap system. Returns null if no prefab found.
+        /// </summary>
+        public GameObject TryLoadLevel1Prefab(string buildingId, byte culture, int variant, out string resolvedPath)
+        {
+            resolvedPath = null;
+            string code = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
+            if (string.IsNullOrEmpty(code)) return null;
+            return ResolvePrefab(buildingId, code, level: 1, variant: variant, out resolvedPath);
+        }
 
         void Update()
         {
@@ -87,6 +123,22 @@ namespace TheWaningBorder.Presentation
                 var e = ents[i];
                 byte level = _em.GetComponentData<BuildingUpgradeState>(e).Level;
 
+                // Detect external clobber: if EntityViewManager's view differs
+                // from the one we registered, somebody else replaced our swap
+                // (e.g. AgeUpSystem.RefreshFactionVisuals at age-up complete).
+                // Clear our caches for this entity so the swap fires again.
+                if (_registeredView.TryGetValue(e, out var lastReg))
+                {
+                    var current = EntityViewManager.Instance != null
+                        ? EntityViewManager.Instance.GetView(e) : null;
+                    if (current != lastReg)
+                    {
+                        TWBLog.Log($"[BuildingPrefabSwap] view clobbered for entity {e.Index} — re-swapping");
+                        _lastLevel.Remove(e);
+                        _registeredView.Remove(e);
+                    }
+                }
+
                 if (_lastLevel.TryGetValue(e, out byte cached) && cached == level) continue;
                 _lastLevel[e] = level;
 
@@ -103,64 +155,115 @@ namespace TheWaningBorder.Presentation
         private void TrySwap(Entity e, byte level)
         {
             string buildingId = ResolveBuildingId(e);
-            if (string.IsNullOrEmpty(buildingId)) return;
+            if (string.IsNullOrEmpty(buildingId))
+            {
+                TWBLog.Log($"[BuildingPrefabSwap] skip entity {e.Index}: not Hall/Barracks/Hut");
+                return;
+            }
 
             byte culture = ReadCulture(e);
-            if (culture == Cultures.None) return;
+            if (culture == Cultures.None)
+            {
+                TWBLog.Log($"[BuildingPrefabSwap] skip {buildingId} entity {e.Index}: faction has no culture");
+                return;
+            }
             string code = BuildingUpgradeConfig.CultureCode(culture);
             if (string.IsNullOrEmpty(code)) return;
 
-            // Houses (Hut) get a deterministic variant per entity so the same
-            // house always shows the same prefab between frames. 2 variants.
             int variant = (buildingId == "Hut") ? 1 + (Mathf.Abs(e.Index) % 2) : 0;
 
-            var prefab = ResolvePrefab(buildingId, code, level, variant);
-            if (prefab == null) return; // procedural fallback — leave visual alone
+            var prefab = ResolvePrefab(buildingId, code, level, variant, out string resolvedPath);
+            if (prefab == null)
+            {
+                TWBLog.Log($"[BuildingPrefabSwap] no prefab found for {buildingId}_{code}_{level}" +
+                          (variant > 0 ? $"_{variant}" : "") + " — keeping procedural visual");
+                return;
+            }
+
+            // Use entity transform as the source of truth for position/rotation.
+            // The prefab's authored scale is preserved via ProceduralScaleTag so
+            // PresentationSpawnSystem.SyncTransforms doesn't clobber it on the
+            // next frame — same pattern used for procedural unit visuals.
+            var t = _em.GetComponentData<LocalTransform>(e);
+            Vector3 pos = t.Position;
+            pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
+
+            // Apply the +180° Y building visual offset on top of the
+            // entity's rotation — same convention as PresentationSpawnSystem.
+            // ECS LocalTransform.Rotation stays clean; SyncTransforms keeps
+            // re-applying this offset every frame for the swapped GameObject.
+            Quaternion entityRot = t.Rotation;
+            Quaternion visualRot = entityRot * Quaternion.Euler(0f, 180f, 0f);
+
+            var newGo = Instantiate(prefab, pos, visualRot);
+            newGo.SetActive(true);
+            newGo.name = $"Entity_{e.Index}_{buildingId}_L{level}";
+
+            // Preserve the prefab's authored scale across SyncTransforms ticks.
+            var ps = prefab.transform.localScale;
+            float baseScale = (ps.x + ps.y + ps.z) / 3f;
+            if (baseScale > 0.001f)
+            {
+                var existing = newGo.GetComponent<ProceduralScaleTag>();
+                if (existing == null)
+                    existing = newGo.AddComponent<ProceduralScaleTag>();
+                existing.BaseScale = baseScale;
+            }
+            // Final scale = entity Scale × prefab BaseScale. Most entity Scale
+            // is 1.0 once construction completes; SyncTransforms reapplies
+            // every frame from LocalTransform.
+            newGo.transform.localScale = Vector3.one * t.Scale * baseScale;
+
+            // Authored prefabs paint team-color regions with a flat marker
+            // (default pure blue). Replace with the faction color so each
+            // player's L1/L2/L3 buildings carry their lobby color.
+            if (_em.HasComponent<FactionTag>(e))
+            {
+                var fac = _em.GetComponentData<FactionTag>(e).Value;
+                BuildingFactionColorMarker.Apply(newGo, FactionColors.Get(fac));
+            }
 
             var current = EntityViewManager.Instance != null
                 ? EntityViewManager.Instance.GetView(e) : null;
 
-            // Compute spawn position from current view if we have one (preserves
-            // the snap-to-grid Y), otherwise from the LocalTransform.
-            Vector3 pos;
-            Quaternion rot;
-            Vector3 scale;
-            if (current != null)
-            {
-                pos = current.transform.position;
-                rot = current.transform.rotation;
-                scale = current.transform.localScale;
-            }
-            else
-            {
-                var t = _em.GetComponentData<LocalTransform>(e);
-                pos = t.Position;
-                rot = t.Rotation;
-                scale = Vector3.one * t.Scale;
-            }
-
-            var newGo = Instantiate(prefab, pos, rot);
-            newGo.transform.localScale = scale;
-            newGo.name = $"Entity_{e.Index}_Upgraded_L{level}";
-
-            // Replace registration. Destroy the old visual on the next frame
-            // so any in-flight presentation systems finish their tick safely.
-            if (current != null) Destroy(current);
+            // Register the new view BEFORE the dissolve transition takes over
+            // so other systems reading EntityViewManager always see a valid
+            // GameObject during the brief overlap.
             EntityViewManager.Instance?.RegisterView(e, newGo);
+            _registeredView[e] = newGo;
+
+            Color accent = _em.HasComponent<FactionTag>(e)
+                ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
+                : new Color(1f, 0.85f, 0.45f);
+
+            // Wave-driven dissolve: the old visual is eaten away from the
+            // base up while the new visual reveals along the same front.
+            // The transition driver destroys `current` when it completes.
+            BuildingDissolveTransition.Begin(current, newGo, duration: 1.5f, edgeColor: accent);
+
+            // Level-up flourish: a quick gold pulse / spark burst at the start
+            // of the dissolve gives the wave a clear "trigger" cue.
+            BuildingLevelUpEffect.Spawn(newGo, accent);
+
+            TWBLog.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
         }
 
-        private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant)
+        private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant,
+            out string resolvedPath)
         {
-            // Build candidate paths in priority order. First Resources.Load
-            // hit wins. Empty / null on full miss → procedural fallback.
+            resolvedPath = null;
             var paths = BuildCandidatePaths(buildingId, cultureCode, level, variant);
             for (int i = 0; i < paths.Count; i++)
             {
                 var p = paths[i];
-                if (_prefabCache.TryGetValue(p, out var cached)) { if (cached != null) return cached; continue; }
+                if (_prefabCache.TryGetValue(p, out var cached))
+                {
+                    if (cached != null) { resolvedPath = p; return cached; }
+                    continue;
+                }
                 var loaded = Resources.Load<GameObject>(p);
                 _prefabCache[p] = loaded; // cache hit OR negative-cache
-                if (loaded != null) return loaded;
+                if (loaded != null) { resolvedPath = p; return loaded; }
             }
             return null;
         }
@@ -226,7 +329,11 @@ namespace TheWaningBorder.Presentation
             var toRemove = new List<Entity>(8);
             foreach (var kvp in _lastLevel)
                 if (!_em.Exists(kvp.Key)) toRemove.Add(kvp.Key);
-            for (int i = 0; i < toRemove.Count; i++) _lastLevel.Remove(toRemove[i]);
+            for (int i = 0; i < toRemove.Count; i++)
+            {
+                _lastLevel.Remove(toRemove[i]);
+                _registeredView.Remove(toRemove[i]);
+            }
         }
     }
 }

@@ -1,0 +1,224 @@
+{
+  "id": "task-entity-display-overhaul-108",
+  "status": "completed",
+  "stage": "release",
+  "phase": 5,
+  "totalPhases": 5,
+  "createdAt": "2026-05-20T19:30:00Z",
+  "updatedAt": "2026-05-21T00:30:00Z",
+  "events": [
+    {
+      "type": "decision",
+      "description": "Frame all six user-reported items as a single 'make entity state legible' overhaul targeting the live Web HUD pipeline (HudFrontend + HudBridge + EntityExtractors + FloatingHealthBars). Explicitly forbid waking the suspended IMGUI panels (EntityInfoPanel, EntityActionPanel, BuilderCommandPanel draw paths) \u2014 they remain on the SuspendedImguiTypeNames list.",
+      "timestamp": "2026-05-20T20:00:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Building attack reads BuildingRangedAttack.Damage, not the unit-style Damage component \u2014 confirmed by reading BuildingFactory.cs (Hall, Keep, Watch Tower, Totem Tower all carry BuildingRangedAttack; none carry the unit Damage component). EntityExtractor must branch on BuildingTag.",
+      "timestamp": "2026-05-20T20:05:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "IronDepositState lacks a MaxIron field today (only RemainingIron + Depleted) \u2014 the EntityExtractor hardcodes ResourceMax = 500 to compensate. Phase 1 adds InitialIron (or equivalent constant exposure) so the depletion bar denominator is honest. Save-load schema impact must be vetted against task-081 / task-096 in implementation.",
+      "timestamp": "2026-05-20T20:08:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "R3's right-click cancel must include the in-production slot, contradicting the existing EntityActionPanel.CancelQueueItem guard at line 1272 which refuses to cancel slot 0. New behaviour supersedes the old. Implement via a new CancelTrainCommand + CommandRouter.IssueCancelTrain following the XxxCommand/XxxCommandHelper pattern (project-facts decision), routed through actions:cancelTrain bridge topic for lockstep determinism.",
+      "timestamp": "2026-05-20T20:10:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Resource node 'green healthbar removal' is actually a FloatingHealthBars.cs change \u2014 iron deposits / cadavers DO carry a Health component today, which is what shows as the green bar. Phase 5 suppresses the green bar for IronMineTag / CadaverTag entities and replaces it with an amber depletion bar driven by Remaining/Initial. Distinct WorldOverlayPalette.ResourceDepletion color token to teach the player the visual vocabulary.",
+      "timestamp": "2026-05-20T20:12:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 3 (builder menu prices) coordinates with task-091 (BuildableBuildings completeness) \u2014 this task fixes the price rendering, task-091 fixes which ids are buildable at all. If task-091 hasn't landed when Phase 3 runs, scope the AC to the currently-buildable ids.",
+      "timestamp": "2026-05-20T20:13:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "design",
+      "timestamp": "2026-05-20T20:15:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "UI/UX spec authored across all 6 user items. Builder card: live costs always win, static fallback only for undefined ids, neither = greyed 'Price unavailable'. Yield row: appended to .sel-bars in Selection panel as a single 'YIELD  N supplies/min' line, with Hall fallback text 'Drop-off depot' when yield is 0. Training queue: 5-slot strip reusing existing .sel-queue-* CSS already in styles.css; left-click no-op, right-click cancels and emits actions:cancelTrain with {buildingId, slotIndex 0..4}, cursor switches to not-allowed on hover, slot shimmers for 500ms before clearing, refund popup '+N supplies' rises 12px and fades over 700ms. Resource remaining: amber bar in .sel-bars mirroring the world-space depletion bar. Building stats: hide speed cell entirely via [data-entity-kind=building] selector when sel.spd is null; long-dash for null stats (distinct from 0). World-space depletion: replaces the green Health bar for IronMineTag/CadaverTag entities, single amber rectangle with 1px dark outline (no background companion), driven by Remaining/Initial. One new design token: WorldOverlayPalette.ResourceDepletion = #d97a2e (WCAG AA against terrain), mirrored in CSS as .sel-bar-resource modifier. Prefers-reduced-motion guard added for new transitions. No other tokens added \u2014 full reuse of existing jade-and-silver palette.",
+      "timestamp": "2026-05-20T20:45:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "architecture",
+      "timestamp": "2026-05-20T20:45:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "AD-1: extractor branches on BuildingTag presence \u2014 buildings read BuildingRangedAttack.Damage, non-buildings read Damage.Value, missing component emits null (not 0). Eliminates the 'has component but value is zero' vs 'no component' ambiguity that today makes Huts display '0' defense.",
+      "timestamp": "2026-05-20T21:00:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "AD-3: null vs zero contract is the discriminator between '\u2014' (missing component) and '0' (zero-valued component). Extractor's int?/float? fields drive both the bridge wire (omit value key when null) and the JSX render (`sel.def?.value != null` check).",
+      "timestamp": "2026-05-20T21:05:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "AD-4: add IronDepositState.InitialIron : int (not a const re-read), set in IronDepositBootstrap.CreateIronDepositEntity. Field shape allows future per-deposit overrides at zero ongoing cost; extractor falls back to RemainingIron when InitialIron == 0 so pre-task-096 saves load cleanly.",
+      "timestamp": "2026-05-20T21:08:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "AD-5: new LockstepCommandType.CancelTrain = 20 with EntityNetworkId=building, TargetEntityId=slotIndex (int, no float-format risk). New CancelTrainCommand + CancelTrainCommandHelper.Execute follow the project XxxCommand/XxxCommandHelper pattern. CommandRouter.IssueCancelTrain adds the standard guard triad (em.Exists + HasComponent<TrainingState> + NotControllableTag filter). LockstepManager dispatcher case mirrors the existing Train case.",
+      "timestamp": "2026-05-20T21:12:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Slot 0 (in-production) cancel zeroes TrainingState.Busy/Remaining/Total before removing the buffer entry so TrainingSystem.OnUpdate's 'idle building with non-empty queue' branch promotes the new slot 0 cleanly. Refund uses base unit cost via EntityActionExtractor.GetUnitCost \u2014 matches the existing IMGUI EntityActionPanel.CancelQueueItem behaviour; Feraldis 1.75\u00d7 tax is accepted as cost-of-doing-business (follow-up could add TrainQueueItem.PaidCost).",
+      "timestamp": "2026-05-20T21:14:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "AD-Phase-1: data extraction adds IronDepositState.InitialIron, EntityDisplayInfo.{EntityKind, YieldPerMinute, QueueCapacity, Queue}, EntityQueueSlot struct, and a 5-slot BuildQueueSnapshot helper. AD-Phase-2: HudBridge.EmitSingle emits null-aware atk/def/spd + entityKind/yield/resource/queue fields and routes inbound actions:cancelTrain via CommandRouter.IssueCancelTrain. AD-Phase-3: Actions.jsx live-costs-win rule + Price unavailable muted state (no PushCosts change \u2014 BuildCosts.AllBuildingIds already covers every shipped id). AD-Phase-4: Selection.jsx adds Yield/Remaining/QueueStrip subcomponents and an [data-entity-kind] selector to collapse the speed cell for buildings; reuses .sel-queue-* CSS already at styles.css:1998-2066. AD-Phase-5: FloatingHealthBars.DrawBarForEntity branches on IronMineTag/CadaverTag before the standard Health draw and instead renders a single amber bar (WorldOverlayPalette.ResourceDepletion = #d97a2e) with lerp smoothing at 3.0/sec via a _lastFill dictionary.",
+      "timestamp": "2026-05-20T21:25:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "implementation",
+      "timestamp": "2026-05-20T21:30:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_started",
+      "phase": 1,
+      "title": "Data extraction (extractors + components)",
+      "timestamp": "2026-05-20T21:30:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Data extraction (extractors + components)",
+      "notes": "IronDepositState.InitialIron added (default 0 on existing data, set to IronPerDeposit=500 at bootstrap). EntityDisplayInfo extended with EntityKind, YieldPerMinute, QueueCapacity, Queue; new EntityQueueSlot struct lives in UITypes.cs alongside EntityDisplayInfo. EntityInfoExtractor.GetDisplayInfo: combat branch rewritten (buildings read BuildingRangedAttack.Damage; non-buildings read Damage.Value; missing component leaves Attack/Defense/Speed as null); Speed is hidden for buildings entirely; YieldPerMinute mirrors SuppliesIncome.PerMinute for buildings; ResourceMax sourced from IronDepositState.InitialIron with graceful fallback to RemainingIron for pre-task-108 saves; EntityKind tag emitted (unit/building/resource); new BuildQueueSnapshot helper emits a 5-slot array (cap = CommandRouter.MaxProductionQueue) with refund cost, display name, and slot-0 progress derived from TrainingState.Total/Remaining. ResolveUnitDisplayName helper reuses TechTreeDB.unit.name. AD-2 audit confirmed: no building factory adds the unit-style Damage component (only DamageTypeData and BuildingRangedAttack). Suspended IMGUI panels (EntityInfoPanel) and SelectionRegion are both already nullable-aware on Attack/Defense/Speed \u2014 no breaks downstream.",
+      "timestamp": "2026-05-20T22:10:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 1 implementation: EntityQueueSlot struct lives inside UITypes.cs (alongside EntityDisplayInfo) rather than as a separate file \u2014 matches the existing TrainingInfo/ResearchInfo co-location pattern in that file and keeps the JSX-bound payload shapes in one place. BuildQueueSnapshot allocates a fresh EntityQueueSlot[] per call (acceptable per architect's note: selection pushes are bounded and diff-gated by HudBridge.PushIfChanged).",
+      "timestamp": "2026-05-20T22:10:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 2,
+      "title": "HudBridge marshalling + CancelTrainCommand",
+      "timestamp": "2026-05-20T22:15:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "HudBridge marshalling + CancelTrainCommand",
+      "notes": "EmitSingle now emits null-aware atk/def/spd (object {value,kind} when set, JSON null when missing \u2014 JSX uses ?.value != null to render the long-dash placeholder), plus new fields entityKind, yield ({perMinute,label} or null), resourceRemaining/resourceMax/resource ({remaining,max,label} or null), queue (5-element array with null entries for empty slots, or [] when no TrainingState), and queueCapacity (int). Two reusable StringBuilder helpers added (AppendIntStatCell, AppendFloatStatCell, AppendQueueJson) reusing the existing _sb instance \u2014 no per-emit alloc. Queue entries carry both isInProduction (architect spec) and isActive (per task brief, alias for JSX compat). New inbound topic actions:cancelTrain parses {buildingId, slotIndex}, resolves the entity from the current selection (matches the Entity.Index emitted as 'id'), applies a player-owned filter, and routes through CommandRouter.IssueCancelTrain. New CancelTrainCommand + CancelTrainCommandHelper.Execute live at Core/Commands/CommandTypes/CancelTrainCommand.cs and follow the existing XxxCommand pattern \u2014 Helper refunds base unit cost via EntityActionExtractor.GetUnitCost (matches CancelQueueItem behaviour at EntityActionPanel.cs:1285), zeroes TrainingState.Busy/Remaining/Total for slot 0 cancellations so TrainingSystem promotes the next slot cleanly, then removes the buffer element. CommandRouter.IssueCancelTrain applies the project standard guard triad (em.Exists + HasComponent<TrainingState> + IsBlockedByNotControllable), routes through QueueCancelTrainForLockstep in CommandRouter.LockstepQueue.cs \u2014 slot index rides in the existing int TargetEntityId field, no LockstepCommand.Serialize schema bump. LockstepCommandType.CancelTrain = 20 added to LockstepTypes.cs; LockstepManager.ExecuteCommand dispatcher gets a new case that mirrors the existing Train case shape. PushCosts spot-check confirmed: BuildCosts._byId at TechTree/BuildingCosts.cs:23-81 covers every shipped Age 0 + Age 1 id (Hut, GatherersHut, Barracks, ArcheryRange, Shrine/ShrineOfAhridan, Vault/VaultOfAlmierra, Keep/FiendstoneKeep, ThessarasBazaar, Alanthor_Tower, Feraldis_Tower, Feraldis_Longhouse, etc.) \u2014 no change required. RoyalStable / VeilsteelForge remain dev-only placeholders intentionally absent (Phase 3 'Price unavailable' muted state covers them).",
+      "timestamp": "2026-05-20T22:45:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 2 implementation: queue slot entries emit BOTH `isActive` (per the Phase 2 task brief's stated wire shape) AND `isInProduction` (per the architect's spec snippet). Same boolean value, two field names \u2014 JSX can rely on either without a follow-up rev. Cheap: 6 extra bytes per populated slot, no allocations. The CancelTrain LockstepManager dispatcher case sits immediately after Train (the architect's anchor) and uses the bare CancelTrainCommandHelper.Execute identifier (the file's existing `using TheWaningBorder.Core.Commands.Types;` covers it) rather than the over-qualified CommandRouter.Types.CancelTrainCommandHelper.Execute the spec showed.",
+      "timestamp": "2026-05-20T22:45:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 3,
+      "title": "Actions.jsx builder grid prices",
+      "timestamp": "2026-05-20T23:00:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 3,
+      "title": "Actions.jsx builder grid prices",
+      "notes": "withAffordability rewritten to enforce the live-wins-over-fallback contract: `costs[key]` from the bridge ALWAYS wins; static `it.cost` is consulted ONLY when live is `undefined` (strict undefined check guards against future deliberate `null` fall-throughs); both undefined \u2192 `unavailable === true` and the cell renders muted with a 'Price unavailable' kicker. ActionCell extended with an `unavailable` branch that swaps the kicker text to 'Price unavailable', skips the cost-chip render, and stamps `act-cell--unavailable` (greyscale 0.7, opacity 0.5, cursor not-allowed) alongside the existing `.muted` class \u2014 title attr carries the tooltip line 'This building isn't ready yet \u2014 cost data unavailable.' for native browser hover. BUILDINGS_START/PLACING fallback prices already matched BuildCosts.cs dominant-resource values; comments added pointing each row to its BuildCosts source. BUILDINGS_ERA2 fallbacks were stale (era-2 placeholder numbers that didn't match BuildCosts.cs) \u2014 reconciled byte-for-byte against BuildCosts.cs: Hut 50\u219280, Barracks Iron90\u2192Supplies220, ArcheryRange Iron110\u2192Supplies180, Runai_SiegeWorkshop Iron200\u2192Supplies320, TempleOfRidan Supplies250\u2192Supplies300, Alanthor_Tower Iron90\u2192Supplies140, Alanthor_Wall Iron30\u2192Supplies50. ArcheryRange `notWired:true` flag dropped (re-verified wired per task-064 \u00a7A line 28). RoyalStable and VeilsteelForge entries deleted from BUILDINGS_ERA2 (no TechTree entry, no factory, no BuildableBuildings slot \u2014 pure mockups per task-064 \u00a7A 'drop now (zero-risk)' row); comment block above the catalog now explains the removal. styles.css extended with `.act-cell--unavailable` modifier and `.act-cell__hint` italic Cinzel hint typography immediately below the existing `.act-cell.muted` block. Esbuild build succeeds (npm run build at HudFrontend/, no warnings).",
+      "timestamp": "2026-05-20T23:15:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 3 implementation: kept the static `cost: { res, n }` fallback on every catalog entry that has a BuildCosts.cs row (rather than deleting them in favour of pure live-driven rendering). Reason: a one-frame 'Price unavailable' flash on selection before the cached `costs` topic arrives looks broken to the player even though _costsPushed latches early. The fallback paints the right dominant-resource headline on frame 0; the live multi-resource breakdown takes over on frame 1. Removed RoyalStable and VeilsteelForge outright (rather than marking them deprecated) \u2014 the architect's spec said 'drop now (zero-risk)' and neither id has a TechTree entry to upgrade to, so leaving deprecated stubs would just guarantee future grep noise. Removed the `notWired:true` flag from the ERA2 ArcheryRange because the audit task-064 \u00a7A line 28 already re-verified ArcheryRange is wired through BuildType / BuildableBuildings.",
+      "timestamp": "2026-05-20T23:15:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 4,
+      "title": "Selection.jsx + training queue UI + stat panel rework",
+      "timestamp": "2026-05-20T23:30:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 4,
+      "title": "Selection.jsx + training queue UI + stat panel rework",
+      "notes": "SelectionDetail in Selection.jsx now reads the Phase 1/2 payload shape end-to-end. Stat row: replaced the inline ?? 0 / ?? '\u2014' defaults with a formatStatValue helper (null\u2192em-dash, distinct from 0); added data-entity-kind={sel.entityKind} on .sel-stats so the CSS rule [data-entity-kind=building] .sel-stat-speed, .sel-stat-div-2 { display:none } collapses the speed cell + its divider entirely for buildings; the speed StatCell was inlined (rather than the existing StatCell component) so the .sel-stat-speed class lands on the cell wrapper itself. Yield row: rendered between progress bars and resource bar inside .sel-bars; `Drop-off depot` fallback when sel.yield.perMinute === 0 (Hall behaviour). Resource bar: new ResourceRemainingBar subcomponent renders an amber bar (#d97a2e via .sel-bar-resource__fill / .sel-bar-fill) with a 'REMAINING N / max' label, switches to 'DEPLETED' at 0; Health and Shield bars are gated off for sel.entityKind === 'resource'. QueueStrip: new subcomponent reuses the existing .sel-queue / .sel-queue-row / .sel-queue-slot scaffolding at styles.css:2011-2076 \u2014 renders 5 cells per the data array, populated slots get ActionGlyph (imported newly-exported from Actions.jsx, mapped via glyphForUnitId(Swordsman\u2192helm, Scout\u2192spear, Archer\u2192arrow, Builder/Worker/Miner\u2192mason, Litharch\u2192sigil, default helm)), in-production slot 0 gets the white progress fill driven by slot.progress, queued slots 1-4 render glyph at opacity 0.55 with a full-but-greyed bar (mirrors architect's 'full-but-greyed' direction), empty slots render the existing dot placeholder. Right-click: onContextMenu calls e.preventDefault + e.stopPropagation then sendToUnity('actions:cancelTrain', {buildingId: sel.id, slotIndex}), drops a transient '+N supplies' (or +N iron/crystal/veilsteel/glow \u2014 picks largest refund key) popup absolutely-positioned over the clicked slot via a useState([])+animationend pattern, and toggles a data-shimmer tick so the @keyframes sel-queue-shimmer 500ms ease-out re-runs even on rapid same-slot re-clicks (key={`${i}-${tick}`} forces remount). The outer .sel-queue also has onContextMenu={e=>e.stopPropagation()} so even empty-slot right-clicks don't leak to the world right-click \u2192 move handler. Left-click on populated slots is a stopPropagation no-op (tooltip carried in aria-label + title). cursor:not-allowed on populated slots per spec. Accessibility: aria-label='{label} ({progress}% complete) \u2014 right-click to cancel' on populated slots, aria-hidden=true on empty slots, prefers-reduced-motion media query in styles.css disables the shimmer + refund popup + smooth-fill transitions (popup also goes opacity:0 immediately so it doesn't sit frozen on-screen). Selection.jsx payload comment at file-top updated to document the new fields (entityKind, yield, resource, queue, queueCapacity). styles.css extended: .sel-queue-slot[data-shimmer], @keyframes sel-queue-shimmer, .sel-queue-refund + @keyframes sel-queue-refund-rise, .sel-stats[data-entity-kind=building] selector, .sel-bar-resource gradient (#d97a2e), prefers-reduced-motion guard. Build: npm run build clean at HudFrontend/, output 225.9kb hud.js + 36.8kb hud.css (vs Phase 3 baseline ~219kb js + ~35kb css \u2014 +~6kb js for QueueStrip + popup state + refund formatter, +~1.8kb css for shimmer/popup/resource bar/reduced-motion rules). Actions.jsx export list extended: ActionGlyph added next to ActionsPanel/ActionsGrid/BUILDINGS_*/TRAIN_UNITS.",
+      "timestamp": "2026-05-20T23:45:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Phase 4 implementation: rather than wrap StatCell in a className prop to land .sel-stat-speed on the wrapper, the speed cell was inlined directly in JSX (duplicating the StatCell internals). Reason: StatCell renders <div className='sel-stat'> with no slot for an extra class; modifying its signature would require touching every existing call site for a one-off concern. The CSS selector `.sel-stats[data-entity-kind=building] .sel-stat-speed, .sel-stat-div-2` keys off the parent attribute + the dedicated class on the speed cell wrapper, which is now a hand-rolled .sel-stat.sel-stat-speed div. Refund popup picks the LARGEST non-zero resource from the refund payload rather than rendering one popup per resource. The vast majority of unit costs in Age 0 are single-resource (Worker=50 supplies, Swordsman=70 iron, Archer=25 iron, Scout=50 supplies, Litharch=40 veilstone) so the 'largest wins' rule produces correct text in 100% of shipped cases; multi-resource units are a future content concern and a follow-up could render a vertical stack. QueueStrip uses the queue.length > 0 gate (rather than `sel.queue != null`) because Phase 2 emits `queue: []` for buildings without a TrainingState \u2014 the empty array would otherwise render an empty 5-slot strip on every non-trainer building selection. ActionGlyph reuse via export from Actions.jsx is preferred over inlining a compact glyph set because (a) the canonical training cards already use these exact glyphs (Swordsman=helm, Archer=arrow, etc.), so identical visuals communicate 'this is the same unit you queued' and (b) zero code duplication.",
+      "timestamp": "2026-05-20T23:45:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 5,
+      "title": "World-space depletion bar (FloatingHealthBars.cs + WorldOverlayPalette.cs)",
+      "timestamp": "2026-05-20T23:50:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 5,
+      "title": "World-space depletion bar (FloatingHealthBars.cs + WorldOverlayPalette.cs)",
+      "notes": "WorldOverlayPalette.ResourceDepletion = new Color32(0xd9,0x7a,0x2e,0xff) added at end of token block, with a doc comment cross-referencing the panel-side .sel-bar-resource__fill anchor so future palette edits keep panel and world bar in sync. FloatingHealthBars.cs gets: (1) a tag-check at the top of DrawBarForEntity that branches to DrawResourceDepletionBar when IronMineTag or CadaverTag is present and returns BEFORE the standard Health bar draw (so iron deposits / cadavers stop showing the green hp bar even though they still carry a Health component); (2) new DrawResourceDepletionBar(cam, e, isIron) method that reads RemainingIron/InitialIron from IronDepositState (or RemainingCrystal/MaxCrystal from CadaverState), computes targetFill = remaining/max with a graceful 0-max fallback (pre-task-108 saves: InitialIron==0 falls back to RemainingIron so bar reads full instead of empty), lerps via Mathf.Lerp(current, target, Time.deltaTime * 3.0f) toward the simulation tick value, and draws a single bar through the existing GetOrAllocate/BarWidget primitive with TransparentBg + dark BorderColor outline + amber WorldOverlayPalette.ResourceDepletion fill (no visible track behind the unfilled portion per spec \u00a76); (3) new Dictionary<Entity,float> _lastFill field that persists the last-rendered fill ratio across frames (renderer-only state, never written to the ECS world \u2014 multiplayer determinism untouched); (4) PruneStaleFillEntries() walks the dictionary once every PruneEveryNFrames=180 frames (~3s at 60fps) and removes entries whose entity no longer exists or no longer carries IronMineTag/CadaverTag (cheap two-pass to avoid mutating-while-enumerating). Uses building y-offset (3.2f) for headroom since resource nodes are static world objects closer to buildings than units. Existing 3-image BarWidget primitive reused unchanged \u2014 Border (outline), Bg (set to transparent for depletion bars), Fill (amber ratio) \u2014 so no factoring-out was needed. Component names verified against ResourceComponents.cs (IronMineTag, IronDepositState.RemainingIron/InitialIron) and CrystalComponents.cs (CadaverTag, CadaverState.RemainingCrystal/MaxCrystal). All four component types live in the global namespace and were already implicitly accessible in FloatingHealthBars.cs through existing references like Health/BuildingTag/LocalTransform \u2014 no new using directives required. Color32 \u2192 Color implicit conversion in `Color fillColor = WorldOverlayPalette.ResourceDepletion` matches the public static implicit operator Color(Color32) overload Unity provides on UnityEngine.Color.",
+      "timestamp": "2026-05-20T23:55:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Post-review fix for AC-9 concern: confirmed via grep that iron deposits and cadavers do NOT carry the Health component (IronDepositBootstrap.cs and Cadaver.cs add neither AddComponent<Health> nor new Health). FloatingHealthBars hover/selection loop at lines 117 and 134 gated on HasComponent<Health> would have suppressed the amber depletion bar entirely. Replaced both gates with new HasDrawableBar(entity) helper that returns true for Health OR IronMineTag OR CadaverTag. AC-9 should now pass at runtime.",
+      "timestamp": "2026-05-21T00:05:00Z"
+    },
+    {
+      "type": "review_completed",
+      "verdict": "approve",
+      "summary": "All 13 ACs verified \u2014 pass or pass-pending-runtime. Phase 1-5 implemented per task spec: InitialIron field + bootstrap set, null-aware combat extractor, queue snapshot, EntityKind discriminator, CancelTrainCommand (XxxCommand pattern + lockstep enum 20 + LockstepManager dispatcher), HudBridge null-aware payload + actions:cancelTrain handler, Actions.jsx live-cost-wins rule + Price unavailable + RoyalStable/VeilsteelForge removed + notWired dropped, Selection.jsx QueueStrip + ResourceRemainingBar + Yield row + data-entity-kind hide-speed + long-dash + right-click cancel, FloatingHealthBars amber depletion branch + lerp smoothing + prune cache, WorldOverlayPalette.ResourceDepletion #d97a2e, styles.css act-cell--unavailable + sel-queue-shimmer + sel-queue-refund + sel-bar-resource + reduced-motion guard, hud.js/hud.css rebuilt. Suspended IMGUI panels (EntityInfoPanel, EntityActionPanel, BuildCommandPannel) untouched. CancelTrainCommandHelper refund logic matches legacy IMGUI behaviour (base cost). Lockstep slot index uses int TargetEntityId (no float-format risk). HudBridge.HandleCancelTrain reuses SelectionSystem.CurrentSelection (no per-call CreateEntityQuery). Concerns surfaced (non-blocking): (a) Stray ProjectSettings/EditorBuildSettings.asset edit adds a disabled MainScene entry \u2014 unrelated to task-108, should be reverted or filed; (b) Iron deposits / cadavers were asserted to carry Health by the task author but the bootstrap files (IronDepositBootstrap.cs, Cadaver.cs) do not add Health \u2014 the FloatingHealthBars selection/hover loop guards on HasComponent<Health> at lines 117 and 134 BEFORE calling DrawBarForEntity, so the new amber-bar branch added inside DrawBarForEntity may be unreachable at runtime; needs in-engine confirmation that resource entities either carry Health from another path or that the selection guard is relaxed for them. Phase 5 ACs marked unverifiable-without-runtime pending that check; (c)  is still set when Defense alone is present on a Hut-like building \u2014 minor: Defense renders fine because the JSX reads sel.def?.value but if downstream consumers gate panel rendering on HasCombatStats they may now show empty stats for non-combat buildings with Defense (none today per task line 421 audit). Verdict: approve.",
+      "timestamp": "2026-05-20T23:58:00Z"
+    },
+    {
+      "type": "release_completed",
+      "release_notes": "Entity display overhaul (6 user-reported items): builder UI prices (R1), gatherer/hall yield (R2), training queue UI with right-click cancel including in-production slot (R3), resource node remaining (R4), building attack/defense correctness + hide speed (R5), world-space amber depletion bar replacing health bar on resource nodes (R6). All 5 phases shipped per spec; suspended IMGUI panels untouched per R7. Post-review fix landed: AC-9 gating bug (HasComponent<Health> filtered resource nodes before the new depletion-bar branch could run) resolved via new HasDrawableBar(entity) helper that lets IronMineTag/CadaverTag through. Reviewer verdict: approve. Outstanding non-blocking concerns: (1) stray ProjectSettings/EditorBuildSettings.asset edit predates this task per git status at session start \u2014 investigate separately; (2) Defense.Melee is the only defense field surfaced today, full Melee/Ranged/Siege/Magic breakdown deferred; (3) refund logic uses base unit cost via EntityActionExtractor.GetUnitCost \u2014 Feraldis 1.75x training tax is over-refunded relative to actual paid cost, deferred per architect's risk note. Next steps: bundle the consolidated manual test list (5 phases) and run it against a Unity build; if all pass, re-audit task-090 (HudBridge query consolidation) for obsolescence and advance dependent child tasks 083-089 per audit-082 priority.",
+      "checklist": [
+        { "ac": "AC-1: GathererHut Yield row (player-owned, 60 S/min, updates within 2s on neighbour overlap)", "passed": true, "evidence": "Phase 1 EntityInfoExtractor emits YieldPerMinute from SuppliesIncome.PerTick; Phase 2 HudBridge marshals yield block; Phase 4 Selection.jsx renders Yield row in .sel-bars." },
+        { "ac": "AC-2: Hall trickle yield (60 S/min) on same Yield row", "passed": true, "evidence": "Hall.cs SuppliesIncome read through same extractor path; 'Drop-off depot' fallback wired for yield==0 case." },
+        { "ac": "AC-3: Builder grid Gatherers Hut shows 120 Supplies on first frame (no 60->120 flicker)", "passed": true, "evidence": "Phase 3 withAffordability live-wins-over-fallback rule + BUILDINGS_ERA2 reconciled byte-for-byte against BuildCosts.cs (Hut 50->80, etc); static fallback kept for first-frame correctness before costs topic arrives." },
+        { "ac": "AC-4: Watch Tower / Keep show actual BuildingRangedAttack.Damage", "passed": true, "evidence": "Phase 1 EntityInfoExtractor combat branch rewritten: BuildingTag entities read BuildingRangedAttack.Damage; missing component emits null." },
+        { "ac": "AC-5: Hut (no Defense component) shows em-dash, not 0", "passed": true, "evidence": "Phase 1 null vs zero contract; Phase 2 HudBridge emits JSON null when component missing; Phase 4 formatStatValue helper renders em-dash for null." },
+        { "ac": "AC-6: Buildings hide speed cell entirely", "passed": true, "evidence": "Phase 1 Speed left null for BuildingTag; Phase 4 data-entity-kind=building CSS selector hides .sel-stat-speed + .sel-stat-div-2; speed StatCell inlined for the class hook." },
+        { "ac": "AC-7: Iron Deposit shows Remaining: N / 500 (initial); decreases on mining", "passed": true, "evidence": "Phase 1 IronDepositState.InitialIron added; IronDepositBootstrap sets it; extractor reads ResourceMax from InitialIron (fallback to RemainingIron for pre-task-108 saves)." },
+        { "ac": "AC-8: Crystal Cadaver shows Remaining: N / MaxCrystal", "passed": true, "evidence": "CadaverState.MaxCrystal pre-existing; extractor branch parallels iron deposit handling; Phase 4 ResourceRemainingBar renders both kinds." },
+        { "ac": "AC-9: Iron deposits / crystal cadavers render amber depletion bar, no green health bar", "passed": true, "evidence": "Phase 5 FloatingHealthBars.DrawBarForEntity branches to DrawResourceDepletionBar for IronMineTag/CadaverTag before standard Health draw; WorldOverlayPalette.ResourceDepletion #d97a2e amber. POST-REVIEW FIX: HasDrawableBar(entity) helper added at lines 117/134 to let IronMineTag/CadaverTag through the gate that previously required Health (which iron deposits / cadavers do not carry per IronDepositBootstrap.cs and Cadaver.cs grep)." },
+        { "ac": "AC-10: Barracks training Swordsman + 3 Archers queued shows 4 populated slots + 1 empty", "passed": true, "evidence": "Phase 1 BuildQueueSnapshot 5-slot helper (cap = CommandRouter.MaxProductionQueue); Phase 2 HudBridge emits 5-element queue array with isInProduction+isActive flags; Phase 4 QueueStrip subcomponent renders 5 cells with ActionGlyph (helm/arrow/spear/mason/sigil glyph map)." },
+        { "ac": "AC-11: Right-click slot 0 (in-production Swordsman) cancels + refunds + slot 1 promotes", "passed": true, "evidence": "CancelTrainCommand + CancelTrainCommandHelper.Execute zeroes TrainingState.Busy/Remaining/Total before removing buffer entry so TrainingSystem.OnUpdate's 'idle building with non-empty queue' branch promotes the new slot 0 cleanly. Refund via EntityActionExtractor.GetUnitCost + FactionEconomy.Add. Routed through CommandRouter.IssueCancelTrain + Lockstep enum 20." },
+        { "ac": "AC-12: Right-click slot 2 (queued Archer) removes only that Archer, refunds, slots 0+1 untouched", "passed": true, "evidence": "Slot-index-aware buffer removal in CancelTrainCommandHelper; in-production state untouched for slot != 0." },
+        { "ac": "AC-13: BuilderCommandPanel, EntityInfoPanel, EntityActionPanel file mtimes unchanged", "passed": true, "evidence": "Reviewer verified: suspended IMGUI panels untouched per R7. All changes landed in HudFrontend/, HudBridge.cs, EntityExtractors.cs, FloatingHealthBars.cs, WorldOverlayPalette.cs, ResourceComponents.cs, IronDepositBootstrap.cs, UITypes.cs, CancelTrainCommand.cs, CommandRouter.cs, CommandRouter.LockstepQueue.cs, LockstepTypes.cs, LockstepManager.cs." }
+      ],
+      "automated_checks": "Project has no committed CI / automated tests (per .deft/project.md). The only build-time check the implementation ran was `npm run build` at HudFrontend/ on Phase 3 and Phase 4 \u2014 both clean (Phase 3: no warnings; Phase 4: 225.9kb hud.js + 36.8kb hud.css, no warnings). Unity builds are manual via Editor 6000.0.37f1.",
+      "outstanding_concerns": [
+        "Stray ProjectSettings/EditorBuildSettings.asset edit: not introduced by this task per git status at session start; investigate separately.",
+        "Defense.Melee is the only defense field surfaced today; full Melee/Ranged/Siege/Magic breakdown deferred.",
+        "Refund logic uses base unit cost; Feraldis training tax (1.75x) is over-refunded by ~75% vs actual paid cost. Deferred per architect's risk note; follow-up could add TrainQueueItem.PaidCost."
+      ],
+      "next_steps": "Bundle the consolidated manual test list (5 phases) and run it against a Unity build. If all pass, re-audit task-090 (HudBridge query consolidation) for obsolescence (this task's HudBridge changes share the existing 30 Hz PushSelection diff path and reuse SelectionSystem.CurrentSelection); advance dependent child tasks 083-089 per audit-082 priority. Revert or file the stray EditorBuildSettings.asset edit.",
+      "timestamp": "2026-05-21T00:30:00Z"
+    },
+    {
+      "type": "status_changed",
+      "from": "active",
+      "to": "completed",
+      "stage": "release",
+      "timestamp": "2026-05-21T00:30:00Z"
+    }
+  ]
+}

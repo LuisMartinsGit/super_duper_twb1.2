@@ -31,6 +31,9 @@ public struct HutTag : IComponentData { }
 /// <summary>Military training building.</summary>
 public struct BarracksTag : IComponentData { }
 
+/// <summary>Universal ranged training building. Trains Archers.</summary>
+public struct ArcheryRangeTag : IComponentData { }
+
 /// <summary>Siege/advanced unit training building.</summary>
 public struct WorkshopTag : IComponentData { }
 
@@ -161,6 +164,82 @@ public struct WallUpgradeState : IComponentData
     public float Remaining;
 }
 
+// ==================== 5-instance Gate Region (task-109 phase 5) ====================
+
+/// <summary>
+/// Marks a wall instance that participates in a 5-instance gate region
+/// (the BFME2-style ~10m gate, not the legacy single-instance gate). All
+/// region members carry this tag and a shared <see cref="WallGateGroup"/>
+/// with the same Leader entity. Read by
+/// <c>WallGatePassabilitySystem</c> to widen friendly-detect radius
+/// (3.0 → 6.0) so all 5 cells open in unison when a battalion approaches.
+/// (task-109 phase 5)
+/// </summary>
+public struct WallGateRegionTag : IComponentData { }
+
+/// <summary>
+/// Shared group identifier for the 5 instances composing a gate region.
+/// Every member carries the same <see cref="Leader"/> entity reference
+/// (typically the centre / focus instance picked at conversion time).
+/// <c>em.Exists(Leader)</c> doubles as the membership check — no
+/// separate int counter is needed and IDs stay deterministic across
+/// peers without coordinating a wire-side counter.
+/// (task-109 phase 5)
+/// </summary>
+public struct WallGateGroup : IComponentData
+{
+    /// <summary>The focus / centre instance. Acts as the deterministic
+    /// group identifier; siblings carry the same value.</summary>
+    public Entity Leader;
+}
+
+/// <summary>
+/// Presentation-only marker added during a UI hover-preview of the
+/// 5 candidate instances the player is about to convert to a gate.
+/// Cleared on pointer-leave. PresentationSpawnSystem rims tagged
+/// instances with the accent colour. No simulation behaviour.
+/// (task-109 phase 5, lives here so the segment-level conversion
+/// path in Phase 6 can already query it.)
+/// </summary>
+public struct WallInstancePreviewTag : IComponentData { }
+
+/// <summary>
+/// Optional segment-level pointer to the last-clicked instance — stored
+/// on the SEGMENT entity, references the wall INSTANCE the player
+/// right-clicked. Used by the gate-conversion command (Phase 6) to pick
+/// the centre of the 5-region. If absent, the helper falls back to the
+/// segment midpoint (deterministic via the <see cref="WallInstanceRef"/>
+/// buffer index = length / 2).
+/// (task-109 phase 5)
+/// </summary>
+public struct WallSegmentFocus : IComponentData
+{
+    public Entity Instance;
+}
+
+/// <summary>
+/// Active segment-level upgrade timer. Attached to the SEGMENT entity
+/// (not an instance) when the player commits to a Convert-to-Gate.
+/// Distinct from the per-instance <see cref="WallUpgradeState"/> which
+/// still drives the Convert-to-Tower (single-instance) path. On
+/// completion, <c>WallUpgradeSystem</c>'s segment-level loop tags the
+/// 5 centre instances with <see cref="WallGateRegionTag"/> +
+/// <see cref="WallGateGroup"/> + <see cref="WallGateTag"/>.
+/// (task-109 phase 5)
+/// </summary>
+public struct WallSegmentUpgradeState : IComponentData
+{
+    /// <summary>2 = Gate (currently the only segment-level upgrade type).</summary>
+    public byte UpgradeType;
+    /// <summary>The instance the player right-clicked. May be Entity.Null —
+    /// in that case the segment midpoint is used.</summary>
+    public Entity FocusInstance;
+    /// <summary>Total upgrade time in seconds (Phase 1 canonical: 8.0f).</summary>
+    public float Total;
+    /// <summary>Countdown timer; ticked by <c>WallUpgradeSystem</c>.</summary>
+    public float Remaining;
+}
+
 /// <summary>Resource vault building.</summary>
 public struct VaultTag : IComponentData { }
 
@@ -186,20 +265,26 @@ public struct SiegeWorkshopTag : IComponentData { }
 
 // ==================== Era 2 - Alanthor Culture Buildings ====================
 
-/// <summary>Alanthor metal processing building.</summary>
+/// <summary>Alanthor metal processing building. UI label is "Forge".</summary>
 public struct SmelterTag : IComponentData { }
 
 /// <summary>Alanthor advanced construction building.</summary>
 public struct CrucibleTag : IComponentData { }
 
+/// <summary>
+/// Alanthor heavy-cavalry trainer. Trains Cataphract (and any future
+/// cavalry units listed in the TechTree's "trains" array). Marked
+/// individually so the trainer-resolution map in
+/// CommandRouter.ResolveBuildingIdForTrainer can route TrainQueueItem
+/// orders back to the canonical building id "Alanthor_RoyalStable".
+/// </summary>
+public struct RoyalStableTag : IComponentData { }
+
 /// <summary>Alanthor ranged defensive tower. Garrison 4.</summary>
 public struct WatchTowerTag : IComponentData { }
 
-/// <summary>Alanthor military training building. +8 pop. Trains Sentinel+Crossbowman.</summary>
-public struct GarrisonTag : IComponentData { }
-
-/// <summary>Alanthor cavalry training building. Trains Cataphract.</summary>
-public struct RoyalStableTag : IComponentData { }
+/// <summary>Alanthor ranged training building. +8 pop. Trains Archer at L1, Crossbowman at L2.</summary>
+public struct PracticeRangeTag : IComponentData { }
 
 /// <summary>Alanthor siege unit training building. Trains Ballista.</summary>
 public struct SiegeYardTag : IComponentData { }
@@ -271,6 +356,14 @@ public struct TempleChapelSlot : IBufferElementData
     public float BuildProgress;
     /// <summary>Total build time in seconds.</summary>
     public float BuildTime;
+    /// <summary>
+    /// 0 = no glow, 1 = a glow is allocated to this shrine. When 1, the
+    /// sect's god-power cooldown is halved on each fire (refinement: opt-in
+    /// religion, glow allocated to shrines halves recharge time of that
+    /// sect's god power, no stacking). Glow units come from the Temple's
+    /// GlowStored at allocation time and stay locked until deallocated.
+    /// </summary>
+    public byte GlowAllocated;
 }
 
 /// <summary>
@@ -329,6 +422,20 @@ public struct UnderConstruction : IComponentData
     public float Total;    // Total required construction work
     public int LastProgressHp; // HP value last assigned by the construction tick (Q-23)
 }
+
+/// <summary>
+/// Marker added to a building that should self-construct without a builder.
+/// AutoConstructionSystem ticks <see cref="UnderConstruction.Progress"/> at
+/// 1.0 progress / real second on entities carrying this tag, so the build
+/// completes after <c>Total</c> seconds with no idle-builder dispatch.
+///
+/// Currently used by the per-hub "Build Wall" action: a selected wall hub
+/// surfaces an action that places a connected hub (and its segment + wall
+/// instances) at no builder cost, with a 30 s self-build timer. The first
+/// hub is still placed via a builder and uses the normal
+/// BuildingConstructionSystem path.
+/// </summary>
+public struct AutoConstructTag : IComponentData { }
 
 /// <summary>
 /// Tracks the wall-clock time of the most recent damage taken by a building.
@@ -398,6 +505,9 @@ public struct TrainingState : IComponentData
 {
     public byte Busy;       // 0 = idle, 1 = training
     public float Remaining; // Seconds until current unit completes
+    public float Total;     // Seconds the current training started with — UI uses
+                            // (Total - Remaining) / Total to render the progress
+                            // bar below the building's health bar.
 }
 
 /// <summary>
@@ -488,7 +598,46 @@ public struct AgeUpState : IComponentData
 public struct SelfDestructTimer : IComponentData
 {
     public float TimeRemaining;  // Seconds until destruction
+    public float Duration;       // Original duration (for progress bar display)
     public byte RefundPaid;      // 1 = resources already refunded
+}
+
+// ==================== Gatherer's Hut Age-Up Choice (task-109 phase 2) ====================
+
+/// <summary>
+/// Marker added by <see cref="TheWaningBorder.Systems.Work.AgeUpSystem"/> to
+/// every Alanthor-owned Gatherer's Hut at age-up. Presence of this tag means
+/// "the hut is awaiting a player choice: convert to Wall Hub, or to Watch
+/// Tower". The selection panel surfaces two large action cells; clicking one
+/// fires <see cref="TheWaningBorder.Core.Commands.Types.ConvertHutCommand"/>,
+/// which charges the conversion cost, removes this marker, and adds
+/// <see cref="GathererHutConverting"/>.
+/// </summary>
+public struct GathererHutAgeUpChoice : IComponentData { }
+
+/// <summary>
+/// Active 5-second conversion timer on a Gatherer's Hut. While present the
+/// hut is locked-in to a destination (no cancel in v1 — task-109 Phase 1
+/// canonicalised this). When <see cref="Remaining"/> reaches zero,
+/// <c>HutConversionSystem</c> destroys the hut and spawns the chosen target.
+/// </summary>
+public struct GathererHutConverting : IComponentData
+{
+    public HutConversionTarget Target;
+    public float Remaining;
+    public float Total;
+}
+
+/// <summary>
+/// Conversion destination for the Gatherer's Hut age-up choice.
+/// Byte-sized so it round-trips through the lockstep wire (packed into
+/// LockstepCommand.TargetEntityId).
+/// </summary>
+public enum HutConversionTarget : byte
+{
+    None = 0,
+    WallHub = 1,
+    WatchTower = 2,
 }
 
 // ==================== Forge / Smelter Storage ====================

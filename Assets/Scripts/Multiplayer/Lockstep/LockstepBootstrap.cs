@@ -90,8 +90,9 @@ namespace TheWaningBorder.Multiplayer
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Only initialize in the Game scene
-            if (scene.name != "Game") return;
+            // Only initialize in a registered gameplay scene (procedural
+            // "Game" or any hand-authored map).
+            if (!TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name)) return;
 
             // Don't re-initialize (may have been called synchronously by GameBootstrap already)
             if (_initialized) return;

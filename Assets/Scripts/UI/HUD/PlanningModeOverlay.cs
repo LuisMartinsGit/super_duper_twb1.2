@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.UI.Common;
 
 /// <summary>
 /// Planning mode overlay (Z key). Commands are queued visually and executed
@@ -128,7 +129,7 @@ public class PlanningModeOverlay : MonoBehaviour
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.UpperCenter
         };
-        labelStyle.normal.textColor = new Color(1f, 0.8f, 0f, 1f);
+        labelStyle.normal.textColor = WorldOverlayPalette.Accent;
 
         GUI.Label(new Rect(0, 40, Screen.width, 40), "PLANNING MODE (Z to execute, ESC to cancel)", labelStyle);
 

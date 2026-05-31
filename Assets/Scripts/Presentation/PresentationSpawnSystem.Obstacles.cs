@@ -107,10 +107,91 @@ public partial class PresentationSpawnSystem
         return root;
     }
 
+    // NV3D Shatter Stone (Metal Ores) wrapper prefabs — same pattern as the
+    // cadaver crystals: variants of MetalOre_3a/3b with Rigidbody/SphereCollider
+    // stripped, OreNode swapped to CadaverOreNode (reused — the subclass is
+    // generic to any Shatter Stone mineable), drops/respawn off. Loaded
+    // lazily on first iron-deposit spawn.
+    private static GameObject[] _ironDepositPrefabs;
+    private static readonly string[] IronDepositPrefabPaths =
+    {
+        "Prefabs/Iron/P_IronDeposit_3a",
+        "Prefabs/Iron/P_IronDeposit_3b",
+    };
+
+    /// <summary>Visual size multiplier applied on top of the ECS scale.</summary>
+    private const float IronDepositVisualBaseScale = 3f;
+
     /// <summary>
-    /// Create an iron deposit: a cluster of dark metallic rocks with reddish-brown iron ore veins.
+    /// Spawn an iron deposit GameObject using one of the Shatter Stone
+    /// MetalOre prefab variants (3a / 3b). Variant is keyed on entity.Index
+    /// so it's deterministic across networked clients. The animator handles
+    /// the depletion shatter via the death-handoff in
+    /// PresentationSpawnSystem.CleanupDestroyedEntities. Falls back to the
+    /// legacy procedural mesh only if the Resources prefabs aren't found.
     /// </summary>
     private GameObject CreateProceduralIronDeposit(Vector3 center, Entity entity)
+    {
+        if (_ironDepositPrefabs == null)
+        {
+            _ironDepositPrefabs = new GameObject[IronDepositPrefabPaths.Length];
+            for (int i = 0; i < IronDepositPrefabPaths.Length; i++)
+                _ironDepositPrefabs[i] = Resources.Load<GameObject>(IronDepositPrefabPaths[i]);
+        }
+
+        int variantIdx = Mathf.Abs(entity.Index) % _ironDepositPrefabs.Length;
+        var prefab = _ironDepositPrefabs[variantIdx];
+
+        GameObject root;
+        if (prefab != null)
+        {
+            // Randomise yaw per-deposit (kept from the previous procedural
+            // path) so adjacent deposits don't look stamped.
+            var rot = Quaternion.Euler(0f, (entity.Index * 47) % 360f, 0f);
+            root = Instantiate(prefab, center, rot);
+            root.name = $"IronDeposit_{entity.Index}";
+        }
+        else
+        {
+            // Resources prefab missing — fall back so the deposit still
+            // renders something rather than nothing.
+            root = CreateLegacyIronDepositMesh(center, entity);
+        }
+
+        AttachIronSelectionAndAnimator(root, entity);
+        return root;
+    }
+
+    private static void AttachIronSelectionAndAnimator(GameObject root, Entity entity)
+    {
+        // SyncTransforms multiplies LocalTransform.Scale by BaseScale, so
+        // the visual ends up at IronDepositVisualBaseScale × ECS scale.
+        var scaleTag = root.GetComponent<ProceduralScaleTag>();
+        if (scaleTag == null) scaleTag = root.AddComponent<ProceduralScaleTag>();
+        scaleTag.BaseScale = IronDepositVisualBaseScale;
+
+        // BoxCollider sized in WORLD units (3×2×3, centred y=1) — matches the
+        // legacy procedural deposit's footprint. The root's localScale
+        // applies on top, so we divide by BaseScale to get the intended
+        // world-space dimensions after scaling.
+        var boxCol = root.GetComponent<BoxCollider>();
+        if (boxCol == null) boxCol = root.AddComponent<BoxCollider>();
+        boxCol.size   = new Vector3(3f, 2f, 3f) / IronDepositVisualBaseScale;
+        boxCol.center = new Vector3(0f, 1f, 0f) / IronDepositVisualBaseScale;
+
+        var entityRef = root.GetComponent<EntityReference>();
+        if (entityRef == null) entityRef = root.AddComponent<EntityReference>();
+        entityRef.Entity = entity;
+
+        // Reuse CadaverCrystalAnimator — it's generic to any OreNode-backed
+        // visual: no per-tick work, just fires Shatter() on death-handoff.
+        var anim = root.GetComponent<CadaverCrystalAnimator>();
+        if (anim == null) anim = root.AddComponent<CadaverCrystalAnimator>();
+    }
+
+    // Legacy procedural sphere-cluster — kept only as fallback if the
+    // authored prefab is missing. Not the default path any more.
+    private GameObject CreateLegacyIronDepositMesh(Vector3 center, Entity entity)
     {
         var root = new GameObject($"IronDeposit_{entity.Index}");
         root.transform.position = center;
@@ -118,7 +199,6 @@ public partial class PresentationSpawnSystem
         var rng = new System.Random(entity.Index + 54321);
         int rockCount = rng.Next(3, 6);
 
-        // Iron ore colors — dark grey with rusty orange veins
         var ironDark = new Color(0.25f, 0.22f, 0.20f);
         var ironRusty = new Color(0.55f, 0.30f, 0.15f);
         var ironLight = new Color(0.40f, 0.35f, 0.30f);
@@ -131,53 +211,36 @@ public partial class PresentationSpawnSystem
             float offsetZ = Mathf.Sin(angle) * dist;
 
             float rockSize = 0.6f + (float)rng.NextDouble() * 1.0f;
-
             float rockY = TerrainUtility.GetHeight(center.x + offsetX, center.z + offsetZ);
             Vector3 rockBase = new Vector3(offsetX, rockY - center.y, offsetZ);
 
-            // Iron rock (sphere for smoother ore look)
             var ore = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             ore.name = $"IronOre_{i}";
             ore.transform.SetParent(root.transform, false);
             ore.transform.localPosition = rockBase + Vector3.up * (rockSize * 0.25f);
-
-            // Squash slightly for natural boulder shape
             float sx = rockSize * (0.7f + (float)rng.NextDouble() * 0.6f);
             float sy = rockSize * (0.5f + (float)rng.NextDouble() * 0.4f);
             float sz = rockSize * (0.7f + (float)rng.NextDouble() * 0.6f);
             ore.transform.localScale = new Vector3(sx, sy, sz);
-
             ore.transform.localRotation = Quaternion.Euler(
                 (float)rng.NextDouble() * 15f - 7.5f,
                 (float)rng.NextDouble() * 360f,
-                (float)rng.NextDouble() * 10f - 5f
-            );
-
+                (float)rng.NextDouble() * 10f - 5f);
             var oreRenderer = ore.GetComponent<Renderer>();
             if (oreRenderer != null)
             {
-                // Fix #203: shared material + MPB (metallic sheen preserved via SetProperties)
                 float variation = (float)rng.NextDouble();
                 Color baseColor = Color.Lerp(ironDark, ironLight, variation * 0.5f);
                 baseColor = Color.Lerp(baseColor, ironRusty, (float)rng.NextDouble() * 0.45f);
                 ProceduralMaterialHelper.SetProperties(oreRenderer, baseColor, metallic: 0.4f, smoothness: 0.3f);
             }
-
-            // Remove individual colliders
             var oreCol = ore.GetComponent<Collider>();
             if (oreCol != null) Destroy(oreCol);
         }
 
-        // Add a single collider for the deposit
         var boxCol = root.AddComponent<BoxCollider>();
         boxCol.size = new Vector3(3f, 2f, 3f);
         boxCol.center = Vector3.up * 1f;
-
-        // Add EntityReference
-        var entityRef = root.AddComponent<EntityReference>();
-        entityRef.Entity = entity;
-
         return root;
     }
-
 }

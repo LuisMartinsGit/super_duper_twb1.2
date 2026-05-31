@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core;
@@ -224,20 +225,11 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private static string GetBuildingId(EntityManager em, Entity entity)
         {
-            if (em.HasComponent<HallTag>(entity)) return "Hall";
-            if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
-            if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
-            if (em.HasComponent<HutTag>(entity)) return "Hut";
-            if (em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
-            if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
-            if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
-            if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
-            return null;
+            // Delegate to the canonical entity->building-id mapping so repair-cost
+            // lookups automatically track new building types (BuildCosts.IdFromEntity
+            // is the single source of truth, with broader coverage than this used to).
+            return TheWaningBorder.Data.BuildCosts.IdFromEntity(em, entity);
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }

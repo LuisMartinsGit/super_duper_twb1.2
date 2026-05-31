@@ -1,0 +1,29 @@
+{
+  "id": "task-save-load-system-081",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 5,
+  "createdAt": "2026-05-20T00:00:00Z",
+  "updatedAt": "2026-05-20T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-20T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of follow-up batch 2026-05-20 alongside camera / Litharch / Worker fixes. User picked the 'full deterministic state' option over the minimal-snapshot variant; user also picked 'spin out as a deft task' over inline implementation, so this file replaces the disabled Save / Load menu items as the persistent record of the work.",
+      "timestamp": "2026-05-20T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Web HUD + IMGUI menu stubs already wired in commit 06f536f: Settings / Save / Load show 'coming soon' notifications instead of silent-closing. SaveLoad UI in Menu.jsx is marked disabled:true. When this task implements Phase 3, those flags flip back and the new SaveLoad overlay takes over.",
+      "timestamp": "2026-05-20T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

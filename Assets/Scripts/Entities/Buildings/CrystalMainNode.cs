@@ -25,6 +25,7 @@ namespace TheWaningBorder.Entities
                 typeof(FactionTag),
                 typeof(Health),
                 typeof(Radius),
+                typeof(LineOfSight),
                 typeof(BuildingSize),
                 typeof(BuildingTag),
                 typeof(CrystalTag),
@@ -35,6 +36,10 @@ namespace TheWaningBorder.Entities
                 typeof(CrystalAIState),
                 typeof(CrystalTrainingState),
                 typeof(CrystalResourceValue),
+                typeof(CrystalNodeState),
+                typeof(NodeInvulnerabilityState),
+                typeof(LastDamagedByFaction),
+                typeof(LastAttackerEntity),
                 typeof(BuildingRangedAttack),
                 typeof(Defense)
             );
@@ -44,6 +49,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
             em.SetComponentData(entity, new Radius { Value = MainNodeRadius });
+            // Small LOS so Faction.Curse "sees" the area around its own node and
+            // can react to attackers; the FOW reveal radius for player factions
+            // is independent and gated by their own scouts.
+            em.SetComponentData(entity, new LineOfSight { Radius = MainNodeLineOfSight });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new CrystalNode
             {
@@ -57,10 +66,29 @@ namespace TheWaningBorder.Entities
                 BuildTimer = 0f,
                 Phase = 0
             });
+            // Mirror the ECB Create overload so both paths initialize this
+            // explicitly (currently all-zero; keeps them from silently diverging
+            // if the ECB defaults ever change).
+            em.SetComponentData(entity, new CrystalTrainingState
+            {
+                TrainingUnitType = 0,
+                TimeRemaining = 0f,
+                TotalTime = 0f
+            });
             em.SetComponentData(entity, new CrystalResourceValue
             {
                 BuildCost = MainNodeBuildCost
             });
+            em.SetComponentData(entity, new CrystalNodeState
+            {
+                State = NodeState.Active,
+                OwnerCulture = Cultures.None,
+                OwnerFaction = Faction.Curse,
+                StateTimer = 0f,
+            });
+            em.SetComponentData(entity, new NodeInvulnerabilityState { LastObservedHealth = MainNodeHP });
+            em.SetComponentData(entity, new LastDamagedByFaction { Value = Faction.Curse });
+            em.SetComponentData(entity, new LastAttackerEntity { Value = Entity.Null });
 
             // Self-defense turret
             em.SetComponentData(entity, new BuildingRangedAttack
@@ -84,6 +112,10 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
 
+            // Long construction window — drives the staggered rise animation.
+            // Curse nodes have no builders; CurseConstructionSystem advances Progress.
+            em.AddComponentData(entity, new UnderConstruction { Progress = 0f, Total = 240f });
+
             return entity;
         }
 
@@ -99,6 +131,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new FactionTag { Value = faction });
             ecb.AddComponent(entity, new Health { Value = MainNodeHP, Max = MainNodeHP });
             ecb.AddComponent(entity, new Radius { Value = MainNodeRadius });
+            ecb.AddComponent(entity, new LineOfSight { Radius = MainNodeLineOfSight });
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<CrystalTag>(entity);
             ecb.AddComponent<CrystalMainNodeTag>(entity);
@@ -124,6 +157,16 @@ namespace TheWaningBorder.Entities
             {
                 BuildCost = MainNodeBuildCost
             });
+            ecb.AddComponent(entity, new CrystalNodeState
+            {
+                State = NodeState.Active,
+                OwnerCulture = Cultures.None,
+                OwnerFaction = Faction.Curse,
+                StateTimer = 0f,
+            });
+            ecb.AddComponent(entity, new NodeInvulnerabilityState { LastObservedHealth = MainNodeHP });
+            ecb.AddComponent(entity, new LastDamagedByFaction { Value = Faction.Curse });
+            ecb.AddComponent(entity, new LastAttackerEntity { Value = Entity.Null });
 
             // Self-defense turret
             ecb.AddComponent(entity, new BuildingRangedAttack
@@ -146,6 +189,9 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
+
+            // Long construction window — drives the staggered rise animation.
+            ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = 240f });
 
             return entity;
         }

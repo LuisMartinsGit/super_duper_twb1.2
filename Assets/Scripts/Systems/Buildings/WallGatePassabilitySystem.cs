@@ -18,6 +18,15 @@ namespace TheWaningBorder.Systems.Buildings
     {
         private const float PollInterval = 0.3f;
         private const float FriendlyDetectRadius = 3.0f;
+        // task-109 Phase 5: 5-instance gate regions (~10m wide) need a wider
+        // friendly-detect radius so every cell of the region opens in unison
+        // when a battalion approaches from either end. Per AD-4: keep the
+        // independent-per-instance toggle (minimum-code path); bump the
+        // radius from 3.0 → 6.0 for instances tagged WallGateRegionTag.
+        // Legacy 1-instance gates (no WallGateRegionTag) keep the 3.0
+        // radius unchanged so saved games and the IMGUI reference path
+        // continue to work.
+        private const float RegionDetectRadius = 6.0f;
 
         private float _timer;
         private EntityQuery _unitQuery;
@@ -56,7 +65,13 @@ namespace TheWaningBorder.Systems.Buildings
             {
                 float3 gatePos = transform.ValueRO.Position;
                 Faction gateFaction = factionTag.ValueRO.Value;
-                float detectRadiusSq = FriendlyDetectRadius * FriendlyDetectRadius;
+                // task-109 Phase 5: gate-region members widen the detect
+                // radius; only friendlies of the same faction count, so
+                // enemy-side blocking is unchanged.
+                float radius = state.EntityManager.HasComponent<WallGateRegionTag>(entity)
+                    ? RegionDetectRadius
+                    : FriendlyDetectRadius;
+                float detectRadiusSq = radius * radius;
 
                 bool friendlyNearby = false;
                 for (int i = 0; i < unitTransforms.Length; i++)

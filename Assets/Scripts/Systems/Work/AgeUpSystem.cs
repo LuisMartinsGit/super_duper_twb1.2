@@ -94,24 +94,32 @@ namespace TheWaningBorder.Systems.Work
                     FactionReligionPointsHelper.AwardAgeUp(em, faction, newAge: 2);
                 }
 
-                // 4. Alanthor: start 2-minute self-destruct countdown on all faction GathererHuts
-                if (culture == Cultures.Alanthor)
-                {
-                    StartGathererHutSelfDestruct(em, faction);
-                }
+                // 4. Per-culture hut transform (design §1.4 "transform, don't replace").
+                //    Phase 1 of task-066 removes the old self-destruct paths; Phases 2-3
+                //    add the wall-anchor / wagon-burst / raider-spawn behaviors. For now
+                //    the huts simply persist across age-up — no auto-destruction.
+                TransformGathererHutsForCulture(em, faction, culture);
+                TransformHutsForCulture(em, faction, culture);
 
-                // 4b. Runai: set population to 200 + collapse all Huts
+                // 4b. Runai: instant 200-pop override (Houses don't apply; wagon-burst is task-066 Phase 2).
                 if (culture == Cultures.Runai)
                 {
-                    // Add RunaiPopOverride to faction bank
                     if (FactionEconomy.TryGetBank(em, faction, out var runaiBank))
                     {
                         if (!em.HasComponent<RunaiPopOverride>(runaiBank))
                             em.AddComponent<RunaiPopOverride>(runaiBank);
                     }
+                }
 
-                    // Self-destruct all faction Huts (2-minute timer)
-                    StartHutSelfDestruct(em, faction);
+                // 4c. Feraldis: instant 200-pop override (Houses don't contribute pop;
+                //     they become raider-spawn buildings per design §5.1).
+                if (culture == Cultures.Feraldis)
+                {
+                    if (FactionEconomy.TryGetBank(em, faction, out var feraldisBank))
+                    {
+                        if (!em.HasComponent<FeraldisPopOverride>(feraldisBank))
+                            em.AddComponent<FeraldisPopOverride>(feraldisBank);
+                    }
                 }
 
                 // 5. Register culture with FactionColors (idempotent — may already be set by UI popup)
@@ -130,86 +138,54 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Check if a faction has a Temple of Ridan (completed or under construction).
+        /// Per-culture transform of faction-owned Gatherer's Huts at age-up.
+        /// Alanthor → tag each hut with <see cref="GathererHutAgeUpChoice"/>;
+        ///            the player then converts each hut individually into
+        ///            either a Wall Hub or a Watch Tower via the action panel
+        ///            (task-109 phase 2). Cost / timer canonicalised in
+        ///            docs/Design/Age_1_Alanthor.md.
+        /// Runai    → caravan-wagon with income decay (task-066 Phase 2 — stub).
+        /// Feraldis → persists with income + raider-spawn tag (task-066 Phase 3 — stub).
         /// </summary>
-        private static bool HasFactionTemple(EntityManager em, Faction faction)
+        private static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TempleTag>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
+            if (culture == Cultures.Alanthor)
             {
-                if (factions[i].Value == faction)
-                    return true;
-            }
+                // Tag every faction-owned Gatherer's Hut so the action panel
+                // surfaces the Convert-to-Wall-Hub / Convert-to-Watch-Tower
+                // choice. Idempotent — already-tagged huts and huts already
+                // mid-conversion are skipped (this method also fires from
+                // save-load paths in future tasks).
+                var query = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<GathererHutTag>(),
+                    ComponentType.ReadOnly<FactionTag>()
+                );
+                using var entities = query.ToEntityArray(Allocator.Temp);
+                using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
-            return false;
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    if (tags[i].Value != faction) continue;
+                    var e = entities[i];
+                    if (em.HasComponent<GathererHutAgeUpChoice>(e)) continue;
+                    if (em.HasComponent<GathererHutConverting>(e)) continue;
+                    em.AddComponent<GathererHutAgeUpChoice>(e);
+                }
+            }
+            // Runai / Feraldis branches are still stubs (task-066 phases 2/3).
         }
 
         /// <summary>
-        /// When Runai is chosen, all existing Huts of this faction
-        /// receive a 2-minute self-destruct timer with 80% cost refund.
-        /// Runai don't use houses — population is set to 200 via RunaiPopOverride.
+        /// Per-culture transform of faction-owned Huts (Houses) at age-up.
+        /// Runai    → houses are removed (population comes from RunaiPopOverride).
+        /// Alanthor → houses persist (standard pop ladder).
+        /// Feraldis → houses become raider-spawn buildings (Phase 3 — task-066).
+        /// Phase 1 (task-066): no destruction; behaviors are stubs.
         /// </summary>
-        private static void StartHutSelfDestruct(EntityManager em, Faction faction)
+        private static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<UnderConstruction>(),
-                ComponentType.Exclude<SelfDestructTimer>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            int count = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                em.AddComponentData(entities[i], new SelfDestructTimer
-                {
-                    TimeRemaining = 120f, // 2 minutes
-                    RefundPaid = 0
-                });
-                count++;
-            }
-        }
-
-        /// <summary>
-        /// When Alanthor is chosen, all existing GathererHuts of this faction
-        /// receive a 2-minute self-destruct timer with 80% cost refund.
-        /// </summary>
-        private static void StartGathererHutSelfDestruct(EntityManager em, Faction faction)
-        {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<UnderConstruction>(),
-                ComponentType.Exclude<SelfDestructTimer>()
-            );
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            int count = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                em.AddComponentData(entities[i], new SelfDestructTimer
-                {
-                    TimeRemaining = 120f, // 2 minutes
-                    RefundPaid = 0
-                });
-                count++;
-            }
+            // Phase 2/3 will dispatch culture-specific transform systems here.
+            // For Phase 1 the huts remain unchanged across age-up.
         }
     }
 }

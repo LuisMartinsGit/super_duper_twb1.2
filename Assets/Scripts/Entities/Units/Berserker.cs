@@ -60,9 +60,9 @@ namespace TheWaningBorder.Entities
             creator.AddComponent<BerserkerTag>(entity);
             creator.AddComponent<UnhealableTag>(entity);
 
-            // Combat type tags
+            // Combat type tags — Berserker is human melee infantry (doc: human_melee → InfantryHeavy).
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
             creator.AddComponent(entity, new Defense { Melee = 2, Ranged = 0, Siege = 0, Magic = 0 });
 
             return entity;

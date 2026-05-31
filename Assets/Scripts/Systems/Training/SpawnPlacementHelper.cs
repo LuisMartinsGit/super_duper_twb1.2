@@ -111,37 +111,5 @@ namespace TheWaningBorder.Systems.Training
 
             return isClear;
         }
-
-        /// <summary>
-        /// Find an empty position for a group of units (e.g., formation spawn).
-        /// Returns an array of positions for the specified count.
-        /// </summary>
-        public static NativeArray<float3> FindFormationPositions(float3 center, float unitRadius, 
-            int count, EntityManager em, Allocator allocator = Allocator.Temp)
-        {
-            var positions = new NativeArray<float3>(count, allocator);
-            
-            int cols = (int)math.ceil(math.sqrt(count));
-            float spacing = unitRadius * 2.5f;
-            
-            float startX = center.x - ((cols - 1) * spacing * 0.5f);
-            float startZ = center.z - (((count / cols) - 1) * spacing * 0.5f);
-
-            for (int i = 0; i < count; i++)
-            {
-                int row = i / cols;
-                int col = i % cols;
-                
-                float3 desiredPos = new float3(
-                    startX + col * spacing,
-                    center.y,
-                    startZ + row * spacing
-                );
-                
-                positions[i] = FindEmptyPosition(desiredPos, unitRadius, em, 8);
-            }
-
-            return positions;
-        }
     }
 }

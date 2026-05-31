@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Systems.Combat;
 
@@ -26,8 +27,16 @@ namespace TheWaningBorder.Systems.Crystal
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct VeilstingerCombatSystem : ISystem
     {
-        private const float LaserSpeed = 60f;
-        private const float FireCooldown = 1.5f;
+        // Veilstinger fires SINGLE alternating shots from left/right guns
+        // instead of dual lasers per cycle. Cooldown is 0.375 s — twice the
+        // earlier 0.75 s cadence so the gun-alternation pulse reads as
+        // continuous fire rather than discrete shots.
+        private const float FireCooldown = 0.375f;
+
+        // Bezier arc parameters. The arrow path in ProjectileSystem uses
+        // proj.FlightTime as the Bezier traversal time; ~0.7s reads as a
+        // clearly-arched lob at typical Veilstinger range (8–24 m).
+        private const float ArcFlightTime = 0.7f;
 
         // Gun offset constants relative to the unit's center
         // These approximate the leftgun/rightgun child positions on the Veilstinger prefab
@@ -37,6 +46,15 @@ namespace TheWaningBorder.Systems.Crystal
 
         // Cached query — created once in OnCreate, reused every frame
         private EntityQuery _targetQuery;
+
+        // PatrolDefense-scenario targeting range. We pick up nearest enemy
+        // within this radius for Veilstingers carrying PatrolTag+HoldPositionTag
+        // so scenario patrol Veilstingers acquire targets without depending on
+        // TargetingSystem (whose DesiredDestination-aware skip conditions
+        // interact poorly with externally-driven patrol movement) and without
+        // depending on cross-frame Target writes from a MonoBehaviour driver
+        // (those were being zeroed out before this system's next read).
+        private const float ScenarioPatrolEngageRange = 30f;
 
         public void OnCreate(ref SystemState state)
         {
@@ -78,6 +96,39 @@ namespace TheWaningBorder.Systems.Crystal
                     vs.CooldownTimer -= dt;
                 }
 
+                // PatrolDefense scenario: if this Veilstinger carries both
+                // PatrolTag and HoldPositionTag, do the targeting *here* —
+                // inline, immediately before we use it — so nothing can clear
+                // the write between us setting it and us reading it. Empirical
+                // observation: external Target writes from MonoBehaviour or a
+                // sibling ISystem were being zeroed before this system's read.
+                bool isScenarioPatrol =
+                    em.HasComponent<PatrolTag>(entity) && em.HasComponent<HoldPositionTag>(entity);
+                if (isScenarioPatrol)
+                {
+                    var selfPos = transform.ValueRO.Position;
+                    var selfFaction = faction.ValueRO.Value;
+                    float bestDistSq = ScenarioPatrolEngageRange * ScenarioPatrolEngageRange;
+                    Entity bestEnemy = Entity.Null;
+
+                    for (int i = 0; i < tgtEntities.Length; i++)
+                    {
+                        if (tgtFactions[i].Value == selfFaction) continue;
+                        if (tgtHealth[i].Value <= 0) continue;
+                        var ep = tgtTransforms[i].Position;
+                        float dx = ep.x - selfPos.x;
+                        float dz = ep.z - selfPos.z;
+                        float dsq = dx * dx + dz * dz;
+                        if (dsq < bestDistSq)
+                        {
+                            bestDistSq = dsq;
+                            bestEnemy = tgtEntities[i];
+                        }
+                    }
+
+                    tgt.Value = bestEnemy;
+                }
+
                 // Validate primary target exists and is alive
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
@@ -111,7 +162,10 @@ namespace TheWaningBorder.Systems.Crystal
                 // =============================================================================
                 if (dist < minRange)
                 {
-                    vs.AimTimer = 0;
+                    // Don't zero AimTimer on a brief range excursion — the
+                    // turret has already tracked the target, it just can't
+                    // shoot at point blank. Aim stays primed so when the
+                    // target steps back into range fire is instant.
                     vs.IsFiring = 0;
 
                     var retreatDir = math.normalize(myPos - targetPos);
@@ -139,11 +193,12 @@ namespace TheWaningBorder.Systems.Crystal
                 // =============================================================================
                 else if (dist <= maxRange)
                 {
-                    // Stop moving when in range
-                    if (em.HasComponent<DesiredDestination>(entity))
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
-                    }
+                    // Attack while moving: the Veilstinger does NOT zero its
+                    // own DesiredDestination on engagement. Any external
+                    // movement command (patrol, manual order, formation)
+                    // continues to drive the unit; only the chase branch
+                    // below writes a destination, and even that respects
+                    // HoldPositionTag.
 
                     // Accumulate aim time
                     vs.AimTimer += dt;
@@ -189,24 +244,18 @@ namespace TheWaningBorder.Systems.Crystal
                             + rightDir * GunSideOffset
                             + new float3(0, gunHeight, 0);
 
-                        // Fire primary laser from left gun at Target1
-                        CreateLaserFromGun(ref ecb, leftGunPos, targetPos,
-                            dist, entity, myFaction, dmg, time, tgt.Value, dmgType);
-
-                        // Find secondary target: nearest enemy within range that isn't primary
+                        // Find the secondary target — nearest enemy in range
+                        // that isn't the primary. Used for the right gun.
                         Entity secondTarget = Entity.Null;
                         float3 secondPos = float3.zero;
                         float bestDist = float.MaxValue;
-
                         for (int i = 0; i < tgtEntities.Length; i++)
                         {
                             if (tgtFactions[i].Value == myFaction) continue;
                             if (tgtHealth[i].Value <= 0) continue;
-                            if (tgtEntities[i] == tgt.Value) continue; // Skip primary target
-
+                            if (tgtEntities[i] == tgt.Value) continue;
                             float d = DistXZ(myPos, tgtTransforms[i].Position);
                             if (d > maxRange) continue;
-
                             if (d < bestDist)
                             {
                                 bestDist = d;
@@ -215,18 +264,23 @@ namespace TheWaningBorder.Systems.Crystal
                             }
                         }
 
-                        // Fire second laser from right gun if secondary target found
+                        // Left gun → primary target. Right gun → secondary
+                        // if any, else also primary (so a single-target shot
+                        // doubles up). The two arced missiles spawn in the
+                        // same fire cycle.
+                        CreateArcedShotFromGun(ref ecb, leftGunPos, targetPos,
+                            dist, entity, myFaction, dmg, time, tgt.Value, dmgType);
+
                         if (secondTarget != Entity.Null)
                         {
                             vs.Target2 = secondTarget;
-                            CreateLaserFromGun(ref ecb, rightGunPos, secondPos,
+                            CreateArcedShotFromGun(ref ecb, rightGunPos, secondPos,
                                 bestDist, entity, myFaction, dmg, time, secondTarget, dmgType);
                         }
                         else
                         {
-                            // No second target — fire right gun at primary target too
                             vs.Target2 = Entity.Null;
-                            CreateLaserFromGun(ref ecb, rightGunPos, targetPos,
+                            CreateArcedShotFromGun(ref ecb, rightGunPos, targetPos,
                                 dist, entity, myFaction, dmg, time, tgt.Value, dmgType);
                         }
 
@@ -246,13 +300,15 @@ namespace TheWaningBorder.Systems.Crystal
                 // also clobbered (Target was zeroed every shot). (task-058 F-1)
                 else if (dist > maxRange)
                 {
-                    // Hold position units do NOT chase
+                    // Hold position units do NOT chase — but they DO keep
+                    // tracking the target so the moment it walks back into
+                    // range, fire is instant. Previously this branch zeroed
+                    // both Target and AimTimer every frame the target was
+                    // out of range, which combined with an inbound target
+                    // meant the Veilstinger never finished an aim cycle.
                     if (em.HasComponent<HoldPositionTag>(entity))
                     {
-                        tgt.Value = Entity.Null;
-                        vs.Target1 = Entity.Null;
-                        vs.Target2 = Entity.Null;
-                        vs.AimTimer = 0;
+                        vs.IsFiring = 0;
                         continue;
                     }
 
@@ -285,53 +341,58 @@ namespace TheWaningBorder.Systems.Crystal
         }
 
         /// <summary>
-        /// Create a laser projectile entity spawned from a specific gun position.
-        /// The gunPos is already the world-space position of the gun tip (height included).
+        /// Create an arced Veilstinger missile from a specific gun position.
+        /// No <see cref="LaserProjectileTag"/> — projectile follows the arrow
+        /// Bezier path in <c>ProjectileSystem</c> (auto-hit, arches naturally).
+        /// The <see cref="VeilstingerProjectileTag"/> drives both the visual
+        /// (small arcane missile) and the impact-explosion VFX.
         /// </summary>
-        private static void CreateLaserFromGun(ref EntityCommandBuffer ecb, float3 gunPos, float3 targetPos,
+        private static void CreateArcedShotFromGun(ref EntityCommandBuffer ecb, float3 gunPos, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
             DamageType dmgType = DamageType.Magic)
         {
-            var direction = math.normalize(targetPos - gunPos);
-            var velocity = direction * LaserSpeed;
-            var flightTime = distance / LaserSpeed;
+            // Initial velocity along the line of sight — ProjectileSystem
+            // re-computes the actual Bezier velocity each frame, but we set
+            // an initial direction so the rotation at spawn faces the arc's
+            // launch axis.
+            float3 dir = targetPos - gunPos;
+            var direction = math.normalizesafe(dir, new float3(0, 0, 1));
 
-            var laser = ecb.CreateEntity();
+            var missile = ecb.CreateEntity();
 
-            ecb.AddComponent(laser, new LocalTransform
+            ecb.AddComponent(missile, new LocalTransform
             {
-                Position = gunPos, // Spawn directly at gun tip position
-                Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
+                Position = gunPos,
+                Rotation = quaternion.LookRotation(direction, new float3(0, 1, 0)),
                 Scale = 1f
             });
 
-            ecb.AddComponent(laser, new ArrowProjectile
+            ecb.AddComponent(missile, new ArrowProjectile
             {
-                Velocity = velocity,
+                Velocity = direction, // overwritten each frame by Bezier tangent
                 Gravity = 0f,
                 Shooter = shooter,
-                IsParabolic = false
+                IsParabolic = true
             });
 
-            ecb.AddComponent(laser, new Projectile
+            ecb.AddComponent(missile, new Projectile
             {
                 Start = gunPos,
                 End = targetPos,
                 StartTime = time,
-                FlightTime = flightTime,
+                FlightTime = ArcFlightTime,
                 Damage = damage,
                 Target = targetEntity,
                 Faction = faction,
                 DmgType = dmgType
             });
 
-            // Mark as laser for visual system (renders glowing beam instead of arrow)
-            ecb.AddComponent<LaserProjectileTag>(laser);
+            // No LaserProjectileTag → ProjectileSystem routes through the
+            // arrow/Bezier path which auto-hits on arrival and ends in
+            // ApplyDamage (the impact VFX is then spawned by the visual
+            // system when the entity is destroyed).
+            ecb.AddComponent<VeilstingerProjectileTag>(missile);
         }
 
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }

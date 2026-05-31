@@ -28,6 +28,9 @@ namespace TheWaningBorder.Presentation
         // ── Collapse tracking ──
         private readonly Dictionary<Entity, CollapseData> _collapsingBuildings = new();
 
+        // ── Train-complete tracking (Busy 1→0 edge fires the sparkle) ──
+        private readonly Dictionary<Entity, byte> _lastBusy = new();
+
         // ── Constants ──
         private const float DustBurstInterval = 0.05f; // Minimum progress change to emit dust
 
@@ -77,6 +80,72 @@ namespace TheWaningBorder.Presentation
 
             UpdateConstructionDust(em);
             UpdateCollapseAnimations(em, dt);
+            UpdateTrainedSparkles(em);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // UNIT-TRAINED SPARKLE
+        // ═══════════════════════════════════════════════════════════════
+
+        // TrainingState.Busy goes 1 → 0 the frame TrainingSystem spawns the
+        // unit. We poll all training buildings, detect that edge, and fire a
+        // small sparkle at the building's exit / rally point.
+        private void UpdateTrainedSparkles(EntityManager em)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TrainingState>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<BuildingTag>());
+
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var states   = query.ToComponentDataArray<TrainingState>(Unity.Collections.Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+
+            var alive = new HashSet<Entity>(entities.Length);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var entity  = entities[i];
+                byte busy   = states[i].Busy;
+                alive.Add(entity);
+
+                _lastBusy.TryGetValue(entity, out byte prev);
+                _lastBusy[entity] = busy;
+
+                if (prev != 1 || busy != 0) continue; // only fire on the 1→0 edge
+
+                // Spark position: rally point if set, else just outside the
+                // building footprint on the +X/+Z corner — same exit anchor
+                // TrainingSystem uses for the spawn itself.
+                Vector3 anchor = transforms[i].Position;
+                if (em.HasComponent<RallyPoint>(entity))
+                {
+                    var rp = em.GetComponentData<RallyPoint>(entity);
+                    if (rp.Has != 0) anchor = rp.Position;
+                }
+                else if (em.HasComponent<BuildingSize>(entity))
+                {
+                    var bs = em.GetComponentData<BuildingSize>(entity);
+                    float half = Mathf.Max(bs.Width, bs.Height) * 0.5f + 1f;
+                    anchor = transforms[i].Position + new Unity.Mathematics.float3(half, 0f, half);
+                }
+                anchor.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(anchor.x, anchor.z) + 0.4f;
+
+                Color accent = new Color(1f, 0.85f, 0.45f);
+                if (em.HasComponent<FactionTag>(entity))
+                    accent = FactionColors.Get(em.GetComponentData<FactionTag>(entity).Value);
+
+                BuildingLevelUpEffect.SpawnTrained(anchor, accent);
+            }
+
+            // Drop entries for despawned trainers so the dict doesn't grow.
+            if (_lastBusy.Count > entities.Length + 16)
+            {
+                var stale = new List<Entity>();
+                foreach (var kvp in _lastBusy)
+                    if (!alive.Contains(kvp.Key)) stale.Add(kvp.Key);
+                for (int s = 0; s < stale.Count; s++) _lastBusy.Remove(stale[s]);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════

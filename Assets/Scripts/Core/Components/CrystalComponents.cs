@@ -130,6 +130,30 @@ public struct OwnerNode : IComponentData
 public struct CadaverTag : IComponentData { }
 
 /// <summary>
+/// Pending crystal pile from curse-unit deaths. When a curse unit (CrystalUnitTag)
+/// dies, a pile is created or merged at its death position with TimerRemaining = 30s.
+/// Subsequent curse-unit deaths within Cadaver.MergeRadius coalesce into the same
+/// pile and reset its timer. On expiry, the pile's Amount is divided across all
+/// existing crystal patches on the map (see CursePendingPileSystem).
+/// </summary>
+public struct CursePendingPile : IComponentData
+{
+    public int Amount;
+    public float TimerRemaining;
+}
+
+/// <summary>
+/// Marks a crystal main node OR sub-node as a "secondary" curse location — one
+/// that spawned because a resource patch grew past the 45-node threshold (see
+/// CursePendingPileSystem.PatchConvertNodeThreshold). Secondary nodes yield
+/// 1 Religion Point (FactionReligionPoints) to the acting faction on
+/// pacification / conversion / destruction (instead of the normal Glow pickup)
+/// and do NOT respawn after being destroyed (NodeStateReversionSystem skips
+/// the Destroyed→Active regrowth for tagged entities).
+/// </summary>
+public struct SecondaryCurseLocationTag : IComponentData { }
+
+/// <summary>
 /// Crystal resource state for a crystal-node entity (legacy "Cadaver" name —
 /// the type is named after creature deaths but the entity is a static crystal
 /// node that exists until fully mined). Nodes do NOT decay; they persist
@@ -163,6 +187,8 @@ public struct VeilstingerState : IComponentData
     public float MinRange;
     public float MaxRange;
     public byte IsFiring;
+    /// <summary>0 = next shot from left gun, 1 = next shot from right gun. Toggles on each fire.</summary>
+    public byte NextGun;
 }
 
 /// <summary>
@@ -233,6 +259,21 @@ public struct CursedGroundReceding : IComponentData
 /// </summary>
 public struct LaserProjectileTag : IComponentData { }
 
+/// <summary>
+/// Marks a projectile as a Veilstinger missile — picks the small arcane
+/// missile visual and triggers the impact-explosion VFX on destruction.
+/// Veilstinger projectiles use the Bezier arrow path (arched, auto-hit),
+/// not the laser straight-line path.
+/// </summary>
+public struct VeilstingerProjectileTag : IComponentData { }
+
+/// <summary>
+/// Marks a projectile as a Godsplinter laser — picks the mega arcane
+/// missile visual. Coexists with LaserProjectileTag (Godsplinter uses
+/// the straight-line laser path; this tag just swaps the visual).
+/// </summary>
+public struct GodsplinterProjectileTag : IComponentData { }
+
 // ==================== Crystal Buff / Debuff ====================
 
 /// <summary>
@@ -261,6 +302,24 @@ public struct CrystalDebuff : IComponentData
 
 public struct CrystalCadaverLifetime : IComponentData { public float TimeRemaining; }
 public struct CrystalExtinctionState : IComponentData { public byte IsExtinct; public float RespawnTimer; public byte HasEverExisted; }
-public struct CrystalWaveState : IComponentData { public float WaveTimer; public float WaveInterval; public int WaveNumber; }
+public struct CrystalWaveState : IComponentData
+{
+    public float WaveTimer;       // Counts down to next wave fire
+    public float WaveInterval;    // Seconds until next wave (random 180-240 between waves)
+    public int WaveNumber;        // Wave counter (0 = none yet fired)
+    public int WaveThreshold;     // Idle units required to trigger the next wave (grows per wave)
+}
+
+/// <summary>
+/// Marks a curse unit as part of an active wave. While present, the AI
+/// keeps re-issuing DesiredDestination toward Target so the unit resumes
+/// the march after killing anything that gets in the way. Cleared when
+/// the unit reaches the target zone.
+/// </summary>
+public struct CrystalWaveOrder : IComponentData
+{
+    public float3 Target;
+    public int WaveNumber;
+}
 public struct CrystalTrainingState : IComponentData { public byte TrainingUnitType; public float TimeRemaining; public float TotalTime; }
 public struct CrystalAutoBuild : IComponentData { public float TimeRemaining; public float TotalTime; }

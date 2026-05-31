@@ -1,0 +1,16 @@
+{
+  "id": "task-fog-visibility-sync-perf-105",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:25:00Z",
+  "updatedAt": "2026-05-20T18:25:00Z",
+  "events": [
+    {
+      "type": "task_created",
+      "description": "Spun out from task-082 §D row 5 (FogVisibilitySyncSystem per-frame FindFirstObjectByType + uncached queries + per-entity MaterialPropertyBlock alloc). Three compounding issues in one file — single task scope.",
+      "timestamp": "2026-05-20T18:25:00Z"
+    }
+  ]
+}

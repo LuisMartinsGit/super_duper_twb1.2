@@ -1,0 +1,16 @@
+{
+  "id": "task-buildables-hashset-completeness-091",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T16:25:00Z",
+  "updatedAt": "2026-05-20T16:25:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §B.4 / §B.5 / §B.6 — three Age 1 unique buildings (Alanthor_Crucible, Runai_VeilsteelFoundry, Feraldis_Foundry) have factories and cost entries but are missing from the BuildableBuildings HashSet, so the player can never construct them.",
+      "timestamp": "2026-05-20T16:25:00Z"
+    }
+  ]
+}

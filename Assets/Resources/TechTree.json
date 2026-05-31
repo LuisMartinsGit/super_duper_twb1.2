@@ -120,7 +120,6 @@
                     "lineOfSight": 24,
                     "trains": [
                         "Builder",
-                        "Miner",
                         "Scout"
                     ],
                     "research": [
@@ -139,7 +138,7 @@
                     "id": "Hut",
                     "name": "Hut",
                     "role": "Provides population",
-                    "hp": 350,
+                    "hp": 600,
                     "armorType": "structure_human",
                     "baseDefense": {
                         "melee": 2,
@@ -147,10 +146,10 @@
                         "siege": 0,
                         "magic": 0
                     },
-                    "lineOfSight": 12,
+                    "lineOfSight": 14,
                     "upgradesTo": "House",
                     "provides": {
-                        "population": 5
+                        "population": 10
                     },
                     "cost": {
                         "Supplies": 50
@@ -160,7 +159,7 @@
                     "id": "GatherersHut",
                     "name": "Gatherer's Hut",
                     "role": "Area resource trickle (no stacking)",
-                    "hp": 400,
+                    "hp": 800,
                     "radius": 0.5,
                     "armorType": "structure_human",
                     "baseDefense": {
@@ -182,7 +181,7 @@
                 {
                     "id": "Barracks",
                     "name": "Barracks",
-                    "role": "Train basic troops",
+                    "role": "Train infantry — basics at L1, advanced at L2",
                     "hp": 800,
                     "armorType": "structure_human",
                     "baseDefense": {
@@ -194,7 +193,7 @@
                     "lineOfSight": 18,
                     "trains": [
                         "Swordsman",
-                        "Archer"
+                        "Alanthor_Sentinel"
                     ],
                     "research": [
                         "BasicDrills",
@@ -206,17 +205,44 @@
                     }
                 },
                 {
+                    "id": "ArcheryRange",
+                    "name": "Archery Range",
+                    "role": "Train ranged units — Archer at L1, Crossbowman at L2, Longbowman at L3",
+                    "hp": 600,
+                    "armorType": "structure_human",
+                    "baseDefense": {
+                        "melee": 1,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 18,
+                    "trains": [
+                        "Archer",
+                        "Crossbowman",
+                        "Longbowman"
+                    ],
+                    "research": [],
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 60
+                    }
+                },
+                {
                     "id": "TempleOfRidan",
                     "type": "Core",
                     "name": "Shrine of Ridan",
-                    "role": "Trains Litharchs (healers)",
+                    "role": "Trains Litharchs (healers) and Alanthor Scholars (ritualists)",
                     "hp": 800,
                     "armorType": "structure_human",
                     "levels": 1,
                     "lineOfSight": 16,
                     "radius": 1.8,
                     "trains": [
-                        "Litharch"
+                        "Litharch",
+                        "Alanthor_Scholar",
+                        "Runai_Acolyte",
+                        "Feraldis_Iconoclast"
                     ],
                     "uniquePerPlayer": true,
                     "minEra": 1,
@@ -260,6 +286,7 @@
             "units": [
                 {
                     "id": "Builder",
+                    "name": "Worker",
                     "class": "human_support",
                     "hp": 60,
                     "speed": 4.0,
@@ -275,6 +302,7 @@
                     },
                     "lineOfSight": 14,
                     "buildSpeed": 1.0,
+                    "gatheringSpeed": 1.0,
                     "attackRange": 1.0,
                     "minAttackRange": 0.0,
                     "cost": {
@@ -327,8 +355,8 @@
                     "attackRange": 1.0,
                     "minAttackRange": 0.0,
                     "cost": {
-                        "Supplies": 140,
-                        "Iron": 0
+                        "Supplies": 80,
+                        "Iron": 30
                     },
                     "popCost": 1
                 },
@@ -339,7 +367,7 @@
                     "speed": 6.0,
                     "trainingTime": 4.0,
                     "armorType": "infantry_light",
-                    "damage": 2,
+                    "damage": 0,
                     "damageType": "melee",
                     "defense": {
                         "melee": 0,
@@ -374,12 +402,74 @@
                     },
                     "lineOfSight": 30,
                     "attackRange": 25.0,
-                    "minAttackRange": 10.0,
+                    "minAttackRange": 1.0,
                     "cost": {
-                        "Supplies": 75,
-                        "Iron": 0
+                        "Supplies": 50,
+                        "Iron": 25
                     },
                     "popCost": 1
+                },
+                {
+                    "id": "Crossbowman",
+                    "name": "Crossbowman",
+                    "class": "human_ranged",
+                    "hp": 70,
+                    "speed": 3.5,
+                    "trainingTime": 18.0,
+                    "minBuildingLevel": 2,
+                    "armorType": "ranged",
+                    "damage": 18,
+                    "damageType": "ranged",
+                    "attackCooldown": 3.0,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 22,
+                    "attackRange": 18.0,
+                    "minAttackRange": 6.0,
+                    "trainAt": [
+                        "ArcheryRange"
+                    ],
+                    "cost": {
+                        "Supplies": 40,
+                        "Iron": 35
+                    },
+                    "popCost": 1,
+                    "notes": "PLAYTEST PLACEHOLDER — Era 1 Archery Range L2 tier (task-110)."
+                },
+                {
+                    "id": "Longbowman",
+                    "name": "Longbowman",
+                    "class": "human_ranged",
+                    "hp": 55,
+                    "speed": 4.0,
+                    "trainingTime": 25.0,
+                    "minBuildingLevel": 3,
+                    "armorType": "ranged",
+                    "damage": 25,
+                    "damageType": "ranged",
+                    "attackCooldown": 3.5,
+                    "defense": {
+                        "melee": 0,
+                        "ranged": 1,
+                        "siege": 0,
+                        "magic": 0
+                    },
+                    "lineOfSight": 35,
+                    "attackRange": 40.0,
+                    "minAttackRange": 12.0,
+                    "trainAt": [
+                        "ArcheryRange"
+                    ],
+                    "cost": {
+                        "Supplies": 50,
+                        "Iron": 40
+                    },
+                    "popCost": 1,
+                    "notes": "PLAYTEST PLACEHOLDER — Era 1 Archery Range L3 tier (task-110)."
                 },
                 {
                     "id": "Litharch",
@@ -760,6 +850,32 @@
                             }
                         },
                         {
+                            "id": "Runai_Acolyte",
+                            "class": "human_magic",
+                            "hp": 90,
+                            "speed": 3.0,
+                            "trainingTime": 35.0,
+                            "minBuildingLevel": 3,
+                            "armorType": "ranged",
+                            "damage": 0,
+                            "damageType": "magic",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 1
+                            },
+                            "lineOfSight": 14,
+                            "trainAt": [
+                                "TempleOfRidan"
+                            ],
+                            "cost": {
+                                "Supplies": 140,
+                                "Crystal": 50
+                            },
+                            "notes": "Channels Conversion ritual on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
+                        },
+                        {
                             "id": "Runai_SandBallista",
                             "class": "machinery_siege",
                             "hp": 200,
@@ -866,6 +982,15 @@
                             "cost": {
                                 "Supplies": 160,
                                 "Crystal": 40
+                            }
+                        },
+                        {
+                            "id": "Runai_CrystalNeutrality",
+                            "researchedAt": "TradersHall",
+                            "effect": "Crystal-Curse waves aggro Runai units less often (-20% per tier, stacks to -60% at L3). Runai walks the cursed lands without provoking them.",
+                            "cost": {
+                                "Supplies": 200,
+                                "Crystal": 60
                             }
                         }
                     ]
@@ -987,7 +1112,6 @@
                         {
                             "id": "Feraldis_Longhouse",
                             "name": "Longhouse",
-                            "hp": 1400,
                             "armorType": "structure_human",
                             "baseDefense": {
                                 "melee": 2,
@@ -1044,10 +1168,35 @@
                     ],
                     "units": [
                         {
+                            "id": "Feraldis_Raider",
+                            "class": "human_melee",
+                            "hp": 80,
+                            "speed": 6.0,
+                            "armorType": "infantry_light",
+                            "damage": 8,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 16,
+                            "attackRange": 1.4,
+                            "attackCooldown": 1.2,
+                            "popCost": 1,
+                            "uncontrollable": true,
+                            "autoSpawn": "Feraldis_House",
+                            "cost": {
+                                "Supplies": 0
+                            }
+                        },
+                        {
                             "id": "Feraldis_Berserker",
                             "class": "human_melee",
                             "hp": 150,
                             "speed": 5.8,
+                            "minBuildingLevel": 2,
                             "armorType": "infantry_heavy",
                             "damage": 14,
                             "damageType": "melee",
@@ -1093,6 +1242,7 @@
                             "class": "human_cavalry",
                             "hp": 160,
                             "speed": 7.0,
+                            "minBuildingLevel": 2,
                             "armorType": "cavalry",
                             "damage": 16,
                             "damageType": "melee",
@@ -1132,6 +1282,34 @@
                                 "Iron": 140,
                                 "Crystal": 70
                             }
+                        },
+                        {
+                            "id": "Feraldis_Iconoclast",
+                            "class": "human_magic",
+                            "hp": 280,
+                            "speed": 3.2,
+                            "trainingTime": 60.0,
+                            "minBuildingLevel": 3,
+                            "armorType": "infantry_heavy",
+                            "damage": 0,
+                            "damageType": "melee",
+                            "defense": {
+                                "melee": 4,
+                                "ranged": 3,
+                                "siege": 1,
+                                "magic": 2
+                            },
+                            "lineOfSight": 16,
+                            "trainAt": [
+                                "TempleOfRidan"
+                            ],
+                            "cost": {
+                                "Supplies": 300,
+                                "Iron": 150,
+                                "Crystal": 100,
+                                "Veilsteel": 30
+                            },
+                            "notes": "Refinement v2: ENABLER unit. Strips NodeUntargetable from crystal nodes within IconoclastAuraRadius — other units do the damage. Cannot attack."
                         }
                     ],
                     "tech": [
@@ -1143,8 +1321,9 @@
                             }
                         },
                         {
-                            "id": "Feraldis_IronFury",
-                            "effect": "Units can carry up to 5 Iron; each grants +2% attack (stacks).",
+                            "id": "Feraldis_VeilsteelFrenzy",
+                            "effect": "Military units carry Veilsteel shavings from kills (max 5); each grants +2% attack (stacks to +10%).",
+                            "researchAt": "WarHall",
                             "cost": {
                                 "Supplies": 120,
                                 "Iron": 40
@@ -1159,7 +1338,7 @@
                         "id": "KingsCourt",
                         "name": "King's Court",
                         "role": "Generates Supplies, global building techs",
-                        "hp": 2100,
+                        "hp": 2640,
                         "armorType": "structure_human",
                         "baseDefense": {
                             "melee": 2,
@@ -1206,7 +1385,7 @@
                             "lineOfSight": 10,
                             "role": "Compartment boundaries",
                             "cost": {
-                                "Supplies": 40,
+                                "Supplies": 50,
                                 "Iron": 20
                             }
                         },
@@ -1269,10 +1448,9 @@
                             }
                         },
                         {
-                            "id": "Alanthor_Garrison",
-                            "name": "Garrison",
-                            "role": "Train heavy infantry / Provides housing / Garrison point",
-                            "hp": 1500,
+                            "id": "Alanthor_PracticeRange",
+                            "name": "Practice Range",
+                            "role": "Train ranged infantry — Archers at L1, Crossbowmen at L2",
                             "armorType": "structure_human",
                             "baseDefense": {
                                 "melee": 2,
@@ -1282,12 +1460,9 @@
                             },
                             "lineOfSight": 22,
                             "trains": [
-                                "Alanthor_Sentinel",
+                                "Archer",
                                 "Alanthor_Crossbowman"
                             ],
-                            "provides": {
-                                "population": 8
-                            },
                             "garrison": {
                                 "slots": 6,
                                 "arrowFire": true
@@ -1295,28 +1470,6 @@
                             "cost": {
                                 "Supplies": 220,
                                 "Iron": 90
-                            }
-                        },
-                        {
-                            "id": "Alanthor_Stable",
-                            "name": "Royal Stable",
-                            "hp": 1300,
-                            "armorType": "structure_human",
-                            "baseDefense": {
-                                "melee": 1,
-                                "ranged": 1,
-                                "siege": 0,
-                                "magic": 0
-                            },
-                            "lineOfSight": 20,
-                            "role": "Train heavy cavalry",
-                            "trains": [
-                                "Alanthor_Cataphract"
-                            ],
-                            "cost": {
-                                "Supplies": 260,
-                                "Iron": 120,
-                                "Crystal": 40
                             }
                         },
                         {
@@ -1337,13 +1490,13 @@
                             ],
                             "cost": {
                                 "Supplies": 260,
-                                "Iron": 140,
+                                "Iron": 100,
                                 "Crystal": 60
                             }
                         },
                         {
                             "id": "Alanthor_Smelter",
-                            "name": "Smelter",
+                            "name": "Forge",
                             "role": "Iron processing (later Veilsteel input)",
                             "hp": 1200,
                             "armorType": "structure_human",
@@ -1355,8 +1508,8 @@
                             },
                             "lineOfSight": 18,
                             "cost": {
-                                "Supplies": 180,
-                                "Iron": 60
+                                "Supplies": 220,
+                                "Iron": 100
                             }
                         },
                         {
@@ -1378,6 +1531,27 @@
                                 "Iron": 60,
                                 "Crystal": 40
                             }
+                        },
+                        {
+                            "id": "Alanthor_RoyalStable",
+                            "name": "Royal Stable",
+                            "role": "Heavy-cavalry trainer (Cataphract).",
+                            "hp": 1000,
+                            "armorType": "structure_human",
+                            "baseDefense": {
+                                "melee": 2,
+                                "ranged": 1,
+                                "siege": 0,
+                                "magic": 0
+                            },
+                            "lineOfSight": 18,
+                            "trains": [
+                                "Alanthor_Cataphract"
+                            ],
+                            "cost": {
+                                "Supplies": 220,
+                                "Iron": 80
+                            }
                         }
                     ],
                     "units": [
@@ -1386,6 +1560,8 @@
                             "class": "human_melee",
                             "hp": 160,
                             "speed": 5.0,
+                            "trainingTime": 18.0,
+                            "minBuildingLevel": 2,
                             "armorType": "infantry_heavy",
                             "damage": 12,
                             "damageType": "melee",
@@ -1398,12 +1574,11 @@
                             "lineOfSight": 18,
                             "attackRange": 1.7,
                             "trainAt": [
-                                "Alanthor_Garrison"
+                                "Barracks"
                             ],
                             "cost": {
-                                "Supplies": 120,
-                                "Iron": 25,
-                                "Crystal": 20
+                                "Supplies": 90,
+                                "Veilsteel": 20
                             }
                         },
                         {
@@ -1411,6 +1586,8 @@
                             "class": "human_ranged",
                             "hp": 100,
                             "speed": 5.0,
+                            "trainingTime": 22.0,
+                            "minBuildingLevel": 2,
                             "armorType": "ranged",
                             "damage": 13,
                             "damageType": "ranged",
@@ -1424,12 +1601,11 @@
                             "attackRange": 13.0,
                             "minAttackRange": 4.0,
                             "trainAt": [
-                                "Alanthor_Garrison"
+                                "Alanthor_PracticeRange"
                             ],
                             "cost": {
-                                "Supplies": 120,
-                                "Iron": 20,
-                                "Crystal": 20
+                                "Supplies": 70,
+                                "Veilsteel": 15
                             }
                         },
                         {
@@ -1437,6 +1613,8 @@
                             "class": "human_cavalry",
                             "hp": 180,
                             "speed": 6.6,
+                            "trainingTime": 25.0,
+                            "minBuildingLevel": 1,
                             "armorType": "cavalry",
                             "damage": 20,
                             "damageType": "melee",
@@ -1449,12 +1627,12 @@
                             "lineOfSight": 20,
                             "attackRange": 1.6,
                             "trainAt": [
-                                "Alanthor_Stable"
+                                "Alanthor_RoyalStable"
                             ],
                             "cost": {
-                                "Supplies": 260,
-                                "Iron": 120,
-                                "Crystal": 60
+                                "Supplies": 220,
+                                "Iron": 80,
+                                "Crystal": 40
                             }
                         },
                         {
@@ -1482,6 +1660,34 @@
                                 "Iron": 80,
                                 "Crystal": 40
                             }
+                        },
+                        {
+                            "id": "Alanthor_Scholar",
+                            "class": "human_magic",
+                            "hp": 90,
+                            "speed": 3.0,
+                            "trainingTime": 30.0,
+                            "minBuildingLevel": 3,
+                            "armorType": "ranged",
+                            "damage": 0,
+                            "damageType": "magic",
+                            "defense": {
+                                "melee": 0,
+                                "ranged": 0,
+                                "siege": 0,
+                                "magic": 1
+                            },
+                            "lineOfSight": 14,
+                            "trainAt": [
+                                "TempleOfRidan"
+                            ],
+                            "cost": {
+                                "Supplies": 300,
+                                "Iron": 150,
+                                "Crystal": 100,
+                                "Veilsteel": 30
+                            },
+                            "notes": "Channels Purification rituals on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Vulnerable — needs escort."
                         }
                     ],
                     "tech": [

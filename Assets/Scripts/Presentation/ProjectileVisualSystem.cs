@@ -22,14 +22,50 @@ namespace TheWaningBorder.Presentation
         private readonly Dictionary<Entity, GameObject> _visuals = new();
         private readonly List<Entity> _toRemove = new();
 
-        // Prefab templates (procedural)
+        // Prefab templates (procedural fallback + authored MagicArsenal wrappers).
         private GameObject _arrowTemplate;
-        private GameObject _laserTemplate;
+        private GameObject _laserTemplate;        // generic laser (e.g. tower beams)
+        private GameObject _veilstingerTemplate;  // arcane-purple SMALL missile, arcs in
+        private GameObject _godsplinterTemplate;  // arcane-purple MEGA missile, straight beam
+        private GameObject _impactTemplate;       // tiny arcane explosion, spawned on Veilstinger hit
+
+        // Tracks which projectile visuals should spawn an impact VFX when they
+        // die, and at what visual scale. Set at spawn time so we don't have to
+        // ask the ECS world after the entity is already destroyed. Scale 1
+        // matches the authored Veilstinger impact size; siege shots (Godsplinter)
+        // scale up so the blast visually reads as a wide-radius AOE.
+        private readonly Dictionary<Entity, float> _impactScales = new();
 
         void Awake()
         {
-            _arrowTemplate = CreateArrowTemplate();
-            _laserTemplate = CreateLaserTemplate();
+            _arrowTemplate       = CreateArrowTemplate();
+            _veilstingerTemplate = LoadAuthoredTemplate("Prefabs/Curse/Effects/VeilstingerLaser", "VeilstingerTemplate");
+            _godsplinterTemplate = LoadAuthoredTemplate("Prefabs/Curse/Effects/GodsplinterLaser", "GodsplinterTemplate");
+            _impactTemplate      = LoadAuthoredTemplate("Prefabs/Curse/Effects/VeilstingerImpact", "VeilstingerImpactTemplate");
+            // Generic laser falls back to the Veilstinger missile if present,
+            // else to the procedural cylinder. Anything that still tags itself
+            // LaserProjectileTag without a more-specific tag (e.g. building
+            // turrets) gets a sensible arcane look rather than the old cylinder.
+            _laserTemplate = _veilstingerTemplate != null
+                ? _veilstingerTemplate
+                : CreateLaserTemplate();
+        }
+
+        /// <summary>
+        /// Load an authored prefab from Resources and keep an inactive scene
+        /// instance as the template. Returns null if the resource isn't found —
+        /// callers decide whether to fall back to a procedural template.
+        /// </summary>
+        private GameObject LoadAuthoredTemplate(string resourcePath, string templateName)
+        {
+            var prefab = Resources.Load<GameObject>(resourcePath);
+            if (prefab == null) return null;
+
+            var template = Instantiate(prefab);
+            template.name = templateName;
+            template.SetActive(false);
+            DontDestroyOnLoad(template);
+            return template;
         }
 
         void Start()
@@ -68,9 +104,27 @@ namespace TheWaningBorder.Presentation
             {
                 if (_visuals.TryGetValue(entity, out var go))
                 {
+                    // Spawn impact VFX at projectile death — Veilstinger gets a
+                    // tiny arcane pop at scale 1; Godsplinter shells reuse the
+                    // same prefab scaled up so the explosion visually covers
+                    // the full AOE radius (see _impactScales). The prefab plays
+                    // its own particle/audio one-shot and self-destroys via its
+                    // ParticleSystem lifetimes.
+                    if (_impactScales.TryGetValue(entity, out var impactScale)
+                        && _impactTemplate != null && go != null)
+                    {
+                        var impact = Instantiate(_impactTemplate, go.transform.position, Quaternion.identity);
+                        impact.SetActive(true);
+                        if (impactScale > 0f && !Mathf.Approximately(impactScale, 1f))
+                            impact.transform.localScale = Vector3.one * impactScale;
+                        // Hand the impact ~3 s to play out then collect it.
+                        Destroy(impact, 3f);
+                    }
+
                     if (go != null) Destroy(go);
                 }
                 _visuals.Remove(entity);
+                _impactScales.Remove(entity);
             }
         }
 
@@ -83,30 +137,77 @@ namespace TheWaningBorder.Presentation
 
             for (int i = 0; i < entities.Length; i++)
             {
-                if (_visuals.ContainsKey(entities[i])) continue;
+                var entity = entities[i];
+                if (_visuals.ContainsKey(entity)) continue;
 
-                // Choose template based on projectile type
-                bool isLaser = _em.HasComponent<LaserProjectileTag>(entities[i]);
-                var template = isLaser ? _laserTemplate : _arrowTemplate;
+                // Template priority: specific (Godsplinter / Veilstinger) wins
+                // over generic LaserProjectileTag, which wins over the default
+                // arrow. Specific tags also opt the visual in for the impact-VFX
+                // spawn on death, with a per-projectile scale.
+                GameObject template;
+                string namePrefix;
+                float impactScale = 0f; // 0 = no impact
+
+                if (_em.HasComponent<GodsplinterProjectileTag>(entity) && _godsplinterTemplate != null)
+                {
+                    template = _godsplinterTemplate;
+                    namePrefix = "GodSplinterShell";
+                    // Scale the impact VFX to match the AOEProjectile.Radius so
+                    // the blast visually covers the full splash zone. The base
+                    // Veilstinger-impact prefab reads as roughly a 1.5 m pop,
+                    // so AOE-radius / 1.5 gives a visual that fills the radius.
+                    const float VeilstingerImpactBaseSize = 1.5f;
+                    float aoeR = _em.HasComponent<AOEProjectile>(entity)
+                        ? _em.GetComponentData<AOEProjectile>(entity).Radius
+                        : 6f;
+                    impactScale = Mathf.Max(1f, aoeR / VeilstingerImpactBaseSize);
+                }
+                else if (_em.HasComponent<VeilstingerProjectileTag>(entity) && _veilstingerTemplate != null)
+                {
+                    template = _veilstingerTemplate;
+                    namePrefix = "VeilstingerMissile";
+                    impactScale = 1f;
+                }
+                else if (_em.HasComponent<LaserProjectileTag>(entity))
+                {
+                    template = _laserTemplate;
+                    namePrefix = "Laser";
+                }
+                else
+                {
+                    template = _arrowTemplate;
+                    namePrefix = "Arrow";
+                }
 
                 var go = Instantiate(template);
                 go.SetActive(true);
-                go.name = isLaser ? $"Laser_{entities[i].Index}" : $"Arrow_{entities[i].Index}";
+                go.name = $"{namePrefix}_{entity.Index}";
                 go.transform.position = (Vector3)transforms[i].Position;
                 go.transform.rotation = transforms[i].Rotation;
 
-                // Scale up siege projectiles (ballista bolts) for visual distinction
-                if (!isLaser && _em.HasComponent<Projectile>(entities[i]))
+                // Scale up siege projectiles (ballista bolts) for visual distinction —
+                // only applies to plain arrows, not to the specialised tags above.
+                bool isPlainArrow = template == _arrowTemplate;
+                if (isPlainArrow && _em.HasComponent<Projectile>(entity))
                 {
-                    var proj = _em.GetComponentData<Projectile>(entities[i]);
+                    var proj = _em.GetComponentData<Projectile>(entity);
                     if (proj.DmgType == DamageType.Siege)
                     {
                         go.transform.localScale = Vector3.one * 2.5f;
-                        go.name = $"Bolt_{entities[i].Index}";
+                        go.name = $"Bolt_{entity.Index}";
                     }
                 }
 
-                _visuals[entities[i]] = go;
+                // Godsplinter shells are massive siege ordnance — scale 2× over
+                // the base Veilstinger-derived missile template so they read as
+                // distinct, threatening artillery rounds in flight.
+                if (template == _godsplinterTemplate)
+                {
+                    go.transform.localScale = Vector3.one * 2.0f;
+                }
+
+                _visuals[entity] = go;
+                if (impactScale > 0f) _impactScales[entity] = impactScale;
             }
 
             entities.Dispose();

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ac639e5131ae03247808554db06fe5f2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Beams & Energy/Prefabs/UNI_EnergyBolt_white.prefab
+  uploadId: 855178

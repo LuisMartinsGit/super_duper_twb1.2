@@ -35,6 +35,9 @@ namespace TheWaningBorder.Entities
                 "Miner" => Miner.Create(em, position, faction),
                 "Swordsman" => Swordsman.Create(em, position, faction),
                 "Archer" => Archer.Create(em, position, faction),
+                // task-110: Era 1 Archery Range tier units (L2 / L3)
+                "Crossbowman" => Crossbowman.Create(em, position, faction),
+                "Longbowman" => Longbowman.Create(em, position, faction),
                 "Scout" => Scout.Create(em, position, faction),
                 "Litharch" => Litharch.Create(em, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(em, position, faction),
@@ -46,15 +49,19 @@ namespace TheWaningBorder.Entities
                 "Runai_Skirmisher" => Skirmisher.Create(em, position, faction),
                 "Runai_Raider" => Raider.Create(em, position, faction),
                 "Runai_Catapult" => Catapult.Create(em, position, faction),
+                "Runai_Acolyte" => Acolyte.Create(em, position, faction),
                 // Alanthor culture units
                 "Alanthor_Sentinel" => Sentinel.Create(em, position, faction),
-                "Alanthor_Crossbowman" => Crossbowman.Create(em, position, faction),
+                "Alanthor_Crossbowman" => AlanthorCrossbowman.Create(em, position, faction),
                 "Alanthor_Cataphract" => Cataphract.Create(em, position, faction),
                 "Alanthor_Ballista" => Ballista.Create(em, position, faction),
+                "Alanthor_Scholar" => Scholar.Create(em, position, faction),
                 // Feraldis culture units
+                "Feraldis_Raider" => FeraldisRaider.Create(em, position, faction),
                 "Feraldis_Hunter" => Hunter.Create(em, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
+                "Feraldis_Iconoclast" => Iconoclast.Create(em, position, faction),
                 // Sect unique units
                 "Sect_ScarGuard" => ScarGuard.Create(em, position, faction),
                 "Sect_GolemAutark" => GolemAutark.Create(em, position, faction),
@@ -97,6 +104,9 @@ namespace TheWaningBorder.Entities
                 "Miner" => Miner.Create(ecb, position, faction),
                 "Swordsman" => Swordsman.Create(ecb, position, faction),
                 "Archer" => Archer.Create(ecb, position, faction),
+                // task-110: Era 1 Archery Range tier units (L2 / L3)
+                "Crossbowman" => Crossbowman.Create(ecb, position, faction),
+                "Longbowman" => Longbowman.Create(ecb, position, faction),
                 "Scout" => Scout.Create(ecb, position, faction),
                 "Litharch" => Litharch.Create(ecb, position, faction),
                 "Berserker" or "Feraldis_Berserker" => Berserker.Create(ecb, position, faction),
@@ -108,15 +118,19 @@ namespace TheWaningBorder.Entities
                 "Runai_Skirmisher" => Skirmisher.Create(ecb, position, faction),
                 "Runai_Raider" => Raider.Create(ecb, position, faction),
                 "Runai_Catapult" => Catapult.Create(ecb, position, faction),
+                "Runai_Acolyte" => Acolyte.Create(ecb, position, faction),
                 // Alanthor culture units
                 "Alanthor_Sentinel" => Sentinel.Create(ecb, position, faction),
-                "Alanthor_Crossbowman" => Crossbowman.Create(ecb, position, faction),
+                "Alanthor_Crossbowman" => AlanthorCrossbowman.Create(ecb, position, faction),
                 "Alanthor_Cataphract" => Cataphract.Create(ecb, position, faction),
                 "Alanthor_Ballista" => Ballista.Create(ecb, position, faction),
+                "Alanthor_Scholar" => Scholar.Create(ecb, position, faction),
                 // Feraldis culture units
+                "Feraldis_Raider" => FeraldisRaider.Create(ecb, position, faction),
                 "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
                 "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
                 "Feraldis_SiegeRam" => SiegeRam.Create(ecb, position, faction),
+                "Feraldis_Iconoclast" => Iconoclast.Create(ecb, position, faction),
                 // Sect unique units
                 "Sect_ScarGuard" => ScarGuard.Create(ecb, position, faction),
                 "Sect_GolemAutark" => GolemAutark.Create(ecb, position, faction),
@@ -163,6 +177,8 @@ namespace TheWaningBorder.Entities
                 "Miner" => UnitClass.Miner,
                 "Swordsman" => UnitClass.Melee,
                 "Archer" => UnitClass.Ranged,
+                "Crossbowman" => UnitClass.Ranged,   // task-110
+                "Longbowman" => UnitClass.Ranged,    // task-110
                 "Scout" => UnitClass.Scout,
                 "Litharch" => UnitClass.Support,
                 "Berserker" or "Feraldis_Berserker" => UnitClass.Melee,
@@ -174,15 +190,19 @@ namespace TheWaningBorder.Entities
                 "Runai_Skirmisher" => UnitClass.Ranged,
                 "Runai_Raider" => UnitClass.Melee,
                 "Runai_Catapult" => UnitClass.Siege,
+                "Runai_Acolyte" => UnitClass.Magic,
                 // Alanthor culture units
                 "Alanthor_Sentinel" => UnitClass.Melee,
                 "Alanthor_Crossbowman" => UnitClass.Ranged,
                 "Alanthor_Cataphract" => UnitClass.Melee,
                 "Alanthor_Ballista" => UnitClass.Siege,
+                "Alanthor_Scholar" => UnitClass.Magic,
                 // Feraldis culture units
+                "Feraldis_Raider" => UnitClass.Melee,
                 "Feraldis_Hunter" => UnitClass.Ranged,
                 "Feraldis_WarboarRider" => UnitClass.Melee,
                 "Feraldis_SiegeRam" => UnitClass.Siege,
+                "Feraldis_Iconoclast" => UnitClass.Melee,
                 // Sect unique units
                 "Sect_ScarGuard" => UnitClass.Melee,
                 "Sect_GolemAutark" => UnitClass.Magic,
@@ -211,6 +231,8 @@ namespace TheWaningBorder.Entities
                 "Swordsman" => 201,
                 "Archer" => 202,
                 "Miner" => 203,
+                "Crossbowman" => 204,   // task-110: Era 1 Archery Range L2 tier
+                "Longbowman" => 205,    // task-110: Era 1 Archery Range L3 tier
                 "Scout" => 206,
                 "Litharch" => 207,
                 "Berserker" or "Feraldis_Berserker" => 210,
@@ -222,15 +244,19 @@ namespace TheWaningBorder.Entities
                 "Runai_Skirmisher" => 331,
                 "Runai_Raider" => 332,
                 "Runai_Catapult" => 333,
+                "Runai_Acolyte" => 384,
                 // Alanthor culture units
                 "Alanthor_Sentinel" => 334,
                 "Alanthor_Crossbowman" => 335,
                 "Alanthor_Cataphract" => 336,
                 "Alanthor_Ballista" => 337,
+                "Alanthor_Scholar" => 382,
                 // Feraldis culture units
                 "Feraldis_Hunter" => 338,
                 "Feraldis_WarboarRider" => 339,
                 "Feraldis_SiegeRam" => 340,
+                "Feraldis_Raider" => 341,
+                "Feraldis_Iconoclast" => 386,
                 // Sect unique units
                 "Sect_ScarGuard" => 370,
                 "Sect_GolemAutark" => 371,

@@ -26,6 +26,7 @@ using UnityEngine;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Input;
 using TheWaningBorder.Systems.Sect;
+using TheWaningBorder.UI.Panels;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.UI.HUD
@@ -53,8 +54,11 @@ namespace TheWaningBorder.UI.HUD
         // Cached IMGUI styles, built on first OnGUI tick.
         private GUIStyle _slotStyle;
         private GUIStyle _slotEmptyStyle;
+        private GUIStyle _slotEmptyButtonStyle;
         private GUIStyle _btnStyle;
         private GUIStyle _toggleStyle;
+        private GUIStyle _tooltipStyle;
+        private Texture2D _tooltipBgTex;
         private bool _stylesBuilt;
 
         private void Awake()
@@ -73,15 +77,34 @@ namespace TheWaningBorder.UI.HUD
                 && SelectionSystem.CurrentSelection.Count > 0)
                 return;
 
+            var faction = GameSettings.LocalPlayerFaction;
+
+            // Religion UI is gated on owning a completed Temple of Ridan.
+            // A temple entity gets TempleOfRidanTag at spawn but carries
+            // UnderConstruction until the build finishes, so the HUD stays
+            // hidden while the foundation is being built. Closes the roster
+            // too — otherwise toggling Manage Sects, then losing/canceling
+            // the temple would leave the panel orphaned next frame.
+            if (!TryGetTemple(faction, out var temple)
+                || _em.HasComponent<UnderConstruction>(temple))
+            {
+                _rosterOpen = false;
+                return;
+            }
+
             BuildStyles();
 
-            var faction = GameSettings.LocalPlayerFaction;
-            bool hasTemple = TryGetTemple(faction, out var temple);
             int rp = FactionReligionPointsHelper.GetBalance(_em, faction);
 
-            DrawSlotStrip(faction, hasTemple ? temple : Entity.Null, rp);
+            DrawSlotStrip(faction, temple, rp);
             if (_rosterOpen)
-                DrawRoster(faction, hasTemple ? temple : Entity.Null, rp);
+                DrawRoster(faction, temple, rp);
+
+            // Tooltip rendered last so it sits above the strip + roster. IMGUI
+            // sets GUI.tooltip whenever the mouse hovers a control whose
+            // GUIContent has a tooltip — DrawTooltip wraps the value in a
+            // small navy box if non-empty.
+            DrawTooltip();
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -98,9 +121,14 @@ namespace TheWaningBorder.UI.HUD
             var headerY = y - 22f;
             string headerText = $"Religion · RP: {rp}";
             GUI.Label(new Rect(x0, headerY, total - 140f, 20f), headerText, _slotStyle);
-            string toggleLabel = _rosterOpen ? "[ Hide Sects ]" : "[ Manage Sects ]";
+            // Renamed from "Manage Sects" — the toggle now only opens the
+            // existing roster for lever upgrades + ability comparison.
+            // Adoption is owned by SectChoicePopup (triggered by clicking an
+            // empty strip slot, or — once shipped — a ground decal).
+            string toggleLabel = _rosterOpen ? "[ Hide Upgrades ]" : "[ Sect Upgrades ]";
             if (GUI.Button(new Rect(x0 + total - 140f, headerY, 140f, 20f),
-                toggleLabel, _toggleStyle))
+                new GUIContent(toggleLabel, "Browse adopted sects and upgrade their levers (P / B / U / A)."),
+                _toggleStyle))
             {
                 _rosterOpen = !_rosterOpen;
             }
@@ -141,31 +169,60 @@ namespace TheWaningBorder.UI.HUD
                 var state = slotStates[i];
                 if (state == 0)
                 {
-                    GUI.Label(rect, $"Slot {i + 1}\n(empty)", _slotEmptyStyle);
+                    // Empty slot — clicking opens the Sect Choice popup for
+                    // this specific slot index (so it matches the ground decal
+                    // the player will eventually click). Tooltip nudges the
+                    // first-time player toward the picker.
+                    var emptyContent = new GUIContent(
+                        $"Slot {i + 1}\n+ Sect",
+                        "Click to choose a sect to adopt into this chapel slot.");
+                    if (GUI.Button(rect, emptyContent, _slotEmptyButtonStyle))
+                        SectChoicePopup.Show(temple, i, faction);
                     continue;
                 }
                 if (state == 1)
                 {
-                    GUI.Label(rect, $"{ShortName(slotSectIds[i])}\n{slotProgress[i]}%", _slotStyle);
+                    var buildingContent = new GUIContent(
+                        $"{ShortName(slotSectIds[i])}\n{slotProgress[i]}%",
+                        $"Chapel of {ShortName(slotSectIds[i])} is under construction ({slotProgress[i]}%).");
+                    GUI.Label(rect, buildingContent, _slotStyle);
                     continue;
                 }
 
-                // State 2 — adopted. Show short name + Fire button if AP bought.
+                // State 2 — adopted. Every adopted sect has a god power
+                // (refinement: religion is opt-in, each chosen sect gets a power).
                 string sectId = slotSectIds[i];
-                GUI.Label(new Rect(rect.x, rect.y, rect.width, 26f),
-                    ShortName(sectId), _slotStyle);
+                var nameContent = new GUIContent(
+                    ShortName(sectId),
+                    $"{SectInfo.Lore(sectId)}\n\nPassive: {SectInfo.PassiveDescription(sectId)}");
+                GUI.Label(new Rect(rect.x, rect.y, rect.width, 18f),
+                    nameContent, _slotStyle);
 
-                byte apLevel = SectQuery.LevelOf(_em, faction, sectId, SectLeverKind.ActivePower);
-                if (apLevel > 0)
+                bool glowAllocated = SectActivePowerHelper.HasGlowAllocated(_em, faction, sectId);
+
+                // Fire button — shrinks vertically so a glow toggle fits below.
+                var btnRect = new Rect(rect.x + 4, rect.y + 18, rect.width - 8, 18);
+                float remaining = SectActivePowerHelper.CooldownRemaining(_em, faction, sectId);
+                bool ready = remaining <= 0f;
+                GUI.enabled = ready;
+                string fireLabel = ready ? "Fire" : $"{(int)remaining}s";
+                var fireContent = new GUIContent(fireLabel,
+                    "Active Power — " + SectInfo.ActivePowerDescription(sectId));
+                if (GUI.Button(btnRect, fireContent, _btnStyle))
+                    FireActivePower(faction, sectId, temple);
+                GUI.enabled = true;
+
+                // Glow allocation toggle. Filled = 1 Glow locked here (halves
+                // cooldown on each cast). Click to toggle allocate/deallocate.
+                var glowRect = new Rect(rect.x + 4, rect.y + 38, rect.width - 8, 16);
+                string glowText = glowAllocated ? "◆ Glow ◆" : "+ Allocate Glow";
+                var glowContent = new GUIContent(glowText, glowAllocated
+                    ? "1 Glow allocated here — halves this sect's active-power cooldown. Click to release."
+                    : "Allocate 1 Glow to this chapel — halves this sect's active-power cooldown.");
+                if (GUI.Button(glowRect, glowContent, _btnStyle))
                 {
-                    var btnRect = new Rect(rect.x + 4, rect.y + 28, rect.width - 8, 22);
-                    float remaining = SectActivePowerHelper.CooldownRemaining(_em, faction, sectId);
-                    bool ready = remaining <= 0f;
-                    GUI.enabled = ready;
-                    string label = ready ? "Fire" : $"{(int)remaining}s";
-                    if (GUI.Button(btnRect, label, _btnStyle))
-                        FireActivePower(faction, sectId, temple);
-                    GUI.enabled = true;
+                    if (glowAllocated) SectActivePowerHelper.DeallocateGlow(_em, faction, sectId);
+                    else SectActivePowerHelper.AllocateGlow(_em, faction, sectId);
                 }
             }
         }
@@ -268,22 +325,45 @@ namespace TheWaningBorder.UI.HUD
         {
             string label;
             bool enabled;
+            string tooltip;
             if (currentLevel >= 3)
             {
                 label = $"{letter}III";
                 enabled = false;
+                tooltip = $"{LeverLabel(lever)} — fully upgraded.\n\n{LeverDescription(sectId, lever)}";
             }
             else
             {
-                var check = SectAdoption.CanUpgradeLever(_em, faction, sectId, lever, out int cost);
+                var check = SectAdoption.CanUpgradeLever(_em, faction, sectId, lever,
+                    out int cost, out var matCost);
                 enabled = check == SectAdoptionResult.Ok;
                 label = $"{letter}{Roman(currentLevel + 1)} ({cost})";
+                string matLine = matCost.IsZero ? "" : $"  +  {TheWaningBorder.UI.Common.UIHelpers.FormatCost(matCost)}";
+                tooltip = $"{LeverLabel(lever)} → Lv {Roman(currentLevel + 1)}\nCost: {cost} RP{matLine}\n\n{LeverDescription(sectId, lever)}";
             }
             GUI.enabled = enabled;
-            if (GUI.Button(rect, label, _btnStyle))
+            if (GUI.Button(rect, new GUIContent(label, tooltip), _btnStyle))
                 SectAdoption.TryUpgradeLever(_em, faction, sectId, lever);
             GUI.enabled = true;
         }
+
+        private static string LeverLabel(SectLeverKind lever) => lever switch
+        {
+            SectLeverKind.Passive     => "Passive",
+            SectLeverKind.Building    => "Building aura",
+            SectLeverKind.Unit        => "Unit bonus",
+            SectLeverKind.ActivePower => "Active power",
+            _                         => "Lever",
+        };
+
+        private static string LeverDescription(string sectId, SectLeverKind lever) => lever switch
+        {
+            SectLeverKind.Passive     => SectInfo.PassiveDescription(sectId),
+            SectLeverKind.Building    => SectInfo.BuildingDescription(sectId),
+            SectLeverKind.Unit        => SectInfo.UnitDescription(sectId),
+            SectLeverKind.ActivePower => SectInfo.ActivePowerDescription(sectId),
+            _                         => "",
+        };
 
         // ──────────────────────────────────────────────────────────────────
         // ACTIONS
@@ -416,6 +496,17 @@ namespace TheWaningBorder.UI.HUD
                 fontStyle = FontStyle.Italic,
                 fontSize = 10,
             };
+            // Empty-slot button — same italic small-text look as the label,
+            // but clickable + gold hover so it reads as an action surface.
+            _slotEmptyButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 10,
+                fontStyle = FontStyle.Italic,
+                wordWrap = true,
+                normal = { textColor = new Color(0.7f, 0.68f, 0.60f) },
+                hover  = { textColor = TheWaningBorder.UI.Common.Styles.HighlightColor },
+            };
             _btnStyle = new GUIStyle(GUI.skin.button)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -427,7 +518,44 @@ namespace TheWaningBorder.UI.HUD
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
             };
+            // Tooltip — dark navy box with golden text, word-wrapped at ~320 px.
+            _tooltipBgTex = new Texture2D(1, 1);
+            _tooltipBgTex.SetPixel(0, 0, new Color(0.04f, 0.05f, 0.12f, 0.95f));
+            _tooltipBgTex.Apply();
+            _tooltipStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.UpperLeft,
+                fontSize = 11,
+                wordWrap = true,
+                padding = new RectOffset(8, 8, 6, 6),
+                normal = { textColor = new Color(0.95f, 0.92f, 0.82f), background = _tooltipBgTex },
+            };
             _stylesBuilt = true;
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // TOOLTIP — IMGUI exposes the last-hovered GUIContent's tooltip via
+        // GUI.tooltip. Render it next to the cursor so the strip's gold-on-
+        // navy slot buttons and lever upgrade buttons all share the same
+        // hover behaviour without each caller drawing its own panel.
+        // ──────────────────────────────────────────────────────────────────
+        private void DrawTooltip()
+        {
+            string text = GUI.tooltip;
+            if (string.IsNullOrEmpty(text)) return;
+            if (_tooltipStyle == null) return;
+
+            const float maxWidth = 320f;
+            var content = new GUIContent(text);
+            // CalcHeight reads the wrapped height for the given fixed width.
+            float h = _tooltipStyle.CalcHeight(content, maxWidth);
+            Vector2 mouse = Event.current.mousePosition;
+
+            // Anchor below-and-right of the cursor; clamp to screen so we
+            // never spill off the edge.
+            float x = Mathf.Min(mouse.x + 16f, Screen.width  - maxWidth - 4f);
+            float y = Mathf.Min(mouse.y + 18f, Screen.height - h        - 4f);
+            GUI.Box(new Rect(x, y, maxWidth, h), content, _tooltipStyle);
         }
     }
 }

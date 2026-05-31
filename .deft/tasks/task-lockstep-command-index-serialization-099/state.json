@@ -1,0 +1,16 @@
+{
+  "id": "task-lockstep-command-index-serialization-099",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.6 — LockstepCommand.Serialize drops CommandIndex from the wire payload, so remote commands arrive with CommandIndex=0 and the unstable List<T>.Sort by (PlayerIndex, CommandIndex) can order same-player remote commands differently across peers. Silent desync risk on multi-command ticks.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Presentation;
 using TheWaningBorder.Input;
@@ -90,6 +91,15 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.BuildingShowcase:
                     SpawnBuildingShowcase(em);
+                    break;
+                case ScenarioType.CurseCombatTest:
+                    SpawnCurseCombatTest(em);
+                    break;
+                case ScenarioType.PatrolDefense:
+                    SpawnPatrolDefense(em);
+                    break;
+                case ScenarioType.AlanthorVsCrystal:
+                    SpawnAlanthorVsCrystal(em);
                     break;
             }
 
@@ -309,8 +319,14 @@ namespace TheWaningBorder.Bootstrap
 
             // Upgrade center instances to gates (find instances near the center gap)
             // We'll upgrade 2 instances closest to x=0 to gates, and 2 near flanks to towers
+            //
+            // task-109 Phase 7: this remains the legacy per-instance single-cell gate
+            // for backwards-compat verification (the IMGUI EntityActionPanel still
+            // drives the per-instance path). The 5-wide gate region — the new
+            // BFME2-style path Phase 5 added — is seeded on the Red wall below,
+            // where the 16 m hub spacing leaves room for 5 contiguous instances.
             UpgradeWallInstancesNear(em, Faction.Blue, new float3(0, 0, wallZ), 3f,
-                upgradeType: 2); // Gate at center
+                upgradeType: 2); // Gate at center (legacy 1-instance gate)
 
             UpgradeWallInstancesNear(em, Faction.Blue, new float3(-wallExtent * 0.35f, 0, wallZ), 2f,
                 upgradeType: 1); // Tower on left
@@ -341,6 +357,23 @@ namespace TheWaningBorder.Bootstrap
             var redHub1 = AlanthorWall.CreateHub(em, redHub1Pos, Faction.Red);
             var redHub2 = AlanthorWall.CreateHub(em, redHub2Pos, Faction.Red);
             AlanthorWall.CreateSegment(em, redHub1, redHub2, Faction.Red);
+
+            // task-109 Phase 7: seed a 5-wide gate region on the Red wall
+            // for testing battalion throughput end-to-end. The Red hubs are
+            // 16 m apart (x=-8 to x=+8) so the segment spawns 8 wall
+            // instances; PickGateRegionInstances selects the centre 5 and
+            // tags them as a region. This exercises:
+            //   - Phase 5's WallGateRegionTag + WallGateGroup archetype.
+            //   - WallGatePassabilitySystem's RegionDetectRadius = 6.0 branch
+            //     (so all 5 cells open in unison when a friendly battalion
+            //     approaches from either end).
+            //   - PassabilityGrid's per-cell Block/Unblock on Phase 5's
+            //     WallGateState toggles.
+            // Bypasses the 8 s ConvertSegmentToGate timer + the faction-
+            // bank spend (scenarios run without a seeded economy) by
+            // instant-tagging — same archetype changes WallUpgradeSystem
+            // Loop 2 applies on completion.
+            SeedFiveWideGateOnSegment(em, redHub1, redHub2, Faction.Red);
 
             // Red attackers — siege rams + swordsmen approaching Blue's wall
             SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, 15f));
@@ -423,10 +456,92 @@ namespace TheWaningBorder.Bootstrap
                         { Id = AlanthorWall.GatePresentationID });
                 }
 
-                
+
                 break; // Upgrade one instance per call
             }
 
+        }
+
+        /// <summary>
+        /// task-109 Phase 7: instantly seed a 5-wide gate region on the
+        /// segment between <paramref name="hubA"/> and <paramref name="hubB"/>.
+        /// Mirrors the archetype changes <c>WallUpgradeSystem.Loop2</c> applies
+        /// on a player-initiated segment→gate conversion, but bypasses the
+        /// 8 s timer and the faction-bank spend (scenarios run without a
+        /// seeded economy). Behaviour:
+        ///   1. Find the segment entity (via the hub's <c>WallHubLink</c> buffer).
+        ///   2. Call <c>AlanthorWall.PickGateRegionInstances</c> with a null
+        ///      focus to pick the segment-midpoint 5 (cap-at-length).
+        ///   3. Tag each picked instance with <c>WallGateTag</c> +
+        ///      <c>WallGateRegionTag</c> + <c>WallGateGroup{ Leader = centre }</c>
+        ///      + <c>WallGateState</c>, and swap PresentationId to gate visual.
+        /// No-op (logs a warning) if the segment can't be found or has zero
+        /// live instances.
+        /// </summary>
+        private static void SeedFiveWideGateOnSegment(EntityManager em,
+            Entity hubA, Entity hubB, Faction faction)
+        {
+            // Resolve the segment via hub A's link buffer.
+            if (!em.HasBuffer<WallHubLink>(hubA))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[ScenarioSetup] SeedFiveWideGateOnSegment: hubA has no WallHubLink buffer");
+                return;
+            }
+
+            Entity segment = Entity.Null;
+            var links = em.GetBuffer<WallHubLink>(hubA);
+            for (int i = 0; i < links.Length; i++)
+            {
+                if (links[i].ConnectedHub == hubB)
+                {
+                    segment = links[i].Segment;
+                    break;
+                }
+            }
+            if (segment == Entity.Null || !em.Exists(segment))
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[ScenarioSetup] SeedFiveWideGateOnSegment: no segment between provided hubs");
+                return;
+            }
+
+            // PickGateRegionInstances allocates a NativeList we own; we Dispose
+            // after the loop. Entity.Null focus → centre-anchored window.
+            using var members = AlanthorWall.PickGateRegionInstances(
+                em, segment, Entity.Null, Allocator.Temp);
+
+            if (members.Length == 0)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[ScenarioSetup] SeedFiveWideGateOnSegment: segment has no live instances");
+                return;
+            }
+
+            int leaderIdx = members.Length / 2;
+            Entity leader = members[leaderIdx];
+
+            for (int i = 0; i < members.Length; i++)
+            {
+                Entity inst = members[i];
+                if (!em.Exists(inst)) continue;
+
+                if (!em.HasComponent<WallGateTag>(inst))
+                    em.AddComponentData(inst, new WallGateTag());
+                if (!em.HasComponent<WallGateRegionTag>(inst))
+                    em.AddComponentData(inst, new WallGateRegionTag());
+                if (em.HasComponent<WallGateGroup>(inst))
+                    em.SetComponentData(inst, new WallGateGroup { Leader = leader });
+                else
+                    em.AddComponentData(inst, new WallGateGroup { Leader = leader });
+                if (!em.HasComponent<WallGateState>(inst))
+                    em.AddComponentData(inst, new WallGateState { IsOpen = 0, RecheckTimer = 0f });
+
+                em.SetComponentData(inst, new PresentationId
+                {
+                    Id = AlanthorWall.GatePresentationID
+                });
+            }
         }
 
         /// <summary>
@@ -533,7 +648,7 @@ namespace TheWaningBorder.Bootstrap
                 (Faction.Blue, new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
                 // Era 2 pre-culture choice buildings (no culture yet)
                 (Faction.Teal, new[] { "ShrineOfAhridan", "TempleOfRidan", "VaultOfAlmierra" }),
-                // Runai (Runai_TradingPost omitted — reuses Alanthor_Garrison presentation)
+                // Runai (Runai_TradingPost omitted — reuses Alanthor_PracticeRange presentation)
                 (Faction.Green, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
@@ -548,8 +663,8 @@ namespace TheWaningBorder.Bootstrap
                 // Alanthor
                 (Faction.Red, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_Garrison",
-                    "Alanthor_Stable", "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
+                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_PracticeRange",
+                    "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
                 }),
             };
 
@@ -568,6 +683,315 @@ namespace TheWaningBorder.Bootstrap
                     BuildingFactory.Create(em, buildings[c], pos, faction);
                 }
             }
+        }
+
+        /// <summary>
+        /// Crystal Curse Combat Test: five attacker/target pairs, each row a
+        /// single Curse unit hitting an "invincible" Hall (HP = 1e9) so the
+        /// attack reads continuously. Row spacing 35 m keeps each
+        /// Veilstinger/Godsplinter's secondary-target search inside its own
+        /// row (no cross-row leakage with a 24 m max range).
+        ///
+        ///   Row 0 (z = -70): Crystalling melee  vs Hall   (start 5 m apart)
+        ///   Row 1 (z = -35): Veilstinger max    vs Hall   (24 m — laser cap)
+        ///   Row 2 (z =   0): Veilstinger middle vs Hall   (16 m — mid-band)
+        ///   Row 3 (z = +35): Godsplinter max    vs Hall   (22 m — laser cap)
+        ///   Row 4 (z = +70): Godsplinter middle vs Hall   (13 m — mid-band)
+        /// </summary>
+        private static void SpawnCurseCombatTest(EntityManager em)
+        {
+            // Camera focuses on origin (middle row by default).
+            SpawnCurseTestPair(em, "Crystalling",  5f,  -70f);
+            SpawnCurseTestPair(em, "Veilstinger", 24f, -35f);
+            SpawnCurseTestPair(em, "Veilstinger", 16f,   0f);
+            SpawnCurseTestPair(em, "Godsplinter", 22f,  35f);
+            SpawnCurseTestPair(em, "Godsplinter", 13f,  70f);
+
+            // Starter crystal patch placed between rows 3 (z=0) and 4 (z=35),
+            // off the firing line at x=0 z=17.5 so it sits in clear camera view.
+            // Lets us watch CursePendingPileSystem grow the patch past 45 nodes
+            // and convert it into a secondary curse location.
+            SpawnBattleSiteCrystalPatch(em, new float3(0f, 0f, 17.5f));
+        }
+
+        /// <summary>
+        /// Spawn one row of the Curse Combat Test: an invincible invisible
+        /// dummy on the right and a Red Curse unit on the left. The dummy
+        /// has just enough ECS components for TargetingSystem to lock onto
+        /// it (LocalTransform + FactionTag + BuildingTag + Health) and no
+        /// PresentationId, so the projectile and its impact VFX play out in
+        /// full view rather than being clipped by a building mesh.
+        /// </summary>
+        private static void SpawnCurseTestPair(EntityManager em, string unitId, float distance, float rowZ)
+        {
+            float halfDist = distance * 0.5f;
+
+            // Invincible invisible target on the right.
+            float3 dummyPos = new float3(halfDist, 0f, rowZ);
+            dummyPos.y = TerrainUtility.GetHeight(dummyPos.x, dummyPos.z);
+            CreateInvincibleDummy(em, dummyPos, Faction.Blue);
+
+            // Attacker: Curse unit on the left, facing the dummy.
+            float3 attackerPos = new float3(-halfDist, 0f, rowZ);
+            attackerPos.y = TerrainUtility.GetHeight(attackerPos.x, attackerPos.z);
+            UnitFactory.Create(em, unitId, attackerPos, Faction.Red);
+        }
+
+        /// <summary>
+        /// Spawn a barebones invincible test dummy: just enough ECS state for
+        /// the targeting + combat systems to engage it. No PresentationId, so
+        /// no visual is ever spawned — the explosion VFX has an unobstructed
+        /// stage. HP is 1 × 10⁹ so it can't die in any practical session.
+        /// </summary>
+        private static Entity CreateInvincibleDummy(EntityManager em, float3 position, Faction faction)
+        {
+            var entity = em.CreateEntity(
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(Health),
+                typeof(Radius)
+            );
+            em.SetComponentData(entity, LocalTransform.FromPosition(position));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new Health { Value = 1_000_000_000, Max = 1_000_000_000 });
+            // Small radius so attackers stop at the right distance and the
+            // projectile-hit XZ check (HitRadius = 0.8 m) lands on the point.
+            em.SetComponentData(entity, new Radius { Value = 0.5f });
+            return entity;
+        }
+
+        /// <summary>
+        /// Seed a starter resource patch one cadaver short of the conversion
+        /// threshold (44 nodes — see CursePendingPileSystem.PatchConvertNodeThreshold = 45).
+        /// Each node is filled to MaxCrystalPerNode (60) so the very first
+        /// curse-unit-death payout has no top-up room and is forced to spawn
+        /// a new node, tipping the patch to 45 and triggering its conversion
+        /// into a secondary curse location. Lets us watch the whole pipeline
+        /// in one short test session.
+        /// </summary>
+        private static void SpawnBattleSiteCrystalPatch(EntityManager em, float3 center)
+        {
+            center.y = TerrainUtility.GetHeight(center.x, center.z);
+
+            const int NodeCount = 44;
+            const int CrystalPerNode = 60;  // = CursePendingPileSystem.MaxCrystalPerNode
+
+            // Hex grid for an even, packed cluster — same approach as
+            // CrystalPatchBootstrap's near patch. 3 rings yield 37 slots;
+            // 4 rings yield 61; we walk slot-by-slot until we've placed 44.
+            const int Rings = 4;
+            const float Spacing = 2.6f;     // hex-cell spacing; outermost ring at radius ~10.4 m, well under PatchClusterRadius = 12 so the whole grid stays one patch
+            const float SQRT3_OVER_2 = 0.8660254f;
+
+            int placed = 0;
+
+            // Centre cell first.
+            PlaceNode(em, center, 0f, 0f);
+            placed++;
+
+            // Ring walk.
+            int[,] hexDirs = new int[,]
+            {
+                {  1,  0 }, {  1, -1 }, {  0, -1 },
+                { -1,  0 }, { -1,  1 }, {  0,  1 }
+            };
+
+            for (int ring = 1; ring <= Rings && placed < NodeCount; ring++)
+            {
+                int q = -ring;
+                int r = ring;
+                for (int side = 0; side < 6 && placed < NodeCount; side++)
+                {
+                    for (int step = 0; step < ring && placed < NodeCount; step++)
+                    {
+                        float ox = Spacing * (q + r * 0.5f);
+                        float oz = Spacing * r * SQRT3_OVER_2;
+                        PlaceNode(em, center, ox, oz);
+                        placed++;
+                        q += hexDirs[side, 0];
+                        r += hexDirs[side, 1];
+                    }
+                }
+            }
+
+            TWBLog.Log($"[ScenarioSetup] seeded {placed}-node resource patch at ({center.x:F1}, {center.z:F1}) — one curse-unit death will tip it past {placed + 1}.");
+
+            static void PlaceNode(EntityManager em, float3 center, float ox, float oz)
+            {
+                float x = center.x + ox;
+                float z = center.z + oz;
+                float y = TerrainUtility.GetHeight(x, z);
+                Cadaver.Create(em, new float3(x, y, z), CrystalPerNode);
+            }
+        }
+
+        /// <summary>
+        /// Patrol Defense: six Veilstingers walk a 15 m radius circle clockwise
+        /// while a wave of passive soldiers spawns every 3 s from a 35 m outer
+        /// ring and walks toward the centre. Veilstingers fire while moving
+        /// and split their two guns across the two nearest soldiers when
+        /// available (single soldier → both guns on it; two+ → one each).
+        /// Soldiers don't shoot back — their Damage and Target components are
+        /// stripped right after creation, so combat queries can't match them.
+        /// </summary>
+        private static void SpawnPatrolDefense(EntityManager em)
+        {
+            const float CircleRadius = 15f;
+            const int   VeilstingerCount = 6;
+            const int   WaypointCount = 12;  // 30° spacing
+            const float OuterSpawnRadius = 35f;
+            const float InnerTargetRadius = 5f;
+            const float WaveInterval = 3f;
+
+            Vector3 center = Vector3.zero;
+
+            // Generate the patrol loop — N points spaced evenly on the circle.
+            var waypoints = new Vector3[WaypointCount];
+            for (int i = 0; i < WaypointCount; i++)
+            {
+                float ang = (i / (float)WaypointCount) * Mathf.PI * 2f;
+                float x = center.x + Mathf.Cos(ang) * CircleRadius;
+                float z = center.z + Mathf.Sin(ang) * CircleRadius;
+                waypoints[i] = new Vector3(x, TerrainUtility.GetHeight(x, z), z);
+            }
+
+            // Patrol controller GameObject — drives DesiredDestination every
+            // LateUpdate so the standard movement systems carry the units.
+            var patrolGo = new GameObject("ScenarioPatrolController");
+            var patrol = patrolGo.AddComponent<ScenarioPatrolController>();
+
+            // 6 Veilstingers, each starting at every other waypoint so they
+            // stay roughly evenly spaced as they walk the loop.
+            int stride = WaypointCount / VeilstingerCount; // 2
+            for (int i = 0; i < VeilstingerCount; i++)
+            {
+                int startIdx = i * stride;
+                Vector3 spawn = waypoints[startIdx];
+                var entity = Veilstinger.Create(em,
+                    new float3(spawn.x, spawn.y, spawn.z), Faction.Red);
+                if (entity == Entity.Null) continue;
+
+                // HoldPositionTag prevents the Veilstinger combat system's
+                // chase branch from overwriting the patrol's DesiredDestination
+                // when a soldier exits maxRange. The in-range branch no
+                // longer touches movement on its own.
+                if (!em.HasComponent<HoldPositionTag>(entity))
+                    em.AddComponent<HoldPositionTag>(entity);
+
+                // PatrolTag flags the unit as an "active scanner" in
+                // TargetingSystem — without it, the auto-acquire skips any
+                // unit whose DesiredDestination.Has is set, and the patrol
+                // controller writes that every frame. The result without
+                // this tag is that the Veilstingers never get a target
+                // assigned and never fire.
+                if (!em.HasComponent<PatrolTag>(entity))
+                    em.AddComponent<PatrolTag>(entity);
+
+                patrol.Units.Add(new ScenarioPatrolController.PatrolUnit
+                {
+                    Entity = entity,
+                    Waypoints = waypoints,
+                    // Walk toward the NEXT waypoint so the unit starts moving.
+                    CurrentWaypoint = (startIdx + 1) % WaypointCount,
+                    // Pre-target slightly outside max-range so the moment a
+                    // soldier crosses MaxRange (24 m), the AimTimer is
+                    // already counting and the first shot fires fast.
+                    EngageRange = 30f
+                });
+            }
+
+            // Wave spawner GameObject — passive Faction.Blue soldiers spawn
+            // on the outer ring and head for a random point near the centre.
+            var spawnerGo = new GameObject("ScenarioWaveSpawner");
+            var spawner = spawnerGo.AddComponent<ScenarioWaveSpawner>();
+            spawner.Center = center;
+            spawner.SpawnRadius = OuterSpawnRadius;
+            spawner.InnerTargetRadius = InnerTargetRadius;
+            spawner.Interval = WaveInterval;
+            spawner.UnitId = "Swordsman";
+            spawner.SoldierFaction = Faction.Blue;
+
+            // Starter 44-node resource patch east of the patrol ring (just past
+            // the 35 m outer spawn) so the curse-unit-death payouts have
+            // somewhere to deposit. See CursePendingPileSystem.
+            SpawnBattleSiteCrystalPatch(em, new float3(50f, 0f, 0f));
+        }
+
+        /// <summary>
+        /// Alanthor Vs Crystal Horde: 2 battalions of each Alanthor battalion-tier
+        /// unit (Sentinel / Crossbowman / Cataphract = 6 battalions total) on the
+        /// south side facing a 50-unit Crystal horde — 30 Crystallings, 15
+        /// Veilstingers, 5 Godsplinters — on the north side. Both armies
+        /// attack-move toward the centre on spawn.
+        /// </summary>
+        private static void SpawnAlanthorVsCrystal(EntityManager em)
+        {
+            // Set the Red player faction to the Alanthor culture so the
+            // battalion units render with the right cultural treatment.
+            FactionColors.SetFactionCulture(Faction.Red, Cultures.Alanthor);
+
+            float3 center = float3.zero;
+            float armyOffset = ArmySeparation * 0.5f;
+
+            // ── Alanthor (Red, south) ──
+            // Three rows of 2 battalions: Sentinel front, Crossbowman behind,
+            // Cataphract at the back (cavalry held in reserve / flank).
+            var redCenter = new float3(0, 0, -armyOffset);
+            SpawnArmyRow(em, "Alanthor_Sentinel",    Faction.Red, 2, redCenter);
+            SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing));
+            SpawnArmyRow(em, "Alanthor_Cataphract",  Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 2f));
+            AttackMoveAllBattalions(em, Faction.Red, center);
+
+            // ── Crystal Horde (Blue, north) ──
+            // 30 Crystallings (melee front), 15 Veilstingers (mid),
+            // 5 Godsplinters (siege rear). Spawned as loose units; each
+            // gets an AttackMoveCommand toward centre so they march in.
+            var blueCenter = new float3(0, 0, armyOffset);
+            const float HordeUnitSpacing = 2f;
+
+            // Row depths relative to blueCenter (positive Z = farther from centre).
+            float crystallingDepth = 0f;
+            float veilstingerDepth = RowSpacing;
+            float godsplinterDepth = RowSpacing * 2f;
+
+            // 30 Crystallings — two rows of 15.
+            for (int i = 0; i < 30; i++)
+            {
+                int col = i % 15;
+                int row = i / 15;
+                float x = (col - 7f) * HordeUnitSpacing;
+                float3 pos = blueCenter + new float3(x, 0, crystallingDepth + row * HordeUnitSpacing);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var e = UnitFactory.Create(em, "Crystalling", pos, Faction.Blue);
+                if (e != Entity.Null) AttackMoveCommandHelper.Execute(em, e, center);
+            }
+
+            // 15 Veilstingers — one row.
+            for (int i = 0; i < 15; i++)
+            {
+                float x = (i - 7f) * HordeUnitSpacing * 1.5f;
+                float3 pos = blueCenter + new float3(x, 0, veilstingerDepth);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var e = UnitFactory.Create(em, "Veilstinger", pos, Faction.Blue);
+                if (e != Entity.Null) AttackMoveCommandHelper.Execute(em, e, center);
+            }
+
+            // 5 Godsplinters — one row, spaced wider (siege-class).
+            for (int i = 0; i < 5; i++)
+            {
+                float x = (i - 2f) * HordeUnitSpacing * 3f;
+                float3 pos = blueCenter + new float3(x, 0, godsplinterDepth);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var e = UnitFactory.Create(em, "Godsplinter", pos, Faction.Blue);
+                if (e != Entity.Null) AttackMoveCommandHelper.Execute(em, e, center);
+            }
+
+            // Starter 44-node resource patch east of the battle line so the
+            // curse-unit-death payouts have somewhere to deposit. The Alanthor
+            // army will be killing Crystallings/Veilstingers/Godsplinters as
+            // the armies engage, which is exactly what feeds CursePendingPile.
+            SpawnBattleSiteCrystalPatch(em, new float3(40f, 0f, 0f));
         }
 
         // ═══════════════════════════════════════════════════════════════

@@ -4,9 +4,9 @@ deft:
   type: improvement
   status: active
   stage: implementation
-  phase: 1
+  phase: 4
   total_phases: 4
-  priority: high
+  priority: normal
   source: manual
   roadmap_id: null
   branch_strategy: current

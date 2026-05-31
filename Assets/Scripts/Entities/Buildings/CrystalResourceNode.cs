@@ -60,6 +60,10 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Structure });
 
+            // Construction window — drives the staggered rise animation.
+            // CurseConstructionSystem advances Progress at 1s / s.
+            em.AddComponentData(entity, new UnderConstruction { Progress = 0f, Total = 60f });
+
             return entity;
         }
 
@@ -96,6 +100,9 @@ namespace TheWaningBorder.Entities
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Structure });
+
+            // Construction window — drives the staggered rise animation.
+            ecb.AddComponent(entity, new UnderConstruction { Progress = 0f, Total = 60f });
 
             return entity;
         }

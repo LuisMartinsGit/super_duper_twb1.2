@@ -1,0 +1,29 @@
+{
+  "id": "task-alanthor-royal-stable-068",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 2,
+  "totalPhases": 2,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C2 critical). Royal Stable building missing entirely; Cataphract still trains from Barracks contrary to doc 3.3.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Phase 1 partial: added Alanthor_RoyalStable TechTree entry (HP 1000, cost 220 S + 80 I, trains: [Alanthor_Cataphract]) and reparented Alanthor_Cataphract trainAt Barracks->Alanthor_RoyalStable (Phase 2 data half). Remaining wiring deferred: new RoyalStableTag component, BuildingFactory EM+ECB cases, BuildingCosts entry, EntityExtractors BuildableBuildings add, AIMilitaryManager/AIBuildingManager Royal Stable prerequisite, and Actions.jsx notWired flip. The TechTree data is now correct; gameplay placement requires the factory pass.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

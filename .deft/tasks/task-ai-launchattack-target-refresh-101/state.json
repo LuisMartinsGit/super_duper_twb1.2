@@ -1,0 +1,16 @@
+{
+  "id": "task-ai-launchattack-target-refresh-101",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T18:00:00Z",
+  "updatedAt": "2026-05-20T18:00:00Z",
+  "events": [
+    {
+      "type": "stub_created",
+      "description": "Spun out from task-profound-code-review-082 §C.5 — TryLaunchAttack picks attack target once and doesn't refresh on death; FindFactionBuilding<TTag> doesn't exclude UnderConstruction for non-Hall callers. Two related SimpleAI correctness gaps bundled in one task.",
+      "timestamp": "2026-05-20T18:00:00Z"
+    }
+  ]
+}

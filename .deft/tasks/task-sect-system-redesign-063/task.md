@@ -3,8 +3,8 @@ deft:
   id: task-sect-system-redesign-063
   type: improvement
   status: active
-  stage: architecture
-  phase: 0
+  stage: implementation
+  phase: 2
   total_phases: 5
   priority: high
   source: manual

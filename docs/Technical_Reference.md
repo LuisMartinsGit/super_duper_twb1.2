@@ -1,5 +1,17 @@
 # The Waning Border - Technical Reference
 
+> ⚠ **This document describes what the code currently does.** It is a
+> **runtime / code reference** — useful for tracing how a feature is wired
+> today. For **game-design intent**, the canonical truth source is
+> **[docs/Design/](Design/Overview.md)**. The Design folder supersedes anything
+> in this document when they disagree (for example: the Vault interest
+> rate, the religious-unit training level, the per-battalion upgrade
+> model, the Glow economy, Runai's building roster, and the
+> "transform-don't-replace" Gatherer's-Hut rules are all set by Design/,
+> not by this file). Several numbers and behaviors here predate the
+> 2026-05-19 design pass and are awaiting code alignment via
+> [.deft/tasks/task-age0-techtree-alignment-065/](../.deft/tasks/task-age0-techtree-alignment-065/task.md).
+
 > Unity 6 (6000.0.37f1) | DOTS/ECS (Entities 1.3.14) | C# | Hybrid MonoBehaviour UI
 
 ---

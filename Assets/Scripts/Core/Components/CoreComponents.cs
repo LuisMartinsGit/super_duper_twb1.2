@@ -182,12 +182,17 @@ public struct MovementCache : IComponentData
 }
 
 /// <summary>
-/// Rally point for newly trained units.
+/// Rally point for newly trained units. Position is where the unit walks
+/// to after spawning; TargetEntity is an optional follow-up action target
+/// (currently used to point newly-trained miners at a specific resource
+/// node so they auto-gather without a click). Entity.Null for plain
+/// "walk here" rallies.
 /// </summary>
 public struct RallyPoint : IComponentData
 {
     public float3 Position;
     public byte Has;
+    public Entity TargetEntity;
 }
 
 // ==================== Hold Position ====================

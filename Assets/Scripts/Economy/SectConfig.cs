@@ -217,6 +217,22 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
+        /// Material cost for a lever upgrade at the given current level. Mirrors
+        /// the RP schedule: Lv I → II is cheap, Lv II → III is the steep one.
+        /// Returns default(Cost) if the upgrade isn't legal (caller should also
+        /// gate on <see cref="UpgradeCost"/> being &gt;= 0).
+        /// </summary>
+        public static TheWaningBorder.Core.Cost UpgradeMaterialCost(int currentLevel)
+        {
+            return currentLevel switch
+            {
+                1 => TheWaningBorder.Core.Cost.Of(supplies: 120, crystal: 40, iron: 30),
+                2 => TheWaningBorder.Core.Cost.Of(supplies: 240, crystal: 90, iron: 70),
+                _ => default,
+            };
+        }
+
+        /// <summary>
         /// Map a <see cref="Cultures"/> byte to its <see cref="SectCluster"/>.
         /// <c>Cultures.None</c> (e.g. pre-age-up) maps to Alanthor for cost-math
         /// purposes; faction can't adopt yet anyway since RP is age-gated.

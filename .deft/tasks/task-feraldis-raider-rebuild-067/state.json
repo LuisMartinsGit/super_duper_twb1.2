@@ -1,0 +1,44 @@
+{
+  "id": "task-feraldis-raider-rebuild-067",
+  "status": "active",
+  "stage": "implementation",
+  "phase": 2,
+  "totalPhases": 2,
+  "createdAt": "2026-05-19T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out of full-sweep audit on 2026-05-19 (C5 critical). Raider.cs currently loads Runai_Raider (cavalry) - doc requires a separate Feraldis_Raider (uncontrollable skirmisher).",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Split TechTree + factory",
+      "description": "Added Feraldis_Raider TechTree entry (HP 80, speed 6.0, infantry_light melee, uncontrollable, autoSpawn=Feraldis_House). New Entities/Units/FeraldisRaider.cs factory (with FeraldisRaiderTag global marker) using same EmCreator/EcbCreator pattern as Hut.cs. UnitFactory dispatcher updated for both EM + ECB paths; class lookup = Melee; PresentationId = 341. Runai_Raider untouched (still wired via existing Raider.cs).",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "Uncontrollable + patrol AI",
+      "description": "SelectionSystem.BoxSelect now skips NotControllableTag entities so drag-select can't grab Raiders (single click-inspect still permitted via IsSelectableByPlayer for HUD readout). CommandRouter's existing IsBlockedByNotControllable gates direct commands. New Systems/AI/FeraldisRaiderPatrolSystem retargets every 1.5 s: scans all faction-tagged entities with health, finds nearest non-self-faction live target within 200 units, sets DesiredDestination + Target on each FeraldisRaiderTag entity.",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "task_completed",
+      "timestamp": "2026-05-19T00:00:00Z",
+      "actor": null
+    }
+  ]
+}

@@ -2,10 +2,10 @@
   "id": "task-sect-system-redesign-063",
   "status": "active",
   "stage": "implementation",
-  "phase": 1,
+  "phase": 2,
   "totalPhases": 5,
   "createdAt": "2026-05-04T00:00:00Z",
-  "updatedAt": "2026-05-04T00:00:00Z",
+  "updatedAt": "2026-05-19T00:00:00Z",
   "events": [
     {
       "ts": "2026-05-04",
@@ -60,6 +60,11 @@
       "ts": "2026-05-04",
       "type": "verified",
       "note": "dotnet build Assembly-CSharp.csproj: 0 errors, 71 warnings (all pre-existing CS0649 fields-never-assigned, unrelated to this pass). Confirmed compile-clean after Unity csproj regen + new sect file inclusion."
+    },
+    {
+      "ts": "2026-05-19",
+      "type": "decision",
+      "description": "Frontmatter synced 2026-05-19: task.md and state.json both said phase 0/1 despite event log showing phase_started: 2 (Phase 2a) on 2026-05-05. Bumped both to phase 2."
     }
   ]
 }

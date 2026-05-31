@@ -131,6 +131,10 @@ namespace TheWaningBorder.UI.Panels
                 case ActionType.BazaarWagonUnpack:
                     DrawBazaarWagonPanel(entity);
                     break;
+
+                case ActionType.HubBuildWall:
+                    DrawHubBuildWallPanel(entity, actionInfo);
+                    break;
             }
 
             } // end try
@@ -276,6 +280,48 @@ namespace TheWaningBorder.UI.Panels
                 BuilderCommandPanel.TriggerBuildingPlacement(button.Id);
             }, overrideButtonSize: 55f);
 
+            GUI.enabled = true;
+
+            GUILayout.EndArea();
+        }
+
+        // Per-hub "Build Wall" action. Mirrors the building-placement panel but the
+        // click enters hub-anchored wall-extend placement (TriggerHubBuildWall):
+        // drop a new hub + auto-connecting segment that self-builds in 30 s, or snap
+        // onto an existing hub to build just the connecting segment.
+        private void DrawHubBuildWallPanel(Entity entity, EntityActionInfo actionInfo)
+        {
+            PanelVisible = true;
+
+            var panelRect = new Rect(
+                EntityInfoPanel.NextPanelX,
+                Screen.height - ResourceHUD.HudBarHeight - ResourceHUD.HudBottomMargin,
+                PanelWidth,
+                ResourceHUD.HudBarHeight
+            );
+            PanelRect = panelRect;
+
+            GUI.Box(panelRect, "", _boxStyle);
+
+            var innerRect = new Rect(
+                panelRect.x + _padding.left,
+                panelRect.y + _padding.top,
+                panelRect.width - _padding.horizontal,
+                panelRect.height - _padding.vertical
+            );
+
+            GUILayout.BeginArea(innerRect);
+
+            GUILayout.Label(BuilderCommandPanel.IsPlacingBuilding
+                ? "Left-click to place hub (snaps to nearby hubs), Right/Esc to cancel"
+                : "Extend Wall", _headerStyle);
+            GUILayout.Space(8);
+
+            GUI.enabled = !BuilderCommandPanel.IsPlacingBuilding;
+            DrawActionGrid(entity, actionInfo.Actions.ToArray(), (button) =>
+            {
+                BuilderCommandPanel.TriggerHubBuildWall(entity);
+            }, overrideButtonSize: 55f);
             GUI.enabled = true;
 
             GUILayout.EndArea();
@@ -661,9 +707,16 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.Space(6);
 
-            // Check prerequisites
-            string choiceBuilding = BuildingFactory.GetFactionChoiceBuilding(em, faction);
+            // Check prerequisites — choice building must be COMPLETED, not
+            // just under construction. (Players were able to research the
+            // culture choice + start age-up before the Shrine/Vault/Keep
+            // had finished building.)
+            string choiceBuilding = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction);
             bool hasChoiceBuilding = choiceBuilding != null;
+            // Distinguish "no choice building yet" from "still building" so
+            // the requirement label can be precise.
+            bool choiceBuildingPending = !hasChoiceBuilding
+                && BuildingFactory.GetFactionChoiceBuilding(em, faction) != null;
             bool canAfford = FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost);
 
             bool canAgeUp = hasChoiceBuilding && canAfford;
@@ -681,7 +734,10 @@ namespace TheWaningBorder.UI.Panels
             // Requirement status
             if (!hasChoiceBuilding)
             {
-                GUILayout.Label("Requires: Choice Building (Temple / Vault / Keep)", _requireStyle);
+                GUILayout.Label(choiceBuildingPending
+                    ? "Requires: Choice Building completed (still building)"
+                    : "Requires: Choice Building (Temple / Vault / Keep)",
+                    _requireStyle);
             }
             else if (!canAfford)
             {
@@ -700,7 +756,7 @@ namespace TheWaningBorder.UI.Panels
             var ageUp = em.GetComponentData<AgeUpState>(entity);
             float elapsed = ageUp.Duration - ageUp.Remaining;
             float pct = (ageUp.Duration > 0f) ? Mathf.Clamp01(elapsed / ageUp.Duration) : 1f;
-            int seconds = Mathf.CeilToInt(Mathf.Max(0f, ageUp.Remaining));
+            int pctInt = Mathf.RoundToInt(pct * 100f);
 
             string cultureName = CultureConfig.GetName(ageUp.Culture);
 
@@ -714,8 +770,8 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.Space(6);
 
-            // Label
-            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {seconds}s", _labelStyle);
+            // Label — show percentage instead of remaining seconds.
+            GUILayout.Label($"Advancing to Era 2 ({cultureName})  {pctInt}%", _labelStyle);
             GUILayout.Space(4);
 
             // Progress bar background
@@ -859,6 +915,15 @@ namespace TheWaningBorder.UI.Panels
                         Faction faction = GameSettings.LocalPlayerFaction;
                         if (em.HasComponent<FactionTag>(entity))
                             faction = em.GetComponentData<FactionTag>(entity).Value;
+
+                        // Combined train+research queue cap (5 by default).
+                        // Check this BEFORE spending so the player isn't charged
+                        // for a research order the building can't accept.
+                        if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, entity))
+                        {
+                            PlayerNotificationSystem.NotifyError("Production queue full");
+                            return;
+                        }
 
                         if (!FactionEconomy.Spend(em, faction, button.Cost))
                         {
@@ -1745,7 +1810,111 @@ namespace TheWaningBorder.UI.Panels
             };
             GUILayout.Label(desc, _smallStyle);
 
+            // Aggregate Promote — iterates the current selection (not just
+            // the primary entity), filters to player-owned military units,
+            // and promotes the lowest-rank cohort. Mirrors the existing
+            // EntityInfoPanel.DrawUnitRankSection behaviour exactly so we
+            // never call Execute on a battalion leader or non-military
+            // entity (which is what crashed last time).
+            DrawPromoteSection(em, innerRect.width);
+
             GUILayout.EndArea();
+        }
+
+        private void DrawPromoteSection(EntityManager em, float width)
+        {
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count == 0) return;
+
+            // Bucket the selection by rank; only count military units we own.
+            int maxRank = UnitRankConfig.MaxRank;
+            var byRank = new int[maxRank + 1];
+            var promotable = new System.Collections.Generic.List<Entity>(selection.Count);
+
+            foreach (var e in selection)
+            {
+                if (!em.Exists(e)) continue;
+                if (!em.HasComponent<UnitTag>(e)) continue;
+                var cls = em.GetComponentData<UnitTag>(e).Class;
+                if (cls != UnitClass.Melee && cls != UnitClass.Ranged && cls != UnitClass.Siege) continue;
+                if (!em.HasComponent<FactionTag>(e)) continue;
+                if (em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction) continue;
+
+                byte rank = em.HasComponent<UnitRank>(e)
+                    ? em.GetComponentData<UnitRank>(e).Value : (byte)1;
+                if (rank < 1) rank = 1;
+                if (rank > maxRank) rank = (byte)maxRank;
+                byRank[rank]++;
+                if (rank < maxRank) promotable.Add(e);
+            }
+
+            int totalMilitary = 0;
+            for (int i = 1; i <= maxRank; i++) totalMilitary += byRank[i];
+            if (totalMilitary == 0 || promotable.Count == 0) return;
+
+            // Find the lowest-rank cohort that can still be promoted.
+            byte lowestRank = 1;
+            for (byte r = 1; r < maxRank; r++)
+            {
+                if (byRank[r] > 0) { lowestRank = r; break; }
+            }
+            int cohortCount = byRank[lowestRank];
+            byte target = (byte)(lowestRank + 1);
+            var unitCost  = UnitRankConfig.CostFor(target);
+            var totalCost = MultiplyCost(unitCost, cohortCount);
+
+            bool canAffordOne = FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, unitCost);
+            bool canAffordAll = FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, totalCost);
+            string suffix = canAffordAll ? "" : (canAffordOne ? "  (partial)" : "  (need resources)");
+
+            string costStr = PromoteCostLabel(totalCost);
+            string label = (cohortCount == 1)
+                ? $"Promote → Lv {target} ({PromoteCostLabel(unitCost)}){suffix}"
+                : $"Promote {cohortCount} (Lv {lowestRank} → Lv {target}) — {costStr}{suffix}";
+
+            GUILayout.Space(8);
+            GUI.enabled = canAffordOne;
+            if (GUILayout.Button(label, _buttonStyle, GUILayout.Width(width), GUILayout.Height(28f)))
+            {
+                // Snapshot the cohort first — calling Execute on each entry
+                // would otherwise re-bucket the selection mid-iteration.
+                var cohort = new System.Collections.Generic.List<Entity>(cohortCount);
+                foreach (var e in promotable)
+                {
+                    if (!em.Exists(e)) continue;
+                    byte r = em.HasComponent<UnitRank>(e)
+                        ? em.GetComponentData<UnitRank>(e).Value : (byte)1;
+                    if (r < 1) r = 1;
+                    if (r == lowestRank) cohort.Add(e);
+                }
+                foreach (var e in cohort)
+                {
+                    var result = TheWaningBorder.Core.Commands.Types
+                        .UnitRankCommandHelper.Execute(em, e);
+                    if (result == TheWaningBorder.Core.Commands.Types
+                        .UnitRankPromoteResult.CannotAfford) break;
+                }
+                BuilderCommandPanel.SuppressClicksThisFrame = true;
+            }
+            GUI.enabled = true;
+        }
+
+        private static Cost MultiplyCost(in Cost c, int n) => new Cost
+        {
+            Supplies  = c.Supplies  * n,
+            Iron      = c.Iron      * n,
+            Crystal   = c.Crystal   * n,
+            Veilsteel = c.Veilsteel * n,
+            Glow      = c.Glow      * n,
+        };
+
+        private static string PromoteCostLabel(in Cost c)
+        {
+            if (c.Glow      > 0) return $"{c.Glow} Glow";
+            if (c.Veilsteel > 0) return $"{c.Veilsteel} Veilsteel";
+            if (c.Crystal   > 0) return $"{c.Crystal} Crystal";
+            if (c.Iron      > 0) return $"{c.Iron} Iron";
+            return $"{c.Supplies} Supplies";
         }
 
         private void DrawStanceButton(string label, BattalionStance stance, BattalionStance current,
@@ -1769,6 +1938,9 @@ namespace TheWaningBorder.UI.Panels
 
         public static bool IsPointerOver()
         {
+            // Delegates to the UI Toolkit HUD's hover tracking when this IMGUI
+            // panel is suspended (UI Toolkit migration).
+            if (TheWaningBorder.UI.GameplayUIController.IsPointerOverHUD) return true;
             if (!PanelVisible) return false;
             var mousePos = UnityEngine.Input.mousePosition;
             var screenRect = new Rect(

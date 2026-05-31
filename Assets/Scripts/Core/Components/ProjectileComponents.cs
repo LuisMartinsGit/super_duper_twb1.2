@@ -47,6 +47,22 @@ public struct AOEProjectile : IComponentData
 }
 
 /// <summary>
+/// Overrides the default arc height for a single projectile so siege-class
+/// shots (Godsplinter, future trebuchet-class units) can lob high parabolic
+/// shots across long range. ProjectileSystem reads this when computing the
+/// Bezier control point; absent → falls back to the global ArcHeight cap.
+/// </summary>
+public struct HighArcProjectile : IComponentData
+{
+    /// <summary>
+    /// Peak arc height as a fraction of horizontal travel distance.
+    /// 0.3 means the apex sits at 30 % of horizontalDist above the midpoint —
+    /// a 60 m shot peaks ~18 m high.
+    /// </summary>
+    public float ArcFraction;
+}
+
+/// <summary>
 /// Added to units (e.g. Catapult) whose projectiles should deal AOE damage.
 /// RangedCombatSystem copies this to spawned projectiles as AOEProjectile.
 /// </summary>

@@ -28,8 +28,9 @@ namespace TheWaningBorder.Bootstrap
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Skip if this is the Game scene (GameBootstrap handles that)
-            if (string.Equals(scene.name, "Game")) 
+            // Skip any registered gameplay scene — GameBootstrap handles
+            // those. Procedural "Game" plus every hand-authored map.
+            if (TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name))
             {
                 _menuCreated = false; // Reset so menu can be created when returning
                 return;

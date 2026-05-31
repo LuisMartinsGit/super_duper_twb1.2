@@ -1,0 +1,23 @@
+{
+  "id": "task-ecs-query-caching-hot-systems-089",
+  "status": "ready",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 0,
+  "createdAt": "2026-05-20T15:45:00Z",
+  "updatedAt": "2026-05-20T15:45:00Z",
+  "events": [
+    {
+      "type": "stage_changed",
+      "stage": "scope",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    },
+    {
+      "type": "decision",
+      "description": "Spun out from task-082 §A audit row. TargetingSystem and FogOfWarSystem rebuild their EntityQuery per OnUpdate tick. Cache in OnCreate. Stub starts in scope; §D perf pass will attach measurement.",
+      "timestamp": "2026-05-20T15:45:00Z",
+      "actor": null
+    }
+  ]
+}

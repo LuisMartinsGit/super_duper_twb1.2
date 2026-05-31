@@ -50,7 +50,11 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Hut");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            creator.AddComponent(entity, new PopulationProvider { Amount = DefaultPopulation });
+
+            // Design §5.1: Feraldis Houses do not contribute pop — they're raider-spawn buildings.
+            // FeraldisPopOverride caps the faction at 200 instantly at age-up.
+            if (FactionColors.GetFactionCulture(faction) != Cultures.Feraldis)
+                creator.AddComponent(entity, new PopulationProvider { Amount = DefaultPopulation });
 
             // Combat type tags
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

@@ -1,9 +1,10 @@
 // File: Assets/Scripts/Systems/Crystal/GodsplinterCombatSystem.cs
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
 using TheWaningBorder.Systems.Combat;
+using static TheWaningBorder.Core.Config.CrystalConstants;
 
 namespace TheWaningBorder.Systems.Crystal
 {
@@ -26,22 +27,16 @@ namespace TheWaningBorder.Systems.Crystal
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct GodsplinterCombatSystem : ISystem
     {
-        private const float LaserSpeed = 55f;
         private const float SiegeCooldownDuration = 3.0f;
-        private const float LaserCooldownDuration = 2.0f;
+        // Long-arc lob: ~1.4 s flight time reads as a slow, weighty trebuchet
+        // shell rather than a hitscan beam. Combined with HighArcProjectile,
+        // this gives an obvious telegraph the player can dodge.
+        private const float BombardFlightTime = 1.4f;
 
-
-        // Cached query — created once in OnCreate, reused every frame
-        private EntityQuery _targetQuery;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
-
-            _targetQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<LocalTransform, FactionTag, Health>()
-                .WithAny<UnitTag, BuildingTag>()
-                .Build(ref state);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -51,11 +46,6 @@ namespace TheWaningBorder.Systems.Crystal
             float dt = SystemAPI.Time.DeltaTime;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
-
-            var tgtEntities = _targetQuery.ToEntityArray(Allocator.Temp);
-            var tgtTransforms = _targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var tgtFactions = _targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var tgtHealth = _targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
             foreach (var (transform, target, godState, damage, faction, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<GodsplinterState>, RefRO<Damage>, RefRO<FactionTag>>()
@@ -168,67 +158,22 @@ namespace TheWaningBorder.Systems.Crystal
                     gs.SiegeCooldownTimer = SiegeCooldownDuration;
                 }
                 // =============================================================================
-                // BEHAVIOR 2: Laser barrage - medium range multi-target
+                // BEHAVIOR 2: Arcing AOE bombard — long range, single splash shot
                 // =============================================================================
                 else if (dist <= gs.LaserRange && gs.LaserCooldownTimer <= 0)
                 {
                     gs.IsSieging = 0;
 
-                    // Stop moving
-                    if (em.HasComponent<DesiredDestination>(entity))
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
-                    }
+                    // Bombard while moving — DesiredDestination is left alone so
+                    // a Godsplinter on attack-move keeps walking between volleys.
 
-                    int maxTargets = math.max(1, gs.LaserMaxTargets);
-
-                    // Crystal buff on attacker (bonus damage for laser barrage)
-                    int laserDmg = baseDmg;
+                    // Crystal buff on attacker (bonus damage)
+                    int shotDmg = baseDmg;
                     if (em.HasComponent<CrystalBuff>(entity))
                     {
                         var buff = em.GetComponentData<CrystalBuff>(entity);
-                        laserDmg = (int)math.round(laserDmg * (1f + buff.AttBonus));
-                        laserDmg = math.max(1, laserDmg);
-                    }
-                    // Note: CrystalDebuff on targets applied at projectile impact
-
-                    // Find up to LaserMaxTargets nearest enemies within laser range
-                    var targets = new NativeList<LaserTarget>(maxTargets, Allocator.Temp);
-
-                    for (int i = 0; i < tgtEntities.Length; i++)
-                    {
-                        if (tgtFactions[i].Value == myFaction) continue;
-                        if (tgtHealth[i].Value <= 0) continue;
-
-                        float d = DistXZ(myPos, tgtTransforms[i].Position);
-                        if (d > gs.LaserRange) continue;
-
-                        var candidate = new LaserTarget
-                        {
-                            Entity = tgtEntities[i],
-                            Position = tgtTransforms[i].Position,
-                            Distance = d
-                        };
-
-                        if (targets.Length < maxTargets)
-                        {
-                            targets.Add(candidate);
-                        }
-                        else if (d < targets[targets.Length - 1].Distance)
-                        {
-                            targets[targets.Length - 1] = candidate;
-                        }
-
-                        // Bubble sort last element into position
-                        for (int j = targets.Length - 1; j > 0; j--)
-                        {
-                            if (targets[j].Distance < targets[j - 1].Distance)
-                            {
-                                var tmp = targets[j];
-                                targets[j] = targets[j - 1];
-                                targets[j - 1] = tmp;
-                            }
-                        }
+                        shotDmg = (int)math.round(shotDmg * (1f + buff.AttBonus));
+                        shotDmg = math.max(1, shotDmg);
                     }
 
                     // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
@@ -236,19 +181,10 @@ namespace TheWaningBorder.Systems.Crystal
                         ? em.GetComponentData<Radius>(entity).Value + 0.5f
                         : 1.5f;
 
-                    // Fire laser at each target
-                    for (int t = 0; t < targets.Length; t++)
-                    {
-                        CreateLaser(ref ecb, myPos, targets[t].Position,
-                            targets[t].Distance, entity, myFaction, laserDmg, time, targets[t].Entity, dmgType, spawnYOffset);
-                    }
+                    CreateArcedAoeShot(ref ecb, myPos, targetPos,
+                        entity, myFaction, shotDmg, time, tgt.Value, dmgType, spawnYOffset);
 
-                    if (targets.Length > 0)
-                    {
-                        gs.LaserCooldownTimer = LaserCooldownDuration;
-                    }
-
-                    targets.Dispose();
+                    gs.LaserCooldownTimer = GodsplinterFireCooldown;
                 }
                 // =============================================================================
                 // BEHAVIOR 3: Too far - CHASE (unless holding position)
@@ -283,66 +219,64 @@ namespace TheWaningBorder.Systems.Crystal
                 }
             }
 
-            tgtEntities.Dispose();
-            tgtTransforms.Dispose();
-            tgtFactions.Dispose();
-            tgtHealth.Dispose();
         }
 
         /// <summary>
-        /// Create a laser projectile entity (reuses Projectile + ArrowProjectile pattern).
+        /// Spawn a single Godsplinter siege bombard — a slow, high parabolic
+        /// shell that lands an AOE splash on impact. No <c>LaserProjectileTag</c>
+        /// so <c>ProjectileSystem</c> routes it through the arrow/Bezier path
+        /// and uses the <c>HighArcProjectile</c> component to peak high above
+        /// the midpoint (siege trajectory). Splash radius is
+        /// <c>GodsplinterAoeRadius</c>.
         /// </summary>
-        private static void CreateLaser(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
-            float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
-            DamageType dmgType = DamageType.Siege, float spawnYOffset = 1.5f)
+        private static void CreateArcedAoeShot(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
+            Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
+            DamageType dmgType, float spawnYOffset)
         {
-            var direction = math.normalize(targetPos - start);
-            var velocity = direction * LaserSpeed;
-            var flightTime = distance / LaserSpeed;
+            float3 spawnPos = start + new float3(0, spawnYOffset, 0);
+            float3 dir = targetPos - spawnPos;
+            var direction = math.normalizesafe(dir, new float3(0, 0, 1));
 
-            var laser = ecb.CreateEntity();
+            var shell = ecb.CreateEntity();
 
-            ecb.AddComponent(laser, new LocalTransform
+            ecb.AddComponent(shell, new LocalTransform
             {
-                Position = start + new float3(0, spawnYOffset, 0),
-                Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
+                Position = spawnPos,
+                Rotation = quaternion.LookRotation(direction, new float3(0, 1, 0)),
                 Scale = 1f
             });
 
-            ecb.AddComponent(laser, new ArrowProjectile
+            ecb.AddComponent(shell, new ArrowProjectile
             {
-                Velocity = velocity,
+                Velocity = direction, // overwritten each frame by Bezier tangent
                 Gravity = 0f,
                 Shooter = shooter,
-                IsParabolic = false
+                IsParabolic = true
             });
 
-            ecb.AddComponent(laser, new Projectile
+            ecb.AddComponent(shell, new Projectile
             {
-                Start = start,
+                Start = spawnPos,
                 End = targetPos,
                 StartTime = time,
-                FlightTime = flightTime,
+                FlightTime = BombardFlightTime,
                 Damage = damage,
                 Target = targetEntity,
                 Faction = faction,
                 DmgType = dmgType
             });
 
-            // Mark as laser for visual system (renders glowing beam instead of arrow)
-            ecb.AddComponent<LaserProjectileTag>(laser);
+            // Splash damage on impact.
+            ecb.AddComponent(shell, new AOEProjectile { Radius = GodsplinterAoeRadius });
+
+            // High parabolic trajectory (siege lob).
+            ecb.AddComponent(shell, new HighArcProjectile { ArcFraction = GodsplinterArcFraction });
+
+            // GodsplinterProjectileTag drives the largest arcane-missile visual
+            // and impact VFX. NO LaserProjectileTag → ProjectileSystem follows
+            // the arrow/Bezier path and applies HighArcProjectile.
+            ecb.AddComponent<GodsplinterProjectileTag>(shell);
         }
 
-        private struct LaserTarget
-        {
-            public Entity Entity;
-            public float3 Position;
-            public float Distance;
-        }
-
-        private static float DistXZ(float3 a, float3 b)
-        {
-            return math.distance(new float2(a.x, a.z), new float2(b.x, b.z));
-        }
     }
 }

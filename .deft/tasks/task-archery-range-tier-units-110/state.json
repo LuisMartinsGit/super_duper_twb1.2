@@ -1,0 +1,71 @@
+{
+  "id": "task-archery-range-tier-units-110",
+  "status": "completed",
+  "stage": "implementation",
+  "phase": 3,
+  "totalPhases": 3,
+  "createdAt": "2026-05-21T10:00:00Z",
+  "updatedAt": "2026-05-21T11:45:00Z",
+  "events": [
+    {
+      "type": "decision",
+      "description": "User-confirmed PLAYTEST PLACEHOLDER stat proposal 2026-05-21: Crossbowman HP70/Dmg18/Range6-18/CD3.0s/Spd3.5/Cost40S+35I; Longbowman HP55/Dmg25/Range12-40/CD3.5s/Spd4/Cost50S+40I. ArcheryRange already carries BuildingUpgradeable, so minBuildingLevel:2/3 is the gating mechanism. Reuse Archer's prefab visual + arrow glyph for v1.",
+      "timestamp": "2026-05-21T10:00:00Z"
+    },
+    {
+      "type": "stage_changed",
+      "stage": "implementation",
+      "timestamp": "2026-05-21T10:00:00Z",
+      "actor": null
+    },
+    {
+      "type": "phase_started",
+      "phase": 1,
+      "title": "Design folder update (docs-only)",
+      "timestamp": "2026-05-21T10:15:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 1,
+      "title": "Design folder update (docs-only)",
+      "notes": "Extended docs/Design/Age_0.md Archery Range section with three-tier ladder (Archer L1 / Crossbowman L2 / Longbowman L3). Each unit has its own sub-heading with full stat block (HP / Damage / Min+Max Range / Cooldown / Speed / LoS / Population / Cost / Train time) all tagged PLAYTEST PLACEHOLDER per task-109 convention. Added one-paragraph design-intent flavor for each tier (generalist / heavy slow shot / long-range sniper). Added cross-reference note to BuildingUpgradeable system and BuildingUpgradeConfig.TryGetCost. Integrated with existing pre-culture lvl 0 framing — noted the legacy Archer stat block downstream is now stale and should be reconciled when task-110 Phase 2 commits code values. Only docs/Design/Age_0.md was modified; no non-.md files touched.",
+      "timestamp": "2026-05-21T10:30:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 2,
+      "title": "TechTree + factories + training options",
+      "timestamp": "2026-05-21T10:45:00Z"
+    },
+    {
+      "type": "decision",
+      "description": "Found a pre-existing Crossbowman.cs factory that was bound to TechTreeDB id 'Alanthor_Crossbowman' (Alanthor culture unit at PresentationID 335). To free the 'Crossbowman' name for the Era 1 universal tier unit (task-110), renamed that class to AlanthorCrossbowman (new file Assets/Scripts/Entities/Units/AlanthorCrossbowman.cs, kept PresentationID 335 + InfantryHeavy armor + pop 2). Updated the two UnitFactory.cs dispatch lines that referenced 'Alanthor_Crossbowman' to call the renamed class. Old Crossbowman.cs was then rewritten as the new universal Era 1 Crossbowman.",
+      "timestamp": "2026-05-21T11:00:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 2,
+      "title": "TechTree + factories + training options",
+      "notes": "Files modified/created: (1) Assets/Scripts/Core/Components/UnitComponents.cs — added CrossbowmanTag + LongbowmanTag next to ArcherTag. (2) Assets/Resources/TechTree.json — added 'Crossbowman' and 'Longbowman' unit entries to Era 1 units array with PLAYTEST PLACEHOLDER stats from the proposal (HP/damage/range/cooldown/cost/trainTime); added 'trainAt: [ArcheryRange]' and minBuildingLevel 2 / 3. Extended Era 1 ArcheryRange.trains to ['Archer','Crossbowman','Longbowman']. (3) Assets/Scripts/Data/TechTree/TechTreeDB.cs — added ParseUnit calls for both new ids in the Era-1 parsing block. (4) Assets/Scripts/Entities/Units/AlanthorCrossbowman.cs (new) — old Crossbowman class body, class renamed; TechTreeDB id 'Alanthor_Crossbowman' unchanged, PresentationID 335 preserved. (5) Assets/Scripts/Entities/Units/Crossbowman.cs — rewritten as universal Era 1 Crossbowman, IEntityCreator pattern mirroring Archer.cs, ArcherTag+CrossbowmanTag, ArcherState reused, DamageType.Ranged/ArmorType.Ranged/Defense{Ranged:1}, PresentationID 204. (6) Assets/Scripts/Entities/Units/Longbowman.cs (new) — same pattern, ArcherTag+LongbowmanTag, PresentationID 205. (7) Assets/Scripts/Entities/Units/UnitFactory.cs — added 'Crossbowman'/'Longbowman' dispatch (em+ecb), GetUnitClass, GetPresentationId; rebound 'Alanthor_Crossbowman' to AlanthorCrossbowman.Create. (8) Assets/Scripts/Economy/FactionPopulation.cs — added popcost entries for both new ids (1 each). (9) Assets/Scripts/Presentation/ProceduralUnitGenerator.cs — routes presentationId 204/205 to CreateArcher (reuse Archer visual for v1 per task brief). (10) Assets/Scripts/UI/Panels/EntityExtractors.cs — added display-name mappings for 204→Crossbowman / 205→Longbowman in the PresentationId switch. Presentation IDs picked: Crossbowman=204, Longbowman=205 (next free slots after Archer=202/Miner=203). Unit costs source: TechTree.json itself — UnitDef.cost is parsed via JsonUtility (TechTreeJsonDtos.cs UnitJson) and consumed by EntityExtractors (lines 1293-1300) and FactionEconomy.CanAfford. BuildCosts.cs is building-only. Level gating: existing established pattern reused — EntityExtractors.cs reads BuildingUpgradeState.Level then filters on unit.minBuildingLevel; CommandRouter.cs CanTrainAtBuilding enforces the same gate server-side. ArcheryRange.cs already adds BuildingUpgradeable on creation (lines 66/105) so no building-side change was needed. No regression to Archer training: Archer entry unchanged, still in trains[0] with minBuildingLevel implicit=1. Surprise: a pre-existing Crossbowman class was bound to the Alanthor culture variant — required a rename to AlanthorCrossbowman to free the name (recorded as a decision above).",
+      "timestamp": "2026-05-21T11:15:00Z"
+    },
+    {
+      "type": "phase_started",
+      "phase": 3,
+      "title": "JSX glyph wiring + builder catalogue",
+      "timestamp": "2026-05-21T11:30:00Z"
+    },
+    {
+      "type": "phase_completed",
+      "phase": 3,
+      "title": "JSX glyph wiring + builder catalogue",
+      "notes": "Files modified: (1) HudFrontend/src/components/Selection.jsx — extended QUEUE_GLYPH_BY_UNIT_ID with Crossbowman='arrow' and Longbowman='arrow' so the training-queue strip renders correct glyphs when an upgraded Archery Range queues the new tier units. (2) HudFrontend/src/components/Actions.jsx — extended the static TRAIN_ARCHERY first-frame fallback catalogue with Crossbowman and Longbowman entries (cost/time mirror PLAYTEST PLACEHOLDER values from the brief: Crossbowman 40 Supplies / 18s, Longbowman 50 Supplies / 25s). Live server actions from C# (renderServerActions path) still drive the actual gating via minBuildingLevel — these static rows are first-frame safety nets only. Both new units reuse the `arrow` glyph per task brief; visual differentiation deferred to art pass. (3) Assets/StreamingAssets/HUD/hud.js + hud.css — auto-regenerated by `npm run build`; bundle now contains 'Crossbowman' (3 occurrences) and 'Longbowman' (3 occurrences) covering the queue glyph map, the TRAIN_ARCHERY key field, and the display name. Build exited 0 with no warnings (231.6kb hud.js, 36.8kb hud.css). No Actions.jsx UNITS/catalog dict existed beyond TRAIN_ARCHERY; updated that.",
+      "timestamp": "2026-05-21T11:45:00Z"
+    },
+    {
+      "type": "release_completed",
+      "notes": "task-archery-range-tier-units-110 — Archery Range tier units (Crossbowman / Longbowman). Phase 1: docs/Design/Age_0.md updated with three-tier Archery Range ladder (Archer L1 / Crossbowman L2 / Longbowman L3), each unit with full PLAYTEST PLACEHOLDER stat block + design-intent flavor. Phase 2: TechTree wiring — added CrossbowmanTag/LongbowmanTag components, TechTree.json entries with minBuildingLevel 2/3 gates, new Crossbowman.cs + Longbowman.cs factories (PresentationIDs 204/205, ArcherTag base + tier-specific tag, ranged damage/armor profile), UnitFactory dispatch, FactionPopulation pop costs, ProceduralUnitGenerator visual reuse of Archer prefab, EntityExtractors display names. Renamed pre-existing Alanthor culture Crossbowman class to AlanthorCrossbowman.cs to free the universal name. No regression to existing Archer flow — Archer's minBuildingLevel remains implicit lvl 1. Phase 3: HUD frontend JSX — Selection.jsx QUEUE_GLYPH_BY_UNIT_ID extended with both new units (reuse `arrow` glyph for v1); Actions.jsx TRAIN_ARCHERY first-frame fallback catalogue extended with the two new rows. npm build clean. End-to-end: upgrade Archery Range to lvl 2 unlocks Crossbowman card; lvl 3 unlocks Longbowman; training queue shows correct icons. Visual differentiation between Archer/Crossbowman/Longbowman deferred to art pass per task brief.",
+      "timestamp": "2026-05-21T11:45:00Z"
+    }
+  ]
+}

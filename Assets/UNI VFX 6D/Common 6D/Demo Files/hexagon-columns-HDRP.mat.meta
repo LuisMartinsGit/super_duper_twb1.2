@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bf44dbf70f03da14992684aa0c9c4130
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 358486
+  packageName: 'UNI VFX 6D: Beams & Energy for Visual Effect Graph'
+  packageVersion: 1.0
+  assetPath: Assets/UNI VFX 6D/Common 6D/Demo Files/hexagon-columns-HDRP.mat
+  uploadId: 855178
