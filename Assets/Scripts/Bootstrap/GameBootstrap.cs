@@ -169,7 +169,18 @@ namespace TheWaningBorder.Bootstrap
             // TechCatalog is a static service (replaces the former TechTreeDB MonoBehaviour).
             // Touching it here loads the catalog from Resources up-front; otherwise it would
             // lazy-load on first lookup. No GameObject required.
-            _ = TechCatalog.IsReady;
+            //
+            // Guarded: this runs inside the bootstrap coroutine, so a data-load failure must
+            // NOT abort the rest of bootstrap (camera, managers/UI, world). If the catalog
+            // fails to load, log it and continue — stats fall back and the game still starts.
+            try
+            {
+                _ = TechCatalog.IsReady;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[GameBootstrap] TechCatalog load failed (continuing bootstrap): {e}");
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════
