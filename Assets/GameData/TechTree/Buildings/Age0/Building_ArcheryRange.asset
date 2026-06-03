@@ -15,6 +15,7 @@ MonoBehaviour:
   id: 'ArcheryRange'
   displayName: 'Archery Range'
   role: 'Train ranged units — Archer at L1, Crossbowman at L2, Longbowman at L3'
+  description: 'Ranged training building. Its level unlocks the archer ladder (Archer at L1, Crossbowman at L2, Longbowman at L3) and it researches the volley / fletching techs.'
   hp: 600
   armorType: 'structure_human'
   defense:
@@ -36,3 +37,5 @@ MonoBehaviour:
     Crystal: 0
     Veilsteel: 0
     Glow: 0
+  prefabPath: ''
+  upgradesToId: ''

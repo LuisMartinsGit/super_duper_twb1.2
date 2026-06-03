@@ -15,6 +15,7 @@ MonoBehaviour:
   id: 'ShrineOfRidan'
   displayName: 'Shrine of Ridan'
   role: 'Trains Litharchs (healers)'
+  description: 'Early religious building and one of the three Age 0 choice buildings. Trains Litharch healers, slowly heals friendly units in radius, and grants Religion Points on build (Runai +30% heal, Feraldis -30%).'
   hp: 800
   armorType: 'structure_human'
   defense:
@@ -34,3 +35,5 @@ MonoBehaviour:
     Crystal: 100
     Veilsteel: 0
     Glow: 0
+  prefabPath: ''
+  upgradesToId: ''

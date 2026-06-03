@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Building_FiendstoneKeep
-  m_EditorClassIdentifier:
-  id: FiendstoneKeep
+  m_EditorClassIdentifier: 
+  id: 'FiendstoneKeep'
   displayName: 'Fiendstone Keep'
   role: 'Fortified training + supply (Age 0 choice)'
+  description: 'Fortified keep and one of the three Age 0 choice buildings. Trains non-religious, non-siege military faster than normal, generates modest Supplies, and fires arrow volleys at attackers (Feraldis +50% HP, Alanthor -50%).'
   hp: 2000
-  armorType: structure_human
+  armorType: 'structure_human'
   defense:
     melee: 2
     ranged: 2
@@ -35,3 +36,5 @@ MonoBehaviour:
     Crystal: 100
     Veilsteel: 0
     Glow: 0
+  prefabPath: ''
+  upgradesToId: ''

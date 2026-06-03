@@ -21,6 +21,9 @@ namespace TheWaningBorder.Data
         public string displayName;
         [Tooltip("production | military | economic | defensive")]
         public string role;
+        [Tooltip("Human-readable description (UI tooltips / design reference).")]
+        [TextArea(2, 5)]
+        public string description;
 
         [Header("Core Stats")]
         public float hp = 1000f;
@@ -47,6 +50,13 @@ namespace TheWaningBorder.Data
         [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
+        [Header("Authoring / Presentation")]
+        [Tooltip("Asset or Resources path to this building's prefab. Point this at the correct prefab.")]
+        public string prefabPath;
+        [Tooltip("Building id this upgrades / transforms into (age-up cultured form or next tier). " +
+                 "Leave blank for none / culture-dependent.")]
+        public string upgradesToId;
+
         /// <summary>Build a fresh runtime BuildingDef from this asset.</summary>
         public BuildingDef ToDef()
         {
@@ -61,6 +71,9 @@ namespace TheWaningBorder.Data
             def.id          = id;
             def.name        = string.IsNullOrEmpty(displayName) ? id : displayName;
             def.role        = role ?? "";
+            def.description  = description ?? "";
+            def.prefabPath   = prefabPath ?? "";
+            def.upgradesToId = upgradesToId ?? "";
             def.hp          = hp;
             def.armorType   = string.IsNullOrEmpty(armorType) ? "structure_human" : armorType;
             def.defense     = UnitDefSO.CloneDefense(defense);
@@ -78,6 +91,9 @@ namespace TheWaningBorder.Data
             id          = def.id;
             displayName = def.name;
             role        = def.role;
+            description  = def.description;
+            prefabPath   = def.prefabPath;
+            upgradesToId = def.upgradesToId;
             hp          = def.hp;
             armorType   = def.armorType;
             defense     = UnitDefSO.CloneDefense(def.defense);

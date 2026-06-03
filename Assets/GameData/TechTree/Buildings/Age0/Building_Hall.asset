@@ -15,6 +15,7 @@ MonoBehaviour:
   id: 'Hall'
   displayName: 'Hall'
   role: 'HQ / Research Era / Research Economy / Worker upgrades / resource drop-off / Supply generation / Objective'
+  description: 'The starting town center. Trains Workers and Scouts, banks gathered resources, and researches the core economy techs and the advance to Era II. Renamed to its cultured form (Town Hall / Trader''s Hall / War Hall) at age-up.'
   hp: 2400
   armorType: 'structure_human'
   defense:
@@ -38,3 +39,5 @@ MonoBehaviour:
     Crystal: 0
     Veilsteel: 0
     Glow: 0
+  prefabPath: ''
+  upgradesToId: ''

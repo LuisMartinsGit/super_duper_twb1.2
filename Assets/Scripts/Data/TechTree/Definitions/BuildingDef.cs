@@ -37,7 +37,15 @@ namespace TheWaningBorder.Data
 
         // ==================== Economy ====================
         public CostBlock cost;
-        
+
+        // ==================== Authoring / Presentation ====================
+        /// <summary>Human-readable description (UI tooltips, design reference).</summary>
+        public string description;
+        /// <summary>Asset/Resources path to this building's prefab (authoring hook).</summary>
+        public string prefabPath;
+        /// <summary>Building id this upgrades / transforms into (age-up or next tier); empty = none.</summary>
+        public string upgradesToId;
+
         // ==================== Helpers ====================
         
         /// <summary>
