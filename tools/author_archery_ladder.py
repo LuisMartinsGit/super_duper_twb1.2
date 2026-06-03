@@ -1,55 +1,57 @@
 #!/usr/bin/env python
-# Gate culture content by BUILDING:
-#  * Age 0 Building_ArcheryRange  -> Age-0 only (trains Archer, no upgrades, no attack,
-#    canUpgradeTo -> Alanthor_PracticeRange).
-#  * Alanthor Building_Alanthor_PracticeRange -> the Alanthor ladder (lvl 1/2/3),
-#    Crossbowman/Longbowman, all unit upgrades, per-level building attack.
-# Preserves each building's existing flat fields; rewrites the structured fields.
+# Gate culture content by BUILDING and author upgrades as effect-based editable objects.
+#  * Age 0 Building_ArcheryRange      -> Age-0 only (Archer; canUpgradeTo Practice Range).
+#  * Alanthor Building_Alanthor_PracticeRange -> lvl 1/2/3 ladder + Crossbowman/Longbowman
+#    + unit-upgrade pool (each upgrade = list of Buff/EnableAbility effects) + per-level attack.
 import os, yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCHERY = os.path.join(ROOT, "Assets/GameData/TechTree/Buildings/Age0/Building_ArcheryRange.asset")
 PRACTICE = os.path.join(ROOT, "Assets/GameData/TechTree/Buildings/Alanthor/Building_Alanthor_PracticeRange.asset")
 
-# Actual unit ids on disk (note: Longbowman lacks the Alanthor_ prefix that Crossbowman has).
 ARCHER, XBOW, LBOW = "Archer", "Alanthor_Crossbowman", "Longbowman"
+# UpgradeEffectKind: BuffStat=0, EnableAbility=1.  UnitStat: Hp0 LOS1 Range2 Dmg3 RoF%4
+HP, LOS, RNG, DMG, ROF = 0, 1, 2, 3, 4
+def buff(stat, amt, unit): return dict(kind=0, unit=unit, stat=stat, amount=amt, ability="")
+def enable(ability, unit): return dict(kind=1, unit=unit, stat=0, amount=0, ability=ability)
 
-def upg(id, name, applies, hp=0, los=0, rng=0, dmg=0, rof=0, ability="", req="", s=0, i=0, t=0, desc=""):
-    return dict(id=id, displayName=name, description=desc, requires=req, appliesTo=applies,
-                addHp=hp, addLineOfSight=los, addAttackRange=rng, addDamage=dmg,
-                rateOfFireBonusPct=rof, unlocksAbility=ability, cost=dict(Supplies=s, Iron=i), researchTime=t)
+def U(id, name, effects, req="", s=0, i=0, t=0, desc=""):
+    return dict(id=id, displayName=name, description=desc, requires=req, effects=effects,
+                cost=dict(Supplies=s, Iron=i), researchTime=t)
+
+def tier(unit, hp, dmg=0):  # standard "+HP, +3 LOS, +2 range [, +dmg]" buff bundle
+    e = [buff(HP, hp, unit), buff(LOS, 3, unit), buff(RNG, 2, unit)]
+    if dmg: e.append(buff(DMG, dmg, unit))
+    return e
+def rof_all(pct): return [buff(ROF, pct, ARCHER), buff(ROF, pct, XBOW), buff(ROF, pct, LBOW)]
 
 UPGRADES = [
-    upg("SeasonedArchers","Seasoned Archers",[ARCHER],hp=20,los=3,rng=2,s=80,i=20,t=25,desc="+20 HP, +3 LOS, +2 attack range."),
-    upg("VeteranArchers","Veteran Archers",[ARCHER],hp=20,los=3,rng=2,dmg=1,req="SeasonedArchers",s=120,i=40,t=30,desc="+20 HP, +3 LOS, +2 range, +1 attack."),
-    upg("EliteArchers","Elite Archers",[ARCHER],hp=50,los=3,rng=2,dmg=2,req="VeteranArchers",s=200,i=80,t=40,desc="+50 HP, +3 LOS, +2 range, +2 attack."),
-    upg("VeteranCrossbowmen","Veteran Crossbowmen",[XBOW],hp=20,los=3,rng=2,dmg=1,s=120,i=40,t=30,desc="+20 HP, +3 LOS, +2 range, +1 attack."),
-    upg("EliteCrossbowmen","Elite Crossbowmen",[XBOW],hp=50,los=3,rng=2,dmg=2,req="VeteranCrossbowmen",s=200,i=80,t=40,desc="+50 HP, +3 LOS, +2 range, +2 attack."),
-    upg("EliteLongbowmen","Elite Longbowmen",[LBOW],hp=50,los=3,rng=2,dmg=2,s=220,i=90,t=40,desc="+50 HP, +3 LOS, +2 range, +2 attack."),
-    upg("ArrowVolley","Arrow Volley",[ARCHER,XBOW,LBOW],rof=30,s=120,i=30,t=35,desc="+30% rate of fire for ranged units."),
-    upg("ArrowShower","Arrow Shower",[ARCHER,XBOW,LBOW],rof=50,req="ArrowVolley",s=200,i=60,t=45,desc="+50% rate of fire for ranged units."),
-    upg("DeployStakes","Deploy Stakes",[ARCHER,XBOW,LBOW],ability="DeployStakes",s=150,i=50,t=40,desc="Unlocks the Deploy Stakes ability on ranged units."),
+    U("SeasonedArchers", "Seasoned Archers", tier(ARCHER, 20),           s=80,  i=20, t=25, desc="+20 HP, +3 LOS, +2 range."),
+    U("VeteranArchers",  "Veteran Archers",  tier(ARCHER, 20, 1), req="SeasonedArchers", s=120, i=40, t=30, desc="+20 HP, +3 LOS, +2 range, +1 attack."),
+    U("EliteArchers",    "Elite Archers",    tier(ARCHER, 50, 2), req="VeteranArchers",  s=200, i=80, t=40, desc="+50 HP, +3 LOS, +2 range, +2 attack."),
+    U("VeteranCrossbowmen","Veteran Crossbowmen", tier(XBOW, 20, 1),     s=120, i=40, t=30, desc="+20 HP, +3 LOS, +2 range, +1 attack."),
+    U("EliteCrossbowmen","Elite Crossbowmen", tier(XBOW, 50, 2), req="VeteranCrossbowmen", s=200, i=80, t=40, desc="+50 HP, +3 LOS, +2 range, +2 attack."),
+    U("EliteLongbowmen", "Elite Longbowmen", tier(LBOW, 50, 2),          s=220, i=90, t=40, desc="+50 HP, +3 LOS, +2 range, +2 attack."),
+    U("ArrowVolley",     "Arrow Volley",     rof_all(30),                s=120, i=30, t=35, desc="+30% rate of fire for ranged units."),
+    U("ArrowShower",     "Arrow Shower",     rof_all(50), req="ArrowVolley", s=200, i=60, t=45, desc="+50% rate of fire for ranged units."),
+    U("DeployStakes",    "Deploy Stakes",    [enable("DeployStakes", ARCHER), enable("DeployStakes", XBOW), enable("DeployStakes", LBOW)],
+      s=150, i=50, t=40, desc="Unlocks the Deploy Stakes ability on ranged units."),
 ]
-def atk(en, mt=1, dmg=12, rng=22, cd=1.5): return dict(enabled=en, damage=dmg, damageType="ranged", range=rng, cooldown=cd, maxTargets=mt)
 
+def atk(en, mt=1, dmg=12, rng=22, cd=1.5): return dict(enabled=en, damage=dmg, damageType="ranged", range=rng, cooldown=cd, maxTargets=mt)
 PRACTICE_LEVELS = [
     dict(level=1, variantName="Practice Range", culture="Alanthor", trainSpeedBonusPct=10,
          trains=[ARCHER], availableUpgrades=["SeasonedArchers"], attack=atk(False)),
     dict(level=2, variantName="Practice Range", culture="Alanthor", trainSpeedBonusPct=20,
-         trains=[ARCHER, XBOW], availableUpgrades=["SeasonedArchers","VeteranArchers","VeteranCrossbowmen","ArrowVolley"],
-         attack=atk(True, mt=1)),
+         trains=[ARCHER, XBOW], availableUpgrades=["SeasonedArchers","VeteranArchers","VeteranCrossbowmen","ArrowVolley"], attack=atk(True, 1)),
     dict(level=3, variantName="Practice Range", culture="Alanthor", trainSpeedBonusPct=35,
          trains=[ARCHER, XBOW, LBOW],
-         availableUpgrades=["SeasonedArchers","VeteranArchers","EliteArchers","VeteranCrossbowmen",
-                            "EliteCrossbowmen","EliteLongbowmen","ArrowVolley","ArrowShower","DeployStakes"],
-         attack=atk(True, mt=2)),
+         availableUpgrades=["SeasonedArchers","VeteranArchers","EliteArchers","VeteranCrossbowmen","EliteCrossbowmen","EliteLongbowmen","ArrowVolley","ArrowShower","DeployStakes"],
+         attack=atk(True, 2)),
 ]
-ARCHERY_LEVELS = [
-    dict(level=0, variantName="Archery Range", culture="", trainSpeedBonusPct=0,
-         trains=[ARCHER], availableUpgrades=[], attack=atk(False)),
-]
+ARCHERY_LEVELS = [dict(level=0, variantName="Archery Range", culture="", trainSpeedBonusPct=0,
+                       trains=[ARCHER], availableUpgrades=[], attack=atk(False))]
 
-# ---------- emit ----------
 def num(v):
     if isinstance(v, bool): return "1" if v else "0"
     if isinstance(v, int): return str(v)
@@ -57,13 +59,12 @@ def num(v):
     return "0"
 def ys(s): return "'" + str(s or "").replace("'", "''") + "'"
 def seq(name, items, ind):
-    p = " "*ind
+    p=" "*ind
     return f"{p}{name}: []\n" if not items else f"{p}{name}:\n" + "".join(f"{p}- {ys(x)}\n" for x in items)
 def attack_block(a, ind):
     p=" "*ind
-    return (f"{p}attack:\n{p}  enabled: {num(a['enabled'])}\n{p}  damage: {num(a['damage'])}\n"
-            f"{p}  damageType: {ys(a['damageType'])}\n{p}  range: {num(a['range'])}\n"
-            f"{p}  cooldown: {num(a['cooldown'])}\n{p}  maxTargets: {num(a['maxTargets'])}\n")
+    return (f"{p}attack:\n{p}  enabled: {num(a['enabled'])}\n{p}  damage: {num(a['damage'])}\n{p}  damageType: {ys(a['damageType'])}\n"
+            f"{p}  range: {num(a['range'])}\n{p}  cooldown: {num(a['cooldown'])}\n{p}  maxTargets: {num(a['maxTargets'])}\n")
 def cost_block(c, ind):
     p=" "*ind; c=c or {}
     return (f"{p}cost:\n{p}  Supplies: {num(c.get('Supplies',0))}\n{p}  Iron: {num(c.get('Iron',0))}\n"
@@ -75,23 +76,27 @@ def levels_block(levels):
                 f"    trainSpeedBonusPct: {num(L['trainSpeedBonusPct'])}\n"
                 + seq("trains", L["trains"], 4) + seq("availableUpgrades", L["availableUpgrades"], 4) + attack_block(L["attack"], 4))
     return out
+def effects_block(effs, ind):
+    p=" "*ind
+    if not effs: return f"{p}effects: []\n"
+    out=f"{p}effects:\n"
+    for e in effs:
+        out += (f"{p}- kind: {num(e['kind'])}\n{p}  unit: {ys(e['unit'])}\n{p}  stat: {num(e['stat'])}\n"
+                f"{p}  amount: {num(e['amount'])}\n{p}  ability: {ys(e['ability'])}\n")
+    return out
 def upgrades_block(ups):
     out="  unitUpgrades:\n" if ups else "  unitUpgrades: []\n"
     for u in ups:
         out += (f"  - id: {ys(u['id'])}\n    displayName: {ys(u['displayName'])}\n    description: {ys(u['description'])}\n"
-                f"    requires: {ys(u['requires'])}\n" + seq("appliesTo", u["appliesTo"], 4) +
-                f"    addHp: {num(u['addHp'])}\n    addLineOfSight: {num(u['addLineOfSight'])}\n    addAttackRange: {num(u['addAttackRange'])}\n"
-                f"    addDamage: {num(u['addDamage'])}\n    rateOfFireBonusPct: {num(u['rateOfFireBonusPct'])}\n"
-                f"    unlocksAbility: {ys(u['unlocksAbility'])}\n" + cost_block(u["cost"], 4) + f"    researchTime: {num(u['researchTime'])}\n")
+                f"    requires: {ys(u['requires'])}\n" + effects_block(u["effects"], 4) + cost_block(u["cost"], 4)
+                + f"    researchTime: {num(u['researchTime'])}\n")
     return out
 
-def write_building(path, *, trains, levels, upgrades, base_attack, canUpgradeTo, description=None, flat_trains=None):
+def write_building(path, *, levels, upgrades, base_attack, canUpgradeTo, flat_trains, description=None):
     raw = open(path, encoding="utf-8").read()
     body=["---" if l.startswith("--- !u!") else l for l in raw.splitlines() if not l.startswith("%")]
     m=yaml.safe_load("\n".join(body))["MonoBehaviour"]
-    sg=None
-    for line in raw.splitlines():
-        if "m_Script:" in line and "guid:" in line: sg=line.split("guid:",1)[1].split(",")[0].strip()
+    sg=next((line.split("guid:",1)[1].split(",")[0].strip() for line in raw.splitlines() if "m_Script:" in line and "guid:" in line), None)
     d=m.get("defense") or {}; c=m.get("cost") or {}
     desc = description if description is not None else m.get("description","")
     out=("%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!114 &11400000\n"
@@ -105,18 +110,16 @@ def write_building(path, *, trains, levels, upgrades, base_attack, canUpgradeTo,
         "  defense:\n"
         f"    melee: {num(d.get('melee',0))}\n    ranged: {num(d.get('ranged',0))}\n    siege: {num(d.get('siege',0))}\n    magic: {num(d.get('magic',0))}\n"
         f"  radius: {num(m.get('radius',1.6))}\n  lineOfSight: {num(m.get('lineOfSight',18))}\n"
-        + seq("trains", flat_trains if flat_trains is not None else trains, 2) + seq("research", m.get("research"), 2)
+        + seq("trains", flat_trains, 2) + seq("research", m.get("research"), 2)
         + f"  minEra: {num(m.get('minEra',0))}\n" + cost_block(c, 2)
         + attack_block(base_attack, 2) + levels_block(levels) + upgrades_block(upgrades)
         + f"  prefabPath: {ys(m.get('prefabPath'))}\n" + seq("canUpgradeTo", canUpgradeTo, 2))
     open(path,"w",encoding="utf-8",newline="\n").write(out)
 
-# Age 0 Archery Range: Age-0 only.
-write_building(ARCHERY, trains=[ARCHER], levels=ARCHERY_LEVELS, upgrades=[], base_attack=atk(False),
+write_building(ARCHERY, levels=ARCHERY_LEVELS, upgrades=[], base_attack=atk(False),
                canUpgradeTo=["Alanthor_PracticeRange"], flat_trains=[ARCHER])
-# Alanthor Practice Range: the ladder + units + upgrades.
-write_building(PRACTICE, trains=[ARCHER, XBOW, LBOW], levels=PRACTICE_LEVELS, upgrades=UPGRADES, base_attack=atk(False),
+write_building(PRACTICE, levels=PRACTICE_LEVELS, upgrades=UPGRADES, base_attack=atk(False),
                canUpgradeTo=[], flat_trains=[ARCHER, XBOW, LBOW],
                description="Alanthor's cultured Archery Range. Trains ranged units and unlocks the "
                            "Seasoned/Veteran/Elite ladder; gains its own arrow volley at lvl 2 (double-target at lvl 3).")
-print("Archery Range -> Age-0 only (Archer); Practice Range -> Alanthor ladder authored.")
+print("authored: Archery Range (Age 0) + Practice Range (Alanthor, effect-based upgrades)")

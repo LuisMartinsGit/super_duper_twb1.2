@@ -11,6 +11,7 @@
 // shared pool and are unlocked per level via BuildingLevel.availableUpgrades.
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheWaningBorder.Data
@@ -30,7 +31,53 @@ namespace TheWaningBorder.Data
         public int maxTargets = 1;
     }
 
-    /// <summary>A researchable upgrade that modifies unit stats and/or unlocks an ability.</summary>
+    /// <summary>The kind of thing an UpgradeEffect does.</summary>
+    public enum UpgradeEffectKind
+    {
+        BuffStat = 0,        // add `amount` to `stat` on `unit`
+        EnableAbility = 1,   // enable `ability` on `unit`
+    }
+
+    /// <summary>A unit stat an upgrade can buff.</summary>
+    public enum UnitStat
+    {
+        Hp = 0,
+        LineOfSight = 1,
+        AttackRange = 2,
+        Damage = 3,
+        RateOfFirePercent = 4,   // percent bonus (30 = +30% fire rate)
+        Speed = 5,
+        AttackCooldown = 6,
+        CarryCapacity = 7,
+    }
+
+    /// <summary>
+    /// One editable effect of an upgrade. Either "Buff [stat] [amount] [unit]" or
+    /// "Enable [ability] [unit]". An upgrade may carry several of these.
+    /// </summary>
+    [Serializable]
+    public class UpgradeEffect
+    {
+        [Tooltip("Buff a stat, or enable an ability.")]
+        public UpgradeEffectKind kind = UpgradeEffectKind.BuffStat;
+
+        [Tooltip("Unit id this effect targets.")]
+        public string unit;
+
+        [Header("Buff Stat (kind = BuffStat)")]
+        public UnitStat stat;
+        [Tooltip("Amount added to the stat (RateOfFirePercent is a percent, e.g. 30 = +30%).")]
+        public float amount;
+
+        [Header("Enable Ability (kind = EnableAbility)")]
+        [Tooltip("Ability id to enable on the unit.")]
+        public string ability;
+    }
+
+    /// <summary>
+    /// A researchable upgrade, defined as a list of editable effects (buffs / ability
+    /// unlocks). Referenced from a level's availableUpgrades by id.
+    /// </summary>
     [Serializable]
     public class UnitUpgrade
     {
@@ -39,18 +86,9 @@ namespace TheWaningBorder.Data
         [TextArea(1, 2)] public string description;
         [Tooltip("Upgrade id that must be researched first (chain). Empty = no prerequisite.")]
         public string requires;
-        [Tooltip("Unit ids this upgrade modifies.")]
-        public string[] appliesTo;
 
-        [Header("Stat deltas (added to the unit)")]
-        public float addHp;
-        public float addLineOfSight;
-        public float addAttackRange;
-        public float addDamage;
-        [Tooltip("Rate-of-fire bonus, percent (30 = +30%).")]
-        public float rateOfFireBonusPct;
-        [Tooltip("Ability id unlocked on affected units (e.g. DeployStakes). Empty = none.")]
-        public string unlocksAbility;
+        [Tooltip("Effects applied when researched. Add Buff and/or Enable-Ability entries.")]
+        public List<UpgradeEffect> effects = new List<UpgradeEffect>();
 
         [Header("Research")]
         public CostBlock cost = new CostBlock();

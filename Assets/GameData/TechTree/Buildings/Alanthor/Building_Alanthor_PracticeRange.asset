@@ -107,16 +107,24 @@ MonoBehaviour:
   unitUpgrades:
   - id: 'SeasonedArchers'
     displayName: 'Seasoned Archers'
-    description: '+20 HP, +3 LOS, +2 attack range.'
+    description: '+20 HP, +3 LOS, +2 range.'
     requires: ''
-    appliesTo:
-    - 'Archer'
-    addHp: 20
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 0
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Archer'
+      stat: 0
+      amount: 20
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 2
+      amount: 2
+      ability: ''
     cost:
       Supplies: 80
       Iron: 20
@@ -128,14 +136,27 @@ MonoBehaviour:
     displayName: 'Veteran Archers'
     description: '+20 HP, +3 LOS, +2 range, +1 attack.'
     requires: 'SeasonedArchers'
-    appliesTo:
-    - 'Archer'
-    addHp: 20
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 1
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Archer'
+      stat: 0
+      amount: 20
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 2
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 3
+      amount: 1
+      ability: ''
     cost:
       Supplies: 120
       Iron: 40
@@ -147,14 +168,27 @@ MonoBehaviour:
     displayName: 'Elite Archers'
     description: '+50 HP, +3 LOS, +2 range, +2 attack.'
     requires: 'VeteranArchers'
-    appliesTo:
-    - 'Archer'
-    addHp: 50
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 2
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Archer'
+      stat: 0
+      amount: 50
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 2
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Archer'
+      stat: 3
+      amount: 2
+      ability: ''
     cost:
       Supplies: 200
       Iron: 80
@@ -166,14 +200,27 @@ MonoBehaviour:
     displayName: 'Veteran Crossbowmen'
     description: '+20 HP, +3 LOS, +2 range, +1 attack.'
     requires: ''
-    appliesTo:
-    - 'Alanthor_Crossbowman'
-    addHp: 20
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 1
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 0
+      amount: 20
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 2
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 3
+      amount: 1
+      ability: ''
     cost:
       Supplies: 120
       Iron: 40
@@ -185,14 +232,27 @@ MonoBehaviour:
     displayName: 'Elite Crossbowmen'
     description: '+50 HP, +3 LOS, +2 range, +2 attack.'
     requires: 'VeteranCrossbowmen'
-    appliesTo:
-    - 'Alanthor_Crossbowman'
-    addHp: 50
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 2
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 0
+      amount: 50
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 2
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 3
+      amount: 2
+      ability: ''
     cost:
       Supplies: 200
       Iron: 80
@@ -204,14 +264,27 @@ MonoBehaviour:
     displayName: 'Elite Longbowmen'
     description: '+50 HP, +3 LOS, +2 range, +2 attack.'
     requires: ''
-    appliesTo:
-    - 'Longbowman'
-    addHp: 50
-    addLineOfSight: 3
-    addAttackRange: 2
-    addDamage: 2
-    rateOfFireBonusPct: 0
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 0
+      amount: 50
+      ability: ''
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 1
+      amount: 3
+      ability: ''
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 2
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 3
+      amount: 2
+      ability: ''
     cost:
       Supplies: 220
       Iron: 90
@@ -223,16 +296,22 @@ MonoBehaviour:
     displayName: 'Arrow Volley'
     description: '+30% rate of fire for ranged units.'
     requires: ''
-    appliesTo:
-    - 'Archer'
-    - 'Alanthor_Crossbowman'
-    - 'Longbowman'
-    addHp: 0
-    addLineOfSight: 0
-    addAttackRange: 0
-    addDamage: 0
-    rateOfFireBonusPct: 30
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Archer'
+      stat: 4
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 4
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 4
+      amount: 30
+      ability: ''
     cost:
       Supplies: 120
       Iron: 30
@@ -244,16 +323,22 @@ MonoBehaviour:
     displayName: 'Arrow Shower'
     description: '+50% rate of fire for ranged units.'
     requires: 'ArrowVolley'
-    appliesTo:
-    - 'Archer'
-    - 'Alanthor_Crossbowman'
-    - 'Longbowman'
-    addHp: 0
-    addLineOfSight: 0
-    addAttackRange: 0
-    addDamage: 0
-    rateOfFireBonusPct: 50
-    unlocksAbility: ''
+    effects:
+    - kind: 0
+      unit: 'Archer'
+      stat: 4
+      amount: 50
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Crossbowman'
+      stat: 4
+      amount: 50
+      ability: ''
+    - kind: 0
+      unit: 'Longbowman'
+      stat: 4
+      amount: 50
+      ability: ''
     cost:
       Supplies: 200
       Iron: 60
@@ -265,16 +350,22 @@ MonoBehaviour:
     displayName: 'Deploy Stakes'
     description: 'Unlocks the Deploy Stakes ability on ranged units.'
     requires: ''
-    appliesTo:
-    - 'Archer'
-    - 'Alanthor_Crossbowman'
-    - 'Longbowman'
-    addHp: 0
-    addLineOfSight: 0
-    addAttackRange: 0
-    addDamage: 0
-    rateOfFireBonusPct: 0
-    unlocksAbility: 'DeployStakes'
+    effects:
+    - kind: 1
+      unit: 'Archer'
+      stat: 0
+      amount: 0
+      ability: 'DeployStakes'
+    - kind: 1
+      unit: 'Alanthor_Crossbowman'
+      stat: 0
+      amount: 0
+      ability: 'DeployStakes'
+    - kind: 1
+      unit: 'Longbowman'
+      stat: 0
+      amount: 0
+      ability: 'DeployStakes'
     cost:
       Supplies: 150
       Iron: 50
