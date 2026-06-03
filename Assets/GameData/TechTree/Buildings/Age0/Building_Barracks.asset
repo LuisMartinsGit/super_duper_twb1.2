@@ -26,8 +26,7 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 18
   trains:
-  - 'Swordsman'
-  - 'Alanthor_Sentinel'
+  - 'Spearman'
   research:
   - 'BasicDrills'
   - 'WoodenArmor'
@@ -38,5 +37,29 @@ MonoBehaviour:
     Crystal: 0
     Veilsteel: 0
     Glow: 0
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: 'ranged'
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels:
+  - level: 0
+    variantName: 'Barracks'
+    culture: ''
+    trainSpeedBonusPct: 0
+    trains:
+    - 'Spearman'
+    availableUpgrades: []
+    attack:
+      enabled: 0
+      damage: 12
+      damageType: 'ranged'
+      range: 22
+      cooldown: 1.5
+      maxTargets: 1
+  unitUpgrades: []
   prefabPath: ''
-  canUpgradeTo: []
+  canUpgradeTo:
+  - 'KingsCourt'
