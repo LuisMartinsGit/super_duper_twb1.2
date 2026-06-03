@@ -89,11 +89,12 @@ namespace TheWaningBorder.Data.EditorTools
             AssetDatabase.StartAssetEditing();
             try
             {
-                // 4a. Units.
+                // 4a. Units (one asset each, organized into a culture subfolder).
                 foreach (var def in parsed.Units.Values)
                 {
                     if (def == null || string.IsNullOrEmpty(def.id)) continue;
-                    string path = $"{UnitsFolder}/Unit_{Sanitize(def.id)}.asset";
+                    string folder = $"{UnitsFolder}/{CultureFolder(def.id)}";
+                    string path = ResolveTargetPath(UnitsFolder, "UnitDefSO", $"Unit_{Sanitize(def.id)}", folder);
                     var so = AssetDatabase.LoadAssetAtPath<UnitDefSO>(path);
                     if (so == null)
                     {
@@ -110,11 +111,12 @@ namespace TheWaningBorder.Data.EditorTools
                     unitCount++;
                 }
 
-                // 4b. Buildings.
+                // 4b. Buildings (one asset each, organized into a culture subfolder).
                 foreach (var def in parsed.Buildings.Values)
                 {
                     if (def == null || string.IsNullOrEmpty(def.id)) continue;
-                    string path = $"{BuildingsFolder}/Building_{Sanitize(def.id)}.asset";
+                    string folder = $"{BuildingsFolder}/{CultureFolder(def.id)}";
+                    string path = ResolveTargetPath(BuildingsFolder, "BuildingDefSO", $"Building_{Sanitize(def.id)}", folder);
                     var so = AssetDatabase.LoadAssetAtPath<BuildingDefSO>(path);
                     if (so == null)
                     {
@@ -157,6 +159,54 @@ namespace TheWaningBorder.Data.EditorTools
             Debug.Log($"[TechTreeSOGenerator] Generated/updated {unitCount} unit + " +
                       $"{buildingCount} building SOs and catalog at {CatalogPath}.");
             return catalog;
+        }
+
+        // Most Age-1 culture content is prefixed (Runai_/Alanthor_/Feraldis_/Sect_).
+        // A handful of culture buildings are not, so map them explicitly.
+        static readonly Dictionary<string, string> BuildingCultureExceptions = new Dictionary<string, string>
+        {
+            { "FiendstoneKeep",  "Feraldis" },
+            { "KingsCourt",      "Alanthor" },
+            { "ThessarasBazaar", "Runai"    },
+        };
+
+        /// <summary>Culture subfolder name for a unit/building id (Age0 = pre-culture / human core).</summary>
+        static string CultureFolder(string id)
+        {
+            if (id.StartsWith("Runai_"))    return "Runai";
+            if (id.StartsWith("Alanthor_")) return "Alanthor";
+            if (id.StartsWith("Feraldis_")) return "Feraldis";
+            if (id.StartsWith("Sect_"))     return "Sect";
+            if (BuildingCultureExceptions.TryGetValue(id, out var culture)) return culture;
+            return "Age0";
+        }
+
+        /// <summary>
+        /// Resolve where an asset should live. Returns the target culture-folder path,
+        /// creating the folder if needed. If a same-named asset already exists elsewhere
+        /// under <paramref name="searchRoot"/> (e.g. a previous flat-folder run), it is
+        /// moved into the culture folder so re-runs reorganize rather than orphan.
+        /// </summary>
+        static string ResolveTargetPath(string searchRoot, string typeFilter, string fileName, string targetFolder)
+        {
+            string targetPath = $"{targetFolder}/{fileName}.asset";
+            EnsureFolder(targetFolder);
+
+            // Already at the target location?
+            if (AssetDatabase.LoadAssetAtPath<ScriptableObject>(targetPath) != null) return targetPath;
+
+            // Existing asset of this name somewhere else under the root? Move it.
+            var guids = AssetDatabase.FindAssets($"{fileName} t:{typeFilter}", new[] { searchRoot });
+            foreach (var g in guids)
+            {
+                string p = AssetDatabase.GUIDToAssetPath(g);
+                if (System.IO.Path.GetFileNameWithoutExtension(p) != fileName) continue; // exact match only
+                if (p == targetPath) return targetPath;
+                string err = AssetDatabase.MoveAsset(p, targetPath);
+                return string.IsNullOrEmpty(err) ? targetPath : p; // fall back to existing path if move fails
+            }
+
+            return targetPath;
         }
 
         static void EnsureFolder(string path)
