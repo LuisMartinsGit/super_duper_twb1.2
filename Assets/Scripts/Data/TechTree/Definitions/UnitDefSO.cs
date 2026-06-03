@@ -66,6 +66,14 @@ namespace TheWaningBorder.Data
         [Tooltip("Flat bonus damage vs target tags (added after armor; ignores armor).")]
         public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
 
+        [Header("Presentation")]
+        [Tooltip("Visual prefab for this unit (kept in this entity's GameData folder). " +
+                 "Null = capsule placeholder at runtime.")]
+        public GameObject prefab;
+        [Tooltip("The ECS PresentationId this unit spawns with — links the runtime entity " +
+                 "to this SO/prefab (see UnitFactory.GetPresentationId).")]
+        public int presentationId;
+
         /// <summary>Build a fresh runtime UnitDef from this asset.</summary>
         public UnitDef ToDef()
         {

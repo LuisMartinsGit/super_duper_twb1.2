@@ -44,3 +44,4 @@ MonoBehaviour:
   - 'Infantry'
   - 'Heavy'
   bonusVsTags: []
+  presentationId: 386

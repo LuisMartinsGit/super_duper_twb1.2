@@ -46,3 +46,4 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: 'Building'
     amount: 30
+  presentationId: 340

@@ -68,7 +68,13 @@ namespace TheWaningBorder.Data
         public List<UnitUpgrade> unitUpgrades = new List<UnitUpgrade>();
 
         [Header("Authoring / Presentation")]
-        [Tooltip("Asset or Resources path to this building's prefab. Point this at the correct prefab.")]
+        [Tooltip("Visual prefab for this building (kept in this entity's GameData folder). " +
+                 "Null = cube placeholder at runtime.")]
+        public GameObject prefab;
+        [Tooltip("The ECS PresentationId this building spawns with — links the runtime entity " +
+                 "to this SO/prefab (see BuildingFactory.GetPresentationId).")]
+        public int presentationId;
+        [Tooltip("(Legacy) string path to the prefab; superseded by the prefab ref above.")]
         public string prefabPath;
         [Tooltip("Buildings this can upgrade / transform into (e.g. the three cultured forms at " +
                  "age-up: Alanthor / Runai / Feraldis). Empty = none.")]
