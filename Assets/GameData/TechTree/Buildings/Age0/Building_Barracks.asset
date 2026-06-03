@@ -62,4 +62,4 @@ MonoBehaviour:
   unitUpgrades: []
   prefabPath: ''
   canUpgradeTo:
-  - 'KingsCourt'
+  - 'Alanthor_Garrison'
