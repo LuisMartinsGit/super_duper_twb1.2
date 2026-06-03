@@ -36,7 +36,7 @@ namespace TheWaningBorder.Entities
             float los = DefaultLoS;
             float cooldown = DefaultAttackCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Runai_Spearman", out var def))
+            if (TechCatalog.TryGetUnit("Runai_Spearman", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

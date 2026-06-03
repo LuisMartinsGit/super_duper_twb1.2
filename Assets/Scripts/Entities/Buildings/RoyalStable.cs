@@ -38,8 +38,8 @@ namespace TheWaningBorder.Entities
             float hp = DefaultHP;
             float los = DefaultLoS;
 
-            if (TechTreeDB.Instance != null
-                && TechTreeDB.Instance.TryGetBuilding("Alanthor_RoyalStable", out var def))
+            if (TechCatalog.IsReady
+                && TechCatalog.TryGetBuilding("Alanthor_RoyalStable", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;

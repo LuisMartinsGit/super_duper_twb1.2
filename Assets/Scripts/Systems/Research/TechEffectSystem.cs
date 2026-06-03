@@ -69,14 +69,14 @@ namespace TheWaningBorder.Systems.Research
 
         private void OnTechCompleted(Faction faction, string techId)
         {
-            if (TechTreeDB.Instance == null) return;
+            if (!TechCatalog.IsReady) return;
 
             // task-063 phase 1: sect-tech bridge deleted. The redesigned sect
             // system does not bridge tech research to sects — chapels are the
             // only adoption mechanism. Old IsSectTech / SetTechFlag /
             // RecalculateAllPassives chain is gone.
 
-            var tech = TechTreeDB.Instance.GetTechnology(techId);
+            var tech = TechCatalog.GetTechnology(techId);
             if (tech == null || tech.effects == null || !tech.effects.HasAnyEffect)
             {
                 return;
@@ -218,7 +218,7 @@ namespace TheWaningBorder.Systems.Research
         public static void ApplyCompletedTechEffects(EntityManager em, Entity unit, Faction faction)
         {
             var researchState = FactionResearchState.Instance;
-            if (researchState == null || TechTreeDB.Instance == null) return;
+            if (researchState == null || !TechCatalog.IsReady) return;
 
             var completedTechs = researchState.GetCompletedTechs(faction);
             if (completedTechs.Count == 0) return;
@@ -231,7 +231,7 @@ namespace TheWaningBorder.Systems.Research
 
             foreach (var techId in completedTechs)
             {
-                var tech = TechTreeDB.Instance.GetTechnology(techId);
+                var tech = TechCatalog.GetTechnology(techId);
                 if (tech?.effects == null || !tech.effects.HasAnyEffect) continue;
 
                 var effects = tech.effects;

@@ -45,8 +45,6 @@ namespace TheWaningBorder.Systems.Training
 
         public void OnUpdate(ref SystemState state)
         {
-            var db = TechTreeDB.Instance;
-            if (db == null) return;
 
             float dt = SystemAPI.Time.DeltaTime;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -75,7 +73,7 @@ namespace TheWaningBorder.Systems.Training
                     if (queue.Length == 0) continue;
 
                     var unitId = queue[0].UnitId.ToString();
-                    if (!db.TryGetUnit(unitId, out var udef))
+                    if (!TechCatalog.TryGetUnit(unitId, out var udef))
                     {
                         // Unknown unit - remove from queue
                         queue.RemoveAt(0);

@@ -40,8 +40,8 @@ namespace TheWaningBorder.Data.EditorTools
 
             EditorUtility.DisplayDialog("Tech Tree SO Generator",
                 $"Done.\n\nUnits: {unitCount}\nBuildings: {buildingCount}\n\n" +
-                $"Catalog: {CatalogPath}\n\nNext: assign the catalog to the TechTreeDB component " +
-                "(or use the 'Generate + Assign' button on the TechTreeDB inspector).", "OK");
+                $"Catalog: {CatalogPath}\n\nThe catalog auto-loads from Resources at runtime " +
+                "(TechCatalog); no scene wiring needed.", "OK");
 
             if (catalog != null)
             {

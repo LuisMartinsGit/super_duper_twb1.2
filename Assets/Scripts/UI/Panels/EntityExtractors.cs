@@ -381,7 +381,7 @@ namespace TheWaningBorder.UI
             if (buf.Length > 0)
             {
                 string slot0Id = buf[0].UnitId.ToString();
-                if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(slot0Id, out var udef))
+                if (TechCatalog.TryGetUnit(slot0Id, out var udef))
                     slot0Total = udef.trainingTime > 0 ? udef.trainingTime : 1f;
             }
 
@@ -426,7 +426,7 @@ namespace TheWaningBorder.UI
         /// </summary>
         private static string ResolveUnitDisplayName(string unitId)
         {
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var udef)
+            if (TechCatalog.TryGetUnit(unitId, out var udef)
                 && !string.IsNullOrEmpty(udef.name))
                 return udef.name;
             return unitId;
@@ -1166,9 +1166,9 @@ namespace TheWaningBorder.UI
             const int HallCap = 6;
             const int TempleCap = 1;
 
-            if (TechTreeDB.Instance != null)
+            if (TechCatalog.IsReady)
             {
-                foreach (var building in TechTreeDB.Instance.GetAllBuildings())
+                foreach (var building in TechCatalog.GetAllBuildings())
                 {
                     // Only show buildings the player can actually place
                     if (!BuildableBuildings.Contains(building.id)) continue;
@@ -1258,9 +1258,9 @@ namespace TheWaningBorder.UI
 
             // Identify building type and look up its definition
             string buildingId = GetBuildingId(entity, em);
-            if (buildingId == null || TechTreeDB.Instance == null) return actions;
+            if (buildingId == null || !TechCatalog.IsReady) return actions;
 
-            if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var buildingDef)) return actions;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var buildingDef)) return actions;
             if (buildingDef.trains == null || buildingDef.trains.Length == 0) return actions;
 
             // Determine faction culture from the building's faction -> Hall -> FactionProgress
@@ -1305,7 +1305,7 @@ namespace TheWaningBorder.UI
             // Only show units this building can train (from its "trains" array)
             foreach (var unitId in buildingDef.trains)
             {
-                if (!TechTreeDB.Instance.TryGetUnit(unitId, out var unit)) continue;
+                if (!TechCatalog.TryGetUnit(unitId, out var unit)) continue;
 
                 // Culture gating: skip units that require a different culture
                 byte requiredCulture = GetRequiredCultureForUnit(unitId);
@@ -1373,7 +1373,7 @@ namespace TheWaningBorder.UI
 
                 // Get total training time from TechTreeDB to compute progress
                 float totalTime = 1f;
-                if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var udef))
+                if (TechCatalog.TryGetUnit(unitId, out var udef))
                     totalTime = udef.trainingTime > 0 ? udef.trainingTime : 1f;
 
                 tInfo.Total = totalTime;
@@ -1404,7 +1404,7 @@ namespace TheWaningBorder.UI
         /// </summary>
         public static TheWaningBorder.Core.Cost GetUnitCost(string unitId)
         {
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit(unitId, out var udef) && udef.cost != null)
+            if (TechCatalog.TryGetUnit(unitId, out var udef) && udef.cost != null)
             {
                 return new TheWaningBorder.Core.Cost
                 {
@@ -1436,9 +1436,9 @@ namespace TheWaningBorder.UI
             }
 
             string buildingId = GetBuildingId(entity, em);
-            if (buildingId == null || TechTreeDB.Instance == null) return actions;
+            if (buildingId == null || !TechCatalog.IsReady) return actions;
 
-            if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var buildingDef)) return actions;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var buildingDef)) return actions;
             if (buildingDef.research == null || buildingDef.research.Length == 0) return actions;
 
             var researchState = TheWaningBorder.Economy.FactionResearchState.Instance;
@@ -1446,7 +1446,7 @@ namespace TheWaningBorder.UI
 
             foreach (var techId in buildingDef.research)
             {
-                if (!TechTreeDB.Instance.TryGetTechnology(techId, out var tech)) continue;
+                if (!TechCatalog.TryGetTechnology(techId, out var tech)) continue;
 
                 // Skip Research_Era2 — age-up is handled by DrawAgeUpSection + CultureChoicePopup
                 if (techId == "Research_Era2") continue;
@@ -1514,7 +1514,7 @@ namespace TheWaningBorder.UI
 
                 // Get total research time from TechTreeDB to compute progress
                 float totalTime = 30f;
-                if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetTechnology(techId, out var techDef))
+                if (TechCatalog.TryGetTechnology(techId, out var techDef))
                 {
                     totalTime = techDef.researchTime > 0 ? techDef.researchTime : 30f;
                     rInfo.CurrentTechName = techDef.name;
@@ -1614,7 +1614,7 @@ namespace TheWaningBorder.UI
             Cost available = GetFactionResourcesAsCost(em, faction);
 
             // Base temple unit: Litharch
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Litharch", out var lithUnit))
+            if (TechCatalog.TryGetUnit("Litharch", out var lithUnit))
             {
                 var cost = lithUnit.cost != null ? new Cost
                 {

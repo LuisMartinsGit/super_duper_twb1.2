@@ -155,15 +155,13 @@ namespace TheWaningBorder.UI.Panels
         private void DrawSection(string title, string[] techIds, Faction faction,
             FactionResearchState researchState)
         {
-            var db = TechTreeDB.Instance;
-            if (db == null) return;
 
             GUILayout.Label(title, Styles.SubHeader);
             GUILayout.Space(4f);
 
             foreach (var techId in techIds)
             {
-                if (!db.TryGetTechnology(techId, out var tech)) continue;
+                if (!TechCatalog.TryGetTechnology(techId, out var tech)) continue;
 
                 bool researched = researchState != null && researchState.HasResearched(faction, techId);
                 bool meetsPrereqs = researchState != null &&

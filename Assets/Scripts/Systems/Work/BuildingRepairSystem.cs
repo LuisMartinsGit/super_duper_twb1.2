@@ -194,8 +194,8 @@ namespace TheWaningBorder.Systems.Work
             string buildingId = GetBuildingId(em, building);
             if (buildingId == null) return true; // Unknown building - repair for free
 
-            if (TechTreeDB.Instance == null) return true;
-            if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var def)) return true;
+            if (!TechCatalog.IsReady) return true;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var def)) return true;
             if (def.cost == null) return true; // No cost defined - repair for free
 
             // Guard against division by zero (hp.Max should never be 0, but be safe)

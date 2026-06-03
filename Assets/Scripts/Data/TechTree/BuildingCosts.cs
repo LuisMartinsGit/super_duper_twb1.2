@@ -228,13 +228,13 @@ namespace TheWaningBorder.Data
         /// </summary>
         public static void SyncFromTechTree()
         {
-            if (TechTreeDB.Instance == null) return;
+            if (!TechCatalog.IsReady) return;
 
             // Copy keys to avoid modifying dictionary during iteration
             var keys = new System.Collections.Generic.List<string>(_byId.Keys);
             foreach (var id in keys)
             {
-                if (TechTreeDB.Instance.TryGetBuilding(id, out var def) && def.cost != null)
+                if (TechCatalog.TryGetBuilding(id, out var def) && def.cost != null)
                 {
                     _byId[id] = Cost.Of(
                         supplies: def.cost.Supplies,

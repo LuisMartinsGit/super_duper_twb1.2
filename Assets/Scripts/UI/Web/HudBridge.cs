@@ -735,9 +735,7 @@ namespace TheWaningBorder.UI.Web
         // is global to match the legacy bootstrap layout).
         static TheWaningBorder.Core.Cost LookupUnitCost(string unitId)
         {
-            var db = TechTreeDB.Instance;
-            if (db == null) return default;
-            if (!db.TryGetUnit(unitId, out var unit) || unit.cost == null) return default;
+            if (!TechCatalog.TryGetUnit(unitId, out var unit) || unit.cost == null) return default;
             return new TheWaningBorder.Core.Cost
             {
                 Supplies  = unit.cost.Supplies,
@@ -1218,8 +1216,6 @@ namespace TheWaningBorder.UI.Web
         void PushCosts()
         {
             if (_costsPushed) return;
-            var db = TechTreeDB.Instance;
-            if (db == null) return;
 
             _sb.Clear();
             _sb.Append('{');
@@ -1243,7 +1239,7 @@ namespace TheWaningBorder.UI.Web
             // 2. TechTreeDB buildings — only those NOT already covered
             //    by BuildCosts above. Catches anything that lives in
             //    JSON but hasn't been registered with BuildCosts.
-            foreach (var b in db.GetAllBuildings())
+            foreach (var b in TechCatalog.GetAllBuildings())
             {
                 if (b == null || string.IsNullOrEmpty(b.id)) continue;
                 if (emittedIds.Contains(b.id)) continue;
@@ -1252,7 +1248,7 @@ namespace TheWaningBorder.UI.Web
 
             // 3. TechTreeDB units (Worker / Swordsman / Archer / Scout
             //    / culture variants etc.).
-            foreach (var u in db.GetAllUnits())
+            foreach (var u in TechCatalog.GetAllUnits())
             {
                 if (u == null || u.id == null) continue;
                 AppendCostEntry(u.id, u.cost, ref first);

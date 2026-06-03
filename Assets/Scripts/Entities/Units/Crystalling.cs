@@ -37,7 +37,7 @@ namespace TheWaningBorder.Entities
             float cooldown = CrystallingAttackCooldown;
             float radius = CrystallingRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crystalling", out var def))
+            if (TechCatalog.TryGetUnit("Crystalling", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

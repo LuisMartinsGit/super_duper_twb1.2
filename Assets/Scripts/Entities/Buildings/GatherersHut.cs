@@ -45,7 +45,7 @@ namespace TheWaningBorder.Entities
             float radius = DefaultRadius;
 
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("GatherersHut", out var def))
+            if (TechCatalog.TryGetBuilding("GatherersHut", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -83,7 +83,7 @@ namespace TheWaningBorder.Entities
             float radius = DefaultRadius;
             float buildTime = DefaultBuildTime;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("GatherersHut", out var def))
+            if (TechCatalog.TryGetBuilding("GatherersHut", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;

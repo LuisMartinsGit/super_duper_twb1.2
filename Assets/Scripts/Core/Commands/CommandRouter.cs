@@ -785,8 +785,8 @@ namespace TheWaningBorder.Core.Commands
             requiredLevel = 1;
             buildingDisplay = "Building";
 
-            if (TechTreeDB.Instance == null) return true;
-            if (!TechTreeDB.Instance.TryGetUnit(unitId, out var unit)) return true;
+            if (!TechCatalog.IsReady) return true;
+            if (!TechCatalog.TryGetUnit(unitId, out var unit)) return true;
 
             int minLv = unit.minBuildingLevel < 1 ? 1 : unit.minBuildingLevel;
             requiredLevel = minLv;
@@ -808,7 +808,7 @@ namespace TheWaningBorder.Core.Commands
             // TechTreeDB building name, fall back to the trainer's tag.
             string trainerId = ResolveBuildingIdForTrainer(em, building);
             if (!string.IsNullOrEmpty(trainerId)
-                && TechTreeDB.Instance.TryGetBuilding(trainerId, out var bdef)
+                && TechCatalog.TryGetBuilding(trainerId, out var bdef)
                 && !string.IsNullOrEmpty(bdef.name))
             {
                 buildingDisplay = bdef.name;

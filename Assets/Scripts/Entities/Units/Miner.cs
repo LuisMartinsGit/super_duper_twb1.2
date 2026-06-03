@@ -33,7 +33,7 @@ namespace TheWaningBorder.Entities
             float damage = DefaultDamage;
             float los = DefaultLoS;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Miner", out var def))
+            if (TechCatalog.TryGetUnit("Miner", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

@@ -217,8 +217,8 @@ namespace TheWaningBorder.AI
 
         private static bool TryTrainUnit(EntityManager em, Faction faction, string unitId)
         {
-            if (TechTreeDB.Instance == null) return false;
-            if (!TechTreeDB.Instance.TryGetUnit(unitId, out var def) || def == null) return false;
+            if (!TechCatalog.IsReady) return false;
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
 
             // Find the right training building for this unit.
             Entity trainer = FindTrainerForUnit(em, faction, unitId);
@@ -267,8 +267,8 @@ namespace TheWaningBorder.AI
 
         private bool TryBuildBuilding(EntityManager em, Faction faction, string buildingId)
         {
-            if (TechTreeDB.Instance == null) return false;
-            if (!TechTreeDB.Instance.TryGetBuilding(buildingId, out var def) || def == null) return false;
+            if (!TechCatalog.IsReady) return false;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) return false;
 
             // task-109 Phase 7 / AD-6 / R9: SimpleAISystem must never try to
             // place wall primitives. Alanthor AI does NOT build walls in v1
@@ -509,8 +509,8 @@ namespace TheWaningBorder.AI
 
         private static bool TryResearchTech(EntityManager em, Faction faction, string techId)
         {
-            if (TechTreeDB.Instance == null) return false;
-            if (!TechTreeDB.Instance.TryGetTechnology(techId, out var def) || def == null) return false;
+            if (!TechCatalog.IsReady) return false;
+            if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null) return false;
 
             // Skip if already researched (or in flight) on this faction.
             var researchState = FactionResearchState.Instance;

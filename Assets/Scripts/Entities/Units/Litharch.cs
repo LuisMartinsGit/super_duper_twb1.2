@@ -79,7 +79,7 @@ namespace TheWaningBorder.Entities
             float healRange = DefaultHealRange;
             float cooldown = DefaultCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Litharch", out var def))
+            if (TechCatalog.TryGetUnit("Litharch", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

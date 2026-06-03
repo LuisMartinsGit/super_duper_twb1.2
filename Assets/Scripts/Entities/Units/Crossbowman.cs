@@ -53,7 +53,7 @@ namespace TheWaningBorder.Entities
             float maxRange = DefaultMaxRange;
             float cooldown = DefaultCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Crossbowman", out var def))
+            if (TechCatalog.TryGetUnit("Crossbowman", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

@@ -166,27 +166,10 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeDataSystems()
         {
-            EnsureTechTreeDB();
-        }
-
-        private static void EnsureTechTreeDB()
-        {
-            if (TechTreeDB.Instance != null)
-            {
-                return;
-            }
-
-            // TechTreeDB is a MonoBehaviour - create it if it doesn't exist
-            var existing = Object.FindFirstObjectByType<TechTreeDB>();
-            if (existing != null)
-            {
-                return;
-            }
-
-            // Create TechTreeDB GameObject - it will auto-load from Resources in Start()
-            var techTreeGO = new GameObject("TechTreeDB");
-            techTreeGO.AddComponent<TechTreeDB>();
-            Object.DontDestroyOnLoad(techTreeGO);
+            // TechCatalog is a static service (replaces the former TechTreeDB MonoBehaviour).
+            // Touching it here loads the catalog from Resources up-front; otherwise it would
+            // lazy-load on first lookup. No GameObject required.
+            _ = TechCatalog.IsReady;
         }
 
         // ═══════════════════════════════════════════════════════════════

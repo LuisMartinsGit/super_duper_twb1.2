@@ -28,8 +28,6 @@ namespace TheWaningBorder.Systems.Research
 
         public void OnUpdate(ref SystemState state)
         {
-            var db = TechTreeDB.Instance;
-            if (db == null) return;
 
             var researchState = FactionResearchState.Instance;
             if (researchState == null) return;
@@ -59,7 +57,7 @@ namespace TheWaningBorder.Systems.Research
                         continue;
                     }
 
-                    if (!db.TryGetTechnology(techId, out var techDef))
+                    if (!TechCatalog.TryGetTechnology(techId, out var techDef))
                     {
                         // Unknown tech - remove from queue
                         queue.RemoveAt(0);
@@ -96,7 +94,7 @@ namespace TheWaningBorder.Systems.Research
                         rs.ValueRW.Busy = 0;
                         rs.ValueRW.Remaining = 0f;
 
-                        if (db.TryGetTechnology(techId, out var techDef))
+                        if (TechCatalog.TryGetTechnology(techId, out var techDef))
                         {
                         }
                     }

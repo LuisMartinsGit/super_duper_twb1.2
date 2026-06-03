@@ -28,7 +28,7 @@ namespace TheWaningBorder.Entities
             float speed = AcolyteSpeed;
             float los = AcolyteLoS;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Runai_Acolyte", out var def))
+            if (TechCatalog.TryGetUnit("Runai_Acolyte", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

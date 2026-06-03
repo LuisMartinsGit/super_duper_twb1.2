@@ -330,7 +330,7 @@ namespace TheWaningBorder.Entities
             float los = defaultLoS;
             float radius = defaultRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding(buildingId, out var def))
+            if (TechCatalog.TryGetBuilding(buildingId, out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -372,7 +372,7 @@ namespace TheWaningBorder.Entities
             float los = 18f;
             float radius = 2.4f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("FiendstoneKeep", out var def))
+            if (TechCatalog.TryGetBuilding("FiendstoneKeep", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -425,7 +425,7 @@ namespace TheWaningBorder.Entities
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ShrineOfAhridan", out var def))
+            if (TechCatalog.TryGetBuilding("ShrineOfAhridan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -558,7 +558,7 @@ namespace TheWaningBorder.Entities
             float los = 18f;
             float radius = 2.5f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            if (TechCatalog.TryGetBuilding("TempleOfRidan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -635,7 +635,7 @@ namespace TheWaningBorder.Entities
             float los = 14f;
             float radius = 2.0f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("VaultOfAlmierra", out var def))
+            if (TechCatalog.TryGetBuilding("VaultOfAlmierra", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -687,7 +687,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiOutpost(EntityManager em, float3 position, Faction faction)
         {
             float hp = 900f, los = 20f, radius = 1.0f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Outpost", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_Outpost", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -712,7 +712,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiTradeHub(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1200f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradeHub", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_TradeHub", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -741,7 +741,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiTradingPost(EntityManager em, float3 position, Faction faction)
         {
             float hp = 800f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_TradingPost", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -768,7 +768,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiBazaar(EntityManager em, float3 position, Faction faction)
         {
             float hp = 2700f, los = 35f, radius = 2.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ThessarasBazaar", out var def))
+            if (TechCatalog.TryGetBuilding("ThessarasBazaar", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -798,7 +798,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiSiegeWorkshop(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1100f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_SiegeWorkshop", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_SiegeWorkshop", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -828,7 +828,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorWatchTower(EntityManager em, float3 position, Faction faction)
         {
             float hp = 950f, los = 22f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Tower", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -859,7 +859,7 @@ namespace TheWaningBorder.Entities
         {
             // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
             float hp = 660f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -888,7 +888,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorSiegeYard(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1100f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_SiegeYard", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_SiegeYard", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -918,7 +918,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisHuntingLodge(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1000f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_HuntingLodge", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_HuntingLodge", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -945,7 +945,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisLoggingStation(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1000f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_LoggingStation", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_LoggingStation", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -973,7 +973,7 @@ namespace TheWaningBorder.Entities
         {
             // Doc §5.7 #11: cultured Barracks — base 800 × 1.10 = 880 at L1.
             float hp = 880f, los = 14f, radius = 1.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Longhouse", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1002,7 +1002,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisTotemTower(EntityManager em, float3 position, Faction faction)
         {
             float hp = 900f, los = 18f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Tower", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1032,7 +1032,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisSiegeYard(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1200f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_SiegeYard", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_SiegeYard", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1079,7 +1079,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateKingsCourt(EntityManager em, float3 position, Faction faction)
         {
             float hp = 2100f, los = 26f, radius = 2.0f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("KingsCourt", out var def))
+            if (TechCatalog.TryGetBuilding("KingsCourt", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1107,7 +1107,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorCrucible(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1200f, los = 18f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Crucible", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_Crucible", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1134,7 +1134,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiVault(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1100f, los = 20f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Vault", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_Vault", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1168,7 +1168,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiVeilsteelFoundry(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1500f, los = 20f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1195,7 +1195,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisFoundry(EntityManager em, float3 position, Faction faction)
         {
             float hp = 1300f, los = 18f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Foundry", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Foundry", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
@@ -1223,7 +1223,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateKingsCourtECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 2100f, los = 26f, radius = 2.0f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("KingsCourt", out var def))
+            if (TechCatalog.TryGetBuilding("KingsCourt", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1247,7 +1247,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorCrucibleECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1200f, los = 18f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Crucible", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_Crucible", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1270,7 +1270,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiVaultECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1100f, los = 20f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Vault", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_Vault", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1300,7 +1300,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiVeilsteelFoundryECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1500f, los = 20f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_VeilsteelFoundry", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1323,7 +1323,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisFoundryECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1300f, los = 18f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Foundry", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Foundry", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1385,7 +1385,7 @@ namespace TheWaningBorder.Entities
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ShrineOfAhridan", out var def))
+            if (TechCatalog.TryGetBuilding("ShrineOfAhridan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1422,7 +1422,7 @@ namespace TheWaningBorder.Entities
             float los = 18f;
             float radius = 2.5f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("TempleOfRidan", out var def))
+            if (TechCatalog.TryGetBuilding("TempleOfRidan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1483,7 +1483,7 @@ namespace TheWaningBorder.Entities
             float los = 14f;
             float radius = 2.0f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("VaultOfAlmierra", out var def))
+            if (TechCatalog.TryGetBuilding("VaultOfAlmierra", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1528,7 +1528,7 @@ namespace TheWaningBorder.Entities
             float los = 18f;
             float radius = 2.4f;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("FiendstoneKeep", out var def))
+            if (TechCatalog.TryGetBuilding("FiendstoneKeep", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1567,7 +1567,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiOutpostECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 900f, los = 20f, radius = 1.0f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_Outpost", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_Outpost", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1588,7 +1588,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiTradeHubECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1200f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradeHub", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_TradeHub", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1612,7 +1612,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiTradingPostECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 800f, los = 16f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_TradingPost", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_TradingPost", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; }
 
             var entity = ecb.CreateEntity();
@@ -1635,7 +1635,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiBazaarECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 2700f, los = 35f, radius = 2.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("ThessarasBazaar", out var def))
+            if (TechCatalog.TryGetBuilding("ThessarasBazaar", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1660,7 +1660,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateRunaiSiegeWorkshopECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1100f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Runai_SiegeWorkshop", out var def))
+            if (TechCatalog.TryGetBuilding("Runai_SiegeWorkshop", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1686,7 +1686,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorWatchTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 950f, los = 22f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_Tower", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1713,7 +1713,7 @@ namespace TheWaningBorder.Entities
         {
             // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
             float hp = 660f, los = 14f, radius = 1.5f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_PracticeRange", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_PracticeRange", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1737,7 +1737,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateAlanthorSiegeYardECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1100f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Alanthor_SiegeYard", out var def))
+            if (TechCatalog.TryGetBuilding("Alanthor_SiegeYard", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1763,7 +1763,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisHuntingLodgeECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1000f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_HuntingLodge", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_HuntingLodge", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1786,7 +1786,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisLoggingStationECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1000f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_LoggingStation", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_LoggingStation", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1810,7 +1810,7 @@ namespace TheWaningBorder.Entities
         {
             // Doc §5.7 #11: cultured Barracks — base 800 × 1.10 = 880 at L1.
             float hp = 880f, los = 14f, radius = 1.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Longhouse", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Longhouse", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1835,7 +1835,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisTotemTowerECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 900f, los = 18f, radius = 0.8f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_Tower", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_Tower", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();
@@ -1861,7 +1861,7 @@ namespace TheWaningBorder.Entities
         private static Entity CreateFeraldisSiegeYardECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1200f, los = 14f, radius = 1.2f;
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Feraldis_SiegeYard", out var def))
+            if (TechCatalog.TryGetBuilding("Feraldis_SiegeYard", out var def))
             { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
 
             var entity = ecb.CreateEntity();

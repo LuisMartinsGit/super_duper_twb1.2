@@ -37,7 +37,7 @@ namespace TheWaningBorder.Entities
             float los = GodsplinterLoS;
             float radius = GodsplinterRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Godsplinter", out var def))
+            if (TechCatalog.TryGetUnit("Godsplinter", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

@@ -32,7 +32,7 @@ namespace TheWaningBorder.Entities
             float los = DefaultLoS;
             float radius = DefaultRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetBuilding("Hut", out var def))
+            if (TechCatalog.TryGetBuilding("Hut", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;

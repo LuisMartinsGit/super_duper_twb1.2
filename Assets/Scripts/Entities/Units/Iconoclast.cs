@@ -33,7 +33,7 @@ namespace TheWaningBorder.Entities
             float attackRange = IconoclastAttackRange;
             float cooldown = IconoclastAttackCooldown;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Feraldis_Iconoclast", out var def))
+            if (TechCatalog.TryGetUnit("Feraldis_Iconoclast", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

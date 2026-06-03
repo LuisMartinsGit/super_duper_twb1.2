@@ -39,7 +39,7 @@ namespace TheWaningBorder.Entities
             float maxRange = VeilstingerMaxRange;
             float radius = VeilstingerRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Veilstinger", out var def))
+            if (TechCatalog.TryGetUnit("Veilstinger", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;

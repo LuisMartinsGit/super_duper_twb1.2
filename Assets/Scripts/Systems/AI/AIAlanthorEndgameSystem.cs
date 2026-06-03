@@ -693,8 +693,8 @@ namespace TheWaningBorder.AI
             var queue = em.GetBuffer<TrainQueueItem>(trainer);
             if (queue.Length >= MaxTrainQueue) return;
 
-            if (TechTreeDB.Instance == null) return;
-            if (!TechTreeDB.Instance.TryGetUnit(unitId, out var def) || def == null) return;
+            if (!TechCatalog.IsReady) return;
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;

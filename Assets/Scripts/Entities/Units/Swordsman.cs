@@ -37,7 +37,7 @@ namespace TheWaningBorder.Entities
             float cooldown = DefaultAttackCooldown;
             float radius = DefaultRadius;
 
-            if (TechTreeDB.Instance != null && TechTreeDB.Instance.TryGetUnit("Swordsman", out var def))
+            if (TechCatalog.TryGetUnit("Swordsman", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.speed > 0) speed = def.speed;
