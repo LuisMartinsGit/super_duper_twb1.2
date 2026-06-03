@@ -191,35 +191,34 @@ namespace TheWaningBorder.UI.Web
 
         void OnBrowserConnected()
         {
+            // CRITICAL: this callback runs OFF the main thread. Do NOT touch `_client` here —
+            // LoadUrl and especially the Resolution setter (which resizes a texture →
+            // get_isReadable) throw off-thread and abort, leaving the HUD page never loaded
+            // (the "no in-game UI" / blank-out bug). We only flip a flag; Update() (main
+            // thread) does the actual LoadUrl + resolution + zoom.
             if (_loadedHud || _client == null) return;
             _loadedHud = true;
-
-            // Apply the inspector-configured resolution now that Resize() is safe.
-            uint wantW = (uint)browserResolution.x;
-            uint wantH = (uint)browserResolution.y;
-            if (_client.Resolution.Width != wantW || _client.Resolution.Height != wantH)
-            {
-                _client.Resolution = new VoltstroStudios.UnityWebBrowser.Shared.Resolution(wantW, wantH);
-            }
-
-            TWBLog.Log($"[HudWebController] LoadUrl → {_hudUrl}");
-            _client.LoadUrl(_hudUrl);
-
-            // The HUD CSS is fixed-px for a 1080-tall canvas; at a taller render
-            // resolution it would appear smaller. A CSS zoom of height/1080 keeps
-            // its on-screen size while gaining sharpness. OnClientConnected may
-            // run off the main thread, so we only set a flag here and let Update
-            // (main thread) apply the zoom. This NEVER touches the render
-            // resolution, so it can't reproduce the earlier blank-out.
-            _zoomPending = browserResolution.y > DesignHeight + 0.5f;
+            _connectPending = true;
         }
 
+        bool _connectPending;
         bool _zoomPending;
         float _zoomElapsed;
         float _zoomTick;
 
         void Update()
         {
+            // OnBrowserConnected fired off the main thread; do the actual client work here
+            // (main thread): load the HUD page, then let the resolution watcher below apply
+            // the native render resolution + zoom.
+            if (_connectPending && _client != null)
+            {
+                _connectPending = false;
+                TWBLog.Log($"[HudWebController] LoadUrl → {_hudUrl}");
+                try { _client.LoadUrl(_hudUrl); } catch { /* will retry never; logged by UWB */ }
+                _lastScreenW = -1; // force the resolution watcher below to apply native res + zoom
+            }
+
             // Keep the CEF render at native resolution if the display/window size changes
             // (fullscreen toggle, resolution change). Re-size + re-apply the zoom so it stays
             // pixel-perfect instead of being stretched (which is what caused the blur).
