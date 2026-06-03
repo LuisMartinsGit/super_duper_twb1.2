@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Barracks'
   role: 'Train infantry — basics at L1, advanced at L2'
   description: 'Primary melee training building. Produces Spearmen and researches melee upgrades. Becomes the culture''s melee structure (Garrison / Route Guard / Longhouse) at age-up.'
-  hp: 800
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 1

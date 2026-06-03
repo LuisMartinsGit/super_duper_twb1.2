@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Gatherer''s Hut'
   role: 'Area resource trickle (no stacking)'
   description: 'Early Age 0 supply generator. Emits a +Supplies aura over a small radius. At age-up it transforms into the culture''s signature economy structure (wall anchor / trade wagon / Hunting or Logging station).'
-  hp: 800
+  hp: 30
   armorType: 'structure_human'
   defense:
     melee: 2

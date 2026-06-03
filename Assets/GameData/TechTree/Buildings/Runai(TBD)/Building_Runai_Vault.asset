@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Runai_Vault'
   displayName: 'Runai Vault'
   role: 'Banking (tariff synergy)'
-  hp: 1100
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 1

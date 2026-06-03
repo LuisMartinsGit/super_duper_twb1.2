@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Fiendstone Keep'
   role: 'Fortified training + supply (Age 0 choice)'
   description: 'Fortified keep and one of the three Age 0 choice buildings. Trains non-religious, non-siege military faster than normal, generates modest Supplies, and fires arrow volleys at attackers (Feraldis +50% HP, Alanthor -50%).'
-  hp: 2000
+  hp: 100
   armorType: 'structure_human'
   defense:
     melee: 2

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Runai_TradeHub'
   displayName: 'Runai Trade Hub'
   role: 'Trade bonus / Caravan spawn'
-  hp: 1200
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 1

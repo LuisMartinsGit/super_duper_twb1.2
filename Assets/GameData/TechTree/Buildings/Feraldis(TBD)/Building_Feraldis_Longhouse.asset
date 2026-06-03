@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_Longhouse'
   displayName: 'Longhouse'
   role: 'Batch-trains melee (5 or 10) with small discount'
-  hp: 1000
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 2

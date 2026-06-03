@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_Foundry'
   displayName: 'Fiend Foundry'
   role: 'Veilsteel forging & weapons'
-  hp: 1300
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 1

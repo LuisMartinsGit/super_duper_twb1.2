@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_RoyalStable'
   displayName: 'Royal Stable'
   role: 'Heavy-cavalry trainer (Cataphract).'
-  hp: 1000
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 2

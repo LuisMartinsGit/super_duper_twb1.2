@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_Wall'
   displayName: 'Alanthor Wall'
   role: 'Compartment boundaries'
-  hp: 900
+  hp: 80
   armorType: 'structure_human'
   defense:
     melee: 2

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_Tower'
   displayName: 'Totem Tower'
   role: 'Defensive tower (arrow fire, detects bloody ground to empower)'
-  hp: 900
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 2

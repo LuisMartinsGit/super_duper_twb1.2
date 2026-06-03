@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_LoggingStation'
   displayName: 'Logging Station'
   role: 'Upgraded hut; bonus near trees'
-  hp: 1000
+  hp: 30
   armorType: 'structure_human'
   defense:
     melee: 1

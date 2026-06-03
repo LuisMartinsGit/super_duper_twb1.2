@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_Tower'
   displayName: 'Watch Tower'
   role: 'Defensive tower with long range'
-  hp: 950
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 2

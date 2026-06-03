@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Vault of Almiérra'
   role: 'Banking (deposit/interest)'
   description: 'Resource bank and one of the three Age 0 choice buildings that unlock the advance to Era II. Deposited resources earn compounding interest each minute; banking-grade techs raise the rate (Alanthor +30%, Runai -30%).'
-  hp: 1200
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 0

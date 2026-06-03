@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_SiegeYard'
   displayName: 'Siege Yard'
   role: 'Train siege engines'
-  hp: 1200
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 1

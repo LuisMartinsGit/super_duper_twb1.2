@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Practice Range'
   role: 'Train ranged infantry — Archers at L1, Crossbowmen at L2'
   description: 'Alanthor''s cultured Archery Range. Trains ranged units and unlocks the Seasoned/Veteran/Elite ladder; gains its own arrow volley at lvl 2 (double-target at lvl 3).'
-  hp: 1000
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 2

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_WallGate'
   displayName: 'Wall Gate'
   role: 'Wall instance upgraded to gate - auto-opens for friendlies'
-  hp: 200
+  hp: 35
   armorType: 'structure_human'
   defense:
     melee: 1

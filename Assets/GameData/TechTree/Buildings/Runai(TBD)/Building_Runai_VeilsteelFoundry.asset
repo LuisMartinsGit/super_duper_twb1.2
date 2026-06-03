@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Runai_VeilsteelFoundry'
   displayName: 'Runai Veilsteel Foundry'
   role: 'Produce Veilsteel'
-  hp: 1500
+  hp: 60
   armorType: 'structure_human'
   defense:
     melee: 1

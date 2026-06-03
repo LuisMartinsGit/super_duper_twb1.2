@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_HuntingLodge'
   displayName: 'Hunting Lodge'
   role: 'Upgraded hut; bonus near wildlife'
-  hp: 1000
+  hp: 30
   armorType: 'structure_human'
   defense:
     melee: 1

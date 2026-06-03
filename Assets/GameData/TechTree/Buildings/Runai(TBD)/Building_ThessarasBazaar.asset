@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'ThessarasBazaar'
   displayName: 'Thessara''s Bazaar'
   role: 'Mobile trade HQ / Tariffs / Trains light military'
-  hp: 2700
+  hp: 100
   armorType: 'structure_human'
   defense:
     melee: 2

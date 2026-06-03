@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'KingsCourt'
   displayName: 'King''s Court'
   role: 'Generates Supplies, global building techs'
-  hp: 2640
+  hp: 100
   armorType: 'structure_human'
   defense:
     melee: 2

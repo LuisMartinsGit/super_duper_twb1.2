@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_WallTower'
   displayName: 'Wall Tower'
   role: 'Wall instance upgraded to ranged tower'
-  hp: 500
+  hp: 70
   armorType: 'structure_human'
   defense:
     melee: 2

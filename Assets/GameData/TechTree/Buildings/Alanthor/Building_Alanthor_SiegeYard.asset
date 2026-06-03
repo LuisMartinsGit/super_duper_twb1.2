@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_SiegeYard'
   displayName: 'Siege Yard'
   role: 'Train siege engines'
-  hp: 1300
+  hp: 50
   armorType: 'structure_human'
   defense:
     melee: 1

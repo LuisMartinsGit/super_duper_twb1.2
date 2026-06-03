@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Hut'
   role: 'Provides population'
   description: 'Population housing for Age 0 (the ''House''). Each one raises the population cap. Its post-age-up behavior splits per culture.'
-  hp: 600
+  hp: 20
   armorType: 'structure_human'
   defense:
     melee: 2
