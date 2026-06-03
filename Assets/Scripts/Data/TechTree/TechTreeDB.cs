@@ -22,6 +22,12 @@ public sealed class TechTreeDB : MonoBehaviour
     [Tooltip("Assign the TechTree.json TextAsset here, or leave null for auto-load from Resources")]
     public TextAsset humanTechJson;
 
+    [Header("Stat Source (ScriptableObjects)")]
+    [Tooltip("Assign a TechTreeCatalog to load unit/building stats from editable SO assets " +
+             "instead of TechTree.json (tune on the fly in the Inspector). Leave null to fall " +
+             "back to JSON. Technologies and sects always load from JSON.")]
+    public TechTreeCatalog catalog;
+
     // ═══════════════════════════════════════════════════════════════════════
     // DATA STORAGE
     // ═══════════════════════════════════════════════════════════════════════
@@ -30,7 +36,13 @@ public sealed class TechTreeDB : MonoBehaviour
     private readonly Dictionary<string, BuildingDef> _buildingsById = new();
     private readonly Dictionary<string, TechnologyDef> _technologiesById = new();
     private readonly Dictionary<string, SectDef> _sectsById = new();
-    
+
+    // When catalog mode is active these hold the source SOs, so TryGet* can refresh
+    // the cached def from the asset each call — that is what makes Inspector edits
+    // take effect on the next-spawned entity ("on the fly").
+    private readonly Dictionary<string, UnitDefSO> _unitSOsById = new();
+    private readonly Dictionary<string, BuildingDefSO> _buildingSOsById = new();
+
     private CombatProfile _combatProfile;
     private string _faction;
     private List<string> _resources = new();
@@ -39,13 +51,33 @@ public sealed class TechTreeDB : MonoBehaviour
     // PUBLIC API - LOOKUPS
     // ═══════════════════════════════════════════════════════════════════════
     
-    public bool TryGetUnit(string id, out UnitDef def) => _unitsById.TryGetValue(id, out def);
-    public bool TryGetBuilding(string id, out BuildingDef def) => _buildingsById.TryGetValue(id, out def);
+    public bool TryGetUnit(string id, out UnitDef def)
+    {
+        // In catalog mode, refresh the cached def from the editable asset so live
+        // Inspector tweaks apply to the next spawn. Mutates in place (no alloc).
+        if (_unitSOsById.TryGetValue(id, out var so) && so != null &&
+            _unitsById.TryGetValue(id, out var cached))
+        {
+            so.ApplyTo(cached);
+        }
+        return _unitsById.TryGetValue(id, out def);
+    }
+
+    public bool TryGetBuilding(string id, out BuildingDef def)
+    {
+        if (_buildingSOsById.TryGetValue(id, out var so) && so != null &&
+            _buildingsById.TryGetValue(id, out var cached))
+        {
+            so.ApplyTo(cached);
+        }
+        return _buildingsById.TryGetValue(id, out def);
+    }
+
     public bool TryGetTechnology(string id, out TechnologyDef def) => _technologiesById.TryGetValue(id, out def);
     public bool TryGetSect(string id, out SectDef def) => _sectsById.TryGetValue(id, out def);
-    
-    public UnitDef GetUnit(string id) => _unitsById.TryGetValue(id, out var def) ? def : null;
-    public BuildingDef GetBuilding(string id) => _buildingsById.TryGetValue(id, out var def) ? def : null;
+
+    public UnitDef GetUnit(string id) => TryGetUnit(id, out var def) ? def : null;
+    public BuildingDef GetBuilding(string id) => TryGetBuilding(id, out var def) ? def : null;
     public TechnologyDef GetTechnology(string id) => _technologiesById.TryGetValue(id, out var def) ? def : null;
     
     public CombatProfile CombatProfile => _combatProfile;
@@ -96,18 +128,106 @@ public sealed class TechTreeDB : MonoBehaviour
 
     private void LoadTechTree()
     {
-        // Auto-load from Resources if not assigned
+        // Auto-load JSON if not assigned. Still needed for technologies + sects, and
+        // as the unit/building source when no catalog is provided.
         if (humanTechJson == null || string.IsNullOrWhiteSpace(humanTechJson.text))
         {
             humanTechJson = TryLoadFromResources();
         }
 
-        if (humanTechJson == null || string.IsNullOrWhiteSpace(humanTechJson.text))
+        string json = humanTechJson != null ? humanTechJson.text : null;
+        BuildFromSources(json);
+    }
+
+    /// <summary>
+    /// Re-run loading from the current sources. Safe to call at runtime (e.g. from an
+    /// editor "reload" button) to pick up bulk catalog changes.
+    /// </summary>
+    public void ReloadFromCatalog() => BuildFromSources(humanTechJson != null ? humanTechJson.text : null);
+
+    /// <summary>
+    /// Populate every lookup. Technologies/sects/faction/resources always come from
+    /// JSON. Units/buildings come from the catalog SOs when one is assigned with
+    /// entries; otherwise from JSON.
+    /// </summary>
+    private void BuildFromSources(string json)
+    {
+        _unitsById.Clear();
+        _buildingsById.Clear();
+        _technologiesById.Clear();
+        _sectsById.Clear();
+        _unitSOsById.Clear();
+        _buildingSOsById.Clear();
+
+        // 1. Parse JSON via the shared parser (never throws; empty if json is blank).
+        var parsed = TechTreeParser.ParseAll(json);
+        _faction = parsed.Faction;
+        _resources = parsed.Resources;
+        _combatProfile = new CombatProfile { defenseFormulaHint = "" };
+
+        foreach (var kv in parsed.Technologies) _technologiesById[kv.Key] = kv.Value;
+        foreach (var kv in parsed.Sects) _sectsById[kv.Key] = kv.Value;
+
+        // 2. Units/buildings: catalog SOs take precedence over JSON when present.
+        if (catalog != null && catalog.HasEntries)
         {
-            return;
+            LoadUnitsBuildingsFromCatalog();
+        }
+        else
+        {
+            foreach (var kv in parsed.Units) _unitsById[kv.Key] = kv.Value;
+            foreach (var kv in parsed.Buildings) _buildingsById[kv.Key] = kv.Value;
         }
 
-        ParseJson(humanTechJson.text);
+        // 3. Ensure required buildings exist + Temple fixup (only adds/repairs missing).
+        ApplyBuildingDefaults();
+    }
+
+    private void LoadUnitsBuildingsFromCatalog()
+    {
+        if (catalog.units != null)
+        {
+            foreach (var so in catalog.units)
+            {
+                if (so == null || string.IsNullOrEmpty(so.id)) continue;
+                _unitsById[so.id] = so.ToDef();
+                _unitSOsById[so.id] = so;
+            }
+        }
+        if (catalog.buildings != null)
+        {
+            foreach (var so in catalog.buildings)
+            {
+                if (so == null || string.IsNullOrEmpty(so.id)) continue;
+                _buildingsById[so.id] = so.ToDef();
+                _buildingSOsById[so.id] = so;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Inject the always-required Shrine/Temple building entries and apply the
+    /// Temple-of-Ridan era/training fixup. Runs in both JSON and catalog modes;
+    /// only adds or repairs entries that are missing.
+    /// </summary>
+    private void ApplyBuildingDefaults()
+    {
+        EnsureBuildingDefault("ShrineOfAhridan", "Shrine of Ahridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" });
+        if (!_buildingsById.ContainsKey("TempleOfRidan"))
+        {
+            EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" });
+        }
+        else
+        {
+            // Update existing entry to set minEra=2 and trains Litharch
+            var existing = _buildingsById["TempleOfRidan"];
+            existing.minEra = 2;
+            existing.name = "Temple of Ridan";
+            existing.role = "Sect expansion, training, research";
+            if (existing.trains == null || existing.trains.Length == 0)
+                existing.trains = new[] { "Litharch" };
+            _buildingsById["TempleOfRidan"] = existing;
+        }
     }
 
     private TextAsset TryLoadFromResources()
@@ -132,161 +252,6 @@ public sealed class TechTreeDB : MonoBehaviour
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // JSON PARSING
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // Fix #220: the previous implementation was 600+ lines of hand-rolled
-    // substring parsing (ParseString / ParseFloat / ParseStringArray /
-    // ParseDefenseBlock / ParseCostBlock / ParseTechEffects). Every per-field
-    // read did IndexOf + Substring + TryParse, and every object boundary was
-    // found via LastIndexOf('{', ...) + FindMatchingBrace.
-    //
-    // The rewrite keeps the ID-indexed lookup approach (find an object whose
-    // "id" field matches a target ID, slice it, deserialize it) because it
-    // sidesteps the nested eras[] -> variants.{culture}.buildings[] tree the
-    // JSON is organized in. But field-level parsing now delegates to
-    // UnityEngine.JsonUtility via the intermediate *Json DTOs in
-    // TechTreeJsonDtos.cs, eliminating ~350 lines of per-field parser code.
-    //
-    // One pre-processing step remains: the JSON field "class" is a C#
-    // reserved word, so PreprocessSlice() renames it to "unitClass" on the
-    // sliced substring before deserialization.
-
-    private void ParseJson(string json)
-    {
-        try
-        {
-
-            // Global fields via a minimal root DTO
-            var root = JsonUtility.FromJson<TechTreeRootJson>(json);
-            _faction = string.IsNullOrEmpty(root?.faction) ? "unknown" : root.faction;
-            _resources = root?.resources != null
-                ? new List<string>(root.resources)
-                : new List<string>();
-
-            _combatProfile = new CombatProfile
-            {
-                defenseFormulaHint = "",
-            };
-
-            // Parse Era 1 - Human Core
-            ParseBuilding(json, "Hall");
-            ParseBuilding(json, "Hut");
-            ParseBuilding(json, "GatherersHut");
-            ParseBuilding(json, "Barracks");
-            ParseBuilding(json, "ArcheryRange");
-            ParseBuilding(json, "ShrineOfAhridan");
-            ParseBuilding(json, "TempleOfRidan");
-            ParseBuilding(json, "VaultOfAlmierra");
-            
-            ParseUnit(json, "Builder");
-            ParseUnit(json, "Miner");
-            ParseUnit(json, "Scout");
-            ParseUnit(json, "Swordsman");
-            ParseUnit(json, "Archer");
-            ParseUnit(json, "Crossbowman");   // task-110: Era 1 Archery Range L2 tier
-            ParseUnit(json, "Longbowman");    // task-110: Era 1 Archery Range L3 tier
-            ParseUnit(json, "Litharch");
-
-            // Parse Era 1 - Feraldis (if present)
-            ParseBuilding(json, "FiendstoneKeep");
-            ParseBuilding(json, "Feraldis_BeastPen");
-            ParseBuilding(json, "Feraldis_HuntingLodge");
-            ParseBuilding(json, "Feraldis_LoggingStation");
-            ParseBuilding(json, "Feraldis_Foundry");
-            ParseBuilding(json, "Feraldis_Tower");
-            ParseBuilding(json, "Feraldis_Longhouse");
-            ParseBuilding(json, "Feraldis_SiegeYard");
-            
-            ParseUnit(json, "Feraldis_Berserker");
-            ParseUnit(json, "Feraldis_Hunter");
-            ParseUnit(json, "Feraldis_WarboarRider");
-            ParseUnit(json, "Feraldis_SiegeRam");
-
-            // Parse Era 2 - Alanthor
-            ParseBuilding(json, "KingsCourt");
-            ParseBuilding(json, "Alanthor_Wall");
-            ParseBuilding(json, "Alanthor_Tower");
-            ParseBuilding(json, "Alanthor_PracticeRange");
-            ParseBuilding(json, "Alanthor_SiegeYard");
-            ParseBuilding(json, "Alanthor_Smelter");
-            ParseBuilding(json, "Alanthor_Crucible");
-            
-            ParseUnit(json, "Alanthor_Sentinel");
-            ParseUnit(json, "Alanthor_Crossbowman");
-            ParseUnit(json, "Alanthor_Cataphract");
-            ParseUnit(json, "Alanthor_Ballista");
-
-            // Parse Era 2 - Runai
-            ParseBuilding(json, "ThessarasBazaar");
-            ParseBuilding(json, "Runai_Outpost");
-            ParseBuilding(json, "Runai_TradeHub");
-            ParseBuilding(json, "Runai_Vault");
-            ParseBuilding(json, "Runai_VeilsteelFoundry");
-            ParseBuilding(json, "Runai_SiegeWorkshop");
-
-            ParseUnit(json, "Runai_Spearman");
-            ParseUnit(json, "Runai_Skirmisher");
-            ParseUnit(json, "Runai_Raider");
-            ParseUnit(json, "Runai_Catapult");
-            ParseUnit(json, "Runai_Caravan");
-            ParseUnit(json, "Runai_Escort");
-
-            // Parse Runai Technologies
-            ParseTechnology(json, "Runai_LongHaulTariffs");
-            ParseTechnology(json, "Runai_PackBazaar");
-            ParseTechnology(json, "Runai_EscortedCaravans");
-
-            // Parse Technologies (Era 1)
-            ParseTechnology(json, "Research_Era2");
-            ParseTechnology(json, "ImprovedTools");
-            ParseTechnology(json, "StorageCarts");
-            ParseTechnology(json, "BasicDrills");
-            ParseTechnology(json, "WoodenArmor");
-
-            // Parse Sects
-            ParseAllSects(json);
-
-            // Ensure Shrine and Temple entries exist with defaults if not in JSON
-            EnsureBuildingDefault("ShrineOfAhridan", "Shrine of Ahridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" });
-            if (!_buildingsById.ContainsKey("TempleOfRidan"))
-            {
-                EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" });
-            }
-            else
-            {
-                // Update existing entry to set minEra=2 and trains Litharch
-                var existing = _buildingsById["TempleOfRidan"];
-                existing.minEra = 2;
-                existing.name = "Temple of Ridan";
-                existing.role = "Sect expansion, training, research";
-                if (existing.trains == null || existing.trains.Length == 0)
-                    existing.trains = new[] { "Litharch" };
-                _buildingsById["TempleOfRidan"] = existing;
-            }
-
-            // Log summary
-
-            // Log sample units for verification
-            LogSampleUnits();
-        }
-        catch (Exception)
-        {
-        }
-    }
-
-    private void LogSampleUnits()
-    {
-        string[] sampleUnits = { "Swordsman", "Archer", "Litharch", "Builder" };
-        foreach (var unitId in sampleUnits)
-        {
-            if (_unitsById.TryGetValue(unitId, out var unit))
-            {
-            }
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
     // BUILDING DEFAULT (used when a required building is missing from JSON)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -304,214 +269,9 @@ public sealed class TechTreeDB : MonoBehaviour
         };
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PER-ID PARSERS (Fix #220 — now delegate to JsonUtility)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    void ParseBuilding(string json, string buildingId)
-    {
-        if (!TrySliceObjectById(json, buildingId, out string slice)) return;
-        var dto = JsonUtility.FromJson<BuildingJson>(slice);
-        if (dto == null) return;
-        _buildingsById[buildingId] = dto.ToDef(buildingId);
-    }
-
-    void ParseUnit(string json, string unitId)
-    {
-        if (!TrySliceObjectById(json, unitId, out string slice)) return;
-        // JSON uses "class":; rename inside the slice because 'class' is a C# keyword
-        // and JsonUtility matches field names verbatim.
-        slice = PreprocessClassKeyword(slice);
-        var dto = JsonUtility.FromJson<UnitJson>(slice);
-        if (dto == null) return;
-        _unitsById[unitId] = dto.ToDef(unitId);
-    }
-
-    void ParseTechnology(string json, string techId)
-    {
-        if (!TrySliceObjectById(json, techId, out string slice))
-        {
-            return;
-        }
-        var dto = JsonUtility.FromJson<TechnologyJson>(slice);
-        if (dto == null) return;
-        _technologiesById[techId] = dto.ToDef(techId);
-    }
-
-    /// <summary>
-    /// Locate the object whose "id" field matches <paramref name="targetId"/>
-    /// and return its full brace-balanced slice.
-    /// Returns false if no matching object is found.
-    /// </summary>
-    bool TrySliceObjectById(string json, string targetId, out string slice)
-    {
-        slice = null;
-        string searchPattern = $"\"id\": \"{targetId}\"";
-        int idx = json.IndexOf(searchPattern, StringComparison.Ordinal);
-        if (idx == -1) return false;
-
-        int objStart = json.LastIndexOf('{', idx);
-        if (objStart == -1) return false;
-
-        int objEnd = FindMatchingBrace(json, objStart);
-        if (objEnd == -1) return false;
-
-        slice = json.Substring(objStart, objEnd - objStart + 1);
-        return true;
-    }
-
-    /// <summary>
-    /// Rename JSON field "class" to "unitClass" in a slice so JsonUtility
-    /// can map it to a legal C# identifier. Only touches the field-name
-    /// position (`"class":`) which never appears inside string values in
-    /// this JSON.
-    /// </summary>
-    static string PreprocessClassKeyword(string slice)
-    {
-        // Two common serializations: `"class":` and `"class" :`
-        return slice
-            .Replace("\"class\":", "\"unitClass\":")
-            .Replace("\"class\" :", "\"unitClass\" :");
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTS (Fix #220 — now delegate to JsonUtility per-sect)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    void ParseAllSects(string json)
-    {
-        int sectsIndex = json.IndexOf("\"sects\":", StringComparison.Ordinal);
-        if (sectsIndex == -1) return;
-
-        int listIndex = json.IndexOf("\"list\":", sectsIndex, StringComparison.Ordinal);
-        if (listIndex == -1) return;
-
-        int arrayStart = json.IndexOf('[', listIndex);
-        if (arrayStart == -1) return;
-
-        int arrayEnd = FindMatchingBracket(json, arrayStart);
-        if (arrayEnd == -1) return;
-
-        int searchPos = arrayStart + 1;
-
-        while (true)
-        {
-            int sectStart = json.IndexOf('{', searchPos);
-            if (sectStart == -1 || sectStart > arrayEnd) break;
-
-            int sectEnd = FindMatchingBrace(json, sectStart);
-            if (sectEnd == -1) break;
-
-            string slice = json.Substring(sectStart, sectEnd - sectStart + 1);
-            // Sect units and techs can also use "class":; rewrite once at the
-            // sect level so embedded unit blocks deserialize cleanly.
-            slice = PreprocessClassKeyword(slice);
-
-            var dto = JsonUtility.FromJson<SectJson>(slice);
-            if (dto != null && !string.IsNullOrEmpty(dto.id))
-            {
-                _sectsById[dto.id] = dto.ToDef();
-                RegisterSectEmbeddedUnit(dto);
-                RegisterSectEmbeddedTech(dto);
-            }
-
-            searchPos = sectEnd + 1;
-        }
-    }
-
-    /// <summary>
-    /// Register the unit block embedded inside a sect entry.
-    /// Normalizes the ID: "Golem_Autark" → "Sect_GolemAutark".
-    /// </summary>
-    void RegisterSectEmbeddedUnit(SectJson sect)
-    {
-        if (sect.unit == null || string.IsNullOrEmpty(sect.unit.id)) return;
-
-        string rawId = sect.unit.id;
-        string normalizedId = "Sect_" + rawId.Replace("_", "");
-        string displayName  = rawId.Replace("_", " ");
-
-        var unit = sect.unit.ToDef(
-            overrideId: normalizedId,
-            overrideName: displayName,
-            defaultHp: 100, defaultSpeed: 5, defaultDamage: 10,
-            defaultAttackRange: 1.5f, defaultMinRange: 0,
-            defaultLoS: 14, defaultTrainingTime: 15,
-            defaultArmorType: "infantry_heavy", defaultDamageType: "melee");
-
-        if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Crystal == 0))
-            unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
-
-        _unitsById[normalizedId] = unit;
-    }
-
-    /// <summary>
-    /// Register the tech block embedded inside a sect entry.
-    /// Normalizes the ID: "DietaryMandate" → "Tech_DietaryMandate".
-    /// </summary>
-    void RegisterSectEmbeddedTech(SectJson sect)
-    {
-        if (sect.tech == null || string.IsNullOrEmpty(sect.tech.id)) return;
-
-        string rawId = sect.tech.id;
-        string normalizedId = "Tech_" + rawId;
-
-        var tech = sect.tech.ToDef(overrideId: normalizedId, defaultResearchTime: 45);
-        tech.name = rawId.Replace("_", " ");
-        // Sect tech stores the description in the same "effect" field
-        if (string.IsNullOrEmpty(tech.desc)) tech.desc = tech.effect;
-
-        if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Crystal == 0))
-            tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
-
-        _technologiesById[normalizedId] = tech;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // BRACE / BRACKET MATCHERS (only remaining hand-rolled helpers)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    int FindMatchingBracket(string json, int openIndex)
-    {
-        if (openIndex < 0 || openIndex >= json.Length || json[openIndex] != '[') return -1;
-
-        int depth = 1;
-        for (int i = openIndex + 1; i < json.Length; i++)
-        {
-            if (json[i] == '[') depth++;
-            else if (json[i] == ']')
-            {
-                depth--;
-                if (depth == 0) return i;
-            }
-        }
-        return -1;
-    }
-
-    int FindMatchingBrace(string json, int openIndex)
-    {
-        if (openIndex < 0 || json[openIndex] != '{') return -1;
-        
-        int depth = 1;
-        for (int i = openIndex + 1; i < json.Length; i++)
-        {
-            if (json[i] == '{') depth++;
-            else if (json[i] == '}')
-            {
-                depth--;
-                if (depth == 0) return i;
-            }
-        }
-        return -1;
-    }
-
-    // Fix #220: ParseFloat / ParseString / ParseDefenseBlock / ParseCostBlock
-    // / ParseTechEffects / ParseStringArray / ParseResourcesArray /
-    // ParseCombatProfile have all been removed. Field-level parsing is now
-    // handled by UnityEngine.JsonUtility via the *Json DTOs in
-    // TechTreeJsonDtos.cs. Only FindMatchingBrace / FindMatchingBracket
-    // remain, and they are used solely to locate object boundaries for the
-    // ID-indexed slice-and-deserialize approach.
+    // JSON parsing (slice-and-deserialize, sect handling, brace matchers) now lives
+    // in the shared static TechTreeParser, used by both this DB and the editor
+    // TechTreeSOGenerator. See TechTreeParser.cs.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
