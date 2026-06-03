@@ -147,7 +147,9 @@ public sealed class TechTreeDB : MonoBehaviour
         // scene field is not wired so unit/building stats work without manual setup.
         if (catalog == null)
         {
-            catalog = Resources.Load<TechTreeCatalog>(CatalogResourceName);
+            // Fully-qualified: the `Resources` property on this class (List<string>) would
+            // otherwise shadow UnityEngine.Resources.
+            catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
         }
 
         // TechTree.json is DEPRECATED for stats; still parsed for technologies + sects
