@@ -44,3 +44,5 @@ MonoBehaviour:
   - 'Town Hall'
   - 'Trader''s Hall'
   - 'War Hall'
+  tags:
+  - 'Building'

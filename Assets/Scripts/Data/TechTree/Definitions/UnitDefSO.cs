@@ -12,6 +12,7 @@
 // NOTE: fields mirror UnitDef exactly EXCEPT "name" is renamed "displayName" here,
 // because ScriptableObject already defines a sealed `name` property.
 
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheWaningBorder.Data
@@ -58,6 +59,13 @@ namespace TheWaningBorder.Data
         public int carryCapacity;
         public float healsPerSecond;
 
+        [Header("Tags & Bonus Damage (AoE4-style)")]
+        [Tooltip("Tags this unit HAS — others' bonus damage targets these (Infantry, Cavalry, " +
+                 "Ranged, Siege, Heavy, Light, Building, ...).")]
+        public string[] tags;
+        [Tooltip("Flat bonus damage vs target tags (added after armor; ignores armor).")]
+        public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
+
         /// <summary>Build a fresh runtime UnitDef from this asset.</summary>
         public UnitDef ToDef()
         {
@@ -93,6 +101,8 @@ namespace TheWaningBorder.Data
             def.gatheringSpeed = gatheringSpeed;
             def.carryCapacity  = carryCapacity;
             def.healsPerSecond = healsPerSecond;
+            def.tags           = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
+            def.bonusVsTags    = bonusVsTags;   // read-only at runtime -> reference copy
         }
 
         /// <summary>Populate this asset's fields from a runtime UnitDef (used by the generator).</summary>
@@ -118,6 +128,8 @@ namespace TheWaningBorder.Data
             gatheringSpeed = def.gatheringSpeed;
             carryCapacity  = def.carryCapacity;
             healsPerSecond = def.healsPerSecond;
+            tags           = def.tags == null ? System.Array.Empty<string>() : (string[])def.tags.Clone();
+            bonusVsTags    = def.bonusVsTags ?? new List<DamageBonus>();
         }
 
         internal static DefenseBlock CloneDefense(DefenseBlock d) => d == null

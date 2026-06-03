@@ -31,6 +31,19 @@ namespace TheWaningBorder.Data
         public int maxTargets = 1;
     }
 
+    /// <summary>
+    /// AoE4-style bonus damage vs a target tag. Added after flat armor subtraction and
+    /// ignores armor (e.g. a Ballista with +30 vs "Building").
+    /// </summary>
+    [Serializable]
+    public class DamageBonus
+    {
+        [Tooltip("Target tag this applies against (e.g. Building, Cavalry, Heavy, Ranged).")]
+        public string vsTag;
+        [Tooltip("Flat bonus damage added after armor (ignores armor).")]
+        public float amount;
+    }
+
     /// <summary>The kind of thing an UpgradeEffect does.</summary>
     public enum UpgradeEffectKind
     {

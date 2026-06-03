@@ -48,6 +48,9 @@ namespace TheWaningBorder.Data
         /// at age-up: Alanthor / Runai / Feraldis). Empty = none.</summary>
         public string[] canUpgradeTo;
 
+        /// <summary>Tags this building HAS (AoE4-style bonus-damage targets, e.g. "Building").</summary>
+        public string[] tags;
+
         // ==================== Level Ladder / Attack ====================
         /// <summary>The building's own ranged auto-fire attack (base / non-leveled buildings).</summary>
         public BuildingAttack attack;

@@ -371,30 +371,37 @@ public static class CombatModifiers
     }
 
     /// <summary>
-    /// Global damage scalar applied at the END of the damage pipeline. 0.5
-    /// halves all outgoing damage and gives the player more reaction time
-    /// (combat-pacing knob — adjust here to tune TTK across the whole game).
+    /// Legacy combat-pacing scalar. NO LONGER APPLIED — the AoE4-style flat-armor
+    /// formula below does not use it. Kept only so external references still compile.
     /// </summary>
     public const float GlobalDamageMultiplier = 0.5f;
 
     /// <summary>
-    /// Full damage pipeline:
-    ///   1. Type modifier   (damage type vs armor type matrix)
-    ///   2. Height modifier  (attacker elevation advantage/disadvantage)
-    ///   3. Crystal modifier (buff/debuff multiplier)
-    ///   4. Defense reduction (diminishing returns: def / (def + 100))
-    ///   5. Global damage scalar (combat pacing — see GlobalDamageMultiplier)
+    /// AoE4-style damage:
+    ///   final = max(1, baseDamage − armor) + bonusDamage
+    /// Armor is a FLAT subtraction with a hard floor of 1 (chip damage always lands);
+    /// bonusDamage (vs the target's tags, e.g. siege +vs Building) is added afterwards
+    /// and IGNORES armor. The result is then scaled by this game's height / crystal
+    /// modifiers (1.0 = neutral).
     ///
-    /// Returns at least 1 damage.
+    /// `defenseValue` is the flat armor for the incoming damage type (melee armor for
+    /// melee, ranged armor for ranged — see GetDefenseValue). `armorType` and the
+    /// GetModifier matrix are retained for counter-hint/UI lookups but no longer feed
+    /// the damage number.
     /// </summary>
     public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
         ArmorType armorType, int defenseValue, float heightMod, float crystalMod)
+        => CalculateFinalDamage(baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod, 0);
+
+    /// <summary>
+    /// Overload adding flat bonus damage vs the target's tags (added after armor,
+    /// armor-ignoring). See the no-bonus overload for the full formula description.
+    /// </summary>
+    public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
+        ArmorType armorType, int defenseValue, float heightMod, float crystalMod, int bonusDamage)
     {
-        float typeModifier  = GetModifier(dmgType, armorType);
-        float defReduction  = 1f - (defenseValue / (float)(defenseValue + 100));
-        int   finalDmg      = (int)math.round(
-            baseDamage * typeModifier * heightMod * crystalMod * defReduction
-            * GlobalDamageMultiplier);
-        return math.max(1, finalDmg);
+        int   afterArmor = math.max(1, baseDamage - math.max(0, defenseValue));
+        float scaled     = (afterArmor + math.max(0, bonusDamage)) * heightMod * crystalMod;
+        return math.max(1, (int)math.round(scaled));
     }
 }

@@ -3,6 +3,7 @@
 // Part of: Data/TechTree/Definitions/
 
 using System;
+using System.Collections.Generic;
 
 namespace TheWaningBorder.Data
 {
@@ -48,7 +49,13 @@ namespace TheWaningBorder.Data
         public float gatheringSpeed;    // for miners/gatherers
         public int carryCapacity;       // resource carry capacity
         public float healsPerSecond;    // for healers
-        
+
+        // ==================== Tags & Bonus Damage (AoE4-style) ====================
+        /// <summary>Tags this unit HAS (targetable by others' bonus damage).</summary>
+        public string[] tags;
+        /// <summary>Flat bonus damage vs target tags (added after armor, ignores armor).</summary>
+        public List<DamageBonus> bonusVsTags;
+
         // ==================== Helpers ====================
         
         /// <summary>

@@ -63,3 +63,5 @@ MonoBehaviour:
   prefabPath: ''
   canUpgradeTo:
   - 'Alanthor_Garrison'
+  tags:
+  - 'Building'

@@ -51,6 +51,10 @@ namespace TheWaningBorder.Data
         [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
+        [Header("Tags (AoE4-style — targets for bonus damage)")]
+        [Tooltip("Tags this building HAS — e.g. Building. Siege units' 'bonus vs Building' matches these.")]
+        public string[] tags = new[] { "Building" };
+
         [Header("Building Attack (ranged auto-fire)")]
         [Tooltip("The building's own attack. For a leveled building the per-level attack overrides this.")]
         public BuildingAttack attack = new BuildingAttack();
@@ -87,6 +91,7 @@ namespace TheWaningBorder.Data
             def.description  = description ?? "";
             def.prefabPath   = prefabPath ?? "";
             def.canUpgradeTo = CloneArray(canUpgradeTo);
+            def.tags         = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
             // Authoring data is read-only at runtime, so reference-copy (no deep clone).
             def.attack       = attack;
             def.levels       = levels;
@@ -111,6 +116,7 @@ namespace TheWaningBorder.Data
             description  = def.description;
             prefabPath   = def.prefabPath;
             canUpgradeTo = CloneArray(def.canUpgradeTo);
+            tags         = def.tags == null ? new[] { "Building" } : (string[])def.tags.Clone();
             attack       = def.attack ?? new BuildingAttack();
             levels       = def.levels ?? new List<BuildingLevel>();
             unitUpgrades = def.unitUpgrades ?? new List<UnitUpgrade>();

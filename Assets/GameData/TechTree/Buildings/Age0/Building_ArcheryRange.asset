@@ -61,3 +61,5 @@ MonoBehaviour:
   prefabPath: ''
   canUpgradeTo:
   - 'Alanthor_PracticeRange'
+  tags:
+  - 'Building'

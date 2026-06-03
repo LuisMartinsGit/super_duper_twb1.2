@@ -37,3 +37,5 @@ MonoBehaviour:
     Glow: 0
   prefabPath: ''
   canUpgradeTo: []
+  tags:
+  - 'Building'

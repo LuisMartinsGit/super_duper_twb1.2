@@ -375,3 +375,5 @@ MonoBehaviour:
     researchTime: 40
   prefabPath: ''
   canUpgradeTo: []
+  tags:
+  - 'Building'

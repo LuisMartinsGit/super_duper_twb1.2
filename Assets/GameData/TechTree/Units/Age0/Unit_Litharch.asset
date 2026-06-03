@@ -41,3 +41,6 @@ MonoBehaviour:
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 6
+  tags:
+  - 'Ranged'
+  bonusVsTags: []

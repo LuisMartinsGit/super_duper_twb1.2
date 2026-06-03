@@ -41,3 +41,9 @@ MonoBehaviour:
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 0
+  tags:
+  - 'Ranged'
+  - 'Siege'
+  bonusVsTags:
+  - vsTag: 'Building'
+    amount: 30
