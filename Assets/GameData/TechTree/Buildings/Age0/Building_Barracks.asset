@@ -32,8 +32,8 @@ MonoBehaviour:
   - 'WoodenArmor'
   minEra: 0
   cost:
-    Supplies: 150
-    Iron: 70
+    Supplies: 220
+    Iron: 40
     Crystal: 0
     Veilsteel: 0
     Glow: 0

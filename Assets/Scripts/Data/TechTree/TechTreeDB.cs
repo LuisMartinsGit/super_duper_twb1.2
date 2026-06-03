@@ -1,7 +1,18 @@
 // TechTreeDB.cs
-// Central database for all unit, building, and technology definitions
-// Parses TechTree.json and provides lookup APIs
+// Central database for all unit, building, and technology definitions.
 // Part of: Data/TechTree/
+//
+// STAT SOURCE (units + buildings): the editable ScriptableObject catalog
+// (Assets/Resources/TechTreeCatalog -> UnitDefSO/BuildingDefSO under
+// Assets/GameData/TechTree/**). This is now the AUTHORITATIVE source — tune stats
+// by editing the .asset files in the Inspector. The catalog is auto-loaded from
+// Resources when not wired in the scene, so it works without manual setup.
+//
+// TechTree.json is DEPRECATED as a stat source (it drifted from the design docs and
+// caused balance bugs). It is retained ONLY for technologies + sects, which have not
+// been migrated to SOs yet. If no catalog is found, the DB falls back to JSON for
+// unit/building stats and logs a warning — that path is deprecated and should not be
+// relied on.
 
 using System;
 using System.Collections.Generic;
@@ -22,11 +33,15 @@ public sealed class TechTreeDB : MonoBehaviour
     [Tooltip("Assign the TechTree.json TextAsset here, or leave null for auto-load from Resources")]
     public TextAsset humanTechJson;
 
-    [Header("Stat Source (ScriptableObjects)")]
-    [Tooltip("Assign a TechTreeCatalog to load unit/building stats from editable SO assets " +
-             "instead of TechTree.json (tune on the fly in the Inspector). Leave null to fall " +
-             "back to JSON. Technologies and sects always load from JSON.")]
+    [Header("Stat Source (ScriptableObjects) — AUTHORITATIVE")]
+    [Tooltip("TechTreeCatalog of editable Unit/Building SO assets. This is the authoritative " +
+             "unit/building stat source. If left null it is auto-loaded from " +
+             "Resources/TechTreeCatalog. TechTree.json is only a deprecated fallback.")]
     public TechTreeCatalog catalog;
+
+    // Resources path (without extension) used to auto-load the catalog when the field
+    // above is not wired in the scene. Keep the asset at Assets/Resources/TechTreeCatalog.asset.
+    private const string CatalogResourceName = "TechTreeCatalog";
 
     // ═══════════════════════════════════════════════════════════════════════
     // DATA STORAGE
@@ -128,8 +143,15 @@ public sealed class TechTreeDB : MonoBehaviour
 
     private void LoadTechTree()
     {
-        // Auto-load JSON if not assigned. Still needed for technologies + sects, and
-        // as the unit/building source when no catalog is provided.
+        // Authoritative stat source: the SO catalog. Auto-load from Resources when the
+        // scene field is not wired so unit/building stats work without manual setup.
+        if (catalog == null)
+        {
+            catalog = Resources.Load<TechTreeCatalog>(CatalogResourceName);
+        }
+
+        // TechTree.json is DEPRECATED for stats; still parsed for technologies + sects
+        // (and as the unit/building fallback only when no catalog is found).
         if (humanTechJson == null || string.IsNullOrWhiteSpace(humanTechJson.text))
         {
             humanTechJson = TryLoadFromResources();
@@ -168,13 +190,18 @@ public sealed class TechTreeDB : MonoBehaviour
         foreach (var kv in parsed.Technologies) _technologiesById[kv.Key] = kv.Value;
         foreach (var kv in parsed.Sects) _sectsById[kv.Key] = kv.Value;
 
-        // 2. Units/buildings: catalog SOs take precedence over JSON when present.
+        // 2. Units/buildings come from the authoritative SO catalog. JSON is only a
+        //    deprecated fallback when no catalog is present (logs a warning).
         if (catalog != null && catalog.HasEntries)
         {
             LoadUnitsBuildingsFromCatalog();
         }
         else
         {
+            Debug.LogWarning(
+                "[TechTreeDB] No TechTreeCatalog found — falling back to DEPRECATED TechTree.json " +
+                "for unit/building stats. Place the catalog at Assets/Resources/TechTreeCatalog.asset " +
+                "(or assign it on the TechTreeDB component) so the game reads the SO stats.");
             foreach (var kv in parsed.Units) _unitsById[kv.Key] = kv.Value;
             foreach (var kv in parsed.Buildings) _buildingsById[kv.Key] = kv.Value;
         }

@@ -19,7 +19,7 @@ MonoBehaviour:
   armorType: 'structure_human'
   defense:
     melee: 2
-    ranged: 2
+    ranged: 6
     siege: 0
     magic: 0
   radius: 1.6
@@ -28,7 +28,7 @@ MonoBehaviour:
   research: []
   minEra: 0
   cost:
-    Supplies: 50
+    Supplies: 80
     Iron: 0
     Crystal: 0
     Veilsteel: 0

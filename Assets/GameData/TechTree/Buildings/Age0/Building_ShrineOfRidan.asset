@@ -10,27 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
-  m_Name: Building_TempleOfRidan
+  m_Name: Building_ShrineOfRidan
   m_EditorClassIdentifier: 
-  id: 'TempleOfRidan'
+  id: 'ShrineOfRidan'
   displayName: 'Shrine of Ridan'
-  role: 'Trains Litharchs (healers) and Alanthor Scholars (ritualists)'
+  role: 'Trains Litharchs (healers)'
   hp: 800
   armorType: 'structure_human'
   defense:
     melee: 0
-    ranged: 0
+    ranged: 6
     siege: 0
     magic: 0
   radius: 1.8
   lineOfSight: 16
   trains:
   - 'Litharch'
-  - 'Alanthor_Scholar'
-  - 'Runai_Acolyte'
-  - 'Feraldis_Iconoclast'
   research: []
-  minEra: 1
+  minEra: 0
   cost:
     Supplies: 300
     Iron: 0

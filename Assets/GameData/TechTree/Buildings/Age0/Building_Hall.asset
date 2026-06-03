@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 'Hall'
   displayName: 'Hall'
-  role: 'HQ / Research Era'
+  role: 'HQ / Research Era / Research Economy / Worker upgrades / resource drop-off / Supply generation / Objective'
   hp: 2400
   armorType: 'structure_human'
   defense:
     melee: 2
-    ranged: 2
+    ranged: 8
     siege: 0
-    magic: 0
+    magic: 4
   radius: 1.6
   lineOfSight: 24
   trains:

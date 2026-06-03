@@ -11,20 +11,22 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Building_FiendstoneKeep
-  m_EditorClassIdentifier: 
-  id: 'FiendstoneKeep'
+  m_EditorClassIdentifier:
+  id: FiendstoneKeep
   displayName: 'Fiendstone Keep'
-  role: 'Fast training, garrison, tower add-ons'
+  role: 'Fortified training + supply (Age 0 choice)'
   hp: 2000
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 2
     ranged: 2
     siege: 0
     magic: 0
-  radius: 1.6
-  lineOfSight: 24
-  trains: []
+  radius: 2.4
+  lineOfSight: 18
+  trains:
+  - 'Swordsman'
+  - 'Archer'
   research: []
   minEra: 0
   cost:

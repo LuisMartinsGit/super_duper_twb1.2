@@ -29,7 +29,7 @@ MonoBehaviour:
   minEra: 0
   cost:
     Supplies: 120
-    Iron: 0
+    Iron: 10
     Crystal: 0
     Veilsteel: 0
     Glow: 0

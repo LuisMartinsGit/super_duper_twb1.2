@@ -26,7 +26,7 @@ namespace TheWaningBorder.Data.EditorTools
         const string TechTreeFolder  = "Assets/GameData/TechTree";
         const string UnitsFolder     = "Assets/GameData/TechTree/Units";
         const string BuildingsFolder = "Assets/GameData/TechTree/Buildings";
-        const string CatalogPath     = "Assets/GameData/TechTree/TechTreeCatalog.asset";
+        const string CatalogPath     = "Assets/Resources/TechTreeCatalog.asset";
 
         [MenuItem("Waning Border/Tech Tree/Generate Stat SOs from JSON")]
         public static void GenerateMenu()
@@ -104,8 +104,10 @@ namespace TheWaningBorder.Data.EditorTools
                     }
                     else
                     {
-                        so.CopyFrom(def);
-                        EditorUtility.SetDirty(so);
+                        // Asset already exists: do NOT overwrite. The SO is now the
+                        // authoritative, hand-editable source; JSON is deprecated. The
+                        // generator only seeds MISSING assets so re-running it can never
+                        // clobber tuned/doc-aligned values.
                     }
                     unitSOs.Add(so);
                     unitCount++;
@@ -126,8 +128,10 @@ namespace TheWaningBorder.Data.EditorTools
                     }
                     else
                     {
-                        so.CopyFrom(def);
-                        EditorUtility.SetDirty(so);
+                        // Asset already exists: do NOT overwrite. The SO is now the
+                        // authoritative, hand-editable source; JSON is deprecated. The
+                        // generator only seeds MISSING assets so re-running it can never
+                        // clobber tuned/doc-aligned values.
                     }
                     buildingSOs.Add(so);
                     buildingCount++;

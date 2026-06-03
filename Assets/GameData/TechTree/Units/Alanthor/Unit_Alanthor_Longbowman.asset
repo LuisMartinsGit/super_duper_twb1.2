@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
-  m_Name: Unit_Crossbowman
+  m_Name: Unit_Alanthor_Longbowman
   m_EditorClassIdentifier: 
-  id: 'Crossbowman'
-  displayName: 'Crossbowman'
+  id: 'Longbowman'
+  displayName: 'Longbowman'
   unitClass: 'human_ranged'
-  hp: 70
-  speed: 3.5
-  trainingTime: 18
-  damage: 18
+  hp: 55
+  speed: 4
+  trainingTime: 25
+  damage: 25
   damageType: 'ranged'
   armorType: 'ranged'
   defense:
@@ -26,17 +26,17 @@ MonoBehaviour:
     ranged: 1
     siege: 0
     magic: 0
-  attackCooldown: 3
-  attackRange: 18
-  minAttackRange: 6
-  lineOfSight: 22
+  attackCooldown: 3.5
+  attackRange: 40
+  minAttackRange: 12
+  lineOfSight: 35
   cost:
-    Supplies: 40
-    Iron: 35
+    Supplies: 50
+    Iron: 40
     Crystal: 0
     Veilsteel: 0
     Glow: 0
-  minBuildingLevel: 2
+  minBuildingLevel: 3
   buildSpeed: 0
   gatheringSpeed: 0
   carryCapacity: 0
