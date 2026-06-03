@@ -43,8 +43,9 @@ namespace TheWaningBorder.Data
         public string description;
         /// <summary>Asset/Resources path to this building's prefab (authoring hook).</summary>
         public string prefabPath;
-        /// <summary>Building id this upgrades / transforms into (age-up or next tier); empty = none.</summary>
-        public string upgradesToId;
+        /// <summary>Buildings this can upgrade / transform into (e.g. the three cultured forms
+        /// at age-up: Alanthor / Runai / Feraldis). Empty = none.</summary>
+        public string[] canUpgradeTo;
 
         // ==================== Helpers ====================
         

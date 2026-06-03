@@ -53,9 +53,9 @@ namespace TheWaningBorder.Data
         [Header("Authoring / Presentation")]
         [Tooltip("Asset or Resources path to this building's prefab. Point this at the correct prefab.")]
         public string prefabPath;
-        [Tooltip("Building id this upgrades / transforms into (age-up cultured form or next tier). " +
-                 "Leave blank for none / culture-dependent.")]
-        public string upgradesToId;
+        [Tooltip("Buildings this can upgrade / transform into (e.g. the three cultured forms at " +
+                 "age-up: Alanthor / Runai / Feraldis). Empty = none.")]
+        public string[] canUpgradeTo;
 
         /// <summary>Build a fresh runtime BuildingDef from this asset.</summary>
         public BuildingDef ToDef()
@@ -73,7 +73,7 @@ namespace TheWaningBorder.Data
             def.role        = role ?? "";
             def.description  = description ?? "";
             def.prefabPath   = prefabPath ?? "";
-            def.upgradesToId = upgradesToId ?? "";
+            def.canUpgradeTo = CloneArray(canUpgradeTo);
             def.hp          = hp;
             def.armorType   = string.IsNullOrEmpty(armorType) ? "structure_human" : armorType;
             def.defense     = UnitDefSO.CloneDefense(defense);
@@ -93,7 +93,7 @@ namespace TheWaningBorder.Data
             role        = def.role;
             description  = def.description;
             prefabPath   = def.prefabPath;
-            upgradesToId = def.upgradesToId;
+            canUpgradeTo = CloneArray(def.canUpgradeTo);
             hp          = def.hp;
             armorType   = def.armorType;
             defense     = UnitDefSO.CloneDefense(def.defense);

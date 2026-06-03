@@ -40,4 +40,7 @@ MonoBehaviour:
     Veilsteel: 0
     Glow: 0
   prefabPath: ''
-  upgradesToId: ''
+  canUpgradeTo:
+  - 'Town Hall'
+  - 'Trader''s Hall'
+  - 'War Hall'
