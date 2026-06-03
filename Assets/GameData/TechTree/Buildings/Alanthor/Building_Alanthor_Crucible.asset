@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 'Alanthor_Crucible'
   displayName: 'Crucible'
-  role: 'Veilsteel forging (Iron + Crystal)'
+  role: 'Iron smelting + Veilsteel forging'
+  description: 'Alanthor metalworks. Smelts Iron and forges Veilsteel from Iron + Crystal. Merges the former Forge/Smelter into a single building.'
   hp: 1200
   armorType: 'structure_human'
   defense:
