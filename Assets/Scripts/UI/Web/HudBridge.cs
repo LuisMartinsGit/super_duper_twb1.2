@@ -1286,7 +1286,7 @@ namespace TheWaningBorder.UI.Web
         bool AppendCostEntry(string id, TheWaningBorder.Data.CostBlock c, ref bool first)
         {
             if (c == null) return false;
-            if (c.Supplies <= 0 && c.Iron <= 0 && c.Crystal <= 0 && c.Veilsteel <= 0 && c.Glow <= 0)
+            if (c.Supplies <= 0 && c.Iron <= 0 && c.Crystal <= 0 && c.Veilsteel <= 0)
                 return false;  // skip "free" entries — Hall has cost=0 in JSON
             if (!first) _sb.Append(',');
             first = false;
@@ -1296,7 +1296,6 @@ namespace TheWaningBorder.UI.Web
             AppendField("iron",      c.Iron,      ref fieldFirst);
             AppendField("crystal",   c.Crystal,   ref fieldFirst);
             AppendField("veilsteel", c.Veilsteel, ref fieldFirst);
-            AppendField("glow",      c.Glow,      ref fieldFirst);
             _sb.Append('}');
             return true;
         }
