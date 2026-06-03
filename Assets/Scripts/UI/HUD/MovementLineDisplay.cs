@@ -86,7 +86,6 @@ namespace TheWaningBorder.UI.HUD
             {
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<UnitTag>(entity)) continue;
-                if (_em.HasComponent<BattalionMemberData>(entity)) continue; // Members follow formation, not destinations
                 if (!_em.HasComponent<DesiredDestination>(entity)) continue;
                 if (!_em.HasComponent<LocalTransform>(entity)) continue;
 
@@ -98,27 +97,7 @@ namespace TheWaningBorder.UI.HUD
                 // queued waypoints — nothing to draw.
                 if (!hasActiveDest && !hasQueuedCommands) continue;
 
-                // For battalion leaders, use average position of living members
                 float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
-                if (_em.HasComponent<BattalionLeader>(entity) && _em.HasBuffer<BattalionMember>(entity))
-                {
-                    var members = _em.GetBuffer<BattalionMember>(entity);
-                    if (members.Length > 0)
-                    {
-                        float3 sum = float3.zero;
-                        int count = 0;
-                        for (int m = 0; m < members.Length; m++)
-                        {
-                            var member = members[m].Value;
-                            if (_em.Exists(member) && _em.HasComponent<LocalTransform>(member))
-                            {
-                                sum += _em.GetComponentData<LocalTransform>(member).Position;
-                                count++;
-                            }
-                        }
-                        if (count > 0) pos = sum / count;
-                    }
-                }
 
                 // Determine command type for color
                 Color lColor, mColor;
@@ -138,17 +117,6 @@ namespace TheWaningBorder.UI.HUD
                 {
                     lColor = moveLineColor;
                     mColor = moveMarkerColor;
-                }
-
-                // For battalion leaders, also check member commands
-                if (_em.HasComponent<BattalionLeader>(entity) && _em.HasComponent<Target>(entity))
-                {
-                    var leaderTgt = _em.GetComponentData<Target>(entity);
-                    if (leaderTgt.Value != Entity.Null && _em.Exists(leaderTgt.Value))
-                    {
-                        lColor = attackLineColor;
-                        mColor = attackMarkerColor;
-                    }
                 }
 
                 Vector3 unitWorld = new Vector3(pos.x, 0f, pos.z);

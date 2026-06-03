@@ -3,6 +3,42 @@
 // generated from terrain slope and water data.
 // Used by flow-field pathfinding and building placement validation.
 // Location: Assets/Scripts/World/Terrain/PassabilityGrid.cs
+//
+// M8-followup (task-112 M7 carry-over):
+//   The task-112 navigation rewrite (M1..M7) introduced
+//   NavGridQuery as the replacement for the simple
+//   Block/Unblock/IsCellPassable/GetCellWorldCenter API surface
+//   PassabilityGrid exposed. The migration was completed in M4 for
+//   the *pathing* callers (MovementSystem / NavMesh stack deleted)
+//   but PassabilityGrid stays alive because the following features
+//   are NOT yet implemented in the new nav stack:
+//     * ComputePlayerReachability + IsReachableByAllPlayers (BFS
+//       intersection across player starts).
+//     * IsPassableForRadius / IsCellPassableForRadius (Minkowski-sum
+//       geometric checks that catch agents whose footprint clips a
+//       building corner).
+//     * HasClearLineOfSight (half-cell-sampled LOS for the
+//       StringPull short-cut check).
+//     * Multi-class cell values (Passable / TerrainBlocked /
+//       BuildingBlocked / ObstacleBlocked) used by the
+//       reachability BFS to walk through buildings without
+//       trapping inside them.
+//
+//   The ~13 surviving call sites are tagged with `M8-followup:`
+//   comments where they call into PassabilityGrid. Deleting this
+//   file requires either migrating each caller to a richer
+//   NavGridQuery API surface (porting the BFS + geometric checks
+//   into the cost-field stack) or proving those callers no longer
+//   need the features. Until then the file stays.
+//
+//   The pathing-critical features ARE migrated: every nav job
+//   reads NavCostField (not _cells), the portal graph drives every
+//   path query, and BlockBuildingRect/UnblockBuildingRect are
+//   no-ops on the pathing layer because BuildingCostStampSystem
+//   now stamps building footprints directly into NavCostField.
+//   Callers that flip these (territorial enclosure scans,
+//   minimap rendering) are reading the legacy slope/water mask
+//   that NavCostField doesn't carry.
 
 using Unity.Collections;
 using Unity.Mathematics;

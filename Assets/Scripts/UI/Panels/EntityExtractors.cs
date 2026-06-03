@@ -184,35 +184,8 @@ namespace TheWaningBorder.UI
                 info.GlowPerMinute = em.GetComponentData<GlowIncome>(entity).PerMinute;
             }
 
-            // Type and name — check battalion leader first
-            if (em.HasComponent<BattalionLeader>(entity))
-            {
-                var bl = em.GetComponentData<BattalionLeader>(entity);
-                info.Type = "Battalion";
-                info.Name = bl.UnitId.ToString() + " Battalion";
-
-                // Aggregate HP from living members
-                if (em.HasBuffer<BattalionMember>(entity))
-                {
-                    var buf = em.GetBuffer<BattalionMember>(entity);
-                    int memberCount = 0, totalHP = 0, totalMaxHP = 0;
-                    for (int i = 0; i < buf.Length; i++)
-                    {
-                        if (!em.Exists(buf[i].Value)) continue;
-                        memberCount++;
-                        if (em.HasComponent<Health>(buf[i].Value))
-                        {
-                            var mhp = em.GetComponentData<Health>(buf[i].Value);
-                            totalHP += mhp.Value;
-                            totalMaxHP += mhp.Max;
-                        }
-                    }
-                    info.CurrentHealth = totalHP;
-                    info.MaxHealth = totalMaxHP;
-                    info.Description = $"{memberCount}/{bl.Columns * bl.Rows} soldiers";
-                }
-            }
-            else if (em.HasComponent<CrystalMainNodeTag>(entity))
+            // Type and name
+            if (em.HasComponent<CrystalMainNodeTag>(entity))
             {
                 info.Type = "Crystal Hive";
                 info.Name = "Crystal Main Node";
@@ -725,22 +698,6 @@ namespace TheWaningBorder.UI
 
             if (!em.Exists(entity)) return info;
 
-            // Check if this is a battalion entity (leader or member) — show stance panel
-            if (em.HasComponent<BattalionLeader>(entity))
-            {
-                info.Type = ActionType.BattalionStance;
-                return info;
-            }
-            if (em.HasComponent<BattalionMemberData>(entity))
-            {
-                var memberData = em.GetComponentData<BattalionMemberData>(entity);
-                if (em.Exists(memberData.Leader) && em.HasComponent<BattalionStanceData>(memberData.Leader))
-                {
-                    info.Type = ActionType.BattalionStance;
-                    return info;
-                }
-            }
-
             // Per-hub "Build Wall" action — surfaces on any completed wall
             // hub of the local faction. Clicking enters a hub-anchored
             // placement mode (BuilderCommandPanel.TriggerHubBuildWall) that
@@ -1026,8 +983,8 @@ namespace TheWaningBorder.UI
                     : true;
                 string gateLabel = $"Convert to Gate ({gateWidth}x)";
                 string gateSubtitle = shortSegment
-                    ? $"Short segment — gate will span {gateWidth} instances. Battalions wider than {gateWidth} may not fit."
-                    : "5-instance opening. Battalions in line formation can path through.";
+                    ? $"Short segment — gate will span {gateWidth} instances. Groups wider than {gateWidth} may not fit."
+                    : "5-instance opening. Units can path through.";
 
                 actions.Add(new ActionButton
                 {

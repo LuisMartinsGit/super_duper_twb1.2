@@ -33,104 +33,6 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(unit) || !em.Exists(target)) return;
             if (!em.HasComponent<LocalTransform>(target)) return;
 
-            // Battalion leader: move leader toward target, propagate attack to members
-            if (em.HasComponent<BattalionLeader>(unit) && em.HasBuffer<BattalionMember>(unit))
-            {
-                var targetPos = em.GetComponentData<LocalTransform>(target).Position;
-                var leaderPos = em.GetComponentData<LocalTransform>(unit).Position;
-
-                // Copy member entities to a local array BEFORE any structural changes
-                // (structural changes like RemoveComponent invalidate DynamicBuffer handles)
-                var membersBuffer = em.GetBuffer<BattalionMember>(unit);
-                int memberCount = membersBuffer.Length;
-                var memberEntities = new NativeArray<Entity>(memberCount, Allocator.Temp);
-                for (int i = 0; i < memberCount; i++)
-                    memberEntities[i] = membersBuffer[i].Value;
-
-                // Check if battalion contains ranged units — stop at firing range
-                bool hasRanged = false;
-                float maxRange = 25f;
-                for (int i = 0; i < memberCount; i++)
-                {
-                    var m = memberEntities[i];
-                    if (m != Entity.Null && em.Exists(m) && em.HasComponent<ArcherTag>(m))
-                    {
-                        hasRanged = true;
-                        if (em.HasComponent<ArcherState>(m))
-                            maxRange = em.GetComponentData<ArcherState>(m).MaxRange;
-                        break;
-                    }
-                }
-
-                if (hasRanged)
-                {
-                    // Move leader to a position just inside max range
-                    float3 dir = math.normalizesafe(targetPos - leaderPos);
-                    float dist = math.distance(leaderPos, targetPos);
-                    float stopAt = maxRange - 3f; // Stop 3 units inside max range
-                    if (dist > stopAt)
-                    {
-                        float3 movePos = targetPos - dir * stopAt;
-                        MoveCommandHelper.Execute(em, unit, movePos);
-                    }
-                }
-                else
-                {
-                    // Melee battalion: move to target position
-                    MoveCommandHelper.Execute(em, unit, targetPos);
-                }
-
-                // Clear stale member combat state from any previous engagement.
-                // Why: AssignPerMemberTargets skips members that already have a *living*
-                // target, so a re-targeting order would never propagate to members and
-                // they'd keep firing at the old target until it died.
-                for (int i = 0; i < memberCount; i++)
-                {
-                    var m = memberEntities[i];
-                    if (m == Entity.Null || !em.Exists(m)) continue;
-                    if (em.HasComponent<Target>(m))
-                        em.SetComponentData(m, new Target { Value = Entity.Null });
-                    if (em.HasComponent<AttackCommand>(m))
-                        em.RemoveComponent<AttackCommand>(m);
-                }
-
-                // Set target on the leader itself so BattalionSyncSystem can detect
-                // combat mode and MovementLineDisplay shows red line.
-                // Do NOT set targets on members — they march in formation until
-                // BattalionSyncSystem detects encirclement range and assigns per-member targets.
-                SetupAttack(em, unit, target);
-
-                // Remove UserMoveOrder that MoveCommandHelper added — leader needs to
-                // remain eligible for targeting systems during march
-                if (em.HasComponent<UserMoveOrder>(unit))
-                    em.RemoveComponent<UserMoveOrder>(unit);
-
-                // Track enemy battalion so members can chain targets from the same group
-                Entity enemyLeader = Entity.Null;
-                if (em.HasComponent<BattalionMemberData>(target))
-                    enemyLeader = em.GetComponentData<BattalionMemberData>(target).Leader;
-                else if (em.HasComponent<BattalionLeader>(target))
-                    enemyLeader = target;
-
-                if (enemyLeader != Entity.Null)
-                {
-                    if (!em.HasComponent<BattalionAttackTarget>(unit))
-                        em.AddComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
-                        else
-                            em.SetComponentData(unit, new BattalionAttackTarget { EnemyLeader = enemyLeader });
-                }
-                else if (em.HasComponent<BattalionAttackTarget>(unit))
-                {
-                    // New target is standalone (e.g. a building). Drop stale battalion
-                    // tracking so AssignPerMemberTargets uses the new fallback target
-                    // instead of routing members to the previous enemy battalion.
-                    em.RemoveComponent<BattalionAttackTarget>(unit);
-                }
-
-                memberEntities.Dispose();
-                return;
-            }
-
             // Clear conflicting commands (but NOT MoveCommand - combat system handles chasing)
             ClearConflictingCommands(em, unit);
 
@@ -147,8 +49,7 @@ namespace TheWaningBorder.Core.Commands.Types
         public static bool CanExecute(EntityManager em, Entity unit, Entity target)
         {
             if (!em.Exists(unit) || !em.Exists(target)) return false;
-            // Battalion leaders have no Damage — their members do the fighting
-            if (!em.HasComponent<Damage>(unit) && !em.HasComponent<BattalionLeader>(unit)) return false;
+            if (!em.HasComponent<Damage>(unit)) return false;
 
             // Verify not attacking friendly unit
             if (em.HasComponent<FactionTag>(unit) && em.HasComponent<FactionTag>(target))

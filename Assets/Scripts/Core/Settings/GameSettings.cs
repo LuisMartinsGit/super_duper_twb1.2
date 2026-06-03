@@ -11,25 +11,68 @@ public enum GameMode
     FreeForAll,
     SoloVsCurse,
     Sandbox,
-    BattalionTest,
     Scenario,
     PathfindingTest
 }
 
 public enum ScenarioType
 {
-    LargeMelee,
-    LargeRanged,
-    LargeMixed,
-    HealerTest,
-    FourWayCultures,
-    FullArmy,
-    WallSiege,
-    SectShowcase,
-    BuildingShowcase,
-    CurseCombatTest,
-    PatrolDefense,
-    AlanthorVsCrystal
+    LargeMelee = 0,
+    LargeRanged = 1,
+    LargeMixed = 2,
+    HealerTest = 3,
+    FourWayCultures = 4,
+    FullArmy = 5,
+    WallSiege = 6,
+    SectShowcase = 7,
+    BuildingShowcase = 8,
+    CurseCombatTest = 9,
+    PatrolDefense = 10,
+    AlanthorVsCrystal = 11,
+
+    // task-112: nav-stack flow-fields milestones (M1..M7). Explicit indices
+    // because the architecture references these values directly for
+    // serialised lobby state.
+    Phase1Test = 12,
+    Phase2Test = 13,
+    Phase3Test = 14,
+    Phase4Test = 15,
+    Phase5Test = 16,
+    Phase7Test = 18,
+    // Wall-climb / rampart garrison test: a sealed wall enclosure with
+    // climb-hub stairs; units ordered inside must use the stairs + rampart.
+    WallClimbTest = 19,
+}
+
+/// <summary>
+/// task-112 M7 -- determinism replay mode controlling
+/// <c>DeterminismReplaySystem</c>. <c>Off</c> = no recording, no
+/// comparison. <c>Record</c> = append every sim tick's unit positions
+/// to the replay log. <c>Replay</c> = compare each tick's positions
+/// against the previously recorded snapshot; assert byte-identical OR
+/// log the first divergence and stop the sim (editor only).
+/// </summary>
+public enum NavReplayMode : byte
+{
+    Off = 0,
+    Record = 1,
+    Replay = 2,
+}
+
+/// <summary>
+/// task-112 M7 (S11) -- debug visualization toggle. Selects which nav
+/// data layer <c>NavDebugDrawSystem</c> renders in the Editor scene
+/// view. Editor-only; the system is <c>#if UNITY_EDITOR</c>-guarded so
+/// the toggle is also a no-op in player builds.
+/// </summary>
+public enum NavDebugVisualization : byte
+{
+    None = 0,
+    CostField = 1,
+    PortalGraph = 2,
+    FlowVectors = 3,
+    AbstractAStarPath = 4,
+    All = 5,
 }
 
 public enum SpawnLayout
@@ -200,6 +243,25 @@ public static class GameSettings
     // Flow-field / A* toggles removed in PR3 — navmesh is the only path
     // source. PassabilityGrid stays for non-pathing queries (territorial
     // enclosures, spawn placement, building placement validation).
+
+    // ==================== Navigation Stack (task-112 M7) ====================
+
+    /// <summary>
+    /// task-112 M7 -- replay mode for <c>DeterminismReplaySystem</c>.
+    /// Defaults to <see cref="NavReplayMode.Off"/>; the Phase7Test
+    /// scenario flips it to <see cref="NavReplayMode.Record"/> /
+    /// <see cref="NavReplayMode.Replay"/> as appropriate.
+    /// </summary>
+    public static NavReplayMode NavReplayMode = NavReplayMode.Off;
+
+    /// <summary>
+    /// task-112 M7 -- debug visualization mode for
+    /// <c>NavDebugDrawSystem</c>. Editor-only; ignored in player builds.
+    /// </summary>
+    // Temporarily set to CostField so the tester can see which cells the
+    // CostFieldStampSystem is actually marking impassable. Flip back to
+    // .None once buildings/obstacles are verified to stamp correctly.
+    public static NavDebugVisualization NavDebugVisualization = NavDebugVisualization.CostField;
 
     // ==================== Multiplayer Settings ====================
 

@@ -205,6 +205,40 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // LAYERED (GROUND / WALL-TOP) MOVE COMMANDS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Move a unit to <paramref name="dest"/> on layer
+        /// <paramref name="targetLayer"/> (0 = Ground, 1 = Rampart). If the
+        /// unit isn't already on that layer it routes to the nearest wall
+        /// access point (gate / stair), LERPs across, then moves freely on the
+        /// target layer. See <see cref="LayeredMoveSystem"/>.
+        /// (Single-player path for now — not wired through lockstep queueing.)
+        /// </summary>
+        public static void IssueLayeredMove(EntityManager em, Entity unit, float3 dest,
+            byte targetLayer, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (unit == Entity.Null || !em.Exists(unit)) return;
+            if (IsBlockedByNotControllable(em, unit, source)) return;
+            if (em.HasComponent<BuildingTag>(unit)) return;
+
+            CommandHelper.ClearAllCommands(em, unit);
+
+            var order = new LayeredMoveOrder
+            {
+                FinalDest = dest,
+                TargetLayer = targetLayer,
+                Phase = 0,
+                Progress = 0f,
+            };
+            if (em.HasComponent<LayeredMoveOrder>(unit))
+                em.SetComponentData(unit, order);
+            else
+                em.AddComponentData(unit, order);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // BUILD COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -351,24 +385,6 @@ namespace TheWaningBorder.Core.Commands
             {
                 SetRallyPointDirect(em, building, position, targetEntity);
             }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // BATTALION STANCE COMMANDS
-        // ═══════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Set the stance on a battalion leader entity.
-        /// Stance controls how battalion members engage enemies.
-        /// </summary>
-        public static void IssueStanceChange(EntityManager em, Entity leader,
-            BattalionStance stance, CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (leader == Entity.Null || !em.Exists(leader)) return;
-            if (IsBlockedByNotControllable(em, leader, source)) return;
-            if (!em.HasComponent<BattalionStanceData>(leader)) return;
-
-            em.SetComponentData(leader, new BattalionStanceData { Value = stance });
         }
 
         // ═══════════════════════════════════════════════════════════════

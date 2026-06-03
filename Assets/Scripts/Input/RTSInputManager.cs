@@ -227,24 +227,6 @@ namespace TheWaningBorder.Input
                 IssueHoldPositionToSelection();
             }
 
-            // D - Set battalion stance to Aggressive (BFME2 layout)
-            if (UnityEngine.Input.GetKeyDown(KeyCode.D))
-            {
-                IssueStanceToSelection(BattalionStance.Aggressive);
-            }
-
-            // F - Set battalion stance to Default / Standard (BFME2 layout)
-            if (UnityEngine.Input.GetKeyDown(KeyCode.F))
-            {
-                IssueStanceToSelection(BattalionStance.Default);
-            }
-
-            // G - Set battalion stance to Defensive (BFME2 layout)
-            if (UnityEngine.Input.GetKeyDown(KeyCode.G))
-            {
-                IssueStanceToSelection(BattalionStance.Defensive);
-            }
-
             // B - Cycle through idle builders (workers with no BuildOrder/RepairOrder).
             // Each press selects the next idle builder of the local player faction
             // and centers the camera on it.
@@ -310,16 +292,7 @@ namespace TheWaningBorder.Input
             // sect Fire buttons in ReligionHUD don't use a mouse-targeting
             // mode (they fire at a fixed target / self position).
 
-            // Drag-to-preview formation: when the user has held right-mouse and
-            // dragged, FormationDragPreview takes over. Skip the instant move.
-            if (TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick)
-            {
-                TheWaningBorder.UI.HUD.FormationDragPreview.SuppressNextRightClick = false;
-                return;
-            }
-
-            // Fire on mouse-up so drag-preview can intercept hold gestures.
-            // A short click+release acts like the previous instant right-click.
+            // Right-click issues the move/attack on release.
             if (!UnityEngine.Input.GetMouseButtonUp(1)) return;
 
             var selection = SelectionSystem.CurrentSelection;
@@ -347,7 +320,6 @@ namespace TheWaningBorder.Input
                 {
                     if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
                     if (!IsOwnedByLocalPlayer(e)) continue;
-                    if (_em.HasComponent<BattalionMemberData>(e)) continue;
                     PlanningModeOverlay.AddPlan(e, cmdType, clickWorld);
                 }
                 return;
@@ -358,6 +330,15 @@ namespace TheWaningBorder.Input
             if (shift && !_attackMoveMode && !_patrolMode)
             {
                 QueueWaypointForSelection(clickWorld);
+                return;
+            }
+
+            // ── Right-click on the WALL TOP (rampart): order selected units
+            //    onto the wall. They route to the nearest access point, climb,
+            //    and move freely on the rampart. ──
+            if (!_attackMoveMode && !_patrolMode && TryGetRampartClick(out float3 rampartPoint))
+            {
+                IssueWallTopMove(rampartPoint);
                 return;
             }
 
@@ -451,6 +432,19 @@ namespace TheWaningBorder.Input
                     break;
 
                 case TargetType.FriendlyBuilding:
+                    // AoE4: right-click your own wall -> foot units garrison it
+                    // (route to stairs, climb, spread along the top). Segments
+                    // are data-only; skip those and under-construction walls.
+                    if (_em.HasComponent<WallTag>(target)
+                        && !_em.HasComponent<WallSegmentTag>(target)
+                        && !_em.HasComponent<UnderConstruction>(target)
+                        && _em.HasComponent<LocalTransform>(target))
+                    {
+                        var wp = _em.GetComponentData<LocalTransform>(target).Position;
+                        IssueWallTopMove(new float3(wp.x,
+                            TheWaningBorder.Systems.Navigation.LayerTransitionSystem.DeckY, wp.z));
+                        break;
+                    }
                     if (capabilities.CanBuildRepair && _em.HasComponent<UnderConstruction>(target))
                         IssueBuildCommands(target);
                     else if (capabilities.CanBuildRepair && IsBuildingDamaged(target))
@@ -489,6 +483,92 @@ namespace TheWaningBorder.Input
         // COMMAND ISSUANCE
         // ═══════════════════════════════════════════════════════════════════════
         
+        // True when the cursor is pointing at a WALL TOP. Collider-independent:
+        // projects the cursor ray onto the deck plane (y = DeckY) and checks
+        // whether that cell is walkable on the wall-deck layer. This makes the
+        // wall top clickable even though it has no dedicated top collider — the
+        // player just points at the wall and we test the deck-plane hit cell.
+        private bool TryGetRampartClick(out float3 rampartPoint)
+        {
+            rampartPoint = float3.zero;
+            var cam = Camera.main;
+            if (!cam) return false;
+
+            float deckY = TheWaningBorder.Systems.Navigation.LayerTransitionSystem.DeckY;
+            Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
+            if (Mathf.Abs(ray.direction.y) < 1e-5f) return false;
+            float t = (deckY - ray.origin.y) / ray.direction.y;
+            if (t <= 0f) return false; // deck plane is behind the camera
+
+            Vector3 hit = ray.origin + ray.direction * t;
+            var cell = TheWaningBorder.Systems.Navigation.NavGridQuery
+                .WorldToCellInt2(new float3(hit.x, deckY, hit.z));
+            if (cell.x == int.MinValue) return false;
+            // Wall-deck layer == 1; only a real wall-top cell is passable there.
+            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(cell, 1))
+                return false;
+
+            float3 c = TheWaningBorder.Systems.Navigation.NavGridQuery.GetCellWorldCenter(cell);
+            rampartPoint = new float3(c.x, deckY, c.z);
+            return true;
+        }
+
+        // AoE4 rule: only foot units (infantry / ranged) garrison walls —
+        // never cavalry, siege, villagers/builders/miners, or buildings.
+        private bool CanGarrisonWall(Entity e)
+        {
+            if (!_em.Exists(e) || !IsOwnedByLocalPlayer(e)) return false;
+            if (_em.HasComponent<BuildingTag>(e) || !_em.HasComponent<UnitTag>(e)) return false;
+            if (_em.HasComponent<CanBuild>(e) || _em.HasComponent<MinerTag>(e)) return false;
+            if (_em.HasComponent<CavalryTag>(e)) return false;
+            var cls = _em.GetComponentData<UnitTag>(e).Class;
+            if (cls == UnitClass.Siege || cls == UnitClass.Scout) return false;
+            return true;
+        }
+
+        // Detect the wall's "along" axis at a deck cell by sampling which
+        // direction (X vs Z) has more contiguous wall-deck cells. Used to
+        // spread garrisoning units along the wall (the debug-wall cubes have
+        // identity rotation, so we can't read orientation off the transform).
+        private float3 WallAlongAxis(float3 wallTopPoint)
+        {
+            var cell = TheWaningBorder.Systems.Navigation.NavGridQuery
+                .WorldToCellInt2(wallTopPoint);
+            if (cell.x == int.MinValue) return new float3(1f, 0f, 0f);
+            int xRun = 0, zRun = 0;
+            for (int k = 1; k <= 4; k++)
+            {
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x + k, cell.y), 1)) xRun++;
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x - k, cell.y), 1)) xRun++;
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x, cell.y + k), 1)) zRun++;
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x, cell.y - k), 1)) zRun++;
+            }
+            return xRun >= zRun ? new float3(1f, 0f, 0f) : new float3(0f, 0f, 1f);
+        }
+
+        // Order selected FOOT units onto the wall top, spread along the wall
+        // around the clicked point. LayeredMoveSystem routes each to the
+        // nearest friendly access (tower/gate) or a breach ramp, LERPs it up,
+        // then it walks the deck to its slot.
+        private void IssueWallTopMove(float3 wallTopPoint)
+        {
+            var units = new List<Entity>();
+            foreach (var e in SelectionSystem.CurrentSelection)
+                if (CanGarrisonWall(e)) units.Add(e);
+
+            int n = units.Count;
+            if (n == 0) return;
+
+            float3 along = WallAlongAxis(wallTopPoint);
+            for (int i = 0; i < n; i++)
+            {
+                float off = (i - (n - 1) * 0.5f) * formationSpacing;
+                float3 dest = wallTopPoint + along * off;
+                CommandRouter.IssueLayeredMove(_em, units[i], dest,
+                    NavLayerIndex.LayerRampart, CommandSource.LocalPlayer);
+            }
+        }
+
         private void IssueStopToSelection()
         {
             var selection = SelectionSystem.CurrentSelection;
@@ -501,8 +581,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
 
-                Entity unit = ResolveBattalionLeader(e);
-                if (unit == Entity.Null) continue;
+                Entity unit = e;
                 if (!issued.Add(unit)) continue;
 
                 CommandRouter.IssueStop(_em, unit, CommandSource.LocalPlayer);
@@ -521,43 +600,10 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
 
-                Entity unit = ResolveBattalionLeader(e);
-                if (unit == Entity.Null) continue;
+                Entity unit = e;
                 if (!issued.Add(unit)) continue;
 
                 CommandRouter.IssueHoldPosition(_em, unit, CommandSource.LocalPlayer);
-            }
-        }
-
-        private void IssueStanceToSelection(BattalionStance stance)
-        {
-            var selection = SelectionSystem.CurrentSelection;
-            if (selection == null || selection.Count == 0) return;
-
-            // Track leaders already processed to avoid duplicates
-            var processed = new HashSet<Entity>();
-
-            foreach (var e in selection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-
-                // Resolve to battalion leader
-                Entity leader = Entity.Null;
-                if (_em.HasComponent<BattalionLeader>(e))
-                {
-                    leader = e;
-                }
-                else if (_em.HasComponent<BattalionMemberData>(e))
-                {
-                    leader = _em.GetComponentData<BattalionMemberData>(e).Leader;
-                }
-
-                if (leader == Entity.Null || !_em.Exists(leader)) continue;
-                if (processed.Contains(leader)) continue;
-                processed.Add(leader);
-
-                CommandRouter.IssueStanceChange(_em, leader, stance, CommandSource.LocalPlayer);
             }
         }
 
@@ -582,8 +628,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
 
-                Entity unit = ResolveBattalionLeader(e);
-                if (unit == Entity.Null) continue;
+                Entity unit = e;
                 if (!issued.Add(unit)) continue; // Deduplicate leader commands
 
                 CommandRouter.IssueAttack(_em, unit, target, CommandSource.LocalPlayer);
@@ -829,8 +874,7 @@ namespace TheWaningBorder.Input
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (_em.HasComponent<BuildingTag>(e)) continue;
 
-                Entity unit = ResolveBattalionLeader(e);
-                if (unit == Entity.Null) continue;
+                Entity unit = e;
                 if (!issued.Add(unit)) continue;
 
                 CommandRouter.IssuePatrol(_em, unit, destination, CommandSource.LocalPlayer);
@@ -841,11 +885,11 @@ namespace TheWaningBorder.Input
         {
             var selection = SelectionSystem.CurrentSelection;
 
-            // Collect movable units with their positions and speeds (only owned units)
+            // Collect movable owned units with their positions and speeds.
             var units = new List<Entity>();
             var positions = new List<float3>();
             var speeds = new List<float>();
-            var addedLeaders = new HashSet<Entity>();
+            var added = new HashSet<Entity>();
 
             foreach (var e in selection)
             {
@@ -853,18 +897,14 @@ namespace TheWaningBorder.Input
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
                     continue;
+                if (!added.Add(e)) continue;
 
-                // Resolve battalion members to their leader (dedup)
-                Entity unit = ResolveBattalionLeader(e);
-                if (unit == Entity.Null) continue;
-                if (!addedLeaders.Add(unit)) continue;
-
-                units.Add(unit);
-                positions.Add(_em.HasComponent<LocalTransform>(unit)
-                    ? _em.GetComponentData<LocalTransform>(unit).Position
+                units.Add(e);
+                positions.Add(_em.HasComponent<LocalTransform>(e)
+                    ? _em.GetComponentData<LocalTransform>(e).Position
                     : float3.zero);
-                speeds.Add(_em.HasComponent<MoveSpeed>(unit)
-                    ? _em.GetComponentData<MoveSpeed>(unit).Value
+                speeds.Add(_em.HasComponent<MoveSpeed>(e)
+                    ? _em.GetComponentData<MoveSpeed>(e).Value
                     : 3.5f);
             }
 
@@ -880,7 +920,6 @@ namespace TheWaningBorder.Input
             moveDir.y = 0f;
             if (math.lengthsq(moveDir) < 0.01f)
             {
-                // Click is on top of selection — keep current camera-forward fallback
                 var cam0 = Camera.main;
                 Vector3 cf = cam0
                     ? Vector3.ProjectOnPlane(cam0.transform.forward, Vector3.up).normalized
@@ -888,66 +927,39 @@ namespace TheWaningBorder.Input
                 moveDir = new float3(cf.x, 0f, cf.z);
             }
             moveDir = math.normalize(moveDir);
-
-            // Right vector lies in the horizontal plane, perpendicular to moveDir
             float3 rightDir = math.cross(new float3(0f, 1f, 0f), moveDir);
 
-            // ── Per-unit footprint (width × depth) ──
-            float[] widths = new float[count];
-            float[] depths = new float[count];
-            float maxBattalionWidth = formationSpacing;
-            float maxBattalionDepth = formationSpacing;
-            for (int i = 0; i < count; i++)
-            {
-                if (_em.HasComponent<BattalionLeader>(units[i]))
-                {
-                    var bl = _em.GetComponentData<BattalionLeader>(units[i]);
-                    widths[i] = bl.Columns * bl.Spacing + 1.5f;
-                    depths[i] = bl.Rows * bl.Spacing + 1.5f;
-                }
-                else
-                {
-                    widths[i] = formationSpacing;
-                    depths[i] = formationSpacing;
-                }
-                if (widths[i] > maxBattalionWidth) maxBattalionWidth = widths[i];
-                if (depths[i] > maxBattalionDepth) maxBattalionDepth = depths[i];
-            }
-
-            // ── Square-ish grid layout ──
-            // cols = ceil(sqrt(N)), rows = ceil(N/cols). Front rows fill first
-            // so the back row may be partial and gets centered.
-            //   N=2 → 2×1 (front=2)
-            //   N=3 → 2×2 (front=2, back=1 centered)
-            //   N=5 → 3×2 (front=3, back=2)
-            //   N=6 → 3×2 (front=3, back=3)
+            // ── Square-ish grid layout: cols = ceil(sqrt(N)), front rows fill
+            // first so a partial back row is centred. Slot spacing is the
+            // configured formationSpacing (all units are individual now, so a
+            // uniform slot pitch — no per-battalion footprint). ──
+            float slotPitch = formationSpacing;
             int cols = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
             int rows = Mathf.Max(1, Mathf.CeilToInt(count / (float)cols));
             int[] rowCount = new int[rows];
-            int remainingForLayout = count;
+            int remaining = count;
             for (int r = 0; r < rows; r++)
             {
-                rowCount[r] = Mathf.Min(cols, remainingForLayout);
-                remainingForLayout -= rowCount[r];
+                rowCount[r] = Mathf.Min(cols, remaining);
+                remaining -= rowCount[r];
             }
 
-            // Build slot world positions. Slot index = sequential (front-to-back, left-to-right).
             var slots = new float3[count];
             int[] slotRow = new int[count];
-            int[] slotCol = new int[count];   // col within its row
-            int[] slotsInRow = new int[count]; // total cols in this slot's row
+            int[] slotCol = new int[count];
+            int[] slotsInRow = new int[count];
             int slotIdx = 0;
             for (int r = 0; r < rows; r++)
             {
                 int rc = rowCount[r];
-                float rowWidth = rc * maxBattalionWidth;
-                float startOffset = -rowWidth * 0.5f + maxBattalionWidth * 0.5f;
+                float rowWidth = rc * slotPitch;
+                float startOffset = -rowWidth * 0.5f + slotPitch * 0.5f;
                 for (int c = 0; c < rc; c++)
                 {
-                    float lateralOffset = startOffset + c * maxBattalionWidth;
+                    float lateralOffset = startOffset + c * slotPitch;
                     slots[slotIdx] = clickWorld
                                    + rightDir * lateralOffset
-                                   - moveDir * (r * maxBattalionDepth);
+                                   - moveDir * (r * slotPitch);
                     slotRow[slotIdx] = r;
                     slotCol[slotIdx] = c;
                     slotsInRow[slotIdx] = rc;
@@ -955,41 +967,38 @@ namespace TheWaningBorder.Input
                 }
             }
 
-            // ── Categorize slots and battalions by tactical role ──
-            //   Back   = back rows (ranged / siege / support / magic)
-            //   Wing   = leftmost / rightmost slot of the front row (cavalry)
-            //   Front  = front-row interior (melee)
-            // Role values are deliberately gapped so role-mismatch dominates distance.
+            // ── Role of each slot: front-row interior = Front, front-row edges
+            // = Wing, back rows = Back. Role values gapped so role mismatch
+            // dominates distance in the assignment cost. ──
             const float ROLE_PENALTY = 1_000_000f;
             int[] slotRole = new int[count];
             for (int s = 0; s < count; s++)
             {
-                if (slotRow[s] > 0) slotRole[s] = 2;                            // Back
+                if (slotRow[s] > 0) slotRole[s] = 2;                       // Back
                 else if (slotsInRow[s] > 1
                          && (slotCol[s] == 0 || slotCol[s] == slotsInRow[s] - 1))
-                    slotRole[s] = 1;                                            // Wing
-                else slotRole[s] = 0;                                           // Front
+                    slotRole[s] = 1;                                       // Wing
+                else slotRole[s] = 0;                                      // Front
             }
 
-            int[] leaderRole = new int[count];
-            for (int l = 0; l < count; l++)
-                leaderRole[l] = ClassifyLeaderRole(units[l]);
+            int[] unitRole = new int[count];
+            for (int i = 0; i < count; i++) unitRole[i] = ClassifyUnitRole(units[i]);
 
-            // ── Greedy assignment with role-mismatch penalty ──
-            // Distance is the tiebreaker WITHIN a role; role match wins overall.
-            int[] leaderToSlot = new int[count];
+            // ── Greedy assignment: role match wins overall, distance is the
+            // tie-break within a role. ──
+            int[] unitToSlot = new int[count];
             bool[] slotUsed = new bool[count];
-            for (int i = 0; i < count; i++) leaderToSlot[i] = -1;
+            for (int i = 0; i < count; i++) unitToSlot[i] = -1;
 
-            var pairs = new List<(int leader, int slot, float cost)>(count * count);
-            for (int l = 0; l < count; l++)
+            var pairs = new List<(int unit, int slot, float cost)>(count * count);
+            for (int u = 0; u < count; u++)
             for (int s = 0; s < count; s++)
             {
-                float3 d = slots[s] - positions[l];
+                float3 d = slots[s] - positions[u];
                 d.y = 0f;
                 float cost = math.lengthsq(d);
-                if (slotRole[s] != leaderRole[l]) cost += ROLE_PENALTY;
-                pairs.Add((l, s, cost));
+                if (slotRole[s] != unitRole[u]) cost += ROLE_PENALTY;
+                pairs.Add((u, s, cost));
             }
             pairs.Sort((a, b) => a.cost.CompareTo(b.cost));
 
@@ -997,60 +1006,67 @@ namespace TheWaningBorder.Input
             for (int p = 0; p < pairs.Count && assigned < count; p++)
             {
                 var pair = pairs[p];
-                if (leaderToSlot[pair.leader] != -1) continue;
+                if (unitToSlot[pair.unit] != -1) continue;
                 if (slotUsed[pair.slot]) continue;
-                leaderToSlot[pair.leader] = pair.slot;
+                unitToSlot[pair.unit] = pair.slot;
                 slotUsed[pair.slot] = true;
                 assigned++;
             }
 
-            // Compute distances + slowest speed using the assigned mapping
+            // Slowest speed across the group so everyone advances together.
             float slowestSpeed = float.MaxValue;
-            float maxDist = 0f;
             for (int i = 0; i < count; i++)
-            {
-                int sIdx = leaderToSlot[i];
-                if (sIdx < 0) sIdx = i; // fallback (shouldn't happen)
-                float3 to = slots[sIdx] - positions[i];
-                to.y = 0f;
-                float d = math.length(to);
                 if (speeds[i] > 0 && speeds[i] < slowestSpeed) slowestSpeed = speeds[i];
-                if (d > maxDist) maxDist = d;
-            }
-
             if (slowestSpeed <= 0f || slowestSpeed == float.MaxValue)
                 slowestSpeed = 3.5f;
 
-            // Each battalion should face the original move direction, not its
-            // own slot's direction (so all formations face the same way after
-            // arrival, side-by-side in a tidy line).
-            quaternion sharedFacing = quaternion.LookRotationSafe(moveDir, new float3(0f, 1f, 0f));
-
-            // Issue moves — all units move at the slowest speed (BFME2 group move)
+            // ── Issue per-unit moves to assigned slots. Each unit pathfinds
+            // independently (cost-field collision); the slot just gives it a
+            // distinct destination so the group lands in formation. ──
             for (int i = 0; i < count; i++)
             {
-                int sIdx = leaderToSlot[i];
+                int sIdx = unitToSlot[i];
                 if (sIdx < 0) sIdx = i;
-                CommandRouter.IssueMove(_em, units[i], slots[sIdx], CommandSource.LocalPlayer);
 
-                // Override DestinationRot so battalions face the move direction,
-                // not the angle from their start to their slot. MoveCommandHelper
-                // sets DestinationRot from delta; we replace it with the shared
-                // facing for a clean side-by-side line.
-                if (_em.HasComponent<BattalionLeader>(units[i]))
+                // Units currently on the rampart descend via the layered move
+                // (route to an access point, climb down, then move on the
+                // ground); ground units take the normal move.
+                bool onRampart = _em.HasComponent<NavLayerIndex>(units[i])
+                    && _em.GetComponentData<NavLayerIndex>(units[i]).Layer == NavLayerIndex.LayerRampart;
+                if (onRampart)
                 {
-                    var bl = _em.GetComponentData<BattalionLeader>(units[i]);
-                    bl.DestinationRot = sharedFacing;
-                    bl.HasDestinationRot = 1;
-                    bl.NeedsReassignment = 1;
-                    _em.SetComponentData(units[i], bl);
+                    CommandRouter.IssueLayeredMove(_em, units[i], slots[sIdx],
+                        0, CommandSource.LocalPlayer);
+                    continue;
                 }
+
+                CommandRouter.IssueMove(_em, units[i], slots[sIdx], CommandSource.LocalPlayer);
 
                 if (_em.HasComponent<FormationSpeedOverride>(units[i]))
                     _em.SetComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
                 else
                     _em.AddComponentData(units[i], new FormationSpeedOverride { Value = slowestSpeed });
             }
+        }
+
+        /// <summary>
+        /// Classify a unit into a formation role:
+        ///   0 = Front (melee — front-row interior)
+        ///   1 = Wing  (cavalry — front-row edges)
+        ///   2 = Back  (ranged / siege / support / magic — back rows)
+        /// </summary>
+        private int ClassifyUnitRole(Entity e)
+        {
+            if (_em.HasComponent<CavalryTag>(e)) return 1; // Wing
+            if (_em.HasComponent<UnitTag>(e))
+            {
+                var c = _em.GetComponentData<UnitTag>(e).Class;
+                if (c == UnitClass.Ranged || c == UnitClass.Siege
+                    || c == UnitClass.Support || c == UnitClass.Magic)
+                    return 2; // Back
+                if (c == UnitClass.Melee) return 0; // Front
+            }
+            return 0; // default to Front
         }
 
         /// <summary>
@@ -1067,7 +1083,6 @@ namespace TheWaningBorder.Input
             {
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
-                if (_em.HasComponent<BattalionMemberData>(e)) continue;
 
                 if (!_em.HasBuffer<QueuedCommand>(e))
                     _em.AddBuffer<QueuedCommand>(e);
@@ -1110,9 +1125,6 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e))
                     continue;
                 if (!IsOwnedByLocalPlayer(e))
-                    continue;
-                // Battalion members follow formation automatically; only route to leader
-                if (_em.HasComponent<BattalionMemberData>(e))
                     continue;
 
                 units.Add(e);
@@ -1290,8 +1302,8 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
 
-                // Can attack if has Damage component or is a battalion leader
-                if (_em.HasComponent<Damage>(e) || _em.HasComponent<BattalionLeader>(e))
+                // Can attack if it has a Damage component
+                if (_em.HasComponent<Damage>(e))
                     caps.CanAttack = true;
 
                 // Can gather if is a miner
@@ -1332,60 +1344,6 @@ namespace TheWaningBorder.Input
         {
             if (!_em.HasComponent<FactionTag>(e)) return false;
             return _em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction;
-        }
-
-        /// <summary>
-        /// Classify a leader (or individual unit) into a formation role:
-        ///   0 = Front  (melee — front-row interior)
-        ///   1 = Wing   (cavalry — front-row edges)
-        ///   2 = Back   (ranged / siege / support / magic — back rows)
-        /// Looks at the first alive battalion member or the unit itself.
-        /// </summary>
-        private int ClassifyLeaderRole(Entity unit)
-        {
-            // Helper to read a single entity's role
-            int FromEntity(Entity e)
-            {
-                if (_em.HasComponent<CavalryTag>(e)) return 1; // Wing
-                if (_em.HasComponent<UnitTag>(e))
-                {
-                    var c = _em.GetComponentData<UnitTag>(e).Class;
-                    if (c == UnitClass.Ranged || c == UnitClass.Siege
-                        || c == UnitClass.Support || c == UnitClass.Magic)
-                        return 2; // Back
-                    if (c == UnitClass.Melee) return 0; // Front
-                }
-                return 0; // default to Front
-            }
-
-            // Battalion leader: classify by first alive member
-            if (_em.HasComponent<BattalionLeader>(unit) && _em.HasBuffer<BattalionMember>(unit))
-            {
-                var members = _em.GetBuffer<BattalionMember>(unit);
-                for (int i = 0; i < members.Length; i++)
-                {
-                    var m = members[i].Value;
-                    if (m == Entity.Null || !_em.Exists(m)) continue;
-                    if (_em.HasComponent<Health>(m)
-                        && _em.GetComponentData<Health>(m).Value <= 0) continue;
-                    return FromEntity(m);
-                }
-            }
-            return FromEntity(unit);
-        }
-
-        /// <summary>
-        /// If entity is a battalion member, resolve to its leader.
-        /// Returns the entity unchanged if it's not a member.
-        /// Returns Entity.Null if the leader doesn't exist.
-        /// </summary>
-        private Entity ResolveBattalionLeader(Entity e)
-        {
-            if (!_em.HasComponent<BattalionMemberData>(e)) return e;
-            var memberData = _em.GetComponentData<BattalionMemberData>(e);
-            if (memberData.Leader == Entity.Null || !_em.Exists(memberData.Leader))
-                return Entity.Null;
-            return memberData.Leader;
         }
 
         /// <summary>

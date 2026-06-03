@@ -659,7 +659,6 @@ namespace TheWaningBorder.AI
             {
                 if (facs[i].Value != faction) continue;
                 if (!IsCombatClass(tags[i].Class)) continue;
-                if (em.HasComponent<BattalionMemberData>(ents[i])) continue;
                 n++;
             }
             return n;
@@ -754,7 +753,6 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value != faction) continue;
                 if (!IsCombatClass(tags[i].Class)) continue;
                 Entity e = ents[i];
-                if (em.HasComponent<BattalionMemberData>(e)) continue;       // leader-only
                 if (em.HasComponent<UnderConstruction>(e)) continue;
                 // Already on a mission or carrying out another order — leave alone.
                 if (em.HasComponent<AttackMoveTag>(e)) continue;

@@ -4,7 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
-using TheWaningBorder.Systems.Movement;
+using TheWaningBorder.Systems.Navigation;
 using Cost = TheWaningBorder.Core.Cost;
 
 namespace TheWaningBorder.Systems.Economy
@@ -17,9 +17,12 @@ namespace TheWaningBorder.Systems.Economy
     /// 2. Accumulate supplies (1 per 2 distance) and crystal (1 per 15 distance)
     /// 3. On arrival: deposit integer amounts, keep fractional remainder
     /// 4. Pick new random destination and repeat
+    ///
+    /// task-112 M4: UpdateAfter migrated from MovementSystem (deleted) to
+    /// UnitIntegratorSystem.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(MovementSystem))]
+    [UpdateAfter(typeof(UnitIntegratorSystem))]
     public partial struct TraderMovementSystem : ISystem
     {
         private const float SuppliesPerDistance = 0.5f;   // 1 supply per 2 distance

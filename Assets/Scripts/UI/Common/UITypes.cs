@@ -122,7 +122,6 @@ public struct EntityQueueSlot
         VaultManagement,
         UnitTrainingAndResearch,
         TempleUpgrade,
-        BattalionStance,
         WallInstanceUpgrade,
         BazaarWagonUnpack,
         // task-109 phase 2 — per-hut age-up choice (Wall Hub / Watch Tower).

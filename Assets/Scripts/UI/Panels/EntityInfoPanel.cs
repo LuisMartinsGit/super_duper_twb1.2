@@ -186,34 +186,6 @@ namespace TheWaningBorder.UI.Panels
                     GUILayout.Label($"Speed: {info.Speed.Value:F1}", Styles.Label);
             }
 
-            // Battalion stance display
-            {
-                var stanceEntity = UnifiedUIManager.GetFirstSelectedEntity();
-                var stanceEm = UnifiedUIManager.GetEntityManager();
-                if (stanceEntity != Entity.Null && !stanceEm.Equals(default(EntityManager)))
-                {
-                    Entity stanceLeader = Entity.Null;
-                    if (stanceEm.HasComponent<BattalionLeader>(stanceEntity))
-                        stanceLeader = stanceEntity;
-                    else if (stanceEm.HasComponent<BattalionMemberData>(stanceEntity))
-                        stanceLeader = stanceEm.GetComponentData<BattalionMemberData>(stanceEntity).Leader;
-
-                    if (stanceLeader != Entity.Null && stanceEm.Exists(stanceLeader)
-                        && stanceEm.HasComponent<BattalionStanceData>(stanceLeader))
-                    {
-                        var stance = stanceEm.GetComponentData<BattalionStanceData>(stanceLeader).Value;
-                        string stanceLabel = stance switch
-                        {
-                            BattalionStance.Defensive => "Defensive",
-                            BattalionStance.Default => "Default",
-                            BattalionStance.Aggressive => "Aggressive",
-                            _ => "Unknown"
-                        };
-                        GUILayout.Label($"Stance: {stanceLabel}", Styles.Label);
-                    }
-                }
-            }
-
             // Resource generation (buildings)
             if (info.HasResourceGeneration)
             {
@@ -521,13 +493,11 @@ namespace TheWaningBorder.UI.Panels
 
             PanelVisible = true;
 
-            // Build stable ordered list (battalion leaders first, then individual units, then buildings)
-            // and skip battalion members (their leader represents them).
+            // Build stable ordered list (units, then buildings).
             _orderedSelection.Clear();
             foreach (var e in allEntities)
             {
                 if (!em.Exists(e)) continue;
-                if (em.HasComponent<BattalionMemberData>(e)) continue;
                 _orderedSelection.Add(e);
             }
             if (_orderedSelection.Count == 0) return;
@@ -679,26 +649,6 @@ namespace TheWaningBorder.UI.Panels
             if (em.HasComponent<ArcherTag>(entity)) return "A";
             if (em.HasComponent<MinerTag>(entity)) return "M";
             if (em.HasComponent<CanBuild>(entity)) return "B";
-            if (em.HasComponent<BattalionLeader>(entity))
-            {
-                if (em.HasBuffer<BattalionMember>(entity))
-                {
-                    var members = em.GetBuffer<BattalionMember>(entity);
-                    for (int i = 0; i < members.Length; i++)
-                    {
-                        var m = members[i].Value;
-                        if (m == Entity.Null || !em.Exists(m)) continue;
-                        if (em.HasComponent<ArcherTag>(m)) return "A";
-                        if (em.HasComponent<UnitTag>(m))
-                        {
-                            var ut = em.GetComponentData<UnitTag>(m);
-                            if (ut.Class == UnitClass.Siege) return "S";
-                            return "Sw"; // Swordsman/melee
-                        }
-                    }
-                }
-                return "B";
-            }
             if (em.HasComponent<UnitTag>(entity))
             {
                 var ut = em.GetComponentData<UnitTag>(entity);
@@ -720,42 +670,14 @@ namespace TheWaningBorder.UI.Panels
 
             var info = EntityInfoExtractor.GetDisplayInfo(entity, em);
 
-            // Name + battalion size (alive/total)
             string headerLine = info.Name;
-            if (em.HasComponent<BattalionLeader>(entity) && em.HasBuffer<BattalionMember>(entity))
-            {
-                var members = em.GetBuffer<BattalionMember>(entity);
-                int alive = 0;
-                int total = members.Length;
-                for (int i = 0; i < members.Length; i++)
-                {
-                    var m = members[i].Value;
-                    if (m == Entity.Null || !em.Exists(m)) continue;
-                    if (!em.HasComponent<Health>(m)) continue;
-                    if (em.GetComponentData<Health>(m).Value > 0) alive++;
-                }
-                headerLine = $"{info.Name}  ({alive}/{total} units)";
-            }
 
             var nameStyle = new GUIStyle(Styles.Label) { fontStyle = FontStyle.Bold };
             GUILayout.Label(headerLine, nameStyle);
 
-            // HP bar (sum of members for battalions, else single entity HP)
+            // HP bar
             int curHp = 0, maxHp = 0;
-            if (em.HasComponent<BattalionLeader>(entity) && em.HasBuffer<BattalionMember>(entity))
-            {
-                var members = em.GetBuffer<BattalionMember>(entity);
-                for (int i = 0; i < members.Length; i++)
-                {
-                    var m = members[i].Value;
-                    if (m == Entity.Null || !em.Exists(m)) continue;
-                    if (!em.HasComponent<Health>(m)) continue;
-                    var h = em.GetComponentData<Health>(m);
-                    curHp += (int)h.Value;
-                    maxHp += (int)h.Max;
-                }
-            }
-            else if (em.HasComponent<Health>(entity))
+            if (em.HasComponent<Health>(entity))
             {
                 var h = em.GetComponentData<Health>(entity);
                 curHp = (int)h.Value; maxHp = (int)h.Max;
@@ -765,19 +687,10 @@ namespace TheWaningBorder.UI.Panels
 
             GUILayout.Space(4f);
 
-            // Combat stats — gather from leader's first alive member if battalion
+            // Combat stats
             int? attack = null, defense = null;
             float? speed = null;
             Entity statSrc = entity;
-            if (em.HasComponent<BattalionLeader>(entity) && em.HasBuffer<BattalionMember>(entity))
-            {
-                var members = em.GetBuffer<BattalionMember>(entity);
-                for (int i = 0; i < members.Length; i++)
-                {
-                    var m = members[i].Value;
-                    if (m != Entity.Null && em.Exists(m)) { statSrc = m; break; }
-                }
-            }
             if (em.HasComponent<Damage>(statSrc)) attack = em.GetComponentData<Damage>(statSrc).Value;
             if (em.HasComponent<Defense>(statSrc))
             {
@@ -805,19 +718,6 @@ namespace TheWaningBorder.UI.Panels
                 GUILayout.EndHorizontal();
             }
 
-            // Battalion stance
-            if (em.HasComponent<BattalionStanceData>(entity))
-            {
-                var stance = em.GetComponentData<BattalionStanceData>(entity).Value;
-                string stanceLabel = stance switch
-                {
-                    BattalionStance.Defensive => "Defensive",
-                    BattalionStance.Default => "Default",
-                    BattalionStance.Aggressive => "Aggressive",
-                    _ => "Unknown"
-                };
-                GUILayout.Label($"Stance: {stanceLabel}", Styles.SmallLabel);
-            }
         }
 
         private class UnitGroupInfo

@@ -529,10 +529,12 @@ namespace TheWaningBorder.Presentation
             if (mc == null) mc = gameObject.AddComponent<MeshCollider>();
             mc.sharedMesh = mesh;
 
-            // NavMesh static obstacle marker — picked up by NavMeshManager's
-            // initial bake so the cliff geometry routes pathing around itself.
-            if (GetComponent<TheWaningBorder.Systems.Movement.NavMeshStaticObstacle>() == null)
-                gameObject.AddComponent<TheWaningBorder.Systems.Movement.NavMeshStaticObstacle>();
+            // task-112 M4: NavMeshStaticObstacle marker deleted with the
+            // rest of the NavMesh stack. Cliffs no longer feed the pathing
+            // system as a Mesh source -- the new cost field stamps
+            // BuildingTag / ObstacleTag entities directly via
+            // BuildingCostStampSystem, and cliffs that need to block
+            // movement should carry an ObstacleTag instead.
         }
 
         // ────────────────────────────────────────────────────────────────────

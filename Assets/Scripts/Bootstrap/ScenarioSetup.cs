@@ -101,6 +101,27 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.AlanthorVsCrystal:
                     SpawnAlanthorVsCrystal(em);
                     break;
+                case ScenarioType.Phase1Test:
+                    Phase1TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.Phase2Test:
+                    Phase2TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.Phase3Test:
+                    Phase3TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.Phase4Test:
+                    Phase4TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.Phase5Test:
+                    Phase5TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.Phase7Test:
+                    Phase7TestSetup.SpawnScenarioEntities(em);
+                    break;
+                case ScenarioType.WallClimbTest:
+                    WallClimbTestSetup.SpawnScenarioEntities(em);
+                    break;
             }
 
             GameCamera.FocusOn(Vector3.zero, instant: true);
@@ -161,24 +182,18 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void SpawnHealerTest(EntityManager em)
         {
-            // Spawn a Swordsman battalion at center
-            float3 battalionPos = new float3(0, 0, 0);
-            battalionPos.y = TerrainUtility.GetHeight(battalionPos.x, battalionPos.z);
-            Entity leader = BattalionFactory.SpawnBattalion(em, "Swordsman", battalionPos, Faction.Blue);
-
-            // Set all members to 50% HP
-            if (em.HasBuffer<BattalionMember>(leader))
+            // Spawn a cluster of Swordsmen at center, each at 50% HP, for the
+            // Litharch to heal.
+            for (int i = 0; i < 9; i++)
             {
-                var members = em.GetBuffer<BattalionMember>(leader);
-                for (int i = 0; i < members.Length; i++)
+                float3 pos = new float3((i % 3) * 1.5f - 1.5f, 0, (i / 3) * 1.5f - 1.5f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                Entity unit = UnitFactory.Create(em, "Swordsman", pos, Faction.Blue);
+                if (em.HasComponent<Health>(unit))
                 {
-                    var member = members[i].Value;
-                    if (em.Exists(member) && em.HasComponent<Health>(member))
-                    {
-                        var hp = em.GetComponentData<Health>(member);
-                        hp.Value = hp.Max / 2;
-                        em.SetComponentData(member, hp);
-                    }
+                    var hp = em.GetComponentData<Health>(unit);
+                    hp.Value = hp.Max / 2;
+                    em.SetComponentData(unit, hp);
                 }
             }
 
@@ -229,12 +244,12 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
-        /// Issue attack-move toward a destination for all battalion leaders of the given faction.
+        /// Issue attack-move toward a destination for all units of the given faction.
         /// </summary>
         private static void AttackMoveAllBattalions(EntityManager em, Faction faction, float3 destination)
         {
             var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BattalionLeader>(),
+                ComponentType.ReadOnly<UnitTag>(),
                 ComponentType.ReadOnly<FactionTag>()
             );
 
@@ -1014,13 +1029,13 @@ namespace TheWaningBorder.Bootstrap
                     float z = (faction == Faction.Blue) ? -row * RowSpacing : row * RowSpacing;
                     float3 pos = center + new float3(x, 0, z);
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                    BattalionFactory.SpawnBattalion(em, unitId, pos, faction);
+                    UnitFactory.Create(em, unitId, pos, faction);
                 }
             }
         }
 
         /// <summary>
-        /// Spawn a single row of battalions centered on the given position.
+        /// Spawn a single row of units centered on the given position.
         /// </summary>
         private static void SpawnArmyRow(EntityManager em, string unitId, Faction faction,
             int count, float3 center)
@@ -1030,7 +1045,7 @@ namespace TheWaningBorder.Bootstrap
                 float x = (col - (count - 1) * 0.5f) * ArmySpacing;
                 float3 pos = center + new float3(x, 0, 0);
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                BattalionFactory.SpawnBattalion(em, unitId, pos, faction);
+                UnitFactory.Create(em, unitId, pos, faction);
             }
         }
     }

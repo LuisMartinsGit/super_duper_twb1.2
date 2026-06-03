@@ -108,19 +108,8 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
 
                 // Archers cannot fire while moving — enforce mutual exclusion.
-                // Individual archers: check own DesiredDestination.
-                // Battalion members: check leader's DesiredDestination (battalion is marching).
                 bool isMoving = false;
-                if (em.HasComponent<BattalionMemberData>(entity))
-                {
-                    var md = em.GetComponentData<BattalionMemberData>(entity);
-                    if (md.Leader != Entity.Null && em.Exists(md.Leader)
-                        && em.HasComponent<DesiredDestination>(md.Leader))
-                    {
-                        isMoving = em.GetComponentData<DesiredDestination>(md.Leader).Has != 0;
-                    }
-                }
-                else if (em.HasComponent<DesiredDestination>(entity))
+                if (em.HasComponent<DesiredDestination>(entity))
                 {
                     isMoving = em.GetComponentData<DesiredDestination>(entity).Has != 0;
                 }
@@ -145,13 +134,6 @@ namespace TheWaningBorder.Systems.Combat
                 // =============================================================================
                 if (dist < minRange)
                 {
-                    // Battalion members do NOT retreat independently
-                    if (em.HasComponent<BattalionMemberData>(entity))
-                    {
-                        archer.AimTimer = 0;
-                        continue;
-                    }
-
                     archer.IsRetreating = 1;
                     archer.AimTimer = 0;
 
@@ -183,8 +165,8 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     archer.IsRetreating = 0;
 
-                    // Stop moving when in range (skip battalion members — no DesiredDestination)
-                    if (!em.HasComponent<BattalionMemberData>(entity) && em.HasComponent<DesiredDestination>(entity))
+                    // Stop moving when in range
+                    if (em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                     }
@@ -199,34 +181,11 @@ namespace TheWaningBorder.Systems.Combat
                     // multiplier bridge. Phase 2 reintroduces per-sect levers.
                     float effectiveAimRequired = archer.AimTimeRequired;
 
-                    // Siege units must face the center of the enemy battalion they are attacking
+                    // Siege units rotate to face their target before firing.
                     bool isSiege = em.HasComponent<SiegeTag>(entity);
-                    float3 siegeAimPos = targetPos; // fallback to individual target
+                    float3 siegeAimPos = targetPos;
                     if (isSiege)
                     {
-                        // Find enemy battalion center to aim at
-                        if (em.HasComponent<BattalionMemberData>(tgt.Value))
-                        {
-                            var tgtLeader = em.GetComponentData<BattalionMemberData>(tgt.Value).Leader;
-                            if (em.Exists(tgtLeader) && em.HasBuffer<BattalionMember>(tgtLeader))
-                            {
-                                var eBuf = em.GetBuffer<BattalionMember>(tgtLeader);
-                                float3 sum = float3.zero;
-                                int cnt = 0;
-                                for (int bi = 0; bi < eBuf.Length; bi++)
-                                {
-                                    var bm = eBuf[bi].Value;
-                                    if (bm != Entity.Null && em.Exists(bm) && em.HasComponent<LocalTransform>(bm)
-                                        && em.HasComponent<Health>(bm) && em.GetComponentData<Health>(bm).Value > 0)
-                                    {
-                                        sum += em.GetComponentData<LocalTransform>(bm).Position;
-                                        cnt++;
-                                    }
-                                }
-                                if (cnt > 0) siegeAimPos = sum / cnt;
-                            }
-                        }
-
                         float3 toTarget = siegeAimPos - myPos;
                         toTarget.y = 0;
                         float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
@@ -234,7 +193,7 @@ namespace TheWaningBorder.Systems.Combat
                         if (math.lengthsq(toTarget) > 0.01f && math.lengthsq(forward) > 0.01f)
                         {
                             float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
-                            // Always rotate toward battalion center (LookAt)
+                            // Always rotate toward the target (LookAt)
                             float3 dir = math.normalizesafe(toTarget);
                             quaternion targetRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
                             var xf = em.GetComponentData<LocalTransform>(entity);
@@ -312,7 +271,7 @@ namespace TheWaningBorder.Systems.Combat
                         bool isAOE = em.HasComponent<AOEShooterData>(entity);
                         float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
 
-                        // Siege units (ballistas): fire 3 bolts aimed at enemy battalion center
+                        // Siege units (ballistas): fire 3 bolts aimed at the target
                         int shotCount = isSiege ? 3 : 1;
                         float3 aimPos = isSiege ? siegeAimPos : targetPos;
                         float aimDist = isSiege ? math.distance(myPos, siegeAimPos) : dist;
@@ -356,10 +315,6 @@ namespace TheWaningBorder.Systems.Combat
 
                     archer.IsRetreating = 0;
                     archer.AimTimer = 0;
-
-                    // Battalion members: BattalionSyncSystem handles movement, skip DesiredDestination
-                    if (em.HasComponent<BattalionMemberData>(entity))
-                        continue;
 
                     // Move to a position just inside max range, not all the way to target
                     float3 toTarget = targetPos - myPos;

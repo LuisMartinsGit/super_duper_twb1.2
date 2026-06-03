@@ -129,19 +129,10 @@ namespace TheWaningBorder.Systems.Training
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
                         int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId);
 
-                        // Sect units are SPECIAL — always train as single units, never battalions
+                        // Sect units never get the Feraldis double-spawn.
                         bool isSectUnit = unitId.StartsWith("Sect_");
 
-                        // Battalions spawn multiple members — scale pop cost accordingly
-                        var spawnClass = UnitFactory.GetUnitClass(unitId);
-                        bool spawnAsBattalion = !isSectUnit && (spawnClass == UnitClass.Melee || spawnClass == UnitClass.Ranged);
-                        if (spawnAsBattalion)
-                        {
-                            int battalionSize = 5 * 3; // BattalionFactory.DefaultColumns * DefaultRows
-                            requiredPop = requiredPop * battalionSize;
-                        }
-
-                        // Feraldis culture: spawn 2 units/battalions at once (1.75x cost already paid at queue time)
+                        // Feraldis culture: spawn 2 units at once (1.75x cost already paid at queue time)
                         byte factionCulture = FactionColors.GetFactionCulture(faction);
                         int spawnCount = (factionCulture == Cultures.Feraldis && !isSectUnit) ? 2 : 1;
                         requiredPop *= spawnCount;
@@ -260,29 +251,9 @@ namespace TheWaningBorder.Systems.Training
                 }
             }
 
-            // Check if unit class should spawn as a battalion (Melee or Ranged)
-            // Sect units are SPECIAL — always single units, never battalions
-            bool isSect = unitId.StartsWith("Sect_");
-            var unitClass = UnitFactory.GetUnitClass(unitId);
-            if (!isSect && (unitClass == UnitClass.Melee || unitClass == UnitClass.Ranged))
-            {
-                Entity leader = BattalionFactory.SpawnBattalion(em, unitId, finalPos, faction);
-                TechEffectSystem.ApplyCompletedTechEffects(em, leader, faction);
-                // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed
-                // with the old multiplier bridge. Phase 2's per-sect, per-lever
-                // dispatchers will reintroduce on-spawn sect effects.
-
-                // Rally point handling for leader
-                if (hasRally)
-                {
-                    em.SetComponentData(leader, new DesiredDestination { Position = rallyTarget, Has = 1 });
-                    em.SetComponentData(leader, new GuardPoint { Position = rallyTarget, Has = 1 });
-                }
-
-                return;
-            }
-
-            // Create individual unit via centralized UnitFactory (economy, siege, support, etc.)
+            // All units spawn as individual entities via the centralized
+            // UnitFactory. (Battalions removed — every trained unit is a
+            // standalone, fully-pathfinding unit.)
             Entity unit = UnitFactory.Create(em, unitId, finalPos, faction);
 
             // Apply all completed tech effects to the newly spawned unit

@@ -200,8 +200,6 @@ namespace TheWaningBorder.UI.HUD
         private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false, bool isHovered = false)
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
-            if (_em.HasComponent<BattalionLeader>(e)) return;  // invisible dummy HP
-            if (_em.HasComponent<BattalionMemberData>(e) && !isSelected && !isHovered) return;
 
             // Resource nodes (iron deposits, crystal cadavers) render an amber
             // depletion bar instead of the standard Health bar. They don't carry

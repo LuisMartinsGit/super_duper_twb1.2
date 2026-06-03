@@ -69,3 +69,16 @@ public struct LastDamagedByFaction : IComponentData
 {
     public Faction Value;
 }
+
+/// <summary>
+/// Set on a unit when it takes damage. Records the attacking entity.
+/// Read by the Sect kill-credit systems (Antiquity tally, Justice mark,
+/// Veneration fervor), CrystalMainNode, and the combat UI. Written by
+/// CombatDamageHelper / ProjectileSystem on each hit; cleared by
+/// TargetingSystem when the attacker no longer exists.
+/// (Relocated here when the battalion system was removed.)
+/// </summary>
+public struct LastAttackerEntity : IComponentData
+{
+    public Entity Value;
+}

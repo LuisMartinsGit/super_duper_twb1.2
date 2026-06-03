@@ -2,6 +2,7 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
+using TheWaningBorder.Systems.Navigation;
 
 namespace TheWaningBorder.Systems.Movement
 {
@@ -12,17 +13,14 @@ namespace TheWaningBorder.Systems.Movement
     /// this system advances to the next waypoint in the PatrolWaypoint buffer and sets
     /// a new DesiredDestination so the unit keeps moving back and forth.
     ///
-    /// Runs after MovementSystem (which clears DesiredDestination on arrival)
-    /// and before TargetingSystem (which handles auto-targeting for patrol units).
-    ///
-    /// PatrolTag units are treated like AttackMoveTag units by TargetingSystem:
-    /// they auto-acquire enemies within LOS while moving. After combat ends,
-    /// TargetingSystem's return-to-guard logic resumes movement toward the
-    /// current patrol waypoint via GuardPoint.
+    /// task-112 M4: UpdateAfter migrated from MovementSystem (deleted) to
+    /// UnitIntegratorSystem. Behaviour unchanged: still runs after the
+    /// per-tick movement integration (so DesiredDestination.Has == 0 on
+    /// arrival is observable) and before TargetingSystem.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(MovementSystem))]
+    [UpdateAfter(typeof(UnitIntegratorSystem))]
     [UpdateBefore(typeof(Combat.TargetingSystem))]
     public partial struct PatrolSystem : ISystem
     {

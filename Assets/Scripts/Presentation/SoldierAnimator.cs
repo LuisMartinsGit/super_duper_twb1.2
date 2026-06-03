@@ -192,20 +192,6 @@ namespace TheWaningBorder.Presentation
                     isMoving = true;
             }
 
-            // Battalion member: check leader's destination
-            if (!isMoving && _em.HasComponent<BattalionMemberData>(Entity))
-            {
-                var memberData = _em.GetComponentData<BattalionMemberData>(Entity);
-                var leader = memberData.Leader;
-                if (leader != Entity.Null && _em.Exists(leader) &&
-                    _em.HasComponent<DesiredDestination>(leader))
-                {
-                    var leaderDest = _em.GetComponentData<DesiredDestination>(leader);
-                    if (leaderDest.Has == 1)
-                        isMoving = true;
-                }
-            }
-
             // Fallback: position delta
             if (!isMoving)
             {

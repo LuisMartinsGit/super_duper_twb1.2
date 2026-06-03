@@ -19,7 +19,6 @@ using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Research;
-using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.Multiplayer;
 using TheWaningBorder.UI.Web;
 
@@ -80,14 +79,6 @@ namespace TheWaningBorder.Bootstrap
             yield return null;
 
             EnsureECSWorld();
-
-            // Battalion test mode: minimal bootstrap.
-            if (GameSettings.Mode == GameMode.BattalionTest)
-            {
-                InitializeDataSystems();
-                PathfindingTestSetup.Bootstrap();
-                yield break;
-            }
 
             bool isScenario = GameSettings.Mode == GameMode.Scenario;
             if (isScenario)
@@ -260,8 +251,6 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
-            managersGO.AddComponent<FormationPreview>();        // Formation preview arrows at destination
-            managersGO.AddComponent<FormationDragPreview>();    // Right-click-hold formation preview (rows + rotation)
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
             var legacyInGameMenu = managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC) — statics used by HudBridge even when component is disabled
             var legacyEndGame = managersGO.AddComponent<EndGameButton>();              // End Game button
@@ -439,7 +428,17 @@ namespace TheWaningBorder.Bootstrap
                 dnGO.AddComponent<TheWaningBorder.World.DayNightCycle>();
             }
 
-            // Create passability grid for flow-field pathfinding (needs terrain)
+            // Create passability grid for non-pathing queries (territorial
+            // enclosure scans, spawn placement, building placement validation).
+            // task-112 M4: pathing has been moved to the new flow-field
+            // stack (NavGridBootstrapSystem / NavCostField / NavGridQuery);
+            // PassabilityGrid stays alive for the queries that aren't
+            // pathing per the architecture's section 4.5.
+            // M8-followup: PassabilityGrid still owns terrain-reachability
+            // BFS, geometric Minkowski-sum, and line-of-sight sampling that
+            // NavGridQuery doesn't yet replicate. Full migration deferred
+            // to a follow-up task; see docs/Technical_Reference_Navigation.md
+            // "Future cleanup".
             var existingGrid = Object.FindFirstObjectByType<PassabilityGrid>();
             if (existingGrid == null)
             {
@@ -447,14 +446,10 @@ namespace TheWaningBorder.Bootstrap
                 gridGO.AddComponent<PassabilityGrid>();
             }
 
-            // NavMeshManager: adopts the scene's pre-baked navmesh (hand-crafted
-            // maps) and owns RequestPath / SnapToNavMesh.
-            var existingNMM = Object.FindFirstObjectByType<NavMeshManager>();
-            if (existingNMM == null)
-            {
-                var nmmGO = new GameObject("NavMeshManager");
-                nmmGO.AddComponent<NavMeshManager>();
-            }
+            // task-112 M4: NavMeshManager GameObject spawn deleted with the
+            // rest of the NavMesh stack. The new flow-field stack
+            // (NavGridBootstrapSystem) is an ECS system -- no GameObject
+            // bootstrap needed; it auto-instantiates with the default world.
 
             // Initialize fog of war if enabled (disabled for Observer - they see everything)
             if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)

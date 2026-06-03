@@ -40,10 +40,10 @@ namespace TheWaningBorder.Bootstrap
             if (_menuCreated) return;
             if (Object.FindFirstObjectByType<MainMenuUI>() != null) return;
 
-            
+
             var menuGO = new GameObject("MainMenuUI");
             menuGO.AddComponent<MainMenuUI>();
-            
+
             _menuCreated = true;
         }
     }

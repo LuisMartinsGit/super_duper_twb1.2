@@ -1498,17 +1498,11 @@ namespace TheWaningBorder.UI.Web
             if (em == null) return;
             var emm = em.Value;
 
-            // Filter out battalion leaders — they carry an invisible dummy HP
-            // component, so the player must see the members instead. The
-            // SelectionSystem keeps the leader bundled with its members for
-            // command-dispatch purposes, but the HUD always summarises a
-            // battalion via the members themselves.
             _filteredSel.Clear();
             for (int i = 0; i < sel.Count; i++)
             {
                 var e = sel[i];
                 if (!emm.Exists(e)) continue;
-                if (emm.HasComponent<BattalionLeader>(e)) continue;
                 _filteredSel.Add(e);
             }
             if (_filteredSel.Count == 0)

@@ -51,9 +51,6 @@ namespace TheWaningBorder.Systems.Combat
                 if (health.ValueRO.Value > 0) continue;
                 if (applied.ValueRO.Value != EquipmentTier.Glow) continue;
                 if (faction.ValueRO.Value == Faction.Curse) continue;
-                // BattalionLeaders are aggregate entities — let the leader die
-                // without dropping (members below have their own equipment).
-                if (em.HasComponent<BattalionLeader>(entity)) continue;
 
                 dropPositions.Add(transform.ValueRO.Position);
                 dropClasses.Add(unitTag.ValueRO.Class);

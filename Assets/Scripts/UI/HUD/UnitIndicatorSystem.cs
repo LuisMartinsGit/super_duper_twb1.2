@@ -149,9 +149,6 @@ namespace TheWaningBorder.UI.HUD
                 var entity = entities[i];
                 if (_indicators.ContainsKey(entity)) continue;
 
-                // Skip battalion leaders (invisible)
-                if (_em.HasComponent<BattalionLeader>(entity)) continue;
-
                 // Only create if the entity has a visual GameObject
                 if (!EntityViewManager.Instance.TryGetView(entity, out _)) continue;
 
@@ -275,13 +272,6 @@ namespace TheWaningBorder.UI.HUD
             if (_em.HasComponent<DesiredDestination>(entity))
             {
                 isMoving = _em.GetComponentData<DesiredDestination>(entity).Has != 0;
-            }
-            // Battalion members don't have DesiredDestination — check if leader is moving
-            else if (_em.HasComponent<BattalionMemberData>(entity))
-            {
-                var leader = _em.GetComponentData<BattalionMemberData>(entity).Leader;
-                if (_em.Exists(leader) && _em.HasComponent<DesiredDestination>(leader))
-                    isMoving = _em.GetComponentData<DesiredDestination>(leader).Has != 0;
             }
 
             if (hasTarget && !isMoving)

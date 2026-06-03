@@ -4,6 +4,7 @@
 // Spawned at runtime by GameBootstrap. Owns the UWB WebBrowserUIBasic and
 // exposes a thin Push() API used by HudBridge to ship game state to JS.
 
+using System.Globalization;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,8 +37,14 @@ namespace TheWaningBorder.UI.Web
         public int canvasSortOrder = 100;
 
         [Tooltip("CEF render resolution. Higher = sharper text but more GPU/CPU. " +
-                 "Set to your typical play resolution; 1920×1080 is a safe default.")]
-        public Vector2Int browserResolution = new(1920, 1080);
+                 "The HUD is stretched to fill the screen, so a 16:9 value avoids " +
+                 "distortion. 2560×1440 is sharp on 1080p (supersampled) and much " +
+                 "sharper on 4K than 1080p; set 3840×2160 for pixel-perfect 4K. " +
+                 "A CSS zoom of height/1080 is applied so the HUD keeps its size.")]
+        public Vector2Int browserResolution = new(2560, 1440);
+
+        // Logical design height the HUD CSS was authored against (fixed px).
+        const float DesignHeight = 1080f;
 
         [Tooltip("Windowless frame rate cap. 60 gives the HUD one CEF frame per " +
                  "snapshot at 30Hz push and matches typical 60Hz monitor refresh " +
@@ -179,6 +186,46 @@ namespace TheWaningBorder.UI.Web
 
             TWBLog.Log($"[HudWebController] LoadUrl → {_hudUrl}");
             _client.LoadUrl(_hudUrl);
+
+            // The HUD CSS is fixed-px for a 1080-tall canvas; at a taller render
+            // resolution it would appear smaller. A CSS zoom of height/1080 keeps
+            // its on-screen size while gaining sharpness. OnClientConnected may
+            // run off the main thread, so we only set a flag here and let Update
+            // (main thread) apply the zoom. This NEVER touches the render
+            // resolution, so it can't reproduce the earlier blank-out.
+            _zoomPending = browserResolution.y > DesignHeight + 0.5f;
+        }
+
+        bool _zoomPending;
+        float _zoomElapsed;
+        float _zoomTick;
+
+        void Update()
+        {
+            if (!_zoomPending) return;
+
+            _zoomElapsed += Time.unscaledDeltaTime;
+            _zoomTick += Time.unscaledDeltaTime;
+
+            // Re-apply every 0.4s for the first 5s to beat the about:blank → HUD
+            // navigation (an early style write is dropped when the page loads).
+            if (_zoomTick >= 0.4f)
+            {
+                _zoomTick = 0f;
+                if (_client != null && _client.IsConnected)
+                {
+                    float zoom = Mathf.Max(0.1f, browserResolution.y / DesignHeight);
+                    string zs = zoom.ToString("0.####", CultureInfo.InvariantCulture);
+                    try
+                    {
+                        _client.ExecuteJs(
+                            $"try{{document.documentElement.style.zoom='{zs}';}}catch(e){{}}");
+                    }
+                    catch { /* not ready yet */ }
+                }
+            }
+
+            if (_zoomElapsed >= 5f) _zoomPending = false;
         }
 
         // file:// URL pointing at the bundled HUD inside StreamingAssets. We

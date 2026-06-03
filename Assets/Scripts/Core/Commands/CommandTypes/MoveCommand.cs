@@ -6,7 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using TheWaningBorder.Systems.Movement;
+using TheWaningBorder.Systems.Navigation;
 
 namespace TheWaningBorder.Core.Commands.Types
 {
@@ -38,48 +38,79 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit)) return;
 
-            // Battalion members are positioned by BattalionSyncSystem — never give them movement state
-            if (em.HasComponent<BattalionMemberData>(unit)) return;
+            // A move order on a wall-garrisoning unit brings it back DOWN off
+            // the rampart so it can leave the wall: drop to the ground layer,
+            // snap y to terrain, and clear any garrison order/state.
+            if (em.HasComponent<NavLayerIndex>(unit))
+            {
+                var nli = em.GetComponentData<NavLayerIndex>(unit);
+                if (nli.Layer == NavLayerIndex.LayerRampart)
+                {
+                    nli.Layer = 0;
+                    em.SetComponentData(unit, nli);
+                    if (em.HasComponent<LocalTransform>(unit))
+                    {
+                        var dxf = em.GetComponentData<LocalTransform>(unit);
+                        dxf.Position = new float3(
+                            dxf.Position.x,
+                            TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(dxf.Position.x, dxf.Position.z),
+                            dxf.Position.z);
+                        em.SetComponentData(unit, dxf);
+                    }
+                }
+            }
+            if (em.HasComponent<LayeredMoveOrder>(unit)) em.RemoveComponent<LayeredMoveOrder>(unit);
 
-            // Snap the destination onto the navmesh. An off-navmesh click (water,
-            // cliff, inside an obstacle) would otherwise fail to produce a path,
-            // dropping the unit into straight-line steering that ignores the
-            // navmesh. Snapping to the nearest navmesh point guarantees
-            // NavMeshPathRequestSystem can compute a real corridor that routes
-            // around obstacles / unpathable areas. On-navmesh clicks are
-            // unchanged (they sample to themselves).
-            var nmm = NavMeshManager.Instance;
-            if (nmm != null && nmm.IsBaked)
-                destination = nmm.SnapToNavMesh(destination, MoveTargetSnapRadius);
+            // task-112 M3: snap onto the nearest walkable cell on the cost
+            // field via NavGridQuery -- replaces the legacy NavMeshManager
+            // snap from M1/M2. NavGridQuery walks a deterministic
+            // row-major ring around the click cell so two callers on
+            // different machines pick the same snap target.
+            NavGridQuery.SnapToWalkable(destination, out var snapped, out var snapOk);
+            if (snapOk)
+                destination = snapped;
+
+            // task-112 M3: emit a NavPathRequest on the unit so
+            // AbstractPathfinderSystem produces a NavPathResult + buffer
+            // this tick. Replaces the M1 NavFlowGoalRequest tag emit.
+            //
+            // Reset any prior NavPathResult/NavPathPortal so the follower
+            // does NOT keep walking the previous goal's cached flow slabs
+            // while the new path is in the scheduler queue (the M6 budget
+            // can release new requests several ticks later). Without this
+            // a unit that already arrived at its previous goal reports
+            // ignoring the next click for the length of that scheduler
+            // delay -- visually indistinguishable from "movement orders
+            // are being dropped".
+            if (em.HasComponent<NavPathResult>(unit))
+            {
+                em.SetComponentData(unit, new NavPathResult
+                {
+                    Status = NavPathRequest.StatusPending,
+                    Length = 0,
+                    CurrentPortalIndex = -1,
+                    Generation = 0,
+                });
+            }
+            if (em.HasBuffer<NavPathPortal>(unit))
+            {
+                em.GetBuffer<NavPathPortal>(unit).Clear();
+            }
+            // Force FlowDesiredDir to stop so the follower doesn't sample a
+            // stale cache slab pointing at the old goal until the new path
+            // resolves. SteeringSystem reads FlowDesiredDir as its forward
+            // bias -- with HasValue=0 it leaves the unit at rest, which is
+            // the correct behaviour for "you clicked, but the new path
+            // hasn't computed yet".
+            if (em.HasComponent<FlowDesiredDir>(unit))
+            {
+                em.SetComponentData(unit, new FlowDesiredDir { HasValue = 0, Value = float3.zero });
+            }
+
+            EmitNavPathRequest(em, unit, destination);
 
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
-
-            // Battalion leader: also clear member combat state. ClearConflictingCommands
-            // only nulls the leader's Target/AttackCommand, but member Targets persist —
-            // the battalion would resume firing at the old target as soon as it stops.
-            if (em.HasComponent<BattalionLeader>(unit) && em.HasBuffer<BattalionMember>(unit))
-            {
-                var membersBuf = em.GetBuffer<BattalionMember>(unit);
-                int memberCount = membersBuf.Length;
-                var memberEntities = new NativeArray<Entity>(memberCount, Allocator.Temp);
-                for (int i = 0; i < memberCount; i++)
-                    memberEntities[i] = membersBuf[i].Value;
-
-                for (int i = 0; i < memberCount; i++)
-                {
-                    var m = memberEntities[i];
-                    if (m == Entity.Null || !em.Exists(m)) continue;
-                    if (em.HasComponent<Target>(m))
-                        em.SetComponentData(m, new Target { Value = Entity.Null });
-                    if (em.HasComponent<AttackCommand>(m))
-                        em.RemoveComponent<AttackCommand>(m);
-                }
-                memberEntities.Dispose();
-
-                if (em.HasComponent<BattalionAttackTarget>(unit))
-                    em.RemoveComponent<BattalionAttackTarget>(unit);
-            }
 
             // Add MoveCommand for MovementSystem to process
             if (!em.HasComponent<MoveCommand>(unit))
@@ -112,24 +143,6 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
                 else
                     em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
-
-            // Battalion leader: store destination facing so formation rotates to match preview on arrival
-            if (em.HasComponent<BattalionLeader>(unit))
-            {
-                float3 currentPos = em.HasComponent<LocalTransform>(unit)
-                    ? em.GetComponentData<LocalTransform>(unit).Position
-                    : destination;
-                float3 dir = destination - currentPos;
-                dir.y = 0;
-                if (math.lengthsq(dir) < 0.01f)
-                    dir = new float3(0, 0, 1);
-                dir = math.normalize(dir);
-                var bl = em.GetComponentData<BattalionLeader>(unit);
-                bl.DestinationRot = quaternion.LookRotationSafe(dir, new float3(0, 1, 0));
-                bl.HasDestinationRot = 1;
-                bl.NeedsReassignment = 1;
-                em.SetComponentData(unit, bl);
-            }
         }
 
         /// <summary>
@@ -143,6 +156,50 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<BuildingTag>(unit)) return false;
             
             return true;
+        }
+
+        /// <summary>
+        /// task-112 M3 / M6: enqueue a path request via the
+        /// <c>NavRequestSchedulerSystem</c> so the pathfinder picks it
+        /// up on the next tick. Replaces the M3 direct-attach path
+        /// with the M6 budgeted scheduler -- duplicate requests sharing
+        /// the same (goal, profile) coalesce and only consume one
+        /// per-tick budget slot.
+        ///
+        /// Resolves start/goal cells via NavGridQuery so the request
+        /// carries integer cells, not world coordinates -- the pathfinder
+        /// works in cell coordinates throughout. Silently skips when the
+        /// grid singleton hasn't been bootstrapped yet (the unit's first
+        /// MoveCommand may race past initialisation); the scheduler
+        /// helper falls back to the M3 direct-attach in that window.
+        /// </summary>
+        private static void EmitNavPathRequest(EntityManager em, Entity unit, float3 destination)
+        {
+            if (!em.Exists(unit) || !em.HasComponent<LocalTransform>(unit)) return;
+            var transform = em.GetComponentData<LocalTransform>(unit);
+
+            var startCell = NavGridQuery.WorldToCellInt2(transform.Position);
+            var goalCell = NavGridQuery.WorldToCellInt2(destination);
+            if (startCell.x == int.MinValue || goalCell.x == int.MinValue) return;
+
+            // Pull the current graph generation so the pathfinder can
+            // reject stale requests after a graph swap (CCD-5).
+            int generation = 0;
+            var portalQuery = em.CreateEntityQuery(typeof(PortalGraphSingleton));
+            if (!portalQuery.IsEmptyIgnoreFilter)
+            {
+                generation = portalQuery.GetSingleton<PortalGraphSingleton>().Generation;
+            }
+            portalQuery.Dispose();
+
+            // task-112 M6 -- enqueue via the scheduler's
+            // NavRequestQueueSingleton. The helper falls back to
+            // direct-attach when the singleton hasn't bootstrapped yet
+            // (race with first frame).
+            NavRequestSchedulerSystem.EnqueueRequest(em, unit,
+                startCell, goalCell, profileHash: 0,
+                priority: PendingNavRequest.PriorityUser,
+                generation: generation);
         }
 
         private static void ClearConflictingCommands(EntityManager em, Entity unit)

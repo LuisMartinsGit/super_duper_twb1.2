@@ -34,17 +34,6 @@ namespace TheWaningBorder.Bootstrap
                 yield return null;
             }
 
-            // PathfindingTest mode short-circuits the normal bootstrap.
-            if (GameSettings.Mode == GameMode.PathfindingTest)
-            {
-                PathfindingTestSetup.Bootstrap();
-                GameCamera.FocusOn(Vector3.zero, instant: true);
-                LoadingScreen.SetProgress(1f);
-                LoadingScreen.NotifyReady();
-                Destroy(gameObject);
-                yield break;
-            }
-
             // Bootstrap phases — each one yields a frame so the progress
             // bar can repaint between heavy synchronous calls, and the
             // status text gives the player a sense of what's happening.

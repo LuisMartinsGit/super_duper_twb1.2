@@ -342,6 +342,13 @@ namespace TheWaningBorder.UI.Menus
                 ("Crystal Curse Combat Test", ScenarioType.CurseCombatTest),
                 ("Patrol Defense (6 Veilstingers vs Wave)", ScenarioType.PatrolDefense),
                 ("Alanthor vs Crystal Horde (6 batt. vs 50)", ScenarioType.AlanthorVsCrystal),
+                ("Phase 1 Nav Test (1 unit flat grid)", ScenarioType.Phase1Test),
+                ("Phase 2 Nav Test (300 swords flow + steering)", ScenarioType.Phase2Test),
+                ("Phase 3 Nav Test (1 unit 512x512 SW->NE)", ScenarioType.Phase3Test),
+                ("Phase 4 Nav Test (50 swords + wall place/destroy)", ScenarioType.Phase4Test),
+                ("Phase 5 Nav Test (wall ring + 10 Blue + 10 Red)", ScenarioType.Phase5Test),
+                ("Phase 7 Nav Test (determinism replay 100 units)", ScenarioType.Phase7Test),
+                ("Wall Climb Test (stairs + rampart garrison)", ScenarioType.WallClimbTest),
             };
 
             float contentH = (ButtonHeight + ButtonSpacing) * scenarios.Length;
@@ -527,7 +534,16 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.TotalPlayers = 2;
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
-            LoadingScreen.Show(GameSceneName);
+            // FIX: the hard-coded "Game" scene constant is NOT in
+            // MapRegistry.Maps, so GameBootstrap.OnSceneLoadedHandler's
+            // IsGameplayScene gate rejects it and the entire bootstrap
+            // (camera, factions, HUD, terrain) is skipped. Skirmish works
+            // because it loads GameSettings.SelectedMapScene which defaults
+            // to the registered map. Route scenarios through the same.
+            string sceneName = !string.IsNullOrEmpty(GameSettings.SelectedMapScene)
+                ? GameSettings.SelectedMapScene
+                : TheWaningBorder.Core.Maps.MapRegistry.Default.SceneName;
+            LoadingScreen.Show(sceneName);
         }
 
         private void SetState(MenuState newState)

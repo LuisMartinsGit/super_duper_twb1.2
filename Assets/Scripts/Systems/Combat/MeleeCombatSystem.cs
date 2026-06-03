@@ -226,15 +226,7 @@ namespace TheWaningBorder.Systems.Combat
                         continue;
                     }
 
-                    // Battalion members: BattalionSyncSystem moves them toward their
-                    // target directly (MovementSystem excludes BattalionMemberData).
-                    // Keep target so they attack once BattalionSyncSystem positions them.
-                    if (em.HasComponent<BattalionMemberData>(entity))
-                    {
-                        continue;
-                    }
-
-                    // Non-battalion units: chase via DesiredDestination.
+                    // Chase via DesiredDestination.
                     //
                     // For wide targets (buildings whose radius exceeds the attacker's
                     // melee range), aim at the EDGE of the target rather than its

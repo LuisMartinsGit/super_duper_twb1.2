@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Systems.Navigation;
 
 namespace TheWaningBorder.Systems.Movement
 {
@@ -12,7 +13,7 @@ namespace TheWaningBorder.Systems.Movement
     /// pops the next QueuedCommand and issues it via existing command helpers.
     /// Removes CommandQueueActive when the buffer is empty.
     /// Skips entities tagged CommandQueueFrozen (Shift held — see RTSInputManager).
-    /// Runs before MovementSystem so queued commands set DesiredDestination before movement.
+    /// Runs before UnitIntegratorSystem (M4 successor to MovementSystem) so queued commands set DesiredDestination before movement.
     ///
     /// Earlier this code mutated archetypes inside the SystemAPI.Query foreach
     /// — `em.RemoveComponent&lt;CommandQueueActive&gt;` on empty buffers, and the
@@ -24,7 +25,7 @@ namespace TheWaningBorder.Systems.Movement
     /// finished. (task-062 Q-5)
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(MovementSystem))]
+    [UpdateBefore(typeof(UnitIntegratorSystem))]
     public partial struct CommandQueueSystem : ISystem
     {
         private enum DispatchKind : byte
