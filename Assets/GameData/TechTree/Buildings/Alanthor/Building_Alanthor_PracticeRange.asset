@@ -28,7 +28,7 @@ MonoBehaviour:
   trains:
   - 'Archer'
   - 'Alanthor_Crossbowman'
-  - 'Longbowman'
+  - 'Alanthor_Longbowman'
   research: []
   minEra: 0
   cost:
@@ -86,7 +86,7 @@ MonoBehaviour:
     trains:
     - 'Archer'
     - 'Alanthor_Crossbowman'
-    - 'Longbowman'
+    - 'Alanthor_Longbowman'
     availableUpgrades:
     - 'SeasonedArchers'
     - 'VeteranArchers'
@@ -266,22 +266,22 @@ MonoBehaviour:
     requires: ''
     effects:
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 0
       amount: 50
       ability: ''
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 1
       amount: 3
       ability: ''
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 2
       amount: 2
       ability: ''
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 3
       amount: 2
       ability: ''
@@ -308,7 +308,7 @@ MonoBehaviour:
       amount: 30
       ability: ''
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 4
       amount: 30
       ability: ''
@@ -335,7 +335,7 @@ MonoBehaviour:
       amount: 50
       ability: ''
     - kind: 0
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 4
       amount: 50
       ability: ''
@@ -362,7 +362,7 @@ MonoBehaviour:
       amount: 0
       ability: 'DeployStakes'
     - kind: 1
-      unit: 'Longbowman'
+      unit: 'Alanthor_Longbowman'
       stat: 0
       amount: 0
       ability: 'DeployStakes'

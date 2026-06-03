@@ -26,7 +26,7 @@ MonoBehaviour:
   radius: 2.4
   lineOfSight: 18
   trains:
-  - 'Swordsman'
+  - 'Spearman'
   - 'Archer'
   research: []
   minEra: 0

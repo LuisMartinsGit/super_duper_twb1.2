@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Unit_Alanthor_Longbowman
   m_EditorClassIdentifier: 
-  id: 'Longbowman'
+  id: 'Alanthor_Longbowman'
   displayName: 'Longbowman'
   unitClass: 'human_ranged'
   hp: 55
