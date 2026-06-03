@@ -366,14 +366,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // Hall (100), Hut (102) and Barracks (510) are handled by the
-        // culture-aware ProceduralBuildingGenerator dispatcher below — see
-        // CreateHall / CreateHut / CreateBarracks there. (The hand-authored
-        // *_base prefab path is shelved for now; revert here when restoring.)
-
-        // Vault (530) now goes through the culture-aware ProceduralBuildingGenerator
-        // dispatcher below — see CreateVault there. The local CreateProceduralVault
-        // is now dead code (kept for reference, may be removed in a later cleanup).
+        // Units & standard buildings (Hall/Hut/Barracks/Vault/etc.) now get their visual
+        // from the prefab on their SO (resolved by PresentationId via TechCatalog), with a
+        // cube/capsule fallback — see the prefab resolution near the end of this method.
+        // The walls / obstacles / crystal-node / curse-tile branches above keep their own
+        // dedicated visuals.
 
         // === CRYSTAL CURSE: per-tile glowing voxel block cluster (task-111
         // Iteration 2 — SineVFX "Living Particles" reference).
@@ -391,14 +388,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == CursedGroundPresentationId)
         {
             var go = ProceduralCurseShardGenerator.Create(pos, entity, _em);
-            return go;
-        }
-
-        // === SOLDIER UNIT: procedural humanoid from primitives ===
-        if (presentationId == 201) // Swordsman
-        {
-            var go = SoldierModelBuilder.Create(pos, entity);
-            ApplyFactionColor(go, entity);
             return go;
         }
 
@@ -425,14 +414,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             var faction = _em.GetComponentData<FactionTag>(entity).Value;
             buildingCulture = FactionColors.GetFactionCulture(faction);
-        }
-
-        // Handle PresentationId 355 which is shared between Runai TradingPost and Alanthor Practice Range
-        if (presentationId == 355)
-        {
-            bool isAlanthor = _em.HasComponent<PracticeRangeTag>(entity);
-            var go355 = ProceduralBuildingGenerator.Create355(pos, entity, isAlanthor);
-            if (go355 != null) return FinishProceduralBuilding(go355, entity, transform);
         }
 
         // === BUILDING PREFABS (Hall / Barracks / Hut, level 0 OR 1) ===
@@ -505,25 +486,21 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             }
         }
 
-        // Try procedural generation for all known building types
-        {
-            var procGo = ProceduralBuildingGenerator.TryCreate(presentationId, pos, entity, buildingCulture);
-            if (procGo != null) return FinishProceduralBuilding(procGo, entity, transform);
-        }
-
-        // === PROCEDURAL UNITS: unique generated visuals for all unit types ===
-        {
-            var unitGo = ProceduralUnitGenerator.TryCreate(presentationId, pos, entity);
-            if (unitGo != null) return FinishProceduralUnit(unitGo, entity, presentationId, transform);
-        }
-
+        // Procedural unit/building generation has been removed — visuals now come from the
+        // prefab referenced on the entity's SO (resolved by PresentationId via TechCatalog),
+        // falling back to a primitive cube/capsule when no prefab is assigned.
 
         GameObject prefab = null;
 
-        // Culture-specific override (e.g. Alanthor Barracks) takes priority over the
-        // default per-id prefab. Falls through to PrefabPaths if no override exists or
-        // the override prefab fails to load.
-        if (CulturePrefabOverrides.TryGetValue((presentationId, buildingCulture), out string culturePath))
+        // Authoritative visual: the prefab referenced on this entity's SO (under GameData).
+        // Null prefab (or no SO for this PresentationId) falls through to the ID-range
+        // cube/capsule fallback below.
+        if (TechCatalog.TryGetPrefab(presentationId, out var soPrefab))
+            prefab = soPrefab;
+
+        // (Legacy) culture-specific Resources override, kept as a secondary source.
+        if (prefab == null &&
+            CulturePrefabOverrides.TryGetValue((presentationId, buildingCulture), out string culturePath))
         {
             prefab = Resources.Load<GameObject>(culturePath);
         }
@@ -1029,15 +1006,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             int pid = presentations[i].Id;
 
-            // A culture-aware rebuild is needed when the building has either a
-            // procedural variant (ProceduralBuildingGenerator handles it) or a
-            // culture-specific prefab override (e.g. Alanthor Barracks).
-            bool hasProceduralVariant;
-            {
-                var testGo = ProceduralBuildingGenerator.TryCreate(pid, Vector3.zero, entity, culture);
-                hasProceduralVariant = testGo != null;
-                if (testGo != null) Destroy(testGo);
-            }
+            // Procedural generation has been removed — there are no procedural variants.
+            // A culture-aware rebuild is only needed for a culture-specific prefab override.
+            bool hasProceduralVariant = false;
             bool hasCultureOverride = CulturePrefabOverrides.ContainsKey((pid, culture));
 
             if (!hasProceduralVariant && !hasCultureOverride)

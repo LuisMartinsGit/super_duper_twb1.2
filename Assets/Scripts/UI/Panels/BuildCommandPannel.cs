@@ -290,22 +290,12 @@ namespace TheWaningBorder.UI.Panels
             else
             {
 
-            // Try procedural generation first
+            // Preview uses the building's SO prefab (resolved by PresentationId). Null falls
+            // through to the prefab switch / placeholder cube below.
             GameObject procPreview = null;
-            if (previewPid > 0)
+            if (previewPid > 0 && TechCatalog.TryGetPrefab(previewPid, out var soPrev) && soPrev != null)
             {
-                // Handle shared PresentationId 355 by checking BuildType directly
-                if (previewPid == 355)
-                {
-                    bool isAlanthor = (_currentBuild == BuildType.AlanthorPracticeRange);
-                    procPreview = ProceduralBuildingGenerator.Create355(
-                        Vector3.zero, Entity.Null, isAlanthor);
-                }
-                else
-                {
-                    procPreview = ProceduralBuildingGenerator.TryCreate(
-                        previewPid, Vector3.zero, Entity.Null, playerCulture);
-                }
+                procPreview = Instantiate(soPrev);
             }
 
             if (procPreview != null)
