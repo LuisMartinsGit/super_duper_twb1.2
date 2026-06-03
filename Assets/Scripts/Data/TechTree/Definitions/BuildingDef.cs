@@ -3,6 +3,7 @@
 // Part of: Data/TechTree/Definitions/
 
 using System;
+using System.Collections.Generic;
 
 namespace TheWaningBorder.Data
 {
@@ -46,6 +47,14 @@ namespace TheWaningBorder.Data
         /// <summary>Buildings this can upgrade / transform into (e.g. the three cultured forms
         /// at age-up: Alanthor / Runai / Feraldis). Empty = none.</summary>
         public string[] canUpgradeTo;
+
+        // ==================== Level Ladder / Attack ====================
+        /// <summary>The building's own ranged auto-fire attack (base / non-leveled buildings).</summary>
+        public BuildingAttack attack;
+        /// <summary>Per-level config (trains / upgrades / attack). Empty = single-level building.</summary>
+        public List<BuildingLevel> levels;
+        /// <summary>Pool of unit-upgrade defs referenced by BuildingLevel.availableUpgrades.</summary>
+        public List<UnitUpgrade> unitUpgrades;
 
         // ==================== Helpers ====================
         

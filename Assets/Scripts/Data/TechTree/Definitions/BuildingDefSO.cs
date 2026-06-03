@@ -9,6 +9,7 @@
 //
 // NOTE: "name" is renamed "displayName" (ScriptableObject already defines `name`).
 
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheWaningBorder.Data
@@ -50,6 +51,18 @@ namespace TheWaningBorder.Data
         [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
+        [Header("Building Attack (ranged auto-fire)")]
+        [Tooltip("The building's own attack. For a leveled building the per-level attack overrides this.")]
+        public BuildingAttack attack = new BuildingAttack();
+
+        [Header("Level Ladder")]
+        [Tooltip("Per-level trains / available upgrades / attack. Empty = single-level building.")]
+        public List<BuildingLevel> levels = new List<BuildingLevel>();
+
+        [Header("Unit Upgrade Pool")]
+        [Tooltip("Upgrade defs (stat deltas) referenced by level.availableUpgrades.")]
+        public List<UnitUpgrade> unitUpgrades = new List<UnitUpgrade>();
+
         [Header("Authoring / Presentation")]
         [Tooltip("Asset or Resources path to this building's prefab. Point this at the correct prefab.")]
         public string prefabPath;
@@ -74,6 +87,10 @@ namespace TheWaningBorder.Data
             def.description  = description ?? "";
             def.prefabPath   = prefabPath ?? "";
             def.canUpgradeTo = CloneArray(canUpgradeTo);
+            // Authoring data is read-only at runtime, so reference-copy (no deep clone).
+            def.attack       = attack;
+            def.levels       = levels;
+            def.unitUpgrades = unitUpgrades;
             def.hp          = hp;
             def.armorType   = string.IsNullOrEmpty(armorType) ? "structure_human" : armorType;
             def.defense     = UnitDefSO.CloneDefense(defense);
@@ -94,6 +111,9 @@ namespace TheWaningBorder.Data
             description  = def.description;
             prefabPath   = def.prefabPath;
             canUpgradeTo = CloneArray(def.canUpgradeTo);
+            attack       = def.attack ?? new BuildingAttack();
+            levels       = def.levels ?? new List<BuildingLevel>();
+            unitUpgrades = def.unitUpgrades ?? new List<UnitUpgrade>();
             hp          = def.hp;
             armorType   = def.armorType;
             defense     = UnitDefSO.CloneDefense(def.defense);
