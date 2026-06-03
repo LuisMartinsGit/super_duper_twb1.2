@@ -29,24 +29,51 @@ namespace TheWaningBorder.Data.EditorTools
         const string CatalogPath     = "Assets/GameData/TechTree/TechTreeCatalog.asset";
 
         [MenuItem("Waning Border/Tech Tree/Generate Stat SOs from JSON")]
-        public static void Generate()
+        public static void GenerateMenu()
         {
+            var catalog = Build(out int unitCount, out int buildingCount, out string error);
+            if (error != null)
+            {
+                EditorUtility.DisplayDialog("Tech Tree SO Generator", error, "OK");
+                return;
+            }
+
+            EditorUtility.DisplayDialog("Tech Tree SO Generator",
+                $"Done.\n\nUnits: {unitCount}\nBuildings: {buildingCount}\n\n" +
+                $"Catalog: {CatalogPath}\n\nNext: assign the catalog to the TechTreeDB component " +
+                "(or use the 'Generate + Assign' button on the TechTreeDB inspector).", "OK");
+
+            if (catalog != null)
+            {
+                EditorGUIUtility.PingObject(catalog);
+            }
+        }
+
+        /// <summary>
+        /// Generate/refresh all SO assets + the catalog from TechTree.json and return the
+        /// catalog. Shows no dialogs (UI-free) so callers like the TechTreeDB inspector can
+        /// drive it. On failure returns null and sets <paramref name="error"/>.
+        /// </summary>
+        public static TechTreeCatalog Build(out int unitCount, out int buildingCount, out string error)
+        {
+            unitCount = 0;
+            buildingCount = 0;
+            error = null;
+
             // 1. Load JSON text.
             var jsonAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(JsonAssetPath);
             if (jsonAsset == null || string.IsNullOrWhiteSpace(jsonAsset.text))
             {
-                EditorUtility.DisplayDialog("Tech Tree SO Generator",
-                    $"Could not find/read JSON at {JsonAssetPath}.", "OK");
-                return;
+                error = $"Could not find/read JSON at {JsonAssetPath}.";
+                return null;
             }
 
             // 2. Parse via the SAME parser the runtime uses (no value drift).
             var parsed = TechTreeParser.ParseAll(jsonAsset.text);
             if (parsed.Units.Count == 0 && parsed.Buildings.Count == 0)
             {
-                EditorUtility.DisplayDialog("Tech Tree SO Generator",
-                    "Parser returned no units or buildings. Aborting.", "OK");
-                return;
+                error = "Parser returned no units or buildings. Aborting.";
+                return null;
             }
 
             // 3. Ensure target folders exist.
@@ -55,9 +82,9 @@ namespace TheWaningBorder.Data.EditorTools
             EnsureFolder(UnitsFolder);
             EnsureFolder(BuildingsFolder);
 
-            int unitCount = 0, buildingCount = 0;
             var unitSOs = new List<UnitDefSO>();
             var buildingSOs = new List<BuildingDefSO>();
+            TechTreeCatalog catalog = null;
 
             AssetDatabase.StartAssetEditing();
             try
@@ -105,7 +132,7 @@ namespace TheWaningBorder.Data.EditorTools
                 }
 
                 // 5. Catalog (create or refresh).
-                var catalog = AssetDatabase.LoadAssetAtPath<TechTreeCatalog>(CatalogPath);
+                catalog = AssetDatabase.LoadAssetAtPath<TechTreeCatalog>(CatalogPath);
                 if (catalog == null)
                 {
                     catalog = ScriptableObject.CreateInstance<TechTreeCatalog>();
@@ -128,15 +155,8 @@ namespace TheWaningBorder.Data.EditorTools
             }
 
             Debug.Log($"[TechTreeSOGenerator] Generated/updated {unitCount} unit + " +
-                      $"{buildingCount} building SOs and catalog at {CatalogPath}. " +
-                      $"Assign the catalog to the TechTreeDB component to activate SO-driven stats.");
-            EditorUtility.DisplayDialog("Tech Tree SO Generator",
-                $"Done.\n\nUnits: {unitCount}\nBuildings: {buildingCount}\n\n" +
-                $"Catalog: {CatalogPath}\n\nNext: assign the catalog to the TechTreeDB component.", "OK");
-
-            // Ping the catalog so the user sees it.
-            var created = AssetDatabase.LoadAssetAtPath<TechTreeCatalog>(CatalogPath);
-            if (created != null) EditorGUIUtility.PingObject(created);
+                      $"{buildingCount} building SOs and catalog at {CatalogPath}.");
+            return catalog;
         }
 
         static void EnsureFolder(string path)
