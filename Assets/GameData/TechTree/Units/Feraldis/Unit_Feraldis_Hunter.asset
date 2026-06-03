@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Unit_Feraldis_Hunter
+  m_EditorClassIdentifier: 
+  id: 'Feraldis_Hunter'
+  displayName: 'Feraldis_Hunter'
+  unitClass: 'human_ranged'
+  hp: 100
+  speed: 5.7
+  trainingTime: 5
+  damage: 11
+  damageType: 'ranged'
+  armorType: 'ranged'
+  defense:
+    melee: 0
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 0
+  attackRange: 12
+  minAttackRange: 4
+  lineOfSight: 22
+  cost:
+    Supplies: 90
+    Iron: 10
+    Crystal: 20
+    Veilsteel: 0
+    Glow: 0
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0

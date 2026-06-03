@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Building_Alanthor_PracticeRange
+  m_EditorClassIdentifier: 
+  id: 'Alanthor_PracticeRange'
+  displayName: 'Practice Range'
+  role: 'Train ranged infantry — Archers at L1, Crossbowmen at L2'
+  hp: 1000
+  armorType: 'structure_human'
+  defense:
+    melee: 2
+    ranged: 2
+    siege: 0
+    magic: 0
+  radius: 1.6
+  lineOfSight: 22
+  trains:
+  - 'Archer'
+  - 'Alanthor_Crossbowman'
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 220
+    Iron: 90
+    Crystal: 0
+    Veilsteel: 0
+    Glow: 0
