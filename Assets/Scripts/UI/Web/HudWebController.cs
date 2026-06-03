@@ -36,12 +36,12 @@ namespace TheWaningBorder.UI.Web
         [Tooltip("Sort order for the HUD canvas. Should sit above gameplay-world canvases.")]
         public int canvasSortOrder = 100;
 
-        [Tooltip("CEF render resolution. Higher = sharper text but more GPU/CPU. " +
-                 "The HUD is stretched to fill the screen, so a 16:9 value avoids " +
-                 "distortion. 2560×1440 is sharp on 1080p (supersampled) and much " +
-                 "sharper on 4K than 1080p; set 3840×2160 for pixel-perfect 4K. " +
-                 "A CSS zoom of height/1080 is applied so the HUD keeps its size.")]
-        public Vector2Int browserResolution = new(2560, 1440);
+        [Tooltip("CEF render resolution. AUTO-SET at runtime to the display's native pixel " +
+                 "resolution (Start/ApplyNativeResolution) so the HUD maps 1:1 to the screen " +
+                 "— pixel-perfect on 1080p/1440p/4K, no upscale blur. This serialized value is " +
+                 "only an editor default; the runtime overrides it. A CSS zoom of " +
+                 "height/DesignHeight keeps the authored layout size.")]
+        public Vector2Int browserResolution = new(1920, 1080);
 
         // Logical design height the HUD CSS was authored against (fixed px).
         const float DesignHeight = 1080f;
@@ -70,10 +70,28 @@ namespace TheWaningBorder.UI.Web
             Instance = this;
         }
 
+        // Tracks the screen size the browser was last sized to, so Update() can
+        // re-render at native resolution when the window/display resolution changes.
+        int _lastScreenW, _lastScreenH;
+
         void Start()
         {
+            // Pixel-perfect HUD: render CEF at the display's NATIVE pixel resolution so the
+            // texture maps 1:1 to the screen (no upscale/resample blur on 1080p/1440p/4K).
+            // The CSS zoom (= height/DesignHeight, applied below) keeps the authored size.
+            ApplyNativeResolution();
             BuildCanvas();
             BuildBrowser();
+        }
+
+        // Render resolution = current display pixels (clamped to a sane minimum).
+        void ApplyNativeResolution()
+        {
+            browserResolution = new Vector2Int(
+                Mathf.Max(1280, Screen.width),
+                Mathf.Max(720, Screen.height));
+            _lastScreenW = Screen.width;
+            _lastScreenH = Screen.height;
         }
 
         void OnDestroy()
@@ -202,6 +220,27 @@ namespace TheWaningBorder.UI.Web
 
         void Update()
         {
+            // Keep the CEF render at native resolution if the display/window size changes
+            // (fullscreen toggle, resolution change). Re-size + re-apply the zoom so it stays
+            // pixel-perfect instead of being stretched (which is what caused the blur).
+            if (Screen.width != _lastScreenW || Screen.height != _lastScreenH)
+            {
+                ApplyNativeResolution();
+                if (_client != null && _client.IsConnected)
+                {
+                    try
+                    {
+                        _client.Resolution = new VoltstroStudios.UnityWebBrowser.Shared.Resolution(
+                            (uint)browserResolution.x, (uint)browserResolution.y);
+                    }
+                    catch { /* not ready yet */ }
+                }
+                // Re-apply zoom for the new resolution (also resets to 1.0 when back at DesignHeight).
+                _zoomPending = true;
+                _zoomElapsed = 0f;
+                _zoomTick = 0.4f; // apply immediately on the next tick
+            }
+
             if (!_zoomPending) return;
 
             _zoomElapsed += Time.unscaledDeltaTime;
