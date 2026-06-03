@@ -138,6 +138,6 @@ namespace TheWaningBorder.Data
 
         internal static CostBlock CloneCost(CostBlock c) => c == null
             ? new CostBlock()
-            : new CostBlock { Supplies = c.Supplies, Iron = c.Iron, Crystal = c.Crystal, Veilsteel = c.Veilsteel, Glow = c.Glow };
+            : new CostBlock { Supplies = c.Supplies, Iron = c.Iron, Crystal = c.Crystal, Veilsteel = c.Veilsteel };
     }
 }

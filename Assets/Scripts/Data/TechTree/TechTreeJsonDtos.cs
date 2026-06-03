@@ -225,7 +225,7 @@ namespace TheWaningBorder.Data
         public int Iron;
         public int Crystal;
         public int Veilsteel;
-        public int Glow;
+        // Glow is an item/pickup, not a build cost — intentionally not parsed.
 
         public CostBlock ToBlock() => new CostBlock
         {
@@ -233,7 +233,6 @@ namespace TheWaningBorder.Data
             Iron      = Iron,
             Crystal   = Crystal,
             Veilsteel = Veilsteel,
-            Glow      = Glow,
         };
     }
 

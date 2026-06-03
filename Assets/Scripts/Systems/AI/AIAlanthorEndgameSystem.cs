@@ -963,7 +963,6 @@ namespace TheWaningBorder.AI
                 Iron      = block.Iron,
                 Crystal   = block.Crystal,
                 Veilsteel = block.Veilsteel,
-                Glow      = block.Glow,
             };
         }
     }

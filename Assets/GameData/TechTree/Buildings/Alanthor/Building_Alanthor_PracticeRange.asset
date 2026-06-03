@@ -36,7 +36,6 @@ MonoBehaviour:
     Iron: 90
     Crystal: 0
     Veilsteel: 0
-    Glow: 0
   attack:
     enabled: 0
     damage: 12
@@ -130,7 +129,6 @@ MonoBehaviour:
       Iron: 20
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 25
   - id: 'VeteranArchers'
     displayName: 'Veteran Archers'
@@ -162,7 +160,6 @@ MonoBehaviour:
       Iron: 40
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 30
   - id: 'EliteArchers'
     displayName: 'Elite Archers'
@@ -194,7 +191,6 @@ MonoBehaviour:
       Iron: 80
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 40
   - id: 'VeteranCrossbowmen'
     displayName: 'Veteran Crossbowmen'
@@ -226,7 +222,6 @@ MonoBehaviour:
       Iron: 40
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 30
   - id: 'EliteCrossbowmen'
     displayName: 'Elite Crossbowmen'
@@ -258,7 +253,6 @@ MonoBehaviour:
       Iron: 80
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 40
   - id: 'EliteLongbowmen'
     displayName: 'Elite Longbowmen'
@@ -290,7 +284,6 @@ MonoBehaviour:
       Iron: 90
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 40
   - id: 'ArrowVolley'
     displayName: 'Arrow Volley'
@@ -317,7 +310,6 @@ MonoBehaviour:
       Iron: 30
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 35
   - id: 'ArrowShower'
     displayName: 'Arrow Shower'
@@ -344,7 +336,6 @@ MonoBehaviour:
       Iron: 60
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 45
   - id: 'DeployStakes'
     displayName: 'Deploy Stakes'
@@ -371,7 +362,6 @@ MonoBehaviour:
       Iron: 50
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 40
   prefabPath: ''
   canUpgradeTo: []

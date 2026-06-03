@@ -288,7 +288,7 @@ public sealed class TechTreeDB : MonoBehaviour
     {
         if (_buildingsById.ContainsKey(id)) return;
         var raw = BuildCosts.Get(id);
-        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Crystal, raw.Veilsteel, raw.Glow);
+        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Crystal, raw.Veilsteel);
         _buildingsById[id] = new BuildingDef
         {
             id = id, name = name, role = role, hp = hp,

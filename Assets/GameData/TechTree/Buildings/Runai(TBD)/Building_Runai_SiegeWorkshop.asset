@@ -33,6 +33,5 @@ MonoBehaviour:
     Iron: 140
     Crystal: 60
     Veilsteel: 0
-    Glow: 0
   tags:
   - 'Building'

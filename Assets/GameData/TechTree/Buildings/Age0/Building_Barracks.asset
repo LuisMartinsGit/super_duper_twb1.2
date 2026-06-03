@@ -36,7 +36,6 @@ MonoBehaviour:
     Iron: 40
     Crystal: 0
     Veilsteel: 0
-    Glow: 0
   attack:
     enabled: 0
     damage: 12

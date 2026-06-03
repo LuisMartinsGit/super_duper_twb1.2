@@ -744,7 +744,6 @@ namespace TheWaningBorder.UI.Web
                 Iron      = unit.cost.Iron,
                 Crystal   = unit.cost.Crystal,
                 Veilsteel = unit.cost.Veilsteel,
-                Glow      = unit.cost.Glow,
             };
         }
 

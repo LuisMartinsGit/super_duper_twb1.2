@@ -35,7 +35,6 @@ MonoBehaviour:
     Iron: 140
     Crystal: 70
     Veilsteel: 0
-    Glow: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0

@@ -240,8 +240,7 @@ namespace TheWaningBorder.Data
                         supplies: def.cost.Supplies,
                         iron: def.cost.Iron,
                         crystal: def.cost.Crystal,
-                        veilsteel: def.cost.Veilsteel,
-                        glow: def.cost.Glow
+                        veilsteel: def.cost.Veilsteel
                     );
                 }
             }

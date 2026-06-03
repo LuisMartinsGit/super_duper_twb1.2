@@ -1323,7 +1323,6 @@ namespace TheWaningBorder.UI
                     Iron = unit.cost.Iron,
                     Crystal = unit.cost.Crystal,
                     Veilsteel = unit.cost.Veilsteel,
-                    Glow = unit.cost.Glow,
                 } : default;
 
                 string tooltip = BuildTooltip(
@@ -1413,7 +1412,6 @@ namespace TheWaningBorder.UI
                     Iron = udef.cost.Iron,
                     Crystal = udef.cost.Crystal,
                     Veilsteel = udef.cost.Veilsteel,
-                    Glow = udef.cost.Glow
                 };
             }
             return default;
@@ -1463,7 +1461,6 @@ namespace TheWaningBorder.UI
                     Iron = tech.cost.Iron,
                     Crystal = tech.cost.Crystal,
                     Veilsteel = tech.cost.Veilsteel,
-                    Glow = tech.cost.Glow
                 } : default;
 
                 bool canAfford = FactionEconomy.CanAfford(em, faction, cost);

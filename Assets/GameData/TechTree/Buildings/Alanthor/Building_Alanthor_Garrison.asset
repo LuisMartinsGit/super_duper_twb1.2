@@ -36,7 +36,6 @@ MonoBehaviour:
     Iron: 0
     Crystal: 0
     Veilsteel: 0
-    Glow: 0
   attack:
     enabled: 0
     damage: 12
@@ -132,7 +131,6 @@ MonoBehaviour:
       Iron: 40
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 28
   - id: 'ShieldWall'
     displayName: 'Shield Wall'
@@ -149,7 +147,6 @@ MonoBehaviour:
       Iron: 50
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 30
   - id: 'VeteranInfantry'
     displayName: 'Veteran Infantry'
@@ -201,7 +198,6 @@ MonoBehaviour:
       Iron: 80
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 35
   - id: 'Charge'
     displayName: 'Charge'
@@ -223,7 +219,6 @@ MonoBehaviour:
       Iron: 70
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 33
   - id: 'EliteInfantry'
     displayName: 'Elite Infantry'
@@ -275,7 +270,6 @@ MonoBehaviour:
       Iron: 120
       Crystal: 0
       Veilsteel: 0
-      Glow: 0
     researchTime: 45
   prefabPath: ''
   canUpgradeTo: []

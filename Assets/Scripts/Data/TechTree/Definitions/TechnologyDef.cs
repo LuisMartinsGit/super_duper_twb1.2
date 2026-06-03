@@ -148,19 +148,19 @@ namespace TheWaningBorder.Data
         public int Iron;
         public int Crystal;
         public int Veilsteel;
-        public int Glow;
-        
+        // Glow removed from build costs: it is an item/pickup, not a spendable cost resource.
+
         /// <summary>
         /// Returns true if all costs are zero.
         /// </summary>
-        public bool IsZero => Supplies == 0 && Iron == 0 && Crystal == 0 && 
-                              Veilsteel == 0 && Glow == 0;
-        
+        public bool IsZero => Supplies == 0 && Iron == 0 && Crystal == 0 &&
+                              Veilsteel == 0;
+
         /// <summary>
         /// Create a CostBlock with specified values.
         /// </summary>
-        public static CostBlock Of(int supplies = 0, int iron = 0, int crystal = 0, 
-                                   int veilsteel = 0, int glow = 0)
+        public static CostBlock Of(int supplies = 0, int iron = 0, int crystal = 0,
+                                   int veilsteel = 0)
         {
             return new CostBlock
             {
@@ -168,16 +168,15 @@ namespace TheWaningBorder.Data
                 Iron = iron,
                 Crystal = crystal,
                 Veilsteel = veilsteel,
-                Glow = glow
             };
         }
-        
+
         /// <summary>
         /// Get total "value" of resources (simple sum for AI evaluation).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Crystal * 3) + 
-                                 (Veilsteel * 5) + (Glow * 4);
-        
+        public int TotalValue => Supplies + (Iron * 2) + (Crystal * 3) +
+                                 (Veilsteel * 5);
+
         /// <summary>
         /// Returns a human-readable string of non-zero costs.
         /// </summary>
@@ -188,7 +187,6 @@ namespace TheWaningBorder.Data
             if (Iron > 0) parts.Add($"Fe:{Iron}");
             if (Crystal > 0) parts.Add($"Cr:{Crystal}");
             if (Veilsteel > 0) parts.Add($"Vs:{Veilsteel}");
-            if (Glow > 0) parts.Add($"Gl:{Glow}");
             return parts.Count > 0 ? string.Join(" ", parts) : "Free";
         }
     }

@@ -32,6 +32,5 @@ MonoBehaviour:
     Iron: 30
     Crystal: 0
     Veilsteel: 0
-    Glow: 0
   tags:
   - 'Building'

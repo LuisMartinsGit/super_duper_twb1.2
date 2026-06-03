@@ -35,7 +35,6 @@ MonoBehaviour:
     Iron: 0
     Crystal: 100
     Veilsteel: 0
-    Glow: 0
   prefabPath: ''
   canUpgradeTo: []
   tags:
