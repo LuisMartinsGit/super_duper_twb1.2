@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'human_magic'
   hp: 280
   speed: 3.2
-  trainingTime: 60
+  trainingTime: 68
   damage: 10
   damageType: 'melee'
   armorType: 'infantry_heavy'

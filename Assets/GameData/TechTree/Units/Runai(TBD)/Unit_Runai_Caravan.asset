@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'civilian_trade'
   hp: 120
   speed: 5.6
-  trainingTime: 5
+  trainingTime: 15
   damage: 10
   damageType: 'true'
   armorType: 'ranged'

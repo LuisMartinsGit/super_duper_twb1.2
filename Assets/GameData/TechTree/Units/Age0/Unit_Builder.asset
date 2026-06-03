@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'human_support'
   hp: 60
   speed: 4
-  trainingTime: 5
+  trainingTime: 25
   damage: 2
   damageType: 'melee'
   armorType: 'infantry_light'

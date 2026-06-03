@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'human_scout'
   hp: 60
   speed: 6
-  trainingTime: 4
+  trainingTime: 26
   damage: 10
   damageType: 'melee'
   armorType: 'infantry_light'

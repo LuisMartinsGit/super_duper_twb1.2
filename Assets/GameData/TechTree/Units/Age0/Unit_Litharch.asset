@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'human_support'
   hp: 120
   speed: 5.5
-  trainingTime: 7
+  trainingTime: 24
   damage: 10
   damageType: 'magic'
   armorType: 'ranged'

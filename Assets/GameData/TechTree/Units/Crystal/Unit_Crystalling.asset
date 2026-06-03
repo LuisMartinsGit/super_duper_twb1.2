@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'magic'
   hp: 72
   speed: 5.5
-  trainingTime: 8
+  trainingTime: 22
   damage: 8
   damageType: 'magic'
   armorType: 'infantry_light'

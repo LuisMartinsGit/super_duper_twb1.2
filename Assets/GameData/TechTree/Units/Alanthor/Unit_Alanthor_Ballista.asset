@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'machinery_siege'
   hp: 220
   speed: 3.2
-  trainingTime: 5
+  trainingTime: 38
   damage: 40
   damageType: 'siege'
   armorType: 'ranged'
