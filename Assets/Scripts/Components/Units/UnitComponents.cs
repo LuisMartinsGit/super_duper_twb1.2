@@ -16,10 +16,6 @@ public struct DeathAnimationState : IComponentData
     public float Timer; // Seconds remaining before entity destruction
 }
 
-using Unity.Entities;
-using Unity.Mathematics;
-
-
 public enum UnitClass : byte
 {
     Melee = 0,

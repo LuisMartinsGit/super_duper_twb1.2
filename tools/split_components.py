@@ -142,6 +142,7 @@ SCAFFOLD = [
 ]
 
 DROP = (
+    re.compile(r"^\s*using\s"),                          # using directives (header supplies them)
     re.compile(r"^\s*//\s*={3,}"),                       # ==== decorative ====
     re.compile(r"^\s*//\s*\w+Components\.cs\b"),         # file banner
     re.compile(r"^\s*//\s*Components specific"),

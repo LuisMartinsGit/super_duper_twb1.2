@@ -6,11 +6,6 @@ using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
 
-using Unity.Collections;
-using Unity.Entities;
-using Unity.Mathematics;
-
-
 /// <summary>
 /// Identifies an entity as a building.
 /// IsBase = 1 for main bases/outposts.
