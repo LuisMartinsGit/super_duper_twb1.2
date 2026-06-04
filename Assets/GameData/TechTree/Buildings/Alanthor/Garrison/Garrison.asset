@@ -1,0 +1,278 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Garrison
+  m_EditorClassIdentifier: 
+  id: 'Alanthor_Garrison'
+  displayName: 'Garrison'
+  role: 'Alanthor melee training (cultured Barracks)'
+  description: 'Alanthor''s cultured Barracks. Trains Spearmen, then Swordsmen (lvl 2) and Sentinels (lvl 3); unlocks the Seasoned/Veteran/Elite infantry upgrades plus Shield Wall and Charge.'
+  hp: 50
+  armorType: 'structure_human'
+  defense:
+    melee: 2
+    ranged: 2
+    siege: 0
+    magic: 0
+  radius: 1.6
+  lineOfSight: 18
+  trains:
+  - 'Spearman'
+  - 'Alanthor_Swordsman'
+  - 'Alanthor_Sentinel'
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 0
+    Iron: 0
+    Crystal: 0
+    Veilsteel: 0
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: 'ranged'
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels:
+  - level: 1
+    variantName: 'Garrison'
+    culture: 'Alanthor'
+    trainSpeedBonusPct: 0
+    trains:
+    - 'Spearman'
+    availableUpgrades:
+    - 'SeasonedInfantry'
+    - 'ShieldWall'
+    attack:
+      enabled: 0
+      damage: 12
+      damageType: 'ranged'
+      range: 22
+      cooldown: 1.5
+      maxTargets: 1
+  - level: 2
+    variantName: 'Garrison'
+    culture: 'Alanthor'
+    trainSpeedBonusPct: 0
+    trains:
+    - 'Spearman'
+    - 'Alanthor_Swordsman'
+    availableUpgrades:
+    - 'SeasonedInfantry'
+    - 'ShieldWall'
+    - 'VeteranInfantry'
+    - 'Charge'
+    attack:
+      enabled: 0
+      damage: 12
+      damageType: 'ranged'
+      range: 22
+      cooldown: 1.5
+      maxTargets: 1
+  - level: 3
+    variantName: 'Garrison'
+    culture: 'Alanthor'
+    trainSpeedBonusPct: 0
+    trains:
+    - 'Spearman'
+    - 'Alanthor_Swordsman'
+    - 'Alanthor_Sentinel'
+    availableUpgrades:
+    - 'SeasonedInfantry'
+    - 'ShieldWall'
+    - 'VeteranInfantry'
+    - 'Charge'
+    - 'EliteInfantry'
+    attack:
+      enabled: 0
+      damage: 12
+      damageType: 'ranged'
+      range: 22
+      cooldown: 1.5
+      maxTargets: 1
+  unitUpgrades:
+  - id: 'SeasonedInfantry'
+    displayName: 'Seasoned Spearmen'
+    description: 'Spearmen: +30 HP, +5% move speed, +1 attack, +1 defense.'
+    requires: ''
+    effects:
+    - kind: 0
+      unit: 'Spearman'
+      stat: 0
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 9
+      amount: 5
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 3
+      amount: 1
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 8
+      amount: 1
+      ability: ''
+    cost:
+      Supplies: 100
+      Iron: 40
+      Crystal: 0
+      Veilsteel: 0
+    researchTime: 28
+  - id: 'ShieldWall'
+    displayName: 'Shield Wall'
+    description: 'Enables the Shield Wall ability for Spearmen.'
+    requires: ''
+    effects:
+    - kind: 1
+      unit: 'Spearman'
+      stat: 0
+      amount: 0
+      ability: 'ShieldWall'
+    cost:
+      Supplies: 120
+      Iron: 50
+      Crystal: 0
+      Veilsteel: 0
+    researchTime: 30
+  - id: 'VeteranInfantry'
+    displayName: 'Veteran Infantry'
+    description: 'Spearmen + Swordsmen: +30 HP, +10% move speed, +1 attack, +1 defense.'
+    requires: 'SeasonedInfantry'
+    effects:
+    - kind: 0
+      unit: 'Spearman'
+      stat: 0
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 9
+      amount: 10
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 3
+      amount: 1
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 8
+      amount: 1
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 0
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 9
+      amount: 10
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 3
+      amount: 1
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 8
+      amount: 1
+      ability: ''
+    cost:
+      Supplies: 180
+      Iron: 80
+      Crystal: 0
+      Veilsteel: 0
+    researchTime: 35
+  - id: 'Charge'
+    displayName: 'Charge'
+    description: 'Enables the Charge ability for Spearmen and Swordsmen.'
+    requires: ''
+    effects:
+    - kind: 1
+      unit: 'Spearman'
+      stat: 0
+      amount: 0
+      ability: 'Charge'
+    - kind: 1
+      unit: 'Alanthor_Swordsman'
+      stat: 0
+      amount: 0
+      ability: 'Charge'
+    cost:
+      Supplies: 160
+      Iron: 70
+      Crystal: 0
+      Veilsteel: 0
+    researchTime: 33
+  - id: 'EliteInfantry'
+    displayName: 'Elite Infantry'
+    description: 'Spearmen + Swordsmen: +30 HP, +15% move speed, +2 attack, +2 defense.'
+    requires: 'VeteranInfantry'
+    effects:
+    - kind: 0
+      unit: 'Spearman'
+      stat: 0
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 9
+      amount: 15
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 3
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Spearman'
+      stat: 8
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 0
+      amount: 30
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 9
+      amount: 15
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 3
+      amount: 2
+      ability: ''
+    - kind: 0
+      unit: 'Alanthor_Swordsman'
+      stat: 8
+      amount: 2
+      ability: ''
+    cost:
+      Supplies: 280
+      Iron: 120
+      Crystal: 0
+      Veilsteel: 0
+    researchTime: 45
+  prefabPath: ''
+  canUpgradeTo: []
+  tags:
+  - 'Building'
+  presentationId: 0
