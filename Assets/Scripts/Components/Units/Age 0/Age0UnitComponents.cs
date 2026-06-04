@@ -1,0 +1,9 @@
+// Age0UnitComponents.cs
+// Auto-organized by tools/split_components.py. All types are in the
+// global namespace (single assembly), so location is organizational only.
+
+using Unity.Entities;
+using Unity.Collections;
+using Unity.Mathematics;
+
+// Components shared by ALL Age 0 units. (none yet — add here.)
