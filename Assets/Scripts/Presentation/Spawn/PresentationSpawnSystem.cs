@@ -470,6 +470,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             switch (presentationId)
             {
                 case 368: authored = TheWaningBorder.Presentation.SpearmanVisual.Build(entity.Index + 368); break;
+                // 201: the Swordsman prefab is a Synty variant whose skinned-mesh
+                // guid resolves to nothing on disk (invisible). Authored rig wins.
+                case 201: authored = TheWaningBorder.Presentation.SwordsmanVisual.Build(entity.Index + 201); break;
                 case 202: authored = TheWaningBorder.Presentation.ArcherVisual.Build(entity.Index + 202); break;
                 case 349: authored = TheWaningBorder.Presentation.OutriderVisual.Build(entity.Index + 349); break;
                 case 336: authored = TheWaningBorder.Presentation.CataphractVisual.Build(entity.Index + 336); break;

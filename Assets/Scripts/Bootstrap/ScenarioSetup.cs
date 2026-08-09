@@ -196,7 +196,7 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void SpawnLargeMelee(EntityManager em)
         {
-            string unitId = "Swordsman";
+            string unitId = "Spearman";
             SpawnArmyGrid(em, unitId, unitId, Faction.Blue, 3, 2, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyGrid(em, unitId, unitId, Faction.Red, 3, 2, new float3(0, 0, ArmySeparation * 0.5f));
 
@@ -225,12 +225,12 @@ namespace TheWaningBorder.Bootstrap
         private static void SpawnLargeMixed(EntityManager em)
         {
             // Blue army: front row melee, back row ranged
-            SpawnArmyRow(em, "Swordsman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f));
+            SpawnArmyRow(em, "Spearman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyRow(em, "Archer", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing));
             SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
 
             // Red army: front row melee, mid row archers, back row longbowmen
-            SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f));
+            SpawnArmyRow(em, "Spearman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f));
             SpawnArmyRow(em, "Archer", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing));
             SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
@@ -246,7 +246,7 @@ namespace TheWaningBorder.Bootstrap
             {
                 float3 pos = new float3((i % 3) * 1.5f - 1.5f, 0, (i / 3) * 1.5f - 1.5f);
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                Entity unit = UnitFactory.Create(em, "Swordsman", pos, Faction.Blue);
+                Entity unit = UnitFactory.Create(em, "Spearman", pos, Faction.Blue);
                 if (em.HasComponent<Health>(unit))
                 {
                     var hp = em.GetComponentData<Health>(unit);
@@ -383,7 +383,7 @@ namespace TheWaningBorder.Bootstrap
             // 50% HP gradually — a bigger force deletes it inside a single 0.5 s
             // tick before the defensive cast can fire.
             const float ring = 24f;
-            string[] attackers = { "Swordsman", "Swordsman", "Swordsman", "Swordsman", "Longbowman", "Longbowman", "Longbowman" };
+            string[] attackers = { "Spearman", "Spearman", "Spearman", "Spearman", "Longbowman", "Longbowman", "Longbowman" };
             for (int i = 0; i < attackers.Length; i++)
             {
                 float t = attackers.Length > 1 ? (float)i / (attackers.Length - 1) : 0.5f;
@@ -435,7 +435,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Blue (south) — basic: Swordsman front, Archer back
             var blueCenter = new float3(0, 0, -offset);
-            SpawnArmyRow(em, "Swordsman", Faction.Blue, 4, blueCenter);
+            SpawnArmyRow(em, "Spearman", Faction.Blue, 4, blueCenter);
             SpawnArmyRow(em, "Archer", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing));
             SpawnArmyRow(em, "Longbowman", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing * 2f));
             AttackMoveAllBattalions(em, Faction.Blue, center);
@@ -500,7 +500,7 @@ namespace TheWaningBorder.Bootstrap
                 float3 armyCenter = new float3(0, 0, sign * ArmySeparation * 0.5f);
 
                 // Row 1 (front): 3 Swordsman battalions
-                SpawnArmyRow(em, "Swordsman", faction, 3, armyCenter);
+                SpawnArmyRow(em, "Spearman", faction, 3, armyCenter);
 
                 // Row 2 (behind front): 3 Archer battalions
                 SpawnArmyRow(em, "Archer", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing));
@@ -576,7 +576,7 @@ namespace TheWaningBorder.Bootstrap
                 upgradeType: 1); // Tower on right
 
             // Blue defenders behind the wall
-            SpawnArmyRow(em, "Swordsman", Faction.Blue, 2, new float3(0, 0, wallZ - 12f));
+            SpawnArmyRow(em, "Spearman", Faction.Blue, 2, new float3(0, 0, wallZ - 12f));
             SpawnArmyRow(em, "Archer", Faction.Blue, 2, new float3(0, 0, wallZ - 18f));
             SpawnArmyRow(em, "Longbowman", Faction.Blue, 2, new float3(0, 0, wallZ - 24f));
 
@@ -619,7 +619,7 @@ namespace TheWaningBorder.Bootstrap
             SeedFiveWideGateOnSegment(em, redHub1, redHub2, Faction.Red);
 
             // Red attackers — siege rams + swordsmen approaching Blue's wall
-            SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, 15f));
+            SpawnArmyRow(em, "Spearman", Faction.Red, 3, new float3(0, 0, 15f));
             SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, 28f));
 
             // Siege Rams aimed at the wall
@@ -850,7 +850,7 @@ namespace TheWaningBorder.Bootstrap
                     float x = (u - 2) * 2.5f;
                     float3 pos = areaCenter + new float3(x, 0, 6f);
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                    UnitFactory.Create(em, "Swordsman", pos, Faction.Red);
+                    UnitFactory.Create(em, "Spearman", pos, Faction.Red);
                 }
             }
 
@@ -1230,7 +1230,7 @@ namespace TheWaningBorder.Bootstrap
             spawner.SpawnRadius = OuterSpawnRadius;
             spawner.InnerTargetRadius = InnerTargetRadius;
             spawner.Interval = WaveInterval;
-            spawner.UnitId = "Swordsman";
+            spawner.UnitId = "Spearman";
             spawner.SoldierFaction = Faction.Blue;
 
             // Starter 44-node resource patch east of the patrol ring (just past
@@ -1406,7 +1406,7 @@ namespace TheWaningBorder.Bootstrap
                 // Immortal attacker: a melee unit that one-shots the incoming
                 // (passive) Longbowmen so the death clip plays reliably. Huge HP
                 // = immortal; HoldPositionTag keeps it planted at the lane end.
-                var enemy = UnitFactory.Create(em, "Swordsman", enemyPos, Faction.Red);
+                var enemy = UnitFactory.Create(em, "Spearman", enemyPos, Faction.Red);
                 if (enemy != Entity.Null)
                 {
                     if (em.HasComponent<Health>(enemy))

@@ -199,9 +199,9 @@ namespace TheWaningBorder.Bootstrap
             float3 frontRow = spawnPos + new float3(0, 0, -offset);
             float3 backRow = spawnPos + new float3(0, 0, -offset - spacing);
 
-            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow + new float3(-spacing, 0, 0)), faction);
-            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow), faction);
-            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(-spacing, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
 
             UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
             UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
