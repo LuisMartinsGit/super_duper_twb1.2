@@ -8,7 +8,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Nullblade unit - Unmaker's Grasp sect light melee infantry.
-    /// Fast anti-Crystal melee fighter with light armor.
+    /// Fast anti-Veilstone melee fighter with light armor.
     ///
     /// Fix #219: the two Create overloads share one generic CreateInternal via IEntityCreator.
     /// </summary>

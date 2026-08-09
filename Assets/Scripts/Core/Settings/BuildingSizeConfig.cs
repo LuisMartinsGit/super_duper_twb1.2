@@ -28,7 +28,9 @@ public static class BuildingSizeConfig
 
             // Era 1 Advanced / Choice
             "ShrineOfRidan"     => new int2(3, 3),
-            "TempleOfRidan"     => new int2(4, 4),
+            // 7-sided cathedral rework (2026-08-02): footprint matches the
+            // heptagonal walls; the chapel ring sits at radius 6 outside it.
+            "TempleOfRidan"     => new int2(7, 7),
             "VaultOfAlmierra"   => new int2(4, 4),
             "FiendstoneKeep"    => new int2(5, 5),
 
@@ -38,10 +40,8 @@ public static class BuildingSizeConfig
             // Alanthor culture
             "Alanthor_Smelter"  => new int2(3, 3),
             "Alanthor_Tower"    => new int2(2, 2),
-            "Alanthor_PracticeRange" => new int2(3, 4),
             "Alanthor_SiegeYard"=> new int2(3, 3),
             "KingsCourt"        => new int2(4, 4),
-            "Alanthor_Crucible" => new int2(3, 3),
             "Alanthor_RoyalStable" => new int2(3, 4),
 
             // Runai culture
@@ -60,6 +60,12 @@ public static class BuildingSizeConfig
             "Feraldis_Tower"          => new int2(2, 2),
             "Feraldis_SiegeYard"      => new int2(3, 3),
             "Feraldis_Foundry"        => new int2(3, 3),
+            "Feraldis_WarTotem"       => new int2(2, 2),
+            "Feraldis_Pasture"        => new int2(4, 3),
+            "Mine"                    => new int2(3, 3),
+
+            // Sect-unique buildings (Building lever).
+            "Sect_Reliquary"          => new int2(3, 3),
 
             // Chapels (all sects) — generic Chapel_* prefix wildcard.
             // Phase 2 chapel creators will fall through this same case.
@@ -72,13 +78,13 @@ public static class BuildingSizeConfig
             // their creators. New sect-unique buildings will be added here in
             // Phase 2 alongside the new building creators.
 
-            // Crystal nodes (natural, not player-built)
-            "CrystalMainNode"         => new int2(5, 5),
-            "CrystalEnforcementNode"  => new int2(2, 2),
-            "CrystalResourceNode"     => new int2(2, 2),
-            "CrystalRestorationNode"  => new int2(2, 2),
-            "CrystalSuppressionNode"  => new int2(2, 2),
-            "CrystalTurretNode"       => new int2(2, 2),
+            // Veilstone nodes (natural, not player-built)
+            "BorderMainNode"         => new int2(5, 5),
+            "BorderEnforcementNode"  => new int2(2, 2),
+            "BorderResourceNode"     => new int2(2, 2),
+            "BorderRestorationNode"  => new int2(2, 2),
+            "BorderSuppressionNode"  => new int2(2, 2),
+            "BorderTurretNode"       => new int2(2, 2),
 
             // Default
             _ => new int2(3, 3)

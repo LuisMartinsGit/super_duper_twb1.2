@@ -55,6 +55,11 @@ namespace TheWaningBorder.Multiplayer
         /// <summary>Information about other players (for host)</summary>
         public List<RemotePlayerInfo> RemotePlayers { get; set; } = new List<RemotePlayerInfo>();
 
+        /// <summary>Lockstep indices of other human players besides the host
+        /// and the local player (for clients — their ticks arrive relayed via
+        /// the host and must be waited on).</summary>
+        public List<int> OtherHumanPlayers { get; set; } = new List<int>();
+
         // ═══════════════════════════════════════════════════════════════════════
         // STATE
         // ═══════════════════════════════════════════════════════════════════════
@@ -129,11 +134,27 @@ namespace TheWaningBorder.Multiplayer
             }
             else
             {
-                lockstep.InitializeAsClient(LocalPort, HostIP, HostPort, LocalPlayerIndex, LocalFaction);
+                lockstep.InitializeAsClient(LocalPort, HostIP, HostPort, LocalPlayerIndex, LocalFaction,
+                    OtherHumanPlayers);
             }
 
             // Start simulation immediately
             lockstep.StartSimulation();
+
+            // Hold the frame-driven world until every peer's first TICK
+            // arrives — otherwise the faster-loading peer's economy, veil
+            // growth, and timers run seconds ahead and never re-align.
+            lockstep.HoldSimulationUntilPeersReady();
+
+            // TRUE-determinism path: drive the ECS sim at a fixed timestep, one
+            // step per lockstep tick (see LockstepFixedRateManager). Off unless
+            // the flag is set, so the default build keeps the per-frame sim.
+            if (GameSettings.DeterministicLockstep)
+            {
+                LockstepFixedStep.Install(
+                    Unity.Entities.World.DefaultGameObjectInjectionWorld,
+                    LockstepManager.TICK_DURATION);
+            }
 
             _initialized = true;
         }
@@ -169,7 +190,8 @@ namespace TheWaningBorder.Multiplayer
         /// <summary>
         /// Configure as client connecting to the specified host.
         /// </summary>
-        public void ConfigureAsClient(string hostIP, int hostPort, int localPort, int playerIndex, Faction faction)
+        public void ConfigureAsClient(string hostIP, int hostPort, int localPort, int playerIndex, Faction faction,
+            List<int> otherHumanPlayers = null)
         {
             IsHost = false;
             HostIP = hostIP;
@@ -177,19 +199,24 @@ namespace TheWaningBorder.Multiplayer
             LocalPort = localPort;
             LocalPlayerIndex = playerIndex;
             LocalFaction = faction;
-            
+            OtherHumanPlayers = otherHumanPlayers ?? new List<int>();
+
         }
 
         /// <summary>
-        /// Add a remote player (host only).
+        /// Add a remote player (host only). <paramref name="playerIndex"/> is
+        /// the player's LOBBY SLOT INDEX — clients identify their lockstep
+        /// traffic by slot index, so the host must register them under the
+        /// same number (see RemotePlayerInfo.PlayerIndex).
         /// </summary>
-        public void AddRemotePlayer(string ip, int port, Faction faction)
+        public void AddRemotePlayer(string ip, int port, Faction faction, int playerIndex = 0)
         {
             RemotePlayers.Add(new RemotePlayerInfo
             {
                 IP = ip,
                 Port = port,
-                Faction = faction
+                Faction = faction,
+                PlayerIndex = playerIndex
             });
         }
 
@@ -206,6 +233,7 @@ namespace TheWaningBorder.Multiplayer
             HostIP = null;
             HostPort = 0;
             RemotePlayers.Clear();
+            OtherHumanPlayers.Clear();
         }
     }
 }

@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Firethrower
+  m_EditorClassIdentifier:
+  id: 'Feraldis_Firethrower'
+  displayName: 'Firethrower'
+  unitClass: 'human_ranged'
+  hp: 100
+  speed: 5
+  trainingTime: 18
+  damage: 14
+  damageType: 'ranged'
+  armorType: 'ranged'
+  defense:
+    melee: 0
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 2.2
+  attackRange: 10
+  minAttackRange: 2
+  lineOfSight: 14
+  trajectory: high
+  cost:
+    Supplies: 120
+    Iron: 30
+    Crystal: 20
+    Veilsteel: 0
+  minBuildingLevel: 3
+  tags:
+  - 'Ranged'
+  bonusVsTags: []
+  presentationId: 344

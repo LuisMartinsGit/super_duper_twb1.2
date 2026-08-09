@@ -61,9 +61,14 @@ namespace TheWaningBorder.Systems.Navigation
         private const float StopDistance = 0.5f;
         private const float DefaultMoveSpeed = 3.5f;
         private const float TurnSpeed = 8f;             // rad/s (~460 deg/s)
-        private const float MaxWalkableSlope = 0.55f;
-        private const float SlopeCheckStep = 1.5f;
+        // Per-step terrain backstop: the PassabilityGrid cell mask is the
+        // single authority (see the TERRAIN CHECK in the step loop) — no
+        // independent slope constants here any more.
         private const float SmoothRate = 12f;
+
+        // Max walking-surface drop per step. Terrain is continuous so real
+        // slopes never trip this; only ledges (bridge deck edges) do.
+        private const float MaxLedgeDrop = 2f;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -151,9 +156,13 @@ namespace TheWaningBorder.Systems.Navigation
             }
 
             // ── PHASE 2: integrate units toward DesiredDestination ──────
+            // Dying units (DeathAnimationState) are excluded so a corpse stops
+            // instantly and doesn't slide through its death animation — its
+            // movement is cancelled the moment DeathSystem registers the death.
             foreach (var (xf, dd, entity) in SystemAPI
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
+                .WithNone<DeathAnimationState>()
                 .WithEntityAccess())
             {
                 if (dd.ValueRO.Has == 0) continue;
@@ -195,6 +204,15 @@ namespace TheWaningBorder.Systems.Navigation
                     var debuff = em.GetComponentData<SpellDebuff>(entity);
                     speed *= (1f - debuff.SpeedReduction);
                 }
+                // The Veil / Suppression auras: BorderDebuff.SpeedPenalty was
+                // authored but never consumed — units wading through veil
+                // crust (or a Suppression field) now actually slow down.
+                if (em.HasComponent<BorderDebuff>(entity))
+                {
+                    var bd = em.GetComponentData<BorderDebuff>(entity);
+                    if (bd.SpeedPenalty > 0f)
+                        speed *= (1f - math.min(0.9f, bd.SpeedPenalty));
+                }
                 if (em.HasComponent<Fortified>(entity)) speed = 0f;
                 if (em.HasComponent<SpellBuff>(entity))
                 {
@@ -204,7 +222,17 @@ namespace TheWaningBorder.Systems.Navigation
                 }
                 if (speed <= 0f) continue;
 
-                // Archers in firing range: don't move (RangedCombatSystem owns the action).
+                // Archers in firing range: ARRIVE, don't just halt. The old
+                // bare `continue` here skipped the arrival Has-clear below, so
+                // the unit froze with DesiredDestination.Has = 1 — which is
+                // exactly the "is moving" state RangedCombatSystem's fire gate
+                // reads, so the archer stood forever without shooting (the
+                // auto-acquire freeze). Clearing Has makes the halt a real
+                // arrival the combat system can fire from. The metric also now
+                // matches RangedCombatSystem exactly (XZ distance, height-
+                // scaled max range, measured to the target's edge) so the two
+                // systems can never disagree about "in range" and flip-flop
+                // across a halt/chase band on slopes or against buildings.
                 if (em.HasComponent<ArcherTag>(entity)
                     && em.HasComponent<Target>(entity))
                 {
@@ -214,11 +242,31 @@ namespace TheWaningBorder.Systems.Navigation
                         && em.HasComponent<Health>(tgt.Value)
                         && em.GetComponentData<Health>(tgt.Value).Value > 0)
                     {
+                        float3 myP = xf.ValueRO.Position;
                         float3 tgtPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
-                        float tgtDist = math.distance(xf.ValueRO.Position, tgtPos);
-                        float maxRange = em.HasComponent<ArcherState>(entity)
-                            ? em.GetComponentData<ArcherState>(entity).MaxRange : 25f;
-                        if (tgtDist <= maxRange) continue;
+                        float maxRange = 25f, minRange = 10f; // RangedCombat defaults
+                        if (em.HasComponent<ArcherState>(entity))
+                        {
+                            var ast = em.GetComponentData<ArcherState>(entity);
+                            if (ast.MaxRange > 0) maxRange = ast.MaxRange;
+                            if (ast.MinRange > 0) minRange = ast.MinRange;
+                        }
+                        maxRange *= TheWaningBorder.Systems.Combat.HeightAdvantage
+                            .Multiplier(myP.y, tgtPos.y);
+                        // Shared surface metric — the legacy circle Radius here
+                        // disagreed with RangedCombatSystem's box math against
+                        // sized buildings, which is exactly the halt/chase
+                        // flip-flop this block exists to prevent.
+                        float edge = TheWaningBorder.Core.TargetGeometry
+                            .SurfaceDistXZ(em, myP, tgt.Value);
+                        // Halt only inside the FIRING band. Below min range the
+                        // unit must stay mobile or RangedCombat's retreat order
+                        // would be arrived-out right here every frame.
+                        if (edge <= maxRange && edge >= minRange)
+                        {
+                            dd.ValueRW.Has = 0;
+                            continue;
+                        }
                     }
                 }
 
@@ -310,17 +358,58 @@ namespace TheWaningBorder.Systems.Navigation
                         blocked = true;
                 }
 
-                // === SLOPE CHECK (ground only — the rampart deck is flat) ===
+                // === TERRAIN CHECK (ground only — the rampart deck is flat) ===
+                // Backstop against cost-grid rounding at cell edges. Consults
+                // the SAME PassabilityGrid mask the pathfinding bake uses
+                // (slope budget, water, NoWalk paint, paint-only mode and
+                // bridges are all encoded there), so movement can never
+                // disagree with the plan. The old version re-derived slope
+                // from raw terrain heights per step — on sculpted terrain
+                // that spiked over the budget on surface noise the grid
+                // considered walkable, and units stuttered on legitimate
+                // inclines (blocked step -> sidestep -> retry).
                 if (!blocked && !onRampart)
                 {
-                    float hL = TerrainUtility.GetHeight(nextPos.x - SlopeCheckStep, nextPos.z);
-                    float hR = TerrainUtility.GetHeight(nextPos.x + SlopeCheckStep, nextPos.z);
-                    float hD = TerrainUtility.GetHeight(nextPos.x, nextPos.z - SlopeCheckStep);
-                    float hU = TerrainUtility.GetHeight(nextPos.x, nextPos.z + SlopeCheckStep);
-                    float dX = (hR - hL) / (SlopeCheckStep * 2f);
-                    float dZ = (hU - hD) / (SlopeCheckStep * 2f);
-                    float slopeAtNext = math.sqrt(dX * dX + dZ * dZ);
-                    if (slopeAtNext > MaxWalkableSlope) blocked = true;
+                    var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+                    if (pg != null)
+                    {
+                        var cell = pg.WorldToCell(nextPos);
+                        if (pg.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
+                        {
+                            blocked = true;
+                        }
+                        else if (pg.IsBridgeDeckOnly(cell))
+                        {
+                            // Deck-only cell: the ground here is cliff/NoWalk;
+                            // only the bridge deck is walkable. Admit the step
+                            // only when the deck is within step-up reach of
+                            // the unit (same MountStepLimit rule as
+                            // GetSurfaceHeight, so admission and the height
+                            // snap can never disagree) — a ground-level unit
+                            // under the span must route around, not
+                            // cliff-walk beneath.
+                            bool onDeck =
+                                TheWaningBorder.World.Terrain.BridgeSurface.TryGetDeckHeight(
+                                    nextPos.x, nextPos.z, out float deckY)
+                                && deckY - t.Position.y
+                                    <= TheWaningBorder.World.Terrain.BridgeSurface.MountStepLimit;
+                            if (!onDeck) blocked = true;
+                        }
+
+                        // === LEDGE GUARD ===
+                        // A step whose walking surface drops far below the
+                        // unit is a fall off a deck edge (terrain itself is
+                        // continuous, so ordinary downhill never trips this).
+                        // Units must leave a bridge via its ramps, not by
+                        // clipping down the sides.
+                        if (!blocked)
+                        {
+                            float nextSurf = TerrainUtility.GetSurfaceHeight(
+                                nextPos.x, nextPos.z, t.Position.y);
+                            if (t.Position.y - nextSurf > MaxLedgeDrop)
+                                blocked = true;
+                        }
+                    }
                 }
 
                 // === STUCK DETECTION ===
@@ -345,10 +434,17 @@ namespace TheWaningBorder.Systems.Navigation
                                 NavGridQuery.SnapToPassable(pos, out var escapePos, out var escOk);
                                 if (escOk)
                                 {
-                                    escapePos.y = TerrainUtility.GetHeight(escapePos.x, escapePos.z);
-                                    t.Position = escapePos;
-                                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
-                                    escaped = true;
+                                    escapePos.y = TerrainUtility.GetSurfaceHeight(escapePos.x, escapePos.z, pos.y);
+                                    // Ledge guard applies to escapes too — a
+                                    // deck unit must not teleport off the
+                                    // bridge side; fall through to the order
+                                    // cancel instead.
+                                    if (pos.y - escapePos.y <= MaxLedgeDrop)
+                                    {
+                                        t.Position = escapePos;
+                                        ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                                        escaped = true;
+                                    }
                                 }
                             }
 
@@ -379,8 +475,18 @@ namespace TheWaningBorder.Systems.Navigation
                             if (!perpBlocked)
                             {
                                 perpPos.y = onRampart
-                                    ? LayerTransitionSystem.DeckY
-                                    : TerrainUtility.GetHeight(perpPos.x, perpPos.z);
+                                    ? TheWaningBorder.Systems.Buildings.LayeredMoveSystem
+                                        .RampartSurfaceY(perpPos.x, perpPos.z)
+                                    : TerrainUtility.GetSurfaceHeight(perpPos.x, perpPos.z, t.Position.y);
+                                // Ledge guard applies to sidesteps too — the
+                                // perpendicular hop must not carry a deck
+                                // unit over the bridge side.
+                                if (t.Position.y - perpPos.y > MaxLedgeDrop)
+                                    perpBlocked = true;
+                            }
+
+                            if (!perpBlocked)
+                            {
                                 t.Position = perpPos;
                             }
 
@@ -402,13 +508,17 @@ namespace TheWaningBorder.Systems.Navigation
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                 // === Layer-aware height snap (task-112 M5) ===
-                // Layer 0 (Ground) -> terrain height. Layer 1 (Rampart) ->
-                // DeckY constant. unitLayer/onRampart resolved at the top of
-                // this unit's body.
+                // Layer 0 (Ground) -> walking-surface height (ground, or a
+                // bridge deck when the unit is already up on one — nearest
+                // surface to the unit's current Y wins, so units under an
+                // arch stay under it). Layer 1 (Rampart) -> the wall-deck
+                // constant, or the actual deck mesh height when the unit is
+                // crossing an overpass bridge (BridgeSurface-covered cells).
                 if (onRampart)
-                    nextPos.y = LayerTransitionSystem.DeckY;
+                    nextPos.y = TheWaningBorder.Systems.Buildings.LayeredMoveSystem
+                        .RampartSurfaceY(nextPos.x, nextPos.z);
                 else
-                    nextPos.y = TerrainUtility.GetHeight(nextPos.x, nextPos.z);
+                    nextPos.y = TerrainUtility.GetSurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
 
                 t.Position = nextPos;
                 xf.ValueRW = t;

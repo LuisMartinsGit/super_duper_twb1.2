@@ -24,9 +24,9 @@ public static class TempleLevelConfig
     /// </summary>
     public static Cost GetUpgradeCost(int currentLevel) => currentLevel switch
     {
-        1 => Cost.Of(supplies: 500, iron: 200, crystal: 150),
-        2 => Cost.Of(supplies: 800, iron: 350, crystal: 250),
-        3 => Cost.Of(supplies: 1200, iron: 500, crystal: 400),
+        1 => Cost.Of(supplies: 500, iron: 200, veilstone: 150),
+        2 => Cost.Of(supplies: 800, iron: 350, veilstone: 250),
+        3 => Cost.Of(supplies: 1200, iron: 500, veilstone: 400),
         _ => default
     };
 
@@ -44,16 +44,12 @@ public static class TempleLevelConfig
 
     /// <summary>
     /// Get the Religion Points granted when reaching the given temple level.
-    /// Level 1 RP is granted on Era 2 advance (culture choice).
+    /// Delegates to the single authoritative table
+    /// (SectConfig.RpAwardForAge) so the UI's "Grants +N RP" always matches
+    /// what TempleUpgradeSystem actually awards.
     /// </summary>
-    public static int GetRPGranted(int level) => level switch
-    {
-        1 => 2,
-        2 => 3,
-        3 => 3,
-        4 => 4,
-        _ => 0
-    };
+    public static int GetRPGranted(int level)
+        => TheWaningBorder.Economy.SectConfig.RpAwardForAge(GetEraForLevel(level));
 
     /// <summary>
     /// Get the time (in seconds) to upgrade from the given level to level+1.

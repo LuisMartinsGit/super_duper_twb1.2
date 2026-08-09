@@ -2,7 +2,7 @@
 // Applies the per-faction equipment tier multiplier to unit stats. Mirrors
 // UnitRankSystem's stamp-and-apply pattern so the two layers stack cleanly:
 // UnitRank covers per-unit veterancy, EquipmentTier covers faction-wide
-// research. A Lv3 (Crystal-rank) unit with Veilsteel equipment gets BOTH
+// research. A Lv3 (Veilstone-rank) unit with Veilsteel equipment gets BOTH
 // multipliers applied to Damage / Defense.
 //
 // Stamp pattern: UnitEquipmentApplied tracks the last-applied tier per
@@ -36,7 +36,7 @@ namespace TheWaningBorder.Systems.Combat
 
             // Snapshot per-faction tiers into a fixed-size lookup so the
             // per-unit loop doesn't query the EM for each unit.
-            // Faction enum ranges 0..7 (player) and 8 (Curse) — size 9.
+            // Faction enum ranges 0..7 (player) and 8 (Border) — size 9.
             const int FactionCount = 9;
             var byFaction = new NativeArray<FactionEquipmentTier>(FactionCount, Allocator.Temp);
             // All zero-initialised → all Base by default (struct default).

@@ -15,10 +15,10 @@ MonoBehaviour:
   id: 'Alanthor_Cataphract'
   displayName: 'Alanthor_Cataphract'
   unitClass: 'human_cavalry'
-  hp: 180
+  hp: 160
   speed: 6.6
   trainingTime: 40
-  damage: 20
+  damage: 18
   damageType: 'melee'
   armorType: 'cavalry'
   defense:
@@ -26,14 +26,14 @@ MonoBehaviour:
     ranged: 1
     siege: 0
     magic: 0
-  attackCooldown: 0
+  attackCooldown: 1.6
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 20
   cost:
-    Supplies: 220
-    Iron: 80
-    Crystal: 40
+    Supplies: 320
+    Iron: 120
+    Crystal: 60
     Veilsteel: 0
   minBuildingLevel: 1
   buildSpeed: 0

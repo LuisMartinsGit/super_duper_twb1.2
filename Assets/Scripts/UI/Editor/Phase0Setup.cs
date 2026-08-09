@@ -1,3 +1,7 @@
+// Editor-only tool inside the single runtime asmdef: the Editor/ folder
+// convention does NOT apply within an .asmdef, so without this guard the
+// file is compiled into PLAYER builds and fails them (UnityEditor missing).
+#if UNITY_EDITOR
 // Phase 0 setup helper.
 // One-click action that creates Assets/UI/Settings/HudPanelSettings.asset with a
 // ThemeStyleSheet wired up. Solves the "no theme → no font → labels invisible"
@@ -167,3 +171,5 @@ namespace TheWaningBorder.UI.EditorTools
         }
     }
 }
+
+#endif // UNITY_EDITOR

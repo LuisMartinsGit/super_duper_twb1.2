@@ -17,7 +17,8 @@ namespace TheWaningBorder.Systems.Work
     ///   2. Scale the Hall 1.3x
     ///   3. Set FactionEra to 2 on the faction bank entity
     ///   4. Grant RP if a Temple exists
-    ///   5. Alanthor: start GathererHut self-destruct timers
+    ///   5. Per-culture hut transforms (huts always persist; Alanthor huts get
+    ///      an OPTIONAL convert choice and remain fully functional/buildable)
     ///   6. Remove AgeUpState component
     ///
     /// NOTE: Not Burst-compiled — accesses managed FactionColors and Debug.Log.
@@ -132,6 +133,10 @@ namespace TheWaningBorder.Systems.Work
                 // 7. Remove AgeUpState — age-up is complete
                 em.RemoveComponent<AgeUpState>(hallEntity);
 
+                // Post-game chart milestone: culture chosen (Era 2).
+                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
+                    faction, TheWaningBorder.UI.HUD.GameEventKind.CultureChosen, culture);
+
             }
 
             completed.Dispose();
@@ -147,7 +152,7 @@ namespace TheWaningBorder.Systems.Work
         /// Runai    → caravan-wagon with income decay (task-066 Phase 2 — stub).
         /// Feraldis → persists with income + raider-spawn tag (task-066 Phase 3 — stub).
         /// </summary>
-        private static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
+        internal static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
             if (culture == Cultures.Alanthor)
             {
@@ -172,7 +177,33 @@ namespace TheWaningBorder.Systems.Work
                     em.AddComponent<GathererHutAgeUpChoice>(e);
                 }
             }
-            // Runai / Feraldis branches are still stubs (task-066 phases 2/3).
+            else if (culture == Cultures.Feraldis)
+            {
+                // Every Gatherer's Hut becomes a RAIDER CAMP. Same building
+                // entity — the tag switches it from gathering to producing
+                // Plunderers, and GathererHutIncomeSystem stops paying it a
+                // passive drip. Feraldis income is what its raiders steal.
+                // (docs/Design/Age_1_Feraldis.md § Raider Camp)
+                var query = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<GathererHutTag>(),
+                    ComponentType.ReadOnly<FactionTag>()
+                );
+                using var entities = query.ToEntityArray(Allocator.Temp);
+                using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    if (tags[i].Value != faction) continue;
+                    var e = entities[i];
+                    if (em.HasComponent<RaiderCampTag>(e)) continue;
+                    // First raider arrives one interval after the age-up.
+                    em.AddComponentData(e, new RaiderCampTag
+                    {
+                        SpawnTimer = TheWaningBorder.Core.Config.FeraldisConstants.CampSpawnInterval
+                    });
+                }
+            }
+            // Runai branch is still a stub (task-066 phase 2).
         }
 
         /// <summary>
@@ -182,7 +213,7 @@ namespace TheWaningBorder.Systems.Work
         /// Feraldis → houses become raider-spawn buildings (Phase 3 — task-066).
         /// Phase 1 (task-066): no destruction; behaviors are stubs.
         /// </summary>
-        private static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
+        internal static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
             // Phase 2/3 will dispatch culture-specific transform systems here.
             // For Phase 1 the huts remain unchanged across age-up.

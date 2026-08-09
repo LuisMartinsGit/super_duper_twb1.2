@@ -69,7 +69,11 @@ namespace TheWaningBorder.Systems.Sect
             }
             expired.Dispose();
 
-            // Phase 2: detect kills and stamp the killer.
+            // Phase 2: detect kills and stamp the killer. Marks are COLLECTED
+            // and applied after the iteration — the first-mark AddComponentData
+            // is a structural change, which throws inside a query foreach.
+            var pendingMarks = new NativeList<PendingMark>(8, Allocator.Temp);
+
             foreach (var (health, lastAttacker, victimFaction, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LastAttackerEntity>, RefRO<FactionTag>>()
                 .WithNone<DeathAnimationState, BuildingCollapseState>()
@@ -90,36 +94,54 @@ namespace TheWaningBorder.Systems.Sect
                     SectConfig.Justice, SectLeverKind.Passive);
                 if (level == 0) continue;
 
-                var mark = new MarkedForSentence
+                pendingMarks.Add(new PendingMark
                 {
-                    MarkerFaction = avengerFaction,
-                    DamageBonus   = DamageBonusFor(level),
-                    TimeRemaining = MarkDuration,
-                };
+                    Killer = killer,
+                    Mark = new MarkedForSentence
+                    {
+                        MarkerFaction = avengerFaction,
+                        DamageBonus   = DamageBonusFor(level),
+                        TimeRemaining = MarkDuration,
+                    },
+                });
+            }
 
-                if (em.HasComponent<MarkedForSentence>(killer))
+            for (int i = 0; i < pendingMarks.Length; i++)
+            {
+                var p = pendingMarks[i];
+                if (!em.Exists(p.Killer)) continue;
+
+                if (em.HasComponent<MarkedForSentence>(p.Killer))
                 {
                     // Refresh: take the harsher mark (longer duration / higher
                     // bonus) if multiple Justice factions both lost a unit to
                     // this killer recently.
-                    var existing = em.GetComponentData<MarkedForSentence>(killer);
-                    if (existing.MarkerFaction == avengerFaction)
+                    var existing = em.GetComponentData<MarkedForSentence>(p.Killer);
+                    if (existing.MarkerFaction == p.Mark.MarkerFaction)
                     {
                         // Same avenger — just refresh.
                         existing.TimeRemaining = MarkDuration;
-                        em.SetComponentData(killer, existing);
+                        em.SetComponentData(p.Killer, existing);
                     }
-                    else if (mark.DamageBonus > existing.DamageBonus
-                          || mark.TimeRemaining > existing.TimeRemaining)
+                    else if (p.Mark.DamageBonus > existing.DamageBonus
+                          || p.Mark.TimeRemaining > existing.TimeRemaining)
                     {
-                        em.SetComponentData(killer, mark);
+                        em.SetComponentData(p.Killer, p.Mark);
                     }
                 }
                 else
                 {
-                    em.AddComponentData(killer, mark);
+                    em.AddComponentData(p.Killer, p.Mark);
                 }
             }
+
+            pendingMarks.Dispose();
+        }
+
+        private struct PendingMark
+        {
+            public Entity Killer;
+            public MarkedForSentence Mark;
         }
     }
 }

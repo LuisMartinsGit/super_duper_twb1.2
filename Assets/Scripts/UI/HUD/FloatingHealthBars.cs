@@ -162,7 +162,8 @@ namespace TheWaningBorder.UI.HUD
             {
                 var e = kvp.Key;
                 if (!_em.Exists(e) ||
-                    (!_em.HasComponent<IronMineTag>(e) && !_em.HasComponent<CadaverTag>(e)))
+                    (!_em.HasComponent<IronMineTag>(e) && !_em.HasComponent<VeilstoneOutcroppingTag>(e)
+                     && !_em.HasComponent<VeilsteelDepositTag>(e)))
                 {
                     (stale ??= new List<Entity>()).Add(e);
                 }
@@ -193,7 +194,8 @@ namespace TheWaningBorder.UI.HUD
             // must let them through.
             if (_em.HasComponent<Health>(e)) return true;
             if (_em.HasComponent<IronMineTag>(e)) return true;
-            if (_em.HasComponent<CadaverTag>(e)) return true;
+            if (_em.HasComponent<VeilstoneOutcroppingTag>(e)) return true;
+            if (_em.HasComponent<VeilsteelDepositTag>(e)) return true;
             return false;
         }
 
@@ -201,14 +203,16 @@ namespace TheWaningBorder.UI.HUD
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
 
-            // Resource nodes (iron deposits, crystal cadavers) render an amber
+            // Resource nodes (iron deposits, veilstone outcroppings) render an amber
             // depletion bar instead of the standard Health bar. They don't carry
             // Health at all — HasDrawableBar lets them through the gate above.
             bool isIronDeposit = _em.HasComponent<IronMineTag>(e);
-            bool isCadaver     = _em.HasComponent<CadaverTag>(e);
-            if (isIronDeposit || isCadaver)
+            // Veilsteel nodes share IronDepositState, so they take the iron path.
+            bool isVeilsteelDeposit = _em.HasComponent<VeilsteelDepositTag>(e);
+            bool isVeilstoneOutcropping     = _em.HasComponent<VeilstoneOutcroppingTag>(e);
+            if (isIronDeposit || isVeilsteelDeposit || isVeilstoneOutcropping)
             {
-                DrawResourceDepletionBar(cam, e, isIronDeposit);
+                DrawResourceDepletionBar(cam, e, isIronDeposit || isVeilsteelDeposit);
                 return;
             }
 
@@ -289,9 +293,9 @@ namespace TheWaningBorder.UI.HUD
             }
             else
             {
-                var s = _em.GetComponentData<CadaverState>(e);
-                remaining = s.RemainingCrystal;
-                max = s.MaxCrystal > 0 ? s.MaxCrystal : remaining;
+                var s = _em.GetComponentData<VeilstoneOutcroppingState>(e);
+                remaining = s.RemainingVeilstone;
+                max = s.MaxVeilstone > 0 ? s.MaxVeilstone : remaining;
             }
 
             float targetFill = max > 0 ? Mathf.Clamp01((float)remaining / max) : 0f;

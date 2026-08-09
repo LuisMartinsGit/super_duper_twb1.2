@@ -39,6 +39,13 @@ namespace TheWaningBorder.Systems.Sect
         };
         private static float StackDurationFor(byte level) => level == 3 ? 4f : StackDuration;
 
+        private struct PendingFervor
+        {
+            public Entity Killer;
+            public float PerStack;
+            public float Duration;
+        }
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<Health>();
@@ -49,6 +56,12 @@ namespace TheWaningBorder.Systems.Sect
             var em = state.EntityManager;
 
             // Iterate freshly-dead entities (same pattern as PillageSystem).
+            // Kill events are COLLECTED and applied after the iteration —
+            // the lazy AddComponentData paths are structural changes, which
+            // throw inside a SystemAPI.Query foreach.
+            var pending = new Unity.Collections.NativeList<PendingFervor>(
+                8, Unity.Collections.Allocator.Temp);
+
             foreach (var (health, lastAttacker, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LastAttackerEntity>>()
                 .WithNone<DeathAnimationState, BuildingCollapseState>()
@@ -65,24 +78,38 @@ namespace TheWaningBorder.Systems.Sect
                 byte level = SectQuery.LevelOf(em, killerFaction,
                     SectConfig.Veneration, SectLeverKind.Passive);
                 if (level == 0) continue;
-                float perStack = DamageBonusPerStackFor(level);
-                float duration = StackDurationFor(level);
+
+                pending.Add(new PendingFervor
+                {
+                    Killer = killer,
+                    PerStack = DamageBonusPerStackFor(level),
+                    Duration = StackDurationFor(level),
+                });
+            }
+
+            for (int i = 0; i < pending.Length; i++)
+            {
+                var p = pending[i];
+                if (!em.Exists(p.Killer)) continue;
 
                 // Add or refresh the stack.
-                if (em.HasComponent<VenerationFervor>(killer))
+                int newStacks;
+                if (em.HasComponent<VenerationFervor>(p.Killer))
                 {
-                    var fervor = em.GetComponentData<VenerationFervor>(killer);
+                    var fervor = em.GetComponentData<VenerationFervor>(p.Killer);
                     if (fervor.Stacks < MaxStacks) fervor.Stacks++;
-                    fervor.TimeRemaining = duration;
-                    em.SetComponentData(killer, fervor);
+                    fervor.TimeRemaining = p.Duration;
+                    em.SetComponentData(p.Killer, fervor);
+                    newStacks = fervor.Stacks;
                 }
                 else
                 {
-                    em.AddComponentData(killer, new VenerationFervor
+                    em.AddComponentData(p.Killer, new VenerationFervor
                     {
                         Stacks = 1,
-                        TimeRemaining = duration,
+                        TimeRemaining = p.Duration,
                     });
+                    newStacks = 1;
                 }
 
                 // Mirror the bonus into SpellBuff so existing combat-pipeline
@@ -91,24 +118,25 @@ namespace TheWaningBorder.Systems.Sect
                 // unified "outgoing damage modifier" channel; the +attack-
                 // speed and Lv III +move halves remain Phase 5 work since
                 // those read points aren't wired through SpellBuff.
-                int newStacks = em.GetComponentData<VenerationFervor>(killer).Stacks;
-                float dmgMult = 1f + perStack * newStacks;
-                if (em.HasComponent<SpellBuff>(killer))
+                float dmgMult = 1f + p.PerStack * newStacks;
+                if (em.HasComponent<SpellBuff>(p.Killer))
                 {
-                    var buff = em.GetComponentData<SpellBuff>(killer);
+                    var buff = em.GetComponentData<SpellBuff>(p.Killer);
                     if (dmgMult > buff.DamageMultiplier) buff.DamageMultiplier = dmgMult;
-                    if (duration > buff.TimeRemaining) buff.TimeRemaining = duration;
-                    em.SetComponentData(killer, buff);
+                    if (p.Duration > buff.TimeRemaining) buff.TimeRemaining = p.Duration;
+                    em.SetComponentData(p.Killer, buff);
                 }
                 else
                 {
-                    em.AddComponentData(killer, new SpellBuff
+                    em.AddComponentData(p.Killer, new SpellBuff
                     {
                         DamageMultiplier = dmgMult,
-                        TimeRemaining    = duration,
+                        TimeRemaining    = p.Duration,
                     });
                 }
             }
+
+            pending.Dispose();
 
             // Tick down VenerationFervor — when TimeRemaining hits 0, remove it.
             // SpellBuff has its own ticker (SpellBuffSystem) so we don't tick that.

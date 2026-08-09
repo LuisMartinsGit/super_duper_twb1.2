@@ -24,6 +24,11 @@ public struct SpellBuff : IComponentData
     /// <summary>Fraction of damage reflected back to attacker (0.25 = 25%)</summary>
     public float DamageReflect;
 
+    /// <summary>Incoming-damage multiplier (0.10 = takes 10% damage, i.e. 90%
+    /// reduction — Liquid Courage). 0 (default) means "no effect" and is treated
+    /// as 1.0 by the combat pipeline.</summary>
+    public float DamageTakenMultiplier;
+
     /// <summary>Seconds remaining for this buff</summary>
     public float TimeRemaining;
 }
@@ -214,5 +219,28 @@ public struct SectUnitLeverApplied : IBufferElementData
 public struct SectActivePowerCooldown : IBufferElementData
 {
     public byte SectIndex;
+    /// <summary>Skill tier 1..3 (tiered actives, design 2026-07-05). Each
+    /// tier cools down independently.</summary>
+    public byte Tier;
     public float Remaining;
+}
+
+/// <summary>
+/// A fired OFFENSIVE god power waiting out its wind-up (design 2026-07-05:
+/// damage/lockdown powers telegraph for ~1.5 s so the target can dodge out).
+/// Created by SectActivePowerHelper.Fire instead of dispatching immediately;
+/// SectActivePowerSystem ticks Windup and applies the effect at zero.
+/// Kind is a SectActivePowerKind byte; SectIndex picks the impact VFX.
+/// </summary>
+public struct PendingSectStrike : IComponentData
+{
+    public byte Kind;
+    public byte SectIndex;
+    public byte Level;
+    public Faction Caster;
+    public Unity.Mathematics.float3 Position;
+    public float Radius;
+    public float Magnitude;
+    public float Duration;
+    public float Windup;
 }

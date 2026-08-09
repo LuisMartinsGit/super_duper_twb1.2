@@ -19,7 +19,8 @@ namespace TheWaningBorder.Core.Commands.Types
         /// feedback. Captures base stats on first call so the upgrade
         /// system can recompute idempotently.
         /// </summary>
-        public static UpgradeBuildingResult Execute(EntityManager em, Entity building)
+        public static UpgradeBuildingResult Execute(EntityManager em, Entity building,
+            CommandSource source = CommandSource.LocalPlayer)
         {
             if (!em.Exists(building)) return UpgradeBuildingResult.NotUpgradeable;
             if (!em.HasComponent<BuildingUpgradeable>(building)) return UpgradeBuildingResult.NotUpgradeable;
@@ -53,6 +54,32 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!FactionEconomy.CanAfford(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
             if (!FactionEconomy.Spend(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
 
+            // Validation + spend stay on the issuing peer; the state
+            // mutation routes through CommandRouter so it replicates in
+            // multiplayer. Without this the upgrade existed on one peer and
+            // the remote silently dropped level-gated Train commands.
+            CommandRouter.IssueBuildingUpgrade(em, building, source);
+            return UpgradeBuildingResult.Ok;
+        }
+
+        /// <summary>
+        /// Apply the upgrade state mutation on THIS peer: capture base stats
+        /// once, stamp the in-progress timer. The target level is recomputed
+        /// from local state so every peer derives the same result from the
+        /// same command stream. Re-entry safe: no-ops when already upgrading
+        /// or at max level.
+        /// </summary>
+        public static void ApplyDirect(EntityManager em, Entity building)
+        {
+            if (!em.Exists(building)) return;
+            if (em.HasComponent<BuildingUpgrading>(building)) return;
+
+            byte currentLevel = 0;
+            if (em.HasComponent<BuildingUpgradeState>(building))
+                currentLevel = em.GetComponentData<BuildingUpgradeState>(building).Level;
+            if (currentLevel >= BuildingUpgradeConfig.MaxLevel) return;
+            byte targetLevel = (byte)(currentLevel + 1);
+
             // Capture base stats once. After this they NEVER change — the
             // upgrade system always recomputes scaled values from base, so
             // re-applying a level (save/load, frame race) can't double-bump.
@@ -74,15 +101,15 @@ namespace TheWaningBorder.Core.Commands.Types
                 });
             }
 
-            // Stamp the in-progress timer.
+            // Stamp the in-progress timer. Duration is per-building where
+            // the calculator specifies one (falls back to the global curve).
             em.AddComponentData(building, new BuildingUpgrading
             {
                 Progress    = 0f,
-                Total       = BuildingUpgradeConfig.UpgradeDuration[targetLevel],
+                Total       = BuildingUpgradeConfig.GetUpgradeDuration(
+                    ResolveBuildingId(em, building), targetLevel),
                 TargetLevel = targetLevel,
             });
-
-            return UpgradeBuildingResult.Ok;
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -100,6 +127,16 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<BarracksTag>(e))     return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";
             if (em.HasComponent<HutTag>(e))          return "Hut";
+            if (em.HasComponent<GathererHutTag>(e))  return "GatherersHut";
+            // Choice-building simple upgrades (design 2026-07-04). The Keep is
+            // NOT here — it levels via wings (KeepWingSystem), not this ladder.
+            if (em.HasComponent<VaultTag>(e))        return "VaultOfAlmierra";
+            if (em.HasComponent<ShrineTag>(e))       return "ShrineOfRidan";
+            // Alanthor culture ladders (calculator 2026-08).
+            if (em.HasComponent<RoyalStableTag>(e))  return "Alanthor_RoyalStable";
+            if (em.HasComponent<WatchTowerTag>(e))   return "Alanthor_Tower";
+            if (em.HasComponent<SiegeYardTag>(e))    return "Alanthor_SiegeYard";
+            if (em.HasComponent<SmelterTag>(e))      return "Alanthor_Smelter";
             return string.Empty;
         }
 

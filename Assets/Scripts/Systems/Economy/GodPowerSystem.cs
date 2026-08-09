@@ -18,7 +18,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
-using static TheWaningBorder.Core.Config.CrystalConstants;
+using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Systems.Economy
 {

@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Litharch
   m_EditorClassIdentifier: 
-  id: 'Litharch'
-  displayName: 'Litharch'
-  unitClass: 'human_support'
+  id: Litharch
+  displayName: Litharch
+  unitClass: human_support
   hp: 120
   speed: 5.5
   trainingTime: 24
   damage: 10
-  damageType: 'magic'
-  armorType: 'ranged'
+  damageType: magic
+  armorType: ranged
   defense:
     melee: 0
     ranged: 0
@@ -33,7 +33,7 @@ MonoBehaviour:
   cost:
     Supplies: 100
     Iron: 25
-    Crystal: 10
+    Crystal: 0
     Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
@@ -41,6 +41,8 @@ MonoBehaviour:
   carryCapacity: 0
   healsPerSecond: 6
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
+  prefab: {fileID: 2303961623429646327, guid: e520ba514f1e6ca42a8c8895b9d885ea, type: 3}
   presentationId: 207
+  animatorController: {fileID: 9100000, guid: 7c16b49f586728f47ad4c7ce2c42355f, type: 2}

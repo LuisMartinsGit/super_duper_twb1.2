@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_RoyalStable'
   displayName: 'Royal Stable'
   role: 'Heavy-cavalry trainer (Cataphract).'
-  hp: 50
+  hp: 1000
   armorType: 'structure_human'
   defense:
     melee: 2
@@ -25,8 +25,14 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 18
   trains:
+  - 'Alanthor_Outrider'
   - 'Alanthor_Cataphract'
-  research: []
+  research:
+  - 'SeasonedCavalry'
+  - 'VeteranCavalry'
+  - 'EliteCavalry'
+  - 'WarHorn'
+  - 'FullGallop'
   minEra: 0
   cost:
     Supplies: 220
@@ -35,4 +41,4 @@ MonoBehaviour:
     Veilsteel: 0
   tags:
   - 'Building'
-  presentationId: 0
+  presentationId: 356

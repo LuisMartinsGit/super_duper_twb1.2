@@ -41,6 +41,7 @@ namespace TheWaningBorder.Economy
         AgeGatingNotMet          = 8,
         UnsupportedLeverState    = 9,
         BankMissing              = 10,
+        NotYetImplemented        = 11,
     }
 
     /// <summary>
@@ -73,6 +74,10 @@ namespace TheWaningBorder.Economy
             int idx = SectConfig.IndexOf(sectId);
             if (idx < 0) return SectAdoptionResult.UnknownSect;
 
+            // Rollout gate — unimplemented sects can't be adopted by anyone
+            // (players or AI); every adoption path funnels through here.
+            if (!SectConfig.IsImplemented(sectId)) return SectAdoptionResult.NotYetImplemented;
+
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return SectAdoptionResult.BankMissing;
             if (!em.HasComponent<SectAdoptionState>(bank)) return SectAdoptionResult.BankMissing;
 
@@ -100,6 +105,13 @@ namespace TheWaningBorder.Economy
         {
             cost = 0;
             materialCost = default;
+
+            // Auto-leveling (design 2026-07-05): levers rise with the Temple's
+            // level — manual RP lever buys are retired. Kept compiling so the
+            // age-gating logic below can be revived if the design reverts.
+            return SectAdoptionResult.UnsupportedLeverState;
+
+#pragma warning disable CS0162 // unreachable — intentional, see above
             int idx = SectConfig.IndexOf(sectId);
             if (idx < 0) return SectAdoptionResult.UnknownSect;
 
@@ -142,6 +154,7 @@ namespace TheWaningBorder.Economy
                 return SectAdoptionResult.NotEnoughRP; // re-using enum for "can't pay"
 
             return SectAdoptionResult.Ok;
+#pragma warning restore CS0162
         }
 
         /// <summary>
@@ -235,13 +248,18 @@ namespace TheWaningBorder.Economy
                 ? em.GetComponentData<FactionReligionPoints>(bank).CurrentAge : (byte)1;
             if (currentAge == 0) currentAge = 1;
 
+            // Auto-leveling (design 2026-07-05): lever levels track the
+            // Temple's level, not manual RP buys — a sect adopted at a
+            // Lv-2 temple starts with every lever at Lv II.
+            byte startLevel = LeverLevelForTemple(em, faction);
+
             var sect = new PerSectState
             {
                 AdoptedAtAge = currentAge,
-                PassiveLevel = 1,
-                BuildingLevel = 1,
-                UnitLevel = 1,
-                ActivePowerLevel = 1,
+                PassiveLevel = startLevel,
+                BuildingLevel = startLevel,
+                UnitLevel = startLevel,
+                ActivePowerLevel = startLevel,
                 PassiveLevelAchievedAtAge = currentAge,
                 BuildingLevelAchievedAtAge = currentAge,
                 UnitLevelAchievedAtAge = currentAge,
@@ -252,6 +270,57 @@ namespace TheWaningBorder.Economy
 
             OnSectAdopted?.Invoke(faction, sectId, currentAge);
             return SectAdoptionResult.Ok;
+        }
+
+        /// <summary>
+        /// Auto-leveling (design 2026-07-05): every adopted sect's four
+        /// levers rise to match the Temple of Ridan's level (clamped to
+        /// Lv III). Called on temple upgrade completion; adoption uses
+        /// <see cref="LeverLevelForTemple"/> for the starting level.
+        /// </summary>
+        public static void SyncLeversToTempleLevel(EntityManager em, Faction faction, int templeLevel)
+        {
+            byte target = (byte)(templeLevel < 1 ? 1 : templeLevel > 3 ? 3 : templeLevel);
+
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return;
+            if (!em.HasComponent<SectAdoptionState>(bank)) return;
+            byte currentAge = em.HasComponent<FactionReligionPoints>(bank)
+                ? em.GetComponentData<FactionReligionPoints>(bank).CurrentAge : (byte)1;
+            if (currentAge == 0) currentAge = 1;
+
+            var state = em.GetComponentData<SectAdoptionState>(bank);
+            bool changed = false;
+            for (int i = 0; i < SectConfig.SectCount; i++)
+            {
+                var sect = state.Get(i);
+                if (!sect.IsAdopted) continue;
+
+                if (sect.PassiveLevel < target)     { sect.SetLevel(SectLeverKind.Passive,     target, currentAge); changed = true; }
+                if (sect.BuildingLevel < target)    { sect.SetLevel(SectLeverKind.Building,    target, currentAge); changed = true; }
+                if (sect.UnitLevel < target)        { sect.SetLevel(SectLeverKind.Unit,        target, currentAge); changed = true; }
+                if (sect.ActivePowerLevel < target) { sect.SetLevel(SectLeverKind.ActivePower, target, currentAge); changed = true; }
+
+                state.Set(i, sect);
+            }
+            if (changed) em.SetComponentData(bank, state);
+        }
+
+        /// <summary>Lever level a newly adopted sect starts at: the faction
+        /// temple's current level, clamped 1..3.</summary>
+        private static byte LeverLevelForTemple(EntityManager em, Faction faction)
+        {
+            var q = em.CreateEntityQuery(
+                Unity.Entities.ComponentType.ReadOnly<TempleOfRidanTag>(),
+                Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+                Unity.Entities.ComponentType.ReadOnly<TempleLevel>());
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                int lvl = em.GetComponentData<TempleLevel>(ents[i]).Level;
+                return (byte)(lvl < 1 ? 1 : lvl > 3 ? 3 : lvl);
+            }
+            return 1;
         }
 
         /// <summary>

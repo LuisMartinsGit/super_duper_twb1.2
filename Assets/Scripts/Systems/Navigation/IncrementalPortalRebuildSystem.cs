@@ -184,7 +184,7 @@ namespace TheWaningBorder.Systems.Navigation
             // M5: include the new wall portal nodes in the per-tile pairing
             // so the A* search can hop through them within a tile too.
             var intraEdges = new NativeList<PortalEdge>(nodeCount, Allocator.Temp);
-            BuildIntraTileEdges(grid, nodes.AsArray(), intraEdges);
+            PortalIntraTileEdges.Build(grid, nodes.AsArray(), intraEdges, cost.Cost);
 
             int totalEdgeCount = edges.Length + intraEdges.Length;
             var allEdges = new NativeArray<PortalEdge>(totalEdgeCount, Allocator.Temp,
@@ -381,19 +381,5 @@ namespace TheWaningBorder.Systems.Navigation
             return evicted;
         }
 
-        // Manhattan-distance edge between every pair of portals on the SAME
-        // tile. Bucketed by TileIndex so this is O(n log n + Σ kᵢ²) instead
-        // of the naive O(n²) all-pairs scan — critical now the grid spans the
-        // whole map (tens of thousands of portals would make O(n²) a ~second
-        // main-thread stall on every building placement). Edge SET is
-        // identical; the caller re-sorts edges by (From,To) id afterwards so
-        // insertion order doesn't affect determinism.
-        private static void BuildIntraTileEdges(
-            in NavGridSingleton grid,
-            NativeArray<PortalNode> nodes,
-            NativeList<PortalEdge> outEdges)
-        {
-            PortalIntraTileEdges.Build(grid, nodes, outEdges);
-        }
     }
 }

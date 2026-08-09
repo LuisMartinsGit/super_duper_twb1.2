@@ -29,6 +29,21 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear conflicting commands
             CommandHelper.ClearAllCommands(em, builder);
 
+            // A drafted mining worker must leave the mining state machine —
+            // same fix as BuildCommandHelper.Execute (MinerState kept driving
+            // the worker's DesiredDestination toward its deposit while the
+            // repair mover drove it toward the building).
+            if (em.HasComponent<MinerState>(builder))
+            {
+                var ms = em.GetComponentData<MinerState>(builder);
+                if (ms.State != MinerWorkState.Idle)
+                {
+                    ms.State = MinerWorkState.Idle;
+                    ms.AssignedDeposit = Entity.Null;
+                    em.SetComponentData(builder, ms);
+                }
+            }
+
             // Set up repair order
             if (!em.HasComponent<RepairOrder>(builder))
                 em.AddComponentData(builder, new RepairOrder

@@ -26,28 +26,43 @@ public struct EntityDisplayInfo
     public int? Attack;
     public int? Defense;
     public float? Speed;
+
+    // Per-type defense breakdown (nullable — present when the entity has a
+    // Defense component). Defense above stays the melee value for the
+    // legacy single-cell consumers (web HUD Selection.jsx).
+    public int? DefenseMelee;
+    public int? DefenseRanged;
+    public int? DefenseSiege;
+    public int? DefenseMagic;
+
+    // Extended combat detail for the selection stats panel (2026-07-18).
+    public float? AttackCooldown;   // seconds between attacks
+    public float? RangeMin;         // null for melee attackers
+    public float? RangeMax;         // null for melee attackers
+    public string DamageTypeName;   // Melee / Ranged / Siege / Magic / True; null when no attack
+    public string ArmorTypeName;    // readable ArmorType; "Structure" for buildings without one
+    public string BonusVsText;      // "+15 vs Cavalry, +10 vs Building"; null when none
+    public float? SightRadius;      // LineOfSight.Radius
     
     // Resource generation (for buildings)
     public bool HasResourceGeneration;
     public float? SuppliesPerMinute;
     public int? IronPerMinute;
-    public int? CrystalPerMinute;
+    public int? VeilstonePerMinute;
     public int? VeilsteelPerMinute;
     public int? GlowPerMinute;
 
     // Miner info
     public bool HasMinerInfo;
-    public int MinerCurrentLoad;
-    public int MinerMaxCarry;
-    public string MinerResourceType;      // "Iron" or "Crystal"
-    public string MinerExtractionRate;    // e.g. "10 iron / 2s" or "1 crystal / 1.5s"
-    public string MinerState;             // e.g. "Idle", "Gathering", "Returning"
+    public string MinerResourceType;      // "Iron" or "Veilstone"
+    public string MinerExtractionRate;    // e.g. "1 iron / 2s" or "1 veilstone / 1.5s"
+    public string MinerState;             // e.g. "Idle", "Gathering"
 
-    // Resource deposit info (iron mines, cadavers)
+    // Resource deposit info (iron mines, outcroppings)
     public bool HasResourceInfo;
     public int ResourceRemaining;
     public int ResourceMax;
-    public string ResourceTypeName;       // "Iron" or "Crystal"
+    public string ResourceTypeName;       // "Iron" or "Veilstone"
 
     // ─── task-108 phase 1 additions ────────────────────────────────────────
     /// <summary>
@@ -93,7 +108,7 @@ public struct EntityQueueSlot
     public string DisplayName;
     public int RefundSupplies;
     public int RefundIron;
-    public int RefundCrystal;
+    public int RefundVeilstone;
     public int RefundVeilsteel;
     public int RefundGlow;
     public float Progress;

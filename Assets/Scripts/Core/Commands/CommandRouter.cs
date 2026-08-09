@@ -98,6 +98,23 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
+            // Verb wells are FERALDIS-ONLY attack targets (2026-08-04): Age 0
+            // and Alanthor/Runai factions can never attack a well — their
+            // verbs are Purify / Pacify. Only the Feraldis culture breaks
+            // wells by force.
+            if (em.HasComponent<BorderMainNodeTag>(target))
+            {
+                var attackerFaction = em.HasComponent<FactionTag>(unit)
+                    ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
+                if (FactionColors.GetFactionCulture(attackerFaction) != Cultures.Feraldis)
+                {
+                    if (source == CommandSource.LocalPlayer)
+                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                            "The well resists all arms — only Feraldis may break it");
+                    return;
+                }
+            }
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueAttackForLockstep(em, unit, target);
@@ -214,7 +231,6 @@ namespace TheWaningBorder.Core.Commands
         /// unit isn't already on that layer it routes to the nearest wall
         /// access point (gate / stair), LERPs across, then moves freely on the
         /// target layer. See <see cref="LayeredMoveSystem"/>.
-        /// (Single-player path for now — not wired through lockstep queueing.)
         /// </summary>
         public static void IssueLayeredMove(EntityManager em, Entity unit, float3 dest,
             byte targetLayer, CommandSource source = CommandSource.LocalPlayer)
@@ -223,6 +239,22 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (em.HasComponent<BuildingTag>(unit)) return;
 
+            // This is the DEFAULT right-click move path (RTSInputManager), so
+            // it must replicate like IssueMove — without this gate every
+            // ordinary move executed locally only and multiplayer peers
+            // watched two unrelated games.
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueLayeredMoveForLockstep(em, unit, dest, targetLayer);
+                return;
+            }
+
+            ExecuteLayeredMoveDirect(em, unit, dest, targetLayer);
+        }
+
+        private static void ExecuteLayeredMoveDirect(EntityManager em, Entity unit, float3 dest,
+            byte targetLayer)
+        {
             CommandHelper.ClearAllCommands(em, unit);
 
             var order = new LayeredMoveOrder
@@ -268,7 +300,7 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Issue a gather command to a miner unit.
         /// </summary>
-        public static void IssueGather(EntityManager em, Entity miner, Entity resource, Entity deposit,
+        public static void IssueGather(EntityManager em, Entity miner, Entity resource,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (miner == Entity.Null || !em.Exists(miner)) return;
@@ -276,11 +308,31 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueGatherForLockstep(em, miner, resource, deposit);
+                QueueGatherForLockstep(em, miner, resource);
             }
             else
             {
-                GatherCommandHelper.Execute(em, miner, resource, deposit);
+                GatherCommandHelper.Execute(em, miner, resource);
+            }
+        }
+
+        /// <summary>
+        /// Issue a dig-the-Veil command (position-targeted veilstone
+        /// gathering from the curse sheet — there is no resource entity).
+        /// </summary>
+        public static void IssueGatherVeil(EntityManager em, Entity miner, float3 site,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (miner == Entity.Null || !em.Exists(miner)) return;
+            if (IsBlockedByNotControllable(em, miner, source)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueGatherVeilForLockstep(em, miner, site);
+            }
+            else
+            {
+                GatherVeilCommandHelper.Execute(em, miner, site);
             }
         }
 
@@ -364,7 +416,7 @@ namespace TheWaningBorder.Core.Commands
         /// Set rally point for a building. <paramref name="targetEntity"/>
         /// is an optional follow-up target (e.g. a resource node) that
         /// post-spawn handlers may use — TrainingSystem auto-issues a
-        /// gather command on miners when this points at an iron / crystal
+        /// gather command on miners when this points at an iron / veilstone
         /// deposit. Pass Entity.Null for plain "walk here" rallies.
         /// </summary>
         public static void SetRallyPoint(EntityManager em, Entity building, float3 position,
@@ -393,7 +445,7 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>
         /// Upgrade a faction's equipment tier for a unit class. Adjacent
-        /// tier moves only (Base→Iron→Crystal→Veilsteel→Glow). Costs are
+        /// tier moves only (Base→Iron→Veilstone→Veilsteel→Glow). Costs are
         /// spent immediately from the faction bank; the new tier applies
         /// to all current and future units of that class on the next
         /// EquipmentTierSystem tick.
@@ -524,11 +576,11 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // PURIFY COMMANDS (Alanthor — scholar channels purification ritual on a crystal node)
+        // PURIFY COMMANDS (Alanthor — scholar channels purification ritual on a veilstone node)
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Issue a Purify ritual command on a scholar targeting a crystal main node.
+        /// Issue a Purify ritual command on a scholar targeting a veilstone main node.
         /// PurificationRitualSystem will move the scholar to within RitualRange,
         /// then channel for PurificationChannelTime seconds, then cleanse the node
         /// and spawn a Glow pickup.
@@ -540,7 +592,7 @@ namespace TheWaningBorder.Core.Commands
             if (node == Entity.Null || !em.Exists(node)) return;
             if (IsBlockedByNotControllable(em, scholar, source)) return;
             if (!em.HasComponent<ScholarTag>(scholar)) return;
-            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
 
             if (ShouldQueueForLockstep(source))
             {
@@ -550,12 +602,36 @@ namespace TheWaningBorder.Core.Commands
             IssuePurifyDirect(em, scholar, node);
         }
 
+        /// <summary>
+        /// Send a Feraldis Corruptor to crack a well open (the Feraldis verb —
+        /// docs/Design/Age_1_Feraldis.md § Corruptor). Mirrors IssuePurify.
+        ///
+        /// NOTE: not yet lockstep-replicated — it takes the direct path on
+        /// every peer. Purify/Convert have opcodes; Corrupt needs one before
+        /// multiplayer (see CommandRouter.LockstepQueue.cs + LockstepTypes).
+        /// </summary>
+        public static void IssueCorrupt(EntityManager em, Entity corruptor, Entity node,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (corruptor == Entity.Null || !em.Exists(corruptor)) return;
+            if (node == Entity.Null || !em.Exists(node)) return;
+            if (IsBlockedByNotControllable(em, corruptor, source)) return;
+            if (!em.HasComponent<CorruptorTag>(corruptor)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
+
+            CommandHelper.ClearAllCommands(em, corruptor);
+            if (em.HasComponent<CorruptCommand>(corruptor))
+                em.SetComponentData(corruptor, new CorruptCommand { TargetNode = node });
+            else
+                em.AddComponentData(corruptor, new CorruptCommand { TargetNode = node });
+        }
+
         /// <summary>Execute IssuePurify on this peer. Used by LockstepManager dispatch.</summary>
         public static void IssuePurifyDirect(EntityManager em, Entity scholar, Entity node)
         {
             if (!em.Exists(scholar) || !em.Exists(node)) return;
             if (!em.HasComponent<ScholarTag>(scholar)) return;
-            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
 
             CommandHelper.ClearAllCommands(em, scholar);
             if (em.HasComponent<PurifyCommand>(scholar))
@@ -565,9 +641,9 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Issue a Convert ritual command on an acolyte targeting a crystal main
+        /// Issue a Convert ritual command on an acolyte targeting a veilstone main
         /// node. ConversionRitualSystem channels for ConversionChannelTime (45s)
-        /// against the node's heightened curse defense, then transitions the node
+        /// against the node's heightened border defense, then transitions the node
         /// to Converted and flips nearby defenders to the acolyte's faction.
         /// </summary>
         public static void IssueConvertNode(EntityManager em, Entity acolyte, Entity node,
@@ -577,7 +653,7 @@ namespace TheWaningBorder.Core.Commands
             if (node == Entity.Null || !em.Exists(node)) return;
             if (IsBlockedByNotControllable(em, acolyte, source)) return;
             if (!em.HasComponent<AcolyteTag>(acolyte)) return;
-            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
 
             if (ShouldQueueForLockstep(source))
             {
@@ -592,7 +668,7 @@ namespace TheWaningBorder.Core.Commands
         {
             if (!em.Exists(acolyte) || !em.Exists(node)) return;
             if (!em.HasComponent<AcolyteTag>(acolyte)) return;
-            if (!em.HasComponent<CrystalMainNodeTag>(node)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
 
             CommandHelper.ClearAllCommands(em, acolyte);
             if (em.HasComponent<ConvertNodeCommand>(acolyte))
@@ -647,6 +723,31 @@ namespace TheWaningBorder.Core.Commands
                 em.AddComponentData(unit, new AbilityActivated { Target = target });
         }
 
+        /// <summary>
+        /// Fire a data-driven ability (new AbilityCatalog system — units carrying
+        /// <c>UnitAbilities</c>, e.g. King Lexor's Liquid Courage, the Scout's Use
+        /// Celestar). Distinct from IssueAbility, which drives the legacy sect-unit
+        /// <c>UnitAbility</c> component. AbilityLifecycleSystem picks the unit's
+        /// first ready Active ability. Returns false when it can't fire (no ability,
+        /// on cooldown, not controllable).
+        /// </summary>
+        public static bool IssueUnitAbility(EntityManager em, Entity unit, Entity target = default,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (!em.Exists(unit)) return false;
+            if (IsBlockedByNotControllable(em, unit, source)) return false;
+            if (!em.HasComponent<TheWaningBorder.Abilities.UnitAbilities>(unit)) return false;
+            if (!TheWaningBorder.Abilities.AbilityQuery.HasReadyActiveAbility(em, unit)) return false;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueAbilityForLockstep(em, unit, target);
+                return true;
+            }
+            IssueAbilityDirect(em, unit, target);
+            return true;
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // TRAIN COMMANDS
         // ═══════════════════════════════════════════════════════════════
@@ -658,6 +759,10 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (building == Entity.Null || !em.Exists(building)) return;
+
+            if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
+                TheWaningBorder.AI.AILogger.LogPlayer(
+                    em.GetComponentData<FactionTag>(building).Value, "TRAIN", unitId);
 
             // Authoritative level gate. Local-player path surfaces the
             // failure as a notification so the click feels intentional;
@@ -682,6 +787,192 @@ namespace TheWaningBorder.Core.Commands
             {
                 TrainCommandDirect(em, building, unitId);
             }
+        }
+
+        /// <summary>
+        /// Queue a technology on a building's research queue. The COST is the
+        /// caller's business (the UI spends before issuing, mirroring the
+        /// training flow) — this routes only the enqueue, so the research
+        /// replicates to every peer in multiplayer instead of finishing on
+        /// the issuer's screen alone.
+        /// </summary>
+        public static void IssueResearch(EntityManager em, Entity building, string techId,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (building == Entity.Null || !em.Exists(building)) return;
+            if (string.IsNullOrEmpty(techId)) return;
+            if (!em.HasBuffer<ResearchQueueItem>(building)) return;
+
+            if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
+                TheWaningBorder.AI.AILogger.LogPlayer(
+                    em.GetComponentData<FactionTag>(building).Value, "RESEARCH", techId);
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueResearchForLockstep(em, building, techId);
+            }
+            else
+            {
+                ResearchCommandDirect(em, building, techId);
+            }
+        }
+
+        /// <summary>
+        /// Start a building level-up. Validation and cost live in
+        /// UpgradeBuildingCommandHelper.Execute (the caller); this routes the
+        /// state mutation so it lands on every peer in multiplayer.
+        /// </summary>
+        public static void IssueBuildingUpgrade(EntityManager em, Entity building,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (building == Entity.Null || !em.Exists(building)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueBuildingUpgradeForLockstep(em, building);
+            }
+            else
+            {
+                Types.UpgradeBuildingCommandHelper.ApplyDirect(em, building);
+            }
+        }
+
+        /// <summary>
+        /// Start the Hall's age-up with the chosen culture. Cost is spent by
+        /// the caller (popup / AI); this routes the AgeUpState stamp and the
+        /// culture registration so every peer sees the era advance.
+        /// </summary>
+        public static void IssueAgeUp(EntityManager em, Entity hall, byte culture,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (hall == Entity.Null || !em.Exists(hall)) return;
+
+            if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(hall))
+                TheWaningBorder.AI.AILogger.LogPlayer(
+                    em.GetComponentData<FactionTag>(hall).Value, "AGEUP", $"culture {culture}");
+
+            if (ShouldQueueForLockstep(source))
+                QueueAgeUpForLockstep(em, hall, culture);
+            else
+                AgeUpCommandDirect(em, hall, culture);
+        }
+
+        /// <summary>Apply the age-up on this peer. Duration is recomputed
+        /// locally; re-entry safe (no-op when already ageing).</summary>
+        public static void AgeUpCommandDirect(EntityManager em, Entity hall, byte culture)
+        {
+            if (!em.Exists(hall)) return;
+
+            if (em.HasComponent<FactionTag>(hall))
+                FactionColors.SetFactionCulture(em.GetComponentData<FactionTag>(hall).Value, culture);
+
+            if (!em.HasComponent<AgeUpState>(hall))
+            {
+                float duration = CultureConfig.AgeUpDuration;
+                em.AddComponentData(hall, new AgeUpState
+                {
+                    Culture   = culture,
+                    Duration  = duration,
+                    Remaining = duration,
+                });
+            }
+        }
+
+        /// <summary>
+        /// Start a Temple of Ridan level upgrade. Cost is spent by the
+        /// caller; target level and duration are recomputed on each peer.
+        /// </summary>
+        public static void IssueTempleUpgrade(EntityManager em, Entity temple,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (temple == Entity.Null || !em.Exists(temple)) return;
+
+            if (ShouldQueueForLockstep(source))
+                QueueTempleUpgradeForLockstep(em, temple);
+            else
+                TempleUpgradeCommandDirect(em, temple);
+        }
+
+        /// <summary>Apply the temple upgrade stamp on this peer. Re-entry
+        /// safe (no-op when already upgrading).</summary>
+        public static void TempleUpgradeCommandDirect(EntityManager em, Entity temple)
+        {
+            if (!em.Exists(temple)) return;
+            if (!em.HasComponent<TempleLevel>(temple)) return;
+            if (em.HasComponent<TempleUpgradeState>(temple)) return;
+
+            int level = em.GetComponentData<TempleLevel>(temple).Level;
+            float duration = TempleLevelConfig.GetUpgradeDuration(level);
+            em.AddComponentData(temple, new TempleUpgradeState
+            {
+                TargetLevel = level + 1,
+                Duration    = duration,
+                Remaining   = duration,
+            });
+        }
+
+        /// <summary>
+        /// Stamp a chapel build slot for an adopted sect. RP + material spend
+        /// happen in SectAdoption.TryStartAdoption on the issuing peer; this
+        /// routes only the slot stamp so the chapel rises on every peer.
+        /// </summary>
+        public static void IssueSectAdoption(EntityManager em, Entity temple, string sectId,
+            int preferredSlot, float buildTime, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (temple == Entity.Null || !em.Exists(temple)) return;
+            if (string.IsNullOrEmpty(sectId)) return;
+
+            if (ShouldQueueForLockstep(source))
+                QueueSectAdoptionForLockstep(em, temple, sectId, preferredSlot, buildTime);
+            else
+                SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
+        }
+
+        /// <summary>Apply the chapel-slot stamp on this peer. Prefers the
+        /// targeted slot, falls back to the first free one; no-ops when the
+        /// sect is already building or complete (replay safety).</summary>
+        public static void SectAdoptionCommandDirect(EntityManager em, Entity temple,
+            string sectId, int preferredSlot, float buildTime)
+        {
+            if (!em.Exists(temple) || !em.HasBuffer<TempleChapelSlot>(temple)) return;
+
+            var slots = em.GetBuffer<TempleChapelSlot>(temple);
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i].State != 0 && slots[i].SectId == sectId) return;
+            }
+
+            int idx = preferredSlot;
+            if (idx < 0 || idx >= slots.Length || slots[idx].State != 0)
+            {
+                idx = -1;
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i].State == 0) { idx = i; break; }
+                }
+            }
+            if (idx < 0) return;
+
+            slots[idx] = new TempleChapelSlot
+            {
+                Chapel        = Entity.Null,
+                SectId        = new Unity.Collections.FixedString64Bytes(sectId),
+                State         = 1,
+                BuildProgress = 0f,
+                BuildTime     = buildTime,
+            };
+        }
+
+        /// <summary>Append to the research queue on this peer. Used by the
+        /// direct path and by LockstepManager dispatch.</summary>
+        public static void ResearchCommandDirect(EntityManager em, Entity building, string techId)
+        {
+            if (!em.HasBuffer<ResearchQueueItem>(building)) return;
+            var queue = em.GetBuffer<ResearchQueueItem>(building);
+            queue.Add(new ResearchQueueItem
+            {
+                TechId = new Unity.Collections.FixedString64Bytes(techId)
+            });
         }
 
         /// <summary>
@@ -830,10 +1121,10 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<BarracksTag>(e))        return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e))    return "ArcheryRange";
             if (em.HasComponent<RoyalStableTag>(e))     return "Alanthor_RoyalStable";
-            if (em.HasComponent<PracticeRangeTag>(e))   return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(e))       return "Alanthor_SiegeYard";
             if (em.HasComponent<LonghouseTag>(e))       return "Feraldis_Longhouse";
             if (em.HasComponent<FerSiegeYardTag>(e))    return "Feraldis_SiegeYard";
+            if (em.HasComponent<PastureTag>(e))         return "Feraldis_Pasture";
             if (em.HasComponent<BazaarTag>(e))          return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(e))   return "Runai_SiegeWorkshop";
             if (em.HasComponent<TempleOfRidanTag>(e))   return "TempleOfRidan";
@@ -871,12 +1162,37 @@ namespace TheWaningBorder.Core.Commands
 
         private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
-            if (!em.HasBuffer<TrainQueueItem>(building)) return;
+            if (!em.HasBuffer<TrainQueueItem>(building))
+            {
+                // Silent-drop instrumentation (2026-08-04, "sect unit button
+                // doesn't work" hunt): a train order landing on a building
+                // with no queue is a wiring bug — say so instead of eating
+                // the click (and the player's already-spent cost).
+                TWBLog.Log($"[CommandRouter] TRAIN '{unitId}' DROPPED — target " +
+                           $"building has no TrainQueueItem buffer.");
+                return;
+            }
             // Belt-and-suspenders: IssueTrain already filters above, but
             // direct callers (post-lockstep apply, scripted spawns) hit
             // this path bypass-style. Silent drop on level mismatch since
             // the originating context already surfaced the failure.
             if (!CanTrainAtBuilding(em, building, unitId, out _, out _)) return;
+            // One-per-player hero gate: only one live/queued King Lexor per faction.
+            if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unitId) &&
+                em.HasComponent<FactionTag>(building) &&
+                TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, em.GetComponentData<FactionTag>(building).Value))
+            {
+                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("King Lexor already serves your realm");
+                return;
+            }
+            // Same gate for the Ledger: one automaton per player.
+            if (TheWaningBorder.Abilities.HeroTrainLimit.IsLedgerId(unitId) &&
+                em.HasComponent<FactionTag>(building) &&
+                TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, em.GetComponentData<FactionTag>(building).Value))
+            {
+                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("Your court already employs a Ledger");
+                return;
+            }
             // Reject when combined production queue would exceed the cap.
             if (IsProductionQueueFull(em, building))
             {
@@ -899,6 +1215,24 @@ namespace TheWaningBorder.Core.Commands
         public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
             Faction faction, CommandSource source = CommandSource.LocalPlayer)
         {
+            return IssuePlaceBuilding(em, buildingId, position, faction, out _, source);
+        }
+
+        /// <summary>
+        /// Place-building overload that hands back the created entity on the
+        /// direct path (<paramref name="created"/> is Entity.Null when the
+        /// command was queued — it will exist on every peer two ticks later).
+        /// Lets callers like the AI keep their dispatch/rollback logic in
+        /// single-player while replicating correctly in multiplayer.
+        /// </summary>
+        public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
+            Faction faction, out Entity created, CommandSource source = CommandSource.LocalPlayer)
+        {
+            created = Entity.Null;
+
+            if (source == CommandSource.LocalPlayer)
+                TheWaningBorder.AI.AILogger.LogPlayer(faction, "BUILD",
+                    $"{buildingId} at ({position.x:0},{position.z:0})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -915,7 +1249,7 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 // Single player — create immediately
-                PlaceBuildingDirect(em, buildingId, position, faction);
+                created = PlaceBuildingDirect(em, buildingId, position, faction);
                 return false; // Created locally — caller can proceed
             }
         }
@@ -940,6 +1274,18 @@ namespace TheWaningBorder.Core.Commands
             {
                 var hp = em.GetComponentData<Health>(building);
                 em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
+            }
+
+            // Choice buildings (Shrine / Vault / Keep) self-construct with no
+            // builder over 90 s (design: Age_0.md § Special buildings).
+            // Builders can still be sent to accelerate — each contributes
+            // +25 % build rate in BuildingConstructionSystem, so 4 workers
+            // halve the time. Deterministic across lockstep peers (this
+            // method runs on every client).
+            if (TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId)
+                && !em.HasComponent<AutoConstructTag>(building))
+            {
+                em.AddComponent<AutoConstructTag>(building);
             }
 
             // Builder-placed Halls (post-age-up expansion, capped at 6) inherit
@@ -968,11 +1314,19 @@ namespace TheWaningBorder.Core.Commands
                 "GatherersHut" => 20f,
                 "Hall" => 50f,
                 "Barracks" or "ArcheryRange" => 30f,
-                "TempleOfRidan" or "VaultOfAlmierra" or "FiendstoneKeep" => 40f,
-                "Alanthor_Smelter" or "Alanthor_PracticeRange" => 30f,
+                "TempleOfRidan" => 40f,
+                // Choice buildings: 90 s self-build (no builder needed —
+                // AutoConstructTag is added in PlaceBuildingDirect).
+                // "ShrineOfAhridan" is the legacy pre-rename id alias.
+                "ShrineOfRidan" or "ShrineOfAhridan"
+                    or "VaultOfAlmierra" or "FiendstoneKeep" => 90f,
+                "Alanthor_Smelter" => 30f,
                 "Alanthor_RoyalStable" => 30f,
                 "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
                     or "Feraldis_Tower" or "Runai_Outpost" => 25f,
+                "Feraldis_WarTotem" => 15f,
+                "Feraldis_Pasture" => 30f,
+                "Mine" => 25f,
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
                 "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
                     or "Feraldis_SiegeYard" => 35f,
@@ -1051,6 +1405,8 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<Types.AttackCommand>(unit);
             if (em.HasComponent<Types.GatherCommand>(unit))
                 em.RemoveComponent<Types.GatherCommand>(unit);
+            if (em.HasComponent<Types.GatherVeilCommand>(unit))
+                em.RemoveComponent<Types.GatherVeilCommand>(unit);
             if (em.HasComponent<Types.BuildCommand>(unit))
                 em.RemoveComponent<Types.BuildCommand>(unit);
             if (em.HasComponent<BuildOrder>(unit))
@@ -1106,6 +1462,13 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<ConvertNodeCommand>(unit);
             if (em.HasComponent<RitualState>(unit))
                 em.RemoveComponent<RitualState>(unit);
+            // Formation travel state: Stop (or any full reset) detaches the
+            // unit from its group and drops the group-speed override so the
+            // next order runs at the unit's own speed.
+            if (em.HasComponent<FormationMemberState>(unit))
+                em.RemoveComponent<FormationMemberState>(unit);
+            if (em.HasComponent<FormationSpeedOverride>(unit))
+                em.RemoveComponent<FormationSpeedOverride>(unit);
         }
     }
 }

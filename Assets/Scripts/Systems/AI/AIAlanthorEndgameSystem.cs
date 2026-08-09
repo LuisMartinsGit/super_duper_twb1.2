@@ -3,8 +3,9 @@
 // SimpleAISystem build order finishes (Age 2+) and drives the late-game
 // behaviour Alanthor should ship with: defensive tower clusters, sect
 // adoption (Fortitude / Renewal cluster) AND active-power firing,
-// veilsteel production via the Smelter (build + miner assignment),
-// armoured unit production from the Stable / SiegeYard, worker flee
+// veilsteel production via the Smelter (build it once — limit 1 — then
+// level it to L3 for 1/2/3 veilsteel per 10 s), armoured unit production
+// from the Stable / SiegeYard, worker flee
 // from threats, and on-age-up strategy transition to Defensive.
 //
 // Scope: SELF-SUFFICIENT. The legacy AIBuildingManager / AIEconomyManager /
@@ -24,7 +25,7 @@
 //      armies have been lost since the last strategy switch (preserves
 //      previous as Previous so future evaluators can diff).
 //   2. Sect adoption — when a Temple of Ridan exists and RP / supplies /
-//      crystal can afford a chapel, queue an adoption via SectAdoption.
+//      veilstone can afford a chapel, queue an adoption via SectAdoption.
 //      Picks Alanthor-cluster sects in priority order (Fortitude first).
 //   3. Sect active-power firing — for every adopted sect that has a
 //      level-1+ Active-Power lever and is off cooldown, fire it at the
@@ -34,10 +35,8 @@
 //      position.
 //   4. Smelter construction — if no Alanthor_Smelter exists, build one
 //      directly (FactionEconomy.Spend + CommandRouter.PlaceBuildingDirect
-//      + DispatchBuildersTo).
-//   5. Smelter miner assignment — port of AIEconomyManager.ManageSmelters.
-//      Idle miners get a ForgeSupplyOrder pointing at our smelter so they
-//      shuttle iron/crystal in and feed the veilsteel conversion.
+//      + DispatchBuildersTo). The Forge then generates veilsteel passively
+//      (no miner supply chain).
 //   6. Defensive tower spam — late-game (>5 min) build extra Alanthor_Towers
 //      around the Hall up to a cap. Direct creation (was queueing into
 //      the dead BuildRequest buffer; never actually built anything).
@@ -78,21 +77,14 @@ namespace TheWaningBorder.AI
         // Tick interval — slow strategic loop.
         private const float ThinkInterval = 5f;
 
-        // Late-game tower cap — beyond this, the AI stops spamming towers.
-        private const int LateGameTowerCap = 4;
-
-        // When elapsed gameTime exceeds this, late-game behaviours kick in.
-        private const float LateGameStart = 300f; // 5 min
+        // (The flat late-game tower cap + 5-minute gate are gone — towers are
+        // governed by the doctrine below: per-difficulty budget, chokepoint /
+        // threat-facing placement, anti-clump spacing, active from era 2.)
 
         // Material cost the AI keeps in reserve before queuing chapel
         // adoption (so adoption doesn't bankrupt the economy).
         private const int ChapelReserveSupplies = 100;
-        private const int ChapelReserveCrystal  = 40;
-
-        // Smelter targets — same cadence as the parked AIEconomyManager so
-        // tuning carries over. Two miners is enough to keep ForgeStorage fed
-        // without starving the iron / crystal lines.
-        private const int SmelterTargetMiners = 2;
+        private const int ChapelReserveVeilstone  = 40;
 
         // Train-queue cap per Stable / SiegeYard. Mirrors SimpleAISystem.
         private const int MaxTrainQueue = 5;
@@ -108,17 +100,19 @@ namespace TheWaningBorder.AI
         // bookkeeping elsewhere; we just react to it.
         private const int LossesBeforeDefensiveFlip = 2;
 
-        // Alanthor-cluster sect priority (best-first). Fortitude buffs walls
-        // and towers — fits defensive theme. Renewal auto-repairs buildings.
-        // Antiquity gives per-class kill bonuses (works well with mixed army).
-        // Reclamation is the last pick; it shines vs Crystal-Curse PvE which
-        // the AI doesn't deeply engage.
+        // Alanthor-cluster sect priority (best-first). IMPLEMENTED sects
+        // lead (2026-07-12: the old order started with Fortitude/Antiquity/
+        // Reclamation — all rejected by the SectConfig.IsImplemented rollout
+        // gate, so the AI adopted at most ONE sect and rarely fired a power).
+        // The flavor picks stay at the tail for when their kits land.
         private static readonly string[] AlanthorSectPriority =
         {
-            SectConfig.Fortitude,
-            SectConfig.Renewal,
-            SectConfig.Antiquity,
-            SectConfig.Reclamation,
+            SectConfig.Renewal,      // implemented — auto-repair fits defense
+            SectConfig.Justice,      // implemented — support cleanse
+            SectConfig.War,          // implemented — smite + elite unit
+            SectConfig.Fortitude,    // pending kit
+            SectConfig.Antiquity,    // pending kit
+            SectConfig.Reclamation,  // pending kit
         };
 
         // All 12 sects — for the Active-Power firing pass (sect adoption is
@@ -144,8 +138,10 @@ namespace TheWaningBorder.AI
             var em = state.EntityManager;
 
             // Snapshot brain entities first — we make structural changes
-            // (adding ForgeSupplyOrder to miners, creating buildings) that
-            // would invalidate a SystemAPI.Query iteration.
+            // (creating buildings) that would invalidate a SystemAPI.Query
+            // iteration.
+            var perfSw = System.Diagnostics.Stopwatch.StartNew();
+            int perfThinks = 0;
             var brainQuery = em.CreateEntityQuery(ComponentType.ReadOnly<AIBrain>());
             using var brainEntities = brainQuery.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -166,12 +162,19 @@ namespace TheWaningBorder.AI
                     if (time < tick.NextThinkTime) continue;
                     tick.NextThinkTime = time + ThinkInterval;
                     em.SetComponentData(entity, tick);
+                    perfThinks++;
                 }
                 else
                 {
+                    // STAGGERED first stamp (2026-08-05): every brain used to
+                    // stamp the same NextThinkTime on the same frame, so all
+                    // 8 factions' endgame passes landed together every 5 s.
+                    // Resets are relative to each brain's own think time, so
+                    // this initial offset persists for the whole match.
                     em.AddComponentData(entity, new AIAlanthorTickState
                     {
-                        NextThinkTime = time + ThinkInterval,
+                        NextThinkTime = time + ThinkInterval
+                            + (int)faction * (ThinkInterval / 8f),
                     });
                     continue; // skip first tick after stamp
                 }
@@ -242,15 +245,34 @@ namespace TheWaningBorder.AI
                 // ─── 3. Sect active-power firing ──────────────────────
                 TryFireSectPowers(faction, em, hallPos);
 
-                // ─── 4. Smelter construction (one-shot) ───────────────
-                TryBuildSmelter(faction, em, hallPos);
+                // ─── 4. Age-2 building ladder ─────────────────────────
+                // Temple FIRST (sect adoption hard-requires a Temple to
+                // host chapels — without this ladder no strategy except
+                // Turtle ever built one, so sects and their content never
+                // appeared), then Smelter (veilsteel), then the military
+                // production trio. One attempt per think tick.
+                TryBuildAge2Ladder(faction, em, hallPos);
 
-                // ─── 5. Smelter miner assignment ──────────────────────
-                ManageSmelterMiners(faction, em, ecb);
+                // ─── 4a. Temple leveling toward max ───────────────────
+                // The Holy Scholar (the purify ritualist) trains only at a
+                // max-level Temple (2026-08-04 purify flow) — without this
+                // ramp the AI could never field one and the well victory
+                // stayed out of reach.
+                TryLevelTemple(faction, em);
 
-                // ─── 6. Late-game defensive towers ────────────────────
-                if (time > LateGameStart)
-                    TryBuildDefensiveTower(faction, em, hallPos);
+                // ─── 4b. The culture VERB: purify wells ───────────────
+                // Curse & Shardroot canon: Alanthor's answer to a Wild well
+                // is Purification — income, victory progress (well
+                // domination), and the Shardroot if the well is the host.
+                TryPurifyWells(faction, em, hallPos);
+
+                // ─── 6. Tower doctrine ────────────────────────────────
+                // Towers are BOTH Alanthor's territory claims (each projects
+                // a 15 m build-space circle) and its static defense. Placed
+                // toward the known threat with chokepoint preference and
+                // anti-clump spacing — from era-2 start, budget by
+                // difficulty (no more 4-in-a-row ring spam at minute 5).
+                TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
 
                 // ─── 7. Armoured-unit production ──────────────────────
                 TryQueueArmouredUnits(faction, em);
@@ -261,6 +283,11 @@ namespace TheWaningBorder.AI
 
             ecb.Playback(em);
             ecb.Dispose();
+
+            perfSw.Stop();
+            if (perfThinks > 0)
+                TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report(
+                    "AIEndgame", perfSw.Elapsed.TotalMilliseconds, $"brains {perfThinks}");
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -283,7 +310,7 @@ namespace TheWaningBorder.AI
                 if (FactionEconomy.TryGetResources(em, faction, out var res))
                 {
                     if (res.Supplies < chapelCost.Supplies + ChapelReserveSupplies) return;
-                    if (res.Crystal  < chapelCost.Crystal  + ChapelReserveCrystal)  return;
+                    if (res.Veilstone  < chapelCost.Veilstone  + ChapelReserveVeilstone)  return;
                 }
                 else return;
 
@@ -292,23 +319,10 @@ namespace TheWaningBorder.AI
                 {
                     AILogger.Log(faction, "STRATEGY",
                         $"Alanthor: adopting sect {sectId.Substring(5)}");
-                    if (em.HasBuffer<TempleChapelSlot>(temple))
-                    {
-                        var slots = em.GetBuffer<TempleChapelSlot>(temple);
-                        for (int s = 0; s < slots.Length; s++)
-                        {
-                            if (slots[s].State != 0) continue;
-                            slots[s] = new TempleChapelSlot
-                            {
-                                Chapel        = Entity.Null,
-                                SectId        = new FixedString64Bytes(sectId),
-                                State         = 1,
-                                BuildProgress = 0f,
-                                BuildTime     = 30f,
-                            };
-                            break;
-                        }
-                    }
+                    // Replicated slot stamp (audit F7) — host-only writes left
+                    // clients without the chapel or the sect bonuses.
+                    CommandRouter.IssueSectAdoption(em, temple, sectId, -1, 30f,
+                        CommandSource.AI);
                     return; // one adoption per tick
                 }
                 if (result == SectAdoptionResult.NotEnoughRP) return; // wait for RP
@@ -513,150 +527,385 @@ namespace TheWaningBorder.AI
         // 4. SMELTER CONSTRUCTION (one-shot)
         // ──────────────────────────────────────────────────────────────────
 
-        private static void TryBuildSmelter(Faction faction, EntityManager em, float3 hallPos)
+        // Age-2 build ladder, priority-ordered. Temple leads: sect adoption
+        // (chapel plots), Litharch training and the whole religious layer
+        // hang off it. Then the veilsteel Smelter, then the military
+        // production pair the armoured-unit pass trains from. (The Practice
+        // Range is the LEVELED Archery Range now, not a placeable building.)
+        private static readonly (string id, float rMin, float rMax)[] Age2Ladder =
         {
-            const string smelterId = "Alanthor_Smelter";
-            int existing = CountFactionBuildings(em, faction, smelterId);
-            if (existing > 0) return; // already have one (built or under construction)
+            ("TempleOfRidan",          16f, 26f),
+            ("Alanthor_Smelter",       18f, 28f),
+            ("Alanthor_RoyalStable",   18f, 30f),
+            ("Alanthor_SiegeYard",     20f, 32f),
+        };
 
-            if (!BuildCosts.TryGet(smelterId, out var cost)) return;
+        // ──────────────────────────────────────────────────────────────────
+        // 4b. WELL PURIFICATION (the Alanthor verb)
+        // ──────────────────────────────────────────────────────────────────
+
+        private static void TryPurifyWells(Faction faction, EntityManager em, float3 hallPos)
+        {
+            // Find a free Scholar (not already channeling / ordered).
+            Entity scholar = Entity.Null;
+            bool anyScholar = false;
+            {
+                var sq = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<ScholarTag>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<LocalTransform>());
+                using var sEnts = sq.ToEntityArray(Allocator.Temp);
+                using var sFacs = sq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                for (int i = 0; i < sEnts.Length; i++)
+                {
+                    if (sFacs[i].Value != faction) continue;
+                    anyScholar = true;
+                    if (em.HasComponent<RitualState>(sEnts[i])) continue;
+                    if (em.HasComponent<PurifyCommand>(sEnts[i])) continue;
+                    scholar = sEnts[i];
+                    break;
+                }
+            }
+
+            // No Scholar at all → train ONE at the Temple (the ladder builds
+            // the Temple; TryQueueAt pre-flights queue space + cost). The
+            // in-queue check is what stops the 5-Scholars-in-25-seconds
+            // money furnace the 2026-08-04 logs caught — a Scholar takes
+            // 68 s to train and every 5 s think tick was buying another.
+            if (!anyScholar)
+            {
+                if (!IsUnitQueued(em, faction, "Alanthor_Scholar"))
+                    TryQueueAt<TempleOfRidanTag>(em, faction, "Alanthor_Scholar");
+                return;
+            }
+            if (scholar == Entity.Null) return; // all Scholars busy
+
+            // Nearest claimable well: Active, built, no ritual in progress,
+            // and fog-honest (the AI only verbs wells it has revealed).
+            var fogMgr = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
+            var nq = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BorderMainNodeTag>(),
+                ComponentType.ReadOnly<BorderNodeState>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var nEnts = nq.ToEntityArray(Allocator.Temp);
+            using var nStates = nq.ToComponentDataArray<BorderNodeState>(Allocator.Temp);
+            using var nXfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity best = Entity.Null;
+            float bestDistSq = float.MaxValue;
+            for (int i = 0; i < nEnts.Length; i++)
+            {
+                // Active wells AND Destroyed rubble are both purifiable
+                // (PurificationRitualSystem only rejects Cleansed/Converted)
+                // — consecrating a broken well before it rebuilds is the
+                // cheapest hold Alanthor ever gets.
+                bool rubble = nStates[i].State == NodeState.Destroyed;
+                bool active = nStates[i].State == NodeState.Active
+                    && !em.HasComponent<NodeDormant>(nEnts[i]);
+                if (!active && !rubble) continue;
+                if (em.HasComponent<UnderConstruction>(nEnts[i])) continue;
+                if (em.HasComponent<ActiveRitualOnNode>(nEnts[i])) continue;
+                var p = nXfs[i].Position;
+                if (fogMgr != null && !fogMgr.IsRevealed(faction,
+                        new UnityEngine.Vector3(p.x, 0f, p.z))) continue;
+                float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestDistSq) { bestDistSq = d; best = nEnts[i]; }
+            }
+            if (best == Entity.Null) return;
+
+            CommandRouter.IssuePurify(em, scholar, best, CommandSource.AI);
+            AILogger.Log(faction, "STRATEGY", "Alanthor: Scholar dispatched to purify a well");
+
+            // ESCORT (2026-07-12): the army is the Scholar's BODYGUARD, not
+            // the main force — plain waves at wells only fed the crystal
+            // spread. Send up to EscortSize idle military attack-moving to
+            // the well so they screen the channel; committed units are never
+            // re-drafted (command follow-through).
+            float3 wellPos = em.GetComponentData<LocalTransform>(best).Position;
+            var eq = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var eEnts = eq.ToEntityArray(Allocator.Temp);
+            using var eTags = eq.ToComponentDataArray<UnitTag>(Allocator.Temp);
+            using var eFacs = eq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int sent = 0;
+            for (int i = 0; i < eEnts.Length && sent < EscortSize; i++)
+            {
+                if (eFacs[i].Value != faction) continue;
+                var cls = eTags[i].Class;
+                if (cls != UnitClass.Melee && cls != UnitClass.Ranged
+                    && cls != UnitClass.Siege) continue;
+                Entity u = eEnts[i];
+                if (em.HasComponent<UnderConstruction>(u)) continue;
+                if (em.HasComponent<AttackCommand>(u)) continue;
+                if (em.HasComponent<AttackMoveTag>(u)) continue;
+                if (em.HasComponent<UserMoveOrder>(u)) continue;
+                // STAND OFF — ring, not pile-on. Sending the whole escort to
+                // the Scholar's own tile shoves it off the node: a channelling
+                // ritualist has DesiredDestination.Has = 0 and SteeringSystem
+                // keeps separation at full strength, so the bodyguard ratchets
+                // its own charge past RitualCancelRange (10 m) and breaks the
+                // 35 s channel. Measured on the Feraldis sibling in the
+                // 2026-08-07 8-player match: mean 18.5 s between re-dispatches
+                // at escort 12+, versus 123 s once the escort thinned out.
+                float ang = (sent / (float)EscortSize) * 2f * math.PI;
+                float3 slot = wellPos + new float3(
+                    math.cos(ang) * EscortStandoffRadius, 0f,
+                    math.sin(ang) * EscortStandoffRadius);
+                AttackMoveCommandHelper.Execute(em, u, slot);
+                sent++;
+            }
+            if (sent > 0)
+                AILogger.Log(faction, "STRATEGY",
+                    $"Alanthor: {sent} escorts sent with the Scholar");
+        }
+
+        /// <summary>Bodyguards dispatched alongside a well ritualist.
+        /// HEAVY (2026-08-04, was 5): the node births defenders at the
+        /// channeling Scholar — a token screen kept losing the ritual.</summary>
+        private const int EscortSize = 10;
+
+        /// <summary>Radius (m) of the escort ring around a well. Outside
+        /// RitualCancelRange (10 m) so the screen cannot break its own
+        /// Scholar's channel — see the note at the dispatch site.</summary>
+        private const float EscortStandoffRadius = 14f;
+
+        /// <summary>True while any of this faction's buildings holds the unit
+        /// in its train queue — the guard that stops a per-tick re-buy while
+        /// the first copy is still training.</summary>
+        private static bool IsUnitQueued(EntityManager em, Faction faction, string unitId)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<TrainQueueItem>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                var buf = em.GetBuffer<TrainQueueItem>(ents[i]);
+                for (int j = 0; j < buf.Length; j++)
+                    if (buf[j].UnitId.ToString() == unitId) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Level the Temple toward max on the Advancement budget —
+        /// era progression, sect levers, and (at max) the Holy Scholar all
+        /// hang off it. One attempt per think tick; the cost is spent by the
+        /// caller (TempleUpgradeCommandDirect never touches the bank).</summary>
+        private static void TryLevelTemple(Faction faction, EntityManager em)
+        {
+            Entity temple = FindFactionBuilding<TempleOfRidanTag>(em, faction);
+            if (temple == Entity.Null) return;
+            if (em.HasComponent<UnderConstruction>(temple)) return;
+            if (!em.HasComponent<TempleLevel>(temple)) return;
+            if (em.HasComponent<TempleUpgradeState>(temple)) return;
+
+            int level = em.GetComponentData<TempleLevel>(temple).Level;
+            if (level >= TempleLevelConfig.MaxLevel) return;
+
+            var cost = TempleLevelConfig.GetUpgradeCost(level);
+            if (!TheWaningBorder.AI.AIBudget.CanSpend(faction,
+                    TheWaningBorder.AI.AIBudgetCategory.Advancement, cost)) return;
+            if (!FactionEconomy.Spend(em, faction, cost)) return;
+            TheWaningBorder.AI.AIBudget.RecordSpend(faction,
+                TheWaningBorder.AI.AIBudgetCategory.Advancement, cost);
+
+            CommandRouter.IssueTempleUpgrade(em, temple, CommandSource.AI);
+            AILogger.Log(faction, "BUILDING", $"Temple upgrading to L{level + 1}");
+        }
+
+        private static void TryBuildAge2Ladder(Faction faction, EntityManager em, float3 hallPos)
+        {
+            for (int i = 0; i < Age2Ladder.Length; i++)
+            {
+                var (id, rMin, rMax) = Age2Ladder[i];
+                if (CountFactionBuildings(em, faction, id) > 0) continue;
+                TryBuildOnce(faction, em, hallPos, id, rMin, rMax);
+                return; // one ladder attempt per think tick, in order
+            }
+
+            // Ladder complete → grow the veilsteel engine: the Smelter is
+            // capped at 1 per faction, so output growth comes from its
+            // Lv1-3 ladder (calculator: 1/2/3 veilsteel per 10 s —
+            // ForgeConversionSystem reads BuildingUpgradeState.Level).
+            TryLevelSmelter(faction, em);
+        }
+
+        /// <summary>Level the faction's single Smelter (Forge) toward L3.
+        /// UpgradeBuildingCommandHelper does the validation, cost check and
+        /// spend; a NotUpgradeable / CannotAfford / AlreadyMaxLevel result
+        /// simply means "not this tick".</summary>
+        private static void TryLevelSmelter(Faction faction, EntityManager em)
+        {
+            Entity smelter = FindFactionBuilding<SmelterTag>(em, faction);
+            if (smelter == Entity.Null) return;
+            if (em.HasComponent<UnderConstruction>(smelter)) return;
+            if (em.HasComponent<BuildingUpgrading>(smelter)) return;
+
+            var result = UpgradeBuildingCommandHelper.Execute(em, smelter, CommandSource.AI);
+            if (result == UpgradeBuildingResult.Ok)
+                AILogger.Log(faction, "BUILDING", "Alanthor: Smelter upgrade queued");
+        }
+
+        private static void TryBuildOnce(Faction faction, EntityManager em, float3 hallPos,
+            string buildingId, float ringMin, float ringMax)
+        {
+            if (!BuildCosts.TryGet(buildingId, out var cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
 
             // Pre-flight: need an idle builder. Don't spend cost on a foundation
             // nobody will work on.
             if (CountIdleBuilders(em, faction) == 0) return;
 
-            int2 smelterSize = BuildingSizeConfig.GetSize(smelterId);
-            if (!TryFindBuildPositionRing(em, hallPos, smelterSize, 18f, 28f, out float3 pos)) return;
+            int2 size = BuildingSizeConfig.GetSize(buildingId);
+            if (!TryFindBuildPositionRing(em, hallPos, size, ringMin, ringMax, out float3 pos)) return;
 
             if (!FactionEconomy.Spend(em, faction, cost)) return;
 
-            Entity building = CommandRouter.PlaceBuildingDirect(em, smelterId, pos, faction);
+            // Replicating entry point (audit F4) — PlaceBuildingDirect was
+            // host-only. Queued case: dispatch at the position, null target;
+            // builders auto-find the foundation on arrival.
+            bool queuedPlacement = CommandRouter.IssuePlaceBuilding(em, buildingId, pos, faction,
+                out Entity building, CommandSource.AI);
+            if (queuedPlacement)
+            {
+                DispatchBuildersTo(em, faction, Entity.Null, buildingId, pos, maxBuilders: 2);
+                AILogger.Log(faction, "BUILDING", $"Alanthor age-2 ladder: queued {buildingId}");
+                return;
+            }
             if (building == Entity.Null) { FactionEconomy.Add(em, faction, cost); return; }
 
-            int dispatched = DispatchBuildersTo(em, faction, building, smelterId, pos, maxBuilders: 2);
+            int dispatched = DispatchBuildersTo(em, faction, building, buildingId, pos, maxBuilders: 2);
             if (dispatched == 0)
             {
                 FactionEconomy.Add(em, faction, cost);
                 em.DestroyEntity(building);
                 return;
             }
-            AILogger.Log(faction, "BUILDING", "Alanthor: queued Smelter construction (veilsteel pipeline)");
+            AILogger.Log(faction, "BUILDING", $"Alanthor age-2 ladder: queued {buildingId}");
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // 5. SMELTER MINER ASSIGNMENT (port of AIEconomyManager.ManageSmelters)
+        // 6. TOWER DOCTRINE (chokepoints + territory claims, anti-clump)
         // ──────────────────────────────────────────────────────────────────
 
-        private static void ManageSmelterMiners(Faction faction, EntityManager em, EntityCommandBuffer ecb)
+        // Own towers may never stand closer than this — 1.6× the 15 m
+        // influence radius, so their build-space circles TILE new ground
+        // instead of stacking (the old ring placement produced 4-in-a-row).
+        private const float MinTowerSpacing = 24f;
+        // A corridor narrower than this along the enemy approach counts as
+        // a chokepoint worth fortifying.
+        private const float ChokeWidthThreshold = 26f;
+
+        /// <summary>Nearest resource node (veilstone or iron) within
+        /// <see cref="UnprotectedNodeRadius"/> of the hall whose ground this
+        /// faction's influence does NOT yet cover — the next tower anchor.</summary>
+        private const float UnprotectedNodeRadius = 130f;
+
+        private static bool TryFindUnprotectedResourceNode(
+            EntityManager em, Faction faction, float3 hallPos, out float3 nodePos)
         {
-            // Find a completed smelter for this faction.
-            Entity smelter = Entity.Null;
+            nodePos = default;
+            if (!TheWaningBorder.Influence.PlayerInfluenceMap.Ready) return false;
+
+            float bestD2 = UnprotectedNodeRadius * UnprotectedNodeRadius;
+            bool found = false;
+
+            var veilQ = em.CreateEntityQuery(
+                ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            var ironQ = em.CreateEntityQuery(
+                ComponentType.ReadOnly<IronMineTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+
+            for (int q = 0; q < 2; q++)
             {
-                var smelterQuery = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<SmelterTag>(),
-                    ComponentType.ReadOnly<FactionTag>(),
-                    ComponentType.ReadOnly<ForgeStorage>());
-                using var sEnts = smelterQuery.ToEntityArray(Allocator.Temp);
-                for (int i = 0; i < sEnts.Length; i++)
+                using var xfs = (q == 0 ? veilQ : ironQ)
+                    .ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < xfs.Length; i++)
                 {
-                    if (em.GetComponentData<FactionTag>(sEnts[i]).Value != faction) continue;
-                    if (em.HasComponent<UnderConstruction>(sEnts[i])) continue;
-                    smelter = sEnts[i];
-                    break;
+                    float dx = xfs[i].Position.x - hallPos.x;
+                    float dz = xfs[i].Position.z - hallPos.z;
+                    float d2 = dx * dx + dz * dz;
+                    if (d2 >= bestD2) continue;
+                    // Already covered by our own influence → protected.
+                    if (TheWaningBorder.Influence.PlayerInfluenceMap.ChannelStrengthWorld(
+                            (int)faction, xfs[i].Position.x, xfs[i].Position.z)
+                        >= TheWaningBorder.Core.Config.VeilCrustConstants.InfluenceThreshold)
+                        continue;
+                    bestD2 = d2;
+                    nodePos = xfs[i].Position;
+                    found = true;
                 }
             }
-            if (smelter == Entity.Null) return;
-
-            // Count miners already supplying it.
-            int assigned = 0;
-            {
-                var supQuery = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<MinerTag>(),
-                    ComponentType.ReadOnly<ForgeSupplyOrder>(),
-                    ComponentType.ReadOnly<FactionTag>());
-                using var sEnts = supQuery.ToEntityArray(Allocator.Temp);
-                for (int i = 0; i < sEnts.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(sEnts[i]).Value == faction) assigned++;
-                }
-            }
-            int needed = SmelterTargetMiners - assigned;
-            if (needed <= 0) return;
-
-            // Find idle miners not yet assigned to the smelter or to a build site.
-            var idle = new NativeList<Entity>(Allocator.Temp);
-            {
-                var minerQuery = em.CreateEntityQuery(
-                    new EntityQueryDesc
-                    {
-                        All = new[] {
-                            ComponentType.ReadOnly<MinerTag>(),
-                            ComponentType.ReadOnly<MinerState>(),
-                            ComponentType.ReadOnly<FactionTag>()
-                        },
-                        None = new[] {
-                            ComponentType.ReadOnly<ForgeSupplyOrder>(),
-                            ComponentType.ReadOnly<BuildOrder>()
-                        }
-                    });
-                using var mEnts = minerQuery.ToEntityArray(Allocator.Temp);
-                for (int i = 0; i < mEnts.Length && idle.Length < needed; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(mEnts[i]).Value != faction) continue;
-                    if (em.GetComponentData<MinerState>(mEnts[i]).State != MinerWorkState.Idle) continue;
-                    idle.Add(mEnts[i]);
-                }
-            }
-
-            for (int i = 0; i < idle.Length; i++)
-            {
-                Entity miner = idle[i];
-                // Reset miner state — pure data write, no archetype change.
-                var ms = em.GetComponentData<MinerState>(miner);
-                ms.State = MinerWorkState.Idle;
-                ms.AssignedDeposit = Entity.Null;
-                ms.DropoffTarget   = Entity.Null;
-                em.SetComponentData(miner, ms);
-
-                // Add ForgeSupplyOrder via ECB — adding the component is a
-                // structural change and must not run inline against EM while
-                // we're still iterating brains in the outer loop.
-                ecb.AddComponent(miner, new ForgeSupplyOrder
-                {
-                    Forge        = smelter,
-                    ResourceType = 0,
-                    Phase        = 0,
-                });
-            }
-
-            if (idle.Length > 0)
-            {
-                AILogger.Log(faction, "ECONOMY",
-                    $"Alanthor: assigned {idle.Length} idle miners to Smelter ({assigned + idle.Length}/{SmelterTargetMiners})");
-            }
-            idle.Dispose();
+            return found;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        // 6. DEFENSIVE TOWER SPAM (direct creation)
-        // ──────────────────────────────────────────────────────────────────
+        // Raised 2026-08-04 ("AI must build more towers outside influence"):
+        // towers are Alanthor's long territorial arm (45 m influence claim) —
+        // they extend curse suppression, corruption immunity, and the
+        // Gatherer's Huts' influence-border income bonus across the map.
+        private static int TowerBudget(AIDifficulty d) => d switch
+        {
+            AIDifficulty.Easy => 3,
+            AIDifficulty.Normal => 5,
+            AIDifficulty.Hard => 8,
+            AIDifficulty.Expert => 10,
+            _ => 5,
+        };
 
-        private static void TryBuildDefensiveTower(Faction faction, EntityManager em, float3 hallPos)
+        private static void TryBuildDefensiveTower(Faction faction, EntityManager em,
+            Entity brainEntity, AIDifficulty difficulty, float3 hallPos)
         {
             const string towerId = "Alanthor_Tower";
             int existing = CountFactionBuildings(em, faction, towerId);
-            if (existing >= LateGameTowerCap) return;
+            if (existing >= TowerBudget(difficulty)) return;
 
             if (!BuildCosts.TryGet(towerId, out var cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
             if (CountIdleBuilders(em, faction) == 0) return;
 
+            // Own tower positions — the anti-clump constraint.
+            var ownTowers = new NativeList<float3>(Allocator.Temp);
+            CollectOwnTowerPositions(em, faction, ownTowers);
+
+            // Threat bearing (fog-honest): freshest remembered enemy sighting,
+            // base sightings preferred; pre-contact, claim toward map center.
+            GetThreatHint(em, brainEntity, out float3 threatHint);
+
+            // RESOURCE ANCHORING (2026-08-04, design: "the most effective way
+            // of defeating the curse is to build influence"): an UNPROTECTED
+            // resource node — one this faction's influence does not yet cover
+            // — outranks the threat bearing. The tower's 45 m influence claim
+            // shields the patch from curse growth, mining corruption and the
+            // slow curse-influence escalation, and feeds the huts' border
+            // bonus. Nearest unprotected node within tower reach wins.
+            if (TryFindUnprotectedResourceNode(em, faction, hallPos, out float3 nodePos))
+                threatHint = nodePos;
+
             int2 towerSize = BuildingSizeConfig.GetSize(towerId);
-            if (!TryFindBuildPositionRing(em, hallPos, towerSize, 25f, 35f, out float3 pos)) return;
+            bool found = TryFindTowerSpot(em, hallPos, threatHint, ownTowers, towerSize, out float3 pos);
+            ownTowers.Dispose();
+            if (!found) return;
+
             if (!FactionEconomy.Spend(em, faction, cost)) return;
 
-            Entity building = CommandRouter.PlaceBuildingDirect(em, towerId, pos, faction);
+            // Replicating entry point (audit F4) — PlaceBuildingDirect was
+            // host-only. Queued case: dispatch at the position, null target.
+            bool queuedPlacement = CommandRouter.IssuePlaceBuilding(em, towerId, pos, faction,
+                out Entity building, CommandSource.AI);
+            if (queuedPlacement)
+            {
+                DispatchBuildersTo(em, faction, Entity.Null, towerId, pos, maxBuilders: 1);
+                AILogger.Log(faction, "BUILDING",
+                    $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
+                    $"({threatHint.x:F0},{threatHint.z:F0})");
+                return;
+            }
             if (building == Entity.Null) { FactionEconomy.Add(em, faction, cost); return; }
 
             int dispatched = DispatchBuildersTo(em, faction, building, towerId, pos, maxBuilders: 1);
@@ -667,7 +916,142 @@ namespace TheWaningBorder.AI
                 return;
             }
             AILogger.Log(faction, "BUILDING",
-                $"Alanthor late-game: building defensive tower {existing + 1}/{LateGameTowerCap}");
+                $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
+                $"({threatHint.x:F0},{threatHint.z:F0})");
+        }
+
+        private static void CollectOwnTowerPositions(EntityManager em, Faction faction,
+            NativeList<float3> into)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<WatchTowerTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) into.Add(xfs[i].Position);
+        }
+
+        // Freshest remembered enemy sighting (base categories strongly
+        // preferred). Fog-honest — the buffer only holds what this faction
+        // has actually seen. Pre-contact fallback: map center (forward
+        // territory claim, no intel assumed).
+        private static void GetThreatHint(EntityManager em, Entity brainEntity, out float3 hint)
+        {
+            if (em.HasBuffer<EnemySightingRecord>(brainEntity))
+            {
+                var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+                float best = float.MinValue;
+                bool found = false;
+                float3 bestPos = default;
+                for (int i = 0; i < buf.Length; i++)
+                {
+                    var rec = buf[i];
+                    bool baseCat = rec.Category == IntelCategory.Hall
+                        || rec.Category == IntelCategory.MilitaryBuilding;
+                    float score = rec.LastSeenTime + (baseCat ? 100000f : 0f);
+                    if (score > best) { best = score; bestPos = rec.Position; found = true; }
+                }
+                if (found) { hint = bestPos; return; }
+            }
+            TheWaningBorder.World.Terrain.TerrainUtility.GetPlayableBounds(out var mn, out var mx);
+            hint = new float3((mn.x + mx.x) * 0.5f, 0f, (mn.y + mx.y) * 0.5f);
+        }
+
+        /// <summary>
+        /// Tower spot selection, in preference order:
+        ///   1. CHOKEPOINT — walk the straight approach line from the Hall
+        ///      toward the threat; measure corridor width at each step by
+        ///      perpendicular passability probes on the nav grid; flank the
+        ///      narrowest sub-threshold corridor on its clearer side.
+        ///   2. DIRECTED RING — deterministic angles within ±60° of the
+        ///      threat bearing at 25–40 m ("facing the enemy").
+        /// All candidates respect MinTowerSpacing + placement validity.
+        /// </summary>
+        private static bool TryFindTowerSpot(EntityManager em, float3 hallPos, float3 threatHint,
+            NativeList<float3> ownTowers, int2 towerSize, out float3 spot)
+        {
+            spot = default;
+            float3 dir = threatHint - hallPos;
+            dir.y = 0f;
+            float len = math.length(dir);
+            if (len < 20f) return false; // threat on top of us — no bearing
+            dir /= len;
+            float3 perp = new float3(-dir.z, 0f, dir.x);
+
+            // ── 1. Chokepoint scan along the approach. ──
+            float maxWalk = math.min(len - 10f, 90f);
+            float bestWidth = ChokeWidthThreshold;
+            float3 chokePos = default, chokeSide = default;
+            bool choke = false;
+            for (float d = 14f; d <= maxWalk; d += 4f)
+            {
+                float3 p = hallPos + dir * d;
+                float left = ClearanceAlong(p, perp, 14f);
+                float right = ClearanceAlong(p, -perp, 14f);
+                if (left + right <= 2f) continue; // solid wall, not a corridor
+                float width = left + right;
+                if (width < bestWidth)
+                {
+                    bestWidth = width;
+                    chokePos = p;
+                    chokeSide = left >= right ? perp : -perp;
+                    choke = true;
+                }
+            }
+            if (choke)
+            {
+                for (float off = 4f; off <= 10f; off += 3f)
+                {
+                    float3 c = chokePos + chokeSide * off;
+                    c.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(c.x, c.z);
+                    if (IsTowerSpotOk(em, c, towerSize, ownTowers)) { spot = c; return true; }
+                }
+            }
+
+            // ── 2. Directed ring toward the threat. ──
+            // Angle order: straight at it, then ±30°, then ±60°.
+            float[] angles = { 0f, 0.5236f, -0.5236f, 1.0472f, -1.0472f };
+            for (float r = 25f; r <= 40f; r += 5f)
+            {
+                for (int a = 0; a < angles.Length; a++)
+                {
+                    float cos = math.cos(angles[a]);
+                    float sin = math.sin(angles[a]);
+                    float3 rd = dir * cos + perp * sin;
+                    float3 c = hallPos + rd * r;
+                    c.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(c.x, c.z);
+                    if (IsTowerSpotOk(em, c, towerSize, ownTowers)) { spot = c; return true; }
+                }
+            }
+            return false;
+        }
+
+        // Walkable meters from `from` along `stepDir` before hitting an
+        // impassable nav cell (max capped). Integer-grid deterministic.
+        private static float ClearanceAlong(float3 from, float3 stepDir, float max)
+        {
+            for (float s = 1f; s <= max; s += 1f)
+            {
+                float3 p = from + stepDir * s;
+                var cell = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(p);
+                if (cell.x == int.MinValue) return s - 1f;
+                if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(cell)) return s - 1f;
+            }
+            return max;
+        }
+
+        private static bool IsTowerSpotOk(EntityManager em, float3 pos, int2 size,
+            NativeList<float3> ownTowers)
+        {
+            for (int i = 0; i < ownTowers.Length; i++)
+            {
+                float dx = pos.x - ownTowers[i].x;
+                float dz = pos.z - ownTowers[i].z;
+                if (dx * dx + dz * dz < MinTowerSpacing * MinTowerSpacing) return false;
+            }
+            return BuildCommandHelper.IsValidBuildPosition(em, pos, size);
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -680,7 +1064,7 @@ namespace TheWaningBorder.AI
         private static void TryQueueArmouredUnits(Faction faction, EntityManager em)
         {
             TryQueueAt<BarracksTag> (em, faction, "Alanthor_Cataphract");
-            TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Ballista");
+            TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Catapult");
         }
 
         private static void TryQueueAt<TBuildingTag>(EntityManager em, Faction faction, string unitId)
@@ -690,17 +1074,22 @@ namespace TheWaningBorder.AI
             if (trainer == Entity.Null) return;
             if (em.HasComponent<UnderConstruction>(trainer)) return;
             if (!em.HasBuffer<TrainQueueItem>(trainer)) return;
-            var queue = em.GetBuffer<TrainQueueItem>(trainer);
-            if (queue.Length >= MaxTrainQueue) return;
+            if (em.GetBuffer<TrainQueueItem>(trainer).Length >= MaxTrainQueue) return;
 
             if (!TechCatalog.IsReady) return;
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return;
+
+            // Level gate BEFORE spending — IssueTrain drops silently for AI
+            // sources, which would leak the cost.
+            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId, out _, out _)) return;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
             if (!FactionEconomy.Spend(em, faction, cost)) return;
 
-            queue.Add(new TrainQueueItem { UnitId = new FixedString64Bytes(unitId) });
+            // Through CommandRouter (CommandSource.AI) so host-AI training
+            // replicates — a direct queue.Add spawned units on the host only.
+            CommandRouter.IssueTrain(em, trainer, unitId, CommandSource.AI);
             AILogger.Log(faction, "MILITARY", $"Alanthor: queued {unitId}");
         }
 
@@ -757,6 +1146,19 @@ namespace TheWaningBorder.AI
             {
                 var worker = wEnts[w];
                 if (em.GetComponentData<FactionTag>(worker).Value != faction) continue;
+
+                // Only flee once actually HURT. Proximity-fleeing made
+                // sneak-mining the well crystal fields impossible — workers
+                // oscillated between their gather order and the flee order
+                // ("walking away from their destination") and never mined.
+                // Canon (§2.1): mining under threat is intended; the worker
+                // runs when the curse actually bites.
+                if (em.HasComponent<Health>(worker))
+                {
+                    var whp = em.GetComponentData<Health>(worker);
+                    if (whp.Max <= 0 || whp.Value >= (int)(whp.Max * 0.8f)) continue;
+                }
+
                 float3 wPos = em.GetComponentData<LocalTransform>(worker).Position;
 
                 // Closest enemy in flee radius?
@@ -867,7 +1269,9 @@ namespace TheWaningBorder.AI
             int dispatched = 0;
             for (int i = 0; i < candidates.Length && dispatched < maxBuilders; i++)
             {
-                CommandRouter.IssueBuild(em, candidates[i].Entity, site, buildingId, sitePos);
+                // CommandSource.AI, not the LocalPlayer default. (audit F20)
+                CommandRouter.IssueBuild(em, candidates[i].Entity, site, buildingId, sitePos,
+                    CommandSource.AI);
                 dispatched++;
             }
             candidates.Dispose();
@@ -961,7 +1365,7 @@ namespace TheWaningBorder.AI
             {
                 Supplies  = block.Supplies,
                 Iron      = block.Iron,
-                Crystal   = block.Crystal,
+                Veilstone   = block.Veilstone,
                 Veilsteel = block.Veilsteel,
             };
         }

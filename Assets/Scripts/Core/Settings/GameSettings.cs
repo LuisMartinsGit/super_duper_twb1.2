@@ -9,7 +9,7 @@ using System.Collections.Generic;
 public enum GameMode
 {
     FreeForAll,
-    SoloVsCurse,
+    SoloVsBorder,
     Sandbox,
     Scenario,
     PathfindingTest
@@ -26,9 +26,9 @@ public enum ScenarioType
     WallSiege = 6,
     SectShowcase = 7,
     BuildingShowcase = 8,
-    CurseCombatTest = 9,
+    BorderCombatTest = 9,
     PatrolDefense = 10,
-    AlanthorVsCrystal = 11,
+    AlanthorVsBorder = 11,
 
     // task-112: nav-stack flow-fields milestones (M1..M7). Explicit indices
     // because the architecture references these values directly for
@@ -42,6 +42,45 @@ public enum ScenarioType
     // Wall-climb / rampart garrison test: a sealed wall enclosure with
     // climb-hub stairs; units ordered inside must use the stairs + rampart.
     WallClimbTest = 19,
+
+    // Longbowman animation showcase: one idle, one patrolling, two shooting an
+    // invincible target from different ranges, and a 5 s spawner feeding an
+    // immortal attacking enemy (each spawn walks in and dies). Lets the
+    // idle/run/shoot/death clips be reviewed live the way gameplay drives them.
+    LongbowmanShowcase = 20,
+
+    // Longbowman line battle: two teams of 30 Longbowmen (each split into two
+    // 3x5 blocks) facing off across the player-1 start, trading volleys.
+    LongbowmanBattle = 21,
+
+    // Building-damage shader test: a row of Alanthor buildings that lose 5% HP
+    // per second, so the progressive soot/cracks/missing-pieces damage shader
+    // and the death collapse can be reviewed live.
+    BuildingDamageTest = 22,
+
+    // Building-damage showcase: a grid of buildings across all cultures
+    // (generic / Runai / Feraldis / Alanthor) that all lose 5% HP per second,
+    // exercising the damage shader + collapse across many building meshes.
+    BuildingDamageShowcase = 23,
+
+    // Guild defense test: a fully-upgraded Alanthor "Guild" (Gatherer's Hut at
+    // L3 with the full Survey + reinforcement research) pre-damaged below full
+    // HP, swarmed by a Red group. Exercises the Guild's low-HP Stop cast
+    // (Veilsteel Pylons), auto-repair, and the Slow/Stop cast VFX.
+    GuildDefenseTest = 24,
+
+    // Spell VFX showcase: a flat, textureless plane on which every authored
+    // spell (12 sect god powers + Guild Slow/Stop + hero abilities) is laid out
+    // in a labelled grid and repeat-cast, so the effect + ground-circle VFX and
+    // their colours can be reviewed live. Driven by the Spell prefabs under
+    // Resources/Spells.
+    SpellShowcase = 25,
+
+    // Hut evolution showcase: one Gatherer's Hut self-constructs with NO
+    // workers over 5 s (numbered Lv0 rise), then every 3 s plays the upgrade
+    // transition to the next Alanthor level: Lv1 -> Lv2 -> Lv3. Reviews the
+    // multi-variant prefab pipeline (BuildingVariantVisual) end to end.
+    HutEvolution = 26,
 }
 
 /// <summary>
@@ -105,12 +144,21 @@ public enum NetworkRole
 /// Alanthor culture so the player has a clean demo loadout. See
 /// <see cref="GameSettings.StartAge"/> and <c>StartAgePromoter</c>.
 /// </summary>
+/// <summary>
+/// Lobby start-age selector. The value IS the starting Temple level, and the
+/// era ladder runs one ahead of it (Temple L1 = Era 2), so:
+///   Age0 → no promotion   Age2 → Temple L2, Era 3
+///   Age1 → Temple L1, Era 2   Age3 → Temple L3, Era 4
+///   Age4 → Temple L4, Era 5 — the top of the ladder
+/// (TempleLevelConfig.MaxLevel is 4, so Age4 is fully teched.)
+/// </summary>
 public enum SkirmishStartAge : byte
 {
     Age0 = 0,
     Age1 = 1,
     Age2 = 2,
     Age3 = 3,
+    Age4 = 4,
 }
 
 // ==================== Game Settings ====================
@@ -173,9 +221,13 @@ public static class GameSettings
     ///           building (Shrine of Ahridan / Vault of Almiérra / Fiendstone
     ///           Keep) placed nearby. +200 supplies +50 iron pre-stocked.
     ///   Age2  — Alanthor L2: Hall L2, Temple L2, one random choice building.
-    ///           +500 supplies +150 iron +50 crystal.
-    ///   Age3  — Alanthor L3: Hall L3, Temple L3, one random choice building.
-    ///           +1000 supplies +300 iron +100 crystal +30 veilsteel.
+    ///           +500 supplies +150 iron +50 veilstone.
+    ///   Age3  — L3: Hall L3, Temple L3, one random choice building.
+    ///           +1000 supplies +300 iron +100 veilstone +30 veilsteel.
+    ///   Age4  — L4 (top of the ladder): Hall L4, Temple L4, Era 5. Every
+    ///           culture unit and both ritualist gates are open, which is the
+    ///           point — the verb objectives sit behind Temple L3/L4 and are
+    ///           otherwise ~15 minutes of build-up away in every test.
     ///
     /// All slots (human + AI) get the same age — clean demo setup. The AI's
     /// SimpleAISystem build-order step pointer is advanced past the end so
@@ -183,15 +235,22 @@ public static class GameSettings
     /// </summary>
     public static SkirmishStartAge StartAge = SkirmishStartAge.Age0;
 
-    // ==================== HUD ====================
-
     /// <summary>
-    /// When true, the game spawns the CEF-backed web HUD (HudWebController +
-    /// HudBridge) and disables the IMGUI / UI Toolkit HUDs (ResourceHUD,
-    /// VictoryProgressHUD, MinimapRenderer, ReligionHUD, GameplayUIController).
-    /// Set false to fall back to the legacy HUD stack.
+    /// Culture every faction is promoted into when <see cref="StartAge"/> is
+    /// above Age0. Defaults to Alanthor, which is what the start-age feature
+    /// hardcoded before this was configurable — so existing presets behave
+    /// exactly as they did.
+    ///
+    /// Cultures.None is treated as Alanthor by the promoter: a promoted
+    /// faction must have SOME culture, or it sits at a raised era with none of
+    /// the buildings or units that era implies.
     /// </summary>
-    public static bool UseWebHud = true;
+    public static byte StartCulture = Cultures.Alanthor;
+
+    // ==================== HUD ====================
+    // The CEF-backed web HUD (HudWebController + HudBridge + UseWebHud flag)
+    // was REMOVED entirely 2026-07-16 (user request). The UI Toolkit stack
+    // (GameplayUIController + regions + modals) is the in-game HUD.
 
     // ==================== Selection Settings ====================
 
@@ -217,15 +276,23 @@ public static class GameSettings
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
     public static int MapHalfSize = 125;
 
-    /// <summary>Whether fog of war is enabled.</summary>
-    public static bool FogOfWarEnabled = false;
+    /// <summary>
+    /// Whether fog of war is enabled. ON by default (directive 2026-07-05) —
+    /// the skirmish/multiplayer lobbies expose a toggle initialised from
+    /// this; test scenarios and the pathfinding test explicitly turn it off.
+    /// NOTE: the AI's entire intel layer (IntelSystem sightings, target
+    /// scoring, FindClosestEnemyOf) keys its honesty off the
+    /// FogOfWarManager — with fog disabled the manager doesn't exist and
+    /// the AI legitimately sees everything, same as the human does.
+    /// </summary>
+    public static bool FogOfWarEnabled = true;
 
-    /// <summary>Whether the Crystal Curse faction spawns on this map.</summary>
-    public static bool CrystalCurseEnabled = true;
+    /// <summary>Whether the The Border faction spawns on this map.</summary>
+    public static bool BorderEnabled = true;
 
     /// <summary>
     /// Flat test map for AI/pathfinding work: skips noise heightmap, terrain
-    /// trees, ObstacleBootstrap (forests + rocks), and CrystalNodeBootstrap.
+    /// trees, ObstacleBootstrap (forests + rocks), and BorderNodeBootstrap.
     /// Result: flat ground at <c>spawnTargetHeight</c>, only Halls and iron
     /// deposits, water plane hidden below the terrain. Toggle off when you
     /// want production-style maps with hills and forests back.
@@ -267,6 +334,16 @@ public static class GameSettings
 
     /// <summary>Whether the current game is a multiplayer session.</summary>
     public static bool IsMultiplayer = false;
+
+    /// <summary>
+    /// Enables TRUE deterministic lockstep: when on (multiplayer only) the ECS
+    /// SimulationSystemGroup is driven at a FIXED timestep, exactly once per
+    /// lockstep tick, instead of free-running on the render frame rate. This is
+    /// the prerequisite for cross-client determinism. OFF by default while the
+    /// fixed-step path is being validated — flip to true to test it. See
+    /// LockstepFixedRateManager.
+    /// </summary>
+    public static bool DeterministicLockstep = false;
 
     /// <summary>The network role of this instance (None for single-player).</summary>
     public static NetworkRole NetworkRole = NetworkRole.None;

@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1073581773270133594
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 405413066036430257}
+  - component: {fileID: 334330617461005394}
+  m_Layer: 0
+  m_Name: Guild_Stop
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &405413066036430257
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073581773270133594}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &334330617461005394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073581773270133594}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3a159d455142f09d651e9ba728a446, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  spellId: Guild_Stop
+  displayName: 'Guild: Stop Field'
+  activation: 3
+  cooldown: 90
+  castTime: 0
+  hpThreshold: 0.5
+  shape: 2
+  affects: 2
+  range: 0
+  radius: 19.5
+  duration: 10
+  effects:
+  - kind: 7
+    value: 1.0
+    duration: 10
+  powerUpPrefab: {fileID: 0}
+  powerUpTint: 0
+  powerUpColor: {r: 1, g: 1, b: 1, a: 1}
+  powerUpSpeed: 1
+  castPrefab: {fileID: 180706, guid: 1892998c1d0c3404881951e46a3fff2a, type: 3}
+  castTint: 0
+  castColor: {r: 0.3137255, g: 0.50980395, b: 1, a: 1}
+  castSpeed: 1
+  circlePrefab: {fileID: 665670526262274184, guid: a4e52cedb3774e74fb32c6d1d15e88a2, type: 3}
+  circleTint: 1
+  circleColor: {r: 0.3137255, g: 0.50980395, b: 1, a: 1}
+  circleSpeed: 0
+  previewInEditor: 1
+  previewInterval: 4

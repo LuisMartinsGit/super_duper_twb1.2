@@ -19,7 +19,7 @@ MonoBehaviour:
   description: Ranged training building. Its level unlocks the archer ladder (Archer
     at L1, Crossbowman at L2, Longbowman at L3) and it researches the volley / fletching
     techs.
-  hp: 500
+  hp: 600
   armorType: structure_human
   defense:
     melee: 1
@@ -30,7 +30,24 @@ MonoBehaviour:
   lineOfSight: 18
   trains:
   - Archer
-  research: []
+  - Alanthor_Crossbowman
+  - Alanthor_Longbowman
+  - Feraldis_Archer
+  - Feraldis_Hunter
+  - Feraldis_Firethrower
+  research:
+  - StoneTippedArrows
+  - Fletching
+  - ChoreographedVolleys
+  - IronTippedArrows
+  - VeilstoneTippedArrows
+  - ShardTippedArrows
+  - SeasonedArchers
+  - VeteranArchers
+  - EliteArchers
+  - ArrowVolley
+  - ArrowShower
+  - DeployStakes
   minEra: 0
   cost:
     Supplies: 180
@@ -63,6 +80,5 @@ MonoBehaviour:
       maxTargets: 1
   unitUpgrades: []
   prefabPath: 
-  canUpgradeTo:
-  - Alanthor_PracticeRange
+  canUpgradeTo: []
   presentationId: 511

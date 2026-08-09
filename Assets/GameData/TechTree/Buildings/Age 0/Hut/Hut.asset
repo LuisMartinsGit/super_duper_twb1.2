@@ -17,22 +17,23 @@ MonoBehaviour:
   role: Provides population
   description: Population housing for Age 0 (the 'House'). Each one raises the population
     cap. Its post-age-up behavior splits per culture.
-  hp: 200
+  hp: 650
   armorType: structure_human
   defense:
     melee: 2
     ranged: 6
     siege: 0
-    magic: 0
+    magic: 2
   radius: 1.6
-  lineOfSight: 14
+  lineOfSight: 6
   trains: []
-  research: []
+  research:
+  - RetaliatoryMeasures
   minEra: 0
   cost:
     Supplies: 80
     Iron: 0
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
@@ -45,6 +46,7 @@ MonoBehaviour:
     maxTargets: 1
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 6768219770374779136, guid: e6136b3a7b303cc39004b6a6bb7f36f5, type: 3}
+  presentationId: 102
   prefabPath: 
   canUpgradeTo: []
-  presentationId: 102

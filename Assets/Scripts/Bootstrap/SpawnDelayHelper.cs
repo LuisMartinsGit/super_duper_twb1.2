@@ -39,7 +39,7 @@ namespace TheWaningBorder.Bootstrap
             // status text gives the player a sense of what's happening.
 
             // Scan the active scene for design-time spawn markers (player
-            // starts, iron / crystal patches, curse nodes). Each spawn
+            // starts, iron / veilstone patches, border nodes). Each spawn
             // bootstrap below checks the registry and uses the marker list
             // when present, otherwise falls back to its procedural path.
             MapMarkerRegistry.Refresh();
@@ -70,17 +70,24 @@ namespace TheWaningBorder.Bootstrap
             yield return null;
             IronDepositBootstrap.SpawnIronDeposits();
 
-            LoadingScreen.SetStatus("Placing crystal patches…");
+            LoadingScreen.SetStatus("Placing veilstone patches…");
             LoadingScreen.SetProgress(0.82f);
             yield return null;
-            CrystalPatchBootstrap.SpawnCrystalPatches();
+            VeilstoneOutcroppingBootstrap.SpawnVeilstoneOutcroppings();
+            VeilsteelDepositBootstrap.SpawnVeilsteelDeposits();
 
-            if (GameSettings.CrystalCurseEnabled)
+            if (GameSettings.BorderEnabled)
             {
-                LoadingScreen.SetStatus("Seeding crystal curse…");
+                LoadingScreen.SetStatus("Seeding veilstone border…");
                 LoadingScreen.SetProgress(0.85f);
                 yield return null;
-                CrystalNodeBootstrap.SpawnCrystalNodes();
+                BorderNodeBootstrap.SpawnBorderNodes();
+                // §2.5b Age 0 blight pockets — near-spawn haze patches with
+                // Sporeling anchors. Needs the Halls (spawned above) and only
+                // makes sense with the curse on; the VeilField itself
+                // initialises later and BlightPocketSystem seeds the discs
+                // as soon as it exists.
+                BlightPocketBootstrap.SpawnBlightPockets();
             }
 
             FocusCameraOnHall();

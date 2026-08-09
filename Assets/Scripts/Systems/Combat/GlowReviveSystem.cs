@@ -2,7 +2,7 @@
 // Glow-tier on-death revive (spec §4.2 Glow tier: "Revive on cooldown").
 //
 // Per-unit GlowReviveCooldown ticks down each frame. When a Glow-tier
-// non-Curse unit reaches 0 HP AND the cooldown is ready, it pops back
+// non-Border unit reaches 0 HP AND the cooldown is ready, it pops back
 // at GlowReviveHealthPercent of max with a refreshed shield bar; the
 // cooldown resets to GlowReviveCooldownSec. While the cooldown is on,
 // lethal damage falls through to DeathSystem + GlowWeaponDropSystem
@@ -40,7 +40,7 @@ namespace TheWaningBorder.Systems.Combat
                 .WithEntityAccess())
             {
                 bool isGlow = applied.ValueRO.Value == EquipmentTier.Glow
-                    && faction.ValueRO.Value != Faction.Curse;
+                    && faction.ValueRO.Value != Faction.Border;
                 bool hasCd = em.HasComponent<GlowReviveCooldown>(entity);
 
                 if (isGlow && !hasCd)
@@ -68,7 +68,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 if (healthRW.ValueRO.Value > 0) continue;
                 if (applied.ValueRO.Value != EquipmentTier.Glow) continue;
-                if (faction.ValueRO.Value == Faction.Curse) continue;
+                if (faction.ValueRO.Value == Faction.Border) continue;
                 if (cdRW.ValueRO.TimeRemaining > 0f) continue;
 
                 int revived = (int)math.max(1, healthRW.ValueRO.Max * EquipmentTierConfig.GlowReviveHealthPercent);

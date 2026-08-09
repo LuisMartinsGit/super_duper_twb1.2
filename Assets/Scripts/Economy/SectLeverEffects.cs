@@ -63,6 +63,7 @@ namespace TheWaningBorder.Economy
         BurningCircle,      // spawn BurningGround tiles
         RevealCircle,       // FoW reveal area
         SpawnPyre,          // spawn one BurningGround at center
+        FreezeCooldowns,    // Antiquity "Recall the Codex": halt enemy cooldown recovery in circle
     }
 
     public struct SectActivePowerSpec
@@ -150,19 +151,63 @@ namespace TheWaningBorder.Economy
         {
             switch (sectId)
             {
-                case SectConfig.Antiquity:   return new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle,  Radius = 12f, Duration = 8f, Cooldown = 90f };
+                // Recall the Codex (spec): AoE freeze of enemy attack/ability
+                // cooldown recovery. Duration rides Magnitude so the level
+                // scalar stretches it (10s / 15s / 20s at Lv I/II/III);
+                // Lv III's extra "+50% current cooldowns" surge is handled
+                // at dispatch.
+                case SectConfig.Antiquity:   return new SectActivePowerSpec { Kind = SectActivePowerKind.FreezeCooldowns, Radius = 10f, Magnitude = 10f, Cooldown = 300f };
                 case SectConfig.Renewal:     return new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle,    Radius = 8f,  Magnitude = 50f, Cooldown = 90f };
                 case SectConfig.Fortitude:   return new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle,   Radius = 8f,  Magnitude = 5f,  Duration = 12f, Cooldown = 120f };
                 case SectConfig.Reclamation: return new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle,    Radius = 6f,  Magnitude = 30f, Cooldown = 75f };
                 case SectConfig.Silence:     return new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle,   Radius = 8f,  Magnitude = 1.20f, Duration = 8f, Cooldown = 90f };
-                case SectConfig.Justice:     return new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle,   Radius = 6f,  Magnitude = 60f, Cooldown = 120f };
+                // Tiered actives (design 2026-07-05): tier 1 is the UTILITY
+                // skill; the aggressive skills moved to tiers 2/3 (see the
+                // ActiveOf(sectId, tier) overload below).
+                case SectConfig.Justice:     return new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle,  Radius = 14f, Duration = 10f, Cooldown = 60f };
                 case SectConfig.Veneration:  return new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle,  Radius = 8f,  Magnitude = 1.20f, Duration = 10f, Cooldown = 120f };
                 case SectConfig.Witness:     return new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle,  Radius = 16f, Duration = 12f, Cooldown = 75f };
-                case SectConfig.War:         return new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle,  Radius = 8f,  Magnitude = 1.25f, Duration = 8f,  Cooldown = 120f };
+                case SectConfig.War:         return new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle,   Radius = 8f,  Magnitude = 1.30f, Duration = 8f,  Cooldown = 75f };
                 case SectConfig.Ash:         return new SectActivePowerSpec { Kind = SectActivePowerKind.BurningCircle, Radius = 6f,  Magnitude = 8f,  Duration = 6f,  Cooldown = 120f };
                 case SectConfig.Ruin:        return new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle,   Radius = 8f,  Magnitude = 80f, Cooldown = 150f };
                 case SectConfig.Wrath:       return new SectActivePowerSpec { Kind = SectActivePowerKind.SpawnPyre,     Radius = 4f,  Magnitude = 6f,  Duration = 8f,  Cooldown = 120f };
                 default: return default;
+            }
+        }
+
+        /// <summary>
+        /// Tiered actives (design 2026-07-05). Temple level unlocks tiers:
+        ///   Tier 1 — utility (available on adoption)          → ActiveOf(sectId)
+        ///   Tier 2 — economy / buff / aggressive second skill (temple Lv 2)
+        ///   Tier 3 — ultimate: devastating offensive          (temple Lv 3)
+        /// Only the playable sects (Justice / Renewal / War) have tiers 2-3;
+        /// everything else returns Kind = None above tier 1.
+        /// </summary>
+        public static SectActivePowerSpec ActiveOf(string sectId, int tier)
+        {
+            if (tier <= 1) return ActiveOf(sectId);
+            switch (sectId)
+            {
+                case SectConfig.Justice:
+                    // T2 "Sentence" — focused smite. T3 "Final Sentence" —
+                    // massive smite (spec: heavier windup handled globally).
+                    return tier == 2
+                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 6f,  Magnitude = 60f,  Cooldown = 120f }
+                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 10f, Magnitude = 150f, Cooldown = 240f };
+                case SectConfig.Renewal:
+                    // T2 "Mason's Blessing" — armor buff. T3 "Reckoning of the
+                    // Rebuilt" — heavy smite.
+                    return tier == 2
+                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle, Radius = 8f,  Magnitude = 3f,   Duration = 12f, Cooldown = 120f }
+                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 9f,  Magnitude = 120f, Cooldown = 240f };
+                case SectConfig.War:
+                    // T2 "Bloodfury" — damage buff. T3 "Annihilation" —
+                    // devastating smite.
+                    return tier == 2
+                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle, Radius = 8f,  Magnitude = 1.25f, Duration = 8f, Cooldown = 120f }
+                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle,  Radius = 10f, Magnitude = 140f, Cooldown = 240f };
+                default:
+                    return default; // Kind = None — no higher tiers yet
             }
         }
     }

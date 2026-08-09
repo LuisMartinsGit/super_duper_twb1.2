@@ -81,3 +81,10 @@ public struct PiercingProjectile : IComponentData
     /// <summary>How many targets remain before the bolt stops (0 = infinite)</summary>
     public int RemainingPierces;
 }
+
+/// <summary>
+/// Marks a projectile as a catapult stone (shooter had CatapultTag).
+/// ProjectileVisualSystem renders it with the Synty FX_Catapult effect —
+/// launch burst, smoking arc in flight, and an impact blast on death.
+/// </summary>
+public struct CatapultShotTag : IComponentData { }

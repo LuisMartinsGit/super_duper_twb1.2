@@ -89,12 +89,13 @@ namespace TheWaningBorder.Data.EditorTools
             AssetDatabase.StartAssetEditing();
             try
             {
-                // 4a. Units (one asset each, organized into a culture subfolder).
+                // 4a. Units (one asset each, organized as <Culture>/<CleanName>/<CleanName>.asset).
                 foreach (var def in parsed.Units.Values)
                 {
                     if (def == null || string.IsNullOrEmpty(def.id)) continue;
-                    string folder = $"{UnitsFolder}/{CultureFolder(def.id)}";
-                    string path = ResolveTargetPath(UnitsFolder, "UnitDefSO", $"Unit_{Sanitize(def.id)}", folder);
+                    string clean = GameDataMaintenanceTool.CleanName(def.id);
+                    string folder = $"{UnitsFolder}/{GameDataMaintenanceTool.CultureDiskFolder(def.id, isBuilding: false)}/{clean}";
+                    string path = ResolveTargetPath<UnitDefSO>(UnitsFolder, clean, folder, def.id, s => s.id);
                     var so = AssetDatabase.LoadAssetAtPath<UnitDefSO>(path);
                     if (so == null)
                     {
@@ -113,12 +114,13 @@ namespace TheWaningBorder.Data.EditorTools
                     unitCount++;
                 }
 
-                // 4b. Buildings (one asset each, organized into a culture subfolder).
+                // 4b. Buildings (one asset each, organized as <Culture>/<CleanName>/<CleanName>.asset).
                 foreach (var def in parsed.Buildings.Values)
                 {
                     if (def == null || string.IsNullOrEmpty(def.id)) continue;
-                    string folder = $"{BuildingsFolder}/{CultureFolder(def.id)}";
-                    string path = ResolveTargetPath(BuildingsFolder, "BuildingDefSO", $"Building_{Sanitize(def.id)}", folder);
+                    string clean = GameDataMaintenanceTool.CleanName(def.id);
+                    string folder = $"{BuildingsFolder}/{GameDataMaintenanceTool.CultureDiskFolder(def.id, isBuilding: true)}/{clean}";
+                    string path = ResolveTargetPath<BuildingDefSO>(BuildingsFolder, clean, folder, def.id, s => s.id);
                     var so = AssetDatabase.LoadAssetAtPath<BuildingDefSO>(path);
                     if (so == null)
                     {
@@ -165,51 +167,29 @@ namespace TheWaningBorder.Data.EditorTools
             return catalog;
         }
 
-        // Most Age-1 culture content is prefixed (Runai_/Alanthor_/Feraldis_/Sect_).
-        // A handful of culture buildings are not, so map them explicitly.
-        static readonly Dictionary<string, string> BuildingCultureExceptions = new Dictionary<string, string>
-        {
-            { "FiendstoneKeep",  "Feraldis" },
-            { "KingsCourt",      "Alanthor" },
-            { "ThessarasBazaar", "Runai"    },
-        };
-
-        /// <summary>Culture subfolder name for a unit/building id (Age0 = pre-culture / human core).</summary>
-        static string CultureFolder(string id)
-        {
-            if (id.StartsWith("Runai_"))    return "Runai";
-            if (id.StartsWith("Alanthor_")) return "Alanthor";
-            if (id.StartsWith("Feraldis_")) return "Feraldis";
-            if (id.StartsWith("Sect_"))     return "Sect";
-            if (BuildingCultureExceptions.TryGetValue(id, out var culture)) return culture;
-            return "Age0";
-        }
-
         /// <summary>
-        /// Resolve where an asset should live. Returns the target culture-folder path,
-        /// creating the folder if needed. If a same-named asset already exists elsewhere
-        /// under <paramref name="searchRoot"/> (e.g. a previous flat-folder run), it is
-        /// moved into the culture folder so re-runs reorganize rather than orphan.
+        /// Resolve where an asset for <paramref name="id"/> should live. If an asset
+        /// with a matching id field already exists ANYWHERE under
+        /// <paramref name="searchRoot"/> (old Unit_/Building_ naming, parked (TBD)
+        /// folders, hand-moved locations), its current path is returned so re-runs
+        /// can never create a duplicate or clobber tuned values. Relocating assets
+        /// into the canonical layout is GameDataMaintenanceTool.NormalizeGameData's
+        /// job, not the generator's. Only brand-new ids get the canonical
+        /// <Culture>/<CleanName>/<CleanName>.asset target path.
         /// </summary>
-        static string ResolveTargetPath(string searchRoot, string typeFilter, string fileName, string targetFolder)
+        static string ResolveTargetPath<T>(string searchRoot, string fileName, string targetFolder,
+                                           string id, System.Func<T, string> getId) where T : ScriptableObject
         {
             string targetPath = $"{targetFolder}/{fileName}.asset";
-            EnsureFolder(targetFolder);
 
-            // Already at the target location?
-            if (AssetDatabase.LoadAssetAtPath<ScriptableObject>(targetPath) != null) return targetPath;
-
-            // Existing asset of this name somewhere else under the root? Move it.
-            var guids = AssetDatabase.FindAssets($"{fileName} t:{typeFilter}", new[] { searchRoot });
-            foreach (var g in guids)
+            foreach (var g in AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { searchRoot }))
             {
                 string p = AssetDatabase.GUIDToAssetPath(g);
-                if (System.IO.Path.GetFileNameWithoutExtension(p) != fileName) continue; // exact match only
-                if (p == targetPath) return targetPath;
-                string err = AssetDatabase.MoveAsset(p, targetPath);
-                return string.IsNullOrEmpty(err) ? targetPath : p; // fall back to existing path if move fails
+                var so = AssetDatabase.LoadAssetAtPath<T>(p);
+                if (so != null && getId(so) == id) return p;
             }
 
+            EnsureFolder(targetFolder);
             return targetPath;
         }
 
@@ -223,17 +203,6 @@ namespace TheWaningBorder.Data.EditorTools
             AssetDatabase.CreateFolder(parent, leaf);
         }
 
-        static string Sanitize(string id)
-        {
-            // IDs are already file-safe (letters/digits/underscore) but guard anyway.
-            var chars = id.ToCharArray();
-            for (int i = 0; i < chars.Length; i++)
-            {
-                char c = chars[i];
-                if (!char.IsLetterOrDigit(c) && c != '_' && c != '-') chars[i] = '_';
-            }
-            return new string(chars);
-        }
     }
 }
 #endif

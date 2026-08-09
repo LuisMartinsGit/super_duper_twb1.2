@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Economy;
 
@@ -103,21 +104,27 @@ namespace TheWaningBorder.Systems.Work
 
                 // Get site position
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
-                float dist = DistXZ(bPos, sitePos);
                 // Measure to the building's edge, not its centre, so builders can
                 // construct large footprints (e.g. the 9 m wall hub, which blocks the
-                // navmesh well beyond BuildRange of the centre).
-                float reach = BuildRange + (em.HasComponent<Radius>(site)
-                    ? em.GetComponentData<Radius>(site).Value : 0f);
+                // navmesh well beyond BuildRange of the centre). Sized buildings use
+                // their exact rect rather than the inscribed legacy Radius, which
+                // under-measures at corners.
+                var extent = TargetGeometry.Extent(em, site);
+                float dist = extent.SurfaceDistXZ(bPos);
 
-                if (dist > reach)
+                if (dist > BuildRange)
                 {
-                    // Move toward site
+                    // Walk to a point on the footprint's edge, a half-step back so
+                    // the destination is walkable ground rather than a cell inside
+                    // the site itself.
+                    float3 approach = extent.ApproachPoint(bPos, BuildRange * 0.5f);
+                    approach.y = sitePos.y;
+
                     if (em.HasComponent<DesiredDestination>(builder))
                     {
                         em.SetComponentData(builder, new DesiredDestination
                         {
-                            Position = sitePos,
+                            Position = approach,
                             Has = 1
                         });
                     }
@@ -125,22 +132,26 @@ namespace TheWaningBorder.Systems.Work
                     {
                         em.AddComponentData(builder, new DesiredDestination
                         {
-                            Position = sitePos,
+                            Position = approach,
                             Has = 1
                         });
                     }
                 }
                 else
                 {
-                    // In range - stop moving and contribute to construction
-                    if (em.HasComponent<DesiredDestination>(builder))
-                    {
-                        em.SetComponentData(builder, new DesiredDestination { Has = 0 });
-                    }
+                    // In range - plant, face the site, and contribute to construction
+                    TargetGeometry.StopAndFace(em, builder, sitePos, dt);
 
                     // Add build progress
                     var uc = em.GetComponentData<UnderConstruction>(site);
                     float buildRate = BuildRatePerBuilder;
+
+                    // Self-constructing sites (choice buildings, wall extensions)
+                    // already tick at 1.0/s via AutoConstructionSystem; builders
+                    // only ACCELERATE them, each adding +25 % of the base rate
+                    // (design: 4 workers halve the 90 s choice-building timer).
+                    if (em.HasComponent<AutoConstructTag>(site))
+                        buildRate = BuildRatePerBuilder * 0.25f;
 
                     // task-063 phase 1: sect BuildSpeed multiplier removed with the
                     // FactionSectState bridge. Phase 2 reintroduces build-speed levers.
@@ -215,9 +226,22 @@ namespace TheWaningBorder.Systems.Work
         {
             // Remove construction marker
             em.RemoveComponent<UnderConstruction>(building);
+
+            // Post-game chart milestone: choice building (Shrine/Vault/Keep)
+            // completed. Only one completion path can fire per site — the
+            // UnderConstruction removal above gates the other path out.
+            if (em.HasComponent<ChoiceBuildingTag>(building) && em.HasComponent<FactionTag>(building))
+                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
+                    em.GetComponentData<FactionTag>(building).Value,
+                    TheWaningBorder.UI.HUD.GameEventKind.SpecialBuilding);
             // Also remove Buildable if present (leftover from CreateUnderConstruction)
             if (em.HasComponent<Buildable>(building))
                 em.RemoveComponent<Buildable>(building);
+            // A builder can finish a self-constructing site (choice building /
+            // wall extension) before AutoConstructionSystem does — drop the
+            // auto tag so it doesn't linger on the completed building.
+            if (em.HasComponent<AutoConstructTag>(building))
+                em.RemoveComponent<AutoConstructTag>(building);
 
             // Set health to max (sect BuildingHP multiplier removed in task-063
             // phase 1; Phase 2's Fortitude/Oath-Stone levers reintroduce this).
@@ -240,6 +264,13 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<SuppliesIncome>(building))
             {
                 em.AddComponentData(building, new SuppliesIncome { PerTick = 10f, Interval = 10f });
+            }
+
+            // Safety net: GathererHuts carry the Guild level ladder marker so the
+            // culture auto-level + manual upgrade path can bump them (L1-L3).
+            if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<BuildingUpgradeable>(building))
+            {
+                em.AddComponent<BuildingUpgradeable>(building);
             }
 
             // Apply deferred defense if present
@@ -318,7 +349,7 @@ namespace TheWaningBorder.Systems.Work
                 // Spread spawn positions slightly so raiders don't stack on creation.
                 float angle = (i / (float)math.max(count, 1)) * math.PI * 2f;
                 float3 offset = new float3(math.cos(angle) * 1.5f, 0f, math.sin(angle) * 1.5f);
-                TheWaningBorder.Entities.FeraldisRaider.Create(em, housePos + offset, faction);
+                TheWaningBorder.Entities.FeraldisRaider.CreateUncontrolled(em, housePos + offset, faction);
             }
         }
 
@@ -390,6 +421,7 @@ namespace TheWaningBorder.Systems.Work
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var em = state.EntityManager;
+            float dt = SystemAPI.Time.DeltaTime;
 
             foreach (var (transform, buildCmd, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<BuildCommand>>()
@@ -399,14 +431,16 @@ namespace TheWaningBorder.Systems.Work
                 var myPos = transform.ValueRO.Position;
                 var targetPos = buildCmd.ValueRO.Position;
                 var targetBuilding = buildCmd.ValueRO.TargetBuilding;
-                var dist = DistXZ(myPos, targetPos);
                 // Reach to the building edge so large footprints (9 m wall hub) are
-                // buildable from where the navmesh lets a builder stand.
-                float reach = BuildRange + (targetBuilding != Entity.Null && em.HasComponent<Radius>(targetBuilding)
-                    ? em.GetComponentData<Radius>(targetBuilding).Value : 0f);
+                // buildable from where the navmesh lets a builder stand. Falls back
+                // to plain centre distance for a bare ground position (no target
+                // entity yet — the site hasn't been placed).
+                float dist = targetBuilding != Entity.Null && em.Exists(targetBuilding)
+                    ? TargetGeometry.SurfaceDistXZ(em, myPos, targetBuilding)
+                    : DistXZ(myPos, targetPos);
 
                 // Move to build site if not in range
-                if (dist > reach)
+                if (dist > BuildRange)
                 {
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
@@ -427,11 +461,8 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else
                 {
-                    // In range - stop moving
-                    if (em.HasComponent<DesiredDestination>(entity))
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
-                    }
+                    // In range - plant and face the site
+                    TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
 
                     // Convert BuildCommand to BuildOrder if target building exists
                     if (targetBuilding != Entity.Null && em.Exists(targetBuilding))

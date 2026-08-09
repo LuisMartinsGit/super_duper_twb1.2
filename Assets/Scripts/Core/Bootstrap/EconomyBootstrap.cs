@@ -14,7 +14,7 @@ namespace TheWaningBorder.Economy
     /// <summary>
     /// Creates and initializes faction economy entities.
     /// Each faction gets a resource bank entity with:
-    /// - FactionResources (Supplies, Iron, Crystal, Veilsteel, Glow)
+    /// - FactionResources (Supplies, Iron, Veilstone, Veilsteel, Glow)
     /// - FactionPopulation (Current, Max population)
     /// - ResourceTickState (for passive income calculations)
     /// </summary>
@@ -30,8 +30,8 @@ namespace TheWaningBorder.Economy
         /// <summary>Starting iron for each faction</summary>
         public const int StartingIron = 150;
 
-        /// <summary>Starting crystal (advanced resource)</summary>
-        public const int StartingCrystal = 0;
+        /// <summary>Starting veilstone (advanced resource)</summary>
+        public const int StartingVeilstone = 0;
 
         /// <summary>Starting veilsteel (advanced resource)</summary>
         public const int StartingVeilsteel = 0;
@@ -77,7 +77,7 @@ namespace TheWaningBorder.Economy
         /// Use for special game modes or testing.
         /// </summary>
         public static Entity CreateFactionBank(EntityManager em, Faction faction,
-            int supplies, int iron, int crystal = 0, int veilsteel = 0, int glow = 0)
+            int supplies, int iron, int veilstone = 0, int veilsteel = 0, int glow = 0)
         {
             // In ResetAllFactionBanks and the public CreateFactionBank overload:
             var world = EntityWorld.DefaultGameObjectInjectionWorld;  // Not World.DefaultGameObjectInjectionWorld
@@ -100,7 +100,7 @@ namespace TheWaningBorder.Economy
             {
                 Supplies = supplies,
                 Iron = iron,
-                Crystal = crystal,
+                Veilstone = veilstone,
                 Veilsteel = veilsteel,
                 Glow = glow
             });
@@ -124,8 +124,8 @@ namespace TheWaningBorder.Economy
             em.SetComponentData(bank, default(FactionEquipmentTier));
             em.SetComponentData(bank, new GodPowerState
             {
-                BaseCooldown = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
-                CooldownRemaining = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                BaseCooldown = TheWaningBorder.Core.Config.BorderConstants.GodPowerBaseCooldown,
+                CooldownRemaining = TheWaningBorder.Core.Config.BorderConstants.GodPowerBaseCooldown,
                 CastCount = 0,
             });
 
@@ -184,7 +184,7 @@ namespace TheWaningBorder.Economy
                     {
                         Supplies  = max ? cap : StartingSupplies,
                         Iron      = max ? cap : StartingIron,
-                        Crystal   = max ? cap : StartingCrystal,
+                        Veilstone   = max ? cap : StartingVeilstone,
                         Veilsteel = max ? cap : StartingVeilsteel,
                         Glow      = max ? cap : StartingGlow
                     });
@@ -261,7 +261,7 @@ namespace TheWaningBorder.Economy
             {
                 Supplies  = max ? cap : StartingSupplies,
                 Iron      = max ? cap : StartingIron,
-                Crystal   = max ? cap : StartingCrystal,
+                Veilstone   = max ? cap : StartingVeilstone,
                 Veilsteel = max ? cap : StartingVeilsteel,
                 Glow      = max ? cap : StartingGlow
             });
@@ -283,8 +283,8 @@ namespace TheWaningBorder.Economy
             em.SetComponentData(bank, default(FactionEquipmentTier));  // all classes start at Base
             em.SetComponentData(bank, new GodPowerState
             {
-                BaseCooldown = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
-                CooldownRemaining = TheWaningBorder.Core.Config.CrystalConstants.GodPowerBaseCooldown,
+                BaseCooldown = TheWaningBorder.Core.Config.BorderConstants.GodPowerBaseCooldown,
+                CooldownRemaining = TheWaningBorder.Core.Config.BorderConstants.GodPowerBaseCooldown,
                 CastCount = 0,
             });
 

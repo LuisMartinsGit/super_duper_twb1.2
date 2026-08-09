@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Scholar
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Scholar'
-  displayName: 'Alanthor_Scholar'
-  unitClass: 'human_magic'
+  id: Alanthor_Scholar
+  displayName: Holy Scholar
+  unitClass: human_magic
   hp: 90
   speed: 3
   trainingTime: 68
   damage: 10
-  damageType: 'magic'
-  armorType: 'ranged'
+  damageType: magic
+  armorType: ranged
   defense:
     melee: 0
     ranged: 0
@@ -41,6 +41,8 @@ MonoBehaviour:
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
+  prefab: {fileID: 4559824633806487079, guid: 73fe205441e0ec74880a1d96b290fdb1, type: 3}
   presentationId: 382
+  animatorController: {fileID: 9100000, guid: 67d433bda08df1443916312042fb3533, type: 2}

@@ -25,8 +25,13 @@ namespace TheWaningBorder.World.FogOfWar
         public MeshRenderer FogRenderer;
         [Range(0, 1)] public float ExploredAlpha = 0.65f; // explored-but-not-currently-visible
         [Range(0, 1)] public float HiddenAlpha = 0.98f;   // never seen
+        [Tooltip("Seconds between overlay texture rebuilds. The visibility GRID still " +
+                 "updates every frame (gameplay queries stay exact); this only paces the " +
+                 "per-cell repaint + GPU upload of the human player's fog texture.")]
+        public float TextureUpdateInterval = 0.1f;
 
         // Internal
+        float _nextTextureTime;
         int _w, _h;
         byte[] _visible;   // [faction][cell], 0/1 current frame
         byte[] _revealed;  // [faction][cell], 0/1 persistent
@@ -126,9 +131,11 @@ namespace TheWaningBorder.World.FogOfWar
             }
         }
 
-        /// <summary>Update the human overlay texture after stamping.</summary>
+        /// <summary>Update the human overlay texture after stamping (throttled).</summary>
         public void EndFrameAndBuild()
         {
+            if (Time.unscaledTime < _nextTextureTime) return;
+            _nextTextureTime = Time.unscaledTime + Mathf.Max(0f, TextureUpdateInterval);
             EnsureMaterialBound();
             PushHumanTexture();
         }
@@ -257,20 +264,68 @@ namespace TheWaningBorder.World.FogOfWar
             EnsureMaterialBound();
             ForceRebuildGrid(clearRevealed);
 
+            // Keep the enabled flag across surface rebuilds — observers run
+            // with the overlay renderer hidden.
+            bool rendererEnabled = FogRenderer == null || FogRenderer.enabled;
             if (FogRenderer != null)
             {
                 var old = FogRenderer.gameObject;
                 if (old != null) Destroy(old);
             }
 
-            var mat = FogMaterial != null ? FogMaterial : new Material(Shader.Find("Unlit/FogOfWar"));
+            // Same stripped-shader trap as SetupFogOfWar: with no material and
+            // no shader there is nothing to draw, so skip building the surface
+            // rather than throwing on new Material(null). The fog GRID still
+            // updates, so vision queries stay correct — only the overlay is gone.
+            var mat = FogMaterial;
+            if (mat == null)
+            {
+                var fogShader = ResolveFogShader();
+                if (fogShader == null)
+                {
+                    // Nothing to draw. The fog GRID still updates, so vision
+                    // queries stay correct — only the overlay is skipped.
+                    FogRenderer = null;
+                    PushHumanTexture();
+                    return;
+                }
+                mat = new Material(fogShader);
+            }
+
             GameObject surface = FogOfWarConformingMesh.Create(WorldMin, WorldMax, surfaceGrid, mat);
             surface.name = "FogSurface";
             surface.transform.SetParent(transform, false);
             FogRenderer = surface.GetComponent<MeshRenderer>();
+            FogRenderer.enabled = rendererEnabled;
 
             EnsureMaterialBound();
             PushHumanTexture();
+        }
+
+        /// <summary>Shader file under a Resources/ folder, loaded by name.</summary>
+        private const string FogShaderResource = "FogOfWarShader";
+
+        /// <summary>
+        /// Resolves the fog shader for BOTH the editor and a player build.
+        ///
+        /// Nothing in the project references Unlit/FogOfWar from a material or
+        /// a scene, so it used to reach the player only if someone remembered
+        /// to list it in Graphics > Always Included Shaders. Nobody did, so
+        /// Shader.Find returned null in the build, `new Material(null)` threw
+        /// out of GameBootstrap.InitializeWorld, the bootstrap coroutine died
+        /// silently and the loading screen hung on "Building world..." forever.
+        ///
+        /// It now lives in a Resources/ folder — those are included in every
+        /// build unconditionally — and is loaded explicitly rather than via
+        /// Shader.Find, which is only reliable for shaders already loaded or
+        /// pulled in by some other reference. Shader.Find stays as a fallback
+        /// so a move or rename degrades instead of breaking.
+        /// </summary>
+        private static Shader ResolveFogShader()
+        {
+            var shader = Resources.Load<Shader>(FogShaderResource);
+            if (shader != null) return shader;
+            return Shader.Find("Unlit/FogOfWar");
         }
 
         /// <summary>
@@ -279,8 +334,6 @@ namespace TheWaningBorder.World.FogOfWar
         public static void SetupFogOfWar()
         {
             if (FindFirstObjectByType<FogOfWarManager>() != null) return;
-
-            int half = Mathf.Max(16, GameSettings.MapHalfSize);
 
             var root = new GameObject("FogOfWar");
             var mgr = root.AddComponent<FogOfWarManager>();
@@ -292,13 +345,47 @@ namespace TheWaningBorder.World.FogOfWar
             // reallocates everything to the real map dimensions.
             mgr.HumanFaction = GameSettings.LocalPlayerFaction;
 
-            var mat = new Material(Shader.Find("Unlit/FogOfWar"));
-            mat.renderQueue = 3000;
-            mgr.FogMaterial = mat;
+            var fogShader = ResolveFogShader();
+            if (fogShader == null)
+            {
+                Debug.LogError(
+                    "[FogOfWar] Shader \"Unlit/FogOfWar\" could not be resolved — "
+                    + "continuing WITHOUT fog of war. Expected it at "
+                    + "Assets/Scripts/World/FogOfWar/Resources/" + FogShaderResource + ".shader.");
+            }
+            else
+            {
+                var mat = new Material(fogShader);
+                mat.renderQueue = 3000;
+                mgr.FogMaterial = mat;
+            }
+
+            // Cover the ACTUAL playable rect. Baked terrains sit corner-at-
+            // origin (0..size), so the old origin-centred ±MapHalfSize box
+            // (with MapHalfSize snapped to the FARTHEST terrain coordinate)
+            // built a surface and grid 2x the map per side — 4x the area,
+            // burning 4x the per-frame fog work. Fall back to the centred
+            // box only when no terrain exists yet (procedural maps are
+            // origin-centred by construction).
+            Vector2 min, max;
+            var terrain = UnityEngine.Terrain.activeTerrain;
+            if (terrain != null && terrain.terrainData != null)
+            {
+                var tpos = terrain.transform.position;
+                var tsize = terrain.terrainData.size;
+                min = new Vector2(tpos.x, tpos.z);
+                max = new Vector2(tpos.x + tsize.x, tpos.z + tsize.z);
+            }
+            else
+            {
+                int half = Mathf.Max(16, GameSettings.MapHalfSize);
+                min = new Vector2(-half, -half);
+                max = new Vector2(half, half);
+            }
 
             mgr.ApplyBounds(
-                new Vector2(-half, -half),
-                new Vector2(half, half),
+                min,
+                max,
                 newCellSize: 1f,
                 clearRevealed: true,
                 surfaceGrid: 128);
@@ -308,7 +395,8 @@ namespace TheWaningBorder.World.FogOfWar
             if (mgr.FogRenderer != null)
                 mgr.FogRenderer.transform.SetParent(root.transform, true);
 
-            if (UnityEngine.Terrain.activeTerrain == null)
+            var active = UnityEngine.Terrain.activeTerrain;
+            if (active == null || active.terrainData == null)
             {
                 root.AddComponent<OneShotFoWRebuilder>().Init(mgr, 128);
             }
@@ -329,16 +417,18 @@ namespace TheWaningBorder.World.FogOfWar
                 var t = UnityEngine.Terrain.activeTerrain;
                 if (t == null || t.terrainData == null) return;
 
-                for (int i = transform.childCount - 1; i >= 0; i--)
-                    Destroy(transform.GetChild(i).gameObject);
-
-                var mat = _mgr.FogMaterial;
-                GameObject fogSurface = FogOfWarConformingMesh.Create(_mgr.WorldMin, _mgr.WorldMax, _grid, mat);
-                fogSurface.name = "FogSurface";
-                fogSurface.transform.SetParent(transform, false);
-
-                var mr = fogSurface.GetComponent<MeshRenderer>();
-                _mgr.FogRenderer = mr;
+                // Re-derive the bounds from the terrain that just appeared —
+                // grid, surface and revealed data all resize to the actual
+                // playable rect (ApplyBounds keeps exploration progress).
+                var tpos = t.transform.position;
+                var tsize = t.terrainData.size;
+                _mgr.ApplyBounds(
+                    new Vector2(tpos.x, tpos.z),
+                    new Vector2(tpos.x + tsize.x, tpos.z + tsize.z),
+                    clearRevealed: false,
+                    surfaceGrid: _grid);
+                if (_mgr.FogRenderer != null)
+                    _mgr.FogRenderer.transform.SetParent(transform, true);
 
                 Destroy(this);
             }
@@ -353,7 +443,10 @@ namespace TheWaningBorder.World.FogOfWar
         public static GameObject Create(Vector2 worldMin, Vector2 worldMax, int grid = 128, Material mat = null)
         {
             var terrain = UnityEngine.Terrain.activeTerrain;
-            if (terrain == null) return CreateFlatQuad(worldMin, worldMax, mat);
+            // MapMagic tiles load with a Terrain whose TerrainData is null
+            // until the graph regenerates — treat that as no terrain at all.
+            if (terrain == null || terrain.terrainData == null)
+                return CreateFlatQuad(worldMin, worldMax, mat);
 
             var td = terrain.terrainData;
             var tpos = terrain.transform.position;

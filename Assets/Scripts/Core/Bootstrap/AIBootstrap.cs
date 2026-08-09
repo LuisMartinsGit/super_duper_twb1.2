@@ -44,6 +44,8 @@ namespace TheWaningBorder.AI
         {
             // Initialize per-faction AI logging (clears old logs)
             AILogger.Initialize();
+            AIBudget.Initialize();     // M-A budget wallets (fresh per match)
+            AIRequestBus.Initialize();
 
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
@@ -195,7 +197,7 @@ namespace TheWaningBorder.AI
 
             // Pick the build-order strategy up-front. The SimpleAISystem reads
             // AIBrain.Strategy each tick to look up the corresponding build order.
-            AIStrategy initialStrategy = GetRandomStrategy(faction);
+            AIStrategy initialStrategy = GetRandomStrategy(faction, personality);
 
             // Core AI Brain
             em.AddComponentData(brainEntity, new AIBrain
@@ -232,7 +234,7 @@ namespace TheWaningBorder.AI
                 StepIndex = initialStepIndex,
                 ThinkTimer = 0f,           // fire on first update
                 AgeUpIssued = ageUpIssued,
-                CrystalMinerTarget = 0,    // raised by SetCrystalTarget steps in the build order
+                VeilstoneMinerTarget = 0,    // raised by SetVeilstoneTarget steps in the build order
                 DesiredMilitary = 0,       // bumped by each successful military Train step
                 DesiredMiners = 0,         // bumped by each successful Miner Train step
                 LastMilitaryUnit = default,// e.g. "Swordsman" — used to refill losses
@@ -301,8 +303,8 @@ namespace TheWaningBorder.AI
                 MapExplorationPercent = 0f
             });
 
-            // Crystal Hunt State
-            em.AddComponentData(brainEntity, new AICrystalHuntState
+            // Veilstone Hunt State
+            em.AddComponentData(brainEntity, new AIVeilstoneHuntState
             {
                 LastHuntCheck = 0,
                 HuntCheckInterval = 8.0f
@@ -360,12 +362,16 @@ namespace TheWaningBorder.AI
 
         private static AIDifficulty GetFactionDifficulty(Faction faction)
         {
-            // Try to get difficulty from LobbyConfig
+            // Try to get difficulty from LobbyConfig. In observer matches an
+            // Observer-typed slot is AI-controlled too (IsFactionHumanControlled
+            // returns false for everyone), so honor its configured difficulty
+            // instead of silently falling back to Normal.
             int factionIndex = (int)faction;
             if (factionIndex >= 0 && factionIndex < LobbyConfig.Slots.Length)
             {
                 var slot = LobbyConfig.Slots[factionIndex];
-                if (slot.Type == SlotType.AI)
+                if (slot.Type == SlotType.AI
+                    || (GameSettings.IsObserver && slot.Type == SlotType.Observer))
                 {
                     return slot.AIDifficulty switch
                     {
@@ -381,14 +387,17 @@ namespace TheWaningBorder.AI
             return AIDifficulty.Normal;
         }
 
-        private static AIStrategy GetRandomStrategy(Faction faction)
+        private static AIStrategy GetRandomStrategy(Faction faction, AIPersonality personality)
         {
             // First, honour the lobby's per-slot strategy choice if set.
+            // Observer-typed slots count as AI in observer matches (see
+            // GetFactionDifficulty).
             int factionIndex = (int)faction;
             if (factionIndex >= 0 && factionIndex < LobbyConfig.Slots.Length)
             {
                 var slot = LobbyConfig.Slots[factionIndex];
-                if (slot != null && slot.Type == SlotType.AI)
+                if (slot != null && (slot.Type == SlotType.AI
+                    || (GameSettings.IsObserver && slot.Type == SlotType.Observer)))
                 {
                     var picked = LobbyToAIStrategy(slot.AIStrategy);
                     if (picked.HasValue) return picked.Value;
@@ -401,11 +410,22 @@ namespace TheWaningBorder.AI
             hash ^= hash >> 13;
             hash *= 0x5bd1e995;
             hash ^= hash >> 15;
-            // Six AIStrategy values (Rush, EcoBoom, TechRush, Aggressive,
-            // Defensive, Turtle) — TechRush/Aggressive are legacy aliases for
-            // TechBoom/Balanced. SimpleAISystem maps both to their Age-1 builds.
-            int roll = (int)(hash % 6);
-            return (AIStrategy)roll;
+
+            // Personality biases the roll into a matching opening pool
+            // (docs/Design/Game_AI.md §3): Aggressive/Rush personalities open
+            // with military-first builds, Economic booms, Defensive turtles,
+            // Balanced can roll anything. (TechRush/Aggressive are legacy
+            // aliases for TechBoom/Balanced — SimpleAISystem maps both.)
+            AIStrategy[] pool = personality switch
+            {
+                AIPersonality.Aggressive => new[] { AIStrategy.Rush, AIStrategy.Aggressive, AIStrategy.TechRush },
+                AIPersonality.Rush       => new[] { AIStrategy.Rush, AIStrategy.Rush, AIStrategy.Aggressive },
+                AIPersonality.Defensive  => new[] { AIStrategy.Defensive, AIStrategy.Turtle, AIStrategy.TechRush },
+                AIPersonality.Economic   => new[] { AIStrategy.EcoBoom, AIStrategy.Turtle, AIStrategy.TechRush },
+                _ => new[] { AIStrategy.Rush, AIStrategy.EcoBoom, AIStrategy.TechRush,
+                             AIStrategy.Aggressive, AIStrategy.Defensive, AIStrategy.Turtle },
+            };
+            return pool[(int)(hash % (uint)pool.Length)];
         }
 
         /// <summary>

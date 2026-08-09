@@ -182,7 +182,51 @@ namespace TheWaningBorder.Systems.Navigation
                 bool isLayerChanging = node.PortalKind == PortalNode.KindClimb
                     || node.PortalKind == PortalNode.KindGateGround
                     || node.PortalKind == PortalNode.KindGateRampart;
-                if (!isLayerChanging) continue;
+                if (!isLayerChanging)
+                {
+                    // Ground portal: nothing to animate, but the path cursor
+                    // still has to advance as the unit walks its legs.
+                    // Before this, NOTHING advanced the cursor for plain
+                    // ground portals — FlowFollow kept sampling the slab of a
+                    // leg the unit had already finished, so multi-leg routes
+                    // around long blockers stalled after the first gap.
+                    //
+                    // Rule 1: within reach of the portal cell -> advance.
+                    float3 portalCentre = CellCentre(in grid, node.CellIndex, node.Layer);
+                    float pdx = xf.Position.x - portalCentre.x;
+                    float pdz = xf.Position.z - portalCentre.z;
+                    float reach = grid.CellSize * 3f;
+                    if (pdx * pdx + pdz * pdz <= reach * reach)
+                    {
+                        pathResult.CurrentPortalIndex =
+                            math.min(pathResult.CurrentPortalIndex + 1, pathResult.Length);
+                        em.SetComponentData(entity, pathResult);
+                        continue;
+                    }
+
+                    // Rule 2 (fast-forward): a portal SPAN can be many cells
+                    // wide and the node's CellIndex is just one cell of it —
+                    // a unit can slip through the gap far from that cell and
+                    // never trip Rule 1. If the unit already stands in the
+                    // tile of a LATER portal of the chain, jump the cursor
+                    // there. Scan from the tail so the furthest match wins.
+                    int ucx = (int)math.floor((xf.Position.x - grid.Origin.x) / grid.CellSize);
+                    int ucz = (int)math.floor((xf.Position.z - grid.Origin.z) / grid.CellSize);
+                    int tileSizeG = graph.TileSize;
+                    int unitTile = (ucz / tileSizeG) * graph.TilesX + (ucx / tileSizeG);
+                    for (int k = buf.Length - 1; k > nextPortalIdx; k--)
+                    {
+                        int pid = buf[k].PortalId;
+                        if (pid < 0 || pid >= nodeCount) continue; // virtual start/goal
+                        var pk = graph.Nodes[pid];
+                        if (pk.Layer != nli.Layer) continue;
+                        if (pk.TileIndex != unitTile) continue;
+                        pathResult.CurrentPortalIndex = k - 1;
+                        em.SetComponentData(entity, pathResult);
+                        break;
+                    }
+                    continue;
+                }
 
                 // Resolve the portal's endpoint cells -- climb / gate nodes
                 // come in pairs (source + target), the pair is adjacent in

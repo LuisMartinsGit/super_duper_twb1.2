@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &779227839368888420
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 114525504672836543}
+  - component: {fileID: 1054491711833255206}
+  m_Layer: 0
+  m_Name: Ability_LifeCling
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &114525504672836543
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 779227839368888420}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1054491711833255206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 779227839368888420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3a159d455142f09d651e9ba728a446, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  spellId: Ability_LifeCling
+  displayName: Life Cling
+  activation: 0
+  cooldown: 0
+  castTime: 0
+  hpThreshold: 0
+  shape: 0
+  affects: 0
+  range: 0
+  radius: 8
+  duration: 5
+  effects:
+  - kind: 15
+    value: 1
+    duration: 5
+  powerUpPrefab: {fileID: 0}
+  powerUpTint: 0
+  powerUpColor: {r: 1, g: 1, b: 1, a: 1}
+  powerUpSpeed: 1
+  castPrefab: {fileID: 168396, guid: aba5b25fd7e70ff4cb2ef097dc8c4747, type: 3}
+  castTint: 0
+  castColor: {r: 0.47058824, g: 0.9019608, b: 0.54901963, a: 1}
+  castSpeed: 1
+  circlePrefab: {fileID: 4890711802313254141, guid: e5c6bdcd1b1e8124488ffbc2209a064f, type: 3}
+  circleTint: 1
+  circleColor: {r: 0.47058824, g: 0.9019608, b: 0.54901963, a: 1}
+  circleSpeed: 1
+  previewInEditor: 1
+  previewInterval: 4

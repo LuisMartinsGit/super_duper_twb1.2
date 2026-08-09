@@ -53,7 +53,7 @@ namespace TheWaningBorder.Economy
         public const string Fortitude   = "Sect_Fortitude";
         public const string Reclamation = "Sect_Reclamation";
 
-        // Runaii — Doctrine / Secrecy / Crystal veneration
+        // Runaii — Doctrine / Secrecy / Veilstone veneration
         public const string Silence     = "Sect_Silence";
         public const string Justice     = "Sect_Justice";
         public const string Veneration  = "Sect_Veneration";
@@ -67,6 +67,16 @@ namespace TheWaningBorder.Economy
 
         /// <summary>Total number of sects (constant — design rule).</summary>
         public const int SectCount = 12;
+
+        /// <summary>
+        /// Playable-sect gate (rollout decision 2026-07-05): only sects whose
+        /// full lever kit is implemented can be adopted; the rest show
+        /// "(Coming soon)" in every adoption UI. Adoption is refused
+        /// authoritatively in SectAdoption.CanAdopt, so AI factions honor the
+        /// gate too. Widen this list as each sect's mechanics land.
+        /// </summary>
+        public static bool IsImplemented(string sectId)
+            => sectId == Justice || sectId == Renewal || sectId == War;
 
         // ─── Chapel building IDs ────────────────────────────────────────────
         // Adoption mechanism: building a chapel inside the Temple's 6-slot
@@ -117,11 +127,13 @@ namespace TheWaningBorder.Economy
         /// <summary>One-time RP award when the Age-1 Shrine completes.</summary>
         public const int RpAwardShrine = 1;
 
-        /// <summary>RP awarded on Age II / III / IV up. Plus the Shrine bonus,
-        /// sum across the campaign = 25.</summary>
-        public const int RpAwardAge2 = 6;
-        public const int RpAwardAge3 = 8;
-        public const int RpAwardAge4 = 10;
+        /// <summary>RP awarded on Age II / III / IV up. Reduced (design
+        /// 2026-07-05): lever upgrades are now automatic with temple level,
+        /// so RP only pays for adoption — with the Shrine bonus the campaign
+        /// total is 11, enough for 4-5 adoptions out of the 6 slots.</summary>
+        public const int RpAwardAge2 = 3;
+        public const int RpAwardAge3 = 3;
+        public const int RpAwardAge4 = 4;
 
         /// <summary>Adoption cost — same cluster as faction's current culture.</summary>
         public const int AdoptCostSameCulture = 2;
@@ -226,8 +238,8 @@ namespace TheWaningBorder.Economy
         {
             return currentLevel switch
             {
-                1 => TheWaningBorder.Core.Cost.Of(supplies: 120, crystal: 40, iron: 30),
-                2 => TheWaningBorder.Core.Cost.Of(supplies: 240, crystal: 90, iron: 70),
+                1 => TheWaningBorder.Core.Cost.Of(supplies: 120, veilstone: 40, iron: 30),
+                2 => TheWaningBorder.Core.Cost.Of(supplies: 240, veilstone: 90, iron: 70),
                 _ => default,
             };
         }

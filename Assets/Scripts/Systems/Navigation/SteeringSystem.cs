@@ -174,6 +174,32 @@ namespace TheWaningBorder.Systems.Navigation
         // opposite direction.
         private const float ObstacleLookAhead = 2.0f;
 
+        // Distance to the goal below which the Layer 3 wall-slide is SUPPRESSED.
+        //
+        // Layer 3 exists to get a unit PAST an obstacle that is in the way. When
+        // the blocked cells ARE the destination, sliding is exactly wrong — and
+        // that is precisely the melee-vs-building case: MeleeCombatSystem parks
+        // its chase point 0.75 m outside the building's footprint, well inside the
+        // 2.0 m forward sweep, so the sweep hit the target building itself and
+        // replaced the entire steering force with a tangential slide. The unit
+        // orbited the building at ~2 m, never closing to MeleeRange (1.5 m), while
+        // the combat system re-issued the same chase point every frame — the
+        // "melee units circle buildings instead of attacking" bug.
+        //
+        // Must exceed ObstacleLookAhead so the whole sweep band is covered.
+        // Progress into the obstacle stays bounded by UnitIntegratorSystem's
+        // arrival check (StopDistance), which fires well before contact.
+        private const float GoalWallSlideSuppressRadius = 2.5f;
+
+        // Lateral wall-clearance. The forward sweep only catches walls dead
+        // ahead; a unit running PARALLEL to a wall has it off to the side and
+        // would otherwise drift into the edge cell and stick. Probe each flank
+        // at WallClearanceRadius and push inward off a blocked side. Weight is
+        // below FlowWeight (3.0) so it only nudges -- it bends the path off the
+        // wall without stalling forward progress.
+        private const float WallClearanceRadius = 1.6f;
+        private const float WallClearanceWeight = 1.5f;
+
         [ReadOnly] public NativeParallelMultiHashMap<int, Entity> HashMap;
         public float CellSize;
         [ReadOnly] public NativeArray<byte> Cost;
@@ -225,6 +251,7 @@ namespace TheWaningBorder.Systems.Navigation
             // push apart inside the cluster.
             //
             float arrivalScale = 1f;
+            bool atGoal = false;
             if (DestLookup.HasComponent(self))
             {
                 var d = DestLookup[self];
@@ -238,6 +265,7 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         arrivalScale = math.sqrt(distSq) / ArrivalRadius;
                     }
+                    atGoal = distSq <= GoalWallSlideSuppressRadius * GoalWallSlideSuppressRadius;
                 }
             }
 
@@ -362,7 +390,16 @@ namespace TheWaningBorder.Systems.Navigation
             // arrived units inside UnitAvoidanceRadius (2.5 m) but outside
             // SeparationRadius (1.5 m) would dance around each other
             // forever -- the "orbit" the user reported.
-            if (unitAvoidanceCount > 0)
+            //
+            // Jitter fix (2026-07-12): inside the FINAL 3 m of approach
+            // (arrivalScale < 3/15 = 0.2) the sidestep is CUT ENTIRELY, not
+            // just faded. With the destination occupied (rally point with a
+            // unit parked on it) the radial forces balance at the separation
+            // ring, and any residual perpendicular force — however small —
+            // was the only unbalanced component: pure orbital motion. Zero
+            // perp + full radial separation lets the unit settle on the ring
+            // so the crowded-arrival rule can declare it done.
+            if (unitAvoidanceCount > 0 && arrivalScale >= 0.2f)
             {
                 unitAvoidance /= unitAvoidanceCount;
                 force += unitAvoidance * (UnitAvoidanceWeight * arrivalScale);
@@ -385,13 +422,16 @@ namespace TheWaningBorder.Systems.Navigation
             // Side choice: probe left and right at 2.0 m. Right-clear is
             // preferred (deterministic). Both blocked = true dead-end,
             // fall back to a reverse-and-rotate.
+            // Suppressed at the goal: see GoalWallSlideSuppressRadius. Sliding
+            // along the very thing you were sent to reach is an orbit, not an
+            // avoidance.
             bool wallBlockedAhead = false;
-            if (flow.HasValue != 0 && math.lengthsq(flow.Value) > 1e-8f)
+            if (!atGoal && flow.HasValue != 0 && math.lengthsq(flow.Value) > 1e-8f)
             {
                 float3 fwd = math.normalize(new float3(flow.Value.x, 0f, flow.Value.z));
 
                 // Multi-distance sweep along forward direction.
-                for (float probe = 0.5f; probe <= 2.0f; probe += 0.5f)
+                for (float probe = 0.5f; probe <= ObstacleLookAhead; probe += 0.5f)
                 {
                     float3 sample = pos + fwd * probe;
                     int sx = (int)math.floor((sample.x - GridOrigin.x) / GridCellSize);
@@ -446,6 +486,27 @@ namespace TheWaningBorder.Systems.Navigation
                 }
             }
 
+            // ── Layer 3b: lateral wall clearance ────────────────────
+            // Only when nothing is blocking dead-ahead (that case is already
+            // owned by the Layer 3 override). Probe both flanks; push inward
+            // off a blocked side so units travelling PARALLEL to a wall keep a
+            // cell of slack instead of grinding along the edge. Both sides
+            // blocked (a one-cell gap) adds nothing -- the unit threads it
+            // centred under flow + separation alone.
+            if (!wallBlockedAhead
+                && flow.HasValue != 0 && math.lengthsq(flow.Value) > 1e-8f)
+            {
+                float3 fwd = math.normalize(new float3(flow.Value.x, 0f, flow.Value.z));
+                float3 perpRight = new float3(fwd.z, 0f, -fwd.x);
+
+                bool leftBlocked  = IsWorldBlocked(pos - perpRight * WallClearanceRadius, selfFactionIdx);
+                bool rightBlocked = IsWorldBlocked(pos + perpRight * WallClearanceRadius, selfFactionIdx);
+                if (rightBlocked && !leftBlocked)
+                    force += -perpRight * WallClearanceWeight;
+                else if (leftBlocked && !rightBlocked)
+                    force += perpRight * WallClearanceWeight;
+            }
+
             // ── Layer 4: cohesion ───────────────────────────────────
             if (cohesionCount > 0)
             {
@@ -493,6 +554,17 @@ namespace TheWaningBorder.Systems.Navigation
             // Clamp to the XZ plane.
             dst.Value = new float3(dir.x, 0f, dir.z);
             dst.HasValue = 1;
+        }
+
+        // World-space wrapper around IsCellBlocked: maps a world position to
+        // its cost-field cell and reports blocked. Out-of-grid samples are
+        // treated as NOT blocked so map-edge units aren't shoved inward.
+        private bool IsWorldBlocked(float3 world, byte selfFactionIdx)
+        {
+            int sx = (int)math.floor((world.x - GridOrigin.x) / GridCellSize);
+            int sz = (int)math.floor((world.z - GridOrigin.z) / GridCellSize);
+            if (sx < 0 || sx >= CostWidth || sz < 0 || sz >= CostHeight) return false;
+            return IsCellBlocked(sx, sz, selfFactionIdx);
         }
 
         // Faction-aware "is this cell blocked for me?" probe.

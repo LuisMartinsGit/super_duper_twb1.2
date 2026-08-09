@@ -50,6 +50,38 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         /// <summary>
+        /// Feraldis fire-and-blood attack multiplier for one attacker
+        /// (docs/Design/Age_1_Feraldis.md). Two independent sources, applied
+        /// multiplicatively:
+        ///   - <see cref="BloodFrenzy"/>: the culture signature — any Feraldis
+        ///     unit fighting on bloodsoaked ground. Stamped by BloodFrenzySystem.
+        ///   - <see cref="DeathFrenzyState"/>: the Berserker's last stand.
+        /// Returns 1.0 for everyone else, so non-Feraldis combat is untouched.
+        /// </summary>
+        public static float GetFrenzyDamageMult(EntityManager em, Entity attacker)
+        {
+            float mult = 1f;
+            if (em.HasComponent<BloodFrenzy>(attacker))
+                mult *= TheWaningBorder.Core.Config.FeraldisConstants.FrenzyDamageMult;
+            if (em.HasComponent<DeathFrenzyState>(attacker))
+                mult *= TheWaningBorder.Core.Config.FeraldisConstants.DeathFrenzyDamageMult;
+            return mult;
+        }
+
+        /// <summary>
+        /// Attack-cooldown multiplier from Feraldis blood frenzy (&lt; 1 means
+        /// swings come faster). Death Frenzy deliberately does NOT shorten the
+        /// cooldown — its bonus is raw damage and speed, so the two frenzies
+        /// read differently in play.
+        /// </summary>
+        public static float GetFrenzyCooldownMult(EntityManager em, Entity attacker)
+        {
+            return em.HasComponent<BloodFrenzy>(attacker)
+                ? TheWaningBorder.Core.Config.FeraldisConstants.FrenzyCooldownMult
+                : 1f;
+        }
+
+        /// <summary>
         /// Merge a new SpellBuff onto an entity. If the entity already has one,
         /// the per-field max wins (so a shorter Safeguard doesn't wipe a longer
         /// Aura's reflect). Without this merge, `ecb.AddComponent` overwrites
@@ -99,6 +131,41 @@ namespace TheWaningBorder.Systems.Combat
                 if (dmgMult > 0f && !Unity.Mathematics.math.abs(dmgMult - 1f).Equals(0f))
                     final = (int)(final * dmgMult);
             }
+
+            // Feraldis War Totem aura: a fractional attack bonus while the
+            // attacker stands in a friendly totem's radius. Added/removed by
+            // WarTotemAuraSystem as units enter and leave, so this is a flat
+            // component read rather than a per-attack totem scan.
+            if (em.HasComponent<TotemAuraBuff>(attacker))
+            {
+                float bonus = em.GetComponentData<TotemAuraBuff>(attacker).AttackBonus;
+                if (bonus > 0f) final = (int)(final * (1f + bonus));
+            }
+
+            // Charge payoff. Percentages first (the unit's own innate charge plus a
+            // one-shot War Horn window), then King's Call's flat bonus on top.
+            if (em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker))
+            {
+                float chargePct = 0f;
+                if (em.HasComponent<TheWaningBorder.Abilities.InnateChargePct>(attacker))
+                    chargePct += em.GetComponentData<TheWaningBorder.Abilities.InnateChargePct>(attacker).Pct;
+                if (em.HasComponent<TheWaningBorder.Abilities.NextChargePct>(attacker))
+                {
+                    chargePct += em.GetComponentData<TheWaningBorder.Abilities.NextChargePct>(attacker).Pct;
+                    // War Horn is a NEXT-charge window: spend it on this hit.
+                    ecb.RemoveComponent<TheWaningBorder.Abilities.NextChargePct>(attacker);
+                }
+
+                if (chargePct > 0f) final = (int)(final * (1f + chargePct / 100f));
+
+                // Ability: flat charge bonus while the attacker is charging (King's
+                // Call grants ChargeDamageBonus to allied cavalry; King Lexor gains
+                // it from his own aura).
+                if (em.HasComponent<TheWaningBorder.Abilities.ChargeDamageBonus>(attacker))
+                    final += em.GetComponentData<TheWaningBorder.Abilities.ChargeDamageBonus>(attacker).Bonus;
+            }
+            // (Liquid Courage's incoming-damage reduction is applied uniformly at
+            // every HP-application site via AbilityDamageHooks.ScaleIncoming, not here.)
 
             // Condemned mark: target takes bonus damage
             if (em.HasComponent<Condemned>(target))
@@ -166,11 +233,14 @@ namespace TheWaningBorder.Systems.Combat
                     byte n = SectAntiquityTallySystem.KillsAgainst(in kills, tgtClass);
                     if (n > 0)
                     {
+                        // Spec: +0.5% / +1% / +1.5% per logged kill, which
+                        // with the 10-kill tally cap yields the spec's
+                        // +5% / +10% / +15% per-class ceilings.
                         float perKill = antiqLevel switch
                         {
-                            2 => 0.015f,
-                            3 => 0.020f,
-                            _ => 0.010f,
+                            2 => 0.010f,
+                            3 => 0.015f,
+                            _ => 0.005f,
                         };
                         final = (int)(final * (1f + perKill * n));
                     }
@@ -236,19 +306,19 @@ namespace TheWaningBorder.Systems.Combat
             if (em.HasComponent<VoidStrikeBuff>(attacker))
             {
                 var voidStrike = em.GetComponentData<VoidStrikeBuff>(attacker);
-                float bonus = em.HasComponent<CrystalTag>(target)
-                    ? voidStrike.BonusVsCrystal
+                float bonus = em.HasComponent<BorderTag>(target)
+                    ? voidStrike.BonusVsBorder
                     : voidStrike.BonusDamage;
                 final += (int)bonus;
                 ecb.RemoveComponent<VoidStrikeBuff>(attacker);
             }
 
-            // Reclamation "Curse-Hardened" (combat half): defender takes -25/35/50%
-            // damage from Crystal-faction PvE attackers. Applied last so the
+            // Reclamation "Border-Hardened" (combat half): defender takes -25/35/50%
+            // damage from Veilstone-faction PvE attackers. Applied last so the
             // reduction comes off the final post-bonus number — same intent as
-            // a flat resistance. The cursed-ground DoT half is in
-            // CursedGroundDamageSystem. (task-063 phase 2d / phase 4 scaling)
-            if (em.HasComponent<CrystalTag>(attacker)
+            // a flat resistance. The border-ground DoT half is in
+            // BorderGroundDamageSystem. (task-063 phase 2d / phase 4 scaling)
+            if (em.HasComponent<BorderTag>(attacker)
                 && em.HasComponent<FactionTag>(target))
             {
                 byte reclLevel = SectQuery.LevelOf(em,

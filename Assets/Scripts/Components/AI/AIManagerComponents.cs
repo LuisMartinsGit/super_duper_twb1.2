@@ -284,9 +284,9 @@ namespace TheWaningBorder.AI
     // ═══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// State tracking for AI crystal creature hunting.
+    /// State tracking for AI veilstone creature hunting.
     /// </summary>
-    public struct AICrystalHuntState : IComponentData
+    public struct AIVeilstoneHuntState : IComponentData
     {
         public float LastHuntCheck;
         public float HuntCheckInterval;

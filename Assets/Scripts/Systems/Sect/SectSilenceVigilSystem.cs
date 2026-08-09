@@ -50,7 +50,13 @@ namespace TheWaningBorder.Systems.Sect
 
             // Ramp: tick TimeInStance, then write the matching armor bump.
             // Skip units whose faction doesn't have Silence adopted — for
-            // them the state simply never gets stamped.
+            // them the state simply never gets stamped. First-time stamps
+            // (AddComponentData = structural change) are COLLECTED and
+            // applied after the iteration; in-place updates stay inline.
+            var newStates = new NativeList<Entity>(8, Allocator.Temp);
+            var newArmor = new NativeList<Entity>(8, Allocator.Temp);
+            var newArmorBonus = new NativeList<int>(8, Allocator.Temp);
+
             foreach (var (faction, entity) in SystemAPI
                 .Query<RefRO<FactionTag>>()
                 .WithAll<HoldPositionTag, UnitTag>()
@@ -71,7 +77,7 @@ namespace TheWaningBorder.Systems.Sect
                 }
                 else
                 {
-                    em.AddComponentData(entity, new SilenceVigilState { TimeInStance = dt });
+                    newStates.Add(entity);
                     t = dt;
                 }
 
@@ -85,10 +91,29 @@ namespace TheWaningBorder.Systems.Sect
                 }
 
                 if (em.HasComponent<SilenceVigilArmor>(entity))
+                {
                     em.SetComponentData(entity, new SilenceVigilArmor { Bonus = bonus });
+                }
                 else if (bonus > 0)
-                    em.AddComponentData(entity, new SilenceVigilArmor { Bonus = bonus });
+                {
+                    newArmor.Add(entity);
+                    newArmorBonus.Add(bonus);
+                }
             }
+
+            for (int i = 0; i < newStates.Length; i++)
+            {
+                if (em.Exists(newStates[i]) && !em.HasComponent<SilenceVigilState>(newStates[i]))
+                    em.AddComponentData(newStates[i], new SilenceVigilState { TimeInStance = dt });
+            }
+            for (int i = 0; i < newArmor.Length; i++)
+            {
+                if (em.Exists(newArmor[i]) && !em.HasComponent<SilenceVigilArmor>(newArmor[i]))
+                    em.AddComponentData(newArmor[i], new SilenceVigilArmor { Bonus = newArmorBonus[i] });
+            }
+            newStates.Dispose();
+            newArmor.Dispose();
+            newArmorBonus.Dispose();
 
             // Sweep: any unit that has SilenceVigilState/Armor but is no
             // longer holding position must lose both immediately.

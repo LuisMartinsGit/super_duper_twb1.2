@@ -17,6 +17,7 @@
 // The DTOs here match the JSON names; converters below map to the runtime types.
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheWaningBorder.Data
@@ -99,10 +100,11 @@ namespace TheWaningBorder.Data
         public CostJson cost;
         public float buildSpeed;
         public float gatheringSpeed;
-        public int carryCapacity;
         public float healsPerSecond;
         public float attackCooldown;
         public int minBuildingLevel;
+        public string trajectory;
+        public float projectileSpeed;
 
         public UnitDef ToDef(string overrideId = null, string overrideName = null,
             float defaultHp = 100, float defaultSpeed = 5, float defaultDamage = 10,
@@ -128,10 +130,11 @@ namespace TheWaningBorder.Data
                 cost           = cost != null ? cost.ToBlock() : new CostBlock(),
                 buildSpeed     = buildSpeed,
                 gatheringSpeed = gatheringSpeed,
-                carryCapacity  = carryCapacity,
                 healsPerSecond = healsPerSecond,
                 attackCooldown = attackCooldown,
                 minBuildingLevel = minBuildingLevel,
+                trajectory     = trajectory ?? "",
+                projectileSpeed = projectileSpeed,
             };
         }
     }
@@ -153,6 +156,9 @@ namespace TheWaningBorder.Data
         public CostJson cost;
         public string[] requires;            // JSON key is "requires" (not "prerequisites")
         public TechEffectsJson effects;
+        public TechEffectEntryJson[] effectsList;
+        public string culture;               // "Alanthor" etc.; empty = all cultures
+        public int minBuildingLevel;         // gate on the research host's BuildingUpgradeState.Level
 
         public TechnologyDef ToDef(string overrideId = null, float defaultResearchTime = 30)
         {
@@ -168,8 +174,29 @@ namespace TheWaningBorder.Data
                 cost          = cost != null ? cost.ToBlock() : new CostBlock(),
                 prerequisites = requires ?? Array.Empty<string>(),
                 effects       = effects != null ? effects.ToEffects() : null,
+                culture       = culture ?? "",
+                minBuildingLevel = minBuildingLevel,
+                effectsList   = ToEffectsList(effectsList),
             };
             return tech;
+        }
+
+        static List<TechEffectEntry> ToEffectsList(TechEffectEntryJson[] entries)
+        {
+            if (entries == null || entries.Length == 0) return null;
+            var list = new List<TechEffectEntry>(entries.Length);
+            foreach (var e in entries)
+            {
+                if (e == null || string.IsNullOrEmpty(e.target) || string.IsNullOrEmpty(e.stat)) continue;
+                list.Add(new TechEffectEntry
+                {
+                    Target = e.target,
+                    Stat   = e.stat,
+                    Op     = string.IsNullOrEmpty(e.op) ? "Add" : e.op,
+                    Value  = e.value,
+                });
+            }
+            return list.Count > 0 ? list : null;
         }
     }
 
@@ -223,7 +250,7 @@ namespace TheWaningBorder.Data
     {
         public int Supplies;
         public int Iron;
-        public int Crystal;
+        public int Veilstone;
         public int Veilsteel;
         // Glow is an item/pickup, not a build cost — intentionally not parsed.
 
@@ -231,27 +258,44 @@ namespace TheWaningBorder.Data
         {
             Supplies  = Supplies,
             Iron      = Iron,
-            Crystal   = Crystal,
+            Veilstone   = Veilstone,
             Veilsteel = Veilsteel,
         };
+    }
+
+    /// <summary>
+    /// One generic target/op/stat effect entry (calculator model, Wave 2).
+    /// Mirrors the JSON "effectsList" element shape exactly for JsonUtility.
+    /// </summary>
+    [Serializable]
+    internal class TechEffectEntryJson
+    {
+        public string target;    // "type:Melee" | "type:Ranged" | "type:Cavalry" | "type:Siege" | "unit:<Id>"
+        public string stat;      // "Hp" | "Damage" | "Speed" | "DefenseAll" | "AttackRange" | "AttackCooldown" | "LineOfSight"
+        public string op;        // "Add" | "Pct"
+        public float value;
     }
 
     [Serializable]
     internal class TechEffectsJson
     {
         public float gatherSpeedMult;
-        public int carryCapacityBonus;
         public float meleeAttackSpeedMult;
         public int meleeDefenseAdd;
+        public int meleeDamageAdd;
+        public int rangedDamageAdd;
+        public float archerRangeMult;
 
         public TechEffects ToEffects()
         {
             var e = new TechEffects
             {
                 gatherSpeedMult       = gatherSpeedMult,
-                carryCapacityBonus    = carryCapacityBonus,
                 meleeAttackSpeedMult  = meleeAttackSpeedMult,
                 meleeDefenseAdd       = meleeDefenseAdd,
+                meleeDamageAdd        = meleeDamageAdd,
+                rangedDamageAdd       = rangedDamageAdd,
+                archerRangeMult       = archerRangeMult,
             };
             return e.HasAnyEffect ? e : null;
         }

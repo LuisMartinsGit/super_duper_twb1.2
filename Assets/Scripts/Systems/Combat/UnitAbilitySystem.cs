@@ -37,11 +37,14 @@ namespace TheWaningBorder.Systems.Combat
             var em = state.EntityManager;
 
             // ══════════════════════════════════════════════════════════
-            // Phase 1: Tick cooldowns
+            // Phase 1: Tick cooldowns. Units under Recall the Codex
+            // (Antiquity, CodexFrozen) get no cooldown recovery.
             // ══════════════════════════════════════════════════════════
-            foreach (var ability in SystemAPI.Query<RefRW<UnitAbility>>())
+            foreach (var (ability, entity) in SystemAPI.Query<RefRW<UnitAbility>>()
+                .WithEntityAccess())
             {
-                if (ability.ValueRO.CooldownRemaining > 0f)
+                if (ability.ValueRO.CooldownRemaining > 0f
+                    && !em.HasComponent<CodexFrozen>(entity))
                 {
                     ability.ValueRW.CooldownRemaining -= dt;
                     if (ability.ValueRW.CooldownRemaining < 0f)
@@ -182,7 +185,7 @@ namespace TheWaningBorder.Systems.Combat
                         ecb.AddComponent(entity, new VoidStrikeBuff
                         {
                             BonusDamage = 40f,
-                            BonusVsCrystal = 80f
+                            BonusVsBorder = 80f
                         });
                         break;
                 }
@@ -297,8 +300,10 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (distSq <= radiusSq)
                 {
+                    // Ability: scale incoming AoE damage (Liquid Courage DR) before HP.
+                    int dmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], damage);
                     var health = em.GetComponentData<Health>(entities[i]);
-                    health.Value -= damage;
+                    health.Value -= dmg;
                     if (health.Value < 0) health.Value = 0;
                     em.SetComponentData(entities[i], health);
                 }

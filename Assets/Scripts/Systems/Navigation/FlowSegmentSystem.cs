@@ -46,6 +46,14 @@ namespace TheWaningBorder.Systems.Navigation
         private byte _initialised;
         private EntityQuery _pathQuery;
 
+        // true = the per-leg slab integration in OnUpdate is retired
+        // (pathfinding redesign 2026-07-05). static readonly, NOT const:
+        // a const guard makes the retired loop provably unreachable, and
+        // the resulting CS0162 cannot be pragma-suppressed — Entities
+        // source-gen re-emits the method body into a generated file
+        // without pragmas.
+        private static readonly bool SlabIntegrationRetired = true;
+
         // NOT [BurstCompile]: BC1028 -- CreateEntity is managed.
         public void OnCreate(ref SystemState state)
         {
@@ -88,6 +96,14 @@ namespace TheWaningBorder.Systems.Navigation
                 _cacheEntity = em.CreateEntity(typeof(NavFlowCache));
                 em.SetComponentData(_cacheEntity, cache);
             }
+
+            // RETIRED (pathfinding redesign 2026-07-05): per-leg slab
+            // integration is no longer consumed — FlowFollowSystem samples
+            // the whole-map goal fields from GoalFlowFieldSystem instead.
+            // The NavFlowCache singleton stays allocated (created above)
+            // because IncrementalPortalRebuildSystem still evicts against
+            // it; the per-unit integrate loop below is skipped entirely.
+            if (SlabIntegrationRetired) return;
 
             if (_pathQuery.IsEmpty) return;
 
@@ -356,6 +372,19 @@ namespace TheWaningBorder.Systems.Navigation
         public int GoalLocalX;
         public int GoalLocalZ;
 
+        // Wall-clearance: extra integration cost charged for STEPPING INTO a
+        // cell that touches an impassable cell (8-neighbourhood). Bows the
+        // flow gradient one cell off walls/buildings so units stop hugging
+        // obstacle edges and clipping their corners while travelling parallel
+        // to them (the root cause of the "stuck running alongside a wall"
+        // reports). Finite, so it is only a PREFERENCE -- a one-cell corridor
+        // with walls on both sides still routes through (Dijkstra picks the
+        // least-cost REACHABLE path). Tuned relative to StepCardinal (10):
+        // ~10 cells of hugging (cost +80) easily loses to a 2-cell detour, so
+        // open-ground paths keep their distance while pinch points still pass.
+        // Deterministic: const + the lockstep-identical Cost array.
+        private const uint WallClearancePenalty = 8;
+
         public void Execute()
         {
             int area = TileSize * TileSize;
@@ -478,12 +507,39 @@ namespace TheWaningBorder.Systems.Navigation
         private void Relax(int lx, int lz, uint tentative, NativeQueue<int> writeFrontier)
         {
             if (!IsOpen(lx, lz)) return;
+            // Charge the wall-clearance penalty for entering a cell adjacent to
+            // a wall, so the gradient prefers routes that keep a cell of slack.
+            tentative += WallClearancePenalty * NearWall(lx, lz);
             int idx = lz * TileSize + lx;
             if (tentative < IntegrationPool[IntegrationOffset + idx])
             {
                 IntegrationPool[IntegrationOffset + idx] = tentative;
                 writeFrontier.Enqueue(idx);
             }
+        }
+
+        /// <summary>
+        /// 1 when the local cell (<paramref name="lx"/>,<paramref name="lz"/>)
+        /// has an impassable cell in its global 8-neighbourhood, else 0. Only
+        /// fully-impassable cells (255) count -- conditional gate cells (254)
+        /// are deliberately excluded so clearance never pushes a unit away from
+        /// the gate it is trying to pass through.
+        /// </summary>
+        private uint NearWall(int lx, int lz)
+        {
+            int gx = TileX0 + lx;
+            int gz = TileZ0 + lz;
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dz == 0) continue;
+                    int nx = gx + dx, nz = gz + dz;
+                    if (nx < 0 || nx >= GridWidth || nz < 0 || nz >= GridHeight) continue;
+                    if (Cost[nz * GridWidth + nx] == NavCostField.CostImpassable) return 1;
+                }
+            }
+            return 0;
         }
 
         private void TryDir(int lx, int lz, ref uint best, ref byte bestDir, byte dirByte)

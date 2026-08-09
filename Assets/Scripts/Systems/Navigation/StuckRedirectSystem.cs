@@ -1,0 +1,386 @@
+// StuckRedirectSystem.cs
+// PROGRESS-based stuck detection + redirection (2026-07-12).
+//
+// The integrator's own stuck escalation catches units that stop moving at a
+// contact point. It cannot catch the other failure mode the worker trace
+// exposed: units ORBITING a destination they can never reach — walking tight
+// circles at full speed because a footprint / crust finger / prop blocks the
+// final approach. Those units move plenty; they just never get CLOSER.
+//
+// So this system tracks, per unit with an active DesiredDestination, the BEST
+// distance-to-destination achieved so far. Motion that does not improve that
+// best for StuckSeconds is a proven no-progress loop, and the unit REDIRECTS
+// by job:
+//
+//   * Veil digger (GatherVeilCommand)  -> re-target the nearest crusted
+//     vertex from where the unit actually stands (a different, reachable
+//     face); if that resolves to the same blocked spot, drop the command so
+//     the AI economy managers reassign the worker.
+//   * Deposit miner (MinerState)       -> unassign + Idle. AI miners
+//     auto-find a new deposit; a player miner idles visibly (it provably
+//     could not reach the ordered deposit).
+//   * Builder (BuildCommand/BuildOrder/RepairOrder) and plain movers -> first
+//     a DETOUR: a short perpendicular leg so the flow field is re-sampled
+//     from a different cell (routes around the blocker in the common case);
+//     after MaxSoftKicks failed detours, cancel the order — stopped beats
+//     orbiting forever.
+//   * Combat chaser (Target set)       -> clear Target/AttackCommand; the
+//     next targeting pass picks something reachable.
+//
+// Determinism: fixed evaluation cadence, integer/entity-order state only,
+// detour side chosen by entity index parity — no wall-clock, no RNG.
+// Structural changes are collected during iteration and applied after.
+//
+// Location: Assets/Scripts/Systems/Navigation/
+
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
+using TheWaningBorder.Core.Commands.Types;
+
+/// <summary>Per-unit no-progress bookkeeping (global namespace per the
+/// project's ECS component convention). Added lazily by
+/// <see cref="TheWaningBorder.Systems.Navigation.StuckRedirectSystem"/>.</summary>
+public struct StuckTracker : IComponentData
+{
+    public float3 TrackedDest;   // destination this record is measuring
+    public float BestDist;       // closest we have ever been to it (XZ)
+    public float NoProgressTime; // seconds since BestDist last improved
+    public byte SoftKicks;       // detours already spent on this destination
+}
+
+/// <summary>Stamped on a DEPOSIT entity when a miner provably could not
+/// reach it (no-progress redirect fired). The miner pickers (AI allocator
+/// + depletion auto-find) skip marked nodes until <see cref="Until"/>, so
+/// the economy layer stops bouncing workers against the same blocked node
+/// forever — the redirect used to unassign the miner only for the AI to
+/// re-issue the exact same unreachable node, an infinite circling loop.
+/// Sim-time based, so it self-heals: when the blocking structure is gone,
+/// the mark expires and the node is minable again.</summary>
+public struct UnreachableMark : IComponentData
+{
+    public double Until;
+}
+
+namespace TheWaningBorder.Systems.Navigation
+{
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial class StuckRedirectSystem : SystemBase
+    {
+        /// <summary>Evaluation cadence — progress is judged in coarse steps
+        /// so noise from separation jitter never counts as progress.</summary>
+        private const float EvalInterval = 0.5f;
+        /// <summary>A unit must beat its best distance by this much for the
+        /// step to count as progress (orbiting oscillates less than this).</summary>
+        private const float MinProgress = 0.6f;
+        /// <summary>No-progress time that declares the unit stuck.</summary>
+        private const float StuckSeconds = 5f;
+        /// <summary>Within this range no-progress is judged on the short
+        /// fuse and resolves as CROWDED ARRIVAL for plain movers (the
+        /// destination is occupied; physics forbids the 0.5 m arrival).</summary>
+        private const float ArrivalSkip = 3f;
+        /// <summary>No-progress fuse when already near the goal.</summary>
+        private const float NearGoalStuckSeconds = 2.5f;
+        /// <summary>Length of a perpendicular detour leg.</summary>
+        private const float DetourDist = 6f;
+        /// <summary>Failed detours per destination before the order drops.</summary>
+        private const byte MaxSoftKicks = 2;
+        /// <summary>Search radius for re-targeting a veil digger.</summary>
+        private const float VeilRetargetRadius = 16f;
+        /// <summary>How long an unreachable deposit stays skipped by the
+        /// miner pickers. Long enough that workers stop orbiting it, short
+        /// enough to retry after the map changes (blocker razed, crust
+        /// receded).</summary>
+        private const float UnreachableMarkSeconds = 45f;
+
+        private float _acc;
+        private EntityQuery _needQuery;
+
+        protected override void OnCreate()
+        {
+            _needQuery = SystemAPI.QueryBuilder()
+                .WithAll<UnitTag, LocalTransform, DesiredDestination>()
+                .WithNone<StuckTracker>()
+                .Build();
+        }
+
+        protected override void OnUpdate()
+        {
+            // Lazy-add trackers (deferred structural change, same pattern as
+            // FlowFollowSystem's component bootstrap).
+            var needQuery = _needQuery;
+            if (!needQuery.IsEmpty)
+            {
+                var bootEcb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+                    .CreateCommandBuffer(World.Unmanaged);
+                using var ents = needQuery.ToEntityArray(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                    bootEcb.AddComponent(ents[i], new StuckTracker { BestDist = float.MaxValue });
+            }
+
+            _acc += SystemAPI.Time.DeltaTime;
+            if (_acc < EvalInterval) return;
+            float step = _acc;
+            _acc = 0f;
+
+            var em = EntityManager;
+
+            // Pass 1: measure progress; collect stuck units. No structural
+            // changes inside the iteration.
+            var stuck = new NativeList<Entity>(16, Allocator.Temp);
+            var nearStuck = new NativeList<Entity>(16, Allocator.Temp);
+
+            foreach (var (tracker, xf, dd, entity) in SystemAPI
+                .Query<RefRW<StuckTracker>, RefRO<LocalTransform>, RefRO<DesiredDestination>>()
+                .WithAll<UnitTag>()
+                .WithEntityAccess())
+            {
+                ref var t = ref tracker.ValueRW;
+
+                if (dd.ValueRO.Has == 0)
+                {
+                    // No live intent — reset so the next order starts clean.
+                    t.BestDist = float.MaxValue;
+                    t.NoProgressTime = 0f;
+                    t.SoftKicks = 0;
+                    continue;
+                }
+
+                float3 dest = dd.ValueRO.Position;
+
+                // New destination (issued order, chase update, detour) —
+                // restart the measurement. Keep SoftKicks: a detour is part
+                // of the SAME rescue attempt, and command systems that
+                // re-issue the same site each tick must not reset the count.
+                float ddx = dest.x - t.TrackedDest.x;
+                float ddz = dest.z - t.TrackedDest.z;
+                if (ddx * ddx + ddz * ddz > 1f)
+                {
+                    t.TrackedDest = dest;
+                    t.BestDist = float.MaxValue;
+                    t.NoProgressTime = 0f;
+                }
+
+                float dx = dest.x - xf.ValueRO.Position.x;
+                float dz = dest.z - xf.ValueRO.Position.z;
+                float dist = math.sqrt(dx * dx + dz * dz);
+
+                if (dist < t.BestDist - MinProgress)
+                {
+                    // Genuine progress — closer than we have ever been.
+                    t.BestDist = dist;
+                    t.NoProgressTime = 0f;
+                    t.SoftKicks = 0;
+                    continue;
+                }
+
+                // CROWDED ARRIVAL (rally jitter fix, 2026-07-12): near the
+                // goal, no-progress means something is PARKED on the exact
+                // destination — separation physically forbids ever reaching
+                // the 0.5 m arrival window, so the order can never complete.
+                // Short fuse here (the unit is already where it needs to be);
+                // plain movers get declared ARRIVED in pass 2, work-command
+                // holders get their normal redirect (e.g. a digger re-aims
+                // at a free crust face).
+                bool nearGoal = dist <= ArrivalSkip;
+
+                t.NoProgressTime += step;
+                float fuse = nearGoal ? NearGoalStuckSeconds : StuckSeconds;
+                if (t.NoProgressTime >= fuse)
+                {
+                    t.NoProgressTime = 0f;
+                    t.BestDist = float.MaxValue; // fresh measurement post-redirect
+                    if (nearGoal) nearStuck.Add(entity);
+                    else stuck.Add(entity);
+                }
+            }
+
+            // Pass 2: redirect (structural changes allowed now). VeilField +
+            // sim time fetched once here — SystemAPI is not available in
+            // plain helper methods.
+            bool hasVeil = SystemAPI.TryGetSingleton<VeilField>(out var veilField);
+            double now = SystemAPI.Time.ElapsedTime;
+
+            for (int i = 0; i < stuck.Length; i++)
+                Redirect(em, stuck[i], hasVeil, veilField, now);
+
+            // Pass 2b: near-goal stuck. Units carrying a WORK intent take the
+            // normal redirect (retarget / unassign). Plain movers are DONE:
+            // they are as close to the ordered point as physics allows —
+            // declare arrival instead of orbiting the occupant forever.
+            for (int i = 0; i < nearStuck.Length; i++)
+            {
+                Entity e = nearStuck[i];
+                if (!em.Exists(e)) continue;
+
+                bool hasWork = em.HasComponent<GatherVeilCommand>(e)
+                    || em.HasComponent<BuildCommand>(e)
+                    || em.HasComponent<BuildOrder>(e)
+                    || em.HasComponent<RepairOrder>(e)
+                    || (em.HasComponent<MinerState>(e)
+                        && em.GetComponentData<MinerState>(e).State == MinerWorkState.MovingToDeposit)
+                    || (em.HasComponent<Target>(e)
+                        && em.GetComponentData<Target>(e).Value != Entity.Null);
+
+                if (hasWork)
+                {
+                    Redirect(em, e, hasVeil, veilField, now);
+                    continue;
+                }
+
+                // Crowded arrival: close enough + provably can't get closer.
+                if (em.HasComponent<UserMoveOrder>(e)) em.RemoveComponent<UserMoveOrder>(e);
+                if (em.HasComponent<AttackMoveTag>(e)) em.RemoveComponent<AttackMoveTag>(e);
+                ClearDest(em, e);
+                var t2 = em.GetComponentData<StuckTracker>(e);
+                t2.SoftKicks = 0;
+                em.SetComponentData(e, t2);
+            }
+
+            stuck.Dispose();
+            nearStuck.Dispose();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+
+        private void Redirect(EntityManager em, Entity entity, bool hasVeil, VeilField field, double now)
+        {
+            if (!em.Exists(entity)) return;
+            float3 pos = em.GetComponentData<LocalTransform>(entity).Position;
+
+            // ── Veil digger: aim at a different, reachable crust face ──
+            if (em.HasComponent<GatherVeilCommand>(entity))
+            {
+                var cmd = em.GetComponentData<GatherVeilCommand>(entity);
+                bool retargeted = false;
+                if (hasVeil && field.Initialised != 0 && field.Saturation.IsCreated
+                    && VeilMiningUtil.TryFindCrustVertex(in field, pos,
+                        VeilRetargetRadius, out float3 next))
+                {
+                    float nx = next.x - cmd.Target.x;
+                    float nz = next.z - cmd.Target.z;
+                    if (nx * nx + nz * nz > 4f) // genuinely different face
+                    {
+                        cmd.Target = next;
+                        em.SetComponentData(entity, cmd);
+                        if (em.HasComponent<MinerState>(entity))
+                        {
+                            var ms = em.GetComponentData<MinerState>(entity);
+                            ms.State = MinerWorkState.MovingToDeposit;
+                            em.SetComponentData(entity, ms);
+                        }
+                        SetDest(em, entity, next);
+                        retargeted = true;
+                    }
+                }
+                if (!retargeted)
+                {
+                    // Same blocked face everywhere nearby — hand the worker
+                    // back to the economy layer for a fresh assignment.
+                    em.RemoveComponent<GatherVeilCommand>(entity);
+                    ClearMiner(em, entity);
+                    ClearDest(em, entity);
+                }
+                return;
+            }
+
+            // ── Deposit miner: unassign; AI auto-find picks a new one ──
+            if (em.HasComponent<MinerState>(entity)
+                && em.GetComponentData<MinerState>(entity).State == MinerWorkState.MovingToDeposit)
+            {
+                // Mark the deposit UNREACHABLE first — without this the AI
+                // allocator re-issued the exact same blocked node the moment
+                // the miner went idle, and the worker circled forever.
+                var msDeposit = em.GetComponentData<MinerState>(entity).AssignedDeposit;
+                if (msDeposit != Entity.Null && em.Exists(msDeposit))
+                {
+                    var mark = new UnreachableMark { Until = now + UnreachableMarkSeconds };
+                    if (em.HasComponent<UnreachableMark>(msDeposit))
+                        em.SetComponentData(msDeposit, mark);
+                    else
+                        em.AddComponentData(msDeposit, mark);
+                }
+
+                ClearMiner(em, entity);
+                if (em.HasComponent<GatherCommand>(entity))
+                    em.RemoveComponent<GatherCommand>(entity);
+                ClearDest(em, entity);
+                return;
+            }
+
+            // ── Combat chaser: drop the unreachable target, re-acquire ──
+            if (em.HasComponent<Target>(entity)
+                && em.GetComponentData<Target>(entity).Value != Entity.Null)
+            {
+                em.SetComponentData(entity, new Target { Value = Entity.Null });
+                if (em.HasComponent<AttackCommand>(entity))
+                    em.RemoveComponent<AttackCommand>(entity);
+                ClearDest(em, entity);
+                return;
+            }
+
+            // ── Builder / plain mover: detour first, cancel after ──
+            var tracker = em.GetComponentData<StuckTracker>(entity);
+            if (tracker.SoftKicks < MaxSoftKicks)
+            {
+                tracker.SoftKicks++;
+                em.SetComponentData(entity, tracker);
+
+                // Perpendicular leg — deterministic side from entity index.
+                // Re-approaching from a different cell gives the flow field
+                // (and the LOS check) a different answer than the orbit line.
+                float3 dest = em.HasComponent<DesiredDestination>(entity)
+                    ? em.GetComponentData<DesiredDestination>(entity).Position : pos;
+                float dx = dest.x - pos.x, dz = dest.z - pos.z;
+                float len = math.sqrt(dx * dx + dz * dz);
+                if (len < 0.01f) { ClearDest(em, entity); return; }
+                float inv = 1f / len;
+                float side = (entity.Index & 1) == 0 ? 1f : -1f;
+                // Perp of (dx,dz) is (-dz,dx); step back slightly too so the
+                // detour leaves the contact/orbit ring.
+                float3 detour = pos + new float3(
+                    (-dz * inv * side - dx * inv * 0.3f) * DetourDist,
+                    0f,
+                    (dx * inv * side - dz * inv * 0.3f) * DetourDist);
+                SetDest(em, entity, detour);
+                return;
+            }
+
+            // Detours spent — cancel the order outright. AI managers see an
+            // idle worker and reassign; a player unit stops visibly instead
+            // of orbiting forever.
+            if (em.HasComponent<BuildCommand>(entity)) em.RemoveComponent<BuildCommand>(entity);
+            if (em.HasComponent<BuildOrder>(entity)) em.RemoveComponent<BuildOrder>(entity);
+            if (em.HasComponent<RepairOrder>(entity)) em.RemoveComponent<RepairOrder>(entity);
+            if (em.HasComponent<UserMoveOrder>(entity)) em.RemoveComponent<UserMoveOrder>(entity);
+            if (em.HasComponent<AttackMoveTag>(entity)) em.RemoveComponent<AttackMoveTag>(entity);
+            ClearDest(em, entity);
+
+            var reset = em.GetComponentData<StuckTracker>(entity);
+            reset.SoftKicks = 0;
+            em.SetComponentData(entity, reset);
+        }
+
+        private static void ClearMiner(EntityManager em, Entity entity)
+        {
+            if (!em.HasComponent<MinerState>(entity)) return;
+            var ms = em.GetComponentData<MinerState>(entity);
+            ms.State = MinerWorkState.Idle;
+            ms.AssignedDeposit = Entity.Null;
+            em.SetComponentData(entity, ms);
+        }
+
+        private static void SetDest(EntityManager em, Entity entity, float3 dest)
+        {
+            if (em.HasComponent<DesiredDestination>(entity))
+                em.SetComponentData(entity, new DesiredDestination { Position = dest, Has = 1 });
+        }
+
+        private static void ClearDest(EntityManager em, Entity entity)
+        {
+            if (em.HasComponent<DesiredDestination>(entity))
+                em.SetComponentData(entity, new DesiredDestination { Has = 0 });
+        }
+    }
+}

@@ -21,7 +21,7 @@ using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Combat;
-using static TheWaningBorder.Core.Config.CrystalConstants;
+using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Systems.Economy
 {
@@ -35,10 +35,12 @@ namespace TheWaningBorder.Systems.Economy
             float dt = (float)SystemAPI.Time.DeltaTime;
 
             // ── Phase 1: pickup-timer despawn ──────────────────────────
+            // The Shardroot pickup is PERSISTENT (canon §3.1) — excluded.
             var expiredPickups = new NativeList<Entity>(2, Allocator.Temp);
             foreach (var (state, entity) in SystemAPI
                 .Query<RefRW<GlowPickupState>>()
                 .WithAll<GlowPickupTag>()
+                .WithNone<ShardrootTag>()
                 .WithEntityAccess())
             {
                 state.ValueRW.TimeRemaining -= dt;
@@ -54,7 +56,7 @@ namespace TheWaningBorder.Systems.Economy
 
             // ── Phase 2: attunement claim (spec refinement #4) ─────────
             // 20-second visible attunement — no instant-on-touch claim.
-            // First non-Curse unit in range becomes the Attuner. If they
+            // First non-Border unit in range becomes the Attuner. If they
             // move out of range, die, or change faction, AttunementProgress
             // resets and another in-range unit can take over (fight-over-
             // loot). On completion, transfer to GlowCarrier + destroy pickup.
@@ -84,14 +86,14 @@ namespace TheWaningBorder.Systems.Economy
                 ref var state = ref stateRW.ValueRW;
                 var pickupPos = pickupTransform.ValueRO.Position;
 
-                // Validate current attuner — still in range, alive, non-Curse?
+                // Validate current attuner — still in range, alive, non-Border?
                 bool attunerValid = false;
                 if (state.Attuner != Entity.Null && em.Exists(state.Attuner))
                 {
                     if (em.HasComponent<Health>(state.Attuner)
                         && em.GetComponentData<Health>(state.Attuner).Value > 0
                         && em.HasComponent<FactionTag>(state.Attuner)
-                        && em.GetComponentData<FactionTag>(state.Attuner).Value != Faction.Curse
+                        && em.GetComponentData<FactionTag>(state.Attuner).Value != Faction.Border
                         && em.HasComponent<LocalTransform>(state.Attuner))
                     {
                         var aPos = em.GetComponentData<LocalTransform>(state.Attuner).Position;
@@ -113,7 +115,7 @@ namespace TheWaningBorder.Systems.Economy
                     for (int i = 0; i < unitEnts.Length; i++)
                     {
                         if (unitHealths[i].Value <= 0) continue;
-                        if (unitFactions[i].Value == Faction.Curse) continue;
+                        if (unitFactions[i].Value == Faction.Border) continue;
 
                         var uPos = unitTransforms[i].Position;
                         float dxz = math.distance(
@@ -168,6 +170,18 @@ namespace TheWaningBorder.Systems.Economy
                     Faction f = em.HasComponent<FactionTag>(unit)
                         ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
                     TWBLog.Log($"[Glow] {f} attunement complete — picked up {amount} Glow (carrying {merged.Amount})");
+
+                    // The Shardroot hops from the pickup onto the claimer:
+                    // the carrier is now the artifact's embodiment (visible
+                    // to all on the minimap, drops it on death).
+                    if (em.Exists(claimedPickups[i])
+                        && em.HasComponent<ShardrootTag>(claimedPickups[i])
+                        && !em.HasComponent<ShardrootTag>(unit))
+                    {
+                        em.AddComponent<ShardrootTag>(unit);
+                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                            $"{f} carries the SHARDROOT!");
+                    }
                 }
                 if (em.Exists(claimedPickups[i]))
                     em.DestroyEntity(claimedPickups[i]);
@@ -197,6 +211,7 @@ namespace TheWaningBorder.Systems.Economy
             {
                 foreach (var (carrierRW, unitTransform, unitFaction, unitHealth, unitEntity) in SystemAPI
                     .Query<RefRW<GlowCarrier>, RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<Health>>()
+                    .WithNone<ShardboundHeroTag>() // hero WIELDS it — never deposits (no backsies)
                     .WithEntityAccess())
                 {
                     if (unitHealth.ValueRO.Value <= 0) continue;
@@ -228,6 +243,17 @@ namespace TheWaningBorder.Systems.Economy
                         carrierRW.ValueRW.Amount = 0;
                         ecb.RemoveComponent<GlowCarrier>(unitEntity);
 
+                        // Temple choice: enshrining the Shardroot moves the
+                        // tag onto the Temple (locked in — it leaves only
+                        // via the Temple's detonation, TempleExplodeSystem).
+                        if (em.HasComponent<ShardrootTag>(unitEntity))
+                        {
+                            ecb.RemoveComponent<ShardrootTag>(unitEntity);
+                            ecb.AddComponent<ShardrootTag>(templeEnts[i]);
+                            TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                                $"{f} has ENSHRINED the Shardroot — their powers surge!");
+                        }
+
                         TWBLog.Log($"[Glow] {f} deposited {delivered} Glow at Temple of Ridan (stored: {stored.Amount})");
                         break;
                     }
@@ -256,7 +282,17 @@ namespace TheWaningBorder.Systems.Economy
             }
             for (int i = 0; i < dropList.Length; i++)
             {
-                GlowPickup.Create(em, dropPositions[i], dropSources[i], dropAmounts[i]);
+                var dropped = GlowPickup.Create(em, dropPositions[i], dropSources[i], dropAmounts[i]);
+                // Shardroot carriers (couriers or the Shardbound Hero) drop
+                // the ARTIFACT — persistent, tagged, up for grabs again.
+                if (em.HasComponent<ShardrootTag>(dropList[i]))
+                {
+                    em.AddComponent<ShardrootTag>(dropped);
+                    TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
+                    em.RemoveComponent<ShardrootTag>(dropList[i]);
+                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                        "The SHARDROOT has fallen — claim it!");
+                }
                 if (em.HasComponent<GlowCarrier>(dropList[i]))
                     em.RemoveComponent<GlowCarrier>(dropList[i]);
                 TWBLog.Log($"[Glow] carrier died — dropped {dropAmounts[i]} Glow at pickup");

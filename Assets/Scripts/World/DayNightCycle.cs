@@ -65,7 +65,7 @@ namespace TheWaningBorder.World
         public Color vignetteColor = new(0f, 0f, 0f);
         [Tooltip("Vignette smoothness. Recipe: 0.4.")]
         [Range(0.01f, 1f)] public float vignetteSmoothness = 0.4f;
-        [Tooltip("Bloom intensity. Recipe: 0.4-0.8 — makes crystals + lit windows glow.")]
+        [Tooltip("Bloom intensity. Recipe: 0.4-0.8 — makes veilstone + lit windows glow.")]
         [Range(0f, 5f)] public float bloomIntensity = 0.6f;
         [Tooltip("Bloom threshold. Recipe: 1.1 — only true HDR-bright pixels bloom (not faction colours).")]
         [Range(0f, 2f)] public float bloomThreshold = 1.1f;
@@ -400,8 +400,22 @@ namespace TheWaningBorder.World
             _cloudTexture.wrapMode = TextureWrapMode.Repeat;
             _cloudTexture.filterMode = FilterMode.Bilinear;
 
+            // Both of these can be stripped from a player build (nothing
+            // references them from a material asset), and this runs from
+            // Update — an unguarded new Material(null) threw EVERY FRAME in
+            // the 2026-08-09 build. Give up on cloud shadows instead.
             var shader = Shader.Find("Universal Render Pipeline/Unlit")
-                      ?? Shader.Find("Unlit/Transparent");
+                      ?? Shader.Find("Unlit/Transparent")
+                      ?? Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                Debug.LogError(
+                    "[DayNightCycle] No unlit shader available for cloud shadows — add "
+                    + "\"Universal Render Pipeline/Unlit\" to Project Settings > Graphics > "
+                    + "Always Included Shaders. Disabling cloud shadows.");
+                cloudShadows = false;   // stops UpdateCloudShadows being called again
+                return;
+            }
             _cloudMaterial = new Material(shader);
             _cloudMaterial.mainTexture = _cloudTexture;
             _cloudMaterial.color = new Color(0f, 0f, 0f, cloudOpacity);

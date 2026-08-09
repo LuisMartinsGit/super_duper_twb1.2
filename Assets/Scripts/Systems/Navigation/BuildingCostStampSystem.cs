@@ -64,6 +64,11 @@ namespace TheWaningBorder.Systems.Navigation
         private NativeArray<byte> _shadowCost;
         private int _shadowWidth;
         private int _shadowHeight;
+        // Perf gate: the cost-field generation we last diffed. CostFieldStampSystem
+        // only bumps Generation when it actually re-stamps, so an unchanged
+        // generation means the cost field is identical to last tick and the
+        // full-field diff (and its Dependency.Complete sync) can be skipped.
+        private int _lastDiffedGeneration;
 
         // NOT [BurstCompile]: BC1028 -- CreateEntity is managed.
         public void OnCreate(ref SystemState state)
@@ -117,6 +122,14 @@ namespace TheWaningBorder.Systems.Navigation
 
             var cost = SystemAPI.GetSingleton<NavCostField>();
             if (!cost.Cost.IsCreated) return;
+
+            // ── Change gate (perf) ─────────────────────────────────────────
+            // Skip the full-field diff (and the Dependency.Complete sync below)
+            // when the cost field hasn't been re-stamped since we last diffed.
+            // CostFieldStampSystem bumps Generation only on a real change, so an
+            // unchanged generation means there is nothing to diff this tick.
+            if (cost.Generation == _lastDiffedGeneration) return;
+            _lastDiffedGeneration = cost.Generation;
             // Sanity: the shadow allocation matches the field. NavGridBootstrap
             // never resizes the field, but if it grows in M5 the shadow
             // re-allocates here to keep the diff valid.

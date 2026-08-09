@@ -64,7 +64,16 @@ namespace TheWaningBorder.World.Terrain
         // CONSTANTS (must match MovementSystem)
         // ═══════════════════════════════════════════════════════════════════════
 
-        private const float MaxWalkableSlope = 0.55f;
+        // Incline budget: units may climb terrain up to a 45° incline
+        // (gradient = tan(45°) = 1.0); only genuinely cliff-steep ground is
+        // impassable — everything gentler is walkable, and hand-painted
+        // NoWalk zones carry the deliberate blocking. (Directive 2026-07-05,
+        // raised from 30°, itself raised from the original ~14°.)
+        // This is the SINGLE source of truth for the budget — the cost-field
+        // terrain bake (TerrainCostBakeSystem) reads this mask, and
+        // UnitIntegratorSystem's per-step backstop references this same
+        // constant so the two can't drift.
+        public const float MaxWalkableSlope = 1.0f;
         private const float SlopeCheckStep = 1.5f;
         // Matches ProceduralMapGen's waterPlaneY (2.5m). Earlier value (20m)
         // pre-dated the procedural generator and was leftover from a legacy
@@ -363,50 +372,307 @@ namespace TheWaningBorder.World.Terrain
         // GRID GENERATION
         // ═══════════════════════════════════════════════════════════════════════
 
+        // ─── Hand-painted "NoWalk" terrain layer ────────────────────────────
+        // Map authors can paint impassable areas with Unity's standard Paint
+        // Texture brush: add a TerrainLayer whose asset name contains
+        // "NoWalk" (case-insensitive) and paint it where units must not go.
+        // Cells whose painted weight >= NoWalkThreshold are terrain-blocked
+        // regardless of slope. Asset data is identical on every client, so
+        // the mask is lockstep-safe. Maps without such a layer are untouched.
+        private float[,] _noWalkMask;   // [ay, ax] weight of the NoWalk layer
+        private int _maskW, _maskH;
+        private Vector3 _maskOrigin;
+        private Vector3 _maskSize;
+        private const float NoWalkThreshold = 0.5f;
+
+        // Paint-only mode (PaintOnlyPassability component in the map scene):
+        // the NoWalk paint is the ONLY terrain rule — slope and water checks
+        // are skipped, every unpainted cell is passable.
+        private bool _paintOnly;
+
+        /// <summary>
+        /// Extract the "NoWalk" layer's alphamap slice from the active Unity
+        /// Terrain (null when the map has no such layer painted).
+        /// </summary>
+        private void LoadNoWalkMask()
+        {
+            _noWalkMask = null;
+
+            var ut = UnityEngine.Terrain.activeTerrain;
+            if (ut == null || ut.terrainData == null) return;
+            var td = ut.terrainData;
+
+            var layers = td.terrainLayers;
+            int layerIdx = -1;
+            for (int i = 0; i < layers.Length; i++)
+            {
+                if (layers[i] != null &&
+                    layers[i].name.ToLowerInvariant().Contains("nowalk"))
+                {
+                    layerIdx = i;
+                    break;
+                }
+            }
+            if (layerIdx < 0)
+            {
+                // Deliberately loud (once per map load): a missing NoWalk layer
+                // is the #1 reason painted no-go zones "don't work" — the zones
+                // were painted with a different (rock-looking) layer, or the
+                // layer was never added to this terrain's palette.
+                var names = new System.Text.StringBuilder();
+                for (int i = 0; i < layers.Length; i++)
+                    names.Append(i > 0 ? ", " : "").Append(layers[i] != null ? layers[i].name : "<null>");
+                Debug.Log($"[PassabilityGrid] no 'NoWalk' terrain layer on '{ut.name}' — hand-painted " +
+                          $"blocking inactive. Layers present: [{names}]");
+                return;
+            }
+
+            int w = td.alphamapWidth;
+            int h = td.alphamapHeight;
+            float[,,] maps = td.GetAlphamaps(0, 0, w, h);
+
+            var mask = new float[h, w];
+            int painted = 0;
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    float weight = maps[y, x, layerIdx];
+                    mask[y, x] = weight;
+                    if (weight >= NoWalkThreshold) painted++;
+                }
+            }
+
+            _noWalkMask = mask;
+            _maskW = w;
+            _maskH = h;
+            _maskOrigin = ut.transform.position;
+            _maskSize = td.size;
+
+            Debug.Log($"[PassabilityGrid] NoWalk layer '{layers[layerIdx].name}' found — " +
+                      $"{painted}/{w * h} alphamap texels painted above {NoWalkThreshold:0.##}.");
+            if (painted == 0)
+                Debug.LogWarning("[PassabilityGrid] the NoWalk layer exists but NOTHING is painted " +
+                                 $"at weight >= {NoWalkThreshold:0.##} — no cells will block. Paint with " +
+                                 "full brush opacity, or check the zones weren't painted with a different layer.");
+        }
+
+        /// <summary>True when the NoWalk layer is painted at this world position.</summary>
+        private bool IsNoWalkPainted(float wx, float wz)
+        {
+            if (_noWalkMask == null) return false;
+
+            float u = (wx - _maskOrigin.x) / _maskSize.x;
+            float v = (wz - _maskOrigin.z) / _maskSize.z;
+            if (u < 0f || u > 1f || v < 0f || v > 1f) return false;
+
+            // Alphamap layout is [z, x] — v maps to the first index.
+            int ax = Mathf.Clamp((int)(u * _maskW), 0, _maskW - 1);
+            int ay = Mathf.Clamp((int)(v * _maskH), 0, _maskH - 1);
+            return _noWalkMask[ay, ax] >= NoWalkThreshold;
+        }
+
         /// <summary>
         /// Sample terrain at each cell center, marking cells as terrain-blocked
-        /// if the slope exceeds MaxWalkableSlope or the height is below water level.
+        /// if the slope exceeds MaxWalkableSlope, the height is below water
+        /// level, or the cell is hand-painted with the NoWalk terrain layer.
         /// Uses the same 4-point slope formula as MovementSystem.
         /// </summary>
         private void GenerateFromTerrain()
         {
+            LoadNoWalkMask();
+
+            _paintOnly = PaintOnlyPassability.Active;
+            if (_paintOnly && _noWalkMask == null)
+            {
+                Debug.LogWarning("[PassabilityGrid] PaintOnlyPassability is in the scene but the " +
+                                 "terrain has no 'NoWalk' terrain layer — falling back to the " +
+                                 "normal slope/water rules.");
+                _paintOnly = false;
+            }
+            if (_paintOnly)
+                Debug.Log("[PassabilityGrid] paint-only passability — NoWalk paint is the sole " +
+                          "terrain rule (slope/water checks skipped).");
+
+            // Use the ACTUAL water plane's sea level when one is present
+            // (it's authored per map / set by the procedural generator), so
+            // the impassable-water mask matches the visible water surface on
+            // any map instead of a single hardcoded guess. The legacy 4m
+            // fallback only applies to PROCEDURAL maps (whose generator
+            // guarantees land sits above it); on hand-authored maps with no
+            // WaterPlane there is NO water rule — a sculpted valley below
+            // an arbitrary height guess is land, not sea (it used to bake
+            // phantom water across low ground and the inclines out of it).
+            float waterLevel;
+            if (WaterPlane.Instance != null)
+                waterLevel = WaterPlane.Instance.waterLevel;
+            else if (ProceduralTerrain.Instance != null)
+                waterLevel = WaterHeight;
+            else
+                waterLevel = float.MinValue;
+
+            int waterBlocked = FillCellsFromTerrain(waterLevel);
+
+            // Sanity check: a water line that swallows (nearly) the whole map
+            // does not describe this terrain. A flat hand-authored terrain at
+            // height 0 sits below the legacy 4 m fallback, which used to bake
+            // EVERY cell impassable — downstream, the nav cost field became
+            // all-wall, steering's dead-end fallback reversed units away from
+            // their destinations, and the only "clear" probe directions were
+            // off-grid, so units wandered off the map and never stopped. No
+            // playable map is >80% water: drop the water rule and regenerate
+            // from slope alone.
+            int total = _width * _height;
+            if (waterBlocked > (total * 8) / 10)
+            {
+                Debug.LogWarning(
+                    $"[PassabilityGrid] water level {waterLevel:0.##} blocks {waterBlocked}/{total} cells — " +
+                    "the terrain sits below the assumed water line, so the water rule is IGNORED for " +
+                    "this map. If the map has real water, add a WaterPlane whose waterLevel matches " +
+                    "the terrain's actual sea level.");
+                FillCellsFromTerrain(float.MinValue);
+            }
+        }
+
+        /// <summary>
+        /// Sample terrain at every cell centre and write the passability
+        /// mask. Returns how many cells the water rule blocked so the caller
+        /// can sanity-check the water level against the terrain.
+        /// </summary>
+        private int FillCellsFromTerrain(float waterLevel)
+        {
+            // Deck-only / mount masks travel with the cells: recomputed on
+            // every fill (including the water-fallback second pass).
+            if (_bridgeDeckOnly == null || _bridgeDeckOnly.Length != _width * _height)
+                _bridgeDeckOnly = new bool[_width * _height];
+            if (_bridgeMount == null || _bridgeMount.Length != _width * _height)
+                _bridgeMount = new bool[_width * _height];
+
+            int waterBlocked = 0;
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
                 {
+                    int idx = y * _width + x;
+                    _bridgeDeckOnly[idx] = false;
+                    _bridgeMount[idx] = false;
+
                     float3 worldPos = CellToWorld(new int2(x, y));
                     float wx = worldPos.x;
                     float wz = worldPos.z;
 
-                    // Sample center height
-                    float hCenter = TerrainUtility.GetHeight(wx, wz);
+                    // ── 1. Is the GROUND itself walkable, by the normal rules? ──
+                    bool groundBlocked;
+                    bool waterCause = false;
 
-                    // Water check: below water level is impassable
-                    if (hCenter <= WaterHeight)
+                    if (_paintOnly)
                     {
-                        _cells[y * _width + x] = TerrainBlocked;
-                        continue;
+                        // Paint-only mode: the NoWalk paint decides everything.
+                        groundBlocked = IsNoWalkPainted(wx, wz);
+                    }
+                    else
+                    {
+                        float hCenter = TerrainUtility.GetHeight(wx, wz);
+
+                        if (hCenter <= waterLevel)
+                        {
+                            groundBlocked = true;
+                            waterCause = true;
+                        }
+                        else if (IsNoWalkPainted(wx, wz))
+                        {
+                            // Hand-painted NoWalk layer: blocked regardless of slope.
+                            groundBlocked = true;
+                        }
+                        else
+                        {
+                            // Mountain / cliff blocking is handled entirely by
+                            // the slope check. 4-point slope sample.
+                            float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);
+                            float hR = TerrainUtility.GetHeight(wx + SlopeCheckStep, wz);
+                            float hD = TerrainUtility.GetHeight(wx, wz - SlopeCheckStep);
+                            float hU = TerrainUtility.GetHeight(wx, wz + SlopeCheckStep);
+
+                            float dX = (hR - hL) / (SlopeCheckStep * 2f);
+                            float dZ = (hU - hD) / (SlopeCheckStep * 2f);
+                            float slope = math.sqrt(dX * dX + dZ * dZ);
+                            groundBlocked = slope > MaxWalkableSlope;
+                        }
                     }
 
-                    // Mountain / cliff blocking is handled entirely by the
-                    // slope check below. Hand-authored Unity Terrain commonly
-                    // climbs to 80m+, so the old absolute-height gate (tuned
-                    // for the ~30m procedural heightmap) would wrongly block
-                    // every plateau — slope is the only elevation signal here.
+                    // ── 2. Bridges add the DECK as a second surface ────────────
+                    // Walkable ground stays plain-walkable (units may pass
+                    // UNDER the arch). Blocked ground under a deck becomes
+                    // passable-for-planning but DECK-ONLY: the cost bake
+                    // charges it a premium and the movement integrator only
+                    // admits units that are actually AT deck height — so the
+                    // bridge never launders cliff/NoWalk ground into a
+                    // walkable shortcut.
+                    if (!groundBlocked)
+                    {
+                        _cells[idx] = Passable;
 
-                    // 4-point slope check (matches MovementSystem exactly)
-                    float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);
-                    float hR = TerrainUtility.GetHeight(wx + SlopeCheckStep, wz);
-                    float hD = TerrainUtility.GetHeight(wx, wz - SlopeCheckStep);
-                    float hU = TerrainUtility.GetHeight(wx, wz + SlopeCheckStep);
-
-                    float dX = (hR - hL) / (SlopeCheckStep * 2f);
-                    float dZ = (hU - hD) / (SlopeCheckStep * 2f);
-                    float slope = math.sqrt(dX * dX + dZ * dZ);
-
-                    _cells[y * _width + x] = slope > MaxWalkableSlope ? TerrainBlocked : Passable;
+                        // MOUNT cell: walkable ground anywhere under the
+                        // bridge footprint — the legal flow-field
+                        // entrance/exit of a deck-only strip. A height cutoff
+                        // here proved fragile (near the ramp top the deck
+                        // rises past any fixed gap and the corridor broke,
+                        // making the crossing unplannable), so footprint
+                        // presence is the rule. Cells BESIDE the bridge (no
+                        // deck overhead) still never connect to the strip —
+                        // the cliff-walk exploit stays dead — and ground
+                        // units mis-planned onto the strip from a deep
+                        // underpass are refused by the integrator's
+                        // deck-height admission and cancel via the stuck
+                        // escalation.
+                        if (BridgeSurface.HasAny
+                            && BridgeSurface.TryGetDeckHeight(wx, wz, out float deckY))
+                        {
+                            float groundY = TerrainUtility.GetHeight(wx, wz);
+                            if (deckY > groundY)
+                                _bridgeMount[idx] = true;
+                        }
+                    }
+                    else if (BridgeSurface.HasAny
+                             && BridgeSurface.OverlapsCell(wx, wz, _cellSize * 0.5f))
+                    {
+                        _cells[idx] = Passable;
+                        _bridgeDeckOnly[idx] = true;
+                    }
+                    else
+                    {
+                        _cells[idx] = TerrainBlocked;
+                        if (waterCause) waterBlocked++;
+                    }
                 }
             }
+            return waterBlocked;
+        }
+
+        // ── Bridge deck-only mask ───────────────────────────────────────────
+        // True for cells that are passable ONLY because a bridge deck spans
+        // them (the ground beneath fails the normal rules). Consumers:
+        // TerrainCostBakeSystem (cost premium) and UnitIntegratorSystem
+        // (deck-height admission check).
+        private bool[] _bridgeDeckOnly;
+
+        /// <summary>True when the cell is walkable only via a bridge deck.</summary>
+        public bool IsBridgeDeckOnly(int2 cell)
+        {
+            if (_bridgeDeckOnly == null) return false;
+            if (cell.x < 0 || cell.x >= _width || cell.y < 0 || cell.y >= _height) return false;
+            return _bridgeDeckOnly[cell.y * _width + cell.x];
+        }
+
+        private bool[] _bridgeMount;
+
+        /// <summary>True when the cell is a deck touchdown (ramp toe) — the
+        /// legal flow-field entrance of a deck-only strip.</summary>
+        public bool IsBridgeMount(int2 cell)
+        {
+            if (_bridgeMount == null) return false;
+            if (cell.x < 0 || cell.x >= _width || cell.y < 0 || cell.y >= _height) return false;
+            return _bridgeMount[cell.y * _width + cell.x];
         }
 
         // ═══════════════════════════════════════════════════════════════════════

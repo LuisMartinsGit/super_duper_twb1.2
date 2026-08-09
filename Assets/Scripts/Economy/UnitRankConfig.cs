@@ -3,7 +3,7 @@
 //
 // Costs (per single unit promotion):
 //   Lv 1 → Lv 2 :  50 supplies
-//   Lv 2 → Lv 3 :  25 crystal
+//   Lv 2 → Lv 3 :  25 veilstone
 //   Lv 3 → Lv 4 :  15 veilsteel
 //   Lv 4 → Lv 5 :   5 glow
 //
@@ -42,7 +42,7 @@ namespace TheWaningBorder.Economy
         public static Cost CostFor(byte targetRank) => targetRank switch
         {
             2 => Cost.Of(supplies: 50),
-            3 => Cost.Of(crystal: 25),
+            3 => Cost.Of(veilstone: 25),
             4 => Cost.Of(veilsteel: 15),
             5 => Cost.Of(glow: 5),
             _ => default,

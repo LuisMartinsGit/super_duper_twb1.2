@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Nobleman
+  m_EditorClassIdentifier:
+  id: Alanthor_Nobleman
+  displayName: Nobleman
+  unitClass: human_melee
+  hp: 175
+  speed: 5.7
+  trainingTime: 28
+  damage: 18
+  damageType: melee
+  armorType: infantry_heavy
+  defense:
+    melee: 3
+    ranged: 1
+    siege: 0
+    magic: 1
+  attackCooldown: 1.3
+  attackRange: 1.2
+  minAttackRange: 0
+  lineOfSight: 17
+  cost:
+    Supplies: 140
+    Iron: 60
+    Veilstone: 20
+    Veilsteel: 0
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  tags:
+  - Infantry
+  - Heavy
+  bonusVsTags:
+  - vsTag: Infantry
+    amount: 10
+  abilities: []
+  prefab: {fileID: 0}
+  presentationId: 346
+  animatorController: {fileID: 0}

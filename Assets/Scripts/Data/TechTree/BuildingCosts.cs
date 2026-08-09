@@ -27,52 +27,74 @@ namespace TheWaningBorder.Data
             // consult this table). Cost applies only to additional Halls a
             // builder places post-age-up — capped at 6 per faction in
             // BuilderCommandPanel.SpawnSelectedBuilding.
-            { "Hall",           Cost.Of(supplies: 500, iron: 150, crystal: 50) },
+            { "Hall",           Cost.Of(supplies: 500, iron: 150) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
-            { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Resource dropoff
+            { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Gathering support building
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
             { "ArcheryRange",   Cost.Of(supplies: 180, iron: 50) },                 // Ranged training
 
             // Era 1 - Religious/Magic Buildings
-            { "Shrine",            Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (alias)
-            { "ShrineOfAhridan",   Cost.Of(supplies: 300, crystal: 100) },              // Shrine of Ahridan (choice building)
-            { "TempleOfRidan",     Cost.Of(supplies: 300, crystal: 100) },              // Temple of Ridan (choice building)
-            { "Vault",          Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra (alias)
-            { "VaultOfAlmierra",Cost.Of(supplies: 300, crystal: 100) },              // Vault of Almiérra
+            // Balance 2026-07: choice-building costs reduced 30% (were
+            // 300/100) alongside the age-up cost cut — docs/Design/Age_0.md.
+            // 2026-07-25 techtree pass: 70 Veilstone restored (210 S + 70 V).
+            { "Shrine",            Cost.Of(supplies: 210, veilstone: 70) }, // Shrine of Ridan (alias)
+            { "ShrineOfRidan",     Cost.Of(supplies: 210, veilstone: 70) }, // Shrine of Ridan (choice building)
+            { "ShrineOfAhridan",   Cost.Of(supplies: 210, veilstone: 70) }, // legacy id alias (pre-rename saves/build orders)
+            { "TempleOfRidan",     Cost.Of(supplies: 210, veilstone: 70) }, // Temple of Ridan (choice building)
+            { "Vault",          Cost.Of(supplies: 210, veilstone: 70) }, // Vault of Almiérra (alias)
+            { "VaultOfAlmierra",Cost.Of(supplies: 210, veilstone: 70) }, // Vault of Almiérra
 
             // Era 1 - Advanced Buildings
-            { "Keep",           Cost.Of(supplies: 300, crystal: 100) },              // Fiendstone Keep (alias)
-            { "FiendstoneKeep", Cost.Of(supplies: 300, crystal: 100) },              // Fiendstone Keep
+            { "Keep",           Cost.Of(supplies: 210, veilstone: 70) }, // Fiendstone Keep (alias)
+            { "FiendstoneKeep", Cost.Of(supplies: 210, veilstone: 70) }, // Fiendstone Keep
             
             // Runai Culture Buildings
             { "Runai_Outpost",           Cost.Of(supplies: 140, iron: 20) },
             { "Runai_TradeHub",          Cost.Of(supplies: 240, iron: 40) },
             { "Runai_TradingPost",       Cost.Of(supplies: 200, iron: 30) },
-            { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, crystal: 100) },
-            { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, crystal: 60) },
-            { "Runai_Vault",             Cost.Of(supplies: 1500, iron: 250, crystal: 200) },
-            { "Runai_VeilsteelFoundry",  Cost.Of(supplies: 450, iron: 120, crystal: 100) },
+            { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, veilstone: 100) },
+            { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, veilstone: 60) },
+            { "Runai_Vault",             Cost.Of(supplies: 1500, iron: 250, veilstone: 200) },
+            { "Runai_VeilsteelFoundry",  Cost.Of(supplies: 450, iron: 120, veilstone: 100) },
 
             // Feraldis Culture Buildings
             { "Feraldis_BeastPen",       Cost.Of(supplies: 150, iron: 30) },
             { "Feraldis_HuntingLodge",   Cost.Of(supplies: 160, iron: 20) },
             { "Feraldis_LoggingStation", Cost.Of(supplies: 160, iron: 20) },
-            { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80, crystal: 30) },
+            { "Feraldis_Foundry",        Cost.Of(supplies: 200, iron: 80, veilstone: 30) },
             { "Feraldis_Tower",     Cost.Of(supplies: 120, iron: 60) },
             { "Feraldis_Longhouse",      Cost.Of(supplies: 260, iron: 100) },
-            { "Feraldis_SiegeYard",      Cost.Of(supplies: 260, iron: 120, crystal: 40) },
+            { "Feraldis_SiegeYard",      Cost.Of(supplies: 260, iron: 120, veilstone: 40) },
+            // Cheap on purpose — the totem's real cost is the blood you had
+            // to spill on the spot before you could plant it.
+            { "Feraldis_WarTotem",       Cost.Of(supplies: 60, iron: 20) },
+            { "Feraldis_Pasture",        Cost.Of(supplies: 200, iron: 60) },
+            // SUPPLIES ONLY, deliberately. The Mine is the bootstrap for
+            // ore income, so charging ore for it is circular — and for
+            // Feraldis (whose Workers cannot gather at all) it was a hard
+            // deadlock: the 2026-08-05 match had both Feraldis AIs sitting
+            // on 13k-23k supplies and ZERO iron, unable to build anything.
+            { "Mine",                    Cost.Of(supplies: 220) },
 
             // Alanthor Culture Buildings
-            { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, crystal: 50) },
+            { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, veilstone: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
             { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
             { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
-            { "Alanthor_PracticeRange",  Cost.Of(supplies: 220, iron: 90) },
-            { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, crystal: 60) },
-            { "Alanthor_Smelter",        Cost.Of(supplies: 220, iron: 100) },
+            // Alanthor_PracticeRange removed — the Practice Range is the
+            // LEVELED Archery Range, not a separate placeable building.
+            { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, veilstone: 60) },
+            // Forge: deliberately steep — it passively generates veilsteel with
+            // no inputs and is build-limited to 1 per faction (directive 2026-07-04).
+            // The Crucible was deleted (calculator 2026-08); the Smelter absorbs
+            // its veilsteel-engine role via the Lv1-3 upgrade ladder.
+            { "Alanthor_Smelter",        Cost.Of(supplies: 800, iron: 400, veilstone: 100) },
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
-            { "Alanthor_Crucible",       Cost.Of(supplies: 300, crystal: 80, veilsteel: 30) },
+
+            // Sect-unique buildings (Building lever). The Reliquary is built
+            // from the Antiquity chapel's panel (one per faction).
+            { "Sect_Reliquary",          Cost.Of(supplies: 300, iron: 120, veilstone: 40) },
 
             // task-063 phase 2a: chapel resource cost. Adoption RP cost is
             // separate — handled by SectAdoption.OnChapelCompleted, not here.
@@ -87,11 +109,11 @@ namespace TheWaningBorder.Data
 
         /// <summary>
         /// Per-chapel material cost (in addition to RP). Shared across all 12
-        /// chapels. Now demands Iron as well as Supplies + Crystal so adoption
+        /// chapels. Now demands Iron as well as Supplies + Veilstone so adoption
         /// matters as an economic commitment, not just an RP spend.
         /// </summary>
         public static readonly Cost ChapelMaterialCost =
-            Cost.Of(supplies: 250, crystal: 100, iron: 60);
+            Cost.Of(supplies: 250, veilstone: 100, iron: 60);
 
         // Inject the 12 chapel entries into the dictionary at static-init time
         // so callers can use the same TryGet path as for any other building.
@@ -150,9 +172,9 @@ namespace TheWaningBorder.Data
         /// Register a custom building cost at runtime with individual values.
         /// </summary>
         public static void Register(string id, int supplies = 0, int iron = 0,
-                                    int crystal = 0, int veilsteel = 0, int glow = 0)
+                                    int veilstone = 0, int veilsteel = 0, int glow = 0)
         {
-            _byId[id] = Cost.Of(supplies, iron, crystal, veilsteel, glow);
+            _byId[id] = Cost.Of(supplies, iron, veilstone, veilsteel, glow);
         }
 
         /// <summary>
@@ -175,7 +197,7 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
 
             // Era 1 choice
-            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
+            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfRidan";
             if (em.HasComponent<TempleOfRidanTag>(entity)
                 || em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
@@ -189,9 +211,8 @@ namespace TheWaningBorder.Data
 
             // Alanthor
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
-            if (em.HasComponent<CrucibleTag>(entity)) return "Alanthor_Crucible";
+            if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
-            if (em.HasComponent<PracticeRangeTag>(entity)) return "Alanthor_PracticeRange";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
 
             // Feraldis
@@ -201,6 +222,9 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<LonghouseTag>(entity)) return "Feraldis_Longhouse";
             if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
+            if (em.HasComponent<WarTotemTag>(entity)) return "Feraldis_WarTotem";
+            if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
+            if (em.HasComponent<MineTag>(entity)) return "Mine";
 
             // Walls / wall instances — map to the generic Alanthor wall ID; refund
             // here is small and identical across cultures, so a per-culture branch
@@ -239,7 +263,7 @@ namespace TheWaningBorder.Data
                     _byId[id] = Cost.Of(
                         supplies: def.cost.Supplies,
                         iron: def.cost.Iron,
-                        crystal: def.cost.Crystal,
+                        veilstone: def.cost.Veilstone,
                         veilsteel: def.cost.Veilsteel
                     );
                 }

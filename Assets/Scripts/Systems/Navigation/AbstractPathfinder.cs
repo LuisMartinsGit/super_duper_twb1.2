@@ -66,6 +66,22 @@ namespace TheWaningBorder.Systems.Navigation
         }
 
         /// <summary>
+        /// Convenience overload with the layer-0 cost slab for region-aware
+        /// virtual edges (see <see cref="SolveGated"/>).
+        /// </summary>
+        public static byte Solve(
+            ref PortalGraphBlob graph,
+            in NavGridSingleton grid,
+            int2 startCell,
+            int2 goalCell,
+            NativeList<int> portals,
+            in NativeArray<byte> cost)
+        {
+            return SolveGated(ref graph, in grid, startCell, goalCell, portals,
+                ownerBitsMirror: default, unitOwnerId: -1, cost);
+        }
+
+        /// <summary>
         /// task-112 M5 -- profile + owner gated A*. Reads the per-portal
         /// owner-bits mirror to skip gate portals whose owner doesn't
         /// match or whose open bit is clear. Falls through to the
@@ -78,7 +94,8 @@ namespace TheWaningBorder.Systems.Navigation
             int2 goalCell,
             NativeList<int> portals,
             NativeArray<ushort> ownerBitsMirror,
-            int unitOwnerId)
+            int unitOwnerId,
+            in NativeArray<byte> cost = default)
         {
             int realNodeCount = graph.Nodes.Length;
             int startVirtual = realNodeCount;
@@ -88,12 +105,48 @@ namespace TheWaningBorder.Systems.Navigation
             int startTileIndex = TileIndexOfCell(grid, ref graph, startCell);
             int goalTileIndex = TileIndexOfCell(grid, ref graph, goalCell);
 
-            // Trivial case: same tile -- direct virtual hop.
+            // ── Region masks (optional, needs the cost slab) ───────────────
+            // Virtual start/goal edges only connect to portals in the SAME
+            // walkable region of their tile. Without this, a blocker cutting
+            // the tile in two (painted NoWalk terrain, a wall) is silently
+            // bridged by Manhattan edges: A* "succeeds" straight through it,
+            // the flow slab can't reach the unit, and the unit degrades to
+            // direct-to-goal wall-grinding. A failed flood (seed cell itself
+            // blocked — e.g. the click landed ON the blocker) falls back to
+            // the permissive old behaviour for that side.
+            int tileSize = graph.TileSize;
+            bool startMaskValid = false;
+            bool goalMaskValid = false;
+            NativeArray<byte> startMask = default;
+            NativeArray<byte> goalMask = default;
+            if (cost.IsCreated)
+            {
+                startMask = new NativeArray<byte>(tileSize * tileSize, Allocator.Temp,
+                    NativeArrayOptions.ClearMemory);
+                goalMask = new NativeArray<byte>(tileSize * tileSize, Allocator.Temp,
+                    NativeArrayOptions.ClearMemory);
+                startMaskValid = NavTileRegions.FloodFromCell(cost, grid.Width, grid.Height,
+                    tileSize, startCell, startMask);
+                goalMaskValid = NavTileRegions.FloodFromCell(cost, grid.Width, grid.Height,
+                    tileSize, goalCell, goalMask);
+            }
+
+            // Trivial case: same tile AND same walkable region -- direct
+            // virtual hop (the tile-local flow slab handles the detail).
+            // Same tile but DIFFERENT regions falls through to the full A*,
+            // which routes out through a neighbouring tile and back in.
             if (startTileIndex == goalTileIndex)
             {
-                portals.Add(startVirtual);
-                portals.Add(goalVirtual);
-                return NavPathRequest.StatusSuccess;
+                bool sameRegion = !startMaskValid
+                    || NavTileRegions.CellInMask(startMask, tileSize, startCell, goalCell);
+                if (sameRegion)
+                {
+                    portals.Add(startVirtual);
+                    portals.Add(goalVirtual);
+                    if (startMask.IsCreated) startMask.Dispose();
+                    if (goalMask.IsCreated) goalMask.Dispose();
+                    return NavPathRequest.StatusSuccess;
+                }
             }
 
             var g = new NativeArray<uint>(totalNodes, Allocator.Temp);
@@ -143,19 +196,24 @@ namespace TheWaningBorder.Systems.Navigation
                 if (current == startVirtual)
                 {
                     // Connect to every real portal that lives on the start
-                    // cell's tile via Manhattan-cost synthetic edges.
+                    // cell's tile via Manhattan-cost synthetic edges —
+                    // restricted to portals in the start cell's walkable
+                    // region when a region mask is available.
                     for (int i = 0; i < realNodeCount; i++)
                     {
                         if (graph.Nodes[i].TileIndex != startTileIndex) continue;
                         int idxCell = graph.Nodes[i].CellIndex;
                         int cx = idxCell % grid.Width;
                         int cz = idxCell / grid.Width;
+                        if (startMaskValid && !NavTileRegions.CellInMask(
+                                startMask, tileSize, startCell, new int2(cx, cz)))
+                            continue;
                         int dx = math.abs(cx - startCell.x);
                         int dz = math.abs(cz - startCell.y);
-                        uint cost = (uint)((dx + dz) * 10);
-                        if (cost > ushort.MaxValue) cost = ushort.MaxValue;
+                        uint edgeCost = (uint)((dx + dz) * 10);
+                        if (edgeCost > ushort.MaxValue) edgeCost = ushort.MaxValue;
                         RelaxOpen(ref graph, in grid, g, cameFrom, closed, open,
-                            current, i, cost, startVirtual, goalVirtual, startCell, goalCell);
+                            current, i, edgeCost, startVirtual, goalVirtual, startCell, goalCell);
                     }
                 }
                 else
@@ -175,20 +233,26 @@ namespace TheWaningBorder.Systems.Navigation
                             startVirtual, goalVirtual, startCell, goalCell);
                     }
 
-                    // Plus: if this real portal lives on the goal's tile,
-                    // emit an edge to the goal virtual node.
+                    // Plus: if this real portal lives on the goal's tile
+                    // (and, when a mask exists, in the goal cell's walkable
+                    // region), emit an edge to the goal virtual node.
                     if (graph.Nodes[current].TileIndex == goalTileIndex)
                     {
                         int idxCell = graph.Nodes[current].CellIndex;
                         int cx = idxCell % grid.Width;
                         int cz = idxCell / grid.Width;
-                        int dx = math.abs(cx - goalCell.x);
-                        int dz = math.abs(cz - goalCell.y);
-                        uint cost = (uint)((dx + dz) * 10);
-                        if (cost > ushort.MaxValue) cost = ushort.MaxValue;
-                        RelaxOpen(ref graph, in grid, g, cameFrom, closed, open,
-                            current, goalVirtual, cost,
-                            startVirtual, goalVirtual, startCell, goalCell);
+                        bool admissible = !goalMaskValid || NavTileRegions.CellInMask(
+                            goalMask, tileSize, goalCell, new int2(cx, cz));
+                        if (admissible)
+                        {
+                            int dx = math.abs(cx - goalCell.x);
+                            int dz = math.abs(cz - goalCell.y);
+                            uint edgeCost = (uint)((dx + dz) * 10);
+                            if (edgeCost > ushort.MaxValue) edgeCost = ushort.MaxValue;
+                            RelaxOpen(ref graph, in grid, g, cameFrom, closed, open,
+                                current, goalVirtual, edgeCost,
+                                startVirtual, goalVirtual, startCell, goalCell);
+                        }
                     }
                 }
             }
@@ -217,6 +281,8 @@ namespace TheWaningBorder.Systems.Navigation
             g.Dispose();
             cameFrom.Dispose();
             closed.Dispose();
+            if (startMask.IsCreated) startMask.Dispose();
+            if (goalMask.IsCreated) goalMask.Dispose();
 
             return status;
         }

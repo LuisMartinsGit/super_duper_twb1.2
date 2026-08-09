@@ -1,12 +1,12 @@
 // EquipmentComponents.cs
 // Per-faction equipment tier system. Faction researches equipment tiers
-// (Base → Iron → Crystal → Veilsteel → Glow per spec §4) and the upgrade
+// (Base → Iron → Veilstone → Veilsteel → Glow per spec §4) and the upgrade
 // applies to every unit of the relevant class. Stacks multiplicatively
-// with UnitRank (the per-unit veterancy system) — a Lv3 unit with Crystal
+// with UnitRank (the per-unit veterancy system) — a Lv3 unit with Veilstone
 // equipment gets BOTH multipliers.
 //
 // Spec §4.1: tier progression. Per-tier magical effects (shield bar at
-// Crystal, duplicate squad at Veilsteel, revive at Glow) are wired by
+// Veilstone, duplicate squad at Veilsteel, revive at Glow) are wired by
 // separate ability systems and tag-checked off the tier value.
 //
 // Place in: Assets/Scripts/Core/Components/
@@ -24,7 +24,7 @@ public enum EquipmentTier : byte
 {
     Base = 0,
     Iron = 1,
-    Crystal = 2,
+    Veilstone = 2,
     Veilsteel = 3,
     Glow = 4,
 }
@@ -88,13 +88,13 @@ public struct UnitTierOverride : IComponentData
 // ==================== Per-tier magical effects (spec §4.2-§4.4) ====================
 
 /// <summary>
-/// Crystal+ tier shield bar — a second HP layer that absorbs damage
+/// Veilstone+ tier shield bar — a second HP layer that absorbs damage
 /// before it touches Health. Regenerates out-of-combat. Spec §4.2:
-/// "Crystal tier: Shield bar (second HP layer) + better stats" — applied
+/// "Veilstone tier: Shield bar (second HP layer) + better stats" — applied
 /// universally across unit classes for MVP (the spec illustrates only
 /// spearman example).
 ///
-/// Cap scales with tier: Crystal < Veilsteel < Glow.
+/// Cap scales with tier: Veilstone < Veilsteel < Glow.
 /// </summary>
 public struct ShieldBar : IComponentData
 {
@@ -129,8 +129,8 @@ public struct GlowReviveCooldown : IComponentData
 }
 
 /// <summary>
-/// Spec §4.3 Crystal-tier siege: "Aura granting shields to nearby allies."
-/// Stamped on siege units that have at least Crystal tier. The aura system
+/// Spec §4.3 Veilstone-tier siege: "Aura granting shields to nearby allies."
+/// Stamped on siege units that have at least Veilstone tier. The aura system
 /// (SiegeShieldAuraSystem) reads this radius + boost amount each tick and
 /// adds AuraShieldBoost to friendly units in range.
 /// </summary>
@@ -152,8 +152,8 @@ public struct AuraShieldBoost : IComponentData
 }
 
 /// <summary>
-/// Spec §4.4 Crystal-tier hero: "Cooldown-based phase shield."
-/// Auto-stamped on Magic/Support-class units at Crystal+ tier. While
+/// Spec §4.4 Veilstone-tier hero: "Cooldown-based phase shield."
+/// Auto-stamped on Magic/Support-class units at Veilstone+ tier. While
 /// ChargeReadyTimer == 0, the next damage hit is partially absorbed
 /// (reduction % below). After absorbing, the timer resets to BaseCooldown.
 /// </summary>

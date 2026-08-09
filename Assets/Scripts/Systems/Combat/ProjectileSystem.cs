@@ -138,7 +138,7 @@ namespace TheWaningBorder.Systems.Combat
 
                             if (t >= 0.95f || distToTarget < HitRadius)
                             {
-                                ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time);
+                                ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time, entity);
                                 shouldDestroy = true;
                             }
                             else
@@ -201,7 +201,7 @@ namespace TheWaningBorder.Systems.Combat
                                 float d = math.length(new float2(diff.x, diff.z));
                                 if (d < 2.5f)
                                 {
-                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter, time);
+                                    ApplyDamage(em, ecb, proj, pierceEntities[pi], true, arr.Shooter, time, entity);
                                     pierce.RemainingPierces--;
                                     if (pierce.RemainingPierces <= 0) { shouldDestroy = true; break; }
                                 }
@@ -221,7 +221,7 @@ namespace TheWaningBorder.Systems.Combat
                         }
                         else if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
                         {
-                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time);
+                            ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time, entity);
                             shouldDestroy = true;
                         }
                         else if (!shouldDestroy)
@@ -298,10 +298,30 @@ namespace TheWaningBorder.Systems.Combat
         /// Shared between arrow and laser impact paths.
         /// </summary>
         private static void ApplyDamage(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
-            Entity targetEntity, bool targetIsAlive, Entity shooter = default, double elapsed = 0)
+            Entity targetEntity, bool targetIsAlive, Entity shooter = default, double elapsed = 0,
+            Entity projectileEntity = default)
         {
             if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
+
+            // Feraldis on-hit riders carried by the shot (Axe Thrower bleed,
+            // Firethrower blood ignition). No-op for every other projectile.
+            if (projectileEntity != Entity.Null && em.Exists(projectileEntity))
+            {
+                if (em.HasComponent<InflictsBleed>(projectileEntity))
+                {
+                    var spec = em.GetComponentData<InflictsBleed>(projectileEntity);
+                    FeraldisBleed.Apply(em, ecb, targetEntity,
+                        spec.DamagePerSecond, spec.Duration, proj.Faction);
+                }
+                if (em.HasComponent<IgnitesBlood>(projectileEntity)
+                    && em.HasComponent<LocalTransform>(targetEntity))
+                {
+                    FeraldisIgnition.TryIgnite(em, ecb,
+                        em.GetComponentData<IgnitesBlood>(projectileEntity),
+                        em.GetComponentData<LocalTransform>(targetEntity).Position);
+                }
+            }
 
             // Fix #211: skip damage application if the target is Invulnerable.
             if (em.HasComponent<Invulnerable>(targetEntity)) return;
@@ -313,27 +333,58 @@ namespace TheWaningBorder.Systems.Combat
             ArmorType armorType = ArmorType.InfantryLight;
             if (em.HasComponent<ArmorTypeData>(targetEntity))
                 armorType = em.GetComponentData<ArmorTypeData>(targetEntity).Value;
+            // Buildings without explicit armor read as Structure — the
+            // InfantryLight fallback made archers (1.1x) beat catapults
+            // (0.6x) against them, inverting the siege matchup (2026-08-03).
+            else if (em.HasComponent<BuildingTag>(targetEntity))
+                armorType = ArmorType.Structure;
 
             // Get target's defense for this damage type
             int defenseValue = 0;
             if (em.HasComponent<Defense>(targetEntity))
                 defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(targetEntity), dmgType);
 
-            // Crystal debuff on defender (takes more damage from projectiles)
-            float crystalMod = 1.0f;
-            if (em.HasComponent<CrystalDebuff>(targetEntity))
+            // Veilstone debuff on defender (takes more damage from projectiles)
+            float borderMod = 1.0f;
+            if (em.HasComponent<BorderDebuff>(targetEntity))
             {
-                var debuff = em.GetComponentData<CrystalDebuff>(targetEntity);
-                crystalMod = 1f + debuff.AttPenalty;
+                var debuff = em.GetComponentData<BorderDebuff>(targetEntity);
+                borderMod = 1f + debuff.AttPenalty;
             }
+
+            // Tag bonus (AoE4-style): shooter's BonusVsTags vs the victim's
+            // tags — flat, armor-ignoring, from the unit SO. No bonus when the
+            // shooter died mid-flight.
+            int tagBonus = TagBonus.Compute(em, shooter, targetEntity);
 
             // Height modifier is already baked into proj.Damage for arrows,
             // so pass 1.0 here to avoid double-applying.
             int impactDamage = CombatModifiers.CalculateFinalDamage(
-                baseDamage, dmgType, armorType, defenseValue, 1.0f, crystalMod);
+                baseDamage, dmgType, armorType, defenseValue, 1.0f, borderMod, tagBonus);
 
+            // Ranged/projectile hits must run the shared on-hit pipeline too
+            // (Condemned / Ignite / VoidStrike + Wrath/Ruin/Antiquity sect
+            // passives, and Ignite/VoidStrike charge consumption). This was
+            // melee-only — ProjectileSystem never called it, so ranged silently
+            // ignored all of them.
+            impactDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, shooter, targetEntity, impactDamage);
+
+            // Balance: arrows & bolts only CHIP structures — siege is what
+            // demolishes them. (The old damage-type×armor matrix used to do this
+            // via Ranged×Structure = 0.15 but is no longer applied, so ranged
+            // was hitting buildings at near-full damage.) Melee and siege are
+            // untouched.
+            const float RangedVsBuildingDamage = 0.3f;
+            if (dmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(targetEntity))
+            {
+                int chip = (int)(impactDamage * RangedVsBuildingDamage);
+                impactDamage = chip < 1 ? 1 : chip;
+            }
+
+            // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
+            int appliedDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, targetEntity, impactDamage);
             var targetHealth = em.GetComponentData<Health>(targetEntity);
-            targetHealth.Value -= impactDamage;
+            targetHealth.Value -= appliedDamage;
             if (targetHealth.Value <= 0) targetHealth.Value = 0;
             em.SetComponentData(targetEntity, targetHealth);
 
@@ -410,17 +461,35 @@ namespace TheWaningBorder.Systems.Combat
                 ArmorType armorType = ArmorType.InfantryLight;
                 if (em.HasComponent<ArmorTypeData>(entities[i]))
                     armorType = em.GetComponentData<ArmorTypeData>(entities[i]).Value;
+                // Parity with the direct-hit path (:319): buildings without
+                // explicit armor read as Structure, not InfantryLight.
+                // (fix 2026-08-03)
+                else if (em.HasComponent<BuildingTag>(entities[i]))
+                    armorType = ArmorType.Structure;
 
                 int defenseValue = 0;
                 if (em.HasComponent<Defense>(entities[i]))
                     defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(entities[i]), proj.DmgType);
 
-                float crystalMod = 1.0f;
-                if (em.HasComponent<CrystalDebuff>(entities[i]))
-                    crystalMod = 1f + em.GetComponentData<CrystalDebuff>(entities[i]).AttPenalty;
+                float borderMod = 1.0f;
+                if (em.HasComponent<BorderDebuff>(entities[i]))
+                    borderMod = 1f + em.GetComponentData<BorderDebuff>(entities[i]).AttPenalty;
+
+                // Same tag bonus as the direct hit — per splash victim.
+                int splashTagBonus = TagBonus.Compute(em, shooter, entities[i]);
 
                 int splashDmg = CombatModifiers.CalculateFinalDamage(
-                    proj.Damage, proj.DmgType, armorType, defenseValue, 1.0f, crystalMod);
+                    proj.Damage, proj.DmgType, armorType, defenseValue, 1.0f, borderMod, splashTagBonus);
+
+                // Parity with the direct hit (:337): ranged splash only chips
+                // buildings, and incoming-damage scaling (Liquid Courage DR) must
+                // apply — splash was demolishing buildings and bypassing DR.
+                if (proj.DmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(entities[i]))
+                {
+                    int chip = (int)(splashDmg * 0.3f);
+                    splashDmg = chip < 1 ? 1 : chip;
+                }
+                splashDmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], splashDmg);
 
                 hp.Value = math.max(0, hp.Value - splashDmg);
                 em.SetComponentData(entities[i], hp);

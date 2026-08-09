@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &81978956787713896
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 410227370989053873}
+  - component: {fileID: 54393032907361345}
+  m_Layer: 0
+  m_Name: Guild_Slow
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &410227370989053873
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 81978956787713896}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &54393032907361345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 81978956787713896}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3a159d455142f09d651e9ba728a446, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  spellId: Guild_Slow
+  displayName: 'Guild: Slow Field'
+  activation: 1
+  cooldown: 0
+  castTime: 0
+  hpThreshold: 0.5
+  shape: 2
+  affects: 2
+  range: 0
+  radius: 19.5
+  duration: 7.5
+  effects:
+  - kind: 5
+    value: 0.5
+    duration: 7.5
+  powerUpPrefab: {fileID: 0}
+  powerUpTint: 0
+  powerUpColor: {r: 1, g: 1, b: 1, a: 1}
+  powerUpSpeed: 1
+  castPrefab: {fileID: 173678, guid: 3d8e23e737958714c8d34ef2e2e02f89, type: 3}
+  castTint: 0
+  castColor: {r: 0.43137255, g: 0.8235294, b: 1, a: 1}
+  castSpeed: 1
+  circlePrefab: {fileID: 1030327302787533666, guid: 1194df933b23daf42aa297ed865db866, type: 3}
+  circleTint: 1
+  circleColor: {r: 0.43137255, g: 0.8235294, b: 1, a: 1}
+  circleSpeed: 0.15
+  previewInEditor: 0
+  previewInterval: 11

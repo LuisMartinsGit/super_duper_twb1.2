@@ -84,7 +84,7 @@ public static class CombatModifiers
     ///   final = max(1, baseDamage − armor) + bonusDamage
     /// Armor is a FLAT subtraction with a hard floor of 1 (chip damage always lands);
     /// bonusDamage (vs the target's tags, e.g. siege +vs Building) is added afterwards
-    /// and IGNORES armor. The result is then scaled by this game's height / crystal
+    /// and IGNORES armor. The result is then scaled by this game's height / veilstone
     /// modifiers (1.0 = neutral).
     ///
     /// `defenseValue` is the flat armor for the incoming damage type (melee armor for
@@ -93,18 +93,18 @@ public static class CombatModifiers
     /// the damage number.
     /// </summary>
     public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
-        ArmorType armorType, int defenseValue, float heightMod, float crystalMod)
-        => CalculateFinalDamage(baseDamage, dmgType, armorType, defenseValue, heightMod, crystalMod, 0);
+        ArmorType armorType, int defenseValue, float heightMod, float borderMod)
+        => CalculateFinalDamage(baseDamage, dmgType, armorType, defenseValue, heightMod, borderMod, 0);
 
     /// <summary>
     /// Overload adding flat bonus damage vs the target's tags (added after armor,
     /// armor-ignoring). See the no-bonus overload for the full formula description.
     /// </summary>
     public static int CalculateFinalDamage(int baseDamage, DamageType dmgType,
-        ArmorType armorType, int defenseValue, float heightMod, float crystalMod, int bonusDamage)
+        ArmorType armorType, int defenseValue, float heightMod, float borderMod, int bonusDamage)
     {
         int   afterArmor = math.max(1, baseDamage - math.max(0, defenseValue));
-        float scaled     = (afterArmor + math.max(0, bonusDamage)) * heightMod * crystalMod;
+        float scaled     = (afterArmor + math.max(0, bonusDamage)) * heightMod * borderMod;
         return math.max(1, (int)math.round(scaled));
     }
 }

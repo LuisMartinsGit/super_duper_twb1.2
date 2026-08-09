@@ -19,7 +19,7 @@ MonoBehaviour:
   description: The starting town center. Trains Workers and Scouts, banks gathered
     resources, and researches the core economy techs and the advance to Era II. Renamed
     to its cultured form (Town Hall / Trader's Hall / War Hall) at age-up.
-  hp: 1000
+  hp: 2400
   armorType: structure_human
   defense:
     melee: 2
@@ -29,12 +29,12 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 24
   trains:
-  - Builder
+  - Worker
   - Scout
   research:
   - Research_Era2
-  - ImprovedTools
-  - StorageCarts
+  - StoneTools
+  - ArmedScouts
   minEra: 0
   cost:
     Supplies: 0
@@ -48,7 +48,7 @@ MonoBehaviour:
     damage: 12
     damageType: ranged
     range: 22
-    cooldown: 1.5
+    cooldown: 2
     maxTargets: 1
   levels: []
   unitUpgrades: []

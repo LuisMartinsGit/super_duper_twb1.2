@@ -54,6 +54,12 @@ namespace TheWaningBorder.Systems.Navigation
             if (portalSingleton.Built == 0 || !portalSingleton.Graph.IsCreated) return;
 
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
+            // Layer-0 cost slab — lets the A* region-gate its virtual
+            // start/goal edges (blockers cutting a tile in two must not be
+            // bridged; see NavTileRegions). Reading it on the main thread
+            // needs in-flight stampers drained first.
+            var costField = SystemAPI.GetSingleton<NavCostField>();
+            state.Dependency.Complete();
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
@@ -117,7 +123,7 @@ namespace TheWaningBorder.Systems.Navigation
 
                 byte status = AbstractPathfinder.SolveGated(ref graph, grid,
                     req.StartCell, req.GoalCell, portals,
-                    ownerBitsMirror, unitOwnerId);
+                    ownerBitsMirror, unitOwnerId, costField.Cost);
 
                 if (!SystemAPI.HasComponent<NavPathResult>(entity))
                     ecb.AddComponent<NavPathResult>(entity);

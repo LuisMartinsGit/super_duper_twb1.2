@@ -18,7 +18,7 @@ MonoBehaviour:
   description: Primary melee training building. Produces Spearmen and researches
     melee upgrades. Becomes the culture's melee structure (Garrison / Route Guard
     / Longhouse) at age-up.
-  hp: 500
+  hp: 800
   armorType: structure_human
   defense:
     melee: 1
@@ -29,9 +29,24 @@ MonoBehaviour:
   lineOfSight: 18
   trains:
   - Spearman
+  - Alanthor_Swordsman
+  - Alanthor_Sentinel
+  - Alanthor_Nobleman
+  - Feraldis_Spearman
+  - Feraldis_Bloodletter
+  - Feraldis_Suicidal
+  - Feraldis_Berserker
   research:
-  - BasicDrills
-  - WoodenArmor
+  - Conscription
+  - StoneWeapons
+  - IronWeapons
+  - VeilstoneWeapons
+  - ShardInfusedWeapons
+  - SeasonedInfantry
+  - VeteranInfantry
+  - EliteInfantry
+  - Charge
+  - ShieldWall
   minEra: 0
   cost:
     Supplies: 220

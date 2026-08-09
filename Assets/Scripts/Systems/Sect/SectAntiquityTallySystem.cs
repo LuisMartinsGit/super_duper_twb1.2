@@ -15,6 +15,7 @@
 //
 // Location: Assets/Scripts/Systems/Sect/SectAntiquityTallySystem.cs
 
+using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Systems.Combat;
@@ -25,21 +26,32 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectAntiquityTallySystem : ISystem
     {
-        private static byte KillCapFor(byte level) => level switch
-        {
-            2 => 16,
-            3 => 25,
-            _ => 10,
-        };
+        // Spec (task-063): the cap is a PERCENTAGE ceiling per class —
+        // +5% / +10% / +15% at Lv I/II/III. With the per-kill bonus at
+        // 0.5% / 1% / 1.5% (CombatDamageHelper), a flat 10-kill tally per
+        // class hits the ceiling exactly at every level.
+        private static byte KillCapFor(byte level) => 10;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<Health>();
         }
 
+        private struct PendingTally
+        {
+            public Entity Killer;
+            public UnitClass VictimClass;
+            public byte Cap;
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
+
+            // Collect kill events first, apply after the iteration — the lazy
+            // AddComponentData below is a STRUCTURAL change, which throws
+            // InvalidOperationException inside a SystemAPI.Query foreach.
+            var pending = new NativeList<PendingTally>(Allocator.Temp);
 
             foreach (var (health, lastAttacker, victimUnit, entity) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LastAttackerEntity>, RefRO<UnitTag>>()
@@ -61,16 +73,30 @@ namespace TheWaningBorder.Systems.Sect
                     SectConfig.Antiquity, SectLeverKind.Passive);
                 if (level == 0) continue;
 
-                var victimClass = victimUnit.ValueRO.Class;
-
-                // Stamp lazily on first relevant kill.
-                if (!em.HasComponent<AntiquityKills>(killer))
-                    em.AddComponentData(killer, new AntiquityKills());
-
-                var kills = em.GetComponentData<AntiquityKills>(killer);
-                Increment(ref kills, victimClass, KillCapFor(level));
-                em.SetComponentData(killer, kills);
+                pending.Add(new PendingTally
+                {
+                    Killer = killer,
+                    VictimClass = victimUnit.ValueRO.Class,
+                    Cap = KillCapFor(level),
+                });
             }
+
+            for (int i = 0; i < pending.Length; i++)
+            {
+                var p = pending[i];
+                if (!em.Exists(p.Killer)) continue;
+
+                // Stamp lazily on first relevant kill (legal here — the
+                // query iteration is over).
+                if (!em.HasComponent<AntiquityKills>(p.Killer))
+                    em.AddComponentData(p.Killer, new AntiquityKills());
+
+                var kills = em.GetComponentData<AntiquityKills>(p.Killer);
+                Increment(ref kills, p.VictimClass, p.Cap);
+                em.SetComponentData(p.Killer, kills);
+            }
+
+            pending.Dispose();
         }
 
         private static void Increment(ref AntiquityKills k, UnitClass cls, byte cap)

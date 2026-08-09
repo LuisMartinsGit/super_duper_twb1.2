@@ -203,15 +203,14 @@ namespace TheWaningBorder.Economy
             return unitId switch
             {
                 // Basic units - 1 population each
-                "Builder" => 1,
-                "Miner" => 1,
+                // (retired Age 0 ids "Crossbowman" / "Longbowman" / "Swordsman"
+                // now alias the Alanthor creators and ride the default of 1)
+                "Worker" => 1,
                 "Scout" => 1,
                 "Archer" => 1,
-                "Crossbowman" => 1,   // task-110: Era 1 Archery Range L2 tier
-                "Longbowman" => 1,    // task-110: Era 1 Archery Range L3 tier
-                "Swordsman" => 1,
+                "Spearman" => 1,
                 "Litharch" => 1,
-                
+
                 // Runai units
                 "Runai_Spearman" => 1,
                 "Runai_Skirmisher" => 1,
@@ -220,7 +219,15 @@ namespace TheWaningBorder.Economy
                 "Runai_Acolyte" => 2,
 
                 // Feraldis units
+                "Feraldis_Spearman" => 1,
+                "Feraldis_Bloodletter" => 1,
+                "Feraldis_Suicidal" => 1,
                 "Feraldis_Berserker" => 1,
+                "Feraldis_Plunderer" => 0,    // free camp output — never taxes pop
+                "Feraldis_Archer" => 1,
+                "Feraldis_Firethrower" => 1,
+                "Feraldis_Raider" => 1,
+                "Feraldis_WarChariot" => 2,   // heavy cavalry + blood-trail utility
                 "Feraldis_Hunter" => 1,
                 "Feraldis_WarboarRider" => 1,
                 "Feraldis_SiegeRam" => 2,
@@ -228,10 +235,17 @@ namespace TheWaningBorder.Economy
 
                 // Alanthor units
                 "Alanthor_Sentinel" => 1,
+                "Alanthor_Nobleman" => 1,
                 "Alanthor_Crossbowman" => 1,
+                "Alanthor_Outrider" => 1,
                 "Alanthor_Cataphract" => 2,
                 "Alanthor_Ballista" => 2,
-                "Alanthor_Scholar" => 2,    // Investment unit — scarcer than line infantry
+                "Alanthor_Catapult" => 2,   // retired id — recipe alias of the Ballista
+                "Alanthor_BatteringRam" => 2,
+                "Alanthor_Trebuchet" => 3,
+                "Alanthor_Scholar" => 1,
+                "King Lexor" => 3,          // hero cavalry (also trainable as "KingLexor")
+                "KingLexor" => 3,
 
                 // Default for unknown units
                 _ => 1

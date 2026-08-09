@@ -41,8 +41,40 @@ namespace TheWaningBorder.Core.Commands.Types
             if (snapOk)
                 destination = snapped;
 
+            // Emit a real pathfinding request. Previously attack-move relied on
+            // a legacy NavMeshPathRequestSystem that was deleted in the M-series
+            // nav rewrite, so attack-move units never received a NavPathResult /
+            // FlowDesiredDir and the integrator beelined them straight at the
+            // goal -- they did not pathfind. Mirror MoveCommandHelper: reset any
+            // stale path state so the follower doesn't keep walking the previous
+            // goal's cached flow slabs, then enqueue the request.
+            if (em.HasComponent<NavPathResult>(unit))
+            {
+                em.SetComponentData(unit, new NavPathResult
+                {
+                    Status = NavPathRequest.StatusPending,
+                    Length = 0,
+                    CurrentPortalIndex = -1,
+                    Generation = 0,
+                });
+            }
+            if (em.HasBuffer<NavPathPortal>(unit))
+                em.GetBuffer<NavPathPortal>(unit).Clear();
+            if (em.HasComponent<FlowDesiredDir>(unit))
+                em.SetComponentData(unit, new FlowDesiredDir { HasValue = 0, Value = float3.zero });
+
+            MoveCommandHelper.EmitNavPathRequest(em, unit, destination);
+
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
+
+            // An individual attack-move detaches the unit from any formation
+            // group (FormationMoveCommandHelper re-attaches AFTER calling
+            // Execute when this order IS part of a formation attack-move).
+            if (em.HasComponent<FormationMemberState>(unit))
+                em.RemoveComponent<FormationMemberState>(unit);
+            if (em.HasComponent<FormationSpeedOverride>(unit))
+                em.RemoveComponent<FormationSpeedOverride>(unit);
 
             // Add AttackMoveCommand for MovementSystem to process
             if (!em.HasComponent<AttackMoveCommand>(unit))

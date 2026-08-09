@@ -105,18 +105,25 @@ namespace TheWaningBorder.Systems.Work
                     continue;
                 }
 
-                // Get building position
+                // Get building position. Reach is measured to the footprint edge,
+                // not the pivot, so a large building isn't unrepairable from the
+                // only ground a worker can actually stand on.
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
-                float dist = DistXZ(bPos, sitePos);
+                var extent = TargetGeometry.Extent(em, site);
+                float dist = extent.SurfaceDistXZ(bPos);
 
                 if (dist > RepairRange)
                 {
-                    // Move toward building
+                    // Walk to the footprint edge, a half-step back so the
+                    // destination is walkable ground.
+                    float3 approach = extent.ApproachPoint(bPos, RepairRange * 0.5f);
+                    approach.y = sitePos.y;
+
                     if (em.HasComponent<DesiredDestination>(builder))
                     {
                         em.SetComponentData(builder, new DesiredDestination
                         {
-                            Position = sitePos,
+                            Position = approach,
                             Has = 1
                         });
                     }
@@ -124,18 +131,15 @@ namespace TheWaningBorder.Systems.Work
                     {
                         em.AddComponentData(builder, new DesiredDestination
                         {
-                            Position = sitePos,
+                            Position = approach,
                             Has = 1
                         });
                     }
                 }
                 else
                 {
-                    // In range - stop moving
-                    if (em.HasComponent<DesiredDestination>(builder))
-                    {
-                        em.SetComponentData(builder, new DesiredDestination { Has = 0 });
-                    }
+                    // In range - plant and face the building
+                    TargetGeometry.StopAndFace(em, builder, sitePos, dt);
 
                     // Pay repair cost on first arrival
                     if (order.CostPaid == 0)
@@ -208,12 +212,12 @@ namespace TheWaningBorder.Systems.Work
             // Calculate repair cost with 1.2x penalty
             int repairSupplies = (int)math.ceil(def.cost.Supplies * damageRatio * RepairCostMultiplier);
             int repairIron = (int)math.ceil(def.cost.Iron * damageRatio * RepairCostMultiplier);
-            int repairCrystal = (int)math.ceil(def.cost.Crystal * damageRatio * RepairCostMultiplier);
+            int repairVeilstone = (int)math.ceil(def.cost.Veilstone * damageRatio * RepairCostMultiplier);
 
             var cost = Cost.Of(
                 supplies: repairSupplies,
                 iron: repairIron,
-                crystal: repairCrystal
+                veilstone: repairVeilstone
             );
 
             // Try to spend

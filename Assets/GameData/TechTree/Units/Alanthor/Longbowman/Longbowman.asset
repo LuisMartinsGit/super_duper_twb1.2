@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Longbowman
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Longbowman'
-  displayName: 'Longbowman'
-  unitClass: 'human_ranged'
+  id: Alanthor_Longbowman
+  displayName: Longbowman
+  unitClass: human_ranged
   hp: 55
   speed: 4
   trainingTime: 22
   damage: 25
-  damageType: 'ranged'
-  armorType: 'ranged'
+  damageType: ranged
+  armorType: ranged
   defense:
     melee: 0
     ranged: 1
@@ -30,6 +30,8 @@ MonoBehaviour:
   attackRange: 40
   minAttackRange: 12
   lineOfSight: 35
+  trajectory: high
+  projectileSpeed: 0
   cost:
     Supplies: 50
     Iron: 40
@@ -41,6 +43,7 @@ MonoBehaviour:
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
-  presentationId: 0
+  prefab: {fileID: 3949550057089455774, guid: e342bc6782be49045af449bc40a5cb6b, type: 3}
+  presentationId: 205

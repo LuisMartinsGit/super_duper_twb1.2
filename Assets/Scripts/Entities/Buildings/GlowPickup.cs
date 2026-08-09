@@ -6,7 +6,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using static TheWaningBorder.Core.Config.CrystalConstants;
+using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -15,7 +15,7 @@ namespace TheWaningBorder.Entities
     /// completion that must be carried back to a deposit building. Glow
     /// pickup can be intercepted in transit by any faction."
     ///
-    /// FactionTag is left unset (Faction.Curse as a neutral default) so
+    /// FactionTag is left unset (Faction.Border as a neutral default) so
     /// any unit can attempt to claim it. The pickup is owned by no one
     /// until carried.
     /// </summary>
@@ -42,7 +42,7 @@ namespace TheWaningBorder.Entities
 
             em.SetComponentData(entity, new PresentationId { Id = GlowPickupPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = Faction.Curse }); // neutral; reassigned on pickup
+            em.SetComponentData(entity, new FactionTag { Value = Faction.Border }); // neutral; reassigned on pickup
             em.SetComponentData(entity, new GlowPickupState
             {
                 Amount = yield,
@@ -69,7 +69,7 @@ namespace TheWaningBorder.Entities
             var entity = ecb.CreateEntity();
             ecb.AddComponent(entity, new PresentationId { Id = GlowPickupPresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = Faction.Curse });
+            ecb.AddComponent(entity, new FactionTag { Value = Faction.Border });
             ecb.AddComponent<GlowPickupTag>(entity);
             ecb.AddComponent(entity, new GlowPickupState
             {

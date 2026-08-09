@@ -26,7 +26,7 @@ public struct AcolyteTag : IComponentData { }
 
 /// <summary>
 /// Marker for Feraldis's Iconoclast — the high-value Lv 3 unit whose
-/// attacks can damage Crystal nodes (spec refinement #1). Without this
+/// attacks can damage Veilstone nodes (spec refinement #1). Without this
 /// tag on the attacker, NodeInvulnerabilitySystem refunds all node
 /// damage so the node stays at full HP. Iconoclast attacks pass through
 /// and are the only path to a Destroyed node state.
@@ -57,7 +57,7 @@ public struct RitualState : IComponentData
     /// <summary>Kind of ritual being channeled (sets the resulting node state).</summary>
     public RitualKind Kind;
 
-    /// <summary>The target crystal main node.</summary>
+    /// <summary>The target veilstone main node.</summary>
     public Entity TargetNode;
 
     /// <summary>Seconds channeled so far.</summary>
@@ -69,8 +69,8 @@ public struct RitualState : IComponentData
 }
 
 /// <summary>
-/// On a crystal main node while a ritual is being performed on it. Used by
-/// UI and by the curse-defense system to spawn defensive waves at the
+/// On a veilstone main node while a ritual is being performed on it. Used by
+/// UI and by the border-defense system to spawn defensive waves at the
 /// ritualist. Cleared when the ritual ends (complete, cancel, ritualist
 /// dies). At most one active ritual per node — first claim wins.
 /// </summary>
@@ -108,7 +108,7 @@ public struct ActiveRitualOnNode : IComponentData
 /// </summary>
 public struct PurifyCommand : IComponentData
 {
-    /// <summary>The crystal main node to purify.</summary>
+    /// <summary>The veilstone main node to purify.</summary>
     public Entity TargetNode;
 }
 
@@ -119,7 +119,7 @@ public struct PurifyCommand : IComponentData
 /// </summary>
 public struct ConvertNodeCommand : IComponentData
 {
-    /// <summary>The crystal main node to convert.</summary>
+    /// <summary>The veilstone main node to convert.</summary>
     public Entity TargetNode;
 }
 

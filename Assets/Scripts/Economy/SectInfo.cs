@@ -33,7 +33,7 @@ namespace TheWaningBorder.Economy
             SectConfig.Antiquity   => "Keepers of every name that fell to the Border; the dead tally the living's enemies.",
             SectConfig.Renewal     => "Healers in stone — they teach walls to forget the blows they took.",
             SectConfig.Fortitude   => "Their hymns weigh more than mortar. Where they pray, the keep does not break.",
-            SectConfig.Reclamation => "They wrest tools, mines, and dying soldiers back from the Crystal's grasp.",
+            SectConfig.Reclamation => "They wrest tools, mines, and dying soldiers back from the Veilstone's grasp.",
             SectConfig.Silence     => "A doctrine of stillness — to stand is to be unkillable.",
             SectConfig.Justice     => "Every wound your soldiers take is debt; their gods collect at sword-point.",
             SectConfig.Veneration  => "Each kill is a hymn. Each hymn makes the next blow strike truer.",
@@ -53,7 +53,7 @@ namespace TheWaningBorder.Economy
             SectConfig.Antiquity   => "Tally of the Lost — your units gain +dmg for each unit-type they have killed in this match.",
             SectConfig.Renewal     => "Hands That Mend — your buildings auto-repair when out of combat.",
             SectConfig.Fortitude   => "Veiled Stone — your walls and towers gain bonus HP.",
-            SectConfig.Reclamation => "Curse-Hardened — your units take less damage from Crystal-Curse sources.",
+            SectConfig.Reclamation => "Border-Hardened — your units take less damage from Border sources.",
             SectConfig.Silence     => "Steadfast Vigil — your units gain armor while holding position.",
             SectConfig.Justice     => "Marked for Sentence — any unit that kills one of yours takes bonus damage from your army.",
             SectConfig.Veneration  => "Fervor — your unit kills grant a stacking damage and attack-rate buff.",
@@ -76,19 +76,57 @@ namespace TheWaningBorder.Economy
 
             string body = sectId switch
             {
-                SectConfig.Antiquity   => $"Reveal Circle — uncovers fog of war in a {spec.Radius:0}m radius for {spec.Duration:0}s.",
+                SectConfig.Antiquity   => $"Recall the Codex — enemy attack & ability cooldowns in a {spec.Radius:0}m circle stop recovering for {spec.Magnitude:0}s (Lv III also inflates their current cooldowns +50%).",
                 SectConfig.Renewal     => $"Heal Circle — restores {spec.Magnitude:0} HP to all allied units within {spec.Radius:0}m.",
                 SectConfig.Fortitude   => $"Bulwark — allied units in {spec.Radius:0}m gain +{spec.Magnitude:0} armor for {spec.Duration:0}s.",
                 SectConfig.Reclamation => $"Reclaim Vigour — heals allied units in a {spec.Radius:0}m radius for {spec.Magnitude:0} HP.",
                 SectConfig.Silence     => $"Whisper-Wind — allied units in {spec.Radius:0}m gain x{spec.Magnitude:0.0} move-speed for {spec.Duration:0}s.",
-                SectConfig.Justice     => $"Sentence — burst {spec.Magnitude:0} divine damage in a {spec.Radius:0}m circle.",
+                SectConfig.Justice     => $"Eye of the Law — reveals fog of war in a {spec.Radius:0}m circle for {spec.Duration:0}s.",
                 SectConfig.Veneration  => $"Litany — allied units in {spec.Radius:0}m gain x{spec.Magnitude:0.0} damage for {spec.Duration:0}s.",
                 SectConfig.Witness     => $"All-Seeing Gaze — reveals fog of war in a {spec.Radius:0}m radius for {spec.Duration:0}s.",
-                SectConfig.War         => $"Bloodfury — allied units in {spec.Radius:0}m gain x{spec.Magnitude:0.0} damage for {spec.Duration:0}s.",
+                SectConfig.War         => $"War March — allied units in {spec.Radius:0}m gain x{spec.Magnitude:0.0} move speed for {spec.Duration:0}s.",
                 SectConfig.Ash         => $"Burning Ground — covers a {spec.Radius:0}m circle in flame, dealing {spec.Magnitude:0} dmg/s for {spec.Duration:0}s.",
                 SectConfig.Ruin        => $"Profane Strike — burst {spec.Magnitude:0} damage to everything in a {spec.Radius:0}m circle.",
                 SectConfig.Wrath       => $"Spawn Pyre — drops a burning pillar at the target, scorching {spec.Radius:0}m for {spec.Duration:0}s.",
                 _                      => "—",
+            };
+            return $"{body}  Cooldown: {spec.Cooldown:0}s.";
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // TIERED ACTIVES (design 2026-07-05) — name + description per tier.
+        // Tier 1 = utility (adoption); tier 2 unlocks at temple Lv 2; tier 3
+        // (the ultimate) at temple Lv 3. Only playable sects have tiers 2-3.
+        // ─────────────────────────────────────────────────────────────────
+        public static string ActiveName(string sectId, int tier) => (sectId, tier) switch
+        {
+            (SectConfig.Justice, 1) => "Eye of the Law",
+            (SectConfig.Justice, 2) => "Sentence",
+            (SectConfig.Justice, 3) => "Final Sentence",
+            (SectConfig.Renewal, 1) => "Heal Circle",
+            (SectConfig.Renewal, 2) => "Mason's Blessing",
+            (SectConfig.Renewal, 3) => "Reckoning of the Rebuilt",
+            (SectConfig.War, 1)     => "War March",
+            (SectConfig.War, 2)     => "Bloodfury",
+            (SectConfig.War, 3)     => "Annihilation",
+            _                       => tier <= 1 ? "Active Power" : "Locked",
+        };
+
+        public static string ActivePowerDescription(string sectId, int tier)
+        {
+            if (tier <= 1) return ActivePowerDescription(sectId);
+            var spec = SectLeverEffects.ActiveOf(sectId, tier);
+            if (spec.Kind == SectActivePowerKind.None) return "—";
+
+            string body = (sectId, tier) switch
+            {
+                (SectConfig.Justice, 2) => $"Sentence — burst {spec.Magnitude:0} divine damage in a {spec.Radius:0}m circle.",
+                (SectConfig.Justice, 3) => $"Final Sentence — massive {spec.Magnitude:0} divine damage in a {spec.Radius:0}m circle. The ultimate verdict.",
+                (SectConfig.Renewal, 2) => $"Mason's Blessing — allied units in {spec.Radius:0}m gain +{spec.Magnitude:0} armor for {spec.Duration:0}s.",
+                (SectConfig.Renewal, 3) => $"Reckoning of the Rebuilt — {spec.Magnitude:0} crushing damage to enemies in a {spec.Radius:0}m circle.",
+                (SectConfig.War, 2)     => $"Bloodfury — allied units in {spec.Radius:0}m gain x{spec.Magnitude:0.0} damage for {spec.Duration:0}s.",
+                (SectConfig.War, 3)     => $"Annihilation — {spec.Magnitude:0} devastating damage to everything hostile in a {spec.Radius:0}m circle.",
+                _                       => "—",
             };
             return $"{body}  Cooldown: {spec.Cooldown:0}s.";
         }
@@ -155,7 +193,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Antiquity   => "More names in the tally — stronger relics, sharper memory.",
                 SectConfig.Renewal     => "Deeper communion — walls knit faster, men return from death.",
                 SectConfig.Fortitude   => "Heavier hymns — stone grows thicker, melee endure longer.",
-                SectConfig.Reclamation => "Wider claim — your workers and tools shrug off Curse-rot.",
+                SectConfig.Reclamation => "Wider claim — your workers and tools shrug off Border-rot.",
                 SectConfig.Silence     => "Longer vigil — archers strike harder while still.",
                 SectConfig.Justice     => "Harsher verdict — sentence falls heavier, faster.",
                 SectConfig.Veneration  => "Higher fervor — kills bless your army with deeper rage.",

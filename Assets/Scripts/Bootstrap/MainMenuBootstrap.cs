@@ -1,50 +1,23 @@
 // MainMenuBootstrap.cs
-// Initializes the main menu when the game starts
 // Location: Assets/Scripts/Bootstrap/MainMenuBootstrap.cs
-
-using UnityEngine;
-using UnityEngine.SceneManagement;
-using TheWaningBorder.UI.Menus;
+//
+// The main menu is now built and wired ENTIRELY in the Unity editor using the
+// Synty "Interface Fantasy Menus" assets (native uGUI Buttons, Animators, and
+// onClick UnityEvents). No MonoBehaviour is injected at runtime — the old
+// auto-injected controllers crashed the editor and clobbered editor wiring, so
+// they were removed.
+//
+// This class now only exposes the menu scene's name, which the rest of the
+// codebase uses to return to the menu (InGameMenuPanel, PostGameStatsUI).
 
 namespace TheWaningBorder.Bootstrap
 {
-    /// <summary>
-    /// Bootstrap for the main menu - runs automatically on game start.
-    /// Creates MainMenuUI when appropriate scenes load.
-    /// </summary>
     public static class MainMenuBootstrap
     {
-        private static bool _menuCreated;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void Init()
-        {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            
-            // Handle the initial scene
-            OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
-        }
-
-        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            // Skip any registered gameplay scene — GameBootstrap handles
-            // those. Procedural "Game" plus every hand-authored map.
-            if (TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name))
-            {
-                _menuCreated = false; // Reset so menu can be created when returning
-                return;
-            }
-
-            // Create menu if it doesn't exist
-            if (_menuCreated) return;
-            if (Object.FindFirstObjectByType<MainMenuUI>() != null) return;
-
-
-            var menuGO = new GameObject("MainMenuUI");
-            menuGO.AddComponent<MainMenuUI>();
-
-            _menuCreated = true;
-        }
+        /// <summary>Name of the scene the game returns to as its main menu.
+        /// Loaded by SceneManager.LoadScene for return-to-menu throughout the
+        /// codebase (InGameMenuPanel, PostGameStatsUI). Make sure this scene is
+        /// added to Build Settings.</summary>
+        public const string MenuSceneName = "MainMenu";
     }
 }

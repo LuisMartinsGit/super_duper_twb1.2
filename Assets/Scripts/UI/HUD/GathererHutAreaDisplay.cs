@@ -32,6 +32,18 @@ namespace TheWaningBorder.UI.HUD
         private EntityWorld _world;
         private EntityManager _em;
 
+        // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
+        private static readonly ComponentType[] HutQueryTypes =
+        {
+            ComponentType.ReadOnly<GathererHutTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static readonly ComponentType[] EnclosureQueryTypes =
+            { ComponentType.ReadOnly<WallEnclosureIncomeTag>() };
+        private TheWaningBorder.Core.CachedEntityQuery _hutQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _enclosureQuery;
+
         // Pool of circle renderers
         private readonly List<LineRenderer> _activeCircles = new();
         private readonly List<LineRenderer> _pool = new();
@@ -202,17 +214,13 @@ namespace TheWaningBorder.UI.HUD
             maxCell = math.min(maxCell, new int2(grid.Width - 1, grid.Height - 1));
 
             // Snapshot existing GathererHuts
-            var hutQuery = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var hutQuery = _hutQuery.Get(_em, HutQueryTypes);
 
             var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             // Snapshot wall enclosure polygons
-            var enclosureQuery = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<WallEnclosureIncomeTag>());
+            var enclosureQuery = _enclosureQuery.Get(_em, EnclosureQueryTypes);
             var enclosureEntities = enclosureQuery.ToEntityArray(Allocator.Temp);
 
             // Full-circle denominator — cells the circle WOULD cover if the
@@ -350,10 +358,7 @@ namespace TheWaningBorder.UI.HUD
                     occupiedArea += totalArea * ((float)outside / total);
             }
 
-            var hutQuery = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var hutQuery = _hutQuery.Get(_em, HutQueryTypes);
 
             var hutTransforms = hutQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var hutFactions = hutQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -381,10 +386,7 @@ namespace TheWaningBorder.UI.HUD
 
         private void ShowAllExistingHutCircles()
         {
-            var query = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = _hutQuery.Get(_em, HutQueryTypes);
 
             var entities = query.ToEntityArray(Allocator.Temp);
             var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);

@@ -43,6 +43,15 @@ namespace TheWaningBorder.UI.Panels
         private EntityWorld _world;
         private EntityManager _em;
 
+        // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
+        private static readonly ComponentType[] HubSnapQueryTypes =
+        {
+            ComponentType.ReadOnly<WallHubTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private TheWaningBorder.Core.CachedEntityQuery _hubSnapQuery;
+
         [Header("Placement")]
         [SerializeField] private LayerMask placementMask = ~0;
         [SerializeField] private float yOffset = 0f;
@@ -56,10 +65,12 @@ namespace TheWaningBorder.UI.Panels
             Hut, GatherersHut, Barracks, ArcheryRange, Shrine, Vault, Keep, Wall, Smelter, Temple, Hall,
             // Runai culture buildings
             RunaiOutpost, RunaiTradeHub, RunaiBazaar, RunaiSiegeWorkshop,
-            // Alanthor culture buildings
-            AlanthorWatchTower, AlanthorPracticeRange, AlanthorSiegeYard, AlanthorRoyalStable,
+            // Alanthor culture buildings (PracticeRange retired — it is the
+            // leveled Archery Range; Crucible deleted — Smelter absorbs it)
+            AlanthorWatchTower, AlanthorSiegeYard, AlanthorRoyalStable,
             // Feraldis culture buildings
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard,
+            FeraldisWarTotem, FeraldisPasture, Mine,
             // Per-hub "Build Wall" action: anchors a new hub + connecting
             // segment onto an existing wall hub. Placed without a builder;
             // auto-builds in 30 s. Entered via
@@ -160,6 +171,23 @@ namespace TheWaningBorder.UI.Panels
                         var buildSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
                         _placementValid = BuildCommandHelper.IsValidBuildPosition(
                             _em, (float3)_placingInstance.transform.position, buildSize);
+                        // Alanthor territorial rule: no building outside your
+                        // own influence border (design 2026-07-06).
+                        if (_placementValid && !MeetsInfluenceRequirement(
+                                GetSelectedFactionOrDefault(),
+                                (float3)_placingInstance.transform.position,
+                                BuildId(_currentBuild)))
+                            _placementValid = false;
+                        // Feraldis War Totems must land on blood.
+                        if (_placementValid && !MeetsBloodRequirement(
+                                (float3)_placingInstance.transform.position,
+                                BuildId(_currentBuild)))
+                            _placementValid = false;
+                        // Mines must land on an ore patch.
+                        if (_placementValid && !MeetsPatchRequirement(_em,
+                                (float3)_placingInstance.transform.position,
+                                BuildId(_currentBuild)))
+                            _placementValid = false;
                         UpdatePreviewColor(_placementValid);
                     }
                 }
@@ -234,7 +262,7 @@ namespace TheWaningBorder.UI.Panels
                 "GatherersHut" => BuildType.GatherersHut,
                 "Barracks" => BuildType.Barracks,
                 "ArcheryRange" => BuildType.ArcheryRange,
-                "ShrineOfAhridan" => BuildType.Shrine,
+                "ShrineOfRidan" or "ShrineOfAhridan" => BuildType.Shrine,
                 "TempleOfRidan" => BuildType.Temple,
                 "VaultOfAlmierra" => BuildType.Vault,
                 "FiendstoneKeep" => BuildType.Keep,
@@ -247,7 +275,6 @@ namespace TheWaningBorder.UI.Panels
                 "Runai_SiegeWorkshop" => BuildType.RunaiSiegeWorkshop,
                 // Alanthor culture buildings
                 "Alanthor_Tower" => BuildType.AlanthorWatchTower,
-                "Alanthor_PracticeRange" => BuildType.AlanthorPracticeRange,
                 "Alanthor_SiegeYard" => BuildType.AlanthorSiegeYard,
                 "Alanthor_RoyalStable" => BuildType.AlanthorRoyalStable,
                 // Feraldis culture buildings
@@ -256,6 +283,9 @@ namespace TheWaningBorder.UI.Panels
                 "Feraldis_Longhouse" => BuildType.FeraldisLonghouse,
                 "Feraldis_Tower" => BuildType.FeraldisTotemTower,
                 "Feraldis_SiegeYard" => BuildType.FeraldisSiegeYard,
+                "Feraldis_WarTotem" => BuildType.FeraldisWarTotem,
+                "Feraldis_Pasture" => BuildType.FeraldisPasture,
+                "Mine" => BuildType.Mine,
                 _ => BuildType.Hut
             };
 
@@ -421,6 +451,13 @@ namespace TheWaningBorder.UI.Panels
 
             var id = BuildId(_currentBuild);
 
+            // Choice buildings are placed from the top-bar buttons, which can
+            // be clicked with anything (or nothing) selected — the selection-
+            // derived faction is not trustworthy for them. They always belong
+            // to the local player.
+            if (BuildingFactory.IsChoiceBuilding(id))
+                fac = GameSettings.LocalPlayerFaction;
+
             // Block trading post if faction already has 10
             if (id == "Runai_TradingPost")
             {
@@ -470,6 +507,28 @@ namespace TheWaningBorder.UI.Panels
                     PlayerNotificationSystem.Notify("Already have a choice building");
                     return;
                 }
+            }
+
+            // Alanthor territorial rule — runtime guard behind the preview
+            // validity check (design 2026-07-06).
+            if (!MeetsInfluenceRequirement(fac, pos, id))
+            {
+                PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                return;
+            }
+
+            // Feraldis blood rule — runtime guard behind the preview check.
+            if (!MeetsBloodRequirement(pos, id))
+            {
+                PlayerNotificationSystem.NotifyError("War Totems must be planted on blood");
+                return;
+            }
+
+            // Mine patch rule — runtime guard behind the preview check.
+            if (!MeetsPatchRequirement(_em, pos, id))
+            {
+                PlayerNotificationSystem.NotifyError("Mines must be built next to iron or veilstone");
+                return;
             }
 
             if (!BuildCosts.TryGet(id, out var cost)) cost = default;
@@ -540,6 +599,76 @@ namespace TheWaningBorder.UI.Panels
             }
         }
 
+        /// <summary>
+        /// Alanthor factions may only place buildings inside their own
+        /// influence border — own channel ≥ 0.5 on the influence map
+        /// (docs/Design/Overview.md § The influence map). Every other
+        /// culture (and pre-culture Age 0) is unrestricted.
+        /// Exempt: Gatherer's Huts (grant no influence, harvest anywhere)
+        /// and Watch Towers (forward claims — they PROJECT influence into
+        /// new ground).
+        /// </summary>
+        private static bool MeetsInfluenceRequirement(Faction fac, float3 pos, string buildingId)
+        {
+            if (buildingId == "GatherersHut" || buildingId == "Alanthor_Tower") return true;
+            if (FactionColors.GetFactionCulture(fac) != Cultures.Alanthor) return true;
+            return TheWaningBorder.Influence.PlayerInfluenceMap.ChannelStrengthWorld(
+                (int)fac, pos.x, pos.z) >= 0.5f;
+        }
+
+        /// <summary>
+        /// Feraldis War Totems may only be planted ON BLOOD — the culture
+        /// claims ground it has bled on (docs/Design/Age_1_Feraldis.md).
+        /// Every other building, and every other culture, is unaffected.
+        /// </summary>
+        private static bool MeetsBloodRequirement(float3 pos, string buildingId)
+        {
+            if (buildingId != "Feraldis_WarTotem") return true;
+            return TheWaningBorder.Influence.BloodMap.SampleWorld(pos.x, pos.z)
+                >= TheWaningBorder.Core.Config.FeraldisConstants.TotemPlacementBloodThreshold;
+        }
+
+        private static readonly ComponentType[] MineIronTypes =
+        {
+            ComponentType.ReadOnly<IronMineTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        private static readonly ComponentType[] MineVeilTypes =
+        {
+            ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery _mineIronQuery;
+        private static TheWaningBorder.Core.CachedEntityQuery _mineVeilQuery;
+
+        /// <summary>
+        /// A Mine may only be placed ON a patch — at least one iron or
+        /// veilstone node within its working radius. Without the gate the
+        /// building would be placeable anywhere and simply earn nothing,
+        /// which reads as broken rather than as a rule.
+        /// </summary>
+        private static bool MeetsPatchRequirement(EntityManager em, float3 pos, string buildingId)
+        {
+            if (buildingId != "Mine") return true;
+            float r2 = TheWaningBorder.Systems.Economy.MineConstants.PatchRadius
+                     * TheWaningBorder.Systems.Economy.MineConstants.PatchRadius;
+            return AnyNodeWithin(em, _mineIronQuery.Get(em, MineIronTypes), pos, r2)
+                || AnyNodeWithin(em, _mineVeilQuery.Get(em, MineVeilTypes), pos, r2);
+        }
+
+        private static bool AnyNodeWithin(EntityManager em, EntityQuery q, float3 pos, float r2)
+        {
+            using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(
+                Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                float dx = xfs[i].Position.x - pos.x;
+                float dz = xfs[i].Position.z - pos.z;
+                if (dx * dx + dz * dz <= r2) return true;
+            }
+            return false;
+        }
+
         private Faction GetSelectedFactionOrDefault()
         {
             var sel = SelectionSystem.CurrentSelection;
@@ -558,7 +687,7 @@ namespace TheWaningBorder.UI.Panels
             BuildType.GatherersHut => "GatherersHut",
             BuildType.Barracks => "Barracks",
             BuildType.ArcheryRange => "ArcheryRange",
-            BuildType.Shrine => "ShrineOfAhridan",
+            BuildType.Shrine => "ShrineOfRidan",
             BuildType.Temple => "TempleOfRidan",
             BuildType.Vault => "VaultOfAlmierra",
             BuildType.Keep => "FiendstoneKeep",
@@ -573,7 +702,6 @@ namespace TheWaningBorder.UI.Panels
             BuildType.RunaiSiegeWorkshop => "Runai_SiegeWorkshop",
             // Alanthor culture buildings
             BuildType.AlanthorWatchTower => "Alanthor_Tower",
-            BuildType.AlanthorPracticeRange => "Alanthor_PracticeRange",
             BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
             BuildType.AlanthorRoyalStable => "Alanthor_RoyalStable",
             // Feraldis culture buildings
@@ -582,6 +710,9 @@ namespace TheWaningBorder.UI.Panels
             BuildType.FeraldisLonghouse => "Feraldis_Longhouse",
             BuildType.FeraldisTotemTower => "Feraldis_Tower",
             BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
+            BuildType.FeraldisWarTotem => "Feraldis_WarTotem",
+            BuildType.FeraldisPasture => "Feraldis_Pasture",
+            BuildType.Mine => "Mine",
             _ => "Hut"
         };
 
@@ -660,7 +791,6 @@ namespace TheWaningBorder.UI.Panels
             BuildType.RunaiBazaar => 352,
             BuildType.RunaiSiegeWorkshop => 353,
             BuildType.AlanthorWatchTower => 354,
-            BuildType.AlanthorPracticeRange => 355,
             BuildType.AlanthorSiegeYard => 357,
             BuildType.AlanthorRoyalStable => 356,
             BuildType.FeraldisHuntingLodge => 358,
@@ -668,6 +798,9 @@ namespace TheWaningBorder.UI.Panels
             BuildType.FeraldisLonghouse => 360,
             BuildType.FeraldisTotemTower => 361,
             BuildType.FeraldisSiegeYard => 362,
+            BuildType.FeraldisWarTotem => TheWaningBorder.Entities.WarTotem.PresentationID,
+            BuildType.FeraldisPasture => TheWaningBorder.Entities.Pasture.PresentationID,
+            BuildType.Mine => TheWaningBorder.Entities.Mine.PresentationID,
             _ => 102
         };
 
@@ -687,6 +820,14 @@ namespace TheWaningBorder.UI.Panels
         {
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
             var fac = GetSelectedFactionOrDefault();
+
+            // Alanthor territorial rule applies to wall hubs too — walls grow
+            // the border from inside it, one influence-covered hop at a time.
+            if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
+            {
+                PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                return;
+            }
 
             if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
             if (!FactionEconomy.Spend(_em, fac, cost))
@@ -745,6 +886,15 @@ namespace TheWaningBorder.UI.Panels
             }
             else
             {
+                // Alanthor territorial rule — the NEW hub must sit inside the
+                // current border; hub influence (r18) covers the next hop.
+                if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
+                {
+                    PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                    _wallExtendSourceHub = Entity.Null;
+                    return;
+                }
+
                 if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
                 if (!FactionEconomy.Spend(_em, fac, cost))
                 {
@@ -815,10 +965,7 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         private Entity FindNearestHubForSnap(float3 pos, Faction fac, Entity exclude)
         {
-            var q = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<WallHubTag>(),
-                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var q = _hubSnapQuery.Get(_em, HubSnapQueryTypes);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             Entity best = Entity.Null;
             float bestSq = HubSnapRadius * HubSnapRadius;
@@ -839,7 +986,7 @@ namespace TheWaningBorder.UI.Panels
         /// Enter hub-anchored placement mode for the per-hub "Build Wall"
         /// action. The next LMB click drops a new hub at the cursor plus a
         /// segment connecting back to <paramref name="sourceHub"/>; both
-        /// self-build in 30s. Called from HudBridge when the action button
+        /// self-build in 30s. Called by HUD action buttons when the button
         /// fires on a selected wall hub.
         /// </summary>
         public static void TriggerHubBuildWall(Entity sourceHub)

@@ -69,7 +69,7 @@ namespace TheWaningBorder.Systems.Work
                         var refund = Cost.Of(
                             supplies: (int)(cost.Supplies * RefundMultiplier),
                             iron: (int)(cost.Iron * RefundMultiplier),
-                            crystal: (int)(cost.Crystal * RefundMultiplier),
+                            veilstone: (int)(cost.Veilstone * RefundMultiplier),
                             veilsteel: (int)(cost.Veilsteel * RefundMultiplier),
                             glow: (int)(cost.Glow * RefundMultiplier) + glowSalvage
                         );

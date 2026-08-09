@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &51833813586920697
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 30844782945386463}
+  - component: {fileID: 260778376478832056}
+  m_Layer: 0
+  m_Name: Sect_War
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &30844782945386463
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 51833813586920697}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &260778376478832056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 51833813586920697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3a159d455142f09d651e9ba728a446, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  spellId: Sect_War
+  displayName: 'Sect: War'
+  activation: 0
+  cooldown: 75
+  castTime: 0
+  hpThreshold: 0
+  shape: 2
+  affects: 1
+  range: 0
+  radius: 8
+  duration: 8
+  effects:
+  - kind: 6
+    value: 1.3
+    duration: 8
+  powerUpPrefab: {fileID: 0}
+  powerUpTint: 0
+  powerUpColor: {r: 1, g: 1, b: 1, a: 1}
+  powerUpSpeed: 1
+  castPrefab: {fileID: 171002, guid: 41be897dec812d64b891cce342163382, type: 3}
+  castTint: 0
+  castColor: {r: 1, g: 0.43137255, b: 0.23529412, a: 1}
+  castSpeed: 1
+  circlePrefab: {fileID: 4890711802313254141, guid: e5c6bdcd1b1e8124488ffbc2209a064f, type: 3}
+  circleTint: 1
+  circleColor: {r: 1, g: 0.43137255, b: 0.23529412, a: 1}
+  circleSpeed: 1
+  previewInEditor: 1
+  previewInterval: 4

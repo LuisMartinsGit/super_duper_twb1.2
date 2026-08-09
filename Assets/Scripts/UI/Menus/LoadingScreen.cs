@@ -113,6 +113,14 @@ namespace TheWaningBorder.UI.Menus
         /// </summary>
         public static bool IsActive => _instance != null && !_instance._fadingOut;
 
+        /// <summary>
+        /// True while ANY part of the loading screen is still on screen,
+        /// including the fade-out. The simulation is held paused until this
+        /// goes false (2026-08-04: "game should start paused until the
+        /// loading screen completely vanishes").
+        /// </summary>
+        public static bool IsVisible => _instance != null;
+
         void Awake()
         {
             // Same background texture as MainMenuUI for visual continuity.
@@ -189,6 +197,12 @@ namespace TheWaningBorder.UI.Menus
 
         void Update()
         {
+            // HOLD THE SIM PAUSED while any of the overlay is on screen —
+            // the match must not tick (AI, curse, income, camera-blind
+            // opening seconds) before the player can actually see it.
+            // Re-stamped every frame so nothing else can un-pause early.
+            Time.timeScale = 0f;
+
             // Tip cycling — only when at least 2 tips exist (so a single
             // tip doesn't fade in and out every TipCycleSeconds).
             if (_tips.Count >= 2)
@@ -206,13 +220,24 @@ namespace TheWaningBorder.UI.Menus
 
             if (_fadingOut)
             {
-                _alpha -= Time.deltaTime * _fadeSpeed;
+                // UNSCALED time — the fade must progress while the sim is
+                // paused (scaled dt is 0 here) or the pause never lifts.
+                _alpha -= Time.unscaledDeltaTime * _fadeSpeed;
                 if (_alpha <= 0f)
                 {
                     _instance = null;
                     Destroy(gameObject);
                 }
             }
+        }
+
+        void OnDestroy()
+        {
+            // The pause lifts the moment the overlay is completely gone —
+            // and on ANY destruction path, so a scene teardown can never
+            // strand the game frozen.
+            if (_instance == this) _instance = null;
+            Time.timeScale = 1f;
         }
 
         void OnGUI()

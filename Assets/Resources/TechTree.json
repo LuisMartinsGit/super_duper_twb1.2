@@ -3,10 +3,9 @@
     "version": "0.6",
     "resources": [
         "Supplies",
-        "Crystal",
+        "Veilstone",
         "Iron",
-        "Veilsteel",
-        "Glow"
+        "Veilsteel"
     ],
     "maxEra": 5,
     "combatProfile": {
@@ -79,11 +78,12 @@
     "evolution": {
         "toEra2": {
             "cost": {
-                "Supplies": 1000,
-                "Iron": 200,
-                "Crystal": 150
+                "Supplies": 700,
+                "Iron": 140,
+                "Veilstone": 105
             },
             "requiresOneOfBuildings": [
+                "ShrineOfRidan",
                 "TempleOfRidan",
                 "FiendstoneKeep",
                 "VaultOfAlmierra"
@@ -119,13 +119,12 @@
                     },
                     "lineOfSight": 24,
                     "trains": [
-                        "Builder",
+                        "Worker",
                         "Scout"
                     ],
                     "research": [
                         "Research_Era2",
-                        "ImprovedTools",
-                        "StorageCarts"
+                        "StoneTools"
                     ],
                     "cost": {
                         "Supplies": 0
@@ -151,8 +150,11 @@
                     "provides": {
                         "population": 10
                     },
+                    "research": [
+                        "RetaliatoryMeasures"
+                    ],
                     "cost": {
-                        "Supplies": 50
+                        "Supplies": 80
                     }
                 },
                 {
@@ -173,10 +175,22 @@
                         "suppliesPerMinute": 60,
                         "radius": 12
                     },
+                    "research": [
+                        "IronSurveying1",
+                        "IronSurveying2",
+                        "IronSurveying3",
+                        "VeilstoneSurvey1",
+                        "VeilstoneSurvey2",
+                        "VeilsteelSurvey",
+                        "IronReinforcements",
+                        "VeilstoneWalls",
+                        "VeilsteelPylons"
+                    ],
                     "cost": {
-                        "Supplies": 120
+                        "Supplies": 120,
+                        "Iron": 10
                     },
-                    "notes": "Auto-despawns 2 min after advancing to Era 2 (except Feraldis)."
+                    "notes": "Alanthor Guild line: resource Surveys + defensive reinforcements. (DeepGathering removed 2026-08-04 — the Surveys are the only hut drips.)"
                 },
                 {
                     "id": "Barracks",
@@ -196,8 +210,8 @@
                         "Alanthor_Sentinel"
                     ],
                     "research": [
-                        "BasicDrills",
-                        "WoodenArmor"
+                        "Conscription",
+                        "StoneWeapons"
                     ],
                     "cost": {
                         "Supplies": 150,
@@ -222,7 +236,10 @@
                         "Crossbowman",
                         "Longbowman"
                     ],
-                    "research": [],
+                    "research": [
+                        "StoneTippedArrows",
+                        "Fletching"
+                    ],
                     "cost": {
                         "Supplies": 150,
                         "Iron": 60
@@ -248,8 +265,8 @@
                     "minEra": 1,
                     "maxEra": 5,
                     "cost": {
-                        "Supplies": 300,
-                        "Crystal": 100
+                        "Supplies": 210,
+                        "Veilstone": 70
                     },
                     "passive": {
                         "sectPointsOnBuild": 1
@@ -277,15 +294,23 @@
                         "deposits": true,
                         "interestRatePctPerMin": 3
                     },
+                    "research": [
+                        "Coffers",
+                        "MerchantCharters",
+                        "SovereignBonds",
+                        "IronSubsidies",
+                        "VeilstoneMonetization",
+                        "VeilsteelBonds"
+                    ],
                     "cost": {
-                        "Supplies": 300,
-                        "Crystal": 100
+                        "Supplies": 210,
+                        "Veilstone": 70
                     }
                 }
             ],
             "units": [
                 {
-                    "id": "Builder",
+                    "id": "Worker",
                     "name": "Worker",
                     "class": "human_support",
                     "hp": 60,
@@ -303,31 +328,6 @@
                     "lineOfSight": 14,
                     "buildSpeed": 1.0,
                     "gatheringSpeed": 1.0,
-                    "attackRange": 1.0,
-                    "minAttackRange": 0.0,
-                    "cost": {
-                        "Supplies": 50
-                    },
-                    "popCost": 1
-                },
-                {
-                    "id": "Miner",
-                    "class": "human_support",
-                    "hp": 70,
-                    "speed": 6.0,
-                    "trainingTime": 5.0,
-                    "armorType": "infantry_light",
-                    "damage": 2,
-                    "damageType": "melee",
-                    "defense": {
-                        "melee": 0,
-                        "ranged": 0,
-                        "siege": 0,
-                        "magic": 0
-                    },
-                    "lineOfSight": 14,
-                    "gatheringSpeed": 1.0,
-                    "carryCapacity": 1,
                     "attackRange": 1.0,
                     "minAttackRange": 0.0,
                     "cost": {
@@ -493,7 +493,7 @@
                     "cost": {
                         "Supplies": 100,
                         "Iron": 25,
-                        "Crystal": 10
+                        "Veilstone": 10
                     },
                     "popCost": 1
                 }
@@ -504,13 +504,14 @@
                     "name": "Advance to Era II",
                     "effect": "Unlocks cultural choice (Runai, Feraldis, Alanthor). Starts 2-minute auto-despawn on all Gatherer's Huts (except Feraldis).",
                     "cost": {
-                        "Supplies": 1000,
-                        "Iron": 200,
-                        "Crystal": 150
+                        "Supplies": 700,
+                        "Iron": 140,
+                        "Veilstone": 105
                     },
                     "researchAt": "Hall",
                     "prereq": {
                         "requiresOneOfBuildings": [
+                            "ShrineOfRidan",
                             "TempleOfRidan",
                             "FiendstoneKeep",
                             "VaultOfAlmierra"
@@ -518,10 +519,166 @@
                     }
                 },
                 {
-                    "id": "ImprovedTools",
-                    "name": "Improved Tools",
+                    "id": "IronSurveying1",
+                    "name": "Iron Surveying I",
                     "role": "Economy",
-                    "desc": "Upgrades villager tools to improve gathering speed.",
+                    "desc": "Alanthor Guild. Faction-wide: every Gatherer's Hut also generates Iron (+12/min, doubled inside your influence border).",
+                    "cost": { "Supplies": 120, "Iron": 60 },
+                    "researchTime": 35,
+                    "researchAt": "GatherersHut"
+                },
+                {
+                    "id": "IronSurveying2",
+                    "name": "Iron Survey II",
+                    "role": "Economy",
+                    "desc": "Alanthor Guild. Raises Gatherer's Hut Iron output to +24/min.",
+                    "cost": { "Supplies": 200, "Iron": 120 },
+                    "researchTime": 40,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "IronSurveying1" ]
+                },
+                {
+                    "id": "IronSurveying3",
+                    "name": "Iron Survey III",
+                    "role": "Economy",
+                    "desc": "Alanthor Guild. Raises Gatherer's Hut Iron output to +42/min.",
+                    "cost": { "Supplies": 300, "Iron": 180 },
+                    "researchTime": 45,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "IronSurveying2" ]
+                },
+                {
+                    "id": "VeilstoneSurvey1",
+                    "name": "Veilstone Survey I",
+                    "role": "Economy",
+                    "desc": "Alanthor Guild. Faction-wide: Gatherer's Huts also generate Veilstone (+6/min).",
+                    "cost": { "Supplies": 200, "Iron": 80, "Veilstone": 60 },
+                    "researchTime": 40,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "IronSurveying1" ]
+                },
+                {
+                    "id": "VeilstoneSurvey2",
+                    "name": "Veilstone Survey II",
+                    "role": "Economy",
+                    "desc": "Alanthor Guild. Raises Gatherer's Hut Veilstone output to +18/min.",
+                    "cost": { "Supplies": 300, "Iron": 120, "Veilstone": 120 },
+                    "researchTime": 45,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "VeilstoneSurvey1" ]
+                },
+                {
+                    "id": "VeilsteelSurvey",
+                    "name": "Veilsteel Survey",
+                    "role": "Economy",
+                    "desc": "Alanthor Guild. Faction-wide: Gatherer's Huts also generate a slow trickle of Veilsteel (+6/min).",
+                    "cost": { "Supplies": 300, "Veilstone": 100, "Veilsteel": 60 },
+                    "researchTime": 50,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "VeilstoneSurvey2" ]
+                },
+                {
+                    "id": "Raiding1",
+                    "name": "Raiding I",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Plunderers carry off 60% more from the players they raid.",
+                    "cost": { "Supplies": 160 },
+                    "researchTime": 30,
+                    "researchAt": "GatherersHut"
+                },
+                {
+                    "id": "Raiding2",
+                    "name": "Raiding II",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Raises the Plunderer take to 2.4x.",
+                    "cost": { "Supplies": 300 },
+                    "researchTime": 40,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "Raiding1" ]
+                },
+                {
+                    "id": "Raiding3",
+                    "name": "Raiding III",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Raises the Plunderer take to 3.4x.",
+                    "cost": { "Supplies": 480 },
+                    "researchTime": 45,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "Raiding2" ]
+                },
+                {
+                    "id": "IronPlunder",
+                    "name": "Iron Plunder",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Plunderers also strip Iron from the players they raid.",
+                    "cost": { "Supplies": 260 },
+                    "researchTime": 35,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "Raiding1" ]
+                },
+                {
+                    "id": "VeilstonePlunder",
+                    "name": "Veilstone Plunder",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Plunderers also strip Veilstone from the players they raid.",
+                    "cost": { "Supplies": 260, "Iron": 110, "Veilstone": 80 },
+                    "researchTime": 40,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "IronPlunder" ]
+                },
+                {
+                    "id": "VeilsteelPlunder",
+                    "name": "Veilsteel Plunder",
+                    "role": "Economy",
+                    "desc": "Feraldis Raider Camp. Plunderers strip a slow trickle of Veilsteel from the players they raid.",
+                    "cost": { "Supplies": 320, "Veilstone": 120, "Veilsteel": 60 },
+                    "researchTime": 50,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "VeilstonePlunder" ]
+                },
+                {
+                    "id": "IronReinforcements",
+                    "name": "Iron reinforcements",
+                    "role": "Defense",
+                    "desc": "Alanthor Guild. Gatherer's Huts auto-repair after 10s without taking damage (5 HP/s out of combat). (behaviour-by-id)",
+                    "cost": { "Supplies": 150, "Iron": 80 },
+                    "researchTime": 30,
+                    "researchAt": "GatherersHut"
+                },
+                {
+                    "id": "VeilstoneWalls",
+                    "name": "Veilstone walls",
+                    "role": "Defense",
+                    "desc": "Alanthor Guild. Below 50% HP a Gatherer's Hut casts a Slow burst on nearby enemies (-50% speed for 7.5s, 90s cooldown); also speeds up auto-repair (10 HP/s). (behaviour-by-id)",
+                    "cost": { "Supplies": 240, "Iron": 100, "Veilstone": 80 },
+                    "researchTime": 40,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "IronReinforcements" ]
+                },
+                {
+                    "id": "VeilsteelPylons",
+                    "name": "Veilsteel Pylons",
+                    "role": "Defense",
+                    "desc": "Alanthor Guild. Upgrades the low-HP defensive cast from Slow to Stop (-100% speed for 10s, 90s cooldown); further speeds up auto-repair (20 HP/s). (behaviour-by-id)",
+                    "cost": { "Supplies": 300, "Iron": 120, "Veilsteel": 100 },
+                    "researchTime": 50,
+                    "researchAt": "GatherersHut",
+                    "requires": [ "VeilstoneWalls" ]
+                },
+                {
+                    "id": "RetaliatoryMeasures",
+                    "name": "Retaliatory measures",
+                    "role": "Defense",
+                    "desc": "Alanthor. Houses fight back: gain an auto-fire arrow attack (12 dmg, range 14). (behaviour-by-id)",
+                    "cost": { "Supplies": 200, "Iron": 80 },
+                    "researchTime": 35,
+                    "researchAt": "Hut"
+                },
+                {
+                    "id": "StoneTools",
+                    "name": "Stone Tools",
+                    "role": "Economy",
+                    "desc": "Upgrades worker tools to improve gathering speed.",
                     "cost": {
                         "Supplies": 80,
                         "Iron": 40
@@ -530,53 +687,313 @@
                     "researchAt": "Hall",
                     "effects": {
                         "gatherSpeedMult": 1.15
-                    },
-                    "requires": [
-                        "Hall"
-                    ]
-                },
-                {
-                    "id": "StorageCarts",
-                    "name": "Storage Carts",
-                    "role": "Logistics",
-                    "desc": "Increases carry capacity for gatherers and builders.",
-                    "cost": {
-                        "Supplies": 90
-                    },
-                    "researchTime": 25,
-                    "researchAt": "Hall",
-                    "effects": {
-                        "carryCapacityBonus": 10
                     }
                 },
                 {
-                    "id": "BasicDrills",
-                    "name": "Basic Drills",
+                    "id": "IronTools",
+                    "name": "Iron Tools",
+                    "role": "Economy",
+                    "desc": "Tool tier 2 — Alanthor. Improves gathering speed.",
+                    "cost": { "Supplies": 150, "Iron": 80 },
+                    "researchTime": 40,
+                    "researchAt": "Hall",
+                    "effects": { "gatherSpeedMult": 1.15 }
+                },
+                {
+                    "id": "VeilstoneTools",
+                    "name": "Veilstone Tools",
+                    "role": "Economy",
+                    "desc": "Tool tier 3 — Alanthor. Improves gathering speed.",
+                    "cost": { "Iron": 120, "Veilstone": 100 },
+                    "researchTime": 45,
+                    "researchAt": "Hall",
+                    "effects": { "gatherSpeedMult": 1.15 }
+                },
+                {
+                    "id": "VeilsteelTools",
+                    "name": "Veilsteel Tools",
+                    "role": "Economy",
+                    "desc": "Tool tier 4 — Alanthor. Improves gathering speed.",
+                    "cost": { "Veilstone": 100, "Veilsteel": 80 },
+                    "researchTime": 50,
+                    "researchAt": "Hall",
+                    "effects": { "gatherSpeedMult": 1.20 }
+                },
+                {
+                    "id": "MasonGuild",
+                    "name": "Mason Guild",
+                    "role": "Defense",
+                    "desc": "Alanthor. +30% HP on all your buildings (behaviour-by-id).",
+                    "cost": { "Supplies": 180, "Iron": 40 },
+                    "researchTime": 35,
+                    "researchAt": "Hall"
+                },
+                {
+                    "id": "ScoutingCelestarii",
+                    "name": "Scouting Celestarii",
+                    "role": "Utility",
+                    "desc": "Unlocks the Use Celestar reveal ability on Scouts and restores full Scout vision: settled max LOS and sight-ramp speed return to 100 percent (behaviour-by-id).",
+                    "cost": { "Supplies": 120, "Iron": 30 },
+                    "researchTime": 30,
+                    "researchAt": "Hall"
+                },
+                {
+                    "id": "ArmedScouts",
+                    "name": "Armed Scouts",
+                    "role": "Military Offense",
+                    "desc": "Arms your Scouts with blades: Scouts gain their melee attack. Until researched Scouts are vision-only (behaviour-by-id).",
+                    "cost": { "Supplies": 90, "Iron": 30 },
+                    "researchTime": 30,
+                    "researchAt": "Hall"
+                },
+                {
+                    "id": "Conscription",
+                    "name": "Conscription",
                     "role": "Military Training",
-                    "desc": "Increases melee unit attack speed and discipline.",
+                    "desc": "Standing levies train 20 percent faster at the Barracks.",
                     "cost": {
                         "Supplies": 100,
                         "Iron": 40
                     },
                     "researchTime": 35,
-                    "researchAt": "Barracks",
-                    "effects": {
-                        "meleeAttackSpeedMult": 1.1
-                    }
+                    "researchAt": "Barracks"
                 },
                 {
-                    "id": "WoodenArmor",
-                    "name": "Wooden Armor",
-                    "role": "Military Defense",
-                    "desc": "Simple plated bark and cloth padding improve survivability.",
+                    "id": "StoneWeapons",
+                    "name": "Stone Weapons",
+                    "role": "Military Offense",
+                    "desc": "Knapped stone heads harden the line: melee units gain +2 damage. (Interim faction-wide bump until per-battalion upgrades ship.)",
                     "cost": {
                         "Supplies": 80
                     },
                     "researchTime": 25,
                     "researchAt": "Barracks",
                     "effects": {
-                        "meleeDefenseAdd": 1
+                        "meleeDamageAdd": 2
                     }
+                },
+                {
+                    "id": "StoneTippedArrows",
+                    "name": "Stone-Tipped Arrows",
+                    "role": "Military Offense",
+                    "desc": "Weighted stone tips: ranged units gain +2 damage. (Interim faction-wide bump until per-battalion upgrades ship.)",
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 20
+                    },
+                    "researchTime": 25,
+                    "researchAt": "ArcheryRange",
+                    "effects": {
+                        "rangedDamageAdd": 2
+                    }
+                },
+                {
+                    "id": "Fletching",
+                    "name": "Fletching",
+                    "role": "Military Offense",
+                    "desc": "Improved arrow flight: +15 percent attack range for Archers.",
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 30
+                    },
+                    "researchTime": 30,
+                    "researchAt": "ArcheryRange",
+                    "effects": {
+                        "archerRangeMult": 1.15
+                    }
+                },
+                {
+                    "id": "Coffers",
+                    "name": "Coffers",
+                    "role": "Banking",
+                    "desc": "Safe storage: Vault interest rises to 50 percent per minute.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 40
+                    },
+                    "researchTime": 30,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "MerchantCharters",
+                    "name": "Merchant Charters",
+                    "role": "Banking",
+                    "desc": "Active credit: Vault interest rises to 75 percent per minute.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 80
+                    },
+                    "researchTime": 35,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "SovereignBonds",
+                    "name": "Sovereign Bonds",
+                    "role": "Banking",
+                    "desc": "High-stakes investment: Vault interest rises to 100 percent per minute.",
+                    "cost": {
+                        "Supplies": 250,
+                        "Iron": 120
+                    },
+                    "researchTime": 40,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "IronSubsidies",
+                    "name": "Iron Subsidies",
+                    "role": "Banking",
+                    "desc": "Unlocks Iron banking: Iron can be deposited in the Vault.",
+                    "cost": {
+                        "Supplies": 180,
+                        "Iron": 80
+                    },
+                    "researchTime": 35,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "VeilstoneMonetization",
+                    "name": "Veilstone Monetization",
+                    "role": "Banking",
+                    "desc": "Unlocks Veilstone banking: Veilstone can be deposited in the Vault.",
+                    "cost": {
+                        "Supplies": 220,
+                        "Iron": 100,
+                        "Veilstone": 40
+                    },
+                    "researchTime": 40,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "VeilsteelBonds",
+                    "name": "Veilsteel Bonds",
+                    "role": "Banking",
+                    "desc": "Unlocks Veilsteel banking: Veilsteel can be deposited in the Vault.",
+                    "cost": {
+                        "Supplies": 300,
+                        "Iron": 120,
+                        "Veilstone": 60
+                    },
+                    "researchTime": 50,
+                    "researchAt": "VaultOfAlmierra"
+                },
+                {
+                    "id": "HeightenedMasses",
+                    "name": "Heightened Masses",
+                    "role": "Religion",
+                    "desc": "Shrine healing aura rises from 1 to 3 percent of Max HP per second.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Veilstone": 40
+                    },
+                    "researchTime": 30,
+                    "researchAt": "ShrineOfRidan"
+                },
+                {
+                    "id": "WarriorPriests",
+                    "name": "Warrior Priests",
+                    "role": "Religion",
+                    "desc": "Litharchs take up arms: gain a melee attack (6 damage every 1.5 seconds).",
+                    "cost": {
+                        "Supplies": 180,
+                        "Iron": 50,
+                        "Veilstone": 20
+                    },
+                    "researchTime": 35,
+                    "researchAt": "ShrineOfRidan"
+                },
+                {
+                    "id": "PiousMasses",
+                    "name": "Pious Masses",
+                    "role": "Religion",
+                    "desc": "Shrine healing aura rises from 3 to 6 percent of Max HP per second.",
+                    "cost": {
+                        "Supplies": 220,
+                        "Veilstone": 80
+                    },
+                    "researchTime": 40,
+                    "researchAt": "ShrineOfRidan",
+                    "requires": [
+                        "HeightenedMasses"
+                    ]
+                },
+                {
+                    "id": "FervoredMasses",
+                    "name": "Fervored Masses",
+                    "role": "Religion",
+                    "desc": "Shrine healing aura rises from 6 to 15 percent of Max HP per second.",
+                    "cost": {
+                        "Supplies": 320,
+                        "Veilstone": 120
+                    },
+                    "researchTime": 50,
+                    "researchAt": "ShrineOfRidan",
+                    "requires": [
+                        "PiousMasses"
+                    ]
+                },
+                {
+                    "id": "BallistaEmplacement",
+                    "name": "Ballista Emplacement",
+                    "role": "Fortification",
+                    "desc": "The Keep's auto-fire gains an extra single-target ballista bolt (18 siege damage) each volley.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 80
+                    },
+                    "researchTime": 35,
+                    "researchAt": "FiendstoneKeep"
+                },
+                {
+                    "id": "TrebuchetEmplacement",
+                    "name": "Trebuchet Emplacement",
+                    "role": "Fortification",
+                    "desc": "The Keep's auto-fire gains an arcing trebuchet shot (36 siege damage, splash) each volley.",
+                    "cost": {
+                        "Supplies": 300,
+                        "Iron": 140,
+                        "Veilstone": 50
+                    },
+                    "researchTime": 45,
+                    "researchAt": "FiendstoneKeep",
+                    "requires": [
+                        "BallistaEmplacement"
+                    ]
+                },
+                {
+                    "id": "AdditionalTowers",
+                    "name": "Additional Towers",
+                    "role": "Fortification",
+                    "desc": "The Keep's auto-fire strikes two additional targets per volley.",
+                    "cost": {
+                        "Supplies": 240,
+                        "Iron": 80
+                    },
+                    "researchTime": 35,
+                    "researchAt": "FiendstoneKeep"
+                },
+                {
+                    "id": "ReinforcedWalls",
+                    "name": "Reinforced Walls",
+                    "role": "Fortification",
+                    "desc": "The Keep's hull is reinforced: +20 percent Max HP.",
+                    "cost": {
+                        "Supplies": 180,
+                        "Iron": 60
+                    },
+                    "researchTime": 30,
+                    "researchAt": "FiendstoneKeep"
+                },
+                {
+                    "id": "ChoreographedVolleys",
+                    "name": "Choreographed Volleys",
+                    "role": "Military",
+                    "desc": "Active skill: doubles the fire rate of all Archers for 5 s. 40 s cooldown. Faction-wide, triggered from the Archery Range panel.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 30
+                    },
+                    "researchTime": 35,
+                    "researchAt": "ArcheryRange"
                 }
             ]
         },
@@ -718,7 +1135,7 @@
                             "cost": {
                                 "Supplies": 1500,
                                 "Iron": 250,
-                                "Crystal": 200
+                                "Veilstone": 200
                             }
                         },
                         {
@@ -738,14 +1155,14 @@
                                 "craftsVeilsteel": true,
                                 "inputs": [
                                     "Iron",
-                                    "Crystal"
+                                    "Veilstone"
                                 ],
                                 "lossFactorPct": 20
                             },
                             "cost": {
                                 "Supplies": 450,
                                 "Iron": 120,
-                                "Crystal": 100
+                                "Veilstone": 100
                             }
                         },
                         {
@@ -767,7 +1184,7 @@
                             "cost": {
                                 "Supplies": 320,
                                 "Iron": 140,
-                                "Crystal": 60
+                                "Veilstone": 60
                             }
                         }
                     ],
@@ -795,7 +1212,7 @@
                             "cost": {
                                 "Supplies": 110,
                                 "Iron": 30,
-                                "Crystal": 25
+                                "Veilstone": 25
                             }
                         },
                         {
@@ -821,7 +1238,7 @@
                             "cost": {
                                 "Supplies": 95,
                                 "Iron": 50,
-                                "Crystal": 25
+                                "Veilstone": 25
                             }
                         },
                         {
@@ -846,7 +1263,7 @@
                             "cost": {
                                 "Supplies": 220,
                                 "Iron": 100,
-                                "Crystal": 50
+                                "Veilstone": 50
                             }
                         },
                         {
@@ -871,9 +1288,9 @@
                             ],
                             "cost": {
                                 "Supplies": 140,
-                                "Crystal": 50
+                                "Veilstone": 50
                             },
-                            "notes": "Channels Conversion ritual on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
+                            "notes": "Channels Conversion ritual on Active veilstone nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
                         },
                         {
                             "id": "Runai_SandBallista",
@@ -898,7 +1315,7 @@
                             "cost": {
                                 "Supplies": 260,
                                 "Iron": 120,
-                                "Crystal": 80
+                                "Veilstone": 80
                             }
                         },
                         {
@@ -972,7 +1389,7 @@
                             "cost": {
                                 "Supplies": 180,
                                 "Iron": 10,
-                                "Crystal": 10
+                                "Veilstone": 10
                             }
                         },
                         {
@@ -981,16 +1398,16 @@
                             "effect": "Trade Hubs spawn 2 uncontrollable escorts with each Caravan. Each active Caravan grants +2 population housing.",
                             "cost": {
                                 "Supplies": 160,
-                                "Crystal": 40
+                                "Veilstone": 40
                             }
                         },
                         {
-                            "id": "Runai_CrystalNeutrality",
+                            "id": "Runai_BorderNeutrality",
                             "researchedAt": "TradersHall",
-                            "effect": "Crystal-Curse waves aggro Runai units less often (-20% per tier, stacks to -60% at L3). Runai walks the cursed lands without provoking them.",
+                            "effect": "Veilstone-Border waves aggro Runai units less often (-20% per tier, stacks to -60% at L3). Runai walks the border lands without provoking them.",
                             "cost": {
                                 "Supplies": 200,
-                                "Crystal": 60
+                                "Veilstone": 60
                             }
                         }
                     ]
@@ -1014,9 +1431,15 @@
                         "aura": {
                             "trainSpeedMult": 1.25
                         },
+                        "research": [
+                            "BallistaEmplacement",
+                            "TrebuchetEmplacement",
+                            "AdditionalTowers",
+                            "ReinforcedWalls"
+                        ],
                         "cost": {
-                            "Supplies": 300,
-                            "Crystal": 100
+                            "Supplies": 210,
+                            "Veilstone": 70
                         }
                     },
                     "economy": {
@@ -1078,7 +1501,7 @@
                             "cost": {
                                 "Supplies": 200,
                                 "Iron": 80,
-                                "Crystal": 30
+                                "Veilstone": 30
                             }
                         },
                         {
@@ -1162,7 +1585,7 @@
                             "cost": {
                                 "Supplies": 260,
                                 "Iron": 120,
-                                "Crystal": 40
+                                "Veilstone": 40
                             }
                         }
                     ],
@@ -1211,7 +1634,7 @@
                             "cost": {
                                 "Supplies": 110,
                                 "Iron": 20,
-                                "Crystal": 20
+                                "Veilstone": 20
                             }
                         },
                         {
@@ -1234,7 +1657,7 @@
                             "cost": {
                                 "Supplies": 90,
                                 "Iron": 10,
-                                "Crystal": 20
+                                "Veilstone": 20
                             }
                         },
                         {
@@ -1257,7 +1680,7 @@
                             "cost": {
                                 "Supplies": 210,
                                 "Iron": 80,
-                                "Crystal": 40
+                                "Veilstone": 40
                             }
                         },
                         {
@@ -1280,7 +1703,7 @@
                             "cost": {
                                 "Supplies": 280,
                                 "Iron": 140,
-                                "Crystal": 70
+                                "Veilstone": 70
                             }
                         },
                         {
@@ -1306,10 +1729,10 @@
                             "cost": {
                                 "Supplies": 300,
                                 "Iron": 150,
-                                "Crystal": 100,
+                                "Veilstone": 100,
                                 "Veilsteel": 30
                             },
-                            "notes": "Refinement v2: ENABLER unit. Strips NodeUntargetable from crystal nodes within IconoclastAuraRadius — other units do the damage. Cannot attack."
+                            "notes": "Refinement v2: ENABLER unit. Strips NodeUntargetable from veilstone nodes within IconoclastAuraRadius — other units do the damage. Cannot attack."
                         }
                     ],
                     "tech": [
@@ -1448,31 +1871,6 @@
                             }
                         },
                         {
-                            "id": "Alanthor_PracticeRange",
-                            "name": "Practice Range",
-                            "role": "Train ranged infantry — Archers at L1, Crossbowmen at L2",
-                            "armorType": "structure_human",
-                            "baseDefense": {
-                                "melee": 2,
-                                "ranged": 2,
-                                "siege": 0,
-                                "magic": 0
-                            },
-                            "lineOfSight": 22,
-                            "trains": [
-                                "Archer",
-                                "Alanthor_Crossbowman"
-                            ],
-                            "garrison": {
-                                "slots": 6,
-                                "arrowFire": true
-                            },
-                            "cost": {
-                                "Supplies": 220,
-                                "Iron": 90
-                            }
-                        },
-                        {
                             "id": "Alanthor_SiegeYard",
                             "name": "Siege Yard",
                             "hp": 1300,
@@ -1486,18 +1884,18 @@
                             "lineOfSight": 20,
                             "role": "Train siege engines",
                             "trains": [
-                                "Alanthor_Ballista"
+                                "Alanthor_Catapult"
                             ],
                             "cost": {
                                 "Supplies": 260,
                                 "Iron": 100,
-                                "Crystal": 60
+                                "Veilstone": 60
                             }
                         },
                         {
                             "id": "Alanthor_Smelter",
                             "name": "Forge",
-                            "role": "Iron processing (later Veilsteel input)",
+                            "role": "Passively generates Veilsteel (limit 1)",
                             "hp": 1200,
                             "armorType": "structure_human",
                             "baseDefense": {
@@ -1508,28 +1906,9 @@
                             },
                             "lineOfSight": 18,
                             "cost": {
-                                "Supplies": 220,
-                                "Iron": 100
-                            }
-                        },
-                        {
-                            "id": "Alanthor_Crucible",
-                            "name": "Crucible",
-                            "role": "Veilsteel forging (Iron + Crystal)",
-                            "hp": 1200,
-                            "armorType": "structure_human",
-                            "baseDefense": {
-                                "melee": 1,
-                                "ranged": 1,
-                                "siege": 0,
-                                "magic": 0
-                            },
-                            "lineOfSight": 18,
-                            "lossFactorPct": 20,
-                            "cost": {
-                                "Supplies": 200,
-                                "Iron": 60,
-                                "Crystal": 40
+                                "Supplies": 800,
+                                "Iron": 400,
+                                "Veilstone": 100
                             }
                         },
                         {
@@ -1601,7 +1980,7 @@
                             "attackRange": 13.0,
                             "minAttackRange": 4.0,
                             "trainAt": [
-                                "Alanthor_PracticeRange"
+                                "ArcheryRange"
                             ],
                             "cost": {
                                 "Supplies": 70,
@@ -1632,33 +2011,35 @@
                             "cost": {
                                 "Supplies": 220,
                                 "Iron": 80,
-                                "Crystal": 40
+                                "Veilstone": 40
                             }
                         },
                         {
-                            "id": "Alanthor_Ballista",
+                            "id": "Alanthor_Catapult",
+                            "name": "Catapult",
                             "class": "machinery_siege",
                             "hp": 220,
                             "speed": 3.2,
                             "armorType": "ranged",
                             "damage": 40,
                             "damageType": "siege",
+                            "attackCooldown": 4.0,
                             "defense": {
                                 "melee": 0,
                                 "ranged": 1,
                                 "siege": 2,
                                 "magic": 0
                             },
-                            "lineOfSight": 26,
-                            "attackRange": 22.0,
-                            "minAttackRange": 6.0,
+                            "lineOfSight": 20,
+                            "attackRange": 30.0,
+                            "minAttackRange": 10.0,
                             "trainAt": [
                                 "Alanthor_SiegeYard"
                             ],
                             "cost": {
                                 "Supplies": 180,
                                 "Iron": 80,
-                                "Crystal": 40
+                                "Veilstone": 40
                             }
                         },
                         {
@@ -1684,17 +2065,17 @@
                             "cost": {
                                 "Supplies": 300,
                                 "Iron": 150,
-                                "Crystal": 100,
+                                "Veilstone": 100,
                                 "Veilsteel": 30
                             },
-                            "notes": "Channels Purification rituals on Active crystal nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Vulnerable — needs escort."
+                            "notes": "Channels Purification rituals on Active veilstone nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Vulnerable — needs escort."
                         }
                     ],
                     "tech": [
                         {
                             "id": "Alanthor_StoneLedgers",
                             "name": "Stone Ledgers",
-                            "effect": "Each closed wall compartment yields +8 Supplies per 10uÃ‚Â² area per minute.",
+                            "effect": "Each closed wall compartment yields +8 Supplies per 10u² area per minute.",
                             "researchedAt": "KingsCourt",
                             "cost": {
                                 "Supplies": 220,
@@ -1713,6 +2094,1691 @@
                         }
                     ]
                 }
+            ],
+            "technologies": [
+                {
+                    "id": "IronWeapons",
+                    "name": "Iron Weapons",
+                    "role": "Military",
+                    "desc": "Weapon tier 2: melee units deal +15% damage.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 200
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "StoneWeapons"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 15
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstoneWeapons",
+                    "name": "Veilstone Weapons",
+                    "role": "Military",
+                    "desc": "Weapon tier 3: melee units deal a further +30% damage.",
+                    "cost": {
+                        "Iron": 200,
+                        "Veilstone": 150
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronWeapons"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 30
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardInfusedWeapons",
+                    "name": "Shard-infused Weapons",
+                    "role": "Military",
+                    "desc": "Weapon tier 4: melee units deal a further +75% damage. Needs Veilsteel.",
+                    "cost": {
+                        "Veilsteel": 150
+                    },
+                    "researchTime": 50,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstoneWeapons"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 75
+                        }
+                    ]
+                },
+                {
+                    "id": "SeasonedInfantry",
+                    "name": "Seasoned Infantry",
+                    "role": "Military",
+                    "desc": "+30 HP, +5% speed, +1 damage, +1 defense to all Garrison line infantry.",
+                    "cost": {
+                        "Supplies": 100,
+                        "Iron": 40
+                    },
+                    "researchTime": 28,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeteranInfantry",
+                    "name": "Veteran Infantry",
+                    "role": "Military",
+                    "desc": "+30 HP, +10% speed, +1 damage, +1 defense to all Garrison line infantry.",
+                    "cost": {
+                        "Supplies": 180,
+                        "Iron": 80
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "SeasonedInfantry"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "EliteInfantry",
+                    "name": "Elite Infantry",
+                    "role": "Military",
+                    "desc": "+30 HP, +15% speed, +2 damage, +2 defense to all Garrison line infantry.",
+                    "cost": {
+                        "Supplies": 280,
+                        "Iron": 120
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeteranInfantry"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Spearman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Swordsman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Nobleman",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Sentinel",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "Charge",
+                    "name": "Charge",
+                    "role": "Military",
+                    "desc": "Unlocks the Charge passive for Garrison line infantry: the first strike deals +30% damage; recharges after 2 s out of combat.",
+                    "cost": {
+                        "Supplies": 160,
+                        "Iron": 70
+                    },
+                    "researchTime": 33,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor"
+                },
+                {
+                    "id": "ShieldWall",
+                    "name": "Shield Wall",
+                    "role": "Military",
+                    "desc": "Unlocks the Shield Wall passive for Garrison line infantry: +30% defense against the first incoming attack while stationary; recharges after 3 s.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 50
+                    },
+                    "researchTime": 30,
+                    "researchAt": "Barracks",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "Charge"
+                    ]
+                },
+                {
+                    "id": "IronTippedArrows",
+                    "name": "Iron-Tipped Arrows",
+                    "role": "Military",
+                    "desc": "Arrow tier 2: ranged units deal +15% damage.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 200
+                    },
+                    "researchTime": 40,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "StoneTippedArrows"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 15
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstoneTippedArrows",
+                    "name": "Veilstone-Tipped Arrows",
+                    "role": "Military",
+                    "desc": "Arrow tier 3: ranged units deal a further +30% damage.",
+                    "cost": {
+                        "Iron": 200,
+                        "Veilstone": 150
+                    },
+                    "researchTime": 45,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronTippedArrows"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 30
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardTippedArrows",
+                    "name": "Shard-Tipped Arrows",
+                    "role": "Military",
+                    "desc": "Arrow tier 4: ranged units deal a further +75% damage. Needs Veilsteel.",
+                    "cost": {
+                        "Veilsteel": 150
+                    },
+                    "researchTime": 50,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstoneTippedArrows"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "Damage",
+                            "op": "Pct",
+                            "value": 75
+                        }
+                    ]
+                },
+                {
+                    "id": "SeasonedArchers",
+                    "name": "Seasoned Archers",
+                    "role": "Military",
+                    "desc": "+20 HP, +3 line of sight, +2 attack range to all Practice Range archers.",
+                    "cost": {
+                        "Supplies": 80,
+                        "Iron": 20
+                    },
+                    "researchTime": 25,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Archer",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "VeteranArchers",
+                    "name": "Veteran Archers",
+                    "role": "Military",
+                    "desc": "+20 HP, +1 damage, +3 line of sight, +2 attack range to all Practice Range archers.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 40
+                    },
+                    "researchTime": 30,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "SeasonedArchers"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Archer",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 20
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "EliteArchers",
+                    "name": "Elite Archers",
+                    "role": "Military",
+                    "desc": "+50 HP, +2 damage, +5 line of sight, +3 attack range to all Practice Range archers.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 80
+                    },
+                    "researchTime": 40,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeteranArchers"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Archer",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 50
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Archer",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 50
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Crossbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 50
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "LineOfSight",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Longbowman",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "ArrowVolley",
+                    "name": "Arrow Volley",
+                    "role": "Military",
+                    "desc": "-30% attack cooldown for all ranged units.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 30
+                    },
+                    "researchTime": 35,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "AttackCooldown",
+                            "op": "Pct",
+                            "value": -30
+                        }
+                    ]
+                },
+                {
+                    "id": "ArrowShower",
+                    "name": "Arrow Shower",
+                    "role": "Military",
+                    "desc": "Ranged attack cooldown drops to -50% total (stacks multiplicatively with Arrow Volley).",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 60
+                    },
+                    "researchTime": 45,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "ArrowVolley"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "AttackCooldown",
+                            "op": "Pct",
+                            "value": -28.6
+                        }
+                    ]
+                },
+                {
+                    "id": "DeployStakes",
+                    "name": "Deploy Stakes",
+                    "role": "Military",
+                    "desc": "Unlocks the Deploy Stakes passive for Practice Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move.",
+                    "cost": {
+                        "Supplies": 150,
+                        "Iron": 50
+                    },
+                    "researchTime": 40,
+                    "researchAt": "ArcheryRange",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor"
+                },
+                {
+                    "id": "SeasonedCavalry",
+                    "name": "Seasoned Cavalry",
+                    "role": "Military",
+                    "desc": "+30 HP, +5% speed, +1 damage, +1 defense to Outriders and Cataphracts.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 50
+                    },
+                    "researchTime": 30,
+                    "researchAt": "Alanthor_RoyalStable",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeteranCavalry",
+                    "name": "Veteran Cavalry",
+                    "role": "Military",
+                    "desc": "+30 HP, +10% speed, +1 damage, +1 defense to Outriders and Cataphracts.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 90,
+                        "Veilstone": 20
+                    },
+                    "researchTime": 38,
+                    "researchAt": "Alanthor_RoyalStable",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "SeasonedCavalry"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 10
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "EliteCavalry",
+                    "name": "Elite Cavalry",
+                    "role": "Military",
+                    "desc": "+30 HP, +15% speed, +2 damage, +2 defense to Outriders and Cataphracts.",
+                    "cost": {
+                        "Supplies": 300,
+                        "Iron": 140,
+                        "Veilstone": 50
+                    },
+                    "researchTime": 48,
+                    "researchAt": "Alanthor_RoyalStable",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeteranCavalry"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Outrider",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 30
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Speed",
+                            "op": "Pct",
+                            "value": 15
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Cataphract",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "WarHorn",
+                    "name": "War Horn",
+                    "role": "Military",
+                    "desc": "Unlocks the War Horn active for Alanthor cavalry: allied cavalry within 20 m gain +50% damage on their next charge. 20 s window, 60 s cooldown.",
+                    "cost": {
+                        "Supplies": 160,
+                        "Iron": 60,
+                        "Veilstone": 20
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_RoyalStable",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor"
+                },
+                {
+                    "id": "FullGallop",
+                    "name": "Full Gallop",
+                    "role": "Military",
+                    "desc": "Unlocks the Full Gallop active for Alanthor cavalry: allied cavalry within 20 m gain +40% move speed for 8 s but cannot attack during the burst. 75 s cooldown.",
+                    "cost": {
+                        "Supplies": 240,
+                        "Iron": 100,
+                        "Veilstone": 50
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_RoyalStable",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "WarHorn"
+                    ]
+                },
+                {
+                    "id": "ReinforcedBolts",
+                    "name": "Reinforced Bolts",
+                    "role": "Military",
+                    "desc": "Ballista bolts punch harder: +10 damage.",
+                    "cost": {
+                        "Supplies": 180,
+                        "Iron": 90
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "IronShodRam",
+                    "name": "Iron-Shod Ram",
+                    "role": "Military",
+                    "desc": "The ram is iron-shod: +100 HP so it survives the approach.",
+                    "cost": {
+                        "Supplies": 220,
+                        "Iron": 140
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 100
+                        }
+                    ]
+                },
+                {
+                    "id": "CounterweightTuning",
+                    "name": "Counterweight Tuning",
+                    "role": "Military",
+                    "desc": "Retuned counterweights: Trebuchet range 38 to 44.",
+                    "cost": {
+                        "Supplies": 280,
+                        "Iron": 160,
+                        "Veilstone": 60
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "SeasonedCrews",
+                    "name": "Seasoned Crews",
+                    "role": "Military",
+                    "desc": "+40 HP, +2 damage, +1 attack range to every Alanthor siege engine.",
+                    "cost": {
+                        "Supplies": 140,
+                        "Iron": 60
+                    },
+                    "researchTime": 30,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 1
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeteranCrews",
+                    "name": "Veteran Crews",
+                    "role": "Military",
+                    "desc": "+40 HP, +3 damage, +2 attack range to every Alanthor siege engine.",
+                    "cost": {
+                        "Supplies": 220,
+                        "Iron": 110,
+                        "Veilstone": 30
+                    },
+                    "researchTime": 38,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "SeasonedCrews"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 40
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "EliteCrews",
+                    "name": "Elite Crews",
+                    "role": "Military",
+                    "desc": "+60 HP, +5 damage, +3 attack range to every Alanthor siege engine.",
+                    "cost": {
+                        "Supplies": 320,
+                        "Iron": 170,
+                        "Veilstone": 70
+                    },
+                    "researchTime": 48,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeteranCrews"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 60
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Ballista",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 60
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_BatteringRam",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Hp",
+                            "op": "Add",
+                            "value": 60
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "Damage",
+                            "op": "Add",
+                            "value": 5
+                        },
+                        {
+                            "target": "unit:Alanthor_Trebuchet",
+                            "stat": "AttackRange",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "RangingShot",
+                    "name": "Ranging Shot",
+                    "role": "Military",
+                    "desc": "Unlocks the Ranging Shot active for Alanthor siege engines: after standing still for 3 s the next shot deals +100% damage. 45 s cooldown.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 90,
+                        "Veilstone": 30
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor"
+                },
+                {
+                    "id": "SiegeScreens",
+                    "name": "Siege Screens",
+                    "role": "Military",
+                    "desc": "Unlocks the Siege Screens passive for Alanthor siege engines: +50% ranged defense while stationary; lost the moment the engine moves.",
+                    "cost": {
+                        "Supplies": 280,
+                        "Iron": 130,
+                        "Veilstone": 60
+                    },
+                    "researchTime": 50,
+                    "researchAt": "Alanthor_SiegeYard",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "RangingShot"
+                    ]
+                },
+                {
+                    "id": "IronPlate",
+                    "name": "Iron Plate",
+                    "role": "Military",
+                    "desc": "Infantry armour tier 1: +1 defense to all melee units.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 150
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstonePlate",
+                    "name": "Veilstone Plate",
+                    "role": "Military",
+                    "desc": "Infantry armour tier 2: +2 defense to all melee units.",
+                    "cost": {
+                        "Iron": 150,
+                        "Veilstone": 120
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronPlate"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardPlate",
+                    "name": "Shard Plate",
+                    "role": "Military",
+                    "desc": "Infantry armour tier 3: +3 defense to all melee units.",
+                    "cost": {
+                        "Veilsteel": 120
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstonePlate"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Melee",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "IronBrigandine",
+                    "name": "Iron Brigandine",
+                    "role": "Military",
+                    "desc": "Ranged armour tier 1: +1 defense to all ranged units.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 150
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstoneBrigandine",
+                    "name": "Veilstone Brigandine",
+                    "role": "Military",
+                    "desc": "Ranged armour tier 2: +2 defense to all ranged units.",
+                    "cost": {
+                        "Iron": 150,
+                        "Veilstone": 120
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronBrigandine"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardBrigandine",
+                    "name": "Shard Brigandine",
+                    "role": "Military",
+                    "desc": "Ranged armour tier 3: +3 defense to all ranged units.",
+                    "cost": {
+                        "Veilsteel": 120
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstoneBrigandine"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Ranged",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "IronBarding",
+                    "name": "Iron Barding",
+                    "role": "Military",
+                    "desc": "Cavalry armour tier 1: +1 defense to all cavalry.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 150
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "type:Cavalry",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstoneBarding",
+                    "name": "Veilstone Barding",
+                    "role": "Military",
+                    "desc": "Cavalry armour tier 2: +2 defense to all cavalry.",
+                    "cost": {
+                        "Iron": 150,
+                        "Veilstone": 120
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronBarding"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Cavalry",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardBarding",
+                    "name": "Shard Barding",
+                    "role": "Military",
+                    "desc": "Cavalry armour tier 3: +3 defense to all cavalry.",
+                    "cost": {
+                        "Veilsteel": 120
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstoneBarding"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Cavalry",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "IronPlating",
+                    "name": "Iron Plating",
+                    "role": "Military",
+                    "desc": "Siege armour tier 1: +1 defense to all siege engines.",
+                    "cost": {
+                        "Supplies": 120,
+                        "Iron": 150
+                    },
+                    "researchTime": 35,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 1,
+                    "culture": "Alanthor",
+                    "effectsList": [
+                        {
+                            "target": "type:Siege",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "VeilstonePlating",
+                    "name": "Veilstone Plating",
+                    "role": "Military",
+                    "desc": "Siege armour tier 2: +2 defense to all siege engines.",
+                    "cost": {
+                        "Iron": 150,
+                        "Veilstone": 120
+                    },
+                    "researchTime": 40,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 2,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "IronPlating"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Siege",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "ShardPlating",
+                    "name": "Shard Plating",
+                    "role": "Military",
+                    "desc": "Siege armour tier 3: +3 defense to all siege engines.",
+                    "cost": {
+                        "Veilsteel": 120
+                    },
+                    "researchTime": 45,
+                    "researchAt": "Alanthor_Smelter",
+                    "minBuildingLevel": 3,
+                    "culture": "Alanthor",
+                    "requires": [
+                        "VeilstonePlating"
+                    ],
+                    "effectsList": [
+                        {
+                            "target": "type:Siege",
+                            "stat": "DefenseAll",
+                            "op": "Add",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "id": "FieldHospital",
+                    "name": "Field Hospital",
+                    "role": "Support",
+                    "desc": "Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown.",
+                    "cost": {
+                        "Supplies": 200,
+                        "Iron": 60,
+                        "Veilstone": 40
+                    },
+                    "researchTime": 40,
+                    "researchAt": "ShrineOfRidan",
+                    "minBuildingLevel": 2
+                }
             ]
         }
     ],
@@ -1730,7 +3796,7 @@
                 "CrystalCreatures",
                 "CrystalNodes"
             ],
-            "risk": "Mining contributes to curse retaliation/waves.",
+            "risk": "Mining contributes to border retaliation/waves.",
             "storage": "Depots; can be stolen if destroyed."
         },
         "ironCarry": {
@@ -1740,14 +3806,14 @@
         "veilsteel": {
             "madeFrom": [
                 "Iron",
-                "Crystal"
+                "Veilstone"
             ],
             "lossFactorPct": 20,
             "carrySlots": 5,
             "perIngotAttackBonusPct": 3
         },
         "glow": {
-            "source": "Colossal crystal units or sect grants",
+            "source": "Colossal veilstone units or sect grants",
             "carryEffects": [
                 {
                     "stacks": 1,

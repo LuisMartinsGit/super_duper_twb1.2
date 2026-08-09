@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_SiegeYard'
   displayName: 'Siege Yard'
   role: 'Train siege engines'
-  hp: 50
+  hp: 1300
   armorType: 'structure_human'
   defense:
     melee: 1
@@ -26,7 +26,17 @@ MonoBehaviour:
   lineOfSight: 20
   trains:
   - 'Alanthor_Ballista'
-  research: []
+  - 'Alanthor_BatteringRam'
+  - 'Alanthor_Trebuchet'
+  research:
+  - 'ReinforcedBolts'
+  - 'IronShodRam'
+  - 'CounterweightTuning'
+  - 'SeasonedCrews'
+  - 'VeteranCrews'
+  - 'EliteCrews'
+  - 'RangingShot'
+  - 'SiegeScreens'
   minEra: 0
   cost:
     Supplies: 260

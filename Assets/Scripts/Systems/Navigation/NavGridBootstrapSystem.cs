@@ -120,6 +120,11 @@ namespace TheWaningBorder.Systems.Navigation
             // ── Cost field allocation ───────────────────────────────────
             var cost = new NativeArray<byte>(n, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             var flags = new NativeArray<byte>(n, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            // Layer-0-sized baked terrain mask (water + over-budget slope).
+            // ClearMemory → every cell walkable until TerrainCostBakeSystem
+            // fills it from the terrain-derived PassabilityGrid. On scenes
+            // with no terrain it simply stays all-walkable.
+            var terrainCost = new NativeArray<byte>(gridW * gridH, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
             // ── Direction table blob ────────────────────────────────────
             // Build on the main thread; the math matches BuildDirectionTableJob
@@ -159,6 +164,7 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 Cost = cost,
                 Flags = flags,
+                TerrainCost = terrainCost,
                 Width = gridW,
                 Height = gridH,
                 LayerCount = LayerCount,
@@ -187,6 +193,7 @@ namespace TheWaningBorder.Systems.Navigation
                 var field = em.GetComponentData<NavCostField>(_costEntity);
                 if (field.Cost.IsCreated) field.Cost.Dispose();
                 if (field.Flags.IsCreated) field.Flags.Dispose();
+                if (field.TerrainCost.IsCreated) field.TerrainCost.Dispose();
             }
 
             if (em.Exists(_dirTableEntity) && em.HasComponent<DirectionTableSingleton>(_dirTableEntity))

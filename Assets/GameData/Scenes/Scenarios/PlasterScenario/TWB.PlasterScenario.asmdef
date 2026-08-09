@@ -1,0 +1,17 @@
+{
+    "name": "TWB.PlasterScenario",
+    "rootNamespace": "TheWaningBorder.Scenarios",
+    "references": [
+        "Adobe.Substance",
+        "Adobe.Substance.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

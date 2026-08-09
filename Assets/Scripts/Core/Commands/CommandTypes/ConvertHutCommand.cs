@@ -42,7 +42,7 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             Supplies = 40,
             Iron = 30,
-            Crystal = 0,
+            Veilstone = 0,
             Veilsteel = 0,
             Glow = 0,
         };

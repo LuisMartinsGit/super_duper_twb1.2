@@ -25,7 +25,12 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 26
   trains: []
-  research: []
+  research:
+  - 'IronTools'
+  - 'VeilstoneTools'
+  - 'VeilsteelTools'
+  - 'MasonGuild'
+  - 'ScoutingCelestarii'
   minEra: 0
   cost:
     Supplies: 360

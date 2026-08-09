@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &933468825109438285
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 99320205203086452}
+  - component: {fileID: 174430427201170934}
+  m_Layer: 0
+  m_Name: Sect_Reclamation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &99320205203086452
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 933468825109438285}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &174430427201170934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 933468825109438285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3a159d455142f09d651e9ba728a446, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  spellId: Sect_Reclamation
+  displayName: 'Sect: Reclamation'
+  activation: 0
+  cooldown: 75
+  castTime: 0
+  hpThreshold: 0
+  shape: 2
+  affects: 1
+  range: 0
+  radius: 6
+  duration: 0
+  effects:
+  - kind: 2
+    value: 30
+    duration: 0
+  powerUpPrefab: {fileID: 0}
+  powerUpTint: 0
+  powerUpColor: {r: 1, g: 1, b: 1, a: 1}
+  powerUpSpeed: 1
+  castPrefab: {fileID: 136904, guid: 5b403d0187be39244925703047d10306, type: 3}
+  castTint: 0
+  castColor: {r: 0.3137255, g: 0.8235294, b: 0.7058824, a: 1}
+  castSpeed: 1
+  circlePrefab: {fileID: 4890711802313254141, guid: e5c6bdcd1b1e8124488ffbc2209a064f, type: 3}
+  circleTint: 1
+  circleColor: {r: 0.3137255, g: 0.8235294, b: 0.7058824, a: 1}
+  circleSpeed: 1
+  previewInEditor: 1
+  previewInterval: 4

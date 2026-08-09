@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 533a47fac9aa34a43a6b08c5ba51acf6, type: 3}
+  m_Name: ScenarioLibrary
+  m_EditorClassIdentifier: 
+  Scenarios:
+  - {fileID: 11400000, guid: 686ae18c005786f48836e51c090feced, type: 2}
+  - {fileID: 11400000, guid: 5b8f22488a16e1743b698a6816e47180, type: 2}
+  - {fileID: 11400000, guid: 1c8e194c0afb3fc4bac93e8ef3809fa5, type: 2}

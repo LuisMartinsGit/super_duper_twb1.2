@@ -44,8 +44,13 @@ public static class CultureConfig
 
     /// <summary>
     /// Resource cost to advance from Era 1 to Era 2.
+    /// Balance 2026-07: reduced 30% (was 1000/200/150) alongside the
+    /// choice-building cost cut — see docs/Design/Age_0.md and
+    /// TechTree.json (Research_Era2: 700 S + 140 I + 105 V).
+    /// Veilstone is back in the gate (2026-07-25 techtree pass): the AI
+    /// veil-mines inside its base tether, so the old Age-0 stall no longer applies.
     /// </summary>
-    public static readonly Cost AgeUpCost = Cost.Of(supplies: 1000, iron: 200, crystal: 150);
+    public static readonly Cost AgeUpCost = Cost.Of(supplies: 700, iron: 140, veilstone: 105);
 
     /// <summary>
     /// Time in seconds for the age-up process to complete after culture is chosen.
@@ -112,6 +117,58 @@ public static class CultureConfig
         };
     }
 
+    // ==================== Age-up completion state ====================
+    // FactionColors.SetFactionCulture fires at CLICK time (the popup commits
+    // it so unit tints preview immediately); the ECS FactionProgress.Culture
+    // on the Hall is only written by AgeUpSystem when the research COMPLETES.
+    // Anything gated on "age-up is done" (UI palette, building influence)
+    // must read these helpers, not FactionColors.
+
+    /// <summary>
+    /// The faction's culture as committed by a COMPLETED age-up
+    /// (Hall FactionProgress). Cultures.None while Age 0 or mid-research.
+    /// </summary>
+    public static byte GetCompletedCulture(Unity.Entities.EntityManager em, Faction faction)
+    {
+        if (em.Equals(default(Unity.Entities.EntityManager))) return Cultures.None;
+        var q = em.CreateEntityQuery(
+            Unity.Entities.ComponentType.ReadOnly<HallTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionProgress>());
+        using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+        using var prog = q.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
+        for (int i = 0; i < tags.Length; i++)
+            if (tags[i].Value == faction) return prog[i].Culture;
+        return Cultures.None;
+    }
+
+    /// <summary>
+    /// True while the faction's Hall carries an in-progress AgeUpState.
+    /// progress01 = completed fraction (0..1); culture = the pending pick.
+    /// </summary>
+    public static bool TryGetAgeUpProgress(Unity.Entities.EntityManager em, Faction faction,
+        out float progress01, out byte culture)
+    {
+        progress01 = 0f;
+        culture = Cultures.None;
+        if (em.Equals(default(Unity.Entities.EntityManager))) return false;
+        var q = em.CreateEntityQuery(
+            Unity.Entities.ComponentType.ReadOnly<HallTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+            Unity.Entities.ComponentType.ReadOnly<AgeUpState>());
+        using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+        using var states = q.ToComponentDataArray<AgeUpState>(Unity.Collections.Allocator.Temp);
+        for (int i = 0; i < tags.Length; i++)
+        {
+            if (tags[i].Value != faction) continue;
+            var s = states[i];
+            progress01 = s.Duration > 0f ? Mathf.Clamp01(1f - s.Remaining / s.Duration) : 0f;
+            culture = s.Culture;
+            return true;
+        }
+        return false;
+    }
+
     // ==================== Lookup Methods ====================
 
     /// <summary>
@@ -154,9 +211,33 @@ public static class CultureConfig
     /// True if the culture is currently locked behind a "Coming Soon"
     /// gate and cannot be adopted by the player. Single source of truth
     /// for the IMGUI popup, the web HUD overlay, and the age-up guards.
+    ///
+    /// Ship gate (2026-08-09): the first build ships ONE culture, so Runai
+    /// and Feraldis are both locked and Alanthor is the only choice. That
+    /// matches the AI, which only ever drives Alanthor (SimpleAISystem's
+    /// CultureFor is hard-coded to it), so a locked culture cannot reach
+    /// the field from either side. Drop a culture from this test to ship it.
     /// </summary>
     public static bool IsComingSoon(byte culture)
         => culture == Cultures.Runai || culture == Cultures.Feraldis;
+
+    /// <summary>
+    /// Coerces a desired culture to one this build actually ships.
+    ///
+    /// Anything that PICKS a culture rather than reading one — the AI's
+    /// culture choice in particular — must run its pick through here. The
+    /// player is blocked by <see cref="IsComingSoon"/> at the UI, so without
+    /// this an AI would happily age up into a culture the build does not
+    /// ship and field content the player can never see or counter.
+    /// </summary>
+    public static byte Playable(byte culture)
+    {
+        if (!IsComingSoon(culture)) return culture;
+        if (!IsComingSoon(Cultures.Alanthor)) return Cultures.Alanthor;
+        if (!IsComingSoon(Cultures.Feraldis)) return Cultures.Feraldis;
+        if (!IsComingSoon(Cultures.Runai)) return Cultures.Runai;
+        return Cultures.Alanthor; // every culture gated — keep the game running.
+    }
 
     /// <summary>
     /// Get description for a culture.

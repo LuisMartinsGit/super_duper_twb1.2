@@ -1,0 +1,117 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c801762822f2864586cde1d2214f7f9, type: 3}
+  m_Name: BorderSettings
+  m_EditorClassIdentifier:
+  tiers:
+  - name: Tiny
+    crystallings: 5
+    veilstingers: 0
+    godsplinters: 0
+    trainCost: 250
+    upgradeCost: 375
+  - name: Small
+    crystallings: 5
+    veilstingers: 2
+    godsplinters: 0
+    trainCost: 550
+    upgradeCost: 825
+  - name: Medium-small
+    crystallings: 8
+    veilstingers: 5
+    godsplinters: 0
+    trainCost: 1150
+    upgradeCost: 1725
+  - name: Medium
+    crystallings: 12
+    veilstingers: 8
+    godsplinters: 1
+    trainCost: 2300
+    upgradeCost: 3450
+  - name: Medium-large
+    crystallings: 25
+    veilstingers: 15
+    godsplinters: 5
+    trainCost: 6000
+    upgradeCost: 9000
+  - name: Large
+    crystallings: 35
+    veilstingers: 25
+    godsplinters: 7
+    trainCost: 9000
+    upgradeCost: 13500
+  - name: Very large
+    crystallings: 50
+    veilstingers: 35
+    godsplinters: 10
+    trainCost: 12750
+    upgradeCost: 19125
+  - name: Colossal
+    crystallings: 70
+    veilstingers: 55
+    godsplinters: 15
+    trainCost: 19250
+    upgradeCost: 28875
+  - name: Impossible
+    crystallings: 100
+    veilstingers: 70
+    godsplinters: 20
+    trainCost: 25500
+    upgradeCost: 38250
+  useWaveSchedule: 1
+  waves:
+  - fromMinute: 0
+    tier: 0
+    breatherSeconds: 120
+  - fromMinute: 4
+    tier: 1
+    breatherSeconds: 120
+  - fromMinute: 8
+    tier: 2
+    breatherSeconds: 130
+  - fromMinute: 12
+    tier: 3
+    breatherSeconds: 140
+  - fromMinute: 16
+    tier: 4
+    breatherSeconds: 150
+  - fromMinute: 21
+    tier: 5
+    breatherSeconds: 160
+  - fromMinute: 26
+    tier: 6
+    breatherSeconds: 170
+  - fromMinute: 32
+    tier: 7
+    breatherSeconds: 180
+  - fromMinute: 40
+    tier: 8
+    breatherSeconds: 180
+  firstWaveDelaySeconds: 150
+  decisionInterval: 5
+  replenishInterval: 4
+  crystallingTrainTime: 8
+  veilstingerTrainTime: 15
+  godsplinterTrainTime: 30
+  baseIncomePerSecond: 6
+  incomePerResourceNode: 4
+  startingCrystal: 250
+  defendHoldRadius: 18
+  replenishNeedsResourceNode: 1
+  requireFullMusterBeforeAttack: 1
+  recallArriveRadius: 16
+  phaseIncomeBonus: 0.5
+  phaseTrainSpeedBonus: 0.25
+  escalationStartMinute: 5
+  escalationFullMinute: 20
+  maxEscalation: 2
+  waveBreatherSeconds: 120

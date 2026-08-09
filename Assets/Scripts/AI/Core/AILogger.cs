@@ -15,6 +15,10 @@ namespace TheWaningBorder.AI
     {
         private static string _logFolder;
         private static Dictionary<Faction, StreamWriter> _writers = new Dictionary<Faction, StreamWriter>();
+        // Human-player action log (2026-08-04): same format, separate
+        // Player_{Faction}.log files, so an AI match and a human match can be
+        // compared side by side.
+        private static Dictionary<Faction, StreamWriter> _playerWriters = new Dictionary<Faction, StreamWriter>();
         private static float _gameStartTime;
         private static bool _initialized;
 
@@ -31,6 +35,10 @@ namespace TheWaningBorder.AI
             if (Directory.Exists(_logFolder))
             {
                 foreach (var file in Directory.GetFiles(_logFolder, "AI_*.log"))
+                {
+                    try { File.Delete(file); } catch { }
+                }
+                foreach (var file in Directory.GetFiles(_logFolder, "Player_*.log"))
                 {
                     try { File.Delete(file); } catch { }
                 }
@@ -68,6 +76,24 @@ namespace TheWaningBorder.AI
             writer.Flush();
         }
 
+        /// <summary>Log a HUMAN player's macro action (train/build/research/
+        /// upgrade — commands routed with CommandSource.LocalPlayer) to
+        /// Player_{Faction}.log. Same timestamp format as the AI logs.</summary>
+        public static void LogPlayer(Faction faction, string category, string message)
+        {
+            if (!_initialized) return;
+
+            var writer = GetPlayerWriter(faction);
+            if (writer == null) return;
+
+            float elapsed = Time.time - _gameStartTime;
+            int minutes = (int)(elapsed / 60f);
+            float seconds = elapsed % 60f;
+
+            writer.WriteLine($"[{minutes:D2}:{seconds:00.0}] {category}: {message}");
+            writer.Flush();
+        }
+
         /// <summary>
         /// Close all file handles. Call when returning to main menu.
         /// </summary>
@@ -78,7 +104,34 @@ namespace TheWaningBorder.AI
                 try { kvp.Value?.Close(); } catch { }
             }
             _writers.Clear();
+            foreach (var kvp in _playerWriters)
+            {
+                try { kvp.Value?.Close(); } catch { }
+            }
+            _playerWriters.Clear();
             _initialized = false;
+        }
+
+        private static StreamWriter GetPlayerWriter(Faction faction)
+        {
+            if (_playerWriters.TryGetValue(faction, out var existing))
+                return existing;
+
+            try
+            {
+                string path = Path.Combine(_logFolder, $"Player_{faction}.log");
+                var writer = new StreamWriter(path, append: false);
+                writer.AutoFlush = false;
+                writer.WriteLine($"=== HUMAN player log for {faction} — Game started ===");
+                writer.WriteLine();
+                _playerWriters[faction] = writer;
+                return writer;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[AILogger] Failed to create player log for {faction}: {e.Message}");
+                return null;
+            }
         }
 
         private static StreamWriter GetWriter(Faction faction)

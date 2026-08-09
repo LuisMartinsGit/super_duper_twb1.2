@@ -51,6 +51,16 @@ namespace TheWaningBorder.Bootstrap
         private static readonly float3 ChoiceOffset = new(0f, 0f, -18f);
 
         /// <summary>
+        /// Barracks. Without it a promoted faction has NO military production:
+        /// the 2026-08-07 Age-4 match had all four factions logging
+        /// "floor blocked ... deficit 5 x Spearman (trainer missing...)" and
+        /// finishing on military 0-2 despite full Era-5 tech and a stocked
+        /// bank. Starting at the top of the tech tree with no way to build an
+        /// army is not a late-game start, it is a stalemate.
+        /// </summary>
+        private static readonly float3 BarracksOffset = new(18f, 0f, 0f);
+
+        /// <summary>
         /// Apply <see cref="GameSettings.StartAge"/> to every faction with a
         /// freshly-spawned Hall. No-op when StartAge == Age0. Safe to call
         /// multiple times — the FactionProgress.Culture check at the start
@@ -92,7 +102,7 @@ namespace TheWaningBorder.Bootstrap
                 Faction faction = hallFactions[i].Value;
                 float3 hallPos = hallTransforms[i].Position;
 
-                if (faction == Faction.Curse) continue; // curse has no Hall but defensive
+                if (faction == Faction.Border) continue; // border has no Hall but defensive
 
                 PromoteFaction(em, faction, hall, hallPos, targetLevel, ref rng);
             }
@@ -106,13 +116,20 @@ namespace TheWaningBorder.Bootstrap
             EntityManager em, Faction faction, Entity hall, float3 hallPos,
             int targetLevel, ref Unity.Mathematics.Random rng)
         {
+            // Cultures.None would leave the faction at a raised era with none
+            // of the buildings or units that era implies, so fall back to the
+            // pre-configurable default.
+            byte culture = GameSettings.StartCulture == Cultures.None
+                ? Cultures.Alanthor
+                : GameSettings.StartCulture;
+
             // Short-circuit if already promoted (defensive — calling twice
             // would double-stock resources and place duplicate Temples).
             if (em.HasComponent<FactionProgress>(hall))
             {
                 var fp = em.GetComponentData<FactionProgress>(hall);
                 if (fp.Culture != Cultures.None) return;
-                fp.Culture = Cultures.Alanthor;
+                fp.Culture = culture;
                 em.SetComponentData(hall, fp);
             }
 
@@ -139,21 +156,50 @@ namespace TheWaningBorder.Bootstrap
                 FactionReligionPointsHelper.AwardAgeUp(em, faction, newAge: targetLevel + 1);
             }
 
-            // Register culture so visuals/tones use the Alanthor palette.
-            FactionColors.SetFactionCulture(faction, Cultures.Alanthor);
+            // Register culture so visuals/tones use its palette.
+            FactionColors.SetFactionCulture(faction, culture);
+
+            // ── The culture side effects a real age-up performs ──────────
+            // Reused from AgeUpSystem rather than reimplemented: a promoted
+            // faction that skipped these is subtly broken in ways that only
+            // show up mid-match. Feraldis is the sharp case — its Workers
+            // cannot gather and its Houses provide no population, so without
+            // the hut transform and the pop override a "start as Feraldis"
+            // faction has an economy that silently does nothing.
+            TheWaningBorder.Systems.Work.AgeUpSystem
+                .TransformGathererHutsForCulture(em, faction, culture);
+            TheWaningBorder.Systems.Work.AgeUpSystem
+                .TransformHutsForCulture(em, faction, culture);
+
+            if (FactionEconomy.TryGetBank(em, faction, out var cultureBank))
+            {
+                if (culture == Cultures.Runai && !em.HasComponent<RunaiPopOverride>(cultureBank))
+                    em.AddComponent<RunaiPopOverride>(cultureBank);
+                if (culture == Cultures.Feraldis && !em.HasComponent<FeraldisPopOverride>(cultureBank))
+                    em.AddComponent<FeraldisPopOverride>(cultureBank);
+            }
 
             // Spawn the Temple of Ridan at the level matching our target so
             // the player isn't gated by a "you must build the temple to
             // research the next era" wall. TempleLevel handles the visual
             // (assuming the Temple prefab ladder is wired) and the era ladder.
+            // Temple level is clamped to the ladder's top: the ritualist gates
+            // (Corruptor at L3, Scholar at max) read TempleLevel directly, and
+            // an out-of-range level would satisfy neither cleanly.
             Entity temple = BuildingFactory.Create(em, "TempleOfRidan", hallPos + TempleOffset, faction);
+            int templeLevel = math.min(targetLevel, TempleLevelConfig.MaxLevel);
             if (em.HasComponent<TempleLevel>(temple))
-                em.SetComponentData(temple, new TempleLevel { Level = targetLevel });
+                em.SetComponentData(temple, new TempleLevel { Level = templeLevel });
 
             // Pick + spawn one choice building from the trio. Random pick is
             // seeded so multiplayer / replays land on the same choice.
             string chosen = ChoiceBuildings[rng.NextInt(0, ChoiceBuildings.Length)];
             BuildingFactory.Create(em, chosen, hallPos + ChoiceOffset, faction);
+
+            // Military production — see BarracksOffset. The Barracks is where
+            // FindTrainerForUnit routes the melee line, so this is what makes
+            // the AI's army floor reachable at all.
+            BuildingFactory.Create(em, "Barracks", hallPos + BarracksOffset, faction);
 
             // Stock bonus resources proportional to the age (so the player
             // doesn't start Era 4 with an Era 1 economy).
@@ -164,8 +210,16 @@ namespace TheWaningBorder.Bootstrap
             if (PresentationSpawnSystem.Instance != null)
                 PresentationSpawnSystem.Instance.RefreshFactionVisuals(faction);
 
-            TWBLog.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} (Alanthor). " +
-                      $"Hall L{targetLevel}, Temple L{targetLevel}, choice: {chosen}");
+            // AILogger, not TWBLog: TWBLog is [Conditional("TWB_VERBOSE")] and
+            // compiles out, so "what age/culture did this match actually start
+            // at?" was unanswerable from a postmortem.
+            TheWaningBorder.AI.AILogger.Log(faction, "STARTAGE",
+                $"promoted to Age {targetLevel} ({CultureConfig.GetName(culture)}) — " +
+                $"Hall L{targetLevel}, Temple L{templeLevel}, Era {targetLevel + 1}, " +
+                $"Barracks, choice {chosen}");
+            TWBLog.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} " +
+                      $"({CultureConfig.GetName(culture)}). Hall L{targetLevel}, " +
+                      $"Temple L{templeLevel}, choice: {chosen}");
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -208,8 +262,14 @@ namespace TheWaningBorder.Bootstrap
         private static Cost ResourceBonusForAge(int age) => age switch
         {
             1 => Cost.Of(supplies: 200, iron: 50),
-            2 => Cost.Of(supplies: 500, iron: 150, crystal: 50),
-            3 => Cost.Of(supplies: 1000, iron: 300, crystal: 100, veilsteel: 30),
+            2 => Cost.Of(supplies: 500, iron: 150, veilstone: 50),
+            3 => Cost.Of(supplies: 1000, iron: 300, veilstone: 100, veilsteel: 30),
+            // Age 4 opens the ritualists, and both cost 300 supplies + 150
+            // iron on top of everything else an Era-5 army wants. Stocked
+            // generously on purpose: this option exists to test the LATE game,
+            // and starting it broke would just move the grind rather than
+            // remove it.
+            4 => Cost.Of(supplies: 2500, iron: 800, veilstone: 400, veilsteel: 120),
             _ => default,
         };
     }

@@ -60,6 +60,106 @@ namespace TheWaningBorder.Multiplayer
         private int _localPort;
         private bool _isHost;
         private List<RemotePlayer> _remotePlayers = new List<RemotePlayer>();
+
+        /// <summary>
+        /// Player indices whose tick confirmations gate CanAdvanceTick. NOT
+        /// the same as _remotePlayers: a client only SENDS to the host (who
+        /// relays), but it must WAIT for every human player's commands —
+        /// otherwise relayed commands from a third player can arrive after
+        /// their tick was already processed and get silently dropped on this
+        /// peer only, diverging the simulations.
+        /// </summary>
+        private readonly HashSet<int> _expectedPlayers = new HashSet<int>();
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MATCH-START BARRIER
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // In loose lockstep the frame-driven simulation starts the moment the
+        // scene loads — the host's world ran seconds ahead while the client
+        // was still loading (income accrual, veil growth, timers all offset,
+        // permanently). Hold SimulationSystemGroup until the first TICK from
+        // every expected player arrives, then release; both worlds then start
+        // within one network round-trip of each other. Not used under
+        // DeterministicLockstep (the fixed-step driver gates itself on ticks).
+        private bool _simGateActive;
+        private readonly HashSet<int> _seenPlayers = new HashSet<int>();
+
+        /// <summary>Disable the simulation group until every expected player
+        /// has been heard from. Call after StartSimulation, multiplayer only.</summary>
+        public void HoldSimulationUntilPeersReady()
+        {
+            if (_expectedPlayers.Count == 0) return;
+            if (GameSettings.DeterministicLockstep) return;
+
+            var world = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var simGroup = world.GetExistingSystemManaged<Unity.Entities.SimulationSystemGroup>();
+            if (simGroup == null) return;
+
+            simGroup.Enabled = false;
+            _simGateActive = true;
+            TWBLog.Log("[Lockstep] Simulation held until all players are connected");
+        }
+
+        private void MaybeReleaseSimGate()
+        {
+            if (!_simGateActive) return;
+            foreach (int p in _expectedPlayers)
+            {
+                if (!_seenPlayers.Contains(p)) return;
+            }
+            ReleaseSimGate();
+            TWBLog.Log("[Lockstep] All players connected — simulation released");
+        }
+
+        private void ReleaseSimGate()
+        {
+            if (!_simGateActive) return;
+            _simGateActive = false;
+
+            var world = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var simGroup = world.GetExistingSystemManaged<Unity.Entities.SimulationSystemGroup>();
+            if (simGroup != null) simGroup.Enabled = true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // NETWORK-ID LOOKUP CACHE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // One cached query + a per-tick NetworkId -> Entity map. The old code
+        // created a fresh EntityQuery (never disposed — a leak that slowed
+        // every structural change world-wide) and did a full O(N) scan PER
+        // LOOKUP, 1-3 lookups per command: a 100-command fight tick cost
+        // ~200k component reads. Now: one O(N) rebuild per tick, O(1) per
+        // lookup. Entities created mid-tick by commands (PlaceBuilding) are
+        // registered into the map at creation.
+        private EntityQuery _networkedQuery;
+        private bool _networkedQueryCreated;
+        private readonly Dictionary<int, Entity> _networkIdLookup = new Dictionary<int, Entity>(1024);
+        private int _networkIdLookupTick = -1;
+
+        private EntityQuery GetNetworkedQuery(EntityManager em)
+        {
+            if (!_networkedQueryCreated)
+            {
+                _networkedQuery = em.CreateEntityQuery(typeof(NetworkedEntity));
+                _networkedQueryCreated = true;
+            }
+            return _networkedQuery;
+        }
+
+        private void RebuildNetworkIdLookup(EntityManager em)
+        {
+            _networkIdLookup.Clear();
+            _networkIdLookupTick = _currentTick;
+            var query = GetNetworkedQuery(em);
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+                _networkIdLookup[ids[i].NetworkId] = entities[i];
+        }
         
         // ═══════════════════════════════════════════════════════════════════════
         // SIMULATION STATE
@@ -74,6 +174,15 @@ namespace TheWaningBorder.Multiplayer
         // COMMAND BUFFERS
         // ═══════════════════════════════════════════════════════════════════════
         
+        // UDP has no retransmit: a lost/fragmented TICK datagram silently
+        // dropped that tick's commands on the receiving peer only (later
+        // ticks healed the CONFIRMATION, so the tick executed with no
+        // commands — divergence). Re-send the last few non-empty tick
+        // payloads alongside every broadcast; the 2-tick input delay gives
+        // the resends time to land before the tick executes.
+        private const int RESEND_HISTORY = 2;
+        private readonly List<(int Tick, byte[] Data)> _recentTickPayloads = new List<(int, byte[])>();
+
         private List<LockstepCommand> _localCommandBuffer = new List<LockstepCommand>();
         private Dictionary<int, Dictionary<int, List<LockstepCommand>>> _remoteCommands = 
             new Dictionary<int, Dictionary<int, List<LockstepCommand>>>();
@@ -85,6 +194,11 @@ namespace TheWaningBorder.Multiplayer
         
         private Dictionary<int, uint> _checksums = new Dictionary<int, uint>();
         private const int SYNC_CHECK_INTERVAL = 30; // Check every 30 ticks
+
+        /// <summary>Set true when a per-tick checksum mismatch is detected.</summary>
+        public bool DesyncDetected { get; private set; }
+        /// <summary>The tick at which the desync was first observed.</summary>
+        public int DesyncTick { get; private set; }
         
         // ═══════════════════════════════════════════════════════════════════════
         // DEBUG
@@ -92,7 +206,6 @@ namespace TheWaningBorder.Multiplayer
         
         public bool LogTicks = false;
         public bool LogCommands = false;
-        private float _debugTimer = 0f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ILockstepService IMPLEMENTATION
@@ -157,6 +270,15 @@ namespace TheWaningBorder.Multiplayer
                 LockstepServiceLocator.Unregister(this);
             }
             StopNetwork();
+            ReleaseSimGate();
+
+            // Release the cached query; guard against the world being torn
+            // down first (disposing a query of a dead world throws).
+            if (_networkedQueryCreated)
+            {
+                _networkedQueryCreated = false;
+                try { _networkedQuery.Dispose(); } catch { }
+            }
         }
 
         void Update()
@@ -166,21 +288,6 @@ namespace TheWaningBorder.Multiplayer
             ReceiveNetworkMessages();
 
             _tickAccumulator += Time.deltaTime;
-
-            // Periodic debug: log tick state every 3 seconds
-            _debugTimer += Time.deltaTime;
-            if (_debugTimer >= 3f)
-            {
-                _debugTimer = 0f;
-                var sb = new StringBuilder();
-                sb.Append($"[Lockstep] Tick={_currentTick}, Cmds={_localCommandBuffer.Count}");
-                foreach (var player in _remotePlayers)
-                {
-                    int confirmed = _confirmedTicks.GetValueOrDefault(player.PlayerIndex, -999);
-                    sb.Append($", P{player.PlayerIndex}confirmed={confirmed}");
-                }
-                sb.Append($", CanAdvance={CanAdvanceTick()}");
-            }
 
             while (_tickAccumulator >= TICK_DURATION)
             {
@@ -228,31 +335,51 @@ namespace TheWaningBorder.Multiplayer
             _isHost = true;
             _localPlayerIndex = 0;
             _localPort = port;
-            
+
             SetupRemotePlayers(players);
+
+            _expectedPlayers.Clear();
+            foreach (var p in _remotePlayers)
+                _expectedPlayers.Add(p.PlayerIndex);
+
             StartNetwork();
-            
+
         }
 
         /// <summary>
-        /// Initialize as client
+        /// Initialize as client. <paramref name="otherHumanPlayers"/> lists the
+        /// lockstep indices of every OTHER human besides the host and us —
+        /// their commands reach us relayed through the host, and we must wait
+        /// for them before advancing a tick.
         /// </summary>
-        public void InitializeAsClient(int localPort, string hostIP, int hostPort, int playerIndex, Faction faction)
+        public void InitializeAsClient(int localPort, string hostIP, int hostPort, int playerIndex, Faction faction,
+            List<int> otherHumanPlayers = null)
         {
             _isHost = false;
             _localPlayerIndex = playerIndex;
             _localPort = localPort;
-            _localFaction = faction; 
-            
+            _localFaction = faction;
+
             var hostPlayer = new RemotePlayer
             {
                 PlayerIndex = 0,
                 EndPoint = new IPEndPoint(IPAddress.Parse(hostIP), hostPort)
             };
             _remotePlayers.Add(hostPlayer);
-            
+
+            _expectedPlayers.Clear();
+            _expectedPlayers.Add(0);
+            if (otherHumanPlayers != null)
+            {
+                foreach (int idx in otherHumanPlayers)
+                {
+                    if (idx != _localPlayerIndex)
+                        _expectedPlayers.Add(idx);
+                }
+            }
+
             StartNetwork();
-            
+
         }
 
         /// <summary>
@@ -272,9 +399,9 @@ namespace TheWaningBorder.Multiplayer
             // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
             // waiting for each other's tick confirmation before either can broadcast.
             _confirmedTicks[_localPlayerIndex] = INPUT_DELAY_TICKS;
-            foreach (var player in _remotePlayers)
+            foreach (int playerIndex in _expectedPlayers)
             {
-                _confirmedTicks[player.PlayerIndex] = INPUT_DELAY_TICKS;
+                _confirmedTicks[playerIndex] = INPUT_DELAY_TICKS;
             }
             
         }
@@ -285,6 +412,8 @@ namespace TheWaningBorder.Multiplayer
         public void StopSimulation()
         {
             _isSimulationRunning = false;
+            // Never leave the world frozen behind a gate that can no longer lift.
+            ReleaseSimGate();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -294,13 +423,19 @@ namespace TheWaningBorder.Multiplayer
         private void SetupRemotePlayers(List<RemotePlayerInfo> players)
         {
             _remotePlayers.Clear();
-            int playerIndex = 1;
-            
+            int sequentialIndex = 1;
+
             foreach (var info in players)
             {
+                // Use the slot index the lobby registered (clients identify as
+                // their slot index); sequential numbering is only a fallback
+                // for legacy callers that never set PlayerIndex.
+                int index = info.PlayerIndex > 0 ? info.PlayerIndex : sequentialIndex;
+                sequentialIndex = index + 1;
+
                 var remote = new RemotePlayer
                 {
-                    PlayerIndex = playerIndex++,
+                    PlayerIndex = index,
                     Faction = info.Faction,
                     EndPoint = new IPEndPoint(IPAddress.Parse(info.IP), info.Port),
                     LastConfirmedTick = -1
@@ -334,12 +469,13 @@ namespace TheWaningBorder.Multiplayer
         private bool CanAdvanceTick()
         {
             // In single player, always advance
-            if (_remotePlayers.Count == 0) return true;
-            
-            // Check all players have confirmed the current tick
-            foreach (var player in _remotePlayers)
+            if (_expectedPlayers.Count == 0) return true;
+
+            // Check all players (direct peers AND host-relayed ones) have
+            // confirmed the current tick
+            foreach (int playerIndex in _expectedPlayers)
             {
-                if (_confirmedTicks.GetValueOrDefault(player.PlayerIndex, -1) < _currentTick)
+                if (_confirmedTicks.GetValueOrDefault(playerIndex, -1) < _currentTick)
                     return false;
             }
             return true;
@@ -379,7 +515,14 @@ namespace TheWaningBorder.Multiplayer
             {
                 ExecuteCommand(cmd);
             }
-            
+
+            // TRUE-determinism path: advance the ECS simulation by EXACTLY one
+            // fixed-dt step now, so "apply tick T's commands → simulate T" is
+            // atomic and identical on every client. No-op unless the determinism
+            // flag installed the fixed-step rate manager (otherwise the player
+            // loop keeps driving the sim per-frame, as before).
+            LockstepFixedStep.Step();
+
             // Cleanup old tick data
             _remoteCommands.Remove(tick - MAX_TICK_BUFFER);
             
@@ -432,6 +575,14 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed Move from player {cmd.PlayerIndex}");
                     break;
 
+                case LockstepCommandType.LayeredMove:
+                    // RemotePlayer source takes the direct-execution branch in
+                    // IssueLayeredMove (no re-queueing).
+                    CommandRouter.IssueLayeredMove(em, entity, cmd.TargetPosition,
+                        (byte)(cmd.TargetEntityId & 0xFF), CommandSource.RemotePlayer);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed LayeredMove from player {cmd.PlayerIndex}");
+                    break;
+
                 case LockstepCommandType.Attack:
                     if (targetEntity != Entity.Null)
                     {
@@ -446,12 +597,16 @@ namespace TheWaningBorder.Multiplayer
                     break;
 
                 case LockstepCommandType.Gather:
-                    Entity depositEntity = cmd.SecondaryTargetId > 0 ? FindEntityByNetworkId(cmd.SecondaryTargetId) : Entity.Null;
                     if (targetEntity != Entity.Null)
                     {
-                        GatherCommandHelper.Execute(em, entity, targetEntity, depositEntity);
+                        GatherCommandHelper.Execute(em, entity, targetEntity);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
                     }
+                    break;
+
+                case LockstepCommandType.GatherVeil:
+                    GatherVeilCommandHelper.Execute(em, entity, cmd.TargetPosition);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed GatherVeil from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Build:
@@ -524,6 +679,47 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                case LockstepCommandType.AgeUp:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.AgeUpCommandDirect(em, entity, (byte)(cmd.TargetEntityId & 0xFF));
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed AgeUp from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.TempleUpgrade:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.TempleUpgradeCommandDirect(em, entity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed TempleUpgrade from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.SectAdopt:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.SectAdoptionCommandDirect(em, entity, cmd.BuildingId,
+                            cmd.TargetEntityId, cmd.TargetPosition.x);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectAdopt {cmd.BuildingId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.BuildingUpgrade:
+                    if (entity != Entity.Null)
+                    {
+                        UpgradeBuildingCommandHelper.ApplyDirect(em, entity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed BuildingUpgrade from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.Research:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.ResearchCommandDirect(em, entity, cmd.BuildingId);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Research {cmd.BuildingId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
                 case LockstepCommandType.CancelTrain:
                     if (entity != Entity.Null)
                     {
@@ -559,6 +755,11 @@ namespace TheWaningBorder.Multiplayer
                     {
                         Faction buildFaction = (Faction)cmd.EntityNetworkId;
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
+                        // Register in the per-tick lookup so a later command in
+                        // THIS tick (e.g. Build targeting the new foundation)
+                        // resolves it without a rebuild.
+                        if (placed != Entity.Null && em.HasComponent<NetworkedEntity>(placed))
+                            _networkIdLookup[em.GetComponentData<NetworkedEntity>(placed).NetworkId] = placed;
                     }
                     break;
 
@@ -619,21 +820,12 @@ namespace TheWaningBorder.Multiplayer
             if (world == null || !world.IsCreated) return Entity.Null;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(NetworkedEntity));
-            var entities = query.ToEntityArray(Allocator.Temp);
+            if (_networkIdLookupTick != _currentTick)
+                RebuildNetworkIdLookup(em);
 
-            Entity result = Entity.Null;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (em.GetComponentData<NetworkedEntity>(entities[i]).NetworkId == networkId)
-                {
-                    result = entities[i];
-                    break;
-                }
-            }
-            
-            entities.Dispose();
-            return result;
+            if (_networkIdLookup.TryGetValue(networkId, out var entity) && em.Exists(entity))
+                return entity;
+            return Entity.Null;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -658,12 +850,25 @@ namespace TheWaningBorder.Multiplayer
             {
                 try
                 {
+                    // Resend recent non-empty ticks FIRST so a receiver that
+                    // lost an earlier datagram has those commands before this
+                    // tick's confirmation lets it advance past them.
+                    for (int i = 0; i < _recentTickPayloads.Count; i++)
+                    {
+                        var payload = _recentTickPayloads[i].Data;
+                        _udpClient?.Send(payload, payload.Length, player.EndPoint);
+                    }
                     _udpClient?.Send(data, data.Length, player.EndPoint);
                 }
                 catch (Exception)
             {
                 }
             }
+
+            if (commands.Count > 0)
+                _recentTickPayloads.Add((tick, data));
+            while (_recentTickPayloads.Count > 0 && _recentTickPayloads[0].Tick <= tick - RESEND_HISTORY)
+                _recentTickPayloads.RemoveAt(0);
         }
 
         private void BroadcastSync(int tick, uint checksum)
@@ -751,29 +956,40 @@ namespace TheWaningBorder.Multiplayer
             if (!int.TryParse(parts[2], out int tick)) return;
             if (!int.TryParse(parts[3], out int cmdCount)) return;
 
-            var commands = new List<LockstepCommand>();
-            int cmdStartIndex = 4;
-            for (int i = 0; i < cmdCount && cmdStartIndex < parts.Length; i++)
-            {
-                var cmd = LockstepCommand.Deserialize(parts[cmdStartIndex]);
-                if (cmd != null)
-                {
-                    cmd.PlayerIndex = playerIndex;
-                    cmd.Tick = tick;
-                    commands.Add(cmd);
-                }
-                cmdStartIndex++;
-            }
+            // First contact from this player lifts the match-start barrier
+            // once everyone has been heard from.
+            _seenPlayers.Add(playerIndex);
+            MaybeReleaseSimGate();
 
-            if (!_remoteCommands.ContainsKey(tick))
-                _remoteCommands[tick] = new Dictionary<int, List<LockstepCommand>>();
-
-            _remoteCommands[tick][playerIndex] = commands;
             _confirmedTicks[playerIndex] = Math.Max(_confirmedTicks.GetValueOrDefault(playerIndex, -1), tick);
 
-            // Always log received ticks during debugging
+            // Store commands only for ticks not yet executed — resends and
+            // duplicates for already-processed ticks would just grow the
+            // buffer (the tick ran; its outcome cannot be revised).
+            if (tick >= _currentTick)
+            {
+                var commands = new List<LockstepCommand>();
+                int cmdStartIndex = 4;
+                for (int i = 0; i < cmdCount && cmdStartIndex < parts.Length; i++)
+                {
+                    var cmd = LockstepCommand.Deserialize(parts[cmdStartIndex]);
+                    if (cmd != null)
+                    {
+                        cmd.PlayerIndex = playerIndex;
+                        cmd.Tick = tick;
+                        commands.Add(cmd);
+                    }
+                    cmdStartIndex++;
+                }
 
-            // Host relays to other clients
+                if (!_remoteCommands.ContainsKey(tick))
+                    _remoteCommands[tick] = new Dictionary<int, List<LockstepCommand>>();
+
+                _remoteCommands[tick][playerIndex] = commands;
+            }
+
+            // Host relays to other clients (resends included — a client may
+            // still be behind the tick this host already executed).
             if (_isHost)
             {
                 string originalMessage = string.Join("|", parts);
@@ -792,6 +1008,21 @@ namespace TheWaningBorder.Multiplayer
             {
                 if (localChecksum != remoteChecksum)
                 {
+                    DesyncDetected = true;
+                    DesyncTick = tick;
+                    // Only ACT on a desync in true-deterministic mode. With the
+                    // fixed-step OFF (the default), the simulation is frame-rate
+                    // driven, so positions/timers legitimately drift between
+                    // clients and the checksum mismatches every sync tick — that
+                    // is EXPECTED here, not a real desync. Halting on it would
+                    // freeze the game (and stop move commands from executing).
+                    if (GameSettings.DeterministicLockstep)
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[Lockstep] DESYNC at tick {tick}: local checksum 0x{localChecksum:X8} " +
+                            $"!= remote 0x{remoteChecksum:X8} (from {sender}). Halting simulation.");
+                        _isSimulationRunning = false;
+                    }
                 }
             }
         }
@@ -824,15 +1055,15 @@ namespace TheWaningBorder.Multiplayer
             // Positions are NOT included because movement uses frame-rate-dependent
             // deltaTime, causing tiny floating-point drift between clients.
             // Commands are still synchronized via lockstep — drift is cosmetic only.
-            var query = em.CreateEntityQuery(typeof(NetworkedEntity));
-            var entities = query.ToEntityArray(Allocator.Temp);
+            var query = GetNetworkedQuery(em);
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
 
             checksum ^= (uint)(entities.Length * 31);
 
             for (int i = 0; i < entities.Length; i++)
             {
-                var netEntity = em.GetComponentData<NetworkedEntity>(entities[i]);
-                checksum ^= (uint)(netEntity.NetworkId * 7919);
+                checksum ^= (uint)(ids[i].NetworkId * 7919);
 
                 // Include health if present — tracks combat state
                 if (em.HasComponent<Health>(entities[i]))
@@ -842,7 +1073,6 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
 
-            entities.Dispose();
             return checksum;
         }
     }

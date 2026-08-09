@@ -29,7 +29,7 @@ namespace TheWaningBorder.Economy
         public int Iron;
 
         /// <summary>Magical resource - used for temples and magical units</summary>
-        public int Crystal;
+        public int Veilstone;
 
         /// <summary>Rare resource - used for elite units and advanced technologies</summary>
         public int Veilsteel;
@@ -44,7 +44,7 @@ namespace TheWaningBorder.Economy
         ///
         /// Fix #216: previously this only capped at ResourceCap and allowed
         /// negative values to slip through when direct component mutations
-        /// (MiningSystem, CrystalMiningSystem, etc.) bypassed FactionEconomy.
+        /// (MiningSystem, VeilstoneMiningSystem, etc.) bypassed FactionEconomy.
         /// Spend's balance check. A negative bank could cascade into integer
         /// underflow and nonsensical UI. The lower bound is now enforced here
         /// as a defensive safety net.
@@ -53,13 +53,13 @@ namespace TheWaningBorder.Economy
         {
             if (Supplies  > ResourceCap) Supplies  = ResourceCap;
             if (Iron      > ResourceCap) Iron      = ResourceCap;
-            if (Crystal   > ResourceCap) Crystal   = ResourceCap;
+            if (Veilstone   > ResourceCap) Veilstone   = ResourceCap;
             if (Veilsteel > ResourceCap) Veilsteel = ResourceCap;
             if (Glow      > ResourceCap) Glow      = ResourceCap;
 
             if (Supplies  < 0) Supplies  = 0;
             if (Iron      < 0) Iron      = 0;
-            if (Crystal   < 0) Crystal   = 0;
+            if (Veilstone   < 0) Veilstone   = 0;
             if (Veilsteel < 0) Veilsteel = 0;
             if (Glow      < 0) Glow      = 0;
         }
@@ -67,14 +67,14 @@ namespace TheWaningBorder.Economy
         /// <summary>
         /// Create resources with specified values.
         /// </summary>
-        public static FactionResources Of(int supplies = 0, int iron = 0, int crystal = 0,
+        public static FactionResources Of(int supplies = 0, int iron = 0, int veilstone = 0,
                                           int veilsteel = 0, int glow = 0)
         {
             return new FactionResources
             {
                 Supplies = supplies,
                 Iron = iron,
-                Crystal = crystal,
+                Veilstone = veilstone,
                 Veilsteel = veilsteel,
                 Glow = glow
             };
@@ -83,12 +83,12 @@ namespace TheWaningBorder.Economy
         /// <summary>
         /// Check if faction has at least the specified resources.
         /// </summary>
-        public bool HasAtLeast(int supplies = 0, int iron = 0, int crystal = 0,
+        public bool HasAtLeast(int supplies = 0, int iron = 0, int veilstone = 0,
                                int veilsteel = 0, int glow = 0)
         {
             return Supplies >= supplies &&
                    Iron >= iron &&
-                   Crystal >= crystal &&
+                   Veilstone >= veilstone &&
                    Veilsteel >= veilsteel &&
                    Glow >= glow;
         }
@@ -96,12 +96,12 @@ namespace TheWaningBorder.Economy
         /// <summary>
         /// Get total resource value (simple weighted sum).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Crystal * 3) + 
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) + 
                                  (Veilsteel * 5) + (Glow * 4);
         
         public override string ToString()
         {
-            return $"S:{Supplies} Fe:{Iron} Cr:{Crystal} Vs:{Veilsteel} Gl:{Glow}";
+            return $"S:{Supplies} Fe:{Iron} Cr:{Veilstone} Vs:{Veilsteel} Gl:{Glow}";
         }
     }
     
@@ -165,7 +165,7 @@ namespace TheWaningBorder.Economy
         public float PerMinute => Interval > 0 ? (PerTick / Interval * 60f) : 0f;
     }
     
-    // Fix #217: Iron/Crystal/Veilsteel/Glow income used to expose
+    // Fix #217: Iron/Veilstone/Veilsteel/Glow income used to expose
     // `int PerSecond => PerMinute / 60;` which truncated to zero for any
     // PerMinute below 60. A building producing 30 iron/min reported 0/sec
     // and never actually delivered anything. The fractional accumulator
@@ -186,12 +186,12 @@ namespace TheWaningBorder.Economy
     }
 
     /// <summary>
-    /// Attach to any building that provides passive Crystal income.
-    /// Example: Crystal Shrine generates crystal over time.
+    /// Attach to any building that provides passive Veilstone income.
+    /// Example: Veilstone Shrine generates veilstone over time.
     /// </summary>
-    public struct CrystalIncome : IComponentData
+    public struct VeilstoneIncome : IComponentData
     {
-        /// <summary>Crystal generated per minute</summary>
+        /// <summary>Veilstone generated per minute</summary>
         public int PerMinute;
 
         /// <summary>Fractional accumulator (see Fix #217).</summary>

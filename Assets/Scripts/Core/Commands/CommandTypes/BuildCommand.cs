@@ -46,6 +46,23 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear conflicting commands
             CommandHelper.ClearAllCommands(em, builder);
 
+            // A drafted mining worker must LEAVE the mining state machine —
+            // ClearAllCommands strips the GatherCommand but MinerState.State
+            // kept running, so MiningSystem steered the worker toward its
+            // deposit every tick while the construction mover steered it
+            // toward the site (workers visibly walking away from their own
+            // destination line).
+            if (em.HasComponent<MinerState>(builder))
+            {
+                var ms = em.GetComponentData<MinerState>(builder);
+                if (ms.State != MinerWorkState.Idle)
+                {
+                    ms.State = MinerWorkState.Idle;
+                    ms.AssignedDeposit = Entity.Null;
+                    em.SetComponentData(builder, ms);
+                }
+            }
+
             // Set up build command
             SetupBuild(em, builder, targetBuilding, buildingId, position);
         }
@@ -83,6 +100,19 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool IsValidBuildPosition(EntityManager em, float3 position, int2 buildingSize)
         {
+            // THE VEIL (Curse & Shardroot canon §2.3): veilstone crust is
+            // unbuildable ground — humanity is being pushed back. Reclaim it
+            // (mine the frontier crystals, starve the wells, sanctify with a
+            // Font) before building on it.
+            var veilQuery = em.CreateEntityQuery(ComponentType.ReadOnly<VeilField>());
+            if (!veilQuery.IsEmptyIgnoreFilter)
+            {
+                var veil = veilQuery.GetSingleton<VeilField>();
+                if (veil.Initialised != 0
+                    && veil.SaturationAt(position) >= VeilField.CrustThreshold)
+                    return false;
+            }
+
             // Compute AABB half-extents for the new building
             float halfW = buildingSize.x / 2f;
             float halfH = buildingSize.y / 2f;

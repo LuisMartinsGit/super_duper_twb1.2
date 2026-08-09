@@ -42,6 +42,13 @@ namespace TheWaningBorder.Core.Multiplayer
         CancelTrain = 20,        // CommandRouter.IssueCancelTrain (building + slotIndex in TargetEntityId)
         ConvertHut = 21,         // CommandRouter.IssueConvertHut (hut + HutConversionTarget byte in TargetEntityId)
         ConvertSegmentToGate = 22, // CommandRouter.IssueConvertSegmentToGate (segment + focus-instance network id in TargetEntityId)
+        GatherVeil = 23,         // CommandRouter.IssueGatherVeil (miner + dig site in TargetPosition)
+        LayeredMove = 24,        // CommandRouter.IssueLayeredMove (unit + dest + target layer byte in TargetEntityId)
+        Research = 25,           // CommandRouter.IssueResearch (building + tech id in BuildingId)
+        BuildingUpgrade = 26,    // CommandRouter.IssueBuildingUpgrade (building level-up; target level recomputed per peer)
+        AgeUp = 27,              // CommandRouter.IssueAgeUp (hall + culture byte in TargetEntityId)
+        TempleUpgrade = 28,      // CommandRouter.IssueTempleUpgrade (temple; level/duration recomputed per peer)
+        SectAdopt = 29,          // CommandRouter.IssueSectAdoption (temple + sect id in BuildingId + slot in TargetEntityId + build time in TargetPosition.x)
     }
 
     /// <summary>
@@ -146,6 +153,13 @@ namespace TheWaningBorder.Core.Multiplayer
         public int Port;
         public Faction Faction;
         public string PlayerName;
+        /// <summary>Lockstep player index = LOBBY SLOT INDEX. Every peer
+        /// derives its own index from its slot, so the host must register
+        /// remotes under the same number — a sequential 1..N assignment
+        /// diverges as soon as an AI slot sits between two humans (host
+        /// waits for P1 ticks while the client broadcasts as P2, and the
+        /// simulation never advances past the input delay).</summary>
+        public int PlayerIndex;
     }
 
     /// <summary>
@@ -185,7 +199,7 @@ namespace TheWaningBorder.Core.Multiplayer
     ///   - Pre-lockstep (bootstrap) spawns use a sequential counter in the
     ///     reserved range [1 .. BOOTSTRAP_RESERVE-1]. This range is for
     ///     entities that exist before the first tick fires (initial player
-    ///     bases, iron deposits, crystal nodes, etc.). Both peers MUST run
+    ///     bases, iron deposits, veilstone nodes, etc.). Both peers MUST run
     ///     bootstrap in the same order — this is a pre-condition.
     ///   - Each lockstep tick gets a reserved slot range of SLOTS_PER_TICK
     ///     IDs, starting at BOOTSTRAP_RESERVE + tick * SLOTS_PER_TICK. Any

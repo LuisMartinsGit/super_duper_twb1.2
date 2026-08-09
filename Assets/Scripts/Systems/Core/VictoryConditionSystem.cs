@@ -6,13 +6,15 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
+using TheWaningBorder.Data;
 
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
-    /// Periodically checks whether each faction still owns completed buildings.
-    /// When a faction loses all completed buildings it is eliminated.
-    /// When only one faction remains, the game ends with a victory/defeat outcome.
+    /// Periodically checks whether each faction can still REBUILD. A faction
+    /// is retired the moment it has no Hall, no military building and no
+    /// builder unit — the three lifelines back into a match. When only one
+    /// faction remains, the game ends with a victory/defeat outcome.
     /// </summary>
     public class VictoryConditionSystem : MonoBehaviour
     {
@@ -24,12 +26,17 @@ namespace TheWaningBorder.UI.HUD
         private Unity.Entities.World _world;
         private EntityManager _em;
         private EntityQuery _buildingsQuery;
+        private EntityQuery _buildersQuery;
         private float _timer;
         private float _gameStartTime;
         private bool _initialized;
         private bool _gameOver;
         private HashSet<Faction> _aliveFactions = new HashSet<Faction>();
         private HashSet<Faction> _eliminatedFactions = new HashSet<Faction>();
+        /// <summary>Factions observed with at least one lifeline at some point.
+        /// Elimination requires membership here, so a faction can never be
+        /// retired before its base has finished spawning.</summary>
+        private HashSet<Faction> _everSeenAlive = new HashSet<Faction>();
 
         void Awake()
         {
@@ -50,6 +57,14 @@ namespace TheWaningBorder.UI.HUD
             _buildingsQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),
                 ComponentType.ReadOnly<FactionTag>());
+            // Builders — any unit that can raise a structure. CanBuild is the
+            // build capability itself, so this covers Workers and anything
+            // else that gains it. Conscripted Feraldis Workers are deliberately
+            // INCLUDED: they keep CanBuild and can be pulled back off the front
+            // to rebuild, so they are a live lifeline even while soldiering.
+            _buildersQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<CanBuild>(),
+                ComponentType.ReadOnly<FactionTag>());
 
             _gameStartTime = Time.time;
 
@@ -68,10 +83,12 @@ namespace TheWaningBorder.UI.HUD
             {
                 Faction faction = (Faction)i;
 
-                // Skip observer faction - they are not a participant
-                if (GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
-                    continue;
-
+                // Observer matches: every faction is a real AI participant —
+                // including the observer's nominal LocalPlayerFaction, whose
+                // slot is AI-controlled and spawns a base. Track them all so
+                // eliminations and the winner banner work for a full
+                // AI-vs-AI match. (The old skip left LocalPlayerFaction
+                // untracked, so its elimination never registered.)
                 _aliveFactions.Add(faction);
             }
 
@@ -98,39 +115,99 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_world == null || !_world.IsCreated) return;
 
-            // Count completed buildings per faction
-            var buildingCounts = new Dictionary<Faction, int>();
-            foreach (var faction in _aliveFactions)
+            // ── SURVIVAL TEST (rewritten 2026-08-07) ────────────────────
+            // A faction is alive while it can still REBUILD. Three
+            // independent lifelines, ANY of which keeps it in the match:
+            //
+            //   Hall              → can train Workers → can rebuild anything
+            //   Military building → can train an army
+            //   A builder unit    → can raise a new Hall or Barracks
+            //
+            // Lose all three and there is no path back, so the faction is
+            // retired immediately.
+            //
+            // WAS: "owns zero completed buildings". That kept dead factions in
+            // the match for the rest of its length — the 2026-08-07 8-player
+            // FFA had Purple frozen on 18 supplies / 0 military for 25 minutes
+            // and Green likewise, both untouchable because they still owned a
+            // scatter of gatherer huts. Six of eight factions were finished by
+            // minute 19 and the match ran to 45. Under this rule they retire
+            // when they actually die, and the finishing move stops being
+            // "hunt sixteen 1-tile huts across a 400x400 map".
+            const int MaxFactions = 9;   // Blue..White + Border
+            var hasHall = new bool[MaxFactions];
+            var hasMilitaryBuilding = new bool[MaxFactions];
+            var hasBuilder = new bool[MaxFactions];
+
+            using (var entities = _buildingsQuery.ToEntityArray(Allocator.Temp))
+            using (var factionTags = _buildingsQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
-                buildingCounts[faction] = 0;
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    Faction faction = factionTags[i].Value;
+                    int fi = (int)faction;
+                    if (fi < 0 || fi >= MaxFactions) continue;
+                    if (!_aliveFactions.Contains(faction)) continue;
+
+                    // A foundation is not a lifeline — but the builder raising
+                    // it is, and that is counted separately below.
+                    if (_em.HasComponent<UnderConstruction>(entities[i])) continue;
+
+                    if (_em.HasComponent<HallTag>(entities[i])) { hasHall[fi] = true; continue; }
+                    if (!hasMilitaryBuilding[fi] && IsMilitaryBuilding(entities[i]))
+                        hasMilitaryBuilding[fi] = true;
+                }
             }
 
-            using var entities = _buildingsQuery.ToEntityArray(Allocator.Temp);
-            using var factionTags = _buildingsQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
+            using (var builders = _buildersQuery.ToEntityArray(Allocator.Temp))
+            using (var builderFactions = _buildersQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
-                Faction faction = factionTags[i].Value;
-
-                // Skip factions we're not tracking
-                if (!_aliveFactions.Contains(faction)) continue;
-
-                // Skip buildings still under construction
-                if (_em.HasComponent<UnderConstruction>(entities[i])) continue;
-
-                buildingCounts[faction]++;
+                for (int i = 0; i < builders.Length; i++)
+                {
+                    int fi = (int)builderFactions[i].Value;
+                    if (fi < 0 || fi >= MaxFactions) continue;
+                    if (hasBuilder[fi]) continue;
+                    // A corpse mid-cleanup is not a builder.
+                    if (_em.HasComponent<Health>(builders[i])
+                        && _em.GetComponentData<Health>(builders[i]).Value <= 0) continue;
+                    hasBuilder[fi] = true;
+                }
             }
 
             // Detect newly eliminated factions
             float gameTime = Time.time - _gameStartTime;
             var newlyEliminated = new List<Faction>();
 
-            foreach (var kvp in buildingCounts)
+            foreach (var faction in _aliveFactions)
             {
-                if (kvp.Value == 0)
+                int fi = (int)faction;
+                if (fi < 0 || fi >= MaxFactions) continue;
+
+                bool canRebuild = hasHall[fi] || hasMilitaryBuilding[fi] || hasBuilder[fi];
+                if (canRebuild)
                 {
-                    newlyEliminated.Add(kvp.Key);
+                    _everSeenAlive.Add(faction);
+                    continue;
                 }
+
+                // NEVER retire a faction we have not yet observed alive. The
+                // grace period alone is a timer, and a timer cannot know
+                // whether this faction's base has actually finished
+                // spawning — a slow bootstrap, a late-joining peer or a
+                // deferred ECB playback would all read as "no lifelines" and
+                // delete a player before their first frame. Elimination is
+                // irreversible; require positive evidence of life first.
+                if (!_everSeenAlive.Contains(faction)) continue;
+
+                newlyEliminated.Add(faction);
+                // AILogger, not TWBLog: TWBLog is [Conditional("TWB_VERBOSE")]
+                // and compiles to nothing in a normal build, so elimination —
+                // the single most important event in a match — was invisible
+                // in every postmortem. This lands in AI_<Faction>.log.
+                TheWaningBorder.AI.AILogger.Log(faction, "VICTORY",
+                    $"ELIMINATED at {gameTime:0}s — no Hall, no military building, no builders.");
+                TWBLog.Log($"[Victory] {faction} eliminated at {gameTime:0}s — " +
+                           "no Hall, no military building, no builders.");
             }
 
             foreach (var faction in newlyEliminated)
@@ -144,8 +221,10 @@ namespace TheWaningBorder.UI.HUD
                 }
 
 
-                // If local player was eliminated, show defeat immediately
-                if (faction == GameSettings.LocalPlayerFaction)
+                // If local player was eliminated, show defeat immediately.
+                // Not in observer mode — the observer has no stake; the
+                // match runs until one AI faction remains.
+                if (!GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
                 {
                     Faction winner = _aliveFactions.Count == 1
                         ? GetSingleFaction(_aliveFactions)
@@ -193,23 +272,17 @@ namespace TheWaningBorder.UI.HUD
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
             }
 
-            EndGameButton.GameEndedBySystem = true;
-
-            // The IMGUI PostGameStatsUI is disabled while the web HUD is
-            // active (GameBootstrap sets legacyPostGame.enabled = false).
-            // Re-enable it so its OnGUI fires for the end-of-match
-            // banner + graphs. The web HUD owns in-match chrome; the
-            // post-game screen takes over once we're at game end.
-            if (PostGameStatsUI.Instance == null)
-            {
-                var go = new GameObject("PostGameStatsUI");
-                go.AddComponent<PostGameStatsUI>();
-            }
-            if (PostGameStatsUI.Instance != null)
-            {
-                PostGameStatsUI.Instance.enabled = true;
-                PostGameStatsUI.Instance.ShowWithResult(result, winner);
-            }
+            // Old post-game UI (EndGameButton / PostGameStatsUI) removed with
+            // the old UI (2026-07-17); the final uGUI will own the post-game
+            // screen. State change above stands; log the result for now.
+            //
+            // Mirrored to every faction's AI log because TWBLog compiles out —
+            // without this, "did the match actually end, and how?" is
+            // unanswerable after the fact.
+            for (int i = 0; i < GameSettings.TotalPlayers; i++)
+                TheWaningBorder.AI.AILogger.Log((Faction)i, "VICTORY",
+                    $"GAME OVER: {result} (winner={winner})");
+            TWBLog.Log($"[Victory] Game over: {result} (winner={winner})");
         }
 
         /// <summary>
@@ -250,21 +323,10 @@ namespace TheWaningBorder.UI.HUD
                     : $"DEFEAT — {cultureName} node win";
             }
 
-            EndGameButton.GameEndedBySystem = true;
-
-            // Same re-enable + create-if-missing dance as TriggerGameEnd
-            // — the web HUD's PostGameStatsUI is disabled in-match, so
-            // we need to flip it on for the post-match overlay.
-            if (PostGameStatsUI.Instance == null)
-            {
-                var go = new GameObject("PostGameStatsUI");
-                go.AddComponent<PostGameStatsUI>();
-            }
-            if (PostGameStatsUI.Instance != null)
-            {
-                PostGameStatsUI.Instance.enabled = true;
-                PostGameStatsUI.Instance.ShowWithResult(result, winner);
-            }
+            // Old post-game UI (EndGameButton / PostGameStatsUI) removed with
+            // the old UI (2026-07-17); the final uGUI will own the post-game
+            // screen. State change above stands; log the result for now.
+            TWBLog.Log($"[Victory] Node victory: {result} (winner={winner})");
         }
 
         /// <summary>
@@ -288,6 +350,60 @@ namespace TheWaningBorder.UI.HUD
                 ? GetSingleFaction(_aliveFactions)
                 : GameSettings.LocalPlayerFaction; // No clear winner
             TriggerGameEnd(winner, true);
+        }
+
+        /// <summary>
+        /// A completed building counts as MILITARY when it can train at least
+        /// one combat unit. Resolved through the tech data
+        /// (BuildCosts.IdFromEntity → TechCatalog building def → its
+        /// `trains` list → each unit's class) rather than a hardcoded tag list,
+        /// so a roster change cannot silently make a Barracks stop counting and
+        /// eliminate a faction that still has one.
+        ///
+        /// Halls are excluded by the caller — they are their own lifeline.
+        /// </summary>
+        private bool IsMilitaryBuilding(Entity building)
+        {
+            string id = BuildCosts.IdFromEntity(_em, building);
+            if (string.IsNullOrEmpty(id)) return false;
+            if (!TechCatalog.TryGetBuilding(id, out var def)) return false;
+            if (def?.trains == null) return false;
+
+            for (int i = 0; i < def.trains.Length; i++)
+                if (TrainsCombatUnit(def.trains[i])) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Whether a unit id is a combat unit, for the military-building test.
+        ///
+        /// Deliberately FAIL-SAFE: anything not on the known non-combat list —
+        /// including a unit the catalog cannot resolve, or a class added later —
+        /// counts as combat. Elimination is irreversible, so the cost of the two
+        /// mistakes is wildly asymmetric: a false negative keeps a dead faction
+        /// around a little longer, a false positive deletes a live player who
+        /// still had a Barracks. Bias hard toward survival.
+        /// </summary>
+        private static bool TrainsCombatUnit(string unitId)
+        {
+            if (string.IsNullOrEmpty(unitId)) return false;
+            if (!TechCatalog.TryGetUnit(unitId, out var unit) || unit == null)
+                return true;   // unknown → assume it fights
+
+            switch ((unit.unitClass ?? string.Empty).ToLowerInvariant())
+            {
+                case "worker":
+                case "villager":
+                case "economy":
+                case "miner":
+                case "support":
+                case "scout":
+                case "caravan":
+                case "trade":
+                    return false;
+                default:
+                    return true;   // melee / ranged / siege / magic / cavalry / new
+            }
         }
 
         private static Faction GetSingleFaction(HashSet<Faction> set)

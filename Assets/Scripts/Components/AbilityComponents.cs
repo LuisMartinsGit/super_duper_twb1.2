@@ -107,8 +107,8 @@ public struct VoidStrikeBuff : IComponentData
     /// <summary>Bonus damage on next attack</summary>
     public float BonusDamage;
 
-    /// <summary>Bonus damage vs Crystal-buffed targets</summary>
-    public float BonusVsCrystal;
+    /// <summary>Bonus damage vs Veilstone-buffed targets</summary>
+    public float BonusVsBorder;
 }
 
 /// <summary>

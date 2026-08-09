@@ -1,3 +1,7 @@
+// Editor-only tool inside the single runtime asmdef: the Editor/ folder
+// convention does NOT apply within an .asmdef, so without this guard the
+// file is compiled into PLAYER builds and fails them (UnityEditor missing).
+#if UNITY_EDITOR
 // Phase 1 helper — flips com.unity.vectorgraphics SVG imports under
 // Assets/UI/Vectors/ to produce VectorImage output instead of a GameObject
 // prefab. USS background-image rejects GameObject; once the import switches,
@@ -121,3 +125,5 @@ namespace TheWaningBorder.UI.EditorTools
         }
     }
 }
+
+#endif // UNITY_EDITOR

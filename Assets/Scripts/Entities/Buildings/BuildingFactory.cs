@@ -1,4 +1,5 @@
 // File: Assets/Scripts/Entities/Buildings/BuildingFactory.cs
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
@@ -20,6 +21,83 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BuildingFactory
     {
+        private readonly struct BuildingRecipe
+        {
+            public readonly Func<EntityManager, float3, Faction, Entity> CreateEm;
+            // Null = this building has no ECB construction path (e.g. Alanthor_Wall
+            // hubs are EntityManager-only); the ECB Create falls back to CreateDefault.
+            public readonly Func<EntityCommandBuffer, float3, Faction, Entity> CreateEcb;
+            public readonly int PresentationId;
+
+            public BuildingRecipe(Func<EntityManager, float3, Faction, Entity> createEm,
+                                  Func<EntityCommandBuffer, float3, Faction, Entity> createEcb,
+                                  int presentationId)
+            {
+                CreateEm = createEm;
+                CreateEcb = createEcb;
+                PresentationId = presentationId;
+            }
+        }
+
+        /// <summary>
+        /// Single source of truth: id -> (EM ctor, ECB ctor, presentation id).
+        /// Chapel ids (task-063: Chapel_Sect_*) are handled separately in
+        /// Create/GetPresentationId because they parameterize one shared creator
+        /// by sect id. Unknown ids fall back to CreateDefault / PID 100.
+        /// </summary>
+        private static readonly Dictionary<string, BuildingRecipe> Recipes = BuildRecipes();
+
+        private static Dictionary<string, BuildingRecipe> BuildRecipes()
+        {
+            return new Dictionary<string, BuildingRecipe>
+            {
+                ["Hall"]            = new BuildingRecipe(Hall.Create, Hall.Create, 100),
+                ["Hut"]             = new BuildingRecipe(Hut.Create, Hut.Create, 102),
+                ["GatherersHut"]    = new BuildingRecipe(GatherersHut.Create, GatherersHut.Create, 101),
+                ["Barracks"]        = new BuildingRecipe(Barracks.Create, Barracks.Create, 510),
+                ["ArcheryRange"]    = new BuildingRecipe(ArcheryRange.Create, ArcheryRange.Create, 511),
+                ["ShrineOfRidan"]   = new BuildingRecipe(CreateShrineOfRidan, CreateShrineOfRidanECB, 520),
+                // Legacy id alias — pre-rename build orders / saves still say
+                // "ShrineOfAhridan"; keep them routing to the same creator.
+                ["ShrineOfAhridan"] = new BuildingRecipe(CreateShrineOfRidan, CreateShrineOfRidanECB, 520),
+                ["TempleOfRidan"]   = new BuildingRecipe(CreateTempleOfRidanNew, CreateTempleOfRidanNewECB, 521),
+                ["VaultOfAlmierra"] = new BuildingRecipe(CreateVaultOfAlmierra, CreateVaultOfAlmierraECB, 530),
+                ["FiendstoneKeep"]  = new BuildingRecipe(CreateFiendstoneKeep, CreateFiendstoneKeepECB, 540),
+                ["Alanthor_Wall"]   = new BuildingRecipe(AlanthorWall.CreateHub, null, AlanthorWall.HubPresentationID),
+                ["Alanthor_Smelter"] = new BuildingRecipe(Smelter.Create, Smelter.Create, Smelter.PresentationID),
+
+                // Runai culture buildings
+                ["Runai_Outpost"]      = new BuildingRecipe(CreateRunaiOutpost, CreateRunaiOutpostECB, 350),
+                ["Runai_TradeHub"]     = new BuildingRecipe(CreateRunaiTradeHub, CreateRunaiTradeHubECB, 351),
+                // (task-062 Q-39 — was missing, falling through to 100/default.)
+                ["Runai_TradingPost"]  = new BuildingRecipe(CreateRunaiTradingPost, CreateRunaiTradingPostECB, 355),
+                ["ThessarasBazaar"]    = new BuildingRecipe(CreateRunaiBazaar, CreateRunaiBazaarECB, 352),
+                ["Runai_SiegeWorkshop"] = new BuildingRecipe(CreateRunaiSiegeWorkshop, CreateRunaiSiegeWorkshopECB, 353),
+                ["Runai_Vault"]        = new BuildingRecipe(CreateRunaiVault, CreateRunaiVaultECB, 365),
+                ["Runai_VeilsteelFoundry"] = new BuildingRecipe(CreateRunaiVeilsteelFoundry, CreateRunaiVeilsteelFoundryECB, 366),
+
+                // Alanthor culture buildings. The Practice Range is the LEVELED
+                // Archery Range (not a placeable building) and the Crucible was
+                // deleted (the Smelter absorbs its veilsteel role) — calculator
+                // consolidation 2026-08.
+                ["Alanthor_Tower"]         = new BuildingRecipe(CreateAlanthorWatchTower, CreateAlanthorWatchTowerECB, 354),
+                ["Alanthor_SiegeYard"]     = new BuildingRecipe(CreateAlanthorSiegeYard, CreateAlanthorSiegeYardECB, 357),
+                ["KingsCourt"]             = new BuildingRecipe(CreateKingsCourt, CreateKingsCourtECB, 363),
+                ["Alanthor_RoyalStable"]   = new BuildingRecipe(RoyalStable.Create, RoyalStable.Create, RoyalStable.PresentationID),
+
+                // Feraldis culture buildings
+                ["Feraldis_HuntingLodge"]   = new BuildingRecipe(CreateFeraldisHuntingLodge, CreateFeraldisHuntingLodgeECB, 358),
+                ["Feraldis_LoggingStation"] = new BuildingRecipe(CreateFeraldisLoggingStation, CreateFeraldisLoggingStationECB, 359),
+                ["Feraldis_Longhouse"]      = new BuildingRecipe(CreateFeraldisLonghouse, CreateFeraldisLonghouseECB, 360),
+                ["Feraldis_Tower"]          = new BuildingRecipe(CreateFeraldisTotemTower, CreateFeraldisTotemTowerECB, 361),
+                ["Feraldis_SiegeYard"]      = new BuildingRecipe(CreateFeraldisSiegeYard, CreateFeraldisSiegeYardECB, 362),
+                ["Feraldis_Foundry"]        = new BuildingRecipe(CreateFeraldisFoundry, CreateFeraldisFoundryECB, 367),
+                ["Feraldis_WarTotem"]       = new BuildingRecipe(WarTotem.Create, WarTotem.Create, WarTotem.PresentationID),
+                ["Feraldis_Pasture"]        = new BuildingRecipe(Pasture.Create, Pasture.Create, Pasture.PresentationID),
+                ["Mine"]                    = new BuildingRecipe(Mine.Create, Mine.Create, Mine.PresentationID),
+            };
+        }
+
         /// <summary>
         /// Create a building by its ID string.
         /// Automatically loads stats from TechTreeDB if available.
@@ -31,48 +109,17 @@ namespace TheWaningBorder.Entities
         /// <returns>Created entity</returns>
         public static Entity Create(EntityManager em, string buildingId, float3 position, Faction faction)
         {
-            Entity entity = buildingId switch
-            {
-                "Hall" => Hall.Create(em, position, faction),
-                "Barracks" => Barracks.Create(em, position, faction),
-                "ArcheryRange" => ArcheryRange.Create(em, position, faction),
-                "Hut" => Hut.Create(em, position, faction),
-                "GatherersHut" => GatherersHut.Create(em, position, faction),
-                "ShrineOfAhridan" => CreateShrineOfAhridan(em, position, faction),
-                "TempleOfRidan" => CreateTempleOfRidanNew(em, position, faction),
-                "VaultOfAlmierra" => CreateVaultOfAlmierra(em, position, faction),
-                "FiendstoneKeep" => CreateFiendstoneKeep(em, position, faction),
-                "Alanthor_Wall" => AlanthorWall.CreateHub(em, position, faction),
-                "Alanthor_Smelter" => Smelter.Create(em, position, faction),
-                // Runai culture buildings
-                "Runai_Outpost" => CreateRunaiOutpost(em, position, faction),
-                "Runai_TradeHub" => CreateRunaiTradeHub(em, position, faction),
-                "Runai_TradingPost" => CreateRunaiTradingPost(em, position, faction),
-                "ThessarasBazaar" => CreateRunaiBazaar(em, position, faction),
-                "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshop(em, position, faction),
-                "Runai_Vault" => CreateRunaiVault(em, position, faction),
-                "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundry(em, position, faction),
-                // Alanthor culture buildings
-                "Alanthor_Tower" => CreateAlanthorWatchTower(em, position, faction),
-                "Alanthor_PracticeRange" => CreateAlanthorPracticeRange(em, position, faction),
-                "Alanthor_SiegeYard" => CreateAlanthorSiegeYard(em, position, faction),
-                "KingsCourt" => CreateKingsCourt(em, position, faction),
-                "Alanthor_Crucible" => CreateAlanthorCrucible(em, position, faction),
-                "Alanthor_RoyalStable" => RoyalStable.Create(em, position, faction),
-                // Feraldis culture buildings
-                "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodge(em, position, faction),
-                "Feraldis_LoggingStation" => CreateFeraldisLoggingStation(em, position, faction),
-                "Feraldis_Longhouse" => CreateFeraldisLonghouse(em, position, faction),
-                "Feraldis_Tower" => CreateFeraldisTotemTower(em, position, faction),
-                "Feraldis_SiegeYard" => CreateFeraldisSiegeYard(em, position, faction),
-                "Feraldis_Foundry" => CreateFeraldisFoundry(em, position, faction),
-                // task-063 phase 2a: 12 chapel building IDs (Chapel_Sect_Antiquity
-                // .. Chapel_Sect_Wrath) all dispatch to a single uniform creator
-                // that stamps ChapelTag.SectId from the chapel-id suffix. Visual
-                // differentiation per sect lands in a Phase 5 polish pass.
-                _ when SectConfig.IsChapelId(buildingId) => CreateChapel(em, position, faction, SectConfig.SectIdFromChapelId(buildingId)),
-                _ => CreateDefault(em, buildingId, position, faction)
-            };
+            Entity entity;
+            if (Recipes.TryGetValue(buildingId, out var recipe))
+                entity = recipe.CreateEm(em, position, faction);
+            // task-063 phase 2a: 12 chapel building IDs (Chapel_Sect_Antiquity
+            // .. Chapel_Sect_Wrath) all dispatch to a single uniform creator
+            // that stamps ChapelTag.SectId from the chapel-id suffix. Visual
+            // differentiation per sect lands in a Phase 5 polish pass.
+            else if (SectConfig.IsChapelId(buildingId))
+                entity = CreateChapel(em, position, faction, SectConfig.SectIdFromChapelId(buildingId));
+            else
+                entity = CreateDefault(em, buildingId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
             em.AddComponentData(entity, new NetworkedEntity
@@ -81,53 +128,35 @@ namespace TheWaningBorder.Entities
                 SpawnTick = 0
             });
 
+            em.AddComponentData(entity, MakeDisplayName(buildingId));
+
             return entity;
         }
+
+        /// <summary>
+        /// Record the exact name of what was asked for. The selection UI used to
+        /// re-derive this from a tag-component ladder, which several buildings
+        /// never appear in — KingsCourt carries no distinguishing tag at all, and
+        /// all 12 chapels share one ChapelTag — so they displayed as bare
+        /// "Building". The id the caller passed is unambiguous.
+        /// </summary>
+        private static DisplayName MakeDisplayName(string buildingId)
+            => new DisplayName { Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(buildingId) };
 
         /// <summary>
         /// Create a building using EntityCommandBuffer for deferred creation.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, string buildingId, float3 position, Faction faction)
         {
-            Entity entity = buildingId switch
-            {
-                "Hall" => Hall.Create(ecb, position, faction),
-                "Barracks" => Barracks.Create(ecb, position, faction),
-                "ArcheryRange" => ArcheryRange.Create(ecb, position, faction),
-                "Hut" => Hut.Create(ecb, position, faction),
-                "GatherersHut" => GatherersHut.Create(ecb, position, faction),
-                "ShrineOfAhridan" => CreateShrineOfAhridanECB(ecb, position, faction),
-                "TempleOfRidan" => CreateTempleOfRidanNewECB(ecb, position, faction),
-                "VaultOfAlmierra" => CreateVaultOfAlmierraECB(ecb, position, faction),
-                "FiendstoneKeep" => CreateFiendstoneKeepECB(ecb, position, faction),
-                "Alanthor_Smelter" => Smelter.Create(ecb, position, faction),
-                // Runai culture buildings
-                "Runai_Outpost" => CreateRunaiOutpostECB(ecb, position, faction),
-                "Runai_TradeHub" => CreateRunaiTradeHubECB(ecb, position, faction),
-                "Runai_TradingPost" => CreateRunaiTradingPostECB(ecb, position, faction),
-                "ThessarasBazaar" => CreateRunaiBazaarECB(ecb, position, faction),
-                "Runai_SiegeWorkshop" => CreateRunaiSiegeWorkshopECB(ecb, position, faction),
-                "Runai_Vault" => CreateRunaiVaultECB(ecb, position, faction),
-                "Runai_VeilsteelFoundry" => CreateRunaiVeilsteelFoundryECB(ecb, position, faction),
-                // Alanthor culture buildings
-                "Alanthor_Tower" => CreateAlanthorWatchTowerECB(ecb, position, faction),
-                "Alanthor_PracticeRange" => CreateAlanthorPracticeRangeECB(ecb, position, faction),
-                "Alanthor_SiegeYard" => CreateAlanthorSiegeYardECB(ecb, position, faction),
-                "KingsCourt" => CreateKingsCourtECB(ecb, position, faction),
-                "Alanthor_Crucible" => CreateAlanthorCrucibleECB(ecb, position, faction),
-                "Alanthor_RoyalStable" => RoyalStable.Create(ecb, position, faction),
-                // Feraldis culture buildings
-                "Feraldis_HuntingLodge" => CreateFeraldisHuntingLodgeECB(ecb, position, faction),
-                "Feraldis_LoggingStation" => CreateFeraldisLoggingStationECB(ecb, position, faction),
-                "Feraldis_Longhouse" => CreateFeraldisLonghouseECB(ecb, position, faction),
-                "Feraldis_Tower" => CreateFeraldisTotemTowerECB(ecb, position, faction),
-                "Feraldis_SiegeYard" => CreateFeraldisSiegeYardECB(ecb, position, faction),
-                "Feraldis_Foundry" => CreateFeraldisFoundryECB(ecb, position, faction),
-                // task-063 phase 2a: chapels dispatch to a single uniform ECB creator
-                // (parameterised by sect id parsed from the chapel building id).
-                _ when SectConfig.IsChapelId(buildingId) => CreateChapelECB(ecb, position, faction, SectConfig.SectIdFromChapelId(buildingId)),
-                _ => CreateDefault(ecb, buildingId, position, faction)
-            };
+            Entity entity;
+            if (Recipes.TryGetValue(buildingId, out var recipe) && recipe.CreateEcb != null)
+                entity = recipe.CreateEcb(ecb, position, faction);
+            // task-063 phase 2a: chapels dispatch to a single uniform ECB creator
+            // (parameterised by sect id parsed from the chapel building id).
+            else if (SectConfig.IsChapelId(buildingId))
+                entity = CreateChapelECB(ecb, position, faction, SectConfig.SectIdFromChapelId(buildingId));
+            else
+                entity = CreateDefault(ecb, buildingId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
             ecb.AddComponent(entity, new NetworkedEntity
@@ -135,6 +164,8 @@ namespace TheWaningBorder.Entities
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = 0
             });
+
+            ecb.AddComponent(entity, MakeDisplayName(buildingId));
 
             return entity;
         }
@@ -144,48 +175,14 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static int GetPresentationId(string buildingId)
         {
-            return buildingId switch
-            {
-                "Hall" => 100,
-                "Hut" => 102,
-                "GatherersHut" => 101,
-                "Barracks" => 510,
-                "ArcheryRange" => 511,
-                "ShrineOfAhridan" => 520,
-                "TempleOfRidan" => 521,
-                "VaultOfAlmierra" => 530,
-                "FiendstoneKeep" => 540,
-                "Alanthor_Wall" => AlanthorWall.HubPresentationID,
-                "Alanthor_Smelter" => Smelter.PresentationID,
-                // Runai culture buildings
-                "Runai_Outpost" => 350,
-                "Runai_TradeHub" => 351,
-                "ThessarasBazaar" => 352,
-                "Runai_SiegeWorkshop" => 353,
-                // Runai_TradingPost shares mesh 355 with Alanthor_PracticeRange.
-                // (task-062 Q-39 — was missing, falling through to 100/default.)
-                "Runai_TradingPost" => 355,
-                // Alanthor culture buildings
-                "Alanthor_Tower" => 354,
-                "Alanthor_PracticeRange" => 355,
-                "Alanthor_SiegeYard" => 357,
-                // Feraldis culture buildings
-                "Feraldis_HuntingLodge" => 358,
-                "Feraldis_LoggingStation" => 359,
-                "Feraldis_Longhouse" => 360,
-                "Feraldis_Tower" => 361,
-                "Feraldis_SiegeYard" => 362,
-                "KingsCourt" => 363,
-                "Alanthor_Crucible" => 364,
-                "Alanthor_RoyalStable" => RoyalStable.PresentationID,
-                "Runai_Vault" => 365,
-                "Runai_VeilsteelFoundry" => 366,
-                "Feraldis_Foundry" => 367,
-                // task-063 phase 2a: all 12 new chapels share PID 390 for now.
-                // Phase 5 polish will introduce per-sect visual variation.
-                _ when SectConfig.IsChapelId(buildingId) => 390,
-                _ => 100
-            };
+            if (Recipes.TryGetValue(buildingId, out var recipe)) return recipe.PresentationId;
+            // task-063 phase 5 (2026-08-02): per-sect chapel visuals — pid by
+            // sect index (390-399 for indices 0-9; 400-403 are taken by other
+            // entries, so Ruin/Wrath sit at 410/411).
+            // Phase 5 polish will introduce per-sect visual variation.
+            if (SectConfig.IsChapelId(buildingId))
+                return ChapelPidForSect(SectConfig.SectIdFromChapelId(buildingId));
+            return 100;
         }
 
         /// <summary>
@@ -198,7 +195,6 @@ namespace TheWaningBorder.Entities
                 "Hall" => 20,
                 "Hut" => 10,
                 "ThessarasBazaar" => 40,
-                "Alanthor_PracticeRange" => 0,
                 "KingsCourt" => 10,
                 "Feraldis_HuntingLodge" => 10,
                 "Feraldis_LoggingStation" => 10,
@@ -215,12 +211,11 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => true,
                 "Barracks" => true,
-                "ShrineOfAhridan" => true,
+                "ShrineOfRidan" or "ShrineOfAhridan" => true,
                 "TempleOfRidan" => true,
                 "Runai_TradeHub" => true,
                 "ThessarasBazaar" => true,
                 "Runai_SiegeWorkshop" => true,
-                "Alanthor_PracticeRange" => true,
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
@@ -235,7 +230,8 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static readonly HashSet<string> ChoiceBuildingIds = new()
         {
-            "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep"
+            "ShrineOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
+            "ShrineOfAhridan", // legacy id alias (pre-rename callers)
         };
 
         /// <summary>
@@ -314,7 +310,7 @@ namespace TheWaningBorder.Entities
 
         private static string GetBuildingIdFromEntity(EntityManager em, Entity entity)
         {
-            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfAhridan";
+            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             return null;
@@ -379,6 +375,13 @@ namespace TheWaningBorder.Entities
                 if (def.radius > 0) radius = def.radius;
             }
 
+            // Reinforced Walls (Age 0 Keep tech): keeps built after the
+            // research start with the +20% Max HP bonus (existing keeps are
+            // bumped by TechEffectSystem when the research completes).
+            var keepResearch = TheWaningBorder.Economy.FactionResearchState.Instance;
+            if (keepResearch != null && keepResearch.HasResearched(faction, "ReinforcedWalls"))
+                hp *= 1.2f;
+
             var entity = em.CreateEntity(
                 typeof(PresentationId),
                 typeof(LocalTransform),
@@ -403,10 +406,19 @@ namespace TheWaningBorder.Entities
 
             em.AddComponent<FiendstoneKeepTag>(entity);
             em.AddComponent<ChoiceBuildingTag>(entity);
+            // Auto-fire per Age 0 design (Q#3): 4 targets, 20 dmg / 2.0 s, range 30.
             em.AddComponentData(entity, new BuildingRangedAttack
             {
-                Range = 25f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 3
+                Range = 30f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 4
             });
+
+            // Keep tech ladder (emplacements / towers / walls) researches here.
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+
+            // Wing slots (choice-building leveling): the Keep levels by
+            // building up to three wings — see KeepWingSystem.
+            em.AddComponentData(entity, new KeepWings());
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -416,16 +428,16 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Create Shrine of Ahridan — choice building that trains litharchs fast and grants +1 RP.
+        /// Create Shrine of Ridan — choice building that trains litharchs fast and grants +1 RP.
         /// One of three mutually exclusive choice buildings (Shrine/Vault/Keep).
         /// </summary>
-        private static Entity CreateShrineOfAhridan(EntityManager em, float3 position, Faction faction)
+        private static Entity CreateShrineOfRidan(EntityManager em, float3 position, Faction faction)
         {
             float hp = 800f;
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechCatalog.TryGetBuilding("ShrineOfAhridan", out var def))
+            if (TechCatalog.TryGetBuilding("ShrineOfRidan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -460,6 +472,13 @@ namespace TheWaningBorder.Entities
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
+            // Shrine tech ladder (masses / warrior priests) researches here.
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+
+            // Simple upgrade ladder (heal aura + Litharchs + sect power CDR).
+            em.AddComponent<BuildingUpgradeable>(entity);
+
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
@@ -475,9 +494,21 @@ namespace TheWaningBorder.Entities
         /// completion which credits the sect to the faction's
         /// SectAdoptionState (and deducts adoption RP).
         /// </summary>
+        /// <summary>Per-sect chapel presentation id: 390 + sect index for
+        /// indices 0-9; Ruin/Wrath (10, 11) sit at 410/411 because the
+        /// 400-403 block is taken. Unknown sect falls back to 390.</summary>
+        internal static int ChapelPidForSect(string sectId)
+        {
+            int idx = SectConfig.IndexOf(sectId);
+            if (idx < 0) return 390;
+            // 400-403 are Forest/Rock/deposits and 410 is the BazaarWagon —
+            // Ruin/Wrath (indices 10/11) sit at 412/413.
+            return idx < 10 ? 390 + idx : 402 + idx;
+        }
+
         private static Entity CreateChapel(EntityManager em, float3 position, Faction faction, string sectId)
         {
-            const int ChapelPresentationId = 390; // shared mesh slot — Phase 5 will introduce per-sect variation
+            int ChapelPresentationId = ChapelPidForSect(sectId);
             const float Hp = 350f;
             const float Los = 8f;
 
@@ -511,6 +542,18 @@ namespace TheWaningBorder.Entities
                 SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
             });
 
+            // Chapels train their sect's unique unit (the Unit lever —
+            // Lorekeeper / Tinker / etc.), so they carry a training queue
+            // from birth. Sects whose unit isn't implemented yet simply
+            // show no train button (GetChapelTrainingActions).
+            em.AddComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new RallyPoint
+            {
+                Position = position + new float3(3f, 0, 3f),
+                Has = 1
+            });
+
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
@@ -520,7 +563,7 @@ namespace TheWaningBorder.Entities
         /// <summary>ECB-deferred variant of <see cref="CreateChapel"/>.</summary>
         private static Entity CreateChapelECB(EntityCommandBuffer ecb, float3 position, Faction faction, string sectId)
         {
-            const int ChapelPresentationId = 390;
+            int ChapelPresentationId = ChapelPidForSect(sectId);
             const float Hp = 350f;
             const float Los = 8f;
 
@@ -542,7 +585,66 @@ namespace TheWaningBorder.Entities
                 SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
             });
 
+            // Mirror CreateChapel: training queue for the sect's unique unit.
+            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new RallyPoint
+            {
+                Position = position + new float3(3f, 0, 3f),
+                Has = 1
+            });
+
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+
+            return entity;
+        }
+
+        /// <summary>
+        /// The Reliquary — Sect of Antiquity's building lever (task-063,
+        /// implemented 2026-07-05). One per faction; built from the Antiquity
+        /// chapel's panel, spawns UNDER CONSTRUCTION beside the chapel and is
+        /// finished by builders like any structure. Carries ReliquaryState
+        /// (three ability cooldowns — see ReliquarySystem / ReliquaryHelper).
+        /// Reuses the Antiquity chapel visual (resolved via ChapelPidForSect —
+        /// after the 2026-08-02 pid rework Antiquity sits at 390, not 391).
+        /// </summary>
+        public static Entity CreateReliquaryUnderConstruction(EntityManager em, float3 position, Faction faction)
+        {
+            int PresentationId391 = ChapelPidForSect(SectConfig.Antiquity);
+            const float Hp = 900f;
+            const float Los = 16f;
+            const float BuildTime = 40f;
+
+            var entity = em.CreateEntity(
+                typeof(PresentationId),
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(ReliquaryTag),
+                typeof(ReliquaryState),
+                typeof(Health),
+                typeof(LineOfSight),
+                typeof(Radius),
+                typeof(BuildingSize),
+                typeof(UnderConstruction),
+                typeof(Buildable)
+            );
+
+            em.SetComponentData(entity, new PresentationId { Id = PresentationId391 });
+            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            em.SetComponentData(entity, new FactionTag { Value = faction });
+            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(entity, new ReliquaryState());
+            em.SetComponentData(entity, new Health { Value = 1, Max = (int)Hp });
+            em.SetComponentData(entity, new LineOfSight { Radius = Los });
+
+            var gridSize = BuildingSizeConfig.GetSize("Sect_Reliquary");
+            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            em.SetComponentData(entity, new UnderConstruction { Progress = 0f, Total = BuildTime });
+            em.SetComponentData(entity, new Buildable { BuildTimeSeconds = BuildTime });
+
+            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
             return entity;
         }
@@ -668,10 +770,17 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
-                InterestRate = 0.03f,
+                InterestRate = 0.25f,
                 LockTimer = 0f,
                 LockDuration = 180f
             });
+
+            // Banking tech ladder (interest grades + resource unlocks) researches here.
+            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ResearchQueueItem>(entity);
+
+            // Simple upgrade ladder (interest yields + wall productivity).
+            em.AddComponent<BuildingUpgradeable>(entity);
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -849,36 +958,8 @@ namespace TheWaningBorder.Entities
             });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
-            return entity;
-        }
-
-        /// <summary>
-        /// Alanthor Garrison — trains Sentinel+Crossbowman. +8 pop.
-        /// </summary>
-        private static Entity CreateAlanthorPracticeRange(EntityManager em, float3 position, Faction faction)
-        {
-            // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
-            float hp = 660f, los = 14f, radius = 1.5f;
-            if (TechCatalog.TryGetBuilding("Alanthor_PracticeRange", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius),
-                typeof(TrainingState));
-            em.SetComponentData(entity, new PresentationId { Id = 355 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_PracticeRange");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            em.AddComponent<PracticeRangeTag>(entity);
-            em.AddBuffer<TrainQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
+            em.AddComponent<BuildingUpgradeable>(entity);
             return entity;
         }
 
@@ -907,6 +988,8 @@ namespace TheWaningBorder.Entities
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_SiegeYard").
+            em.AddComponent<BuildingUpgradeable>(entity);
             return entity;
         }
 
@@ -1102,33 +1185,6 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Alanthor Crucible — advanced forge building.
-        /// </summary>
-        private static Entity CreateAlanthorCrucible(EntityManager em, float3 position, Faction faction)
-        {
-            float hp = 1200f, los = 18f, radius = 1.5f;
-            if (TechCatalog.TryGetBuilding("Alanthor_Crucible", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 364 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Crucible");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<CrucibleTag>(entity);
-            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
-            return entity;
-        }
-
-        /// <summary>
         /// Runai Vault — resource storage with compound interest.
         /// </summary>
         private static Entity CreateRunaiVault(EntityManager em, float3 position, Faction faction)
@@ -1152,7 +1208,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new VaultStorage
             {
                 StoredAmount = 0f,
-                InterestRate = 0.03f,
+                InterestRate = 0.25f,
                 ResourceType = 0,
                 LockTimer = 0f,
                 LockDuration = 180f
@@ -1183,7 +1239,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<SmelterTag>(entity);
-            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return entity;
@@ -1210,7 +1266,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<WarbrandFoundryTag>(entity);
-            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            em.AddComponentData(entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return entity;
@@ -1244,29 +1300,6 @@ namespace TheWaningBorder.Entities
             return entity;
         }
 
-        private static Entity CreateAlanthorCrucibleECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            float hp = 1200f, los = 18f, radius = 1.5f;
-            if (TechCatalog.TryGetBuilding("Alanthor_Crucible", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 364 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_Crucible");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<CrucibleTag>(entity);
-            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
-            return entity;
-        }
-
         private static Entity CreateRunaiVaultECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 1100f, los = 20f, radius = 1.5f;
@@ -1287,7 +1320,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new VaultStorage
             {
                 StoredAmount = 0f,
-                InterestRate = 0.03f,
+                InterestRate = 0.25f,
                 ResourceType = 0,
                 LockTimer = 0f,
                 LockDuration = 180f
@@ -1314,7 +1347,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<SmelterTag>(entity);
-            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return entity;
@@ -1337,7 +1370,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<WarbrandFoundryTag>(entity);
-            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Crystal = 0, MaxIron = 100, MaxCrystal = 50, ConversionTimer = 0f });
+            ecb.AddComponent(entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return entity;
@@ -1379,13 +1412,13 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Create Temple of Ridan using EntityCommandBuffer for deferred creation.
         /// </summary>
-        private static Entity CreateShrineOfAhridanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
+        private static Entity CreateShrineOfRidanECB(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             float hp = 800f;
             float los = 16f;
             float radius = 1.8f;
 
-            if (TechCatalog.TryGetBuilding("ShrineOfAhridan", out var def))
+            if (TechCatalog.TryGetBuilding("ShrineOfRidan", out var def))
             {
                 if (def.hp > 0) hp = def.hp;
                 if (def.lineOfSight > 0) los = def.lineOfSight;
@@ -1410,6 +1443,13 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new ShrineRPGranted { Granted = 0 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+
+            // Shrine tech ladder (masses / warrior priests) researches here.
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
+
+            // Simple upgrade ladder (heal aura + Litharchs + sect power CDR).
+            ecb.AddComponent<BuildingUpgradeable>(entity);
 
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
@@ -1508,10 +1548,17 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
-                InterestRate = 0.03f,
+                InterestRate = 0.25f,
                 LockTimer = 0f,
                 LockDuration = 180f
             });
+
+            // Banking tech ladder (interest grades + resource unlocks) researches here.
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
+
+            // Simple upgrade ladder (interest yields + wall productivity).
+            ecb.AddComponent<BuildingUpgradeable>(entity);
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -1550,10 +1597,19 @@ namespace TheWaningBorder.Entities
 
             ecb.AddComponent<FiendstoneKeepTag>(entity);
             ecb.AddComponent<ChoiceBuildingTag>(entity);
+            // Auto-fire per Age 0 design (Q#3): 4 targets, 20 dmg / 2.0 s, range 30.
             ecb.AddComponent(entity, new BuildingRangedAttack
             {
-                Range = 25f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 3
+                Range = 30f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 4
             });
+
+            // Keep tech ladder (emplacements / towers / walls) researches here.
+            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ResearchQueueItem>(entity);
+
+            // Wing slots (choice-building leveling): the Keep levels by
+            // building up to three wings — see KeepWingSystem.
+            ecb.AddComponent(entity, new KeepWings());
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -1706,31 +1762,8 @@ namespace TheWaningBorder.Entities
             });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
-            return entity;
-        }
-
-        private static Entity CreateAlanthorPracticeRangeECB(EntityCommandBuffer ecb, float3 position, Faction faction)
-        {
-            // Doc §3.2 Q#3: cultured Archery Range — base 600 × 1.10 = 660 at L1; no pop.
-            float hp = 660f, los = 14f, radius = 1.5f;
-            if (TechCatalog.TryGetBuilding("Alanthor_PracticeRange", out var def))
-            { if (def.hp > 0) hp = def.hp; if (def.lineOfSight > 0) los = def.lineOfSight; if (def.radius > 0) radius = def.radius; }
-
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 355 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Alanthor_PracticeRange");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            ecb.AddComponent<PracticeRangeTag>(entity);
-            ecb.AddBuffer<TrainQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
+            ecb.AddComponent<BuildingUpgradeable>(entity);
             return entity;
         }
 
@@ -1755,6 +1788,8 @@ namespace TheWaningBorder.Entities
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_SiegeYard").
+            ecb.AddComponent<BuildingUpgradeable>(entity);
             return entity;
         }
 

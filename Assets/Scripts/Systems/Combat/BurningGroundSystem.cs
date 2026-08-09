@@ -14,7 +14,7 @@ using Unity.Burst;
 /// - Deals BurningGround.DPS damage
 /// - Decrements TimeRemaining. When &lt;= 0, destroys tile via ECB.
 ///
-/// Follows the pattern of CursedGroundDamageSystem for the damage ticking approach.
+/// Follows the pattern of BorderGroundDamageSystem for the damage ticking approach.
 /// </summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct BurningGroundSystem : ISystem
@@ -100,6 +100,8 @@ public partial struct BurningGroundSystem : ISystem
                         if (dist <= groundRadii[i])
                         {
                             int damage = math.max(1, (int)(groundDPS[i] * DamageTickInterval));
+                            // Ability: scale incoming DoT (Liquid Courage DR) before HP.
+                            damage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(state.EntityManager, entity, damage);
                             ref var hp = ref health.ValueRW;
                             hp.Value = math.max(0, hp.Value - damage);
                             break; // Only take damage from one tile per tick

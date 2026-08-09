@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Scout
   m_EditorClassIdentifier: 
-  id: 'Scout'
-  displayName: 'Scout'
-  unitClass: 'human_scout'
+  id: Scout
+  displayName: Scout
+  unitClass: human_scout
   hp: 60
   speed: 6
   trainingTime: 26
-  damage: 10
-  damageType: 'melee'
-  armorType: 'infantry_light'
+  damage: 0
+  damageType: melee
+  armorType: infantry_light
   defense:
     melee: 0
     ranged: 0
@@ -30,18 +30,25 @@ MonoBehaviour:
   attackRange: 1
   minAttackRange: 0
   lineOfSight: 40
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 55
     Iron: 0
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Light'
+  - Infantry
+  - Light
   bonusVsTags: []
+  abilities: []
+  prefab: {fileID: 7715456337387763382, guid: a3e0e7973e010b843b6564287c9cde9b, type: 3}
   presentationId: 206
+  animatorController: {fileID: 9100000, guid: d80aaf0f6a230f549932246fa14768ab, type: 2}

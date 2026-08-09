@@ -35,6 +35,12 @@ namespace TheWaningBorder.Data
         public float attackRange;
         public float minAttackRange;    // minimum attack range (for archers, siege)
         public float lineOfSight;
+
+        // ==================== Projectile Profile (ranged units) ====================
+        /// <summary>"low" (default shortbow arc) | "flat" (crossbow straight line) | "high" (longbow parabola).</summary>
+        public string trajectory;
+        /// <summary>Projectile speed override (m/s). 0 = combat system default.</summary>
+        public float projectileSpeed;
         
         // ==================== Economy ====================
         public CostBlock cost;
@@ -47,7 +53,6 @@ namespace TheWaningBorder.Data
         // ==================== Support Unit Fields ====================
         public float buildSpeed;        // for builders
         public float gatheringSpeed;    // for miners/gatherers
-        public int carryCapacity;       // resource carry capacity
         public float healsPerSecond;    // for healers
 
         // ==================== Tags & Bonus Damage (AoE4-style) ====================
@@ -55,6 +60,21 @@ namespace TheWaningBorder.Data
         public string[] tags;
         /// <summary>Flat bonus damage vs target tags (added after armor, ignores armor).</summary>
         public List<DamageBonus> bonusVsTags;
+
+        // ==================== Abilities (data-driven ability system) ====================
+        /// <summary>Ability card names attached to this unit (see AbilityCatalog).
+        /// The unit factory builds a UnitAbilities component from these.</summary>
+        public string[] abilities;
+
+        // ==================== Siege Specials ====================
+        // Optional second attack mode for siege-class units (currently the
+        // Godsplinter). 0 = not used / keep the unit's built-in constants.
+        /// <summary>Close-range direct siege attack range.</summary>
+        public float siegeRange;
+        /// <summary>Seconds between close-range siege attacks.</summary>
+        public float siegeCooldown;
+        /// <summary>Splash radius of the unit's AoE shots.</summary>
+        public float aoeRadius;
 
         // ==================== Helpers ====================
         

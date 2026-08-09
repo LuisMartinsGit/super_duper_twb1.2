@@ -39,19 +39,37 @@ namespace TheWaningBorder.Systems.Navigation
         private EntityQuery _wallGateQuery;
         private EntityQuery _wallClimbQuery;
         private EntityQuery _obstacleQuery;
+        // Overpass bridges: deck walkable on layer 1, ground underneath
+        // untouched, ramp ends as climb-access transition cells.
+        private EntityQuery _overpassQuery;
+
+        // Perf change-gate: signature of the stampable entity set at the last
+        // stamp. While it's unchanged the cost field is already correct, so we
+        // skip the whole clear+stamp pass and the Generation bump.
+        private ulong _lastSignature;
+        private byte _stampedOnce;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NavCostField>();
 
+            // Default 3x3 footprint — ONLY for buildings that carry no
+            // BuildingSize. Sized buildings are stamped exactly by
+            // _buildingSizedQuery below. WithNone<BuildingSize> was missing, so
+            // every sized building ALSO got the blanket 3x3: for 1x1 and 2x2
+            // structures (walls' towers, Gatherer's Hut, chapels, Border sub-nodes)
+            // the impassable region was strictly larger than the BuildingSize rect
+            // that combat measures reach against, so melee units were physically
+            // stopped ~1.5 m from a surface the combat system believed was 1.0 m
+            // away — they never entered range and slid around the footprint instead.
             _buildingQuery = SystemAPI.QueryBuilder()
                 .WithAll<BuildingTag, LocalTransform>()
-                .WithNone<WallTag>()
+                .WithNone<WallTag, BuildingSize>()
                 .Build();
 
             // task-112 follow-up: ObstacleTag entities (iron deposits,
-            // crystal nodes, cadavers, forest rocks, trees that are
+            // veilstone nodes, outcroppings, forest rocks, trees that are
             // spawned as ECS entities) must also stamp the cost field
             // or units treat them as empty ground. Default 3x3 footprint.
             _obstacleQuery = SystemAPI.QueryBuilder()
@@ -82,6 +100,10 @@ namespace TheWaningBorder.Systems.Navigation
             _wallClimbQuery = SystemAPI.QueryBuilder()
                 .WithAll<WallTag, WallHubTag, LocalTransform, FactionTag>()
                 .Build();
+
+            _overpassQuery = SystemAPI.QueryBuilder()
+                .WithAll<OverpassBridge>()
+                .Build();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -89,6 +111,25 @@ namespace TheWaningBorder.Systems.Navigation
             if (!SystemAPI.HasSingleton<NavCostField>()) return;
 
             var field = SystemAPI.GetSingleton<NavCostField>();
+
+            // ── Change gate (perf) ─────────────────────────────────────────
+            // The cost field only changes when a stampable entity is created /
+            // destroyed / resized, or when the terrain mask is first baked.
+            // Buildings, walls and obstacles never MOVE, so a signature over
+            // their per-query counts + building footprint sizes + the
+            // TerrainBaked latch captures every real change. On the (vast
+            // majority of) ticks where nothing changed, skip the whole
+            // clear+stamp pass AND the Generation bump — which in turn lets
+            // BuildingCostStampSystem skip its full-field diff. The signature
+            // is a deterministic function of the lockstep-identical entity set,
+            // so every client gates identically (no desync); a same-tick
+            // create+destroy that nets zero is harmless (all clients miss it
+            // identically and the next real change re-stamps).
+            ulong sig = ComputeStampSignature(field.TerrainBaked);
+            if (_stampedOnce != 0 && sig == _lastSignature) return;
+            _lastSignature = sig;
+            _stampedOnce = 1;
+
             int rows = field.Height;
             int layerArea = field.Width * field.Height;
 
@@ -97,6 +138,7 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 Cost = field.Cost,
                 Flags = field.Flags,
+                TerrainCost = field.TerrainCost,
                 Width = field.Width,
             };
             var clearHandle = clearJob.Schedule(rows, 8, state.Dependency);
@@ -149,8 +191,8 @@ namespace TheWaningBorder.Systems.Navigation
             };
             var sizedHandle = sizedStamp.ScheduleParallel(_buildingSizedQuery, defaultHandle);
 
-            // Stamp ObstacleTag entities (iron deposits, crystal nodes,
-            // cadavers, forest rocks) with the same impassable 3x3 the
+            // Stamp ObstacleTag entities (iron deposits, veilstone nodes,
+            // outcroppings, forest rocks) with the same impassable 3x3 the
             // building default-stamp uses. Without this, the entire
             // resource economy reads as walkable ground and units cut
             // straight through forests / mines / corpses.
@@ -228,6 +270,28 @@ namespace TheWaningBorder.Systems.Navigation
                     IsClimbAccess = 1,
                 };
                 prevHandle = stampClimb.ScheduleParallel(_wallClimbQuery, prevHandle);
+
+                // Pass 4: overpass bridges -- deck strip walkable on the
+                // rampart layer (ground beneath untouched: units walk UNDER
+                // the span), ramp discs at both ends flagged as climb
+                // access on both layers.
+                if (!_overpassQuery.IsEmptyIgnoreFilter)
+                {
+                    var bridges = _overpassQuery.ToComponentDataArray<OverpassBridge>(Allocator.TempJob);
+                    var stampOverpass = new StampOverpassJob
+                    {
+                        Cost = field.Cost,
+                        Flags = field.Flags,
+                        Width = field.Width,
+                        Height = field.Height,
+                        LayerArea = layerArea,
+                        CellSize = cs,
+                        Origin = org,
+                        Bridges = bridges,
+                    };
+                    prevHandle = stampOverpass.Schedule(prevHandle);
+                    prevHandle = bridges.Dispose(prevHandle);
+                }
             }
 
             state.Dependency = prevHandle;
@@ -236,6 +300,42 @@ namespace TheWaningBorder.Systems.Navigation
             // a chunk so SetSingleton is cheap.
             field.Generation++;
             SystemAPI.SetSingleton(field);
+        }
+
+        /// <summary>
+        /// FNV-1a hash over the stampable entity set: per-query counts (catch
+        /// create/destroy), building footprint sizes (catch upgrades that
+        /// resize a footprint without a count change), and the TerrainBaked
+        /// latch. Cheap — a few CalculateEntityCount calls plus a short walk of
+        /// the (few-hundred at most) sized buildings. Deterministic across
+        /// machines (counts/sizes are a function of the simulation state).
+        /// </summary>
+        private ulong ComputeStampSignature(byte terrainBaked)
+        {
+            unchecked
+            {
+                const ulong P = 1099511628211UL;
+                ulong h = 1469598103934665603UL;
+                int sized = _buildingSizedQuery.CalculateEntityCount();
+                h = (h ^ (uint)_buildingQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)sized) * P;
+                h = (h ^ (uint)_obstacleQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)_wallQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)_wallGateQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)_wallClimbQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)_overpassQuery.CalculateEntityCount()) * P;
+                h = (h ^ terrainBaked) * P;
+                if (sized > 0)
+                {
+                    using var sizes = _buildingSizedQuery.ToComponentDataArray<BuildingSize>(Allocator.Temp);
+                    for (int i = 0; i < sizes.Length; i++)
+                    {
+                        h = (h ^ (uint)sizes[i].Width) * P;
+                        h = (h ^ (uint)sizes[i].Height) * P;
+                    }
+                }
+                return h;
+            }
         }
     }
 }

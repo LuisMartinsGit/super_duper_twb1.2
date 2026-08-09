@@ -12,21 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Sentinel
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Sentinel'
-  displayName: 'Alanthor_Sentinel'
-  unitClass: 'human_melee'
-  hp: 160
+  id: Alanthor_Sentinel
+  displayName: Alanthor_Sentinel
+  unitClass: human_melee
+  hp: 210
   speed: 5
   trainingTime: 24
   damage: 12
-  damageType: 'melee'
-  armorType: 'infantry_heavy'
+  damageType: melee
+  armorType: infantry_heavy
   defense:
-    melee: 3
-    ranged: 2
+    melee: 5
+    ranged: 4
     siege: 0
-    magic: 1
-  attackCooldown: 0
+    magic: 2
+  attackCooldown: 1.8
   attackRange: 1.7
   minAttackRange: 0
   lineOfSight: 18
@@ -35,13 +35,15 @@ MonoBehaviour:
     Iron: 0
     Crystal: 0
     Veilsteel: 20
-  minBuildingLevel: 2
+  minBuildingLevel: 3
   buildSpeed: 0
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Infantry'
-  - 'Heavy'
+  - Infantry
+  - Heavy
   bonusVsTags: []
+  prefab: {fileID: 4588659633499736191, guid: 301679efc29690b4c89672d02ec32cf9, type: 3}
   presentationId: 334
+  animatorController: {fileID: 9100000, guid: 2400e2675f8a1534ba0e381eab01bc68, type: 2}

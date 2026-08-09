@@ -1,5 +1,5 @@
 // ShieldBarSystem.cs
-// Crystal+ tier units have a second HP layer (spec §4.2). This system
+// Veilstone+ tier units have a second HP layer (spec §4.2). This system
 // owns the lifecycle:
 //   1. Sync: add/remove/resize ShieldBar based on UnitEquipmentApplied.
 //   2. Absorb: detect HP drops vs LastObservedHealth and route the delta
@@ -9,7 +9,7 @@
 //
 // The absorb pass is decoupled from combat systems — we observe damage
 // post-hoc by stamping LastObservedHealth, which lets every damage path
-// (melee, ranged, projectiles, cursed ground DoT, blast AOE, etc.) flow
+// (melee, ranged, projectiles, border ground DoT, blast AOE, etc.) flow
 // through the shield without per-call wiring.
 //
 // Location: Assets/Scripts/Systems/Combat/
@@ -39,7 +39,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 int target = EquipmentTierConfig.ShieldBarMax(appliedRO.ValueRO.Value);
 
-                // Siege Crystal+ aura boosts every ally's effective Max (spec §4.3).
+                // Siege Veilstone+ aura boosts every ally's effective Max (spec §4.3).
                 if (em.HasComponent<AuraShieldBoost>(entity))
                     target += em.GetComponentData<AuraShieldBoost>(entity).Amount;
 

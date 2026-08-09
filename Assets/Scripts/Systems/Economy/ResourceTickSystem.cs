@@ -13,7 +13,7 @@ namespace TheWaningBorder.Economy
     /// Applies passive resource income from buildings to faction banks.
     ///
     /// Supplies use per-building discrete ticks (e.g., Hall: 50 every 15s, GathererHut: 25 every 10s).
-    /// Other resources (Iron, Crystal, Veilsteel, Glow) still tick once per game-second.
+    /// Other resources (Iron, Veilstone, Veilsteel, Glow) still tick once per game-second.
     ///
     /// Only completed buildings contribute (those without UnderConstruction component).
     /// </summary>
@@ -44,9 +44,9 @@ namespace TheWaningBorder.Economy
             // =================================================================
             var suppliesPerFaction = new NativeParallelHashMap<byte, int>(16, Allocator.Temp);
 
-            foreach (var (tag, income) in
+            foreach (var (tag, income, e) in
                 SystemAPI.Query<RefRO<FactionTag>, RefRW<SuppliesIncome>>()
-                    .WithNone<UnderConstruction>())
+                    .WithNone<UnderConstruction>().WithEntityAccess())
             {
                 if (income.ValueRO.Interval <= 0f || income.ValueRO.PerTick <= 0f) continue;
 
@@ -58,6 +58,9 @@ namespace TheWaningBorder.Economy
                     income.ValueRW.Elapsed -= ticks * income.ValueRO.Interval;
 
                     int amount = (int)(income.ValueRO.PerTick * ticks);
+                    // Ability: Automate Facility temporary yield boost (Ledger).
+                    if (state.EntityManager.HasComponent<TheWaningBorder.Abilities.AutoYieldBoost>(e))
+                        amount = (int)(amount * state.EntityManager.GetComponentData<TheWaningBorder.Abilities.AutoYieldBoost>(e).Mult);
                     if (amount <= 0) continue;
 
                     var key = (byte)tag.ValueRO.Value;
@@ -99,7 +102,7 @@ namespace TheWaningBorder.Economy
             var perFactionIncome = new NativeParallelHashMap<byte, OtherIncomeAccumulator>(16, Allocator.Temp);
 
             CollectIronIncome(ref state, ref perFactionIncome);
-            CollectCrystalIncome(ref state, ref perFactionIncome);
+            CollectVeilstoneIncome(ref state, ref perFactionIncome);
             CollectVeilsteelIncome(ref state, ref perFactionIncome);
             CollectGlowIncome(ref state, ref perFactionIncome);
 
@@ -118,7 +121,7 @@ namespace TheWaningBorder.Economy
                         // old FactionSectState bridge. Baseline 1.0× until Phase 2.
                         var resources = bank.ValueRO;
                         resources.Iron += income.Iron * missed;
-                        resources.Crystal += income.Crystal * missed;
+                        resources.Veilstone += income.Veilstone * missed;
                         resources.Veilsteel += income.Veilsteel * missed;
                         resources.Glow += income.Glow * missed;
                         resources.Clamp();
@@ -175,11 +178,11 @@ namespace TheWaningBorder.Economy
             }
         }
 
-        private void CollectCrystalIncome(ref SystemState state,
+        private void CollectVeilstoneIncome(ref SystemState state,
             ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
         {
             foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRW<CrystalIncome>>()
+                SystemAPI.Query<RefRO<FactionTag>, RefRW<VeilstoneIncome>>()
                     .WithNone<UnderConstruction>())
             {
                 if (income.ValueRO.PerMinute <= 0) continue;
@@ -192,12 +195,12 @@ namespace TheWaningBorder.Economy
                 var key = (byte)tag.ValueRO.Value;
                 if (perFactionIncome.TryGetValue(key, out var existing))
                 {
-                    existing.Crystal += whole;
+                    existing.Veilstone += whole;
                     perFactionIncome[key] = existing;
                 }
                 else
                 {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Crystal = whole });
+                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Veilstone = whole });
                 }
             }
         }
@@ -259,7 +262,7 @@ namespace TheWaningBorder.Economy
         private struct OtherIncomeAccumulator
         {
             public int Iron;
-            public int Crystal;
+            public int Veilstone;
             public int Veilsteel;
             public int Glow;
         }

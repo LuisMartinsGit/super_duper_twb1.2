@@ -10,7 +10,7 @@ using TheWaningBorder.Input;  // Contains GameCamera
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.World.FogOfWar;
-using TheWaningBorder.World.Minimap;
+// TheWaningBorder.World.Minimap using removed with MinimapRenderer (2026-07-17 UI removal)
 using TheWaningBorder.Economy;
 using TheWaningBorder.Presentation;
 using TheWaningBorder.AI;
@@ -20,7 +20,6 @@ using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Research;
 using TheWaningBorder.Multiplayer;
-using TheWaningBorder.UI.Web;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -78,7 +77,11 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.36f);
             yield return null;
 
+            // TEMP DIAGNOSTIC: trace each bootstrap phase so a stalled MP launch
+            // shows its exact stall point as the last "[BootTrace]" line.
+            Trace("coroutine start");
             EnsureECSWorld();
+            Trace("after EnsureECSWorld");
 
             bool isScenario = GameSettings.Mode == GameMode.Scenario;
             if (isScenario)
@@ -89,7 +92,9 @@ namespace TheWaningBorder.Bootstrap
 
             if (GameSettings.IsMultiplayer && LockstepBootstrap.Instance != null)
             {
+                Trace("before InitializeLockstepNow");
                 LockstepBootstrap.Instance.InitializeLockstepNow();
+                Trace("after InitializeLockstepNow");
                 yield return null;
             }
 
@@ -97,28 +102,36 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.38f);
             yield return null;
             InitializeDataSystems();
+            Trace("after InitializeDataSystems");
 
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Setting up camera…");
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.40f);
             yield return null;
             GameCamera.Ensure();
+            Trace("after GameCamera.Ensure");
 
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Spawning managers…");
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.42f);
             yield return null;
             CreateManagersObject();
+            Trace("after CreateManagersObject");
+
+            yield return WaitForSceneTerrain();
 
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Building world…");
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.44f);
             yield return null;
             InitializeWorld();
+            Trace("after InitializeWorld");
 
             // ProceduralTerrain.Start now drives 45 → 55 % via its own
             // SetStatus / SetProgress calls while its generation coroutine
             // runs. We block here until generation is complete so the
             // spawn step below has real heightmap data to read.
+            Trace("waiting for terrain generation…");
             while (!TheWaningBorder.World.Terrain.ProceduralTerrain.IsGenerationComplete)
                 yield return null;
+            Trace("terrain generation complete");
 
             if (isScenario)
             {
@@ -129,16 +142,149 @@ namespace TheWaningBorder.Bootstrap
                 InitializeFactions();
                 InitializeAI();
             }
+            Trace("after factions/AI");
 
             yield return null;
             PostInitializationSync();
+            Trace("done — bootstrap complete");
 
             UnityEngine.Object.Destroy(driver);
         }
 
+        // MapMagic maps ship a serialized tile whose TerrainData is generated
+        // at runtime, never saved as an asset: on a fresh scene load the
+        // tile's Terrain exists with terrainData == null until
+        // MapMagicObject.OnEnable re-generates it over the next frames.
+        // InitializeWorld sizes everything (MapHalfSize, FoW bounds,
+        // PassabilityGrid) from that terrain, so wait for the data — and for
+        // MapMagic to finish applying heights — before building the world.
+        // MapMagic is probed via reflection so the runtime assembly never
+        // references the third-party asmdef. The timeout keeps a scene with
+        // a genuinely missing terrain booting into the existing "no active
+        // Unity Terrain" error path instead of hanging the loading screen.
+        private static System.Collections.IEnumerator WaitForSceneTerrain()
+        {
+            var mmType = System.Type.GetType("MapMagic.Core.MapMagicObject, MapMagic");
+            var mapMagic = mmType != null
+                ? UnityEngine.Object.FindFirstObjectByType(mmType)
+                : null;
+
+            bool MMGenerating()
+            {
+                if (mapMagic == null) return false;
+                try { return (bool)mmType.GetMethod("IsGenerating").Invoke(mapMagic, null); }
+                catch (System.Exception) { return false; }
+            }
+
+            // A scene saved mid-MapMagic-session ships tile Terrains whose
+            // TerrainData was runtime-generated and died with the editor
+            // session. MapMagic's apply stage silently skips data-less
+            // terrains ("chunk removed during apply"), so heights would
+            // never land on them — re-create the data the way
+            // TerrainTile.CreateTerrain does, before generation starts.
+            // Apply keeps the data's X/Z size ("no resize algorithm"), so
+            // it must come from mapMagic.tileSize; Y is written by the
+            // height output on apply.
+            if (mapMagic != null)
+            {
+                float sx = 1000f, sz = 1000f;
+                try
+                {
+                    object tileSize = mmType.GetField("tileSize").GetValue(mapMagic);
+                    var tsType = tileSize.GetType();
+                    sx = (float)tsType.GetField("x").GetValue(tileSize);
+                    sz = (float)tsType.GetField("z").GetValue(tileSize);
+                }
+                catch (System.Exception) { }
+
+                foreach (var t in UnityEngine.Object.FindObjectsByType<UnityEngine.Terrain>(
+                             FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    if (t.terrainData != null) continue;
+                    var td = new TerrainData { size = new Vector3(sx, 0f, sz) };
+                    t.terrainData = td;
+                    var col = t.GetComponent<TerrainCollider>();
+                    if (col != null) col.terrainData = td;
+                    Trace($"re-created TerrainData for '{t.name}' ({sx}x{sz})");
+                }
+            }
+
+            bool TerrainReady()
+            {
+                var t = UnityEngine.Terrain.activeTerrain;
+                if (t == null || t.terrainData == null) return false;
+                // A freshly created TerrainData sits at the 33-vert default
+                // until MapMagic's height apply lands — ready means real
+                // heights are in AND MapMagic has gone idle again.
+                if (mapMagic != null)
+                    return t.terrainData.heightmapResolution > 33 && !MMGenerating();
+                return true;
+            }
+
+            if (TerrainReady()) yield break;
+            if (UnityEngine.Terrain.activeTerrain == null && mapMagic == null) yield break;
+
+            TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Generating terrain…");
+            Trace("waiting for scene terrain (MapMagic)…");
+
+            // Give MapMagic's own OnEnable/Update a moment to start; if it
+            // still thinks the serialized tile is Ready (the ready flags
+            // are saved with the scene) kick generation explicitly.
+            yield return null;
+            yield return null;
+            if (mapMagic != null && !TerrainReady() && !MMGenerating())
+            {
+                Trace("forcing MapMagic StartGenerate (serialized tile reported ready)");
+                try
+                {
+                    mmType.GetMethod("StartGenerate", new[] { typeof(bool), typeof(bool) })
+                          .Invoke(mapMagic, new object[] { true, true });
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[GameBootstrap] MapMagic StartGenerate failed: " + e.Message);
+                }
+            }
+
+            // Wait while generation actually progresses; bail once nothing
+            // has generated for a while so a scene with a genuinely broken
+            // terrain still reaches the regular "no active Unity Terrain"
+            // error path instead of hanging the loading screen.
+            float idleSince = Time.realtimeSinceStartup;
+            float hardDeadline = Time.realtimeSinceStartup + 180f;
+            while (!TerrainReady() && Time.realtimeSinceStartup < hardDeadline)
+            {
+                if (MMGenerating()) idleSince = Time.realtimeSinceStartup;
+                else if (Time.realtimeSinceStartup - idleSince > 10f) break;
+                yield return null;
+            }
+            Trace(TerrainReady() ? "scene terrain ready" : "scene terrain wait TIMED OUT");
+        }
+
         // Tiny MonoBehaviour host for the static bootstrap coroutine. Used
         // only to give us access to StartCoroutine from a static context.
-        private class BootstrapDriver : MonoBehaviour { }
+        // TEMP DIAGNOSTIC: current bootstrap phase, shown on-screen (IMGUI
+        // renders even with no camera) + logged. The last value before a stall
+        // pinpoints where launch dies.
+        internal static string BootPhase = "(not started)";
+        private static void Trace(string phase)
+        {
+            BootPhase = phase;
+            UnityEngine.Debug.Log("[BootTrace] " + phase);
+        }
+
+        private class BootstrapDriver : MonoBehaviour
+        {
+            void OnGUI()
+            {
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 22,
+                    normal = { textColor = Color.yellow },
+                };
+                GUI.Label(new Rect(20f, 20f, 1400f, 40f), "BOOT PHASE: " + BootPhase, style);
+            }
+        }
 
         // ═══════════════════════════════════════════════════════════════
         // ECS WORLD
@@ -200,55 +346,51 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<EntityViewManager>();
             managersGO.AddComponent<PresentationSpawnSystem>();
             managersGO.AddComponent<TheWaningBorder.Presentation.BuildingPrefabSwapSystem>();
+            managersGO.AddComponent<TheWaningBorder.Presentation.NodeRubbleVisualSystem>(); // node rubble / rebuild visual
+            managersGO.AddComponent<TheWaningBorder.Presentation.LedgerAutomationVfx>();   // Ledger ability: building aura + cast burst
             managersGO.AddComponent<SelectionSystem>();          // Click + box select
             managersGO.AddComponent<RTSInputManager>();          // Right-click command routing
-            var unifiedUI = managersGO.AddComponent<UnifiedUIManager>();         // Spawns EntityInfo/Action panels in its Awake
-            var legacyToolkitHud = managersGO.AddComponent<GameplayUIController>();    // UI Toolkit HUD (jade theme)
-            var legacyBuildCmd = managersGO.AddComponent<BuilderCommandPanel>();      // Building placement preview
-            var legacyResourceHud = managersGO.AddComponent<ResourceHUD>();
-            var legacyReligionHud = managersGO.AddComponent<ReligionHUD>();
+
+            // ── FINAL GAME UI (2026-07-17) ─────────────────────────────────
+            // The authored uGUI panels (Assets/GameData/Scenes/Menus/GameUI,
+            // wired through Resources/GameUICatalog) are THE in-game UI. The
+            // old stacks — UnifiedUIManager panel spawner, UI Toolkit jade
+            // HUD, IMGUI ResourceHUD/ReligionHUD/VictoryProgressHUD/minimap/
+            // ESC menu/post-game — were removed at the user's request.
+            // Non-painting runtime pieces stay: BuilderCommandPanel (drives
+            // building placement), FloatingHealthBars (worldspace HP bars),
+            // PlayerNotificationSystem (transient feedback toasts until the
+            // final UI covers messaging).
+            managersGO.AddComponent<TheWaningBorder.UI.GameUI.GameUIManager>();
+            managersGO.AddComponent<BuilderCommandPanel>();      // Building placement runtime (no painting)
+            managersGO.AddComponent<FloatingHealthBars>();       // Worldspace HP bars
+            // Floating damage/heal numbers. Lost its mount in the old-UI
+            // teardown (nothing referenced it) — restored 2026-08-03; same
+            // pool-on-private-canvas pattern as FloatingHealthBars.
+            managersGO.AddComponent<TheWaningBorder.UI.HUD.DamageNumbersUI>();
+            managersGO.AddComponent<TheWaningBorder.UI.HUD.GameClockHUD>(); // match-time readout (sim time)
+            managersGO.AddComponent<TheWaningBorder.UI.HUD.StatsBoardHUD>(); // live AoE-style charts on Display 2
+            managersGO.AddComponent<TheWaningBorder.Presentation.CurseBeaconVfx>(); // curse-node beacons + emergence pulses
+            managersGO.AddComponent<PlayerNotificationSystem>(); // Feedback toasts
             managersGO.AddComponent<TheWaningBorder.Presentation.ChapelSiteDecals>();
 
-            // When the web HUD is on, fit the legacy minimap to the diamond
-            // frame painted by CEF. A 192×192 square rotated 45° has a
-            // half-diagonal of 192/√2 ≈ 135.8 — matching the 272-diamond's
-            // half-extent of 136. Pivot-center; offsetBR is the inset from
-            // the screen corner to the diamond CENTER (mm-root is 300×300
-            // anchored at right:24,bottom:24 in CSS, so center = 174,174).
-            // Numbers assume CEF's 1920×1080 reference; ScaleWithScreenSize
-            // keeps the two canvases aligned at other resolutions.
-            if (GameSettings.UseWebHud)
-            {
-                // 188×188 → diagonal ≈ 266, just inside the polygon's 265
-                // tip-to-tip span so the rotated corners sit a hair inside
-                // the bezel rather than crossing it. Tune on RuntimeManagers
-                // → MinimapRenderer.sizePixels in the inspector if needed.
-                TheWaningBorder.World.Minimap.MinimapRenderer.OverrideSizePixels = 188;
-                TheWaningBorder.World.Minimap.MinimapRenderer.OverrideOffsetBR = new Vector2(174, 174);
-                TheWaningBorder.World.Minimap.MinimapRenderer.OverrideCanvasSortingOrder = 101;
-                TheWaningBorder.World.Minimap.MinimapRenderer.ForceDedicatedCanvas = true;
-            }
-            var legacyMinimap     = managersGO.AddComponent<MinimapRenderer>();
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
             managersGO.AddComponent<UnitVisualOverlaySystem>();   // Rank pips + Glow halo (spec refinement #7)
-            // GodPowerHUD removed — sect god powers now route through the existing
-            // ReligionHUD's per-sect Fire buttons. Glow allocation lives on each
-            // chapel slot (TempleChapelSlot.GlowAllocated).
-            var legacyVictoryHud = managersGO.AddComponent<VictoryProgressHUD>();         // Per-culture node-victory tracker (spec §11 item 7)
             managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
-            managersGO.AddComponent<TheWaningBorder.World.Terrain.GathererHutGrassPainter>(); // Yellow-grass detail patch around completed huts
+            // GathererHutGrassPainter (yellow farm-field quads around huts)
+            // REMOVED entirely (2026-07-15, user request).
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
-            managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker
-            var legacyInGameMenu = managersGO.AddComponent<InGameMenuPanel>();              // In-game menu (ESC) — statics used by HudBridge even when component is disabled
-            var legacyEndGame = managersGO.AddComponent<EndGameButton>();              // End Game button
-            var legacyPostGame = managersGO.AddComponent<PostGameStatsUI>();            // Post-game statistics graphs
+            managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker (data only)
+            // InGameMenuPanel / EndGameButton / PostGameStatsUI removed with
+            // the old UI (2026-07-17). VictoryConditionSystem null-guards
+            // their statics; the final UI will own menus and post-game.
             managersGO.AddComponent<VictoryConditionSystem>();      // Win/loss condition checker
             managersGO.AddComponent<FactionResearchState>();       // Research tracking per faction
             managersGO.AddComponent<TechEffectSystem>();            // Tech effect application on research completion
@@ -263,70 +405,9 @@ namespace TheWaningBorder.Bootstrap
             // pass per frame.
             // PR3 — AStarPathStore + PathfindingToggleHUD removed (legacy nav stack gone).
 
-            // CEF-backed HUD overlay. Lives on its own GameObject (separate
-            // Canvas) so the legacy IMGUI HUDs can stay attached for fallback
-            // / debugging. When the flag is on, we disable the legacy HUDs
-            // so they don't paint on top of the web HUD.
-            if (GameSettings.UseWebHud)
-            {
-                // Silence the legacy HUD / panel painters — leave the components
-                // attached so their static APIs (InGameMenuPanel.IsOpen, etc.)
-                // still work; just suppress their OnGUI / Update rendering.
-                if (legacyToolkitHud != null) legacyToolkitHud.enabled = false;
-                if (legacyResourceHud != null) legacyResourceHud.enabled = false;
-                if (legacyReligionHud != null) legacyReligionHud.enabled = false;
-                // legacyMinimap stays enabled — it renders the actual minimap
-                // inscribed inside the web HUD's diamond frame.
-                if (legacyVictoryHud != null) legacyVictoryHud.enabled = false;
-                if (legacyInGameMenu != null) legacyInGameMenu.enabled = false;
-                if (legacyEndGame != null) legacyEndGame.enabled = false;
-                if (legacyPostGame != null) legacyPostGame.enabled = false;
-                // BuilderCommandPanel does NOT render IMGUI — it only drives
-                // building-placement runtime (preview follow, raycast validity,
-                // confirm/cancel clicks). The web HUD's Action panel calls
-                // BuilderCommandPanel.TriggerBuildingPlacement(...) to start
-                // placement, so this component must stay enabled to actually
-                // move the preview, accept the click, and spawn the building.
-
-                // UI Toolkit UIDocuments keep rendering even when their owning
-                // controller script is disabled — they paint through the panel
-                // settings asset. Disable every UIDocument in the scene so the
-                // old "Jade" UXML HUD (objectives, mixed-detachment, actions
-                // panel, white minimap plate) doesn't bleed through. Also
-                // walks DontDestroyOnLoad objects via FindObjectsByType.
-                var docs = Object.FindObjectsByType<UnityEngine.UIElements.UIDocument>(
-                    FindObjectsInactive.Include, FindObjectsSortMode.None);
-                foreach (var d in docs)
-                {
-                    if (d != null) d.enabled = false;
-                }
-
-                // UnifiedUIManager.Awake spawns EntityInfoPanel / EntityActionPanel /
-                // CultureChoicePopup / TechTreePanel / FloatingHealthBars /
-                // PlayerNotificationSystem as sibling components. AddComponent ran
-                // Awake synchronously, so they're already attached here — disable
-                // the screen-space ones, keep FloatingHealthBars (worldspace).
-                if (unifiedUI != null)
-                {
-                    var infoPanel = unifiedUI.GetComponent<TheWaningBorder.UI.Panels.EntityInfoPanel>();
-                    if (infoPanel != null) infoPanel.enabled = false;
-                    var actionPanel = unifiedUI.GetComponent<TheWaningBorder.UI.Panels.EntityActionPanel>();
-                    if (actionPanel != null) actionPanel.enabled = false;
-                    var techTree = unifiedUI.GetComponent<TheWaningBorder.UI.Panels.TechTreePanel>();
-                    if (techTree != null) techTree.enabled = false;
-                    var culturePopup = unifiedUI.GetComponent<TheWaningBorder.UI.Panels.CultureChoicePopup>();
-                    if (culturePopup != null) culturePopup.enabled = false;
-                    var notifications = unifiedUI.GetComponent<TheWaningBorder.UI.HUD.PlayerNotificationSystem>();
-                    if (notifications != null) notifications.enabled = false;
-                    // FloatingHealthBars stays enabled — it draws worldspace HP bars
-                    // over units, which the web HUD can't replicate.
-                }
-
-                var webHudGo = new GameObject("WebHud");
-                webHudGo.AddComponent<HudWebController>();
-                webHudGo.AddComponent<HudBridge>();
-                Object.DontDestroyOnLoad(webHudGo);
-            }
+            // Chromium (CEF) web HUD spawn block REMOVED entirely (2026-07-16,
+            // user request) — the IMGUI / UI Toolkit HUDs added above are the
+            // only in-game UI stacks now.
 
             Object.DontDestroyOnLoad(managersGO);
         }
@@ -445,13 +526,22 @@ namespace TheWaningBorder.Bootstrap
             // (NavGridBootstrapSystem) is an ECS system -- no GameObject
             // bootstrap needed; it auto-instantiates with the default world.
 
-            // Initialize fog of war if enabled (disabled for Observer - they see everything)
-            if (GameSettings.FogOfWarEnabled && !GameSettings.IsObserver)
+            // Initialize fog of war if enabled. Observer matches ALSO create
+            // the manager: without it every AI fog check degrades to
+            // "everything visible" and the AIs play with map-wide intel from
+            // second zero (no scouting needed — a silent map hack). The
+            // observer's own VIEW stays unfogged: the overlay renderer is
+            // hidden here, and FogVisibilitySyncSystem / MinimapRenderer
+            // show everything when GameSettings.IsObserver.
+            if (GameSettings.FogOfWarEnabled)
             {
                 FogOfWarManager.SetupFogOfWar();
-            }
-            else if (GameSettings.IsObserver)
-            {
+                if (GameSettings.IsObserver
+                    && FogOfWarManager.Instance != null
+                    && FogOfWarManager.Instance.FogRenderer != null)
+                {
+                    FogOfWarManager.Instance.FogRenderer.enabled = false;
+                }
             }
         }
 

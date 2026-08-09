@@ -14,7 +14,7 @@ namespace TheWaningBorder.Systems.Economy
     ///
     /// Each frame:
     /// 1. Calculate distance traveled since last frame
-    /// 2. Accumulate supplies (1 per 2 distance) and crystal (1 per 15 distance)
+    /// 2. Accumulate supplies (1 per 2 distance) and veilstone (1 per 15 distance)
     /// 3. On arrival: deposit integer amounts, keep fractional remainder
     /// 4. Pick new random destination and repeat
     ///
@@ -26,7 +26,7 @@ namespace TheWaningBorder.Systems.Economy
     public partial struct TraderMovementSystem : ISystem
     {
         private const float SuppliesPerDistance = 0.5f;   // 1 supply per 2 distance
-        private const float CrystalPerDistance = 1f / 15f; // 1 crystal per 15 distance
+        private const float VeilstonePerDistance = 1f / 15f; // 1 veilstone per 15 distance
 
         private uint _randomSeed;
 
@@ -75,7 +75,7 @@ namespace TheWaningBorder.Systems.Economy
                 if (distMoved > 0.01f) // Ignore tiny movements
                 {
                     ts.AccumulatedSupplies += distMoved * SuppliesPerDistance;
-                    ts.AccumulatedCrystal += distMoved * CrystalPerDistance;
+                    ts.AccumulatedVeilstone += distMoved * VeilstonePerDistance;
                 }
                 ts.PreviousPosition = currentPos;
 
@@ -86,19 +86,19 @@ namespace TheWaningBorder.Systems.Economy
 
                 // Deposit integer resources
                 int supDep = (int)ts.AccumulatedSupplies;
-                int cryDep = (int)ts.AccumulatedCrystal;
+                int cryDep = (int)ts.AccumulatedVeilstone;
 
                 if (supDep > 0 || cryDep > 0)
                 {
                     // task-063 phase 1: sect TradeIncome multiplier removed with the
                     // FactionSectState bridge. Baseline 1.0× until Phase 2 reintroduces
                     // trade-related sect levers.
-                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: supDep, crystal: cryDep));
+                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: supDep, veilstone: cryDep));
                 }
 
                 // Keep fractional remainder
                 ts.AccumulatedSupplies -= supDep;
-                ts.AccumulatedCrystal -= cryDep;
+                ts.AccumulatedVeilstone -= cryDep;
 
                 // --- Pick new random destination ---
                 if (TryPickRandomNode(em, faction.ValueRO.Value, ts.CurrentDest, out var next, out var nPos))

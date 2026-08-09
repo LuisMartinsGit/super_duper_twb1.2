@@ -12,24 +12,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Crossbowman
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Crossbowman'
-  displayName: 'Alanthor_Crossbowman'
-  unitClass: 'human_ranged'
-  hp: 100
+  id: Alanthor_Crossbowman
+  displayName: Alanthor_Crossbowman
+  unitClass: human_ranged
+  hp: 70
   speed: 5
   trainingTime: 22
-  damage: 13
-  damageType: 'ranged'
-  armorType: 'ranged'
+  damage: 18
+  damageType: ranged
+  armorType: ranged
   defense:
     melee: 0
     ranged: 2
     siege: 0
     magic: 0
-  attackCooldown: 0
-  attackRange: 13
-  minAttackRange: 4
+  attackCooldown: 3
+  attackRange: 18
+  minAttackRange: 6
   lineOfSight: 22
+  trajectory: flat
+  projectileSpeed: 55
   cost:
     Supplies: 70
     Iron: 0
@@ -41,6 +43,8 @@ MonoBehaviour:
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
+  prefab: {fileID: 2130948330614242297, guid: 5166d7c3bd9625542b2403b9689e4626, type: 3}
   presentationId: 335
+  animatorController: {fileID: 9100000, guid: f7426f3d7d1dece4d9bec86edd11afec, type: 2}

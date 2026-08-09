@@ -95,16 +95,22 @@ namespace TheWaningBorder.Systems.Navigation
         {
             float dx = xf.Position.x - Origin.x;
             float dz = xf.Position.z - Origin.z;
-            int cx = (int)math.floor(dx / CellSize);
-            int cz = (int)math.floor(dz / CellSize);
 
-            int halfW = size.Width / 2;
-            int halfH = size.Height / 2;
+            // Stamp exactly the cells the CENTRED footprint span
+            // [pos - size/2, pos + size/2) intersects. The old integer form
+            // (cell(pos) +/- size/2) stamped size+1 cells for EVEN footprints
+            // — a 4x4 Hall blocked 5x5, hanging one extra metre off the +x/+z
+            // side of its authored position. That bias is what made "the Hall
+            // is not exactly on its marker": the blocked rect, not the entity,
+            // was off-centre, silently eating authored clearances (and the
+            // spawn ring) beside it.
+            float halfW = size.Width * 0.5f * CellSize;
+            float halfH = size.Height * 0.5f * CellSize;
 
-            int x0 = math.max(0, cx - halfW);
-            int z0 = math.max(0, cz - halfH);
-            int x1 = math.min(Width - 1, cx + halfW);
-            int z1 = math.min(Height - 1, cz + halfH);
+            int x0 = math.max(0, (int)math.floor((dx - halfW) / CellSize));
+            int z0 = math.max(0, (int)math.floor((dz - halfH) / CellSize));
+            int x1 = math.min(Width - 1, (int)math.ceil((dx + halfW) / CellSize) - 1);
+            int z1 = math.min(Height - 1, (int)math.ceil((dz + halfH) / CellSize) - 1);
 
             for (int z = z0; z <= z1; z++)
             {
@@ -125,7 +131,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// </summary>
     /// <summary>
     /// task-112 follow-up -- stamps the cost field for entities tagged
-    /// <see cref="ObstacleTag"/> (iron deposits, crystal nodes, cadavers,
+    /// <see cref="ObstacleTag"/> (iron deposits, veilstone nodes, outcroppings,
     /// forest macro cells, etc.). Mirror of <see cref="StampBuildingFootprintJob"/>
     /// but reads ObstacleTag instead of BuildingTag. Uses a 3x3 default
     /// footprint; if the entity also carries BuildingSize, that variant
@@ -182,6 +188,12 @@ namespace TheWaningBorder.Systems.Navigation
         // that isn't equal to `row`.
         [WriteOnly, NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
         [WriteOnly, NativeDisableParallelForRestriction] public NativeArray<byte> Flags;
+        // Baked layer-0 terrain mask (water + over-budget slope). Same length
+        // and row-major layout as the layer-0 slab. Each cell is seeded to its
+        // terrain value so deep water / steep mountain reads as impassable
+        // BEFORE buildings, obstacles, and walls stamp on top. Stays all-zero
+        // (walkable, == the old behaviour) on terrain-less scenes.
+        [ReadOnly] public NativeArray<byte> TerrainCost;
         public int Width;
 
         public void Execute(int row)
@@ -189,7 +201,7 @@ namespace TheWaningBorder.Systems.Navigation
             int rowStart = row * Width;
             for (int x = 0; x < Width; x++)
             {
-                Cost[rowStart + x] = 0;
+                Cost[rowStart + x] = TerrainCost[rowStart + x];
                 Flags[rowStart + x] = 0;
             }
         }

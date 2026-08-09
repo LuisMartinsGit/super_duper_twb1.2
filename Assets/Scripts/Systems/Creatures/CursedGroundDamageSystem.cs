@@ -1,4 +1,4 @@
-// File: Assets/Scripts/Systems/Creatures/CursedGroundDamageSystem.cs
+// File: Assets/Scripts/Systems/Creatures/BorderGroundDamageSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -8,12 +8,12 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Systems.Creatures
 {
     /// <summary>
-    /// Applies damage-over-time to non-crystal units standing on cursed ground.
-    /// Runs on a 1-second tick to reduce per-frame cost. Crystal-tagged entities
-    /// (creatures and crystal structures) are immune to cursed ground damage.
+    /// Applies damage-over-time to non-veilstone units standing on border ground.
+    /// Runs on a 1-second tick to reduce per-frame cost. Veilstone-tagged entities
+    /// (creatures and veilstone structures) are immune to border ground damage.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct CursedGroundDamageSystem : ISystem
+    public partial struct BorderGroundDamageSystem : ISystem
     {
         /// <summary>Interval between damage ticks in seconds.</summary>
         private const float DamageTickInterval = 1f;
@@ -22,7 +22,7 @@ namespace TheWaningBorder.Systems.Creatures
 
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate<CursedGroundTag>();
+            state.RequireForUpdate<BorderGroundTag>();
             _tickTimer = 0f;
         }
 
@@ -33,13 +33,13 @@ namespace TheWaningBorder.Systems.Creatures
             if (_tickTimer < DamageTickInterval) return;
             _tickTimer -= DamageTickInterval;
 
-            // Collect all cursed ground positions and their effect data
+            // Collect all border ground positions and their effect data
             var groundPositions = new NativeList<float3>(Allocator.Temp);
-            var groundDPS = new NativeList<CursedGroundDPS>(Allocator.Temp);
+            var groundDPS = new NativeList<BorderGroundDPS>(Allocator.Temp);
 
             foreach (var (dps, groundTransform) in SystemAPI
-                .Query<RefRO<CursedGroundDPS>, RefRO<LocalTransform>>()
-                .WithAll<CursedGroundTag>())
+                .Query<RefRO<BorderGroundDPS>, RefRO<LocalTransform>>()
+                .WithAll<BorderGroundTag>())
             {
                 groundPositions.Add(groundTransform.ValueRO.Position);
                 groundDPS.Add(dps.ValueRO);
@@ -52,17 +52,17 @@ namespace TheWaningBorder.Systems.Creatures
                 return;
             }
 
-            // Apply damage to non-crystal units standing on cursed ground
+            // Apply damage to non-veilstone units standing on border ground
             var em = state.EntityManager;
             foreach (var (health, unitTransform, entity) in SystemAPI
                 .Query<RefRW<Health>, RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
-                .WithNone<CrystalTag, Invulnerable>() // (task-062 C-4) — DoT honors LockdownVault
+                .WithNone<BorderTag, Invulnerable>() // (task-062 C-4) — DoT honors LockdownVault
                 .WithEntityAccess())
             {
                 float3 unitPos = unitTransform.ValueRO.Position;
 
-                // Check if unit is on any cursed ground tile
+                // Check if unit is on any border ground tile
                 for (int i = 0; i < groundPositions.Length; i++)
                 {
                     float dist = math.distance(
@@ -74,8 +74,8 @@ namespace TheWaningBorder.Systems.Creatures
                         // Apply one tick of damage (DPS * tick interval)
                         int damage = math.max(1, (int)(groundDPS[i].DamagePerSecond * DamageTickInterval));
 
-                        // Reclamation "Curse-Hardened" passive: Reclamation-
-                        // adopted factions take -25/35/50% from Crystal-Curse PvE.
+                        // Reclamation "Border-Hardened" passive: Reclamation-
+                        // adopted factions take -25/35/50% from Border PvE.
                         // Mirrors the combat-path reduction in CombatDamageHelper.
                         // (task-063 phase 2d / phase 4 scaling)
                         if (em.HasComponent<FactionTag>(entity))

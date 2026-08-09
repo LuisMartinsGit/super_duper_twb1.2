@@ -201,7 +201,7 @@ namespace TheWaningBorder.Systems.Navigation
             // replaces this with the per-tile flood-fill that the spec
             // S3 calls for.
             var intraEdges = new NativeList<PortalEdge>(nodeCount, Allocator.Temp);
-            BuildIntraTileEdges(grid, nodes, intraEdges);
+            PortalIntraTileEdges.Build(grid, nodes, intraEdges, cost.Cost);
 
             int totalEdgeCount = edges.Length + intraEdges.Length;
             var allEdges = new NativeArray<PortalEdge>(totalEdgeCount, Allocator.Temp,
@@ -284,16 +284,5 @@ namespace TheWaningBorder.Systems.Navigation
             }
         }
 
-        // Emits intra-tile edges between every pair of portals that share
-        // the same TileIndex. Cost = Manhattan distance in cells * 10.
-        // Bucketed by tile (O(n log n + Σ kᵢ²)) — see PortalIntraTileEdges.
-        // Edge order is free here: the caller re-sorts by (From,To) id (DR-5).
-        private static void BuildIntraTileEdges(
-            in NavGridSingleton grid,
-            NativeArray<PortalNode> nodes,
-            NativeList<PortalEdge> outEdges)
-        {
-            PortalIntraTileEdges.Build(grid, nodes, outEdges);
-        }
     }
 }

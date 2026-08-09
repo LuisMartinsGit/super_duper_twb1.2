@@ -162,23 +162,15 @@ namespace TheWaningBorder.Input
             if (BuilderCommandPanel.SuppressClicksThisFrame)
                 return true;
 
-            // Web HUD: pointer over an interactive HTML region. See
-            // HudWebController.IsPointerOverWebHud for why this is needed —
-            // CEF and Unity don't share an input pipeline.
-            if (TheWaningBorder.UI.Web.HudWebController.IsPointerOverWebHud)
+            // Final game UI (uGUI): standard EventSystem hover check covers
+            // every authored panel, current and future.
+            if (UnityEngine.EventSystems.EventSystem.current != null
+                && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
                 return true;
 
-            // Block if mouse is over UI panels
-            if (EntityInfoPanel.IsPointerOver() || EntityActionPanel.IsPointerOver())
-                return true;
-
-            // Block if mouse is over spell panel
-            if (SpellPanel.IsPointerOverPanel)
-                return true;
-
-            // Block if culture choice popup is visible (modal dialog)
-            if (CultureChoicePopup.IsVisible)
-                return true;
+            // Old IMGUI panel guards (EntityInfoPanel / EntityActionPanel /
+            // SpellPanel / CultureChoicePopup) removed with the old UI
+            // (2026-07-17); the EventSystem check above covers the final uGUI.
 
             // Block during building placement
             if (BuilderCommandPanel.IsPlacingBuilding)
@@ -429,7 +421,8 @@ namespace TheWaningBorder.Input
             if (!_em.Exists(e)) return false;
 
             // Resource deposits are always selectable
-            if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<CadaverTag>(e))
+            if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<VeilstoneOutcroppingTag>(e)
+                || _em.HasComponent<VeilsteelDepositTag>(e))
                 return true;
 
             // Must have faction tag
@@ -438,6 +431,13 @@ namespace TheWaningBorder.Input
 
             // Must be a unit or building
             if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
+                return false;
+
+            // A dying/dead unit is a corpse for the rest of its death animation:
+            // it can't be (re)selected. DeathSystem tags it with DeathAnimationState
+            // and zeroes its movement on death; the navigation integrator already
+            // excludes DeathAnimationState so it never moves again.
+            if (_em.HasComponent<UnitTag>(e) && IsDeadOrDying(e))
                 return false;
 
             // If the raycast hit the entity's GameObject, it is visible on screen
@@ -462,9 +462,27 @@ namespace TheWaningBorder.Input
         {
             for (int i = _selection.Count - 1; i >= 0; i--)
             {
-                if (!_em.Exists(_selection[i]))
+                var sel = _selection[i];
+                // Drop entities that are gone, or units that have just died — a
+                // dying unit lingers ~2 s while its death animation plays, and a
+                // corpse must not stay selected (so it can't receive commands).
+                if (!_em.Exists(sel) ||
+                    (_em.HasComponent<UnitTag>(sel) && IsDeadOrDying(sel)))
                     _selection.RemoveAt(i);
             }
+        }
+
+        /// <summary>
+        /// True once a unit has died: it has a running death animation
+        /// (<see cref="DeathAnimationState"/>) or its health has hit zero. Used to
+        /// keep corpses unselectable and out of the active selection.
+        /// </summary>
+        private bool IsDeadOrDying(Entity e)
+        {
+            if (_em.HasComponent<DeathAnimationState>(e)) return true;
+            if (_em.HasComponent<Health>(e) && _em.GetComponentData<Health>(e).Value <= 0)
+                return true;
+            return false;
         }
         
         // ═══════════════════════════════════════════════════════════════════════
@@ -540,24 +558,32 @@ namespace TheWaningBorder.Input
             if (!cam) return Entity.Null;
 
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
-            if (Physics.Raycast(ray, out RaycastHit hit, 1000f, clickMask))
+
+            // RaycastAll + nearest-valid: a stray collider that does NOT
+            // resolve to an entity (loot piles, decor, dead visuals) must not
+            // swallow a click aimed at the unit right behind it. Per hit,
+            // walk the full hierarchy up looking for an EntityReference —
+            // prefabs may carry the collider on a deep child.
+            var hits = Physics.RaycastAll(ray, 1000f, clickMask);
+            Entity best = Entity.Null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < hits.Length; i++)
             {
-                // Walk the full hierarchy from the hit GameObject up to the root
-                // looking for an EntityReference. Procedural buildings put it on
-                // the root, but prefabs may have nested mesh hierarchies (mesh →
-                // group → root) where the collider lives on a deep child. The
-                // earlier "root or one parent" lookup missed those, which made
-                // the click look like a terrain hit and triggered deselection.
-                var t = hit.collider.transform;
+                if (hits[i].distance >= bestDist) continue;
+                var t = hits[i].collider.transform;
                 while (t != null)
                 {
                     var link = t.GetComponent<EntityReference>();
                     if (link != null && _em.Exists(link.Entity))
-                        return link.Entity;
+                    {
+                        best = link.Entity;
+                        bestDist = hits[i].distance;
+                        break;
+                    }
                     t = t.parent;
                 }
             }
-            return Entity.Null;
+            return best;
         }
         
         // ═══════════════════════════════════════════════════════════════════════

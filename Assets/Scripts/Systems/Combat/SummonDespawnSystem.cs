@@ -1,13 +1,18 @@
 // SummonDespawnSystem.cs
-// Ticks down SummonedUnit.DespawnTimer and destroys expired summoned units
+// Ticks down SummonedUnit.DespawnTimer and expires summoned units
 // Location: Assets/Scripts/Systems/Combat/SummonDespawnSystem.cs
 
 using Unity.Entities;
 using Unity.Burst;
 
 /// <summary>
-/// Ticks SummonedUnit.DespawnTimer each frame. When timer reaches 0,
-/// the summoned entity is destroyed via EntityCommandBuffer.
+/// Ticks SummonedUnit.DespawnTimer each frame. When the timer reaches 0 the
+/// summon's Health is set to 0 and DeathSystem destroys it (unit-death
+/// contract). Recording our own DestroyEntity here double-destroyed summons
+/// that died in combat during their last seconds — two EndSimulation buffers
+/// each held a DestroyEntity for the same entity and the second threw
+/// "entity does not exist" at playback. Corpses (DeathAnimationState) are
+/// excluded so an already-dying summon is left to DeathSystem entirely.
 /// Runs in SimulationSystemGroup.
 /// </summary>
 [BurstCompile]
@@ -17,29 +22,21 @@ public partial struct SummonDespawnSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<SummonedUnit>();
-        state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         float dt = SystemAPI.Time.DeltaTime;
-        // Fix #225: Singleton ECB.
-        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
-        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
-        foreach (var (summon, entity) in SystemAPI
-            .Query<RefRW<SummonedUnit>>()
-            .WithEntityAccess())
+        foreach (var (summon, health) in SystemAPI
+            .Query<RefRW<SummonedUnit>, RefRW<Health>>()
+            .WithNone<DeathAnimationState>())
         {
             summon.ValueRW.DespawnTimer -= dt;
 
             if (summon.ValueRO.DespawnTimer <= 0f)
-            {
-                ecb.DestroyEntity(entity);
-            }
+                health.ValueRW.Value = 0;
         }
-
-        // ECB plays back automatically at EndSimulation.
     }
 }

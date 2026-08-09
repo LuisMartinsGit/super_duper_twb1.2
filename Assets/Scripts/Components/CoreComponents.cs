@@ -18,12 +18,12 @@ public enum Faction : byte
     Teal = 6,
     White = 7,
     /// <summary>
-    /// Crystal Curse — environmental hostile faction, hostile to all
+    /// The Border — environmental hostile faction, hostile to all
     /// player factions. NOT a player slot; falls outside the 0..7 player
     /// color range so it's never picked up by lobby/AI slot iteration
     /// (LobbyConfig.Slots and player-color tables are length 8).
     /// </summary>
-    Curse = 8,
+    Border = 8,
 }
 
 public static class Cultures
@@ -58,6 +58,25 @@ public struct FactionProgress : IComponentData
 public struct PresentationId : IComponentData
 {
     public int Id;
+}
+
+/// <summary>
+/// The entity's human-readable name, as shown in the selection header.
+///
+/// Stamped once at creation by <c>UnitFactory.Create</c> / <c>BuildingFactory.Create</c>
+/// from the id the caller asked for, so it is always exact. Name resolution used
+/// to be inferred after the fact from PresentationId (which several entities
+/// legitimately SHARE, because it selects the visual — Outrider/Cataphract,
+/// Caravan/Tinker) or from a tag-component ladder (which some buildings, e.g.
+/// KingsCourt and the chapels, never appear in) — both of which silently
+/// produced the wrong name or the bare "Unit" / "Building" fallback.
+///
+/// FixedString64Bytes: unmanaged, blittable, Burst-safe in queries. The longest
+/// current name ("Glassmark Arcanist") is well inside the 61-byte payload.
+/// </summary>
+public struct DisplayName : IComponentData
+{
+    public Unity.Collections.FixedString64Bytes Value;
 }
 
 // ==================== Common Stats ====================

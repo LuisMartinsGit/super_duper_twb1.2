@@ -1,5 +1,5 @@
 // File: Assets/Scripts/UI/Common/ResourceIcons.cs
-// Loads and draws resource type icons (Supplies, Iron, Crystal, Veilsteel, Glow).
+// Loads and draws resource type icons (Supplies, Iron, Veilstone, Veilsteel, Glow).
 // Icons are loaded from Resources/UI/icons/Resoueces/ and cached statically.
 
 using UnityEngine;
@@ -29,7 +29,7 @@ namespace TheWaningBorder.UI
             // Folder has a typo ("Resoueces") — match what's on disk
             _supplies  = Resources.Load<Texture2D>("UI/icons/Resoueces/Supplies");
             _iron      = Resources.Load<Texture2D>("UI/icons/Resoueces/Iron");
-            _crystal   = Resources.Load<Texture2D>("UI/icons/Resoueces/Crystal");
+            _crystal   = Resources.Load<Texture2D>("UI/icons/Resoueces/Veilstone");
             _veilsteel = Resources.Load<Texture2D>("UI/icons/Resoueces/Veilsteel");
             _glow      = Resources.Load<Texture2D>("UI/icons/Resoueces/Glow");
         }
@@ -44,7 +44,7 @@ namespace TheWaningBorder.UI
             {
                 "Supplies" or "S"  => _supplies,
                 "Iron" or "Fe"     => _iron,
-                "Crystal" or "Cr"  => _crystal,
+                "Veilstone" or "Cr"  => _crystal,
                 "Veilsteel" or "Vs" => _veilsteel,
                 "Glow" or "Gl"     => _glow,
                 _ => null
@@ -58,7 +58,7 @@ namespace TheWaningBorder.UI
             {
                 "S"  => "Supplies",
                 "Fe" => "Iron",
-                "Cr" => "Crystal",
+                "Cr" => "Veilstone",
                 "Vs" => "Veilsteel",
                 "Gl" => "Glow",
                 _ => resourceName
@@ -89,9 +89,11 @@ namespace TheWaningBorder.UI
             float mx = Event.current.mousePosition.x + 16f;
             float my = Event.current.mousePosition.y + 8f;
 
-            // Keep on screen
+            // Keep fully on screen (all four edges).
             if (mx + size.x > Screen.width) mx = Screen.width - size.x - 4f;
             if (my + size.y > Screen.height) my = Screen.height - size.y - 4f;
+            if (mx < 0) mx = 0;
+            if (my < 0) my = 0;
 
             GUI.Box(new Rect(mx, my, size.x, size.y), GUI.tooltip, _tooltipStyle);
         }
@@ -215,8 +217,8 @@ namespace TheWaningBorder.UI
             { DrawLayoutIcon("Supplies", fontSize); GUILayout.Label(cost.Supplies.ToString(), valueStyle); GUILayout.Space(6f); }
             if (cost.Iron > 0)
             { DrawLayoutIcon("Iron", fontSize); GUILayout.Label(cost.Iron.ToString(), valueStyle); GUILayout.Space(6f); }
-            if (cost.Crystal > 0)
-            { DrawLayoutIcon("Crystal", fontSize); GUILayout.Label(cost.Crystal.ToString(), valueStyle); GUILayout.Space(6f); }
+            if (cost.Veilstone > 0)
+            { DrawLayoutIcon("Veilstone", fontSize); GUILayout.Label(cost.Veilstone.ToString(), valueStyle); GUILayout.Space(6f); }
             if (cost.Veilsteel > 0)
             { DrawLayoutIcon("Veilsteel", fontSize); GUILayout.Label(cost.Veilsteel.ToString(), valueStyle); GUILayout.Space(6f); }
             if (cost.Glow > 0)
@@ -245,7 +247,7 @@ namespace TheWaningBorder.UI
 
             Add("Supplies", cost.Supplies);
             Add("Iron", cost.Iron);
-            Add("Crystal", cost.Crystal);
+            Add("Veilstone", cost.Veilstone);
             Add("Veilsteel", cost.Veilsteel);
             Add("Glow", cost.Glow);
 

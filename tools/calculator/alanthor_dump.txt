@@ -1,0 +1,1008 @@
+================================================================================
+BUILDING Hall | cost {'s': 500, 'i': 150, 'v': 50, 'vs': 0} | mil False
+banner: Hall → King's Court (Alanthor) / Trader's Hall (Runai) / War Hall (Feraldis) at Age 1. Cultureless HQ: trains Worker/Scout, banks resources, hosts economy and scouting research. The same entity is renamed and reskinned at age-up.
+stats: {"id": "Hall", "HP": "2400", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.6", "Population": "20", "Building Type": "Basic", "Building Function": "Civic", "Can receive resources": "yes", "Resource generation tick": "15", "Supplies per tick": "50", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "Direct", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 8 / 0 / 4", "Line of sight": "24", "Build time": "90", "Garrison capacity": "0", "Can attack": "yes", "Attack damage": "12", "Attack range": "20", "Attack cooldown": "2", "Auto-fire max targets": "1", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Worker, Scout, Ledger (Lv 2+), King Lexor (Lv 3+)", "Research": "Stone Tools, Armed Scouts, Iron Tools, Veilstone Tools, Veilsteel Tools, Mason Guild, Scouting Celestarii", "PresentationId": "100"}
+------------------------------------------------------------
+NODE Hall — Lv 0 | age 0 row 1 | kind lvl | up:False | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Cultureless starting HQ', 'Becomes the cultured Lv 1 form automatically at age-up']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE King's Court — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Granted free and instantly when Alanthor is chosen at age-up', 'No research required']
+ req: ['Age 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: True
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 10}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 15}]
+------------------------------------------------------------
+NODE King's Court — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks the Ledger automaton and Scouting Celestarii']
+ req: ['Age 2', "King's Court — Lv 1"] | cost: {'s': 400, 'i': 100, 'v': 40, 'vs': 5} | researchTime: 65 | on: True
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 20}, {"target": "building", "stat": "Auto-fire max targets", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Worker | age 0 row 2 | kind eco | up:False | culture:'' | scope:global | type:'Economic' race:'Human' size:'Small'
+ d: ['Core unit — every culture']
+ req: [] | cost: {'s': 50, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_support"], ["HP", "70"], ["Speed", "6"], ["Training time", "25"], ["Population cost", "1"], ["Damage", "2"], ["Damage type", "Melee"], ["Armor type", "infantry_light"], ["Defense (M/R/S/Mag)", "0 / 0 / 0 / 0"], ["Attack cooldown", "2"], ["Min attack range", "0"], ["Attack range", "1"], ["Line of sight", "14"], ["Resource collection speed", "1"], ["Building speed", "1"], ["Min building level", "0"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Unified builder + miner; gathers straight to the faction bank (no carrying)"], ["Tags", "Infantry, Light"], ["PresentationId", "200"]]
+------------------------------------------------------------
+NODE Scout | age 0 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Melee' race:'Human' size:'Small'
+ d: ['Core unit — extreme vision', 'Vision-only until Armed Scouts is researched (0 damage, never auto-engages)', '"Use Celestar" stays locked until Scouting Celestarii is researched']
+ req: [] | cost: {'s': 55, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_scout"], ["HP", "60"], ["Speed", "6"], ["Training time", "26"], ["Population cost", "1"], ["Damage", "0"], ["Damage type", "Melee"], ["Armor type", "infantry_light"], ["Defense (M/R/S/Mag)", "0 / 0 / 0 / 0"], ["Attack cooldown", "1.5"], ["Min attack range", "0"], ["Attack range", "1"], ["Line of sight", "40"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "0"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "Scout Sight, Use Celestar"], ["Ability cooldown", "0"], ["Ability duration", "15"], ["Ability aftermath", "none"], ["Special", "LOS ramps to max over 25 s while standing still; capped at 80% until Scouting Celestarii"], ["Tags", "Infantry, Light"], ["PresentationId", "206"]]
+ abilities: ["Scout Sight", "Use Celestar"]
+------------------------------------------------------------
+NODE Stone Tools | age 0 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Tool tier 1 (Age 0)', 'Visuals: add carts with stones near building']
+ req: [] | cost: {'s': 80, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 30 | on: True
+ effects: [{"target": "unit:Worker", "stat": "Resource collection speed", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Iron Tools | age 1 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Tool tier 2', 'Visuals: add racks with iron tools near building']
+ req: ['Age 1', 'Stone Tools'] | cost: {'s': 150, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 40 | on: True
+ effects: [{"target": "unit:Worker", "stat": "Resource collection speed", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Veilstone Tools | age 2 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Tool tier 3', 'Visuals: Replace stones with veilstone']
+ req: ['Age 2', 'Iron Tools'] | cost: {'s': 0, 'i': 120, 'v': 100, 'vs': 0} | researchTime: 45 | on: True
+ effects: [{"target": "unit:Worker", "stat": "Resource collection speed", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Veilsteel Tools | age 3 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Tool tier 4', 'Visuals: replace tools with veilsteel tools.']
+ req: ['Age 3', 'Veilstone Tools'] | cost: {'s': 0, 'i': 0, 'v': 100, 'vs': 80} | researchTime: 50 | on: True
+ effects: [{"target": "unit:Worker", "stat": "Resource collection speed", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Mason Guild | age 1 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['visuals: add crane to building']
+ req: ['Age 1', "King's Court — Lv 1"] | cost: {'s': 180, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 35 | on: True
+ effects: [{"target": "bname:Hall", "stat": "HP", "op": "+%", "value": 30}]
+------------------------------------------------------------
+NODE King's Court — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ["Top King's Court level — unlocks King Lexor"]
+ req: ['Age 3', "King's Court — Lv 2"] | cost: {'s': 600, 'i': 220, 'v': 160, 'vs': 15} | researchTime: 90 | on: True
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 30}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 25}, {"target": "building", "stat": "Auto-fire max targets", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Ledger | age 2 row 2 | kind eco | up:False | culture:'Alanthor' | scope:global | type:'Economic' race:'Automaton' size:'Medium'
+ d: ['Alanthor clockwork automaton trained at the Town Hall', 'Assign it to a facility to automate its resource handling (Automate Facility)']
+ req: ['Age 2', "King's Court — Lv 2"] | cost: {'s': 150, 'i': 40, 'v': 20, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "automaton_worker"], ["HP", "140"], ["Speed", "3.5"], ["Training time", "30"], ["Population cost", "1"], ["Damage", "0"], ["Damage type", "—"], ["Armor type", "structure_light"], ["Defense (M/R/S/Mag)", "0 / 2 / 0 / 0"], ["Attack cooldown", "0"], ["Min attack range", "0"], ["Attack range", "0"], ["Line of sight", "10"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "2"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "Automate Facility"], ["Ability cooldown", "60"], ["Ability duration", "30"], ["Ability aftermath", "Under Automation"], ["Special", "Cannot gather or build — automates a facility for +30% yield"], ["Tags", "Automaton"], ["PresentationId", "210"]]
+ abilities: ["Automate Facility"]
+------------------------------------------------------------
+NODE Scouting Celestarii | age 2 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the "Use Celestar" ability for Scouts', 'Removes the 80% settled-LOS cap and restores full ramp speed', "Visuals: large telescope on the roof; telescope in the Scout's hand"]
+ req: ['Age 2', "King's Court — Lv 2"] | cost: {'s': 120, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "unit:Scout", "stat": "Line of sight", "op": "+%", "value": 25}]
+ abilities: ["Use Celestar"]
+------------------------------------------------------------
+NODE King Lexor | age 3 row 2 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Cavalry' race:'Human' size:'Medium'
+ d: ['Alanthor unique hero — the King (one per faction)', 'Liquid Courage: temporary damage & damage-reduction buff to himself and nearby allies', "King's Call: rally aura boosting nearby friendly attack and move speed"]
+ req: ['Age 3', "King's Court — Lv 3"] | cost: {'s': 600, 'i': 250, 'v': 100, 'vs': 0} | researchTime: 0 | on: True
+ stats: [["Class", "human_hero"], ["HP", "650"], ["Speed", "7"], ["Training time", "90"], ["Population cost", "3"], ["Damage", "45"], ["Damage type", "Melee"], ["Armor type", "cavalry_heavy"], ["Defense (M/R/S/Mag)", "6 / 5 / 3 / 4"], ["Attack cooldown", "1.4"], ["Min attack range", "0"], ["Attack range", "1.6"], ["Line of sight", "26"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "3"], ["Heals per second", "0"], ["Hero", "yes"], ["Aura radius", "15"], ["Aura effect", "+15% attack, +15% armor, +20 charge damage (King's Call)"], ["Aura affects", "Allied Alanthor units"], ["Can charge", "yes"], ["Charge damage bonus", "50"], ["Abilities", "Liquid Courage, King's Call"], ["Ability cooldown", "0"], ["Ability duration", "10"], ["Ability aftermath", "Veilshift Withdrawal, Life Cling"], ["Special", "One per faction"], ["Tags", "Cavalry, Hero"], ["PresentationId", "250"]]
+ abilities: ["Liquid Courage", "King's Call"]
+------------------------------------------------------------
+NODE Armed Scouts | age 0 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Arms Scouts with their melee attack', 'Until researched, Scouts are vision-only: 0 damage, never auto-engage', 'Applies to existing and future Scouts']
+ req: [] | cost: {'s': 90, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 30 | on: True
+ effects: [{"target": "unit:Scout", "stat": "Damage", "op": "+", "value": 10}]
+================================================================================
+BUILDING Hut | cost {'s': 80, 'i': 0, 'v': 0, 'vs': 0} | mil False
+banner: Hut → House (Alanthor at Age 1). Cultureless population housing; gains a level ladder under a culture. Runai removes it at age-up (instant 200 pop); Feraldis keeps it as a raider-spawner with 0 pop.
+stats: {"id": "Hut", "HP": "650", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.6", "Population": "10", "Building Type": "Basic", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 6 / 0 / 2", "Line of sight": "14", "Build time": "25", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "Retaliatory measures", "PresentationId": "102"}
+------------------------------------------------------------
+NODE Hut — Lv 0 | age 0 row 1 | kind lvl | up:False | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Cultureless population housing', 'Becomes the cultured Lv 1 form automatically at age-up']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE House — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Granted free and instantly when Alanthor is chosen at age-up', 'No research required']
+ req: ['Age 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: True
+ effects: [{"target": "building", "stat": "Population", "op": "+", "value": 5}, {"target": "building", "stat": "HP", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE House — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Gates Retaliatory measures']
+ req: ['Age 2', 'House — Lv 1'] | cost: {'s': 240, 'i': 50, 'v': 15, 'vs': 5} | researchTime: 45 | on: True
+ effects: [{"target": "building", "stat": "Population", "op": "+", "value": 5}, {"target": "building", "stat": "HP", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE House — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'Economic' race:'' size:''
+ d: ['Top House level — final Population and HP bump (25 pop total)']
+ req: ['Age 3', 'House — Lv 2'] | cost: {'s': 360, 'i': 75, 'v': 50, 'vs': 35} | researchTime: 60 | on: True
+ effects: [{"target": "building", "stat": "Population", "op": "+", "value": 5}, {"target": "building", "stat": "HP", "op": "+%", "value": 25}]
+------------------------------------------------------------
+NODE Retaliatory measures | age 2 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Houses fight back: gain an auto-fire arrow attack (12 dmg, range 8, 1 target)']
+ req: ['Age 2', 'House — Lv 2'] | cost: {'s': 200, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "Can attack", "op": "set", "value": 1}, {"target": "building", "stat": "Attack damage", "op": "+", "value": 12}, {"target": "building", "stat": "Attack range", "op": "+", "value": 8}, {"target": "building", "stat": "Attack cooldown", "op": "set", "value": 2}, {"target": "building", "stat": "Auto-fire max targets", "op": "+", "value": 1}]
+================================================================================
+BUILDING GatherersHut | cost {'s': 120, 'i': 10, 'v': 0, 'vs': 0} | mil False
+banner: Gatherer's Hut → Guild (Alanthor at Age 1). Cultureless area-supply trickle (doubles inside owner influence). Grants no influence itself. Buildable outside the Alanthor border. Feraldis keeps it; Runai converts it to a Wagon.
+stats: {"id": "GatherersHut", "HP": "300", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "0.5", "Population": "0", "Building Type": "Basic", "Building Function": "Economy", "Can receive resources": "no", "Resource generation tick": "10", "Supplies per tick": "10", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "Area", "Generation Area": "19.5", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 2 / 0 / 0", "Line of sight": "16", "Build time": "20", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "60", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "Iron Surveying I-III, Veilstone Survey I-II, Veilsteel Survey, Iron reinforcements, Veilstone walls, Veilsteel Pylons", "PresentationId": "101"}
+------------------------------------------------------------
+NODE Gatherer's Hut — Lv 0 | age 0 row 1 | kind lvl | up:False | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Yield scales with free area; ×2 inside influence border', 'Becomes the Guild Lv 1 automatically at age-up']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Guild — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ["Alanthor rename of the Gatherer's Hut — granted free at age-up", 'Level ladder raises Supplies output, HP and gather radius, and gates the faction-wide Survey / Reinforcement tracks']
+ req: ['Age 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: True
+ effects: [{"target": "building", "stat": "Supplies per tick", "op": "+", "value": 5}, {"target": "building", "stat": "HP", "op": "+%", "value": 15}, {"target": "building", "stat": "Generation Area", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Guild — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Guild level 2 — unlocks the Age-2 Survey / Reinforcement techs']
+ req: ['Age 2', 'Guild — Lv 1'] | cost: {'s': 240, 'i': 50, 'v': 15, 'vs': 5} | researchTime: 45 | on: True
+ effects: [{"target": "building", "stat": "Supplies per tick", "op": "+", "value": 5}, {"target": "building", "stat": "HP", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Guild — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Top Guild level — unlocks the Age-3 Survey / Reinforcement techs', 'Veilsteel Survey requires this level']
+ req: ['Age 3', 'Guild — Lv 2'] | cost: {'s': 360, 'i': 75, 'v': 40, 'vs': 20} | researchTime: 60 | on: True
+ effects: [{"target": "building", "stat": "Supplies per tick", "op": "+", "value": 10}, {"target": "building", "stat": "HP", "op": "+%", "value": 25}, {"target": "building", "stat": "Generation Area", "op": "+", "value": 4}]
+------------------------------------------------------------
+NODE Iron Surveying I | age 1 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ["Faction-wide: every Gatherer's Hut also generates Iron passively", '+2 Iron per generation tick (inherits the ×2 influence-border bonus)']
+ req: ['Age 1', 'Guild — Lv 1'] | cost: {'s': 120, 'i': 60, 'v': 0, 'vs': 0} | researchTime: 35 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Iron per tick", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Iron Survey II | age 2 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+2 Iron per generation tick (stacks with Iron Surveying I → 4 total)']
+ req: ['Age 2', 'Guild — Lv 2', 'Iron Surveying I'] | cost: {'s': 200, 'i': 120, 'v': 0, 'vs': 0} | researchTime: 40 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Iron per tick", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Iron Survey III | age 3 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+3 Iron per generation tick (stacks → 7 total)']
+ req: ['Age 3', 'Guild — Lv 3', 'Iron Survey II'] | cost: {'s': 300, 'i': 180, 'v': 0, 'vs': 0} | researchTime: 45 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Iron per tick", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Veilstone Survey I | age 2 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ["Faction-wide: every Gatherer's Hut also generates Veilstone passively", '+1 Veilstone per generation tick']
+ req: ['Age 2', 'Guild — Lv 2'] | cost: {'s': 200, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 40 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Veilstone per tick", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veilstone Survey II | age 3 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+2 Veilstone per generation tick (stacks → 3 total)']
+ req: ['Age 3', 'Guild — Lv 3', 'Veilstone Survey I'] | cost: {'s': 300, 'i': 120, 'v': 120, 'vs': 0} | researchTime: 45 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Veilstone per tick", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Veilsteel Survey | age 3 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Faction-wide: every Guild also generates a trickle of Veilsteel', '+1 Veilsteel per generation tick (+6 / min) — the slowest, rarest output', 'Max-level Guilds only (Lv 3)']
+ req: ['Age 3', 'Guild — Lv 3', 'Veilstone Survey II'] | cost: {'s': 300, 'i': 0, 'v': 100, 'vs': 60} | researchTime: 50 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Veilsteel per tick", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Iron reinforcements | age 1 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ["Faction-wide: Gatherer's Huts auto-repair once they take no damage for 10 s", 'Regenerates 5 HP per second while out of combat']
+ req: ['Age 1', 'Guild — Lv 1'] | cost: {'s': 150, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 30 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "Has HP regen", "op": "+", "value": 1}, {"target": "bname:GatherersHut", "stat": "Time out of combat", "op": "+", "value": 10}, {"target": "bname:GatherersHut", "stat": "HP regen", "op": "+", "value": 5}, {"target": "bname:GatherersHut", "stat": "HP regen tick", "op": "+", "value": 1}]
+ abilities: ["Auto-Repair"]
+------------------------------------------------------------
+NODE Veilstone walls | age 2 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ["When a Gatherer's Hut drops below 50% HP it casts a one-shot Slow burst (90 s cooldown)", "Enemies in the hut's gather radius (~19.5): -50% move speed for 7.5 s", 'Also raises out-of-combat auto-repair speed (5 → 10 HP/s)']
+ req: ['Age 2', 'Guild — Lv 2', 'Iron reinforcements'] | cost: {'s': 240, 'i': 100, 'v': 80, 'vs': 0} | researchTime: 40 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "HP regen", "op": "+", "value": 5}, {"target": "bname:GatherersHut", "stat": "Aura radius", "op": "+", "value": 12}]
+ abilities: ["Veilstone Ward (auto-Slow at 50% HP)"]
+------------------------------------------------------------
+NODE Veilsteel Pylons | age 3 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ["Upgrades the low-HP defensive cast from Slow to Stop: a one-shot burst that freezes enemies in the hut's gather radius (~19.5) for 10 s (-100% move speed, 90 s cooldown)", 'Further increases out-of-combat auto-repair speed (10 → 20 HP/s)']
+ req: ['Age 3', 'Guild — Lv 3', 'Veilstone walls'] | cost: {'s': 300, 'i': 120, 'v': 0, 'vs': 100} | researchTime: 50 | on: True
+ effects: [{"target": "bname:GatherersHut", "stat": "HP regen", "op": "+", "value": 10}]
+ abilities: ["Veilsteel Pylon (auto-Stop at low HP)"]
+================================================================================
+BUILDING Barracks | cost {'s': 220, 'i': 40, 'v': 0, 'vs': 0} | mil True
+banner: Barracks → Garrison (Alanthor at Age 1). Cultureless melee trainer. The Spearman is trained here and stays available under every culture; the Garrison ladder adds one line-infantry tier per level.
+stats: {"id": "Barracks", "HP": "800", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.6", "Population": "0", "Building Type": "Basic", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 1 / 0 / 0", "Line of sight": "18", "Build time": "35", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Spearman (+ Swordsman, Nobleman, Sentinel under Alanthor)", "Research": "Conscription, Stone Weapons, Iron Weapons, Veilstone Weapons, Glow-infused Weapons, Seasoned/Veteran/Elite Infantry, Charge, Shield Wall", "PresentationId": "510"}
+------------------------------------------------------------
+NODE Spearman | age 0 row 1 | kind mil | up:False | culture:'' | scope:global | type:'Melee' race:'Human' size:'Medium'
+ d: ['Core unit — every culture keeps it']
+ req: [] | cost: {'s': 80, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "120"], ["Speed", "5.5"], ["Training time", "22"], ["Population cost", "1"], ["Damage", "10"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "1 / 0 / 0 / 0"], ["Attack cooldown", "1.5"], ["Min attack range", "0"], ["Attack range", "1.5"], ["Line of sight", "16"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "0"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "+15 vs Cavalry"], ["Tags", "Infantry, Heavy"], ["PresentationId", "0"]]
+------------------------------------------------------------
+NODE Swordsman | age 1 row 1 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Melee' race:'Human' size:'Medium'
+ d: ['Alanthor line infantry — Garrison Lv 1 unlock', 'Generalist: no anti-cavalry bonus, better all-round stats than the Spearman']
+ req: ['Age 1', 'Garrison — Lv 1'] | cost: {'s': 105, 'i': 45, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "145"], ["Speed", "5.5"], ["Training time", "24"], ["Population cost", "1"], ["Damage", "14"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "2 / 1 / 0 / 0"], ["Attack cooldown", "1.4"], ["Min attack range", "0"], ["Attack range", "1"], ["Line of sight", "16"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "none"], ["Tags", "Infantry, Heavy"], ["PresentationId", "201"]]
+------------------------------------------------------------
+NODE Sentinel | age 3 row 1 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Melee' race:'Human' size:'Medium'
+ d: ['Alanthor damage sponge / siege-melee']
+ req: ['Age 3', 'Garrison — Lv 3'] | cost: {'s': 90, 'i': 0, 'v': 0, 'vs': 20} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "210"], ["Speed", "5"], ["Training time", "24"], ["Population cost", "1"], ["Damage", "12"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "5 / 4 / 0 / 2"], ["Attack cooldown", "1.8"], ["Min attack range", "0"], ["Attack range", "1.7"], ["Line of sight", "18"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "3"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Damage sponge — highest effective HP in the Garrison roster"], ["Tags", "Infantry, Heavy"], ["PresentationId", "334"]]
+------------------------------------------------------------
+NODE Conscription | age 0 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['+20% training speed at this building (faction-wide passive)']
+ req: [] | cost: {'s': 100, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "Train speed bonus", "op": "+", "value": 20}]
+------------------------------------------------------------
+NODE Stone Weapons | age 0 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Weapon tier 1 (Age 0)']
+ req: [] | cost: {'s': 80, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 25 | on: False
+ effects: [{"target": "type:Melee", "stat": "Damage", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Iron Weapons | age 1 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Weapon tier 2 (×1.15)']
+ req: ['Age 1', 'Stone Weapons'] | cost: {'s': 150, 'i': 200, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Melee", "stat": "Damage", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Veilstone Weapons | age 2 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Weapon tier 3 (×1.30)']
+ req: ['Age 2', 'Iron Weapons'] | cost: {'s': 0, 'i': 200, 'v': 150, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "type:Melee", "stat": "Damage", "op": "+%", "value": 30}]
+------------------------------------------------------------
+NODE Shard-infused Weapons | age 3 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Weapon tier 4 (×1.75); needs Veilsteel']
+ req: ['Age 3', 'Veilstone Weapons'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 150} | researchTime: 50 | on: False
+ effects: [{"target": "type:Melee", "stat": "Damage", "op": "+%", "value": 75}]
+------------------------------------------------------------
+NODE Garrison — Lv 2 | age 2 row 4 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Nobleman']
+ req: ['Age 2', 'Garrison — Lv 1'] | cost: {'s': 160, 'i': 40, 'v': 10, 'vs': 0} | researchTime: 30 | on: False
+------------------------------------------------------------
+NODE Garrison — Lv 3 | age 3 row 4 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Sentinel']
+ req: ['Age 3', 'Garrison — Lv 2'] | cost: {'s': 320, 'i': 80, 'v': 30, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Seasoned Infantry | age 1 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +5% speed, +1 damage, +1 defense to all Garrison line infantry']
+ req: ['Age 1', 'Garrison — Lv 1'] | cost: {'s': 100, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 28 | on: False
+ effects: [{"target": "unit:Spearman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Spearman", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Spearman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Spearman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Swordsman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Swordsman", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Swordsman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Swordsman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Nobleman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Nobleman", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Nobleman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Nobleman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Sentinel", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Sentinel", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Sentinel", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Sentinel", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veteran Infantry | age 2 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +10% speed, +1 damage, +1 defense to all Garrison line infantry']
+ req: ['Age 2', 'Garrison — Lv 2', 'Seasoned Infantry'] | cost: {'s': 180, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "unit:Spearman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Spearman", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Spearman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Spearman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Swordsman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Swordsman", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Swordsman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Swordsman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Nobleman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Nobleman", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Nobleman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Nobleman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Sentinel", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Sentinel", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Sentinel", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Sentinel", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Elite Infantry | age 3 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +15% speed, +2 damage, +2 defense to all Garrison line infantry']
+ req: ['Age 3', 'Garrison — Lv 3', 'Veteran Infantry'] | cost: {'s': 280, 'i': 120, 'v': 0, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "unit:Spearman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Spearman", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Spearman", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Spearman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}, {"target": "unit:Swordsman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Swordsman", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Swordsman", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Swordsman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}, {"target": "unit:Nobleman", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Nobleman", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Nobleman", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Nobleman", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}, {"target": "unit:Sentinel", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Sentinel", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Sentinel", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Sentinel", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Shield Wall | age 3 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Shield Wall passive for Garrison line infantry', '+30% defense against the first incoming attack while stationary; recharges after 3 s']
+ req: ['Age 3', 'Garrison — Lv 3', 'Charge'] | cost: {'s': 120, 'i': 50, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ abilities: ["Shield Wall"]
+------------------------------------------------------------
+NODE Charge | age 2 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Charge passive for Garrison line infantry', 'First strike deals +30% damage; recharges after 2 s out of combat']
+ req: ['Age 2', 'Garrison — Lv 2'] | cost: {'s': 160, 'i': 70, 'v': 0, 'vs': 0} | researchTime: 33 | on: False
+ abilities: ["Charge"]
+------------------------------------------------------------
+NODE Garrison — Lv 1 | age 1 row 4 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Granted free and instantly at age-up', 'Unlocks Swordsman']
+ req: ['Age 1', 'Barracks — Lv 0'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Barracks — Lv 0 | age 0 row 4 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Cultureless melee trainer', 'Becomes Garrison Lv 1 automatically at age-up']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Nobleman | age 2 row 1 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Melee' race:'Human' size:'Medium'
+ d: ['Alanthor elite line infantry — Garrison Lv 2 unlock', 'Top of the line-infantry ladder; the Sentinel is a parallel tank, not a successor']
+ req: ['Age 2', 'Garrison — Lv 2'] | cost: {'s': 140, 'i': 60, 'v': 20, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "175"], ["Speed", "5.7"], ["Training time", "28"], ["Population cost", "1"], ["Damage", "18"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "3 / 1 / 0 / 1"], ["Attack cooldown", "1.3"], ["Min attack range", "0"], ["Attack range", "1.2"], ["Line of sight", "17"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "2"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "+10 vs Infantry"], ["Tags", "Infantry, Heavy"], ["PresentationId", "338"]]
+================================================================================
+BUILDING ArcheryRange | cost {'s': 180, 'i': 50, 'v': 0, 'vs': 0} | mil True
+banner: Archery Range → Practice Range (Alanthor at Age 1). Cultureless ranged trainer. The Archer is trained here and stays available under every culture; each Practice Range level adds one ranged tier.
+stats: {"id": "ArcheryRange", "HP": "600", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.6", "Population": "0", "Building Type": "Basic", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 1 / 0 / 0", "Line of sight": "18", "Build time": "30", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Archer (+ Crossbowman, Longbowman under Alanthor)", "Research": "Stone-Tipped Arrows, Fletching, Choreographed Volleys, Iron-Tipped Arrows, Veilstone-Tipped Arrows, Shard-Tipped Arrows, Seasoned/Veteran/Elite Archers, Arrow Volley, Arrow Shower, Deploy Stakes", "PresentationId": "511"}
+------------------------------------------------------------
+NODE Archer | age 0 row 1 | kind mil | up:False | culture:'' | scope:global | type:'Ranged' race:'Human' size:'Medium'
+ d: ['Core unit — every culture keeps it', 'Baseline of the three-tier ranged ladder']
+ req: [] | cost: {'s': 50, 'i': 25, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_ranged"], ["HP", "60"], ["Speed", "4"], ["Training time", "20"], ["Population cost", "1"], ["Damage", "8"], ["Damage type", "Ranged"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 0 / 0"], ["Attack cooldown", "1.5"], ["Min attack range", "10"], ["Attack range", "25"], ["Line of sight", "25"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "0"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "none"], ["Tags", "Ranged"], ["PresentationId", "202"]]
+------------------------------------------------------------
+NODE Crossbowman | age 2 row 1 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Ranged' race:'Human' size:'Medium'
+ d: ['Alanthor heavy ranged — slow, thumping bolt', 'Shines against high-HP / heavy-armor targets']
+ req: ['Age 2', 'Practice Range — Lv 2'] | cost: {'s': 70, 'i': 0, 'v': 0, 'vs': 15} | researchTime: 0 | on: False
+ stats: [["Class", "human_ranged"], ["HP", "70"], ["Speed", "3.5"], ["Training time", "22"], ["Population cost", "1"], ["Damage", "18"], ["Damage type", "Ranged"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 2 / 0 / 0"], ["Attack cooldown", "3"], ["Min attack range", "6"], ["Attack range", "18"], ["Line of sight", "22"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "2"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "none"], ["Tags", "Ranged"], ["PresentationId", "335"]]
+------------------------------------------------------------
+NODE Longbowman | age 3 row 1 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Ranged' race:'Human' size:'Medium'
+ d: ['Alanthor long-range apex — outranges every other archer']
+ req: ['Age 3', 'Practice Range — Lv 3'] | cost: {'s': 50, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_ranged"], ["HP", "55"], ["Speed", "4"], ["Training time", "22"], ["Population cost", "1"], ["Damage", "25"], ["Damage type", "Ranged"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 0 / 0"], ["Attack cooldown", "3.5"], ["Min attack range", "12"], ["Attack range", "40"], ["Line of sight", "35"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "3"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "none"], ["Tags", "Ranged"], ["PresentationId", "205"]]
+------------------------------------------------------------
+NODE Stone-Tipped Arrows | age 0 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Arrow tier 1 (Age 0)']
+ req: [] | cost: {'s': 80, 'i': 20, 'v': 0, 'vs': 0} | researchTime: 25 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Damage", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Iron-Tipped Arrows | age 1 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Arrow tier 2']
+ req: ['Age 1', 'Stone-Tipped Arrows'] | cost: {'s': 150, 'i': 200, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Damage", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Veilstone-Tipped Arrows | age 2 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Arrow tier 3']
+ req: ['Age 2', 'Iron-Tipped Arrows'] | cost: {'s': 0, 'i': 200, 'v': 150, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Damage", "op": "+%", "value": 30}]
+------------------------------------------------------------
+NODE Shard-Tipped Arrows | age 3 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Arrow tier 4; needs Veilsteel']
+ req: ['Age 3', 'Veilstone-Tipped Arrows'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 150} | researchTime: 50 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Damage", "op": "+%", "value": 75}]
+------------------------------------------------------------
+NODE Practice Range — Lv 2 | age 2 row 5 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Crossbowman']
+ req: ['Age 2', 'Practice Range — Lv 1'] | cost: {'s': 160, 'i': 40, 'v': 10, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "Train speed bonus", "op": "+", "value": 10}]
+------------------------------------------------------------
+NODE Practice Range — Lv 3 | age 3 row 5 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Longbowman']
+ req: ['Age 3', 'Practice Range — Lv 2'] | cost: {'s': 320, 'i': 80, 'v': 30, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "building", "stat": "Train speed bonus", "op": "+", "value": 25}]
+------------------------------------------------------------
+NODE Seasoned Archers | age 1 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+20 HP, +3 line of sight, +2 attack range to all Practice Range archers']
+ req: ['Age 1', 'Practice Range — Lv 1'] | cost: {'s': 80, 'i': 20, 'v': 0, 'vs': 0} | researchTime: 25 | on: False
+ effects: [{"target": "unit:Archer", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Archer", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Archer", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Crossbowman", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Crossbowman", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Crossbowman", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Longbowman", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Longbowman", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Longbowman", "stat": "Attack range", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Veteran Archers | age 2 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+20 HP, +1 damage, +3 line of sight, +2 attack range to all Practice Range archers']
+ req: ['Age 2', 'Practice Range — Lv 2', 'Seasoned Archers'] | cost: {'s': 120, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "unit:Archer", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Archer", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Archer", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Archer", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Crossbowman", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Crossbowman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Crossbowman", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Crossbowman", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Longbowman", "stat": "HP", "op": "+", "value": 20}, {"target": "unit:Longbowman", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Longbowman", "stat": "Line of sight", "op": "+", "value": 3}, {"target": "unit:Longbowman", "stat": "Attack range", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Elite Archers | age 3 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+50 HP, +2 damage, +5 line of sight, +3 attack range to all Practice Range archers']
+ req: ['Age 3', 'Practice Range — Lv 3', 'Veteran Archers'] | cost: {'s': 200, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "unit:Archer", "stat": "HP", "op": "+", "value": 50}, {"target": "unit:Archer", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Archer", "stat": "Line of sight", "op": "+", "value": 5}, {"target": "unit:Archer", "stat": "Attack range", "op": "+", "value": 3}, {"target": "unit:Crossbowman", "stat": "HP", "op": "+", "value": 50}, {"target": "unit:Crossbowman", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Crossbowman", "stat": "Line of sight", "op": "+", "value": 5}, {"target": "unit:Crossbowman", "stat": "Attack range", "op": "+", "value": 3}, {"target": "unit:Longbowman", "stat": "HP", "op": "+", "value": 50}, {"target": "unit:Longbowman", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Longbowman", "stat": "Line of sight", "op": "+", "value": 5}, {"target": "unit:Longbowman", "stat": "Attack range", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Arrow Volley | age 1 row 7 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['-30% attack cooldown for all ranged units']
+ req: ['Age 1', 'Practice Range — Lv 1'] | cost: {'s': 120, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Attack cooldown", "op": "+%", "value": -30}]
+------------------------------------------------------------
+NODE Arrow Shower | age 2 row 7 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['-50% attack cooldown for all ranged units (replaces Arrow Volley)']
+ req: ['Age 2', 'Practice Range — Lv 2', 'Arrow Volley'] | cost: {'s': 200, 'i': 60, 'v': 0, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Attack cooldown", "op": "-%", "value": 50}]
+------------------------------------------------------------
+NODE Deploy Stakes | age 3 row 7 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Deploy Stakes passive for Practice Range archers', '+50% defense against the first cavalry charge once stationary for 3 s; recharges on move']
+ req: ['Age 3', 'Practice Range — Lv 3'] | cost: {'s': 150, 'i': 50, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ abilities: ["Deploy Stakes"]
+------------------------------------------------------------
+NODE Practice Range — Lv 1 | age 1 row 5 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Granted free and instantly at age-up']
+ req: ['Age 1', 'Archery Range — Lv 0'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Archery Range — Lv 0 | age 0 row 5 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Cultureless ranged trainer', 'Becomes Practice Range Lv 1 automatically at age-up']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: True
+------------------------------------------------------------
+NODE Fletching | age 0 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['+15% attack range for all ranged units (Archer 25 → 28.75)']
+ req: [] | cost: {'s': 80, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 30 | on: True
+ effects: [{"target": "type:Ranged", "stat": "Attack range", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Choreographed Volleys | age 0 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active skill: doubles the fire rate of all Archers for 5 s', '40 s cooldown', 'Faction-wide, triggered from the Archery Range UI']
+ req: [] | cost: {'s': 120, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 35 | on: True
+ effects: [{"target": "unit:Archer", "stat": "Attack cooldown", "op": "-%", "value": 50}]
+ abilities: ["Choreographed Volleys"]
+================================================================================
+BUILDING VaultOfAlmierra | cost {'s': 300, 'i': 0, 'v': 100, 'vs': 0} | mil False
+banner: Vault of Almiérra — CHOICE building (cross-culture). Resource bank with compound interest. Built complete at Lv 1; self-constructs in 90 s with no workers (+25% rate per worker sent). Building one opens the culture choice. Culture modifiers: Alanthor +30% yield, Runai −30% yield, Feraldis neutral.
+stats: {"id": "VaultOfAlmierra", "HP": "1200", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "2", "Population": "0", "Building Type": "Basic", "Building Function": "Economy", "Can receive resources": "yes", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "0 / 8 / 0 / 0", "Line of sight": "14", "Build time": "90", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "25", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "Coffers, Merchant Charters, Sovereign Bonds, Iron Subsidies, Veilstone Monetization, Veilsteel Bonds", "PresentationId": "530"}
+------------------------------------------------------------
+NODE Vault of Almiérra — Lv 1 | age 0 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Choice building — built complete at Lv 1 in Age 0', 'Self-constructs in 90 s with no workers; each worker sent adds +25% build rate', 'Building one opens the culture choice']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Vault of Almiérra — Lv 2 | age 1 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Interest yield ×1.5 on the active banking grade']
+ req: ['Age 1', 'Vault of Almiérra — Lv 1'] | cost: {'s': 200, 'i': 50, 'v': 15, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 15}, {"target": "building", "stat": "Interest rate", "op": "*", "value": 1.5}]
+------------------------------------------------------------
+NODE Coffers | age 1 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Banking grade — sets interest to 50% per minute', 'Mutually exclusive with the other grades; researching a higher grade replaces the active one']
+ req: ['Age 1', 'Vault of Almiérra — Lv 1'] | cost: {'s': 150, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "Interest rate", "op": "set", "value": 50}]
+------------------------------------------------------------
+NODE Merchant Charters | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Banking grade — sets interest to 75% per minute', 'Mutually exclusive with the other grades; researching a higher grade replaces the active one']
+ req: ['Age 2', 'Coffers'] | cost: {'s': 200, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "Interest rate", "op": "set", "value": 75}]
+------------------------------------------------------------
+NODE Sovereign Bonds | age 3 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Banking grade — sets interest to 100% per minute', 'Mutually exclusive with the other grades; researching a higher grade replaces the active one']
+ req: ['Age 3', 'Merchant Charters'] | cost: {'s': 250, 'i': 120, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "building", "stat": "Interest rate", "op": "set", "value": 100}]
+------------------------------------------------------------
+NODE Iron Subsidies | age 1 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks Iron banking — Iron can be deposited and earn interest like Supplies']
+ req: ['Age 1', 'Vault of Almiérra — Lv 1'] | cost: {'s': 180, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+------------------------------------------------------------
+NODE Veilstone Monetization | age 2 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks Veilstone banking — Veilstone can be deposited and earn interest like Supplies']
+ req: ['Age 2', 'Vault of Almiérra — Lv 2', 'Iron Subsidies'] | cost: {'s': 220, 'i': 100, 'v': 40, 'vs': 0} | researchTime: 40 | on: False
+------------------------------------------------------------
+NODE Veilsteel Bonds | age 3 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks Veilsteel banking — Veilsteel can be deposited and earn interest like Supplies']
+ req: ['Age 3', 'Vault of Almiérra — Lv 3', 'Veilstone Monetization'] | cost: {'s': 300, 'i': 120, 'v': 60, 'vs': 0} | researchTime: 50 | on: False
+------------------------------------------------------------
+NODE Vault of Almiérra — Lv 3 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Interest yield ×2.0 on the active banking grade (cumulative with Lv 2 — this rung is ×1.333)']
+ req: ['Age 2', 'Vault of Almiérra — Lv 2'] | cost: {'s': 400, 'i': 100, 'v': 40, 'vs': 0} | researchTime: 45 | on: True
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Interest rate", "op": "*", "value": 1.3333}]
+================================================================================
+BUILDING ShrineOfRidan | cost {'s': 300, 'i': 0, 'v': 100, 'vs': 0} | mil False
+banner: Shrine of Ridan — CHOICE building (cross-culture). Trains the Litharch and heals friendly units in a radius-10 aura. Built complete at Lv 1; self-constructs in 90 s. Awards +1 Religion Point on build (+1 more if Runai is chosen at age-up). Culture modifiers: Runai +30% heal rate, Feraldis −30%, Alanthor neutral.
+stats: {"id": "ShrineOfRidan", "HP": "800", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.8", "Population": "0", "Building Type": "Basic", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "0 / 6 / 0 / 0", "Line of sight": "16", "Build time": "90", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "1", "Supplies per minute": "0", "Aura radius": "10", "Aura effect": "Heals 1% Max HP per second", "Aura affects": "Friendly units", "Trains": "Litharch", "Research": "Heightened Masses, Pious Masses, Fervored Masses, Warrior Priests, Field Hospital", "PresentationId": "0"}
+------------------------------------------------------------
+NODE Shrine of Ridan — Lv 1 | age 0 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Choice building — built complete at Lv 1 in Age 0', 'Self-constructs in 90 s with no workers; each worker sent adds +25% build rate', 'Building one opens the culture choice', 'Awards +1 Religion Point']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Litharch | age 0 row 2 | kind mil | up:False | culture:'' | scope:global | type:'Magic' race:'Human' size:'Medium'
+ d: ['Core religious unit — pure healer by design', 'Single-target right-click heal; the Shrine aura heal is separate', 'Gains an attack only via Warrior Priests']
+ req: [] | cost: {'s': 100, 'i': 25, 'v': 10, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_support"], ["HP", "120"], ["Speed", "5.5"], ["Training time", "24"], ["Population cost", "1"], ["Damage", "0"], ["Damage type", "Magic"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 0 / 0 / 2"], ["Attack cooldown", "0"], ["Min attack range", "0"], ["Attack range", "10"], ["Line of sight", "20"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "0"], ["Heals per second", "6"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "Deploy Field Hospital (req Field Hospital)"], ["Ability cooldown", "300"], ["Ability duration", "120"], ["Ability aftermath", "none"], ["Special", "Attack range 10 is the heal range — 0 damage until Warrior Priests"], ["Tags", "Ranged, Support"], ["PresentationId", "207"]]
+ abilities: ["Deploy Field Hospital"]
+------------------------------------------------------------
+NODE Heightened Masses | age 1 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Shrine aura heal rate → 3% Max HP per second']
+ req: ['Age 1', 'Shrine of Ridan — Lv 1'] | cost: {'s': 150, 'i': 0, 'v': 40, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "Heal aura rate", "op": "set", "value": 3}]
+------------------------------------------------------------
+NODE Pious Masses | age 2 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Shrine aura heal rate → 6% Max HP per second']
+ req: ['Age 2', 'Shrine of Ridan — Lv 2', 'Heightened Masses'] | cost: {'s': 220, 'i': 0, 'v': 80, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "building", "stat": "Heal aura rate", "op": "set", "value": 6}]
+------------------------------------------------------------
+NODE Fervored Masses | age 3 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Shrine aura heal rate → 15% Max HP per second']
+ req: ['Age 3', 'Shrine of Ridan — Lv 3', 'Pious Masses'] | cost: {'s': 320, 'i': 0, 'v': 120, 'vs': 0} | researchTime: 50 | on: False
+ effects: [{"target": "building", "stat": "Heal aura rate", "op": "set", "value": 15}]
+------------------------------------------------------------
+NODE Warrior Priests | age 1 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Grants the Litharch a melee attack (6 damage / 1.5 s)', 'Until researched the Litharch is a pure healer and cannot attack']
+ req: ['Age 1', 'Shrine of Ridan — Lv 1'] | cost: {'s': 180, 'i': 50, 'v': 20, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "unit:Litharch", "stat": "Damage", "op": "set", "value": 6}, {"target": "unit:Litharch", "stat": "Attack cooldown", "op": "set", "value": 1.5}]
+------------------------------------------------------------
+NODE Shrine of Ridan — Lv 2 | age 1 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Litharch heal rate and Shrine aura +25%', 'Sect power cooldowns −10%']
+ req: ['Age 1', 'Shrine of Ridan — Lv 1'] | cost: {'s': 200, 'i': 50, 'v': 15, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 15}, {"target": "building", "stat": "Heal aura rate", "op": "+%", "value": 25}, {"target": "building", "stat": "Aura radius", "op": "+%", "value": 25}, {"target": "unit:Litharch", "stat": "Heals per second", "op": "+%", "value": 25}]
+------------------------------------------------------------
+NODE Shrine of Ridan — Lv 3 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Litharch heal rate and Shrine aura +50% total', 'Sect power cooldowns −20% total']
+ req: ['Age 2', 'Shrine of Ridan — Lv 2'] | cost: {'s': 400, 'i': 100, 'v': 40, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Heal aura rate", "op": "+%", "value": 20}, {"target": "building", "stat": "Aura radius", "op": "+%", "value": 20}, {"target": "unit:Litharch", "stat": "Heals per second", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Field Hospital | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Deploy Field Hospital ability for Litharchs', 'Temporary building that heals nearby allied units, then destroys itself after 2 minutes', 'Long cooldown (300 s)']
+ req: ['Age 2', 'Shrine of Ridan — Lv 2'] | cost: {'s': 200, 'i': 60, 'v': 40, 'vs': 0} | researchTime: 40 | on: False
+ abilities: ["Deploy Field Hospital"]
+================================================================================
+BUILDING FiendstoneKeep | cost {'s': 300, 'i': 0, 'v': 100, 'vs': 0} | mil True
+banner: Fiendstone Keep — CHOICE building (cross-culture). Fortified position that fires arrow volleys. Does NOT level by rank: it levels by WINGS — choose up to 3 of 6, each at most once. Self-constructs in 90 s. Culture modifiers: Feraldis +50% HP & arrows, Alanthor −50%, Runai neutral.
+stats: {"id": "FiendstoneKeep", "HP": "2000", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "2.4", "Population": "20", "Building Type": "Basic", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 2 / 0 / 0", "Line of sight": "18", "Build time": "90", "Garrison capacity": "0", "Can attack": "yes", "Attack damage": "20", "Attack range": "30", "Attack cooldown": "2", "Auto-fire max targets": "4", "Train speed bonus": "25", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Spearman, Archer (+ full military rosters with War Wing, Worker with Civic Wing, sect units with Temple Wing)", "Research": "War / Civic / Engineers / Economic / Librarians' / Temple Wing (max 3), Ballista Emplacement, Trebuchet Emplacement, Additional Towers, Reinforced Walls", "PresentationId": "540"}
+------------------------------------------------------------
+NODE War Wing | age 1 row 3 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', 'Train the full Barracks / Archery Range / Royal Stable rosters at the Keep']
+ req: ['Age 1'] | cost: {'s': 300, 'i': 100, 'v': 0, 'vs': 0} | researchTime: 30 | on: True
+------------------------------------------------------------
+NODE Civic Wing | age 0 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', 'Keep generates Supplies (half the Hall rate: 25 per 15 s tick = 100/min, Direct) and trains Workers']
+ req: ['Age 0'] | cost: {'s': 250, 'i': 50, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "Resource generation tick", "op": "set", "value": 15}, {"target": "building", "stat": "Supplies per tick", "op": "set", "value": 25}]
+------------------------------------------------------------
+NODE Engineers Wing | age 1 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', 'Three ballista emplacements (extra bolts per volley)', '+25% Keep HP']
+ req: ['Age 1'] | cost: {'s': 350, 'i': 150, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 25}]
+------------------------------------------------------------
+NODE Economic Wing | age 1 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', "Behaves as a Gatherer's Hut with a larger area; flat Supplies income"]
+ req: ['Age 1'] | cost: {'s': 300, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "Supplies per minute", "op": "+", "value": 60}]
+------------------------------------------------------------
+NODE Librarians' Wing | age 2 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', 'Hall economy techs become researchable at the Keep', '+20% research speed globally']
+ req: ['Age 2'] | cost: {'s': 280, 'i': 60, 'v': 20, 'vs': 0} | researchTime: 30 | on: False
+------------------------------------------------------------
+NODE Temple Wing | age 2 row 5 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['WING — the Keep may hold at most 3 of the 6 wings, each at most once', 'Train every unlocked sect unit (v1: Litharchs)', 'Yields +1 Religion Point when built']
+ req: ['Age 2'] | cost: {'s': 250, 'i': 0, 'v': 80, 'vs': 0} | researchTime: 30 | on: False
+------------------------------------------------------------
+NODE Ballista Emplacement | age 0 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['+1 ballista bolt (18 siege) / volley']
+ req: ['Age 0'] | cost: {'s': 200, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "Attack damage", "op": "+", "value": 18}]
+------------------------------------------------------------
+NODE Trebuchet Emplacement | age 1 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['+1 trebuchet shot (36 siege AoE); req Ballista']
+ req: ['Age 1', 'Ballista Emplacement'] | cost: {'s': 300, 'i': 140, 'v': 50, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "building", "stat": "Attack damage", "op": "+", "value": 36}]
+------------------------------------------------------------
+NODE Additional Towers | age 0 row 7 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: []
+ req: ['Age 0'] | cost: {'s': 240, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "Auto-fire max targets", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Reinforced Walls | age 0 row 8 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: []
+ req: ['Age 0'] | cost: {'s': 180, 'i': 60, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Fiendstone Keep — Lv 1 | age 0 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['The Keep levels by WINGS, not by paid rank upgrades', 'Lv 1 = the Keep as built, before any wing']
+ req: [] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Fiendstone Keep — Lv 2 | age 1 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Granted automatically once 1 wing is built', 'Max 3 of the 6 wings, each at most once']
+ req: ['Age 1', 'Fiendstone Keep — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 10}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 10}]
+------------------------------------------------------------
+NODE Fiendstone Keep — Lv 3 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Granted automatically once 2 wings are built', 'Max 3 of the 6 wings, each at most once']
+ req: ['Age 2', 'Fiendstone Keep — Lv 2'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 15}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 15}]
+================================================================================
+BUILDING Temple | cost {'s': 300, 'i': 120, 'v': 40, 'vs': 0} | mil False
+banner: Temple of Ridan — the Petriarchy seat. A seven-sided cathedral: one face is the door, the other six each host a chapel site, so a fully diversified late game runs six sects at once. Upgrading the Temple advances the age AND unlocks higher sect power tiers (Tier 2 at Lv 2, Tier 3 at Lv 3). Footprint 7×7.
+stats: {"id": "Temple", "HP": "1200", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "3.5", "Population": "0", "Building Type": "Basic", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 4 / 0 / 4", "Line of sight": "18", "Build time": "120", "Garrison capacity": "6", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Adopted sect units; Scholar (Alanthor) / Acolyte (Runai) / Corruptor (Feraldis) at Lv 3", "Research": "Temple levels Lv 1-4; sect adoption via the six chapel slots", "PresentationId": "0"}
+------------------------------------------------------------
+NODE Temple — Lv 1 (advances to Age 2) | age 1 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Building the Temple advances the faction to Age 2', 'Opens the six chapel slots — each chapel adopts one sect', 'Grants +3 Religion Points on age-up']
+ req: ['Age 1'] | cost: {'s': 300, 'i': 120, 'v': 40, 'vs': 0} | researchTime: 60 | on: False
+------------------------------------------------------------
+NODE Temple — Lv 2 (advances to Age 3) | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Advances the faction to Age 3', 'Unlocks Tier 2 sect active powers', 'Grants +3 Religion Points on age-up']
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 800, 'i': 350, 'v': 250, 'vs': 0} | researchTime: 90 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Petriarchy — sect adoption | age 1 row 2 | kind tech | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['12 sects in 3 clusters (Alanthor / Runaii / Feraldis) — adopt up to 6', 'Each chapel built in a Temple slot adopts one sect and grants Lv I on all four levers', 'Adoption cost: 2 RP same cluster as your culture, 3 RP cross-cluster', 'Lever upgrade cost: 2 RP Lv I→II, 3 RP Lv II→III', 'Religion Points: +1 Shrine of Ridan, +3 Age 2, +3 Age 3, +4 Age 4 (11 total)', 'Unspent RP are halved (rounded down) on each age-up']
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Temple — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Tier 3 sect active powers — the sect ultimates', 'Grants +4 Religion Points on age-up']
+ req: ['Age 3', 'Temple — Lv 2 (advances to Age 3)'] | cost: {'s': 1200, 'i': 500, 'v': 400, 'vs': 50} | researchTime: 120 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Temple — Lv 4 | age 3 row 2 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Final Temple level — the full cathedral silhouette', 'Does not advance the age; maximises sect lever scaling']
+ req: ['Age 3', 'Temple — Lv 3'] | cost: {'s': 1600, 'i': 700, 'v': 600, 'vs': 150} | researchTime: 150 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 25}]
+------------------------------------------------------------
+NODE Scholar | age 3 row 5 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Magic' race:'Human' size:'Medium'
+ d: ['Alanthor religious game-ender — single unit, not a battalion', 'PURIFIES veilstone nodes / wells', 'Same cost bracket as the Acolyte and the Corruptor']
+ req: ['Age 3', 'Temple — Lv 3'] | cost: {'s': 300, 'i': 150, 'v': 100, 'vs': 30} | researchTime: 0 | on: False
+ stats: [["Class", "human_magic"], ["HP", "110"], ["Speed", "3.2"], ["Training time", "45"], ["Population cost", "1"], ["Damage", "0"], ["Damage type", "Magic"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 0 / 3"], ["Attack cooldown", "0"], ["Min attack range", "0"], ["Attack range", "0"], ["Line of sight", "18"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "3"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Channels Purify on Active veilstone nodes"], ["Tags", "Magic, Religious"], ["PresentationId", "0"]]
+================================================================================
+BUILDING Alanthor_RoyalStable | cost {'s': 220, 'i': 80, 'v': 0, 'vs': 0} | mil True
+banner: Royal Stable — Alanthor's dedicated cavalry trainer. Cataphract was moved out of the Garrison roster into this building. Trains the light Outrider alongside the heavy Cataphract.
+stats: {"id": "Alanthor_RoyalStable", "HP": "1000", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.8", "Population": "0", "Building Type": "Alanthor", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 1 / 0 / 0", "Line of sight": "18", "Build time": "40", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Outrider, Cataphract", "Research": "Seasoned / Veteran / Elite Cavalry, War Horn, Full Gallop", "PresentationId": "0"}
+------------------------------------------------------------
+NODE Royal Stable — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Alanthor-only cavalry trainer — built in Age 1, not an Age-0 carryover', 'Train-time multiplier ×0.870']
+ req: ['Age 1'] | cost: {'s': 220, 'i': 80, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+------------------------------------------------------------
+NODE Royal Stable — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Train-time multiplier ×0.800']
+ req: ['Age 2', 'Royal Stable — Lv 1'] | cost: {'s': 160, 'i': 40, 'v': 10, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 10}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 15}]
+------------------------------------------------------------
+NODE Royal Stable — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Train-time multiplier ×0.714']
+ req: ['Age 3', 'Royal Stable — Lv 2'] | cost: {'s': 320, 'i': 80, 'v': 30, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 25}]
+------------------------------------------------------------
+NODE Outrider | age 1 row 2 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Cavalry' race:'Human' size:'Medium'
+ d: ['Cheap, fast LIGHT cavalry — the raid / screen slot under the Cataphract']
+ req: ['Age 1', 'Royal Stable — Lv 1'] | cost: {'s': 130, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_cavalry"], ["HP", "95"], ["Speed", "8.2"], ["Training time", "22"], ["Population cost", "1"], ["Damage", "12"], ["Damage type", "Melee"], ["Armor type", "cavalry"], ["Defense (M/R/S/Mag)", "1 / 1 / 0 / 0"], ["Attack cooldown", "1.4"], ["Min attack range", "0"], ["Attack range", "1.4"], ["Line of sight", "22"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "yes"], ["Charge damage bonus", "30"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Fastest unit in the Alanthor roster"], ["Tags", "Cavalry, Light"], ["PresentationId", "0"]]
+------------------------------------------------------------
+NODE Cataphract | age 1 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Cavalry' race:'Human' size:'Large'
+ d: ['Heavy shock cavalry', 'Rebalanced 2026-08-04 — substantially pricier, slightly weaker']
+ req: ['Age 1', 'Royal Stable — Lv 1'] | cost: {'s': 320, 'i': 120, 'v': 60, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_cavalry"], ["HP", "160"], ["Speed", "6.6"], ["Training time", "40"], ["Population cost", "2"], ["Damage", "18"], ["Damage type", "Melee"], ["Armor type", "cavalry"], ["Defense (M/R/S/Mag)", "2 / 1 / 0 / 0"], ["Attack cooldown", "1.6"], ["Min attack range", "0"], ["Attack range", "1.6"], ["Line of sight", "20"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "yes"], ["Charge damage bonus", "50"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "none"], ["Tags", "Cavalry, Heavy"], ["PresentationId", "336"]]
+------------------------------------------------------------
+NODE Seasoned Cavalry | age 1 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +5% speed, +1 damage, +1 defence to Outriders and Cataphracts']
+ req: ['Age 1', 'Royal Stable — Lv 1'] | cost: {'s': 120, 'i': 50, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "unit:Outrider", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Outrider", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Outrider", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Outrider", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Cataphract", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Cataphract", "stat": "Speed", "op": "+%", "value": 5}, {"target": "unit:Cataphract", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Cataphract", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veteran Cavalry | age 2 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +10% speed, +1 damage, +1 defence to Outriders and Cataphracts']
+ req: ['Age 2', 'Royal Stable — Lv 2', 'Seasoned Cavalry'] | cost: {'s': 200, 'i': 90, 'v': 20, 'vs': 0} | researchTime: 38 | on: False
+ effects: [{"target": "unit:Outrider", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Outrider", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Outrider", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Outrider", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}, {"target": "unit:Cataphract", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Cataphract", "stat": "Speed", "op": "+%", "value": 10}, {"target": "unit:Cataphract", "stat": "Damage", "op": "+", "value": 1}, {"target": "unit:Cataphract", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Elite Cavalry | age 3 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+30 HP, +15% speed, +2 damage, +2 defence to Outriders and Cataphracts']
+ req: ['Age 3', 'Royal Stable — Lv 3', 'Veteran Cavalry'] | cost: {'s': 300, 'i': 140, 'v': 50, 'vs': 0} | researchTime: 48 | on: False
+ effects: [{"target": "unit:Outrider", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Outrider", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Outrider", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Outrider", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}, {"target": "unit:Cataphract", "stat": "HP", "op": "+", "value": 30}, {"target": "unit:Cataphract", "stat": "Speed", "op": "+%", "value": 15}, {"target": "unit:Cataphract", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Cataphract", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE War Horn | age 2 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the War Horn active for Alanthor cavalry', 'Allied cavalry within 20 m: their next charge deals +50% damage', '20 s window, 60 s cooldown']
+ req: ['Age 2', 'Royal Stable — Lv 2'] | cost: {'s': 160, 'i': 60, 'v': 20, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "unit:Outrider", "stat": "Charge damage bonus", "op": "+", "value": 50}, {"target": "unit:Cataphract", "stat": "Charge damage bonus", "op": "+", "value": 50}]
+ abilities: ["War Horn"]
+------------------------------------------------------------
+NODE Full Gallop | age 3 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Full Gallop active for Alanthor cavalry', 'Allied cavalry within 20 m gain +40% move speed for 8 s', 'They cannot attack during the burst. 75 s cooldown']
+ req: ['Age 3', 'Royal Stable — Lv 3', 'War Horn'] | cost: {'s': 240, 'i': 100, 'v': 50, 'vs': 0} | researchTime: 45 | on: False
+ abilities: ["Full Gallop"]
+================================================================================
+BUILDING Alanthor_Tower | cost {'s': 140, 'i': 70, 'v': 0, 'vs': 0} | mil True
+banner: Watch Tower — stand-alone defensive tower, not anchored to a wall. Longest line of sight in the Alanthor roster. Soft long-range eyes: fragile but far-seeing. Directly buildable, or obtained per-hut at age-up via the Gatherer's Hut conversion choice.
+stats: {"id": "Alanthor_Tower", "HP": "250", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1", "Population": "0", "Building Type": "Alanthor", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 3 / 0 / 0", "Line of sight": "28", "Build time": "25", "Garrison capacity": "4", "Can attack": "yes", "Attack damage": "15", "Attack range": "26", "Attack cooldown": "1.8", "Auto-fire max targets": "2", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "—", "PresentationId": "354"}
+------------------------------------------------------------
+NODE Watch Tower — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Directly buildable from the Alanthor builder catalog (glyph: eye)', "Alternatively converted from a Gatherer's Hut at age-up for 40 S + 30 I on a 5 s timer", 'The 950 HP value from earlier drafts is rejected — towers are eyes, not walls']
+ req: ['Age 1'] | cost: {'s': 140, 'i': 70, 'v': 0, 'vs': 0} | researchTime: 25 | on: False
+------------------------------------------------------------
+NODE Watch Tower — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Taller tower — further sight, heavier bolts']
+ req: ['Age 2', 'Watch Tower — Lv 1'] | cost: {'s': 120, 'i': 60, 'v': 20, 'vs': 0} | researchTime: 25 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Line of sight", "op": "+", "value": 4}, {"target": "building", "stat": "Attack damage", "op": "+", "value": 5}, {"target": "building", "stat": "Garrison capacity", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Watch Tower — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Top tower — a second firing slit']
+ req: ['Age 3', 'Watch Tower — Lv 2'] | cost: {'s': 240, 'i': 120, 'v': 60, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 30}, {"target": "building", "stat": "Line of sight", "op": "+", "value": 4}, {"target": "building", "stat": "Attack damage", "op": "+", "value": 8}, {"target": "building", "stat": "Auto-fire max targets", "op": "+", "value": 1}]
+================================================================================
+BUILDING Alanthor_Wall | cost {'s': 50, 'i': 20, 'v': 0, 'vs': 0} | mil False
+banner: Wall Hub — the ONLY directly-placeable wall primitive (BFME2 hub-and-segment model). Segments auto-form between two friendly completed hubs in range; gates and wall towers are conversion-only and can never be placed directly. Walls are battalion-wide walkable ramparts (8 m deck, 4 m modules).
+stats: {"id": "Alanthor_Wall", "HP": "800", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "4.5", "Population": "0", "Building Type": "Alanthor", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "2 / 2 / 0 / 0", "Line of sight": "10", "Build time": "20", "Garrison capacity": "4", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "—", "PresentationId": "0"}
+------------------------------------------------------------
+NODE Wall Hub — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Directly buildable from the Alanthor builder catalog (glyph: castle)', "Also obtainable via Gatherer's Hut conversion at age-up", 'Compartment corner / wall anchor — segments auto-form to nearby completed hubs']
+ req: ['Age 1'] | cost: {'s': 50, 'i': 20, 'v': 0, 'vs': 0} | researchTime: 20 | on: False
+------------------------------------------------------------
+NODE Wall Segment (auto-formed) | age 1 row 2 | kind lvl | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['NEVER directly placed — auto-spawns between two friendly completed hubs in range', 'One wall instance per 4 m module; 8 m walkable deck', 'Each instance carries its own HP']
+ req: ['Age 1', 'Wall Hub — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["HP", "80"], ["Defense (M/R/S/Mag)", "2 / 2 / 0 / 0"], ["Line of sight", "10"]]
+------------------------------------------------------------
+NODE Wall Tower (conversion only) | age 1 row 4 | kind lvl | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["Conversion-only from a single wall instance's action panel", 'Ranged anti-infantry on a wall — taller LoS, garrison-fire']
+ req: ['Age 1', 'Wall Segment (auto-formed)'] | cost: {'s': 60, 'i': 30, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["HP", "70"], ["Defense (M/R/S/Mag)", "2 / 3 / 0 / 0"], ["Line of sight", "16"], ["Can attack", "yes"], ["Attack damage", "12"], ["Attack range", "20"], ["Attack cooldown", "1.8"]]
+------------------------------------------------------------
+NODE Wall Gate (conversion only) | age 1 row 3 | kind lvl | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["Conversion-only from a segment's action panel — 5 contiguous instances become gate cells", 'Deliberately omitted from BuildableBuildings; a boot-time assertion verifies this', 'Auto-passable for the owning faction, auto-closed otherwise']
+ req: ['Age 1', 'Wall Segment (auto-formed)'] | cost: {'s': 40, 'i': 15, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["HP", "35"], ["Defense (M/R/S/Mag)", "1 / 1 / 0 / 0"], ["Line of sight", "8"]]
+------------------------------------------------------------
+NODE Wall Hub — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Thicker curtain — every segment, gate and wall tower formed from this hub inherits the level']
+ req: ['Age 2', 'Wall Hub — Lv 1'] | cost: {'s': 80, 'i': 40, 'v': 0, 'vs': 0} | researchTime: 20 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 25}]
+------------------------------------------------------------
+NODE Wall Hub — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Veilstone-faced rampart — widest deck and deepest garrison']
+ req: ['Age 3', 'Wall Hub — Lv 2'] | cost: {'s': 160, 'i': 80, 'v': 40, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 35}, {"target": "building", "stat": "Garrison capacity", "op": "+", "value": 2}]
+================================================================================
+BUILDING Alanthor_SiegeYard | cost {'s': 260, 'i': 100, 'v': 60, 'vs': 0} | mil True
+banner: Siege Yard — Alanthor siege works. Precision engines: the Ballista picks targets apart, the Battering Ram breaks gates, the Trebuchet outranges everything on the field.
+stats: {"id": "Alanthor_SiegeYard", "HP": "1300", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "2", "Population": "0", "Building Type": "Alanthor", "Building Function": "Military", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 1 / 0 / 0", "Line of sight": "20", "Build time": "50", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "Ballista, Battering Ram, Trebuchet", "Research": "Reinforced Bolts, Iron-Shod Ram, Counterweight Tuning, Seasoned / Veteran / Elite Crews, Ranging Shot, Siege Screens", "PresentationId": "357"}
+------------------------------------------------------------
+NODE Siege Yard — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Ballista']
+ req: ['Age 1'] | cost: {'s': 260, 'i': 100, 'v': 60, 'vs': 0} | researchTime: 50 | on: False
+------------------------------------------------------------
+NODE Siege Yard — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Battering Ram']
+ req: ['Age 2', 'Siege Yard — Lv 1'] | cost: {'s': 180, 'i': 60, 'v': 20, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 10}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 10}]
+------------------------------------------------------------
+NODE Siege Yard — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Unlocks Trebuchet']
+ req: ['Age 3', 'Siege Yard — Lv 2'] | cost: {'s': 340, 'i': 120, 'v': 60, 'vs': 0} | researchTime: 50 | on: False
+ effects: [{"target": "building", "stat": "HP", "op": "+%", "value": 20}, {"target": "building", "stat": "Train speed bonus", "op": "+", "value": 20}]
+------------------------------------------------------------
+NODE Ballista | age 1 row 2 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Siege' race:'Machine' size:'Large'
+ d: ['Fast-firing single-target bolt thrower']
+ req: ['Age 1', 'Siege Yard — Lv 1'] | cost: {'s': 180, 'i': 80, 'v': 40, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "machinery_siege"], ["HP", "220"], ["Speed", "3.2"], ["Training time", "38"], ["Population cost", "2"], ["Damage", "40"], ["Damage type", "Siege"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 2 / 0"], ["Attack cooldown", "4"], ["Min attack range", "6"], ["Attack range", "22"], ["Line of sight", "26"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "+30 vs Building — single-target bolt"], ["Tags", "Siege, Machine"], ["PresentationId", "337"]]
+------------------------------------------------------------
+NODE Battering Ram | age 2 row 3 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Siege' race:'Machine' size:'Large'
+ d: ['Melee range — must touch the wall', 'Highest anti-building damage per hit']
+ req: ['Age 2', 'Siege Yard — Lv 2'] | cost: {'s': 220, 'i': 120, 'v': 40, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "machinery_siege"], ["HP", "340"], ["Speed", "3"], ["Training time", "36"], ["Population cost", "2"], ["Damage", "36"], ["Damage type", "Siege"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 2 / 0"], ["Attack cooldown", "3"], ["Min attack range", "0"], ["Attack range", "1"], ["Line of sight", "18"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "2"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "+80 vs Building — cannot attack units"], ["Tags", "Siege, Machine"], ["PresentationId", "0"]]
+------------------------------------------------------------
+NODE Trebuchet | age 3 row 4 | kind mil | up:False | culture:'Alanthor' | scope:global | type:'Siege' race:'Machine' size:'Large'
+ d: ['Outranges every other engine and every tower', 'Must unpack to fire']
+ req: ['Age 3', 'Siege Yard — Lv 3'] | cost: {'s': 320, 'i': 180, 'v': 100, 'vs': 20} | researchTime: 0 | on: False
+ stats: [["Class", "machinery_siege"], ["HP", "200"], ["Speed", "2.4"], ["Training time", "50"], ["Population cost", "3"], ["Damage", "60"], ["Damage type", "Siege"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 2 / 0"], ["Attack cooldown", "6"], ["Min attack range", "12"], ["Attack range", "38"], ["Line of sight", "30"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "3"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "+80 vs Building — AoE radius 6; longest range in the game"], ["Tags", "Siege, Machine"], ["PresentationId", "0"]]
+------------------------------------------------------------
+NODE Reinforced Bolts | age 1 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Ballista bolts punch harder — +10 damage']
+ req: ['Age 1', 'Siege Yard — Lv 1'] | cost: {'s': 180, 'i': 90, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "unit:Ballista", "stat": "Damage", "op": "+", "value": 10}]
+------------------------------------------------------------
+NODE Iron-Shod Ram | age 2 row 6 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['The ram is iron-shod — +100 HP so it survives the approach']
+ req: ['Age 2', 'Siege Yard — Lv 2'] | cost: {'s': 220, 'i': 140, 'v': 0, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "unit:Battering Ram", "stat": "HP", "op": "+", "value": 100}]
+------------------------------------------------------------
+NODE Counterweight Tuning | age 3 row 7 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Retuned counterweights — Trebuchet range 38 → 44']
+ req: ['Age 3', 'Siege Yard — Lv 3'] | cost: {'s': 280, 'i': 160, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+ effects: [{"target": "unit:Trebuchet", "stat": "Attack range", "op": "+", "value": 6}]
+------------------------------------------------------------
+NODE Seasoned Crews | age 1 row 8 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+40 HP, +2 damage, +1 attack range to every Alanthor siege engine']
+ req: ['Age 1', 'Siege Yard — Lv 1'] | cost: {'s': 140, 'i': 60, 'v': 0, 'vs': 0} | researchTime: 30 | on: False
+ effects: [{"target": "unit:Ballista", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Ballista", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Ballista", "stat": "Attack range", "op": "+", "value": 1}, {"target": "unit:Battering Ram", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Battering Ram", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Battering Ram", "stat": "Attack range", "op": "+", "value": 1}, {"target": "unit:Trebuchet", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Trebuchet", "stat": "Damage", "op": "+", "value": 2}, {"target": "unit:Trebuchet", "stat": "Attack range", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veteran Crews | age 2 row 8 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+40 HP, +3 damage, +2 attack range to every Alanthor siege engine']
+ req: ['Age 2', 'Siege Yard — Lv 2', 'Seasoned Crews'] | cost: {'s': 220, 'i': 110, 'v': 30, 'vs': 0} | researchTime: 38 | on: False
+ effects: [{"target": "unit:Ballista", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Ballista", "stat": "Damage", "op": "+", "value": 3}, {"target": "unit:Ballista", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Battering Ram", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Battering Ram", "stat": "Damage", "op": "+", "value": 3}, {"target": "unit:Battering Ram", "stat": "Attack range", "op": "+", "value": 2}, {"target": "unit:Trebuchet", "stat": "HP", "op": "+", "value": 40}, {"target": "unit:Trebuchet", "stat": "Damage", "op": "+", "value": 3}, {"target": "unit:Trebuchet", "stat": "Attack range", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Elite Crews | age 3 row 8 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['+60 HP, +5 damage, +3 attack range to every Alanthor siege engine']
+ req: ['Age 3', 'Siege Yard — Lv 3', 'Veteran Crews'] | cost: {'s': 320, 'i': 170, 'v': 70, 'vs': 0} | researchTime: 48 | on: False
+ effects: [{"target": "unit:Ballista", "stat": "HP", "op": "+", "value": 60}, {"target": "unit:Ballista", "stat": "Damage", "op": "+", "value": 5}, {"target": "unit:Ballista", "stat": "Attack range", "op": "+", "value": 3}, {"target": "unit:Battering Ram", "stat": "HP", "op": "+", "value": 60}, {"target": "unit:Battering Ram", "stat": "Damage", "op": "+", "value": 5}, {"target": "unit:Battering Ram", "stat": "Attack range", "op": "+", "value": 3}, {"target": "unit:Trebuchet", "stat": "HP", "op": "+", "value": 60}, {"target": "unit:Trebuchet", "stat": "Damage", "op": "+", "value": 5}, {"target": "unit:Trebuchet", "stat": "Attack range", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Ranging Shot | age 2 row 9 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Ranging Shot active for Alanthor siege engines', 'After standing still for 3 s the next shot deals +100% damage', '45 s cooldown']
+ req: ['Age 2', 'Siege Yard — Lv 2'] | cost: {'s': 200, 'i': 90, 'v': 30, 'vs': 0} | researchTime: 40 | on: False
+ abilities: ["Ranging Shot"]
+------------------------------------------------------------
+NODE Siege Screens | age 3 row 9 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Unlocks the Siege Screens passive for Alanthor siege engines', '+50% ranged defence while stationary — lost the moment the engine moves']
+ req: ['Age 3', 'Siege Yard — Lv 3', 'Ranging Shot'] | cost: {'s': 280, 'i': 130, 'v': 60, 'vs': 0} | researchTime: 50 | on: False
+ abilities: ["Siege Screens"]
+================================================================================
+BUILDING Alanthor_Smelter | cost {'s': 400, 'i': 200, 'v': 60, 'vs': 0} | mil False
+banner: Smelter — Alanthor's veilsteel house and armour works. Passively generates Veilsteel, rising with each level (1 → 2 → 3 per 10 s). Also hosts the four armour ladders — Infantry, Ranged, Cavalry and Siege, three tiers each. Build limit: 1 per faction.
+stats: {"id": "Alanthor_Smelter", "HP": "1200", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.8", "Population": "0", "Building Type": "Alanthor", "Building Function": "Economy", "Can receive resources": "no", "Resource generation tick": "10", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "1", "Generation type": "Direct", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 1 / 0 / 0", "Line of sight": "18", "Build time": "55", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "0", "Aura effect": "none", "Aura affects": "none", "Trains": "—", "Research": "Infantry armour I-III, Ranged armour I-III, Cavalry armour I-III, Siege armour I-III", "PresentationId": "364"}
+------------------------------------------------------------
+NODE Smelter — Lv 1 | age 1 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Build limit: 1 per faction', 'Generates 1 Veilsteel per 10 s', 'Hosts the Infantry / Ranged / Cavalry / Siege armour ladders']
+ req: ['Age 1'] | cost: {'s': 400, 'i': 200, 'v': 60, 'vs': 0} | researchTime: 55 | on: False
+------------------------------------------------------------
+NODE Smelter — Lv 2 | age 2 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Veilsteel output rises to 2 per 10 s']
+ req: ['Age 2', 'Smelter — Lv 1'] | cost: {'s': 500, 'i': 250, 'v': 120, 'vs': 30} | researchTime: 45 | on: False
+ effects: [{"target": "building", "stat": "Veilsteel per tick", "op": "+", "value": 1}, {"target": "building", "stat": "HP", "op": "+%", "value": 15}]
+------------------------------------------------------------
+NODE Smelter — Lv 3 | age 3 row 1 | kind lvl | up:True | culture:'Alanthor' | scope:per | type:'' race:'' size:''
+ d: ['Veilsteel output rises to 3 per 10 s']
+ req: ['Age 3', 'Smelter — Lv 2'] | cost: {'s': 700, 'i': 350, 'v': 200, 'vs': 60} | researchTime: 60 | on: False
+ effects: [{"target": "building", "stat": "Veilsteel per tick", "op": "+", "value": 1}, {"target": "building", "stat": "HP", "op": "+%", "value": 20}]
+------------------------------------------------------------
+NODE Iron Plate | age 1 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Infantry armour tier 1 — +1 defence to all Infantry units']
+ req: ['Age 1', 'Smelter — Lv 1'] | cost: {'s': 120, 'i': 150, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "type:Melee", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veilstone Plate | age 2 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Infantry armour tier 2 — +2 defence to all Infantry units']
+ req: ['Age 2', 'Smelter — Lv 2', 'Iron Plate'] | cost: {'s': 0, 'i': 150, 'v': 120, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Melee", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Shard Plate | age 3 row 2 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Infantry armour tier 3 — +3 defence to all Infantry units']
+ req: ['Age 3', 'Smelter — Lv 3', 'Veilstone Plate'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 120} | researchTime: 45 | on: False
+ effects: [{"target": "type:Melee", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Iron Brigandine | age 1 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Ranged armour tier 1 — +1 defence to all Ranged units']
+ req: ['Age 1', 'Smelter — Lv 1'] | cost: {'s': 120, 'i': 150, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veilstone Brigandine | age 2 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Ranged armour tier 2 — +2 defence to all Ranged units']
+ req: ['Age 2', 'Smelter — Lv 2', 'Iron Brigandine'] | cost: {'s': 0, 'i': 150, 'v': 120, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Shard Brigandine | age 3 row 3 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Ranged armour tier 3 — +3 defence to all Ranged units']
+ req: ['Age 3', 'Smelter — Lv 3', 'Veilstone Brigandine'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 120} | researchTime: 45 | on: False
+ effects: [{"target": "type:Ranged", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Iron Barding | age 1 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Cavalry armour tier 1 — +1 defence to all Cavalry units']
+ req: ['Age 1', 'Smelter — Lv 1'] | cost: {'s': 120, 'i': 150, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "type:Cavalry", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veilstone Barding | age 2 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Cavalry armour tier 2 — +2 defence to all Cavalry units']
+ req: ['Age 2', 'Smelter — Lv 2', 'Iron Barding'] | cost: {'s': 0, 'i': 150, 'v': 120, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Cavalry", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Shard Barding | age 3 row 4 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Cavalry armour tier 3 — +3 defence to all Cavalry units']
+ req: ['Age 3', 'Smelter — Lv 3', 'Veilstone Barding'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 120} | researchTime: 45 | on: False
+ effects: [{"target": "type:Cavalry", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 3}]
+------------------------------------------------------------
+NODE Iron Plating | age 1 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Siege armour tier 1 — +1 defence to all Siege units']
+ req: ['Age 1', 'Smelter — Lv 1'] | cost: {'s': 120, 'i': 150, 'v': 0, 'vs': 0} | researchTime: 35 | on: False
+ effects: [{"target": "type:Siege", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 1}]
+------------------------------------------------------------
+NODE Veilstone Plating | age 2 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Siege armour tier 2 — +2 defence to all Siege units']
+ req: ['Age 2', 'Smelter — Lv 2', 'Iron Plating'] | cost: {'s': 0, 'i': 150, 'v': 120, 'vs': 0} | researchTime: 40 | on: False
+ effects: [{"target": "type:Siege", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 2}]
+------------------------------------------------------------
+NODE Shard Plating | age 3 row 5 | kind tech | up:True | culture:'Alanthor' | scope:global | type:'' race:'' size:''
+ d: ['Siege armour tier 3 — +3 defence to all Siege units']
+ req: ['Age 3', 'Smelter — Lv 3', 'Veilstone Plating'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 120} | researchTime: 45 | on: False
+ effects: [{"target": "type:Siege", "stat": "Defense (M/R/S/Mag)", "op": "+", "value": 3}]
+================================================================================
+BUILDING Chapel_Antiquity | cost {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | mil False
+banner: Chapel of Antiquity — Alanthor cluster. Keepers of every name that fell to the Border; the dead tally the living's enemies. Docks flush against one of the Temple's six faces. Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise. Provides the sect's passive, unique unit, unique technology, unique building and three active powers (small / medium / large).
+stats: {"id": "Chapel_Antiquity", "HP": "700", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.4", "Population": "0", "Building Type": "Alanthor", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 3 / 0 / 3", "Line of sight": "12", "Build time": "45", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "8", "Aura effect": "+5% damage", "Aura affects": "Friendly units", "Trains": "Lorekeeper", "Research": "The Endless Codex, Recall the Codex, Read the Names, The Full Tally", "PresentationId": "371"}
+------------------------------------------------------------
+NODE Chapel of Antiquity — Lv 1 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ["Adopts the Antiquity sect — one of the Temple's six chapel slots", "Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise", 'Chapel aura: +5% damage within 8 m', 'Adoption grants Lv I on all four levers at once', "Keepers of every name that fell to the Border; the dead tally the living's enemies."]
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Tally of the Lost | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['PASSIVE LEVER — always on once the sect is adopted', 'Your units gain bonus damage for each enemy unit-type they have killed this match']
+ req: ['Age 2', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Lorekeeper | age 2 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Magic' race:'Human' size:'Medium'
+ d: ["UNIT LEVER — the Antiquity sect's unique unit", 'Trained at the Temple of Ridan', 'Records kills — each unit-type tallied raises the faction Tally bonus']
+ req: ['Age 2', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 150, 'i': 50, 'v': 60, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_support"], ["HP", "130"], ["Speed", "5"], ["Training time", "35"], ["Population cost", "2"], ["Damage", "0"], ["Damage type", "Magic"], ["Armor type", "ranged"], ["Defense (M/R/S/Mag)", "0 / 1 / 0 / 3"], ["Attack cooldown", "0"], ["Min attack range", "0"], ["Attack range", "12"], ["Line of sight", "24"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Records kills — each unit-type tallied raises the faction Tally bonus"], ["Tags", "Antiquity, Sect"], ["PresentationId", "373"]]
+------------------------------------------------------------
+NODE The Endless Codex | age 2 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["TECHNOLOGY — the Antiquity sect's unique research", 'Tally of the Lost bonus per unit-type doubles, and the tally is never lost on death']
+ req: ['Age 2', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 200, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Ossuary | age 2 row 5 | kind eco | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["BUILDING LEVER — the Antiquity sect's unique building", 'Stores the tally — +1 damage to every friendly unit per 10 enemy kills, capped at +10']
+ req: ['Age 2', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 220, 'i': 90, 'v': 40, 'vs': 0} | researchTime: 40 | on: False
+------------------------------------------------------------
+NODE Recall the Codex | age 2 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active I (small) — granted on adoption', 'Enemy attack & ability cooldowns in a 10 m circle stop recovering for 10 s', 'Cooldown: 300 s']
+ req: ['Age 2', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Recall the Codex"]
+------------------------------------------------------------
+NODE Read the Names | age 2 row 7 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active II (medium) — unlocked at Temple Lv 2', 'Enemies in a 10 m circle are marked for 15 s and take +15% damage', 'Cooldown: 150 s']
+ req: ['Age 2', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Read the Names"]
+------------------------------------------------------------
+NODE The Full Tally | age 3 row 8 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active III (large) — unlocked at Temple Lv 3 — the sect ultimate', 'For 20 s every enemy of a type your army has killed takes +40% damage in a 12 m circle', 'Cooldown: 300 s']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["The Full Tally"]
+------------------------------------------------------------
+NODE Chapel of Antiquity — Lv 2 | age 3 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level II — granted automatically with Temple — Lv 2 (advances to Age 3)', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Antiquity levers scale to level II (×1.5)']
+ req: ['Age 3', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Antiquity — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Chapel of Antiquity — Lv 3 | age 3 row 2 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level III — granted automatically with Temple — Lv 3', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Antiquity levers scale to level III (×2.0)']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Antiquity — Lv 2'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+================================================================================
+BUILDING Chapel_Renewal | cost {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | mil False
+banner: Chapel of Renewal — Alanthor cluster. Healers in stone — they teach walls to forget the blows they took. Docks flush against one of the Temple's six faces. Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise. Provides the sect's passive, unique unit, unique technology, unique building and three active powers (small / medium / large).
+stats: {"id": "Chapel_Renewal", "HP": "700", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.4", "Population": "0", "Building Type": "Alanthor", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 3 / 0 / 3", "Line of sight": "12", "Build time": "45", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "10", "Aura effect": "1 HP/s regen", "Aura affects": "Friendly units", "Trains": "Tinker", "Research": "Quarried Faith, Heal Circle, Mason's Blessing, Reckoning of the Rebuilt", "PresentationId": "370"}
+------------------------------------------------------------
+NODE Chapel of Renewal — Lv 1 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ["Adopts the Renewal sect — one of the Temple's six chapel slots", "Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise", 'Chapel aura: 1 HP/s regen within 10 m', 'Adoption grants Lv I on all four levers at once', 'Healers in stone — they teach walls to forget the blows they took.']
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Hands That Mend | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['PASSIVE LEVER — always on once the sect is adopted', 'Your buildings auto-repair when out of combat']
+ req: ['Age 2', 'Chapel of Renewal — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Tinker | age 2 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Economic' race:'Human' size:'Small'
+ d: ["UNIT LEVER — the Renewal sect's unique unit", 'Trained at the Temple of Ridan', "Repairs buildings at double a Worker's rate; cannot fight"]
+ req: ['Age 2', 'Chapel of Renewal — Lv 1'] | cost: {'s': 120, 'i': 40, 'v': 40, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "automaton_worker"], ["HP", "140"], ["Speed", "5"], ["Training time", "30"], ["Population cost", "1"], ["Damage", "0"], ["Damage type", "—"], ["Armor type", "structure_light"], ["Defense (M/R/S/Mag)", "1 / 1 / 0 / 1"], ["Attack cooldown", "0"], ["Min attack range", "0"], ["Attack range", "0"], ["Line of sight", "14"], ["Resource collection speed", "0"], ["Building speed", "2"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Repairs buildings at double a Worker's rate; cannot fight"], ["Tags", "Renewal, Sect"], ["PresentationId", "372"]]
+------------------------------------------------------------
+NODE Quarried Faith | age 2 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["TECHNOLOGY — the Renewal sect's unique research", 'Auto-repair rate doubles and begins 5 s sooner after leaving combat']
+ req: ['Age 2', 'Chapel of Renewal — Lv 1'] | cost: {'s': 200, 'i': 90, 'v': 40, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Mending Hall | age 2 row 5 | kind eco | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["BUILDING LEVER — the Renewal sect's unique building", 'Continuously repairs damaged friendly buildings within 18 m']
+ req: ['Age 2', 'Chapel of Renewal — Lv 1'] | cost: {'s': 240, 'i': 100, 'v': 30, 'vs': 0} | researchTime: 40 | on: False
+------------------------------------------------------------
+NODE Heal Circle | age 2 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active I (small) — granted on adoption', 'Restores 50 HP to all allied units within 8 m', 'Cooldown: 90 s']
+ req: ['Age 2', 'Chapel of Renewal — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Heal Circle"]
+------------------------------------------------------------
+NODE Mason's Blessing | age 2 row 7 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active II (medium) — unlocked at Temple Lv 2', 'Allied units within 8 m gain +3 armor for 12 s', 'Cooldown: 120 s']
+ req: ['Age 2', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Renewal — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Mason's Blessing"]
+------------------------------------------------------------
+NODE Reckoning of the Rebuilt | age 3 row 8 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active III (large) — unlocked at Temple Lv 3 — the sect ultimate', '120 crushing damage to enemies in a 9 m circle', 'Cooldown: 240 s']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Renewal — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Reckoning of the Rebuilt"]
+------------------------------------------------------------
+NODE Chapel of Renewal — Lv 2 | age 3 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level II — granted automatically with Temple — Lv 2 (advances to Age 3)', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Renewal levers scale to level II (×1.5)']
+ req: ['Age 3', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Renewal — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Chapel of Renewal — Lv 3 | age 3 row 2 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level III — granted automatically with Temple — Lv 3', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Renewal levers scale to level III (×2.0)']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Renewal — Lv 2'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+================================================================================
+BUILDING Chapel_Fortitude | cost {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | mil False
+banner: Chapel of Fortitude — Alanthor cluster. Their hymns weigh more than mortar. Where they pray, the keep does not break. Docks flush against one of the Temple's six faces. Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise. Provides the sect's passive, unique unit, unique technology, unique building and three active powers (small / medium / large).
+stats: {"id": "Chapel_Fortitude", "HP": "700", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.4", "Population": "0", "Building Type": "Alanthor", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 3 / 0 / 3", "Line of sight": "12", "Build time": "45", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "8", "Aura effect": "+2 armor", "Aura affects": "Friendly units", "Trains": "StoneWarden", "Research": "Mortar of Psalms, Bulwark, Unbreaking Hymn, The Keep Does Not Break", "PresentationId": "372"}
+------------------------------------------------------------
+NODE Chapel of Fortitude — Lv 1 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ["Adopts the Fortitude sect — one of the Temple's six chapel slots", "Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise", 'Chapel aura: +2 armor within 8 m', 'Adoption grants Lv I on all four levers at once', 'Their hymns weigh more than mortar. Where they pray, the keep does not break.']
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Veiled Stone | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['PASSIVE LEVER — always on once the sect is adopted', 'Your walls and towers gain bonus HP']
+ req: ['Age 2', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE StoneWarden | age 2 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Melee' race:'Human' size:'Large'
+ d: ["UNIT LEVER — the Fortitude sect's unique unit", 'Trained at the Temple of Ridan', 'Highest armor in the game; roots itself to hold a line']
+ req: ['Age 2', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 160, 'i': 70, 'v': 40, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "260"], ["Speed", "4.2"], ["Training time", "38"], ["Population cost", "2"], ["Damage", "14"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "7 / 6 / 2 / 2"], ["Attack cooldown", "2"], ["Min attack range", "0"], ["Attack range", "1.6"], ["Line of sight", "16"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Highest armor in the game; roots itself to hold a line"], ["Tags", "Fortitude, Sect"], ["PresentationId", "372"]]
+------------------------------------------------------------
+NODE Mortar of Psalms | age 2 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["TECHNOLOGY — the Fortitude sect's unique research", 'Veiled Stone HP bonus applies to every friendly building, not just walls and towers']
+ req: ['Age 2', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 220, 'i': 100, 'v': 50, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Bastion Shrine | age 2 row 5 | kind eco | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["BUILDING LEVER — the Fortitude sect's unique building", 'Projects +3 armor to all friendly buildings within 14 m']
+ req: ['Age 2', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 260, 'i': 110, 'v': 40, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Bulwark | age 2 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active I (small) — granted on adoption', 'Allied units within 8 m gain +5 armor for 12 s', 'Cooldown: 120 s']
+ req: ['Age 2', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Bulwark"]
+------------------------------------------------------------
+NODE Unbreaking Hymn | age 2 row 7 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active II (medium) — unlocked at Temple Lv 2', 'Friendly buildings within 12 m take 50% less damage for 15 s', 'Cooldown: 150 s']
+ req: ['Age 2', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Unbreaking Hymn"]
+------------------------------------------------------------
+NODE The Keep Does Not Break | age 3 row 8 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active III (large) — unlocked at Temple Lv 3 — the sect ultimate', 'Every friendly building becomes invulnerable for 8 s', 'Cooldown: 300 s']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["The Keep Does Not Break"]
+------------------------------------------------------------
+NODE Chapel of Fortitude — Lv 2 | age 3 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level II — granted automatically with Temple — Lv 2 (advances to Age 3)', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Fortitude levers scale to level II (×1.5)']
+ req: ['Age 3', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Fortitude — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Chapel of Fortitude — Lv 3 | age 3 row 2 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level III — granted automatically with Temple — Lv 3', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Fortitude levers scale to level III (×2.0)']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Fortitude — Lv 2'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+================================================================================
+BUILDING Chapel_Reclamation | cost {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | mil False
+banner: Chapel of Reclamation — Alanthor cluster. They wrest tools, mines, and dying soldiers back from the Veilstone's grasp. Docks flush against one of the Temple's six faces. Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise. Provides the sect's passive, unique unit, unique technology, unique building and three active powers (small / medium / large).
+stats: {"id": "Chapel_Reclamation", "HP": "700", "Has HP regen": "no", "Time out of combat": "0", "HP regen": "0", "HP regen tick": "0", "Building radius": "1.4", "Population": "0", "Building Type": "Alanthor", "Building Function": "Civic", "Can receive resources": "no", "Resource generation tick": "0", "Supplies per tick": "0", "Iron per tick": "0", "Veilstone per tick": "0", "Veilsteel per tick": "0", "Generation type": "None", "Generation Area": "0", "Armor type": "structure_human", "Defense (M/R/S/Mag)": "1 / 3 / 0 / 3", "Line of sight": "12", "Build time": "45", "Garrison capacity": "0", "Can attack": "no", "Attack damage": "0", "Attack range": "0", "Attack cooldown": "0", "Auto-fire max targets": "0", "Train speed bonus": "0", "Interest rate": "0", "Heal aura rate": "0", "Supplies per minute": "0", "Aura radius": "8", "Aura effect": "+1 armor, 1 HP/s regen", "Aura affects": "Friendly units", "Trains": "VaultKeeper", "Research": "Deep Salvage, Reclaim Vigour, Salvage Rites, Wrest From the Veil", "PresentationId": "375"}
+------------------------------------------------------------
+NODE Chapel of Reclamation — Lv 1 | age 2 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ["Adopts the Reclamation sect — one of the Temple's six chapel slots", "Adoption costs 2 RP if the sect shares your culture's cluster, 3 RP otherwise", 'Chapel aura: +1 armor, 1 HP/s regen within 8 m', 'Adoption grants Lv I on all four levers at once', "They wrest tools, mines, and dying soldiers back from the Veilstone's grasp."]
+ req: ['Age 2', 'Temple — Lv 1 (advances to Age 2)'] | cost: {'s': 250, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Border-Hardened | age 2 row 2 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['PASSIVE LEVER — always on once the sect is adopted', 'Your units take less damage from Border and curse sources']
+ req: ['Age 2', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE VaultKeeper | age 2 row 3 | kind mil | up:False | culture:'' | scope:global | type:'Melee' race:'Human' size:'Medium'
+ d: ["UNIT LEVER — the Reclamation sect's unique unit", 'Trained at the Temple of Ridan', 'Immune to curse exposure damage']
+ req: ['Age 2', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 150, 'i': 60, 'v': 50, 'vs': 0} | researchTime: 0 | on: False
+ stats: [["Class", "human_melee"], ["HP", "200"], ["Speed", "5"], ["Training time", "34"], ["Population cost", "2"], ["Damage", "16"], ["Damage type", "Melee"], ["Armor type", "infantry_heavy"], ["Defense (M/R/S/Mag)", "4 / 3 / 0 / 2"], ["Attack cooldown", "1.6"], ["Min attack range", "0"], ["Attack range", "1.5"], ["Line of sight", "18"], ["Resource collection speed", "0"], ["Building speed", "0"], ["Min building level", "1"], ["Heals per second", "0"], ["Hero", "no"], ["Aura radius", "0"], ["Aura effect", "none"], ["Aura affects", "none"], ["Can charge", "no"], ["Charge damage bonus", "0"], ["Abilities", "none"], ["Ability cooldown", "0"], ["Ability duration", "0"], ["Ability aftermath", "none"], ["Special", "Immune to curse exposure damage"], ["Tags", "Reclamation, Sect"], ["PresentationId", "375"]]
+------------------------------------------------------------
+NODE Deep Salvage | age 2 row 4 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["TECHNOLOGY — the Reclamation sect's unique research", 'Your own destroyed buildings refund 50% of their cost instead of nothing']
+ req: ['Age 2', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 200, 'i': 80, 'v': 60, 'vs': 0} | researchTime: 45 | on: False
+------------------------------------------------------------
+NODE Reliquary | age 2 row 5 | kind eco | up:False | culture:'' | scope:global | type:'' race:'' size:''
+ d: ["BUILDING LEVER — the Reclamation sect's unique building", "Mines and Gatherer's Huts within 20 m yield +25%"]
+ req: ['Age 2', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 230, 'i': 90, 'v': 50, 'vs': 0} | researchTime: 40 | on: False
+------------------------------------------------------------
+NODE Reclaim Vigour | age 2 row 6 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active I (small) — granted on adoption', 'Heals allied units in a 6 m radius for 30 HP', 'Cooldown: 75 s']
+ req: ['Age 2', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Reclaim Vigour"]
+------------------------------------------------------------
+NODE Salvage Rites | age 2 row 7 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active II (medium) — unlocked at Temple Lv 2', 'For 20 s, allied units dying within 10 m refund 50% of their cost', 'Cooldown: 150 s']
+ req: ['Age 2', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Salvage Rites"]
+------------------------------------------------------------
+NODE Wrest From the Veil | age 3 row 8 | kind tech | up:True | culture:'' | scope:global | type:'' race:'' size:''
+ d: ['Active III (large) — unlocked at Temple Lv 3 — the sect ultimate', 'Revives allied units that died within 10 m in the last 15 s at 40% HP', 'Cooldown: 300 s']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+ abilities: ["Wrest From the Veil"]
+------------------------------------------------------------
+NODE Chapel of Reclamation — Lv 2 | age 3 row 1 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level II — granted automatically with Temple — Lv 2 (advances to Age 3)', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Reclamation levers scale to level II (×1.5)']
+ req: ['Age 3', 'Temple — Lv 2 (advances to Age 3)', 'Chapel of Reclamation — Lv 1'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False
+------------------------------------------------------------
+NODE Chapel of Reclamation — Lv 3 | age 3 row 2 | kind lvl | up:True | culture:'' | scope:per | type:'' race:'' size:''
+ d: ['Sect lever level III — granted automatically with Temple — Lv 3', 'Lever upgrades are temple-driven; Religion Points only pay for adoption', 'All four Reclamation levers scale to level III (×2.0)']
+ req: ['Age 3', 'Temple — Lv 3', 'Chapel of Reclamation — Lv 2'] | cost: {'s': 0, 'i': 0, 'v': 0, 'vs': 0} | researchTime: 0 | on: False

@@ -28,12 +28,27 @@ MonoBehaviour:
   radius: 0.5
   lineOfSight: 16
   trains: []
-  research: []
+  research:
+  - Raiding1
+  - Raiding2
+  - Raiding3
+  - IronPlunder
+  - VeilstonePlunder
+  - VeilsteelPlunder
+  - IronSurveying1
+  - IronSurveying2
+  - IronSurveying3
+  - VeilstoneSurvey1
+  - VeilstoneSurvey2
+  - VeilsteelSurvey
+  - IronReinforcements
+  - VeilstoneWalls
+  - VeilsteelPylons
   minEra: 0
   cost:
     Supplies: 120
     Iron: 10
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
@@ -46,6 +61,7 @@ MonoBehaviour:
     maxTargets: 1
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 4961374923939024580, guid: 0a9cd7a90e2ba824f87007803e5afb56, type: 3}
+  presentationId: 101
   prefabPath: 
   canUpgradeTo: []
-  presentationId: 101

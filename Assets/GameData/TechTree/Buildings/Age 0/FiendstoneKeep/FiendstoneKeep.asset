@@ -30,12 +30,16 @@ MonoBehaviour:
   trains:
   - Spearman
   - Archer
-  research: []
+  research:
+  - BallistaEmplacement
+  - TrebuchetEmplacement
+  - AdditionalTowers
+  - ReinforcedWalls
   minEra: 0
   cost:
-    Supplies: 300
+    Supplies: 210
     Iron: 0
-    Crystal: 100
+    Crystal: 70
     Veilsteel: 0
   tags:
   - Building

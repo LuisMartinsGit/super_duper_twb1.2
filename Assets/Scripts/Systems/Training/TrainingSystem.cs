@@ -7,6 +7,7 @@ using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Systems.Research;
+using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Systems.Training
 {
@@ -109,6 +110,19 @@ namespace TheWaningBorder.Systems.Training
                         trainingTime *= TheWaningBorder.Core.Settings.BuildingUpgradeConfig
                             .TrainTimeMultiplier[upLevel];
                     }
+
+                    // Conscription (Age 0 Barracks tech): +20% training speed
+                    // at the Barracks — time / 1.2.
+                    if (state.EntityManager.HasComponent<BarracksTag>(entity))
+                    {
+                        var research = TheWaningBorder.Economy.FactionResearchState.Instance;
+                        if (research != null && research.HasResearched(buildingFaction, "Conscription"))
+                            trainingTime /= 1.2f;
+                    }
+
+                    // King Lexor respawn tax: +15% training time per prior death.
+                    if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unitId))
+                        trainingTime *= TheWaningBorder.Abilities.HeroTrainLimit.RespawnTrainMult(buildingFaction);
 
                     ts.ValueRW.Busy = 1;
                     ts.ValueRW.Remaining = trainingTime;
@@ -267,65 +281,51 @@ namespace TheWaningBorder.Systems.Training
                 if (rallyTargetEntity != Entity.Null && em.Exists(rallyTargetEntity)
                     && em.HasComponent<MinerTag>(unit)
                     && (em.HasComponent<IronMineTag>(rallyTargetEntity)
-                        || em.HasComponent<CadaverTag>(rallyTargetEntity)))
+                        || em.HasComponent<VeilstoneOutcroppingTag>(rallyTargetEntity)
+                        || em.HasComponent<VeilsteelDepositTag>(rallyTargetEntity)))
                 {
-                    Entity dropOff = FindFactionDropOff(em, faction);
                     TheWaningBorder.Core.Commands.CommandRouter.IssueGather(
-                        em, unit, rallyTargetEntity, dropOff,
+                        em, unit, rallyTargetEntity,
                         TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
                     issuedGather = true;
                 }
 
                 if (!issuedGather)
                 {
+                    // RALLY SCATTER (jitter fix, 2026-07-12): every trainee
+                    // used to get the SAME exact rally point. Arrival needs
+                    // 0.5 m of that exact point, separation holds later
+                    // arrivals ~1.5 m off the unit already parked there —
+                    // unsatisfiable, so trainee #2+ orbited the gather point
+                    // forever. Give each unit its own slot on a golden-angle
+                    // spiral around the rally instead. Deterministic: derived
+                    // from the unit's NetworkId (assigned in lockstep order).
+                    float3 slotTarget = rallyTarget;
+                    if (em.HasComponent<NetworkedEntity>(unit))
+                    {
+                        uint id = (uint)em.GetComponentData<NetworkedEntity>(unit).NetworkId;
+                        // Golden-angle spiral: ~2.4 rad per step, radius grows
+                        // every full turn — 1.5 m ring spacing matches the
+                        // steering lattice (SeparationRadius).
+                        float angle = id * 2.39996f;
+                        float radius = 1.5f + 1.5f * ((id % 9u) / 3u); // 1.5 / 3.0 / 4.5
+                        slotTarget += new float3(
+                            math.cos(angle) * radius, 0f, math.sin(angle) * radius);
+                    }
+
                     if (!em.HasComponent<DesiredDestination>(unit))
-                        em.AddComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                        em.AddComponentData(unit, new DesiredDestination { Position = slotTarget, Has = 1 });
                         else
-                            em.SetComponentData(unit, new DesiredDestination { Position = rallyTarget, Has = 1 });
+                            em.SetComponentData(unit, new DesiredDestination { Position = slotTarget, Has = 1 });
 
                     if (!em.HasComponent<GuardPoint>(unit))
-                        em.AddComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                        em.AddComponentData(unit, new GuardPoint { Position = slotTarget, Has = 1 });
                         else
-                            em.SetComponentData(unit, new GuardPoint { Position = rallyTarget, Has = 1 });
+                            em.SetComponentData(unit, new GuardPoint { Position = slotTarget, Has = 1 });
                 }
             }
 
         }
 
-        /// <summary>
-        /// Find a faction-owned drop-off building (GathererHut > Hall) for
-        /// rally-issued gather commands. Mirrors the player input path's
-        /// FindNearestGatherersHut but simpler — picks the first match.
-        /// </summary>
-        private static Entity FindFactionDropOff(EntityManager em, Faction faction)
-        {
-            // Prefer GathererHut.
-            var ghQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<FactionTag>());
-            using (var ents = ghQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
-            {
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                    return ents[i];
-                }
-            }
-            // Fallback: Hall.
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>());
-            using (var ents = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
-            {
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                    return ents[i];
-                }
-            }
-            return Entity.Null;
-        }
     }
 }

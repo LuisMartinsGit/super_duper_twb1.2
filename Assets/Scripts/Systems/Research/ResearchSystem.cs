@@ -67,6 +67,11 @@ namespace TheWaningBorder.Systems.Research
                     // Start research
                     float researchTime = techDef.researchTime > 0 ? techDef.researchTime : 30f;
 
+                    // Librarians' wing (Fiendstone Keep): all research 20%
+                    // faster faction-wide.
+                    if (ChoiceUpgradeQuery.FactionHasWing(em, faction, KeepWingType.Librarians))
+                        researchTime /= TheWaningBorder.Core.Settings.KeepWingConfig.LibrariansResearchSpeed;
+
                     // task-063 phase 1: sect ResearchSpeed multiplier removed with the
                     // FactionSectState bridge. Phase 2 reintroduces tech-speed levers.
 

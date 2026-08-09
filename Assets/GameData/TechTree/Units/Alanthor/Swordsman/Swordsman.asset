@@ -12,36 +12,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Swordsman
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Swordsman'
-  displayName: 'Swordsman'
-  unitClass: 'human_melee'
-  hp: 120
+  id: Alanthor_Swordsman
+  displayName: Swordsman
+  unitClass: human_melee
+  hp: 145
   speed: 5.5
-  trainingTime: 22
-  damage: 10
-  damageType: 'melee'
-  armorType: 'infantry_heavy'
+  trainingTime: 24
+  damage: 14
+  damageType: melee
+  armorType: infantry_heavy
   defense:
     melee: 1
     ranged: 0
     siege: 0
     magic: 0
-  attackCooldown: 0
+  attackCooldown: 1.4
   attackRange: 1
   minAttackRange: 0
   lineOfSight: 16
   cost:
-    Supplies: 80
-    Iron: 30
+    Supplies: 105
+    Iron: 45
     Crystal: 0
     Veilsteel: 0
-  minBuildingLevel: 0
+  minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Infantry'
-  - 'Heavy'
+  - Infantry
+  - Heavy
   bonusVsTags: []
-  presentationId: 0
+  prefab: {fileID: 8293738258166481217, guid: c2d7af86fa435794aa3335fc44afbe55, type: 3}
+  presentationId: 201
+  animatorController: {fileID: 9100000, guid: dd302ea46427750438be71e2827c1239, type: 2}

@@ -7,7 +7,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using static TheWaningBorder.Core.Config.CrystalConstants;
+using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Entities
 {
@@ -25,7 +25,7 @@ namespace TheWaningBorder.Entities
             );
             em.SetComponentData(entity, new PresentationId { Id = GlowWeaponPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = Faction.Curse }); // neutral; no faction owns it
+            em.SetComponentData(entity, new FactionTag { Value = Faction.Border }); // neutral; no faction owns it
             em.SetComponentData(entity, new GlowWeaponState
             {
                 Class = cls,

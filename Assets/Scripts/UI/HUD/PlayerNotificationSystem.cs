@@ -70,10 +70,18 @@ namespace TheWaningBorder.UI.HUD
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
+        /// Raised for every notification (message, isError). The UI Toolkit
+        /// NotificationsRegion subscribes here; fires even while this IMGUI
+        /// component is suspended so exactly one renderer shows the toast.
+        /// </summary>
+        public static event System.Action<string, bool> Emitted;
+
+        /// <summary>
         /// Show a warning notification with golden text.
         /// </summary>
         public static void Notify(string message)
         {
+            Emitted?.Invoke(message, false);
             if (_instance == null) return;
             _instance.AddNotification(message, UIHelpers.ThemeGold);
         }
@@ -83,6 +91,7 @@ namespace TheWaningBorder.UI.HUD
         /// </summary>
         public static void NotifyError(string message)
         {
+            Emitted?.Invoke(message, true);
             if (_instance == null) return;
             _instance.AddNotification(message, new Color(1f, 0.35f, 0.35f));
         }

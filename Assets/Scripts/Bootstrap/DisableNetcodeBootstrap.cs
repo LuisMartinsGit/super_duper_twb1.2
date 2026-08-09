@@ -38,10 +38,17 @@ namespace TheWaningBorder.Bootstrap
             var world = new Unity.Entities.World(defaultWorldName, WorldFlags.Game);
             Unity.Entities.World.DefaultGameObjectInjectionWorld = world;
 
+            // NOTE: GetAllSystemTypeIndices returns TypeManager's CACHED, persistent
+            // NativeList (TypeManager.GetSystemTypeIndices -> s_SystemFilterTypeMap),
+            // NOT a fresh copy the caller owns. TypeManager disposes it at shutdown.
+            // Unity's own DefaultWorldInitialization.Initialize passes it straight in
+            // and never disposes it. Disposing it here frees the cache entry, so the
+            // NEXT world initialisation (launching a second scenario/skirmish, or
+            // return-to-menu then start again) gets back a deallocated list and throws
+            // ObjectDisposedException in AddSystemsToRootLevelSystemGroups. Do NOT dispose.
             var systemIndices = DefaultWorldInitialization.GetAllSystemTypeIndices(
                 WorldSystemFilterFlags.Default);
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, systemIndices);
-            systemIndices.Dispose();
 
             ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);
             return true;

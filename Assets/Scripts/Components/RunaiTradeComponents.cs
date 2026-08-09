@@ -58,7 +58,7 @@ public struct TradeNodePatrolSpawner : IComponentData
 /// <summary>
 /// State for Runai traders using random-destination, distance-based resource generation.
 /// Replaces the old chain-based TraderState.
-/// Traders accumulate supplies (1 per 2 distance) and crystal (1 per 15 distance) while moving.
+/// Traders accumulate supplies (1 per 2 distance) and veilstone (1 per 15 distance) while moving.
 /// </summary>
 public struct RunaiTraderState : IComponentData
 {
@@ -68,8 +68,8 @@ public struct RunaiTraderState : IComponentData
     /// <summary>Fractional supply accumulator (deposit integer part on arrival).</summary>
     public float AccumulatedSupplies;
 
-    /// <summary>Fractional crystal accumulator (deposit integer part on arrival).</summary>
-    public float AccumulatedCrystal;
+    /// <summary>Fractional veilstone accumulator (deposit integer part on arrival).</summary>
+    public float AccumulatedVeilstone;
 
     /// <summary>Position at start of frame, used for distance calculation.</summary>
     public float3 PreviousPosition;

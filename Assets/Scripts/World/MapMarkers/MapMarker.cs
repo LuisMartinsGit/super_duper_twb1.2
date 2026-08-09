@@ -1,7 +1,7 @@
 // MapMarker.cs
 // Base class for design-time spawn markers placed in the Game scene.
-// Bootstraps (PlayerSpawnSystem, IronDepositBootstrap, CrystalPatchBootstrap,
-// CrystalNodeBootstrap) check MapMarkerRegistry on load — if any markers
+// Bootstraps (PlayerSpawnSystem, IronDepositBootstrap, VeilstoneOutcroppingBootstrap,
+// BorderNodeBootstrap) check MapMarkerRegistry on load — if any markers
 // of a given type exist they replace the procedural placement for that
 // category. Otherwise the procedural path runs unchanged.
 //
@@ -23,7 +23,7 @@ namespace TheWaningBorder.World.MapMarkers
         protected abstract Color GizmoColor { get; }
 
         /// <summary>Radius of the outer wire sphere — should hint at the
-        /// real spawn footprint (Hall ring, patch spread, curse radius).</summary>
+        /// real spawn footprint (Hall ring, patch spread, border radius).</summary>
         protected abstract float GizmoRadius { get; }
 
         /// <summary>Label drawn above the marker in the Scene view.</summary>

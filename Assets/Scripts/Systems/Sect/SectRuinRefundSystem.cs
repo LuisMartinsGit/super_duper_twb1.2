@@ -74,7 +74,7 @@ namespace TheWaningBorder.Systems.Sect
                 var refund = Cost.Of(
                     supplies:  (int)(cost.Supplies  * frac),
                     iron:      (int)(cost.Iron      * frac),
-                    crystal:   (int)(cost.Crystal   * frac),
+                    veilstone:   (int)(cost.Veilstone   * frac),
                     veilsteel: (int)(cost.Veilsteel * frac),
                     glow:      (int)(cost.Glow      * frac)
                 );

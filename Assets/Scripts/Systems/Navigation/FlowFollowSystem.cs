@@ -1,19 +1,31 @@
 // FlowFollowSystem.cs
-// task-112 M1+M3 -- writes FlowDesiredDir on every unit with a
-// DesiredDestination by sampling the per-tile flow cache slab keyed by
-// (currentTile, nextPortalId, profile). M1 used the now-deleted
-// NavFlowFieldM1 whole-map field; M3 replaced that with NavFlowCache
-// slabs populated by FlowSegmentSystem.
+// Writes FlowDesiredDir on every unit with a DesiredDestination.
 //
-// Runs after FlowSegmentSystem (so the slab the unit needs is in the
-// cache this tick) and before MovementSystem (so the surgical
-// [UpdateBefore] hook reads the dir we wrote this tick).
+// Pathfinding redesign (directive 2026-07-05): the per-leg slab sampling
+// (portal path + cursor + per-tile cache) and the reactive angle sweep are
+// GONE. A unit's direction now comes from exactly three sources, in order:
+//
+//   1. LOS-to-goal — straight bearing when the goal is directly visible
+//      over the cost grid (smooth, unquantized motion on open ground).
+//   2. The whole-map GOAL FLOW FIELD for (goalCell, faction), produced by
+//      GoalFlowFieldSystem. Correct by construction — it is a global
+//      integration from the goal, so concave obstacles ("U" shapes), long
+//      walls, and multi-gap routes are all handled with one array read.
+//      A NoDirection cell means the goal is PROVABLY unreachable from
+//      here: the unit holds position instead of grinding into the blocker.
+//   3. Direct-to-goal — only while the field is still integrating (the
+//      producer budgets integrations per tick, so this covers a tick or
+//      two after a fresh order).
+//
+// Formations need nothing special here: each unit's formation slot is its
+// own DesiredDestination, hence its own field key; slots sharing a cell
+// share a cached field. Player, AI, and Border commands all converge on
+// DesiredDestination upstream, so all three drive the same machinery.
 //
 // Determinism notes:
-//   * Per-unit job reads only the cache slab + the unit's own components.
-//   * Cache slab look-up uses NativeHashMap.TryGetValue -- O(1)
-//     deterministic.
-//   * No SystemAPI.Time reads.
+//   * Per-unit job reads only shared immutable-in-frame data + the unit's
+//     own components. Hash lookups are O(1) TryGetValue.
+//   * No SystemAPI.Time reads, no randomness.
 //
 // Location: Assets/Scripts/Systems/Navigation/FlowFollowSystem.cs
 
@@ -26,33 +38,26 @@ using Unity.Transforms;
 namespace TheWaningBorder.Systems.Navigation
 {
     /// <summary>
-    /// Per-tick sampler. Looks up the per-tile flow slab in
-    /// <see cref="NavFlowCache"/> for each unit holding a
-    /// <see cref="NavPathResult"/> + <see cref="NavPathPortal"/> buffer,
-    /// and writes the sampled direction into <see cref="FlowDesiredDir"/>.
-    /// Units without an active path get <c>HasValue = 0</c>.
-    ///
-    /// task-112 M4: UpdateBefore migrated from MovementSystem (deleted)
-    /// to UnitIntegratorSystem.
+    /// Per-tick sampler: LOS bearing, else whole-map goal-field direction,
+    /// else direct bearing while the field integrates. Writes
+    /// <see cref="FlowDesiredDir"/>; explicit unreachable = no direction
+    /// (unit holds).
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(FlowSegmentSystem))]
+    [UpdateAfter(typeof(GoalFlowFieldSystem))]
     [UpdateBefore(typeof(UnitIntegratorSystem))]
     public partial struct FlowFollowSystem : ISystem
     {
         private EntityQuery _needsComponentQuery;
         private EntityQuery _hasComponentQuery;
-        private ComponentLookup<NavPathResult> _resultLookup;
-        private BufferLookup<NavPathPortal> _portalBufferLookup;
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate<NavFlowCache>();
+            state.RequireForUpdate<GoalFlowFieldCache>();
             state.RequireForUpdate<NavGridSingleton>();
-            state.RequireForUpdate<PortalGraphSingleton>();
             state.RequireForUpdate<DirectionTableSingleton>();
             state.RequireForUpdate<NavCostField>();
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -66,8 +71,6 @@ namespace TheWaningBorder.Systems.Navigation
                 .WithAll<UnitTag, LocalTransform, FlowDesiredDir>()
                 .Build();
 
-            _resultLookup = state.GetComponentLookup<NavPathResult>(isReadOnly: true);
-            _portalBufferLookup = state.GetBufferLookup<NavPathPortal>(isReadOnly: true);
             _destLookup = state.GetComponentLookup<DesiredDestination>(isReadOnly: true);
             _factionLookup = state.GetComponentLookup<FactionTag>(isReadOnly: true);
         }
@@ -89,32 +92,24 @@ namespace TheWaningBorder.Systems.Navigation
             if (_hasComponentQuery.IsEmpty) return;
 
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
-            var cache = SystemAPI.GetSingleton<NavFlowCache>();
-            var graphSingleton = SystemAPI.GetSingleton<PortalGraphSingleton>();
-            if (graphSingleton.Built == 0) return;
+            var goalCache = SystemAPI.GetSingleton<GoalFlowFieldCache>();
             var table = SystemAPI.GetSingleton<DirectionTableSingleton>();
-
-            _resultLookup.Update(ref state);
-            _portalBufferLookup.Update(ref state);
-            _destLookup.Update(ref state);
-            _factionLookup.Update(ref state);
             var costField = SystemAPI.GetSingleton<NavCostField>();
 
-            var job = new SampleFlowFromCacheJob
+            _destLookup.Update(ref state);
+            _factionLookup.Update(ref state);
+
+            var job = new SampleGoalFlowJob
             {
-                SlotIndex = cache.SlotIndex,
-                Slots = cache.Slots,
-                DirPool = cache.DirPool,
-                TileArea = cache.TileArea,
-                TileSize = PortalGraphSingleton.TileSize,
-                TilesX = graphSingleton.Graph.Value.TilesX,
+                GoalSlotIndex = goalCache.SlotIndex,
+                GoalSlots = goalCache.Slots,
+                GoalDirPool = goalCache.DirPool,
                 GridWidth = grid.Width,
                 GridHeight = grid.Height,
                 GridOrigin = grid.Origin,
                 CellSize = grid.CellSize,
+                Quant = GoalFlowQuant.CellsPerBucket(grid.CellSize),
                 Table = table.Table,
-                ResultLookup = _resultLookup,
-                PortalBufferLookup = _portalBufferLookup,
                 DestLookup = _destLookup,
                 FactionLookup = _factionLookup,
                 Cost = costField.Cost,
@@ -125,26 +120,22 @@ namespace TheWaningBorder.Systems.Navigation
     }
 
     /// <summary>
-    /// Per-unit Burst job: convert unit position -> (tileIndex, tile-local
-    /// cell), look up the cache slab keyed by (tileIndex, nextPortalId, 0),
-    /// read the dir byte, expand via the direction-table blob.
+    /// Per-unit Burst job: LOS bearing, else goal-field direction byte
+    /// expanded via the direction-table blob, else direct bearing while
+    /// the field is pending. NoDirection in a valid field = hold position.
     /// </summary>
     [BurstCompile]
-    internal partial struct SampleFlowFromCacheJob : IJobEntity
+    internal partial struct SampleGoalFlowJob : IJobEntity
     {
-        [ReadOnly] public NativeHashMap<NavFlowCacheKey, int> SlotIndex;
-        [ReadOnly] public NativeArray<NavFlowCacheSlot> Slots;
-        [ReadOnly] public NativeArray<byte> DirPool;
-        public int TileArea;
-        public int TileSize;
-        public int TilesX;
+        [ReadOnly] public NativeHashMap<GoalFlowKey, int> GoalSlotIndex;
+        [ReadOnly] public NativeArray<GoalFlowSlot> GoalSlots;
+        [ReadOnly] public NativeArray<byte> GoalDirPool;
         public int GridWidth;
         public int GridHeight;
         public float3 GridOrigin;
         public float CellSize;
+        public int Quant;   // goal-bucket size in cells (GoalFlowQuant)
         [ReadOnly] public BlobAssetReference<DirectionTableBlob> Table;
-        [ReadOnly] public ComponentLookup<NavPathResult> ResultLookup;
-        [ReadOnly] public BufferLookup<NavPathPortal> PortalBufferLookup;
         [ReadOnly] public ComponentLookup<DesiredDestination> DestLookup;
         [ReadOnly] public ComponentLookup<FactionTag> FactionLookup;
         [ReadOnly] public NativeArray<byte> Cost;
@@ -167,19 +158,20 @@ namespace TheWaningBorder.Systems.Navigation
             float distSq = toGoal.x * toGoal.x + toGoal.z * toGoal.z;
             if (distSq <= 1e-6f) return;
 
-            // Unit's own faction -- used by LOS / angle-sweep to decide
-            // whether conditional gate cells (Cost == 254) are passable
-            // for this unit. Defaults to sentinel 0xFF when the unit
-            // carries no FactionTag (which is fine because no gate cell
-            // encodes 0xFF as its owner).
-            byte selfFactionIdx = FactionLookup.HasComponent(self)
-                ? (byte)FactionLookup[self].Value
-                : (byte)0xFF;
+            // Unit's own faction -- used by LOS to decide whether
+            // conditional gate cells (Cost == 254) are passable for this
+            // unit, and as half of the goal-field cache key. Sentinel 0xFF
+            // when the unit carries no FactionTag (no gate encodes 0xFF).
+            byte selfFactionIdx = 0xFF;
+            if (FactionLookup.HasComponent(self))
+            {
+                int f = (int)FactionLookup[self].Value;
+                if (f >= 0 && f <= 7) selfFactionIdx = (byte)f;
+            }
 
-            // ── Source 1: LOS-to-goal (S5 spec: LOS pass for smooth
-            // gradients). If we can see the goal directly, use a true
-            // bearing instead of consulting portal-relative cached flow.
-            // This handles the entire flat-ground case (Phase 1 / 2 / 3).
+            // ── Source 1: LOS-to-goal. If we can see the goal directly,
+            // use a true bearing instead of the quantized field — smooth
+            // motion on open ground, exact arrival lines.
             if (HasLineOfSight(xf.Position, desired.Position, selfFactionIdx))
             {
                 float inv = math.rsqrt(distSq);
@@ -188,149 +180,88 @@ namespace TheWaningBorder.Systems.Navigation
                 return;
             }
 
-            // ── Source 1b: angle-sweep around the goal bearing. LOS to
-            // goal is blocked (a wall or building sits between unit and
-            // destination), but the unit doesn't need to walk all the
-            // way to the wall before re-routing. Try bearings offset
-            // by +/-15, +/-30, ... +/-75 degrees from the direct goal
-            // bearing and pick the smallest-angle offset whose 10-cell
-            // probe is clear. Unit immediately starts curving around the
-            // obstacle as soon as it can see the wall.
+            // ── Source 2: whole-map goal flow field. One array read gives
+            // the globally-correct direction around any blocker shape.
             //
-            // Determinism: integer-stepped Bresenham per probe; angle
-            // table is a const; iteration order is fixed.
+            // Variant cascade (bridges): the GROUND variant treats bridge
+            // deck-only cells as impassable — pure ground routing, so units
+            // beside a cliff go AROUND it instead of being funneled through
+            // a bridge they can't physically enter at ground level. Only
+            // when the ground variant cannot reach the unit's cell (sealed
+            // ring — the bridge IS the route — or the unit stands on the
+            // deck itself) does the BRIDGE variant take over. Goals placed
+            // on a deck skip the ground variant entirely.
+            int gx = (int)math.floor((desired.Position.x - GridOrigin.x) / CellSize);
+            int gz = (int)math.floor((desired.Position.z - GridOrigin.z) / CellSize);
+            gx = math.clamp(gx, 0, GridWidth - 1);
+            gz = math.clamp(gz, 0, GridHeight - 1);
+
+            int ucx = (int)math.floor((xf.Position.x - GridOrigin.x) / CellSize);
+            int ucz = (int)math.floor((xf.Position.z - GridOrigin.z) / CellSize);
+            bool unitCellValid = ucx >= 0 && ucx < GridWidth && ucz >= 0 && ucz < GridHeight;
+
+            bool goalOnDeck = Cost[gz * GridWidth + gx] == NavCostField.CostBridgeDeckOnly;
+            bool anyFieldSeen = false;
+
+            for (byte variant = 0; variant <= 1 && unitCellValid; variant++)
             {
-                float invGoal = math.rsqrt(distSq);
-                float gx = toGoal.x * invGoal;
-                float gz = toGoal.z * invGoal;
+                if (variant == GoalFlowKey.VariantGround && goalOnDeck) continue;
 
-                // Probe angles in pairs (right then left at each magnitude)
-                // so right-side detours win ties -- consistent with the
-                // SteeringSystem obstacle-avoidance right-side preference.
-                //
-                // Probe distance: as far as the actual goal, up to a 60-
-                // cell cap (~60 m). The previous 10-cell probe was too
-                // short for the real game -- units only "saw" a building
-                // when they were within 10 cells of it, by which time
-                // the path was already committed and the unit drifted
-                // into the obstacle. With probe-to-goal, a building 50
-                // cells away on the direct line gets DETECTED by the
-                // 15-degree probes too (the ray still passes through
-                // it), forcing a wider detour angle.
-                float goalDist = math.sqrt(distSq);
-                float maxProbeDist = math.min(60f * CellSize, goalDist);
-                int ProbeDistanceCells = math.max(10, (int)(maxProbeDist / CellSize));
-                // Cosine / sine for 15/30/45/60/75 degrees.
-                // 15° = (0.96593, 0.25882)
-                // 30° = (0.86603, 0.50000)
-                // 45° = (0.70711, 0.70711)
-                // 60° = (0.50000, 0.86603)
-                // 75° = (0.25882, 0.96593)
-                for (int i = 0; i < 10; i++)
+                // Quantized bucket key — MUST match GoalFlowFieldSystem's
+                // producer-side key math exactly.
+                var key = new GoalFlowKey
                 {
-                    float cos, sin;
-                    switch (i)
-                    {
-                        case 0: cos = 0.96593f; sin = -0.25882f; break;  //  15 right
-                        case 1: cos = 0.96593f; sin =  0.25882f; break;  //  15 left
-                        case 2: cos = 0.86603f; sin = -0.50000f; break;  //  30 right
-                        case 3: cos = 0.86603f; sin =  0.50000f; break;  //  30 left
-                        case 4: cos = 0.70711f; sin = -0.70711f; break;  //  45 right
-                        case 5: cos = 0.70711f; sin =  0.70711f; break;  //  45 left
-                        case 6: cos = 0.50000f; sin = -0.86603f; break;  //  60 right
-                        case 7: cos = 0.50000f; sin =  0.86603f; break;  //  60 left
-                        case 8: cos = 0.25882f; sin = -0.96593f; break;  //  75 right
-                        default: cos = 0.25882f; sin = 0.96593f; break;  //  75 left
-                    }
-                    // 2D rotation of (gx, gz) by angle. For "right" (sin<0):
-                    //   new = (gx*cos + gz*sin, -gx*sin + gz*cos)
-                    float bx = gx * cos + gz * sin;
-                    float bz = -gx * sin + gz * cos;
+                    GoalCell = new int2(gx / Quant, gz / Quant),
+                    FactionIdx = selfFactionIdx,
+                    Variant = variant,
+                };
 
-                    float3 probeTarget = new float3(
-                        xf.Position.x + bx * (CellSize * ProbeDistanceCells),
-                        xf.Position.y,
-                        xf.Position.z + bz * (CellSize * ProbeDistanceCells));
+                if (!GoalSlotIndex.TryGetValue(key, out int slot)) continue;
+                var meta = GoalSlots[slot];
+                // Only a fully integrated slot (Valid == 1) may be sampled.
+                // Valid == 2 is a mid-batch claim (content not written yet) —
+                // treat like a pending field and fall through to the direct
+                // bearing this tick.
+                if (meta.Valid != 1) continue;
+                anyFieldSeen = true;
 
-                    if (HasLineOfSight(xf.Position, probeTarget, selfFactionIdx))
-                    {
-                        dst.Value = new float3(bx, 0f, bz);
-                        dst.HasValue = 1;
-                        return;
-                    }
+                byte d = GoalDirPool[meta.DirOffset + ucz * GridWidth + ucx];
+                if (d != NavFlowConstants.NoDirection)
+                {
+                    ref var dirs = ref Table.Value.Dirs;
+                    float2 v = dirs[d];
+                    dst.Value = new float3(v.x, 0f, v.y);
+                    dst.HasValue = 1;
+                    return;
                 }
-                // All angle probes blocked -- fall through to the per-tile
-                // cache, then to the unconditional direct-to-goal fallback.
+                // NoDirection: unreachable in THIS variant (or standing at
+                // the goal) — try the next variant.
             }
 
-            // ── Source 2: per-tile cached flow slab from FlowSegmentSystem.
-            // Only consulted if we have a successful path and an
-            // unconsumed portal in the buffer; otherwise skip straight
-            // to the direct-to-goal fallback below.
-            if (ResultLookup.HasComponent(self))
+            if (anyFieldSeen)
             {
-                var result = ResultLookup[self];
-                if (result.Status == NavPathRequest.StatusSuccess
-                    && PortalBufferLookup.HasBuffer(self))
-                {
-                    var buf = PortalBufferLookup[self];
-                    int nextIdx = result.CurrentPortalIndex + 1;
-                    if (nextIdx < buf.Length)
-                    {
-                        int nextPortalId = buf[nextIdx].PortalId;
-
-                        float dx = xf.Position.x - GridOrigin.x;
-                        float dz = xf.Position.z - GridOrigin.z;
-                        int cx = (int)math.floor(dx / CellSize);
-                        int cz = (int)math.floor(dz / CellSize);
-                        if (cx >= 0 && cx < GridWidth && cz >= 0 && cz < GridHeight)
-                        {
-                            int tileX = cx / TileSize;
-                            int tileZ = cz / TileSize;
-                            int tileIndex = tileZ * TilesX + tileX;
-
-                            var key = new NavFlowCacheKey
-                            {
-                                TileIndex = tileIndex,
-                                ExitPortalId = nextPortalId,
-                                ProfileHash = 0,
-                            };
-
-                            if (SlotIndex.TryGetValue(key, out int slot))
-                            {
-                                var slotMeta = Slots[slot];
-                                if (slotMeta.Valid != 0)
-                                {
-                                    int localX = cx - tileX * TileSize;
-                                    int localZ = cz - tileZ * TileSize;
-                                    int localIdx = localZ * TileSize + localX;
-                                    byte d = DirPool[slotMeta.DirOffset + localIdx];
-                                    if (d != NavFlowConstants.NoDirection)
-                                    {
-                                        ref var dirs = ref Table.Value.Dirs;
-                                        float2 v = dirs[d];
-                                        dst.Value = new float3(v.x, 0f, v.y);
-                                        dst.HasValue = 1;
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                // Every available variant gave an explicit NoDirection. That
+                // legitimately means "at the goal / provably unreachable" —
+                // but ONLY when the unit stands on ground the field could
+                // integrate. A unit whose own cell was stamped impassable
+                // out from under it (a building footprint landing on the
+                // spawn point, fresh crust) reads NoDirection in EVERY field
+                // and would hold forever (the 2-minute frozen-worker in the
+                // trace). Walk it out on the direct bearing instead — one or
+                // two steps put it back on integrated ground.
+                int hereIdx = ucz * GridWidth + ucx;
+                byte cHere = Cost[hereIdx];
+                bool hereOpen = cHere != NavCostField.CostImpassable
+                    && (cHere != NavCostField.CostConditional
+                        || (byte)(Flags[hereIdx] & NavCostField.FlagOwnerMask) == selfFactionIdx);
+                if (hereOpen) return; // genuine hold (at goal / unreachable)
             }
 
-            // ── Source 3: direct-to-goal fallback (unconditional). Fires
-            // whenever LOS is blocked AND the cache can't help -- including
-            // the first few ticks after a click while the M6 scheduler is
-            // still releasing the NavPathRequest for this unit. Without
-            // this fallback, front-of-formation units that hadn't yet been
-            // assigned a NavPathResult would stop and wait for the back
-            // of the formation to catch up (separation push), producing
-            // the "front units wait for back units" stutter the M4 user
-            // reported. Pointing directly at the goal maintains forward
-            // motion; the steering layer's obstacle-avoidance handles
-            // wall-collision sidestep.
+            // ── Source 3: direct-to-goal while the field is pending. The
+            // producer integrates a budgeted number of fields per tick, so
+            // this window is a tick or two after a fresh order — keeping
+            // formation fronts moving instead of stuttering while the back
+            // of the group waits.
             {
                 float invLen = math.rsqrt(distSq);
                 dst.Value = toGoal * invLen;
@@ -346,10 +277,6 @@ namespace TheWaningBorder.Systems.Navigation
         //     unit's faction matches the gate owner encoded in the low
         //     3 bits of the cell's Flags byte
         //   * Cost <  254 -> walkable
-        //
-        // selfFactionIdx is the unit's own faction enum index (Blue=0..
-        // White=7), or 0xFF for "no faction" (always treats conditionals
-        // as blocked).
         //
         // Integer math throughout -- deterministic across machines.
         private bool HasLineOfSight(float3 from, float3 to, byte selfFactionIdx)
@@ -382,6 +309,11 @@ namespace TheWaningBorder.Systems.Navigation
                     if (ownerIdx != selfFactionIdx) return false;
                     // Else: owner match -- fall through, cell is walkable.
                 }
+                // Bridge deck-only cells break the straight-line shortcut:
+                // whether they're actually crossable depends on the unit's
+                // surface (deck vs ground), which LOS can't know — let the
+                // flow field (which prices them) decide the route instead.
+                if (c == NavCostField.CostBridgeDeckOnly) return false;
                 if (x == x1 && z == z1) return true;
                 int e2 = err * 2;
                 if (e2 > -dz) { err -= dz; x += sx; }

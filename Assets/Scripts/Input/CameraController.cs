@@ -161,18 +161,23 @@ namespace TheWaningBorder.Input
         }
 
         // Locked-down camera controls — design decision: the RTS camera
-        // stays at a fixed angle / fixed zoom / fixed tilt, only its
-        // position pans. Scroll-wheel zoom, Q/E rotation, R/F tilt and
-        // WASD pan are all intentionally disabled.
+        // stays at a fixed angle / fixed tilt, only its position pans.
+        // Q/E rotation, R/F tilt and WASD pan are intentionally disabled.
         //  • A used to mean "pan left" AND "attack-move". With WASD
         //    disabled, A is now unambiguously attack-move (RTSInputManager).
-        //  • Default Y rotation comes from GameCamera (45° if UseWebHud).
+        //  • Default Y rotation comes from GameCamera.
+        //  • Scroll-wheel ZOOM re-enabled by design request (2026-08-03) —
+        //    but the wheel belongs to building rotation while placement is
+        //    active, so zoom pauses then (BuilderCommandPanel owns it).
         // Player still pans via arrow keys / edge-scroll / middle-mouse-drag.
         void Update()
         {
             HandleArrowKeyMovement();
             HandleEdgeScrolling();
             HandleMousePan();
+
+            if (!TheWaningBorder.UI.Panels.BuilderCommandPanel.IsPlacingBuilding)
+                HandleZoom();
 
             ApplySmoothMovement();
         }

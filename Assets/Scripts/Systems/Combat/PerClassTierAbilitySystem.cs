@@ -1,11 +1,11 @@
 // PerClassTierAbilitySystem.cs
 // Per-class equipment-tier abilities (spec §4.3-§4.4). Layers on top of the
-// universal Crystal+ shield bar (ShieldBarSystem) by reading the unit's
+// universal Veilstone+ shield bar (ShieldBarSystem) by reading the unit's
 // UnitClass + effective tier and stamping class-specific components:
 //
-//   Siege  + Crystal/Veilsteel/Glow  →  SiegeShieldAura (passive aura, see below)
-//   Magic  + Crystal/Veilsteel/Glow  →  HeroPhaseShield (per-hit damage absorb)
-//   Support + Crystal/Veilsteel/Glow →  HeroPhaseShield  (treated as hero archetype)
+//   Siege  + Veilstone/Veilsteel/Glow  →  SiegeShieldAura (passive aura, see below)
+//   Magic  + Veilstone/Veilsteel/Glow  →  HeroPhaseShield (per-hit damage absorb)
+//   Support + Veilstone/Veilsteel/Glow →  HeroPhaseShield  (treated as hero archetype)
 //
 // Aura resolution: SiegeShieldAura entities scan for friendly units in
 // radius and stamp AuraShieldBoost on them. ShieldBarSystem reads the
@@ -53,18 +53,18 @@ namespace TheWaningBorder.Systems.Combat
             {
                 var tier = applied.ValueRO.Value;
                 var cls = unitTag.ValueRO.Class;
-                bool atLeastCrystal = (int)tier >= (int)EquipmentTier.Crystal;
+                bool atLeastVeilstone = (int)tier >= (int)EquipmentTier.Veilstone;
 
-                // Siege Crystal+ aura
+                // Siege Veilstone+ aura
                 if (cls == UnitClass.Siege)
                 {
-                    if (atLeastCrystal)
+                    if (atLeastVeilstone)
                     {
                         int bonus = tier switch
                         {
                             EquipmentTier.Veilsteel => EquipmentTierConfig.SiegeShieldAuraVeilsteelBonus,
                             EquipmentTier.Glow      => EquipmentTierConfig.SiegeShieldAuraGlowBonus,
-                            _                       => EquipmentTierConfig.SiegeShieldAuraCrystalBonus,
+                            _                       => EquipmentTierConfig.SiegeShieldAuraVeilstoneBonus,
                         };
                         var aura = new SiegeShieldAura
                         {
@@ -82,16 +82,16 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
-                // Hero (Magic/Support) Crystal+ phase shield
+                // Hero (Magic/Support) Veilstone+ phase shield
                 if (cls == UnitClass.Magic || cls == UnitClass.Support)
                 {
-                    if (atLeastCrystal)
+                    if (atLeastVeilstone)
                     {
                         float reduction = tier switch
                         {
                             EquipmentTier.Veilsteel => EquipmentTierConfig.HeroPhaseShieldReductionVeilsteel,
                             EquipmentTier.Glow      => EquipmentTierConfig.HeroPhaseShieldReductionGlow,
-                            _                       => EquipmentTierConfig.HeroPhaseShieldReductionCrystal,
+                            _                       => EquipmentTierConfig.HeroPhaseShieldReductionVeilstone,
                         };
 
                         if (em.HasComponent<HeroPhaseShield>(entity))

@@ -240,8 +240,14 @@ namespace TheWaningBorder.Bootstrap
 
             LoadingScreen.SetStatus("Warming up dissolve effect…");
 
-            var dissolveShader = Shader.Find("TheWaningBorder/BuildingLitDissolve");
-            var bandShader     = Shader.Find("TheWaningBorder/BuildingWaveBand");
+            // Loaded from Assets/Shaders/Resources/ — nothing else references
+            // these, so Shader.Find alone returned null in a player build and
+            // the prewarm silently did nothing (first building then hitched
+            // while the shader compiled). Shader.Find is the rename fallback.
+            var dissolveShader = Resources.Load<Shader>("BuildingLitDissolve")
+                                 ?? Shader.Find("TheWaningBorder/BuildingLitDissolve");
+            var bandShader     = Resources.Load<Shader>("BuildingWaveBand")
+                                 ?? Shader.Find("TheWaningBorder/BuildingWaveBand");
 
             // Track every Material instance we allocate so we can destroy
             // them after rendering — Unity won't GC stray Material assets.

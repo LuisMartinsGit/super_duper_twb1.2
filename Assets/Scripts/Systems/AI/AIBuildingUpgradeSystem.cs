@@ -29,17 +29,37 @@ namespace TheWaningBorder.AI
         // every 6 s is plenty of cadence and keeps query churn low.
         private const float ThinkInterval = 6f;
 
+        /// <summary>ARMY-FIRST gate (2026-08-04, log-proven: six hut
+        /// level-ups drained iron to ~20 exactly while the army needed
+        /// rebuilding after a wipe — unit production starved while
+        /// cosmetics were bought). Building upgrades only proceed when this
+        /// much iron remains banked for the military line.</summary>
+        private const int UpgradeIronReserve = 250;
+
         // Reserve buffer the AI keeps untouched before queueing an upgrade —
         // upgrades are expensive and we don't want them to starve military /
         // research lines.
         private const int ReserveSupplies = 200;
         private const int ReserveIron     = 50;
-        private const int ReserveCrystal  = 20;
+        private const int ReserveVeilstone  = 20;
 
-        // Priority order — cheapest, highest-impact first. Hall gives the
-        // largest combat + train benefits per click; Barracks gains an
-        // attack at L3; Huts are pop scaling.
-        private static readonly string[] PriorityOrder = { "Hall", "Barracks", "Hut" };
+        // Priority order — cheapest, highest-impact first.
+        //
+        // GATHERERSHUT IS FIRST, and it was missing entirely until
+        // 2026-08-07: across every logged match the AI upgraded Hall,
+        // Barracks and Hut and NEVER ONCE upgraded a Gatherer's Hut. That is
+        // the most valuable upgrade in the game for Alanthor and it was
+        // simply not on the list:
+        //   * the guild-level ladder adds +5 / +10 / +20 supplies per tick,
+        //   * the Survey techs' iron / veilstone / VEILSTEEL drips all scale
+        //     with it — and the veilsteel drip requires a FULLY upgraded hut,
+        //     so an un-upgraded economy can never produce veilsteel at all,
+        //   * levelling gives the hut the HP to survive a raid long enough
+        //     for reinforcements to arrive.
+        // Researching the Survey ladder while leaving huts at L1 buys the
+        // techs and throws away most of what they pay for.
+        private static readonly string[] PriorityOrder =
+            { "GatherersHut", "Hall", "Barracks", "Hut" };
 
         public void OnCreate(ref SystemState state)
         {
@@ -94,7 +114,7 @@ namespace TheWaningBorder.AI
                 if (!FactionEconomy.TryGetResources(em, faction, out var res)) continue;
                 if (res.Supplies < ReserveSupplies) continue;
                 if (res.Iron     < ReserveIron)     continue;
-                if (res.Crystal  < ReserveCrystal)  continue;
+                if (res.Veilstone  < ReserveVeilstone)  continue;
 
                 // Walk the priority order; first eligible building gets the upgrade.
                 TryUpgradeOne(em, faction);
@@ -157,6 +177,15 @@ namespace TheWaningBorder.AI
                         ComponentType.ReadOnly<BuildingUpgradeable>(),
                         ComponentType.ReadOnly<FactionTag>());
                     break;
+                case "GatherersHut":
+                    // Feraldis huts are Raider Camps — they gather nothing,
+                    // so levelling them buys none of the drips this exists
+                    // for. Excluded so the pass moves on to something useful.
+                    query = new EntityQueryBuilder(Allocator.Temp)
+                        .WithAll<GathererHutTag, BuildingUpgradeable, FactionTag>()
+                        .WithNone<RaiderCampTag>()
+                        .Build(em);
+                    break;
                 default:
                     return false;
             }
@@ -179,7 +208,13 @@ namespace TheWaningBorder.AI
             }
             if (best == Entity.Null) return false;
 
-            var result = UpgradeBuildingCommandHelper.Execute(em, best);
+            // Army first: never spend the military line's iron on levels.
+            if (FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
+                && em.GetComponentData<FactionResources>(upgradeBank).Iron < UpgradeIronReserve)
+                return false;
+
+            var result = UpgradeBuildingCommandHelper.Execute(em, best,
+                TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
             {
                 AILogger.Log(faction, "BUILDING",

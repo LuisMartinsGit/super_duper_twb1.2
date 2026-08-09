@@ -15,6 +15,7 @@ using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.UI.Menus;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
@@ -31,6 +32,14 @@ namespace TheWaningBorder.Bootstrap
         private const float ArmySpacing = 12f;   // space between battalions in a row
         private const float RowSpacing = 10f;     // space between rows
         private const float ArmySeparation = 60f; // distance between the two armies
+
+        /// <summary>
+        /// Camera focus target for the active scenario. Defaults to world
+        /// origin; scenarios that build their layout away from origin (e.g.
+        /// anchored to a player start) override it so the post-spawn FocusOn
+        /// frames their content instead of empty terrain.
+        /// </summary>
+        private static float3 _scenarioFocus = float3.zero;
 
         /// <summary>
         /// Set scenario-specific GameSettings BEFORE the main world init runs
@@ -55,6 +64,9 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         public static void SpawnScenarioEntities()
         {
+            // Default camera target; a spawner may override (see _scenarioFocus).
+            _scenarioFocus = float3.zero;
+
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
@@ -92,14 +104,14 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.BuildingShowcase:
                     SpawnBuildingShowcase(em);
                     break;
-                case ScenarioType.CurseCombatTest:
-                    SpawnCurseCombatTest(em);
+                case ScenarioType.BorderCombatTest:
+                    SpawnBorderCombatTest(em);
                     break;
                 case ScenarioType.PatrolDefense:
                     SpawnPatrolDefense(em);
                     break;
-                case ScenarioType.AlanthorVsCrystal:
-                    SpawnAlanthorVsCrystal(em);
+                case ScenarioType.AlanthorVsBorder:
+                    SpawnAlanthorVsBorder(em);
                     break;
                 case ScenarioType.Phase1Test:
                     Phase1TestSetup.SpawnScenarioEntities(em);
@@ -122,9 +134,45 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.WallClimbTest:
                     WallClimbTestSetup.SpawnScenarioEntities(em);
                     break;
+                case ScenarioType.LongbowmanShowcase:
+                    SpawnLongbowmanShowcase(em);
+                    break;
+                case ScenarioType.LongbowmanBattle:
+                    SpawnLongbowmanBattle(em);
+                    break;
+                case ScenarioType.BuildingDamageTest:
+                    SpawnBuildingDamageTest(em);
+                    break;
+                case ScenarioType.BuildingDamageShowcase:
+                    SpawnBuildingDamageShowcase(em);
+                    break;
+                case ScenarioType.GuildDefenseTest:
+                    SpawnGuildDefenseTest(em);
+                    break;
+                case ScenarioType.SpellShowcase:
+                    SpawnSpellShowcase(em);
+                    break;
+                case ScenarioType.HutEvolution:
+                    SpawnHutEvolution(em);
+                    break;
             }
 
-            GameCamera.FocusOn(Vector3.zero, instant: true);
+            // Re-center the entire scenario onto player 1's designed start.
+            // Scenarios author their layout around world origin; on hand-authored
+            // maps that origin can be unplayable (e.g. underwater), so shift
+            // everything the scenario produced — entity transforms, their pre-set
+            // move/guard targets, and the runtime spawners — onto the player-1
+            // start, then point the camera there.
+            float3 origin = GetPlayer1StartPosition();
+            if (math.lengthsq(new float2(origin.x, origin.z)) > 0.01f)
+            {
+                RecenterScenario(em, origin.x, origin.z);
+                _scenarioFocus = origin;
+            }
+
+            GameCamera.FocusOn(
+                new Vector3(_scenarioFocus.x, _scenarioFocus.y, _scenarioFocus.z),
+                instant: true);
             LoadingScreen.NotifyReady();
         }
 
@@ -151,6 +199,10 @@ namespace TheWaningBorder.Bootstrap
             string unitId = "Swordsman";
             SpawnArmyGrid(em, unitId, unitId, Faction.Blue, 3, 2, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyGrid(em, unitId, unitId, Faction.Red, 3, 2, new float3(0, 0, ArmySeparation * 0.5f));
+
+            // Longbowman support line behind each melee block.
+            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
+            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -161,6 +213,10 @@ namespace TheWaningBorder.Bootstrap
             string unitId = "Archer";
             SpawnArmyGrid(em, unitId, unitId, Faction.Blue, 3, 2, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyGrid(em, unitId, unitId, Faction.Red, 3, 2, new float3(0, 0, ArmySeparation * 0.5f));
+
+            // Longbowman line behind each archer block (longer range than Archer).
+            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
+            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -171,10 +227,12 @@ namespace TheWaningBorder.Bootstrap
             // Blue army: front row melee, back row ranged
             SpawnArmyRow(em, "Swordsman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyRow(em, "Archer", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing));
+            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
 
-            // Red army: front row melee, back row ranged
+            // Red army: front row melee, mid row archers, back row longbowmen
             SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f));
             SpawnArmyRow(em, "Archer", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing));
+            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -205,6 +263,168 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
+        /// Guild defense test: a fully-upgraded Alanthor "Guild" (Gatherer's Hut
+        /// at L3 with the whole Survey + reinforcement research line) at the
+        /// centre, pre-damaged, swarmed by a Red group ordered to attack-move
+        /// onto it. Once the swarm chews the Guild below 50% HP it fires its
+        /// Veilsteel-Pylons Stop burst (the fully-upgraded tier) on everyone
+        /// inside its gather radius, then goes on a 90 s cooldown while
+        /// auto-repair (Iron reinforcements) ticks between hits. Lets the
+        /// Slow/Stop cast trigger + VFX be reviewed live.
+        /// </summary>
+        /// <summary>
+        /// Hut Evolution showcase (win conditions are already off for every
+        /// scenario — VictoryConditionSystem skips GameMode.Scenario):
+        /// a Gatherer's Hut self-constructs with NO workers over 10 s
+        /// (numbered Lv0 rise), then every 5 s the driver plays the next
+        /// step of the full Guild evolution — level dissolves AND each tech
+        /// visual (Iron Reinforcements, survey tiers, Veilstone Walls,
+        /// Veilsteel Surveying) — while the camera orbits the building at
+        /// half the RTS distance. See HutEvolutionDriver for the step list.
+        /// The faction culture is deliberately left None so the finished hut
+        /// stays on Lv0 until the driver plays each transition (and so no
+        /// culture-reactive systems fire); the driver switches the visual
+        /// variants directly.
+        /// </summary>
+        private static void SpawnHutEvolution(EntityManager em)
+        {
+            var faction = Faction.Blue;
+
+            float3 hutPos = new float3(0f, 0f, 0f);
+            hutPos.y = TerrainUtility.GetHeight(hutPos.x, hutPos.z);
+            Entity hut = TheWaningBorder.Entities.GatherersHut.Create(em, hutPos, faction);
+            if (hut == Entity.Null) return;
+
+            // Worker-less construction: the auto-construct tag makes
+            // BuildingConstructionSystem/AutoConstructionSystem advance the
+            // site at 1.0 progress/s with zero builders.
+            var uc = new UnderConstruction { Progress = 0f, Total = 10f };
+            if (em.HasComponent<UnderConstruction>(hut)) em.SetComponentData(hut, uc);
+            else em.AddComponentData(hut, uc);
+            if (!em.HasComponent<AutoConstructTag>(hut))
+                em.AddComponent<AutoConstructTag>(hut);
+            if (em.HasComponent<Health>(hut))
+            {
+                var hp = em.GetComponentData<Health>(hut);
+                em.SetComponentData(hut, new Health { Value = 1, Max = hp.Max });
+            }
+
+            var driverGo = new GameObject("HutEvolutionDriver");
+            var driver = driverGo.AddComponent<TheWaningBorder.Presentation.HutEvolutionDriver>();
+            driver.Configure(hut, Cultures.Alanthor, upgradeInterval: 5f);
+
+            _scenarioFocus = hutPos;
+        }
+
+        private static void SpawnGuildDefenseTest(EntityManager em)
+        {
+            var faction = Faction.Blue;
+
+            // Mark Blue as having researched the whole Guild line so the hut's
+            // income + reinforcement systems are fully active (read live from
+            // FactionResearchState). Deliberately NOT setting the faction
+            // culture — that would trip the Alanthor hut age-up / self-destruct
+            // path; the Guild powers only need the research flags + level.
+            var research = TheWaningBorder.Economy.FactionResearchState.Instance;
+            if (research != null)
+            {
+                // Walls (Slow ward) but NOT Pylons — so this scenario fires the
+                // SLOW cast (AuraCircling power-up + AuraSimple aura + per-enemy
+                // AuraSlowdown). Add "VeilsteelPylons" back to test the Stop ward.
+                string[] guildTechs =
+                {
+                    "IronSurveying1", "IronSurveying2", "IronSurveying3",
+                    "VeilstoneSurvey1", "VeilstoneSurvey2", "VeilsteelSurvey",
+                    "IronReinforcements", "VeilstoneWalls",
+                };
+                foreach (var tech in guildTechs)
+                    research.CompleteResearch(faction, tech);
+            }
+
+            // The Guild itself, fully built at the origin.
+            float3 hutPos = new float3(0f, 0f, 0f);
+            hutPos.y = TerrainUtility.GetHeight(hutPos.x, hutPos.z);
+            Entity guild = TheWaningBorder.Entities.GatherersHut.Create(em, hutPos, faction);
+
+            if (guild != Entity.Null)
+            {
+                // Fully upgrade to Guild L3 via the same path the in-game
+                // upgrade uses (capture base stats, then apply each level).
+                if (!em.HasComponent<BuildingUpgradeState>(guild))
+                {
+                    int baseHp = em.HasComponent<Health>(guild)
+                        ? em.GetComponentData<Health>(guild).Max : 0;
+                    em.AddComponentData(guild, new BuildingUpgradeState
+                    {
+                        Level = 0,
+                        BaseHpMax = baseHp,
+                        BaseAttackCooldown = 0f,
+                        BasePopulationProvider = 0,
+                    });
+                }
+                for (byte lvl = 1; lvl <= 3; lvl++)
+                    TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem.ApplyLevel(em, guild, lvl);
+
+                // Start it damaged so the swarm pushes it under 50% quickly and
+                // the Stop burst fires early in the fight.
+                if (em.HasComponent<Health>(guild))
+                {
+                    var hp = em.GetComponentData<Health>(guild);
+                    hp.Value = (int)(hp.Max * 0.6f);
+                    em.SetComponentData(guild, hp);
+                }
+            }
+
+            // Seven SINGLE Red units (4 Swordsman + 3 Longbowman) — spawned via
+            // UnitFactory.Create, not SpawnArmyRow/SpawnBattalion, so each is one
+            // individual unit rather than a full battalion. Fanned across an arc
+            // just outside the gather radius (19.5) and each ordered to
+            // attack-move onto the Guild. Kept small so it wears the Guild below
+            // 50% HP gradually — a bigger force deletes it inside a single 0.5 s
+            // tick before the defensive cast can fire.
+            const float ring = 24f;
+            string[] attackers = { "Swordsman", "Swordsman", "Swordsman", "Swordsman", "Longbowman", "Longbowman", "Longbowman" };
+            for (int i = 0; i < attackers.Length; i++)
+            {
+                float t = attackers.Length > 1 ? (float)i / (attackers.Length - 1) : 0.5f;
+                float ang = math.lerp(-math.PI * 0.5f, math.PI * 0.5f, t); // 180° arc
+                float3 pos = new float3(math.sin(ang) * ring, 0f, math.cos(ang) * ring);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                Entity attacker = UnitFactory.Create(em, attackers[i], pos, Faction.Red);
+                if (attacker != Entity.Null)
+                    AttackMoveCommandHelper.Execute(em, attacker, hutPos);
+            }
+
+            _scenarioFocus = hutPos;
+        }
+
+        /// <summary>
+        /// Spell VFX showcase: a flat, textureless plane laid over the map's
+        /// hidden terrain, on which every spell prefab (Resources/Spells) is
+        /// placed in a labelled grid and repeat-cast. Spawns no ECS units — the
+        /// whole thing is driven by a single SpellShowcaseDriver MonoBehaviour so
+        /// its per-frame recast + world labels run without a gameplay sim.
+        /// </summary>
+        private static void SpawnSpellShowcase(EntityManager em)
+        {
+            // Build everything around player 1's start so it lines up with the
+            // post-spawn camera focus / RecenterScenario below.
+            float3 p1 = GetPlayer1StartPosition();
+
+            var go = new UnityEngine.GameObject("SpellShowcase");
+            var driver = go.AddComponent<TheWaningBorder.Abilities.Vfx.SpellShowcaseDriver>();
+            // Leaves spellPrefabs empty → the driver auto-loads every Spell
+            // prefab under Resources/Spells.
+            driver.center = new UnityEngine.Vector3(p1.x, p1.y, p1.z);
+            driver.hideSceneTerrain = true;   // flat textureless plane is the only ground
+            driver.buildGround = true;
+            driver.buildCamera = false;       // reuse the RTS GameCamera
+            driver.buildLight = false;        // the map scene already has lighting
+
+            _scenarioFocus = p1;
+        }
+
+        /// <summary>
         /// Four-way battle: Basic (Blue/south), Alanthor (Red/east), Runai (Green/north), Feraldis (Yellow/west).
         /// All armies attack-move toward center at game start.
         /// </summary>
@@ -217,6 +437,7 @@ namespace TheWaningBorder.Bootstrap
             var blueCenter = new float3(0, 0, -offset);
             SpawnArmyRow(em, "Swordsman", Faction.Blue, 4, blueCenter);
             SpawnArmyRow(em, "Archer", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing));
+            SpawnArmyRow(em, "Longbowman", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing * 2f));
             AttackMoveAllBattalions(em, Faction.Blue, center);
 
             // Red (east) — Alanthor: Sentinel front, Crossbowman behind, Cataphract flankers
@@ -225,6 +446,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Alanthor_Sentinel", Faction.Red, 2, redCenter);
             SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(RowSpacing, 0, 0));
             SpawnArmyRow(em, "Alanthor_Cataphract", Faction.Red, 2, redCenter + new float3(RowSpacing * 0.5f, 0, ArmySpacing));
+            SpawnArmyRow(em, "Longbowman", Faction.Red, 2, redCenter + new float3(RowSpacing * 2f, 0, 0));
             AttackMoveAllBattalions(em, Faction.Red, center);
 
             // Green (north) — Runai: Spearman front, Skirmisher mid, Raider (mounted archer) flanks
@@ -232,6 +454,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Runai_Spearman", Faction.Green, 3, greenCenter);
             SpawnArmyRow(em, "Runai_Skirmisher", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing));
             SpawnArmyRow(em, "Runai_Raider", Faction.Green, 2, greenCenter + new float3(0, 0, RowSpacing * 2));
+            SpawnArmyRow(em, "Longbowman", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing * 3f));
             AttackMoveAllBattalions(em, Faction.Green, center);
 
             // Yellow (west) — Feraldis: Berserker horde front, Hunter (axe thrower) mid, WarboarRider rear
@@ -239,6 +462,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Berserker", Faction.Yellow, 4, yellowCenter);
             SpawnArmyRow(em, "Feraldis_Hunter", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing, 0, 0));
             SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 2, yellowCenter + new float3(-RowSpacing * 2, 0, 0));
+            SpawnArmyRow(em, "Longbowman", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing * 3f, 0, 0));
             AttackMoveAllBattalions(em, Faction.Yellow, center);
 
         }
@@ -281,6 +505,9 @@ namespace TheWaningBorder.Bootstrap
                 // Row 2 (behind front): 3 Archer battalions
                 SpawnArmyRow(em, "Archer", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing));
 
+                // Row 2.5 (just behind the archers): 3 Longbowman battalions
+                SpawnArmyRow(em, "Longbowman", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing * 1.5f));
+
                 // Row 3 (behind archers): 6 Litharchs spread across the line
                 for (int i = 0; i < 6; i++)
                 {
@@ -296,7 +523,7 @@ namespace TheWaningBorder.Bootstrap
                     float x = (i == 0) ? -ArmySpacing : ArmySpacing;
                     float3 pos = armyCenter + new float3(x, 0, sign * RowSpacing * 2.5f);
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                    UnitFactory.Create(em, "Alanthor_Ballista", pos, faction);
+                    UnitFactory.Create(em, "Alanthor_Catapult", pos, faction);
                 }
             }
 
@@ -351,6 +578,7 @@ namespace TheWaningBorder.Bootstrap
             // Blue defenders behind the wall
             SpawnArmyRow(em, "Swordsman", Faction.Blue, 2, new float3(0, 0, wallZ - 12f));
             SpawnArmyRow(em, "Archer", Faction.Blue, 2, new float3(0, 0, wallZ - 18f));
+            SpawnArmyRow(em, "Longbowman", Faction.Blue, 2, new float3(0, 0, wallZ - 24f));
 
             // 2 Ballistas behind the wall on the flanks
             for (int i = 0; i < 2; i++)
@@ -358,7 +586,7 @@ namespace TheWaningBorder.Bootstrap
                 float x = (i == 0) ? -10f : 10f;
                 float3 pos = new float3(x, 0, wallZ - 14f);
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                UnitFactory.Create(em, "Alanthor_Ballista", pos, Faction.Blue);
+                UnitFactory.Create(em, "Alanthor_Catapult", pos, Faction.Blue);
             }
 
             // ── Red (attacker) — north side, with enemy walls to show destruction ──
@@ -392,6 +620,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Red attackers — siege rams + swordsmen approaching Blue's wall
             SpawnArmyRow(em, "Swordsman", Faction.Red, 3, new float3(0, 0, 15f));
+            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, 28f));
 
             // Siege Rams aimed at the wall
             for (int i = 0; i < 3; i++)
@@ -662,8 +891,8 @@ namespace TheWaningBorder.Bootstrap
                 // Era 1 generic (no culture)
                 (Faction.Blue, new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
                 // Era 2 pre-culture choice buildings (no culture yet)
-                (Faction.Teal, new[] { "ShrineOfAhridan", "TempleOfRidan", "VaultOfAlmierra" }),
-                // Runai (Runai_TradingPost omitted — reuses Alanthor_PracticeRange presentation)
+                (Faction.Teal, new[] { "ShrineOfRidan", "TempleOfRidan", "VaultOfAlmierra" }),
+                // Runai
                 (Faction.Green, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
@@ -678,8 +907,8 @@ namespace TheWaningBorder.Bootstrap
                 // Alanthor
                 (Faction.Red, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower", "Alanthor_PracticeRange",
-                    "Alanthor_SiegeYard", "Alanthor_Smelter", "Alanthor_Crucible"
+                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower",
+                    "Alanthor_SiegeYard", "Alanthor_Smelter"
                 }),
             };
 
@@ -701,8 +930,91 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
-        /// Crystal Curse Combat Test: five attacker/target pairs, each row a
-        /// single Curse unit hitting an "invincible" Hall (HP = 1e9) so the
+        /// Building-damage shader test. Places a row of Alanthor buildings and
+        /// tags each with <see cref="DebugBuildingDamageTarget"/> so
+        /// DebugBuildingDamageSystem drains 5% of their max HP per second. As the
+        /// HP falls, BuildingDamageVisual drives the progressive soot/cracks/
+        /// missing-pieces damage shader, culminating in the normal collapse when
+        /// each building hits 0 HP (~20 s after spawn).
+        /// </summary>
+        private static void SpawnBuildingDamageTest(EntityManager em)
+        {
+            FactionColors.SetFactionCulture(Faction.Red, Cultures.Alanthor);
+
+            // Single-entity Alanthor buildings (Alanthor_Wall is a multi-entity
+            // hub, so it's intentionally left out of the damage row).
+            var buildings = new[]
+            {
+                "Hall", "Barracks", "Alanthor_Tower",
+                "Alanthor_SiegeYard", "Alanthor_Smelter", "KingsCourt",
+            };
+
+            const float ColSpacing = 16f;
+            float startX = -((buildings.Length - 1) * 0.5f) * ColSpacing;
+
+            for (int c = 0; c < buildings.Length; c++)
+            {
+                float3 pos = new float3(startX + c * ColSpacing, 0f, 0f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var e = BuildingFactory.Create(em, buildings[c], pos, Faction.Red);
+                if (e != Entity.Null)
+                    em.AddComponentData(e, new DebugBuildingDamageTarget { Accumulator = 0f });
+            }
+
+            _scenarioFocus = float3.zero;
+        }
+
+        /// <summary>
+        /// Building-damage showcase. A grid of buildings — one row per culture
+        /// (generic / Runai / Feraldis / Alanthor) — each tagged with
+        /// <see cref="DebugBuildingDamageTarget"/> so DebugBuildingDamageSystem
+        /// drains 5% of their max HP per second. Exercises the progressive
+        /// BuildingDamage shader and the collapse across many building meshes at
+        /// once. Multi-entity hubs (e.g. Alanthor_Wall) are left out so every
+        /// placed building is a single damageable entity.
+        /// </summary>
+        private static void SpawnBuildingDamageShowcase(EntityManager em)
+        {
+            const float ColSpacing = 16f;
+            const float RowZSpacing = 24f;
+
+            FactionColors.SetFactionCulture(Faction.Blue,   Cultures.None);
+            FactionColors.SetFactionCulture(Faction.Green,  Cultures.Runai);
+            FactionColors.SetFactionCulture(Faction.Yellow, Cultures.Feraldis);
+            FactionColors.SetFactionCulture(Faction.Red,    Cultures.Alanthor);
+
+            var rows = new (Faction faction, string[] buildings)[]
+            {
+                (Faction.Blue,   new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
+                (Faction.Green,  new[] { "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar", "Runai_Vault" }),
+                (Faction.Yellow, new[] { "Feraldis_HuntingLodge", "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_Foundry" }),
+                (Faction.Red,    new[] { "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_Smelter", "KingsCourt" }),
+            };
+
+            float startZ = -((rows.Length - 1) * 0.5f) * RowZSpacing;
+
+            for (int r = 0; r < rows.Length; r++)
+            {
+                var (faction, buildings) = rows[r];
+                float rowZ = startZ + r * RowZSpacing;
+                float startX = -((buildings.Length - 1) * 0.5f) * ColSpacing;
+
+                for (int c = 0; c < buildings.Length; c++)
+                {
+                    float3 pos = new float3(startX + c * ColSpacing, 0f, rowZ);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    var e = BuildingFactory.Create(em, buildings[c], pos, faction);
+                    if (e != Entity.Null)
+                        em.AddComponentData(e, new DebugBuildingDamageTarget { Accumulator = 0f });
+                }
+            }
+
+            _scenarioFocus = float3.zero;
+        }
+
+        /// <summary>
+        /// The Border Combat Test: five attacker/target pairs, each row a
+        /// single Border unit hitting an "invincible" Hall (HP = 1e9) so the
         /// attack reads continuously. Row spacing 35 m keeps each
         /// Veilstinger/Godsplinter's secondary-target search inside its own
         /// row (no cross-row leakage with a 24 m max range).
@@ -713,31 +1025,29 @@ namespace TheWaningBorder.Bootstrap
         ///   Row 3 (z = +35): Godsplinter max    vs Hall   (22 m — laser cap)
         ///   Row 4 (z = +70): Godsplinter middle vs Hall   (13 m — mid-band)
         /// </summary>
-        private static void SpawnCurseCombatTest(EntityManager em)
+        private static void SpawnBorderCombatTest(EntityManager em)
         {
             // Camera focuses on origin (middle row by default).
-            SpawnCurseTestPair(em, "Crystalling",  5f,  -70f);
-            SpawnCurseTestPair(em, "Veilstinger", 24f, -35f);
-            SpawnCurseTestPair(em, "Veilstinger", 16f,   0f);
-            SpawnCurseTestPair(em, "Godsplinter", 22f,  35f);
-            SpawnCurseTestPair(em, "Godsplinter", 13f,  70f);
+            SpawnBorderTestPair(em, "Crystalling",  5f,  -70f);
+            SpawnBorderTestPair(em, "Veilstinger", 24f, -35f);
+            SpawnBorderTestPair(em, "Veilstinger", 16f,   0f);
+            SpawnBorderTestPair(em, "Godsplinter", 22f,  35f);
+            SpawnBorderTestPair(em, "Godsplinter", 13f,  70f);
 
-            // Starter crystal patch placed between rows 3 (z=0) and 4 (z=35),
+            // Starter veilstone patch placed between rows 3 (z=0) and 4 (z=35),
             // off the firing line at x=0 z=17.5 so it sits in clear camera view.
-            // Lets us watch CursePendingPileSystem grow the patch past 45 nodes
-            // and convert it into a secondary curse location.
-            SpawnBattleSiteCrystalPatch(em, new float3(0f, 0f, 17.5f));
+            SpawnBattleSiteVeilstoneOutcropping(em, new float3(0f, 0f, 17.5f));
         }
 
         /// <summary>
-        /// Spawn one row of the Curse Combat Test: an invincible invisible
-        /// dummy on the right and a Red Curse unit on the left. The dummy
+        /// Spawn one row of the Border Combat Test: an invincible invisible
+        /// dummy on the right and a Red Border unit on the left. The dummy
         /// has just enough ECS components for TargetingSystem to lock onto
         /// it (LocalTransform + FactionTag + BuildingTag + Health) and no
         /// PresentationId, so the projectile and its impact VFX play out in
         /// full view rather than being clipped by a building mesh.
         /// </summary>
-        private static void SpawnCurseTestPair(EntityManager em, string unitId, float distance, float rowZ)
+        private static void SpawnBorderTestPair(EntityManager em, string unitId, float distance, float rowZ)
         {
             float halfDist = distance * 0.5f;
 
@@ -746,7 +1056,7 @@ namespace TheWaningBorder.Bootstrap
             dummyPos.y = TerrainUtility.GetHeight(dummyPos.x, dummyPos.z);
             CreateInvincibleDummy(em, dummyPos, Faction.Blue);
 
-            // Attacker: Curse unit on the left, facing the dummy.
+            // Attacker: Border unit on the left, facing the dummy.
             float3 attackerPos = new float3(-halfDist, 0f, rowZ);
             attackerPos.y = TerrainUtility.GetHeight(attackerPos.x, attackerPos.z);
             UnitFactory.Create(em, unitId, attackerPos, Faction.Red);
@@ -777,23 +1087,19 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
-        /// Seed a starter resource patch one cadaver short of the conversion
-        /// threshold (44 nodes — see CursePendingPileSystem.PatchConvertNodeThreshold = 45).
-        /// Each node is filled to MaxCrystalPerNode (60) so the very first
-        /// curse-unit-death payout has no top-up room and is forced to spawn
-        /// a new node, tipping the patch to 45 and triggering its conversion
-        /// into a secondary curse location. Lets us watch the whole pipeline
-        /// in one short test session.
+        /// Seed a starter resource patch for the battle-site test scenarios.
+        /// Purely a fixed mineable field — veilstone does not regrow or
+        /// respawn (it behaves exactly like iron).
         /// </summary>
-        private static void SpawnBattleSiteCrystalPatch(EntityManager em, float3 center)
+        private static void SpawnBattleSiteVeilstoneOutcropping(EntityManager em, float3 center)
         {
             center.y = TerrainUtility.GetHeight(center.x, center.z);
 
             const int NodeCount = 44;
-            const int CrystalPerNode = 60;  // = CursePendingPileSystem.MaxCrystalPerNode
+            const int VeilstonePerNode = 60;
 
             // Hex grid for an even, packed cluster — same approach as
-            // CrystalPatchBootstrap's near patch. 3 rings yield 37 slots;
+            // VeilstoneOutcroppingBootstrap's near patch. 3 rings yield 37 slots;
             // 4 rings yield 61; we walk slot-by-slot until we've placed 44.
             const int Rings = 4;
             const float Spacing = 2.6f;     // hex-cell spacing; outermost ring at radius ~10.4 m, well under PatchClusterRadius = 12 so the whole grid stays one patch
@@ -830,14 +1136,14 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
 
-            TWBLog.Log($"[ScenarioSetup] seeded {placed}-node resource patch at ({center.x:F1}, {center.z:F1}) — one curse-unit death will tip it past {placed + 1}.");
+            TWBLog.Log($"[ScenarioSetup] seeded {placed}-node resource patch at ({center.x:F1}, {center.z:F1}) — one border-unit death will tip it past {placed + 1}.");
 
             static void PlaceNode(EntityManager em, float3 center, float ox, float oz)
             {
                 float x = center.x + ox;
                 float z = center.z + oz;
                 float y = TerrainUtility.GetHeight(x, z);
-                Cadaver.Create(em, new float3(x, y, z), CrystalPerNode);
+                VeilstoneOutcropping.Create(em, new float3(x, y, z), VeilstonePerNode);
             }
         }
 
@@ -928,19 +1234,18 @@ namespace TheWaningBorder.Bootstrap
             spawner.SoldierFaction = Faction.Blue;
 
             // Starter 44-node resource patch east of the patrol ring (just past
-            // the 35 m outer spawn) so the curse-unit-death payouts have
-            // somewhere to deposit. See CursePendingPileSystem.
-            SpawnBattleSiteCrystalPatch(em, new float3(50f, 0f, 0f));
+            // the 35 m outer spawn) — a fixed mineable field for the scenario.
+            SpawnBattleSiteVeilstoneOutcropping(em, new float3(50f, 0f, 0f));
         }
 
         /// <summary>
-        /// Alanthor Vs Crystal Horde: 2 battalions of each Alanthor battalion-tier
+        /// Alanthor Vs Veilstone Horde: 2 battalions of each Alanthor battalion-tier
         /// unit (Sentinel / Crossbowman / Cataphract = 6 battalions total) on the
-        /// south side facing a 50-unit Crystal horde — 30 Crystallings, 15
+        /// south side facing a 50-unit Veilstone horde — 30 Crystallings, 15
         /// Veilstingers, 5 Godsplinters — on the north side. Both armies
         /// attack-move toward the centre on spawn.
         /// </summary>
-        private static void SpawnAlanthorVsCrystal(EntityManager em)
+        private static void SpawnAlanthorVsBorder(EntityManager em)
         {
             // Set the Red player faction to the Alanthor culture so the
             // battalion units render with the right cultural treatment.
@@ -956,9 +1261,10 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Alanthor_Sentinel",    Faction.Red, 2, redCenter);
             SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing));
             SpawnArmyRow(em, "Alanthor_Cataphract",  Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 2f));
+            SpawnArmyRow(em, "Longbowman",           Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 3f));
             AttackMoveAllBattalions(em, Faction.Red, center);
 
-            // ── Crystal Horde (Blue, north) ──
+            // ── Veilstone Horde (Blue, north) ──
             // 30 Crystallings (melee front), 15 Veilstingers (mid),
             // 5 Godsplinters (siege rear). Spawned as loose units; each
             // gets an AttackMoveCommand toward centre so they march in.
@@ -1002,16 +1308,264 @@ namespace TheWaningBorder.Bootstrap
                 if (e != Entity.Null) AttackMoveCommandHelper.Execute(em, e, center);
             }
 
-            // Starter 44-node resource patch east of the battle line so the
-            // curse-unit-death payouts have somewhere to deposit. The Alanthor
-            // army will be killing Crystallings/Veilstingers/Godsplinters as
-            // the armies engage, which is exactly what feeds CursePendingPile.
-            SpawnBattleSiteCrystalPatch(em, new float3(40f, 0f, 0f));
+            // Starter 44-node resource patch east of the battle line — a fixed
+            // mineable field for the scenario.
+            SpawnBattleSiteVeilstoneOutcropping(em, new float3(40f, 0f, 0f));
+        }
+
+        /// <summary>
+        /// Longbowman animation showcase. Spawns the Longbowman in each of the
+        /// states the game drives so its idle / run / shoot / death clips can be
+        /// reviewed live, exactly as gameplay produces them:
+        ///   1. one idle Longbowman (Target stripped, so it never engages);
+        ///   2. one patrolling back and forth between two waypoints;
+        ///   3. two Longbowmen firing on an invincible dummy from ~16 m and ~34 m;
+        ///   4. a spawner that sends a Longbowman every 5 s at an immortal
+        ///      attacking enemy, where each one walks in and dies — then the
+        ///      next one spawns.
+        /// All showcase units are Blue (local player); targets/enemy are Red.
+        /// </summary>
+        private static void SpawnLongbowmanShowcase(EntityManager em)
+        {
+            // Authored around origin; SpawnScenarioEntities re-centers the whole
+            // scenario onto the player-1 start afterwards (o is the local origin).
+            float3 o = float3.zero;
+
+            // ── 1) Idle ──
+            // Strip Target so the targeting/combat systems skip it (same trick
+            // ScenarioWaveSpawner uses for passive walkers) — it just idles.
+            {
+                float3 pos = o + new float3(-18f, 0f, 0f);
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var idle = UnitFactory.Create(em, "Longbowman", pos, Faction.Blue);
+                if (idle != Entity.Null && em.HasComponent<Target>(idle))
+                    em.RemoveComponent<Target>(idle);
+            }
+
+            // ── 2) Patrol back and forth ──
+            // A ScenarioPatrolController walks it between two waypoints via the
+            // standard MovementSystem. Target stripped so it never stops to fight.
+            {
+                Vector3 a = new Vector3(o.x - 8f, 0f, o.z + 12f);
+                Vector3 b = new Vector3(o.x - 8f, 0f, o.z - 12f);
+                a.y = TerrainUtility.GetHeight(a.x, a.z);
+                b.y = TerrainUtility.GetHeight(b.x, b.z);
+
+                var patrol = UnitFactory.Create(em, "Longbowman",
+                    new float3(a.x, a.y, a.z), Faction.Blue);
+                if (patrol != Entity.Null)
+                {
+                    if (em.HasComponent<Target>(patrol))
+                        em.RemoveComponent<Target>(patrol);
+
+                    // The patrol controller only drives units that already have
+                    // DesiredDestination — Longbowman.Create doesn't add one.
+                    var dest = new DesiredDestination
+                    {
+                        Position = new float3(b.x, b.y, b.z),
+                        Has = 1
+                    };
+                    if (em.HasComponent<DesiredDestination>(patrol))
+                        em.SetComponentData(patrol, dest);
+                    else
+                        em.AddComponentData(patrol, dest);
+
+                    var go = new GameObject("ShowcasePatrolController");
+                    var ctrl = go.AddComponent<ScenarioPatrolController>();
+                    ctrl.Units.Add(new ScenarioPatrolController.PatrolUnit
+                    {
+                        Entity = patrol,
+                        Waypoints = new[] { a, b },
+                        CurrentWaypoint = 1, // head for b first
+                        EngageRange = 0f
+                    });
+                }
+            }
+
+            // ── 3) Two shooters vs an invincible target, different ranges ──
+            {
+                float3 dummyPos = o + new float3(10f, 0f, 14f);
+                dummyPos.y = TerrainUtility.GetHeight(dummyPos.x, dummyPos.z);
+                CreateInvincibleDummy(em, dummyPos, Faction.Red);
+
+                // Near ~16 m, far ~34 m. Both inside Longbowman LOS (35) and
+                // attack range (12-40), so they auto-acquire and keep firing.
+                float3 near = o + new float3(10f, 0f, -2f);
+                float3 far  = o + new float3(10f, 0f, -20f);
+                near.y = TerrainUtility.GetHeight(near.x, near.z);
+                far.y  = TerrainUtility.GetHeight(far.x, far.z);
+                UnitFactory.Create(em, "Longbowman", near, Faction.Blue);
+                UnitFactory.Create(em, "Longbowman", far,  Faction.Blue);
+            }
+
+            // ── 4) Spawner -> immortal attacking enemy -> death loop ──
+            {
+                float3 enemyPos = o + new float3(10f, 0f, 48f);
+                enemyPos.y = TerrainUtility.GetHeight(enemyPos.x, enemyPos.z);
+
+                // Immortal attacker: a melee unit that one-shots the incoming
+                // (passive) Longbowmen so the death clip plays reliably. Huge HP
+                // = immortal; HoldPositionTag keeps it planted at the lane end.
+                var enemy = UnitFactory.Create(em, "Swordsman", enemyPos, Faction.Red);
+                if (enemy != Entity.Null)
+                {
+                    if (em.HasComponent<Health>(enemy))
+                        em.SetComponentData(enemy, new Health { Value = 1_000_000_000, Max = 1_000_000_000 });
+                    if (em.HasComponent<Damage>(enemy))
+                        em.SetComponentData(enemy, new Damage { Value = 100_000 });
+                    if (em.HasComponent<AttackCooldown>(enemy))
+                    {
+                        var cd = em.GetComponentData<AttackCooldown>(enemy);
+                        cd.Cooldown = 0.6f;
+                        em.SetComponentData(enemy, cd);
+                    }
+                    if (!em.HasComponent<HoldPositionTag>(enemy))
+                        em.AddComponent<HoldPositionTag>(enemy);
+                }
+
+                // Wave spawner: one Longbowman every 5 s on a ring around the
+                // enemy; each walks in (combat stripped by the spawner) and dies.
+                var go = new GameObject("ShowcaseLongbowmanSpawner");
+                var spawner = go.AddComponent<ScenarioWaveSpawner>();
+                spawner.Center = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
+                spawner.SpawnRadius = 20f;
+                spawner.InnerTargetRadius = 1.5f;
+                spawner.Interval = 5f;
+                spawner.UnitId = "Longbowman";
+                spawner.SoldierFaction = Faction.Blue;
+            }
+        }
+
+        /// <summary>
+        /// Longbowman line battle: two teams of 30 Longbowmen face off across
+        /// the player-1 start. Each team is split into two 3x5 blocks (5 wide,
+        /// 3 deep = 15 each). The firing lines are placed ~30 m apart so every
+        /// archer sits inside Longbowman LOS/range (12–40 m) and trades volleys
+        /// without charging; HoldPositionTag keeps the formation intact.
+        /// Blue (south) faces north, Red (north) faces south.
+        /// </summary>
+        private static void SpawnLongbowmanBattle(EntityManager em)
+        {
+            // Authored around origin; SpawnScenarioEntities re-centers afterwards.
+            float3 o = float3.zero;
+
+            const int Cols = 5;               // each block is 5 wide…
+            const int Rows = 3;               // …and 3 deep (5x3 = 15; two blocks = 30/team)
+            const float UnitSpacing = 3f;     // gap between archers in a block
+            const float BlockGap = 8f;        // gap between a team's two blocks (along X)
+            const float TeamSeparation = 30f; // distance between the two firing lines (along Z)
+
+            float blockWidth = (Cols - 1) * UnitSpacing;            // 12 m
+            float blockOffsetX = (blockWidth + BlockGap) * 0.5f;    // half the two-block span
+
+            float blueZ = o.z - TeamSeparation * 0.5f;  // south team
+            float redZ = o.z + TeamSeparation * 0.5f;   // north team
+
+            // Face the opposing line (model forward is +Z, so Blue = identity,
+            // Red = 180°). Both teams therefore aim across the player-1 start.
+            quaternion blueFacing = quaternion.LookRotationSafe(new float3(0, 0, 1), math.up());
+            quaternion redFacing = quaternion.LookRotationSafe(new float3(0, 0, -1), math.up());
+
+            // Two 3x5 blocks per team, side by side along X, centred on the start.
+            SpawnLongbowBlock(em, new float3(o.x - blockOffsetX, 0, blueZ), Cols, Rows, UnitSpacing, Faction.Blue, blueFacing);
+            SpawnLongbowBlock(em, new float3(o.x + blockOffsetX, 0, blueZ), Cols, Rows, UnitSpacing, Faction.Blue, blueFacing);
+            SpawnLongbowBlock(em, new float3(o.x - blockOffsetX, 0, redZ), Cols, Rows, UnitSpacing, Faction.Red, redFacing);
+            SpawnLongbowBlock(em, new float3(o.x + blockOffsetX, 0, redZ), Cols, Rows, UnitSpacing, Faction.Red, redFacing);
+        }
+
+        /// <summary>
+        /// Spawn one cols×rows block of Longbowmen centred on <paramref name="center"/>,
+        /// each facing <paramref name="facing"/> and holding position so the
+        /// formation stays put while the two lines trade fire (units auto-acquire
+        /// enemies in LOS via TargetingSystem).
+        /// </summary>
+        private static void SpawnLongbowBlock(EntityManager em, float3 center, int cols, int rows,
+            float spacing, Faction faction, quaternion facing)
+        {
+            float halfW = (cols - 1) * spacing * 0.5f;
+            float halfD = (rows - 1) * spacing * 0.5f;
+
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = 0; c < cols; c++)
+                {
+                    float3 pos = center + new float3(c * spacing - halfW, 0, r * spacing - halfD);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+
+                    var e = UnitFactory.Create(em, "Longbowman", pos, faction);
+                    if (e == Entity.Null) continue;
+
+                    if (em.HasComponent<LocalTransform>(e))
+                    {
+                        var xf = em.GetComponentData<LocalTransform>(e);
+                        xf.Rotation = facing;
+                        em.SetComponentData(e, xf);
+                    }
+
+                    // Hold the line — don't chase out-of-range enemies.
+                    if (!em.HasComponent<HoldPositionTag>(e))
+                        em.AddComponent<HoldPositionTag>(e);
+                }
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════
         // HELPERS
         // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Number of individual soldiers a single Alanthor battalion fans out
+        /// into. The army scenarios author Alanthor troops one entity per
+        /// battalion ("battalion model"); this expands each into a block of
+        /// individuals so the scenarios reflect real squad sizes.
+        /// </summary>
+        private const int AlanthorBattalionSize = 20;
+
+        /// <summary>
+        /// True for Alanthor troop units that stand in for a battalion of
+        /// soldiers (infantry / archers / cavalry). The Ballista is a single
+        /// siege engine, not a battalion, so it is excluded.
+        /// </summary>
+        private static bool IsAlanthorBattalionUnit(string unitId)
+        {
+            return unitId == "Longbowman"
+                || (unitId.StartsWith("Alanthor_") && unitId != "Alanthor_Catapult");
+        }
+
+        /// <summary>
+        /// Spawn one army "slot". For an Alanthor battalion unit this fans out
+        /// into a packed block of <see cref="AlanthorBattalionSize"/> individual
+        /// soldiers centred on the slot (battalion → individuals); every other
+        /// unit spawns as a single entity. Routed through by SpawnArmyRow /
+        /// SpawnArmyGrid, so every battalion-model army scenario picks it up.
+        /// </summary>
+        private static void SpawnBattalion(EntityManager em, string unitId, float3 center, Faction faction)
+        {
+            if (!IsAlanthorBattalionUnit(unitId))
+            {
+                float3 single = center;
+                single.y = TerrainUtility.GetHeight(single.x, single.z);
+                UnitFactory.Create(em, unitId, single, faction);
+                return;
+            }
+
+            // 5-wide x 4-deep packed block = 20 soldiers, centred on the slot.
+            const int cols = 5;
+            const int rows = AlanthorBattalionSize / cols; // 4
+            const float spacing = 1.6f;
+            float halfW = (cols - 1) * spacing * 0.5f;
+            float halfD = (rows - 1) * spacing * 0.5f;
+
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = 0; c < cols; c++)
+                {
+                    float3 p = center + new float3(c * spacing - halfW, 0, r * spacing - halfD);
+                    p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    UnitFactory.Create(em, unitId, p, faction);
+                }
+            }
+        }
 
         /// <summary>
         /// Spawn a grid of battalions (cols x rows) centered on the given position.
@@ -1028,8 +1582,7 @@ namespace TheWaningBorder.Bootstrap
                     float x = (col - (cols - 1) * 0.5f) * ArmySpacing;
                     float z = (faction == Faction.Blue) ? -row * RowSpacing : row * RowSpacing;
                     float3 pos = center + new float3(x, 0, z);
-                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                    UnitFactory.Create(em, unitId, pos, faction);
+                    SpawnBattalion(em, unitId, pos, faction);
                 }
             }
         }
@@ -1044,9 +1597,143 @@ namespace TheWaningBorder.Bootstrap
             {
                 float x = (col - (count - 1) * 0.5f) * ArmySpacing;
                 float3 pos = center + new float3(x, 0, 0);
-                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                UnitFactory.Create(em, unitId, pos, faction);
+                SpawnBattalion(em, unitId, pos, faction);
             }
+        }
+
+        /// <summary>
+        /// Resolve player 1's designed start position. Scenarios bypass the
+        /// normal skirmish spawn path (SpawnDelayHelper → PlayerSpawnSystem),
+        /// which is what scans the scene for PlayerStartMarkers, so a scenario
+        /// that wants to sit on the player's start has to look the marker up
+        /// itself — otherwise it defaults to world origin, which on water-heavy
+        /// maps spawns everything underwater. Player 1 is the local player
+        /// (Faction.Blue in scenarios). Falls back to the first available
+        /// marker, then to origin. The returned position is snapped to terrain
+        /// height.
+        /// </summary>
+        private static float3 GetPlayer1StartPosition()
+        {
+            // Scenarios don't run the marker scan; do it here so a hand-authored
+            // map's PlayerStartMarkers are honoured.
+            MapMarkerRegistry.Refresh();
+
+            PlayerStartMarker marker =
+                MapMarkerRegistry.FindPlayerMarker(GameSettings.LocalPlayerFaction);
+            if (marker == null)
+            {
+                foreach (var m in MapMarkerRegistry.PlayerStarts)
+                {
+                    if (m != null) { marker = m; break; }
+                }
+            }
+
+            float3 pos = float3.zero;
+            if (marker != null)
+            {
+                var w = marker.WorldPosition;
+                pos = new float3(w.x, 0f, w.z);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[ScenarioSetup] No PlayerStartMarker found — scenario stays " +
+                    "centered on world origin (may be underwater).");
+            }
+
+            pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+            return pos;
+        }
+
+        /// <summary>
+        /// Shift everything the active scenario just spawned by (ox, oz) so the
+        /// layout — authored around world origin — sits on the player-1 start.
+        /// Covers entity transforms plus the world positions held by pre-set
+        /// move/attack/guard commands and the runtime spawner / patrol
+        /// MonoBehaviours. Entities are flat (world-space LocalTransform, no
+        /// Parent hierarchy — the presentation layer reads LocalTransform as the
+        /// world position), so shifting every transform is safe and complete.
+        /// Each shifted position is re-grounded to terrain height at its new XZ.
+        /// </summary>
+        private static void RecenterScenario(EntityManager em, float ox, float oz)
+        {
+            // 1. Every entity transform.
+            {
+                var q = em.CreateEntityQuery(ComponentType.ReadWrite<LocalTransform>());
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                foreach (var e in ents)
+                {
+                    var xf = em.GetComponentData<LocalTransform>(e);
+                    xf.Position = Reground(xf.Position, ox, oz);
+                    em.SetComponentData(e, xf);
+                }
+            }
+
+            // 2. Pre-set move / attack / guard targets, so commanded armies head
+            //    to the re-centered battle instead of marching back to origin.
+            {
+                var q = em.CreateEntityQuery(ComponentType.ReadWrite<DesiredDestination>());
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                foreach (var e in ents)
+                {
+                    var c = em.GetComponentData<DesiredDestination>(e);
+                    if (c.Has == 0) continue;
+                    c.Position = Reground(c.Position, ox, oz);
+                    em.SetComponentData(e, c);
+                }
+            }
+            {
+                var q = em.CreateEntityQuery(ComponentType.ReadWrite<AttackMoveCommand>());
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                foreach (var e in ents)
+                {
+                    var c = em.GetComponentData<AttackMoveCommand>(e);
+                    c.Destination = Reground(c.Destination, ox, oz);
+                    em.SetComponentData(e, c);
+                }
+            }
+            {
+                var q = em.CreateEntityQuery(ComponentType.ReadWrite<GuardPoint>());
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                foreach (var e in ents)
+                {
+                    var c = em.GetComponentData<GuardPoint>(e);
+                    if (c.Has == 0) continue;
+                    c.Position = Reground(c.Position, ox, oz);
+                    em.SetComponentData(e, c);
+                }
+            }
+
+            // 3. Runtime spawners / patrol routes (MonoBehaviours, not entities).
+            foreach (var sp in UnityEngine.Object.FindObjectsByType<ScenarioWaveSpawner>(
+                         FindObjectsSortMode.None))
+            {
+                float3 c = Reground(new float3(sp.Center.x, sp.Center.y, sp.Center.z), ox, oz);
+                sp.Center = new Vector3(c.x, c.y, c.z);
+            }
+            foreach (var pc in UnityEngine.Object.FindObjectsByType<ScenarioPatrolController>(
+                         FindObjectsSortMode.None))
+            {
+                foreach (var unit in pc.Units)
+                {
+                    if (unit.Waypoints == null) continue;
+                    for (int i = 0; i < unit.Waypoints.Length; i++)
+                    {
+                        var wp = unit.Waypoints[i];
+                        float3 g = Reground(new float3(wp.x, wp.y, wp.z), ox, oz);
+                        unit.Waypoints[i] = new Vector3(g.x, g.y, g.z);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Offset an XZ position and re-snap its Y to terrain height.</summary>
+        private static float3 Reground(float3 p, float ox, float oz)
+        {
+            p.x += ox;
+            p.z += oz;
+            p.y = TerrainUtility.GetHeight(p.x, p.z);
+            return p;
         }
     }
 }

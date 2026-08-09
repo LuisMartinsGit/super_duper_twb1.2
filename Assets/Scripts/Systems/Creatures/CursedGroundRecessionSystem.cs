@@ -1,4 +1,4 @@
-// File: Assets/Scripts/Systems/Creatures/CursedGroundRecessionSystem.cs
+// File: Assets/Scripts/Systems/Creatures/BorderGroundRecessionSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -8,28 +8,28 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Systems.Creatures
 {
     /// <summary>
-    /// When a crystal node (main or sub) is destroyed, its cursed ground tiles
+    /// When a veilstone node (main or sub) is destroyed, its border ground tiles
     /// begin receding. Tiles are removed gradually over 60 seconds, with random
-    /// staggering so the curse visually dissolves rather than vanishing at once.
+    /// staggering so the border visually dissolves rather than vanishing at once.
     ///
     /// Phase 1: Detect orphaned tiles (OwnerNode no longer exists) and tag them
-    ///          with CursedGroundReceding.
+    ///          with BorderGroundReceding.
     /// Phase 2: Count down receding tiles. When a tile's timer expires, unpaint
-    ///          the curse texture from the terrain and destroy the entity.
+    ///          the border texture from the terrain and destroy the entity.
     ///
     /// Uses SystemBase (managed) because terrain unpainting requires access to
     /// the managed ProceduralTerrain singleton.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CrystalSpreadSystem))]
-    public partial class CursedGroundRecessionSystem : SystemBase
+    [UpdateAfter(typeof(BorderSpreadSystem))]
+    public partial class BorderGroundRecessionSystem : SystemBase
     {
-        /// <summary>Total time for all cursed ground to fully recede (seconds).</summary>
+        /// <summary>Total time for all border ground to fully recede (seconds).</summary>
         private const float RecessionDuration = 60f;
 
         protected override void OnCreate()
         {
-            RequireForUpdate<CursedGroundTag>();
+            RequireForUpdate<BorderGroundTag>();
         }
 
         protected override void OnUpdate()
@@ -38,31 +38,31 @@ namespace TheWaningBorder.Systems.Creatures
             var em = EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            // --- Phase 1: Detect orphaned cursed ground tiles ---
+            // --- Phase 1: Detect orphaned border ground tiles ---
             // If OwnerNode entity no longer exists, the parent node was destroyed.
             // Tag these tiles for recession with random stagger over RecessionDuration.
             // Also recede when the owner is in Cleansed or Destroyed state —
-            // the curse is no longer projected even though the node entity
-            // persists. Converted nodes keep their curse (Runai-allied).
+            // the border is no longer projected even though the node entity
+            // persists. Converted nodes keep their border (Runai-allied).
             foreach (var (ownerNode, transform, entity) in SystemAPI
                 .Query<RefRO<OwnerNode>, RefRO<LocalTransform>>()
-                .WithAll<CursedGroundTag>()
-                .WithNone<CursedGroundReceding>()
+                .WithAll<BorderGroundTag>()
+                .WithNone<BorderGroundReceding>()
                 .WithEntityAccess())
             {
                 Entity owner = ownerNode.ValueRO.Value;
 
                 bool ownerAlive = owner != Entity.Null && em.Exists(owner)
-                    && em.HasComponent<CrystalNode>(owner);
+                    && em.HasComponent<BorderNode>(owner);
 
-                bool ownerProjectsCurse = ownerAlive;
-                if (ownerAlive && em.HasComponent<CrystalNodeState>(owner))
+                bool ownerProjectsBorder = ownerAlive;
+                if (ownerAlive && em.HasComponent<BorderNodeState>(owner))
                 {
-                    var st = em.GetComponentData<CrystalNodeState>(owner).State;
-                    ownerProjectsCurse = (st == NodeState.Active || st == NodeState.Converted);
+                    var st = em.GetComponentData<BorderNodeState>(owner).State;
+                    ownerProjectsBorder = (st == NodeState.Active || st == NodeState.Converted);
                 }
 
-                if (ownerProjectsCurse) continue;
+                if (ownerProjectsBorder) continue;
 
                 // Owner is dead — this tile is orphaned.
                 // Stagger destruction across the full recession duration using a
@@ -75,7 +75,7 @@ namespace TheWaningBorder.Systems.Creatures
 
                 float timeRemaining = randomFactor * RecessionDuration;
 
-                ecb.AddComponent(entity, new CursedGroundReceding
+                ecb.AddComponent(entity, new BorderGroundReceding
                 {
                     TimeRemaining = timeRemaining
                 });
@@ -83,20 +83,20 @@ namespace TheWaningBorder.Systems.Creatures
 
             // --- Phase 2: Count down receding tiles and destroy when expired ---
             foreach (var (receding, transform, radius, entity) in SystemAPI
-                .Query<RefRW<CursedGroundReceding>, RefRO<LocalTransform>, RefRO<Radius>>()
-                .WithAll<CursedGroundTag>()
+                .Query<RefRW<BorderGroundReceding>, RefRO<LocalTransform>, RefRO<Radius>>()
+                .WithAll<BorderGroundTag>()
                 .WithEntityAccess())
             {
                 receding.ValueRW.TimeRemaining -= dt;
 
                 if (receding.ValueRO.TimeRemaining <= 0f)
                 {
-                    // Unpaint the curse texture from terrain before destroying
+                    // Unpaint the border texture from terrain before destroying
                     var pos = transform.ValueRO.Position;
                     float r = radius.ValueRO.Value;
                     if (ProceduralTerrain.Instance != null)
                     {
-                        ProceduralTerrain.Instance.UnpaintCursedGround(pos.x, pos.z, r);
+                        ProceduralTerrain.Instance.UnpaintBorderGround(pos.x, pos.z, r);
                     }
 
                     ecb.DestroyEntity(entity);

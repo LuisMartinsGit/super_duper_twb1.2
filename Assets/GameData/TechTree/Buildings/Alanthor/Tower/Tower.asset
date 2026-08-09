@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_Tower'
   displayName: 'Watch Tower'
   role: 'Defensive tower with long range'
-  hp: 60
+  hp: 250
   armorType: 'structure_human'
   defense:
     melee: 2
@@ -34,4 +34,11 @@ MonoBehaviour:
     Veilsteel: 0
   tags:
   - 'Building'
+  attack:
+    enabled: 1
+    damage: 15
+    damageType: ranged
+    range: 26
+    cooldown: 1.8
+    maxTargets: 2
   presentationId: 354

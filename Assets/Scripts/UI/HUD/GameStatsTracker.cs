@@ -19,11 +19,34 @@ namespace TheWaningBorder.UI.HUD
         public float Time;
         public int Supplies;
         public int Iron;
-        public int Crystal;
+        public int Veilstone;
         public int Veilsteel;
         public int Glow;
         public int Population;
         public int PopulationMax;
+    }
+
+    /// <summary>
+    /// Kinds of milestone events shown as symbols on the post-game charts.
+    /// </summary>
+    public enum GameEventKind : byte
+    {
+        SpecialBuilding, // choice building (Shrine / Vault / Keep) completed
+        CultureChosen,   // age-up to Era 2 completed
+        TempleLevelUp,   // Temple of Ridan reached a new level
+        NodeConverted,   // Border node cleansed / converted
+        Eliminated,      // faction knocked out
+    }
+
+    /// <summary>
+    /// A timestamped milestone for one faction. Value carries kind-specific
+    /// detail (temple level, culture id); 0 when unused.
+    /// </summary>
+    public struct GameEvent
+    {
+        public float Time;         // game time in seconds since start
+        public GameEventKind Kind;
+        public int Value;
     }
 
     /// <summary>
@@ -55,6 +78,10 @@ namespace TheWaningBorder.UI.HUD
         /// <summary>Records when each faction was eliminated (game time in seconds).</summary>
         public Dictionary<Faction, float> EliminationTimes { get; private set; }
             = new Dictionary<Faction, float>();
+
+        /// <summary>Per-faction milestone events, in the order they occurred.</summary>
+        public Dictionary<Faction, List<GameEvent>> FactionEvents { get; private set; }
+            = new Dictionary<Faction, List<GameEvent>>();
 
         private EntityWorld _world;
         private EntityManager _em;
@@ -141,6 +168,11 @@ namespace TheWaningBorder.UI.HUD
             for (int i = 0; i < bankEntities.Length; i++)
             {
                 Faction faction = bankTags[i].Value;
+
+                // The Border is a map feature, not a player — it never appears
+                // in post-game charts.
+                if (faction == Faction.Border) continue;
+
                 if (!FactionTimelines.ContainsKey(faction))
                     FactionTimelines[faction] = new List<FactionSnapshot>();
 
@@ -152,7 +184,7 @@ namespace TheWaningBorder.UI.HUD
                     Time = gameTime,
                     Supplies = res.Supplies,
                     Iron = res.Iron,
-                    Crystal = res.Crystal,
+                    Veilstone = res.Veilstone,
                     Veilsteel = res.Veilsteel,
                     Glow = res.Glow,
                     Population = pop.current,
@@ -169,7 +201,31 @@ namespace TheWaningBorder.UI.HUD
             if (!EliminationTimes.ContainsKey(faction))
             {
                 EliminationTimes[faction] = gameTime;
+                AddEvent(faction, GameEventKind.Eliminated, 0, gameTime);
             }
+        }
+
+        /// <summary>
+        /// Record a milestone event for a faction at the current game time.
+        /// Static so game systems can call it without null-check ceremony —
+        /// silently drops the event when no tracker is alive (menus, tests).
+        /// </summary>
+        public static void RecordEvent(Faction faction, GameEventKind kind, int value = 0)
+        {
+            var inst = Instance;
+            if (inst == null || !inst._initialized || inst.GameEnded) return;
+            if (faction == Faction.Border) return;
+            inst.AddEvent(faction, kind, value, Time.time - inst.GameStartTime);
+        }
+
+        private void AddEvent(Faction faction, GameEventKind kind, int value, float gameTime)
+        {
+            if (!FactionEvents.TryGetValue(faction, out var list))
+            {
+                list = new List<GameEvent>();
+                FactionEvents[faction] = list;
+            }
+            list.Add(new GameEvent { Time = gameTime, Kind = kind, Value = value });
         }
 
         /// <summary>

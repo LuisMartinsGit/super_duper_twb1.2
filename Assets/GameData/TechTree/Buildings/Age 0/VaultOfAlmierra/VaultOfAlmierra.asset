@@ -28,12 +28,18 @@ MonoBehaviour:
   radius: 2
   lineOfSight: 14
   trains: []
-  research: []
+  research:
+  - Coffers
+  - MerchantCharters
+  - SovereignBonds
+  - IronSubsidies
+  - VeilstoneMonetization
+  - VeilsteelBonds
   minEra: 0
   cost:
-    Supplies: 300
+    Supplies: 210
     Iron: 0
-    Crystal: 100
+    Crystal: 70
     Veilsteel: 0
   tags:
   - Building

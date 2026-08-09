@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Crystalling
+  m_EditorClassIdentifier: 
+  id: Crystalling
+  displayName: Crystalling
+  unitClass: magic
+  hp: 35
+  speed: 5.5
+  trainingTime: 8
+  damage: 3
+  damageType: siege
+  armorType: infantry_light
+  defense:
+    melee: 2
+    ranged: 1
+    siege: 0
+    magic: 1
+  attackCooldown: 1.2
+  attackRange: 1.5
+  minAttackRange: 0
+  lineOfSight: 10
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 50
+    Veilsteel: 0
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Infantry
+  - Light
+  bonusVsTags: []
+  prefab: {fileID: 0}
+  presentationId: 320
+  animatorController: {fileID: 0}

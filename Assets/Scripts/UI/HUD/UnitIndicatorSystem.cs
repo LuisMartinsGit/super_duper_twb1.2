@@ -15,14 +15,15 @@ using EntityWorld = Unity.Entities.World;
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
-    /// Attaches a direction arrow and state circle to every unit with a visual.
+    /// Attaches a direction arrow and an ownership disc to every unit with a visual.
     /// - Direction arrow: thin cone pointing along the unit's forward axis.
-    /// - State circle: small disc on top of the unit that changes color:
-    ///     White  = idle
-    ///     Blue   = moving
-    ///     Yellow = pursuing
-    ///     Red    = attacking (in range / dealing damage)
-    ///     Magenta = taking damage
+    /// - Ownership disc: small disc on top of the unit, colored with its OWNER's
+    ///   faction color (<see cref="FactionColors.Get"/>) — so the dot answers
+    ///   "whose unit is this?" at a glance. It previously encoded transient unit
+    ///   state (idle/moving/attacking), which duplicated information already
+    ///   readable from the unit's animation and gave no ownership cue at all.
+    /// - Healing cross: the green cross still overlays the disc while a Litharch
+    ///   is actively healing; the disc stays visible underneath it.
     /// </summary>
     [DefaultExecutionOrder(920)] // After PresentationSpawnSystem (default)
     public class UnitIndicatorSystem : MonoBehaviour
@@ -33,22 +34,32 @@ namespace TheWaningBorder.UI.HUD
         [SerializeField] private float arrowYOffset = 0.06f;
         [SerializeField] private Color arrowColor = new Color(1f, 1f, 1f, 0.7f);
 
-        [Header("State Circle")]
+        [Header("Ownership Disc")]
         [SerializeField] private float circleRadius = 0.15f;
         [SerializeField] private float circleYAboveUnit = 1.6f;
         [SerializeField] private float circleThickness = 0.02f;
 
-        // State colors
-        private static readonly Color IdleColor = new Color(0.85f, 0.85f, 0.85f, 0.8f);
-        private static readonly Color MovingColor = new Color(0.2f, 0.5f, 1f, 0.8f);
-        private static readonly Color PursuingColor = new Color(1f, 0.85f, 0.1f, 0.8f);
-        private static readonly Color AttackingColor = new Color(1f, 0.15f, 0.15f, 0.8f);
-        private static readonly Color TakingDamageColor = new Color(1f, 0.1f, 0.8f, 0.9f);
+        /// <summary>Opacity of the ownership disc. The faction palette is fully
+        /// opaque, so alpha is applied here rather than baked into the palette.</summary>
+        [SerializeField, Range(0f, 1f)] private float circleAlpha = 0.85f;
+
+        /// <summary>Owner color for entities with no FactionTag (neutral/creature).</summary>
+        private static readonly Color UnownedColor = new Color(0.7f, 0.7f, 0.7f, 0.8f);
+
         private static readonly Color HealingColor = new Color(0.1f, 0.9f, 0.2f, 0.9f);
 
         private EntityWorld _world;
         private EntityManager _em;
         private Material _baseMat;
+
+        // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
+        private static readonly ComponentType[] VisibleUnitQueryTypes =
+        {
+            ComponentType.ReadOnly<PresentationId>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<UnitTag>(),
+        };
+        private TheWaningBorder.Core.CachedEntityQuery _visibleUnitQuery;
 
         private struct Indicators
         {
@@ -136,11 +147,7 @@ namespace TheWaningBorder.UI.HUD
 
             // Iterate tracked entities from EntityViewManager isn't possible (no public enumeration),
             // so use the PresentationId query to find all visible units
-            var query = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<PresentationId>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<UnitTag>()
-            );
+            var query = _visibleUnitQuery.Get(_em, VisibleUnitQueryTypes);
 
             var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
@@ -208,93 +215,69 @@ namespace TheWaningBorder.UI.HUD
                     ind.Arrow.transform.rotation = Quaternion.Euler(90f, angle, 0f);
                 }
 
-                // ── State Indicator (circle or cross) ──
-                var unitState = DetermineState(entity);
-                Color stateColor = StateToColor(unitState);
+                // ── Ownership disc ──
+                // Always visible, always the owner's faction color.
                 Vector3 indicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
 
-                if (unitState == UnitState.Healing)
+                if (ind.Circle != null)
                 {
-                    // Show green cross, hide circle
-                    if (ind.Circle != null) ind.Circle.SetActive(false);
-                    if (ind.CrossH != null)
+                    ind.Circle.SetActive(true);
+                    ind.Circle.transform.position = indicatorPos;
+                    SetMaterialColor(ind.CircleRenderer.sharedMaterial, OwnerColor(entity));
+                }
+
+                // ── Healing cross ──
+                // Overlaid ABOVE the ownership disc rather than replacing it, so
+                // a unit being healed still shows who owns it.
+                bool isHealing = IsHealing(entity);
+                Vector3 crossPos = indicatorPos + Vector3.up * (circleRadius * 1.6f);
+
+                if (ind.CrossH != null)
+                {
+                    ind.CrossH.SetActive(isHealing);
+                    if (isHealing)
                     {
-                        ind.CrossH.SetActive(true);
-                        ind.CrossH.transform.position = indicatorPos;
+                        ind.CrossH.transform.position = crossPos;
                         SetMaterialColor(ind.CrossHRenderer.sharedMaterial, HealingColor);
                     }
-                    if (ind.CrossV != null)
+                }
+                if (ind.CrossV != null)
+                {
+                    ind.CrossV.SetActive(isHealing);
+                    if (isHealing)
                     {
-                        ind.CrossV.SetActive(true);
-                        ind.CrossV.transform.position = indicatorPos;
+                        ind.CrossV.transform.position = crossPos;
                         SetMaterialColor(ind.CrossVRenderer.sharedMaterial, HealingColor);
                     }
                 }
-                else
-                {
-                    // Show circle, hide cross
-                    if (ind.CrossH != null) ind.CrossH.SetActive(false);
-                    if (ind.CrossV != null) ind.CrossV.SetActive(false);
-                    if (ind.Circle != null)
-                    {
-                        ind.Circle.SetActive(true);
-                        ind.Circle.transform.position = indicatorPos;
-                        SetMaterialColor(ind.CircleRenderer.sharedMaterial, stateColor);
-                    }
-                }
             }
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // STATE DETECTION
+        // OWNERSHIP / STATE
         // ═══════════════════════════════════════════════════════════════
 
-        private enum UnitState { Idle, Moving, Pursuing, Attacking, TakingDamage, Healing }
-
-        private UnitState DetermineState(Entity entity)
+        /// <summary>
+        /// The disc color: the owning faction's palette color, at the disc's
+        /// configured opacity. Same source as the minimap blips and health bars,
+        /// so a unit's dot always matches its player color everywhere else.
+        /// </summary>
+        private Color OwnerColor(Entity entity)
         {
-            // Taking damage (highest priority)
-            if (_em.HasComponent<LastAttackerEntity>(entity))
-                return UnitState.TakingDamage;
+            if (!_em.HasComponent<FactionTag>(entity)) return UnownedColor;
 
-            // Healing (Litharch actively healing a target)
-            if (_em.HasComponent<LitharchState>(entity))
-            {
-                var ls = _em.GetComponentData<LitharchState>(entity);
-                if (ls.IsHealing != 0 && ls.HealTarget != Entity.Null && _em.Exists(ls.HealTarget))
-                    return UnitState.Healing;
-            }
-
-            bool hasTarget = _em.HasComponent<Target>(entity) &&
-                             _em.GetComponentData<Target>(entity).Value != Entity.Null;
-
-            bool isMoving = false;
-            if (_em.HasComponent<DesiredDestination>(entity))
-            {
-                isMoving = _em.GetComponentData<DesiredDestination>(entity).Has != 0;
-            }
-
-            if (hasTarget && !isMoving)
-                return UnitState.Attacking;
-            if (hasTarget && isMoving)
-                return UnitState.Pursuing;
-            if (isMoving)
-                return UnitState.Moving;
-
-            return UnitState.Idle;
+            var c = FactionColors.Get(_em.GetComponentData<FactionTag>(entity).Value);
+            c.a = circleAlpha;
+            return c;
         }
 
-        private Color StateToColor(UnitState s)
+        /// <summary>Litharch actively channeling a heal on a live target.</summary>
+        private bool IsHealing(Entity entity)
         {
-            switch (s)
-            {
-                case UnitState.TakingDamage: return TakingDamageColor;
-                case UnitState.Healing: return HealingColor;
-                case UnitState.Attacking: return AttackingColor;
-                case UnitState.Pursuing: return PursuingColor;
-                case UnitState.Moving: return MovingColor;
-                default: return IdleColor;
-            }
+            if (!_em.HasComponent<LitharchState>(entity)) return false;
+
+            var ls = _em.GetComponentData<LitharchState>(entity);
+            return ls.IsHealing != 0 && ls.HealTarget != Entity.Null && _em.Exists(ls.HealTarget);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -325,7 +308,7 @@ namespace TheWaningBorder.UI.HUD
         private GameObject CreateCircle(out MeshRenderer renderer)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            go.name = "StateCircle";
+            go.name = "OwnershipDisc";
             go.transform.localScale = new Vector3(circleRadius * 2f, circleThickness, circleRadius * 2f);
 
             // Remove collider
@@ -334,7 +317,7 @@ namespace TheWaningBorder.UI.HUD
 
             renderer = go.GetComponent<MeshRenderer>();
             var mat = new Material(_baseMat);
-            SetMaterialColor(mat, IdleColor);
+            SetMaterialColor(mat, UnownedColor);
             renderer.sharedMaterial = mat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;

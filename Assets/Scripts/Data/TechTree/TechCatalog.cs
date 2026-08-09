@@ -29,6 +29,9 @@ public static class TechCatalog
     private static readonly Dictionary<string, BuildingDefSO> _buildingSOsById = new();
     // presentationId -> prefab (for the prefab-based spawn path). null prefab = primitive fallback.
     private static readonly Dictionary<int, GameObject> _prefabByPid = new();
+    // presentationId -> animator controller (assigned at spawn when the prefab's
+    // own Animator has no controller, e.g. variant-of-FBX prefabs).
+    private static readonly Dictionary<int, RuntimeAnimatorController> _controllerByPid = new();
 
     private static CombatProfile _combatProfile;
     private static string _faction;
@@ -59,7 +62,7 @@ public static class TechCatalog
     private static void Build()
     {
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear(); _sectsById.Clear();
-        _unitSOsById.Clear(); _buildingSOsById.Clear(); _prefabByPid.Clear();
+        _unitSOsById.Clear(); _buildingSOsById.Clear(); _prefabByPid.Clear(); _controllerByPid.Clear();
 
         // Fully-qualified: the `Resources` property below would shadow UnityEngine.Resources.
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
@@ -92,6 +95,11 @@ public static class TechCatalog
         // 3. Ensure required buildings exist + Temple fixup (only adds/repairs missing).
         ApplyBuildingDefaults();
 
+        // 3b. Seed the Alanthor King's Court units (Ledger + King Lexor) so they
+        //     resolve before their UnitDefSO assets exist in the catalog. Same
+        //     fallback pattern as ApplyBuildingDefaults — SO wins if authored.
+        ApplyUnitDefaults();
+
         // 4. Sync the static BuildCosts lookup with the now-loaded data.
         BuildCosts.SyncFromTechTree();
     }
@@ -106,6 +114,8 @@ public static class TechCatalog
                 _unitsById[so.id] = so.ToDef();
                 _unitSOsById[so.id] = so;
                 if (so.prefab != null && so.presentationId != 0) _prefabByPid[so.presentationId] = so.prefab;
+                if (so.animatorController != null && so.presentationId != 0)
+                    _controllerByPid[so.presentationId] = so.animatorController;
             }
         }
         if (catalog.buildings != null)
@@ -135,6 +145,7 @@ public static class TechCatalog
     public static bool TryGetBuilding(string id, out BuildingDef def)
     {
         EnsureLoaded();
+        if (id == "ShrineOfAhridan") id = "ShrineOfRidan"; // legacy id alias (pre-rename callers / saves)
         if (_buildingSOsById.TryGetValue(id, out var so) && so != null &&
             _buildingsById.TryGetValue(id, out var cached))
         {
@@ -157,6 +168,16 @@ public static class TechCatalog
         return _prefabByPid.TryGetValue(presentationId, out prefab);
     }
 
+    /// <summary>
+    /// presentationId -> animator controller authored on the unit's SO. False =
+    /// none assigned (the spawn path leaves the prefab's own Animator untouched).
+    /// </summary>
+    public static bool TryGetController(int presentationId, out RuntimeAnimatorController controller)
+    {
+        EnsureLoaded();
+        return _controllerByPid.TryGetValue(presentationId, out controller);
+    }
+
     public static CombatProfile CombatProfile { get { EnsureLoaded(); return _combatProfile; } }
     public static string Faction { get { EnsureLoaded(); return _faction; } }
     public static List<string> Resources { get { EnsureLoaded(); return _resources; } }
@@ -171,12 +192,19 @@ public static class TechCatalog
     public static IEnumerable<TechnologyDef> GetAllTechnologies() { EnsureLoaded(); return _technologiesById.Values; }
 
     // ─── helpers (ported from TechTreeDB) ────────────────────────────────────
+
+    // Age 0 Shrine tech ladder — also carried by the Temple of Ridan (the
+    // Shrine's age-up form) so the heal ladder stays researchable after
+    // age-up.
+    private static readonly string[] ShrineResearch =
+        { "HeightenedMasses", "WarriorPriests", "PiousMasses", "FervoredMasses" };
+
     private static void ApplyBuildingDefaults()
     {
-        EnsureBuildingDefault("ShrineOfAhridan", "Shrine of Ahridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" });
+        EnsureBuildingDefault("ShrineOfRidan", "Shrine of Ridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" }, ShrineResearch);
         if (!_buildingsById.ContainsKey("TempleOfRidan"))
         {
-            EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" });
+            EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" }, ShrineResearch);
         }
         else
         {
@@ -186,20 +214,62 @@ public static class TechCatalog
             existing.role = "Sect expansion, training, research";
             if (existing.trains == null || existing.trains.Length == 0)
                 existing.trains = new[] { "Litharch" };
+            if (existing.research == null || existing.research.Length == 0)
+                existing.research = ShrineResearch;
             _buildingsById["TempleOfRidan"] = existing;
         }
     }
 
-    private static void EnsureBuildingDefault(string id, string name, string role, float hp, float los, float radius, int minEra, string[] trains)
+    /// <summary>
+    /// Seed the two Alanthor King's Court units in code so they train, show in
+    /// the UI, and resolve their cost/training-time before a UnitDefSO exists in
+    /// the catalog. Only fills gaps — an authored SO (loaded above) already sits
+    /// in _unitsById and is left untouched. Stats mirror the entity factories
+    /// (Ledger.cs / KingLexor.cs); numbers are placeholders (owner tunes later).
+    /// </summary>
+    private static void ApplyUnitDefaults()
+    {
+        // Values below match the canonical tech-tree calculator
+        // (tools/calculator/techtree.json). Owner may still tune.
+        EnsureUnitDefault(new UnitDef
+        {
+            id = "Ledger", name = "Ledger", unitClass = "support",
+            hp = 140f, speed = 3.5f, lineOfSight = 10f, trainingTime = 30f,
+            damage = 0f, damageType = "melee", armorType = "structure_light",
+            cost = CostBlock.Of(150, 40, 20, 0),
+            minBuildingLevel = 2,
+            abilities = new[] { "Automate Facility" },
+        });
+        EnsureUnitDefault(new UnitDef
+        {
+            id = "King Lexor", name = "King Lexor", unitClass = "melee",
+            hp = 650f, speed = 7.0f, lineOfSight = 26f, trainingTime = 90f,
+            damage = 45f, damageType = "melee", armorType = "cavalry_heavy",
+            attackCooldown = 1.4f,
+            cost = CostBlock.Of(600, 250, 100, 0),
+            minBuildingLevel = 1,
+            abilities = new[] { "King's Call", "Liquid Courage" },
+        });
+    }
+
+    private static void EnsureUnitDefault(UnitDef def)
+    {
+        if (def == null || string.IsNullOrEmpty(def.id)) return;
+        if (_unitsById.ContainsKey(def.id)) return; // SO / JSON already provided it
+        _unitsById[def.id] = def;
+    }
+
+    private static void EnsureBuildingDefault(string id, string name, string role, float hp, float los, float radius, int minEra, string[] trains, string[] research = null)
     {
         if (_buildingsById.ContainsKey(id)) return;
         var raw = BuildCosts.Get(id);
-        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Crystal, raw.Veilsteel);
+        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Veilstone, raw.Veilsteel);
         _buildingsById[id] = new BuildingDef
         {
             id = id, name = name, role = role, hp = hp,
             lineOfSight = los, radius = radius, minEra = minEra,
             trains = trains, cost = cost,
+            research = research ?? System.Array.Empty<string>(),
             armorType = "structure_human"
         };
     }

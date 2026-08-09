@@ -66,6 +66,16 @@ namespace TheWaningBorder.Bootstrap
                 TWBLog.Log(sb.ToString());
             }
 
+            // Marker assignment is EXACT and exhaustive: pass 1 gives every
+            // faction its faction-matched marker; pass 2 hands the remaining
+            // (unused) markers to factions without a match, in the registry's
+            // deterministic order. The procedural layout only ever applies to
+            // factions left over after every marker is spent — so on a marked
+            // map, starting positions are exactly the authored marker
+            // positions, every run, even when the marker Faction fields don't
+            // line up with the active lobby slots.
+            var usedMarkers = new System.Collections.Generic.HashSet<PlayerStartMarker>();
+
             for (int i = 0; i < playerCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
@@ -85,31 +95,87 @@ namespace TheWaningBorder.Bootstrap
 
                 if (useMarkers)
                 {
-                    var marker = MapMarkerRegistry.FindPlayerMarker(faction);
+                    // Pass 1: exact faction match (unused markers only, so a
+                    // duplicated Faction field can't double-assign).
+                    PlayerStartMarker marker = null;
+                    var exact = MapMarkerRegistry.FindPlayerMarker(faction);
+                    if (exact != null && !usedMarkers.Contains(exact))
+                        marker = exact;
+
+                    // Pass 2: first unused marker in deterministic registry
+                    // order — an authored start position always beats the
+                    // procedural layout, even with a mismatched Faction field.
+                    if (marker == null)
+                    {
+                        for (int mi = 0; mi < MapMarkerRegistry.PlayerStarts.Count; mi++)
+                        {
+                            var candidate = MapMarkerRegistry.PlayerStarts[mi];
+                            if (candidate == null || usedMarkers.Contains(candidate)) continue;
+                            marker = candidate;
+                            Debug.LogWarning(
+                                $"[PlayerSpawnSystem] no PlayerStartMarker set to {faction} — " +
+                                $"using the unclaimed marker '{candidate.gameObject.name}' " +
+                                $"(Faction={candidate.Faction}) instead. Set the marker's " +
+                                "Faction field to silence this warning.");
+                            break;
+                        }
+                    }
+
                     if (marker != null)
                     {
+                        usedMarkers.Add(marker);
                         var p = marker.WorldPosition;
                         spawnPos = new float3(p.x, p.y, p.z);
-                        TWBLog.Log($"[PlayerSpawnSystem] {faction} → marker at " +
-                                  $"({spawnPos.x:F0},{spawnPos.z:F0})");
+                        TWBLog.Log($"[PlayerSpawnSystem] {faction} → marker " +
+                                  $"'{marker.gameObject.name}' at " +
+                                  $"({spawnPos.x:F2},{spawnPos.z:F2}) — honored exactly");
                     }
                     else
                     {
                         Debug.LogWarning(
-                            $"[PlayerSpawnSystem] no PlayerStartMarker for {faction} — " +
-                            "falling back to procedural position. Add a marker for " +
-                            "this faction or remove the slot.");
+                            $"[PlayerSpawnSystem] more active factions than " +
+                            $"PlayerStartMarkers — {faction} falls back to the " +
+                            "procedural layout position. Add a marker for this " +
+                            "faction or reduce the player count.");
                     }
+
+                    SpawnFactionBase(em, faction, spawnPos, exactPosition: marker != null);
+                    continue;
                 }
 
-                SpawnFactionBase(em, faction, spawnPos);
+                SpawnFactionBase(em, faction, spawnPos, exactPosition: false);
             }
         }
 
-        private static void SpawnFactionBase(EntityManager em, Faction faction, float3 position)
+        private static void SpawnFactionBase(EntityManager em, Faction faction, float3 position,
+            bool exactPosition)
         {
-            // Ensure position is on land and at correct height
-            float3 spawnPos = EnsureValidSpawnPosition(position);
+            // Marker-sourced positions are AUTHORED — honor them verbatim in
+            // XZ (only the terrain-height snap applies). The silent clamp to
+            // playable bounds stays for procedural layouts, but a marker that
+            // would be moved gets a loud warning instead of a quiet shift:
+            // "the Hall is not on my marker" must never be a mystery again.
+            float3 spawnPos;
+            if (exactPosition)
+            {
+                const float EdgeMargin = 4f;
+                TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+                if (position.x < bMin.x + EdgeMargin || position.x > bMax.x - EdgeMargin ||
+                    position.z < bMin.y + EdgeMargin || position.z > bMax.y - EdgeMargin)
+                {
+                    Debug.LogWarning(
+                        $"[PlayerSpawnSystem] {faction}'s start marker at " +
+                        $"({position.x:F2},{position.z:F2}) sits outside the playable " +
+                        $"bounds ({bMin.x:F0}..{bMax.x:F0}, {bMin.y:F0}..{bMax.y:F0}). " +
+                        "Honoring it anyway — move the marker if units spawn off-grid.");
+                }
+                spawnPos = new float3(position.x,
+                    TerrainUtility.GetHeight(position.x, position.z), position.z);
+            }
+            else
+            {
+                spawnPos = EnsureValidSpawnPosition(position);
+            }
 
             // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
             BuildingFactory.Create(em, "Hall", spawnPos, faction);
@@ -121,16 +187,41 @@ namespace TheWaningBorder.Bootstrap
             float3 builderPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
             float3 builderPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
 
-            UnitFactory.Create(em, "Builder", builderPos1, faction);
-            UnitFactory.Create(em, "Builder", builderPos2, faction);
-            UnitFactory.Create(em, "Builder", builderPos3, faction);
+            UnitFactory.Create(em, "Worker", builderPos1, faction);
+            UnitFactory.Create(em, "Worker", builderPos2, faction);
+            UnitFactory.Create(em, "Worker", builderPos3, faction);
+
+            // Starting army south of the Hall (workers occupy E/W/N): a front
+            // row of three Swordsmen, two Archers behind, and a Scout on the
+            // eastern flank. No Catapult (§2.5b rev.3): siege in the opening
+            // seconds trivialised every early curse anchor.
+            const float spacing = 2.5f;
+            float3 frontRow = spawnPos + new float3(0, 0, -offset);
+            float3 backRow = spawnPos + new float3(0, 0, -offset - spacing);
+
+            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow + new float3(-spacing, 0, 0)), faction);
+            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow), faction);
+            UnitFactory.Create(em, "Swordsman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
+
+            UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
+            UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
+
+            UnitFactory.Create(em, "Scout", EnsureValidSpawnPosition(backRow + new float3(spacing * 2f, 0, 0)), faction);
         }
 
         /// <summary>
-        /// Ensure spawn position is on land and at correct terrain height.
+        /// Ensure spawn position is on the terrain and at correct height.
+        /// Clamps into the actual Terrain bounds (with a small margin) so no
+        /// spawn — layout-derived or marker-derived — can land off the
+        /// terrain, outside the nav grid.
         /// </summary>
         private static float3 EnsureValidSpawnPosition(float3 position)
         {
+            const float EdgeMargin = 4f;
+            TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+            position.x = math.clamp(position.x, bMin.x + EdgeMargin, bMax.x - EdgeMargin);
+            position.z = math.clamp(position.z, bMin.y + EdgeMargin, bMax.y - EdgeMargin);
+
             // Snap to terrain height.
             float y = TerrainUtility.GetHeight(position.x, position.z);
             return new float3(position.x, y, position.z);
@@ -146,13 +237,21 @@ namespace TheWaningBorder.Bootstrap
         private static float3[] CalculateLayoutSpawnPositions(int playerCount)
         {
             var positions = new float3[playerCount];
-            int half = GameSettings.MapHalfSize;
-            float spawnRadius = half * 0.7f;
+
+            // The playable rectangle comes from the ACTUAL Terrain object.
+            // Unity terrains are corner-anchored (they span transform.position
+            // .. position + size), so an origin-centred MapHalfSize box points
+            // off the terrain on any hand-authored map — units spawned there
+            // sit outside the nav grid and every move command fails.
+            TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+            float2 center = new float2((bMin.x + bMax.x) * 0.5f, (bMin.y + bMax.y) * 0.5f);
+            float halfExtent = math.min(bMax.x - bMin.x, bMax.y - bMin.y) * 0.5f;
+            float spawnRadius = halfExtent * 0.7f;
 
             switch (GameSettings.SpawnLayout)
             {
                 case SpawnLayout.TwoSides:
-                    positions = CalculateTwoSidesPositions(playerCount, half);
+                    positions = CalculateTwoSidesPositions(playerCount, center, spawnRadius);
                     break;
 
                 case SpawnLayout.Circle:
@@ -160,8 +259,8 @@ namespace TheWaningBorder.Bootstrap
                     for (int i = 0; i < playerCount; i++)
                     {
                         float angle = (i / (float)playerCount) * math.PI * 2f;
-                        float x = math.cos(angle) * spawnRadius;
-                        float z = math.sin(angle) * spawnRadius;
+                        float x = center.x + math.cos(angle) * spawnRadius;
+                        float z = center.y + math.sin(angle) * spawnRadius;
                         float y = TerrainUtility.GetHeight(x, z);
                         positions[i] = new float3(x, y, z);
                     }
@@ -171,11 +270,10 @@ namespace TheWaningBorder.Bootstrap
             return positions;
         }
 
-        private static float3[] CalculateTwoSidesPositions(int playerCount, int mapHalf)
+        private static float3[] CalculateTwoSidesPositions(int playerCount, float2 center, float spawnDist)
         {
             var positions = new float3[playerCount];
-            float spawnDist = mapHalf * 0.7f;
-            
+
             int side1Count = (playerCount + 1) / 2;
             int side2Count = playerCount - side1Count;
 
@@ -186,18 +284,18 @@ namespace TheWaningBorder.Bootstrap
             {
                 float offset = (i - (side1Count - 1) * 0.5f) * 20f;
                 float x, z;
-                
+
                 if (leftRight)
                 {
-                    x = -spawnDist;
-                    z = offset;
+                    x = center.x - spawnDist;
+                    z = center.y + offset;
                 }
                 else
                 {
-                    x = offset;
-                    z = -spawnDist;
+                    x = center.x + offset;
+                    z = center.y - spawnDist;
                 }
-                
+
                 float y = TerrainUtility.GetHeight(x, z);
                 positions[i] = new float3(x, y, z);
             }
@@ -207,18 +305,18 @@ namespace TheWaningBorder.Bootstrap
             {
                 float offset = (i - (side2Count - 1) * 0.5f) * 20f;
                 float x, z;
-                
+
                 if (leftRight)
                 {
-                    x = spawnDist;
-                    z = offset;
+                    x = center.x + spawnDist;
+                    z = center.y + offset;
                 }
                 else
                 {
-                    x = offset;
-                    z = spawnDist;
+                    x = center.x + offset;
+                    z = center.y + spawnDist;
                 }
-                
+
                 float y = TerrainUtility.GetHeight(x, z);
                 positions[side1Count + i] = new float3(x, y, z);
             }

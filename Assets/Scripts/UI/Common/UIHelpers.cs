@@ -2,10 +2,6 @@
 // Shared UI utility functions and data structures
 
 using UnityEngine;
-using Unity.Entities;
-using EntityWorld = Unity.Entities.World;
-using TheWaningBorder.Input;
-using TheWaningBorder.UI.HUD;
 
 namespace TheWaningBorder.UI.Common
 {
@@ -123,7 +119,7 @@ namespace TheWaningBorder.UI.Common
 
             Add("S", cost.Supplies);
             Add("Fe", cost.Iron);
-            Add("Cr", cost.Crystal);
+            Add("Cr", cost.Veilstone);
             Add("Vs", cost.Veilsteel);
             Add("Gl", cost.Glow);
 
@@ -150,7 +146,7 @@ namespace TheWaningBorder.UI.Common
 
             Add("S", cost.Supplies, available.Supplies);
             Add("Fe", cost.Iron, available.Iron);
-            Add("Cr", cost.Crystal, available.Crystal);
+            Add("Cr", cost.Veilstone, available.Veilstone);
             Add("Vs", cost.Veilsteel, available.Veilsteel);
             Add("Gl", cost.Glow, available.Glow);
 
@@ -213,7 +209,7 @@ namespace TheWaningBorder.UI.Common
                 Faction.Orange => new Color(1f, 0.6f, 0.2f),
                 Faction.Teal => new Color(0.2f, 0.8f, 0.8f),
                 Faction.White => new Color(0.9f, 0.9f, 0.9f),
-                Faction.Curse => new Color(0.6f, 0.85f, 0.95f), // icy cyan — crystal aesthetic
+                Faction.Border => new Color(0.6f, 0.85f, 0.95f), // icy cyan — veilstone aesthetic
                 _ => Color.gray
             };
         }
@@ -230,175 +226,7 @@ namespace TheWaningBorder.UI.Common
         }
     }
 
-    /// <summary>
-    /// Unified UI manager that coordinates panels.
-    /// </summary>
-    public class UnifiedUIManager : MonoBehaviour
-    {
-        private static UnifiedUIManager _instance;
-
-        private EntityWorld _world;
-        private EntityManager _em;
-
-        void Awake()
-        {
-            if (_instance != null && _instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            _instance = this;
-
-            _world = EntityWorld.DefaultGameObjectInjectionWorld;
-            if (_world != null && _world.IsCreated)
-                _em = _world.EntityManager;
-
-            // Add panel components
-            gameObject.AddComponent<Panels.EntityInfoPanel>();
-            gameObject.AddComponent<Panels.EntityActionPanel>();
-            gameObject.AddComponent<Panels.CultureChoicePopup>();
-            gameObject.AddComponent<Panels.SectChoicePopup>();
-            gameObject.AddComponent<Panels.TechTreePanel>();
-            gameObject.AddComponent<HUD.FloatingHealthBars>();
-            gameObject.AddComponent<HUD.PlayerNotificationSystem>();
-        }
-
-        void Update()
-        {
-            if (_em.Equals(default(EntityManager)))
-            {
-                _world = EntityWorld.DefaultGameObjectInjectionWorld;
-                if (_world != null && _world.IsCreated)
-                    _em = _world.EntityManager;
-            }
-        }
-
-        /// <summary>
-        /// Get the first valid selected entity from RTSInput.
-        /// Returns own entities first, then enemy entities if visible.
-        /// </summary>
-        public static Entity GetFirstSelectedEntity()
-        {
-            var sel = SelectionSystem.CurrentSelection;
-            if (sel == null || sel.Count == 0) return Entity.Null;
-
-            var manager = GetEntityManager();
-            if (manager.Equals(default(EntityManager))) return Entity.Null;
-
-            for (int i = 0; i < sel.Count; i++)
-            {
-                var e = sel[i];
-                if (!manager.Exists(e)) continue;
-                if (!IsValidSelectable(manager, e)) continue;
-
-                return e;
-            }
-
-            return Entity.Null;
-        }
-
-        /// <summary>
-        /// Check if an entity is valid for UI selection display.
-        /// Accepts faction-owned entities and neutral resource deposits.
-        /// </summary>
-        private static bool IsValidSelectable(EntityManager em, Entity e)
-        {
-            if (em.HasComponent<FactionTag>(e)) return true;
-            if (em.HasComponent<IronMineTag>(e)) return true;
-            if (em.HasComponent<CadaverTag>(e)) return true;
-            return false;
-        }
-
-        /// <summary>
-        /// Check if the first selected entity belongs to the local player.
-        /// </summary>
-        public static bool IsSelectionOwnedByPlayer()
-        {
-            var e = GetFirstSelectedEntity();
-            if (e == Entity.Null) return false;
-
-            var manager = GetEntityManager();
-            if (manager.Equals(default(EntityManager))) return false;
-            if (!manager.HasComponent<FactionTag>(e)) return false;
-
-            return manager.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction;
-        }
-
-        /// <summary>
-        /// Check if mouse pointer is over any UI panel.
-        /// </summary>
-        public static bool IsPointerOverAnyPanel()
-        {
-            return Panels.EntityInfoPanel.IsPointerOver()
-                || Panels.EntityActionPanel.IsPointerOver()
-                || Panels.CultureChoicePopup.IsPointerOver()
-                || Panels.SectChoicePopup.IsPointerOver()
-                || Panels.TechTreePanel.IsPointerOver()
-                || SpellPanel.IsPointerOverPanel;
-        }
-
-        /// <summary>
-        /// Get the EntityManager.
-        /// </summary>
-        public static EntityManager GetEntityManager()
-        {
-            if (_instance != null && !_instance._em.Equals(default(EntityManager)))
-                return _instance._em;
-
-            var world = EntityWorld.DefaultGameObjectInjectionWorld;
-            if (world != null && world.IsCreated)
-                return world.EntityManager;
-
-            return default;
-        }
-
-        /// <summary>
-        /// Get all currently selected entities (valid and existing).
-        /// </summary>
-        public static System.Collections.Generic.List<Entity> GetAllSelectedEntities()
-        {
-            var sel = SelectionSystem.CurrentSelection;
-            if (sel == null) return new System.Collections.Generic.List<Entity>();
-
-            var manager = GetEntityManager();
-            if (manager.Equals(default(EntityManager))) return new System.Collections.Generic.List<Entity>();
-
-            var result = new System.Collections.Generic.List<Entity>(sel.Count);
-            for (int i = 0; i < sel.Count; i++)
-            {
-                var e = sel[i];
-                if (manager.Exists(e) && IsValidSelectable(manager, e))
-                    result.Add(e);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Get count of valid selected entities.
-        /// </summary>
-        public static int GetSelectionCount()
-        {
-            var sel = SelectionSystem.CurrentSelection;
-            if (sel == null) return 0;
-
-            var manager = GetEntityManager();
-            if (manager.Equals(default(EntityManager))) return 0;
-
-            int count = 0;
-            for (int i = 0; i < sel.Count; i++)
-            {
-                if (manager.Exists(sel[i]) && IsValidSelectable(manager, sel[i]))
-                    count++;
-            }
-            return count;
-        }
-
-        /// <summary>
-        /// Returns true if more than one entity is selected.
-        /// </summary>
-        public static bool IsMultiSelection()
-        {
-            return GetSelectionCount() > 1;
-        }
-    }
+    // UnifiedUIManager (IMGUI panel spawner + pointer-over aggregator) removed
+    // with the old UI (2026-07-17); the final uGUI EventSystem check replaces
+    // IsPointerOverAnyPanel and GameUIManager owns panel lifecycle.
 }

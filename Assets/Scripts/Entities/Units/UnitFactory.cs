@@ -1,4 +1,6 @@
 // File: Assets/Scripts/Entities/Units/UnitFactory.cs
+using System;
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -9,74 +11,171 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Unified factory for creating all unit types.
-    /// 
+    ///
     /// Provides a single entry point for spawning units by ID,
     /// with automatic stat loading from TechTreeDB.
-    /// 
+    ///
+    /// All per-unit data (EM/ECB constructors, UnitClass, PresentationId) lives
+    /// in ONE recipe table below — adding a unit means adding ONE entry instead
+    /// of editing four parallel switch statements.
+    ///
     /// Usage:
     ///   Entity unit = UnitFactory.Create(em, "Archer", position, faction);
     /// </summary>
     public static class UnitFactory
     {
+        private readonly struct UnitRecipe
+        {
+            public readonly Func<EntityManager, float3, Faction, Entity> CreateEm;
+            public readonly Func<EntityCommandBuffer, float3, Faction, Entity> CreateEcb;
+            public readonly UnitClass Class;
+            public readonly int PresentationId;
+
+            public UnitRecipe(Func<EntityManager, float3, Faction, Entity> createEm,
+                              Func<EntityCommandBuffer, float3, Faction, Entity> createEcb,
+                              UnitClass unitClass, int presentationId)
+            {
+                CreateEm = createEm;
+                CreateEcb = createEcb;
+                Class = unitClass;
+                PresentationId = presentationId;
+            }
+        }
+
+        /// <summary>
+        /// Single source of truth: id -> (EM ctor, ECB ctor, class, presentation id).
+        /// Unknown ids fall back to Swordsman / Melee / 201 (see CreateDefault).
+        /// </summary>
+        private static readonly Dictionary<string, UnitRecipe> Recipes = BuildRecipes();
+
+        private static Dictionary<string, UnitRecipe> BuildRecipes()
+        {
+            var r = new Dictionary<string, UnitRecipe>();
+
+            r["Worker"] = new UnitRecipe(Worker.Create, Worker.Create, UnitClass.Economy, 200);
+
+            // "Swordsman" is NOT a recipe id anymore (calculator 2026-08: the
+            // Swordsman is Alanthor-only, id "Alanthor_Swordsman") — but the
+            // Swordsman creator remains the unknown-id fallback (CreateDefault),
+            // so stray "Swordsman" spawns in scenarios still resolve.
+            // Age 0 design-canon line unit (Age_0.md): anti-cavalry spear
+            // infantry (pid 330 polearm visuals).
+            r["Spearman"]    = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 330);
+            r["Archer"]      = new UnitRecipe(Archer.Create, Archer.Create, UnitClass.Ranged, 202);
+            // Calculator 2026-08: crossbow/longbow are Alanthor Practice Range
+            // tiers only. The bare ids stay as aliases of the Alanthor creators
+            // for reference stability (old build orders / scenarios).
+            r["Crossbowman"] = new UnitRecipe(AlanthorCrossbowman.Create, AlanthorCrossbowman.Create, UnitClass.Ranged, 335);
+            r["Longbowman"]  = new UnitRecipe(Longbowman.Create, Longbowman.Create, UnitClass.Ranged, 205);
+            r["Scout"]       = new UnitRecipe(Scout.Create, Scout.Create, UnitClass.Scout, 206);
+            r["Litharch"]    = new UnitRecipe(Litharch.Create, Litharch.Create, UnitClass.Support, 207);
+
+            var berserker = new UnitRecipe(Berserker.Create, Berserker.Create, UnitClass.Melee, 210);
+            r["Berserker"] = r["Feraldis_Berserker"] = berserker;
+
+            // Veilstone border units
+            r["Crystalling"]  = new UnitRecipe(Crystalling.Create, Crystalling.Create, UnitClass.Melee, 320);
+            r["Veilstinger"]  = new UnitRecipe(Veilstinger.Create, Veilstinger.Create, UnitClass.Ranged, 321);
+            r["Godsplinter"]  = new UnitRecipe(Godsplinter.Create, Godsplinter.Create, UnitClass.Siege, 322);
+
+            // Runai culture units
+            r["Runai_Spearman"]   = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 330);
+            r["Runai_Skirmisher"] = new UnitRecipe(Skirmisher.Create, Skirmisher.Create, UnitClass.Ranged, 331);
+            r["Runai_Raider"]     = new UnitRecipe(Raider.Create, Raider.Create, UnitClass.Melee, 332);
+            r["Runai_Catapult"]   = new UnitRecipe(Catapult.Create, Catapult.Create, UnitClass.Siege, 333);
+            r["Runai_Acolyte"]    = new UnitRecipe(Acolyte.Create, Acolyte.Create, UnitClass.Magic, 384);
+
+            // Alanthor culture units
+            r["Alanthor_Sentinel"]    = new UnitRecipe(Sentinel.Create, Sentinel.Create, UnitClass.Melee, 334);
+            r["Alanthor_Crossbowman"] = new UnitRecipe(AlanthorCrossbowman.Create, AlanthorCrossbowman.Create, UnitClass.Ranged, 335);
+            // Garrison Lv 1 line infantry (canonical id; the bare "Swordsman"
+            // id was retired — see the fallback note above).
+            r["Alanthor_Swordsman"]   = new UnitRecipe(Swordsman.Create, Swordsman.Create, UnitClass.Melee, 201);
+            r["Alanthor_Longbowman"]  = new UnitRecipe(Longbowman.Create, Longbowman.Create, UnitClass.Ranged, 205);
+            r["Alanthor_Cataphract"]  = new UnitRecipe(Cataphract.Create, Cataphract.Create, UnitClass.Melee, 336);
+            r["Alanthor_Outrider"]    = new UnitRecipe(Outrider.Create, Outrider.Create, UnitClass.Melee, Outrider.PresentationID);
+            // Siege Yard Lv 1 bolt-thrower (calculator 2026-08: Ballista
+            // replaced the Alanthor Catapult). The retired id stays as an
+            // alias so AI build orders / scenarios / saves keep resolving.
+            var ballista              = new UnitRecipe(Ballista.Create, Ballista.Create, UnitClass.Siege, 337);
+            r["Alanthor_Ballista"] = r["Alanthor_Catapult"] = ballista;
+            // Garrison Lv 2 elite duelist infantry (calculator 2026-08).
+            r["Alanthor_Nobleman"]    = new UnitRecipe(Nobleman.Create, Nobleman.Create, UnitClass.Melee, 346);
+            // Siege Yard Lv 2/3 additions (calculator 2026-08): anti-building
+            // ram + long-range trebuchet round out the Alanthor siege line.
+            r["Alanthor_BatteringRam"] = new UnitRecipe(BatteringRam.Create, BatteringRam.Create, UnitClass.Siege, 347);
+            r["Alanthor_Trebuchet"]   = new UnitRecipe(Trebuchet.Create, Trebuchet.Create, UnitClass.Siege, 348);
+            r["Alanthor_Scholar"]     = new UnitRecipe(Scholar.Create, Scholar.Create, UnitClass.Magic, 382);
+            // Alanthor King's Court additions (data-driven abilities; placeholder art).
+            r["Ledger"]               = new UnitRecipe(Ledger.Create, Ledger.Create, UnitClass.Economy, Ledger.PresentationID);
+            var kingLexor             = new UnitRecipe(KingLexor.Create, KingLexor.Create, UnitClass.Melee, KingLexor.PresentationID);
+            r["King Lexor"] = r["KingLexor"] = kingLexor;
+
+            // Feraldis culture units
+            // The fire-and-blood combat roster (design 2026-08-05): Spearman
+            // at L1, Bloodletter + Suicidal at L2, Berserker at L3. The
+            // Spearman gets its OWN creator deliberately — the shared
+            // Spearman.Create reads the base "Spearman" def, so routing this
+            // id there would have handed Feraldis the cultureless stat block.
+            r["Feraldis_Spearman"]     = new UnitRecipe(FeraldisSpearman.Create, FeraldisSpearman.Create, UnitClass.Melee, FeraldisSpearman.PresentationID);
+            r["Feraldis_Bloodletter"]  = new UnitRecipe(Bloodletter.Create, Bloodletter.Create, UnitClass.Melee, Bloodletter.PresentationID);
+            r["Feraldis_Suicidal"]     = new UnitRecipe(Suicidal.Create, Suicidal.Create, UnitClass.Melee, Suicidal.PresentationID);
+            // Thrower Camp roster: range-for-violence ladder.
+            r["Feraldis_Archer"]       = new UnitRecipe(FeraldisArcher.Create, FeraldisArcher.Create, UnitClass.Ranged, FeraldisArcher.PresentationID);
+            // "Hunter" is the AXE THROWER — id kept for reference stability.
+            r["Feraldis_Hunter"]       = new UnitRecipe(Hunter.Create, Hunter.Create, UnitClass.Ranged, 338);
+            r["Feraldis_Firethrower"]  = new UnitRecipe(Firethrower.Create, Firethrower.Create, UnitClass.Ranged, Firethrower.PresentationID);
+            // Raider Camp output — the Feraldis economy. Free, uncontrollable,
+            // never trained by the player (RaiderCampSystem spawns it).
+            r["Feraldis_Plunderer"]    = new UnitRecipe(Plunderer.Create, Plunderer.Create, UnitClass.Melee, Plunderer.PresentationID);
+            // Pasture roster: light + heavy cavalry.
+            r["Feraldis_Raider"]       = new UnitRecipe(FeraldisRaider.Create, FeraldisRaider.Create, UnitClass.Melee, FeraldisRaider.PresentationID);
+            r["Feraldis_WarChariot"]   = new UnitRecipe(WarChariot.Create, WarChariot.Create, UnitClass.Melee, WarChariot.PresentationID);
+            // RETIRED 2026-08-05 rev.2 — replaced by the War Chariot. Recipe
+            // kept so any stray reference still resolves to a real unit.
+            r["Feraldis_WarboarRider"] = new UnitRecipe(WarboarRider.Create, WarboarRider.Create, UnitClass.Melee, 339);
+            r["Feraldis_SiegeRam"]     = new UnitRecipe(SiegeRam.Create, SiegeRam.Create, UnitClass.Siege, 340);
+            r["Feraldis_Iconoclast"]   = new UnitRecipe(Iconoclast.Create, Iconoclast.Create, UnitClass.Melee, 386);
+
+            // Sect unique units
+            r["Sect_ScarGuard"]         = new UnitRecipe(ScarGuard.Create, ScarGuard.Create, UnitClass.Melee, 370);
+            r["Sect_GolemAutark"]       = new UnitRecipe(GolemAutark.Create, GolemAutark.Create, UnitClass.Magic, 371);
+            r["Sect_StoneWarden"]       = new UnitRecipe(StoneWarden.Create, StoneWarden.Create, UnitClass.Melee, 372);
+            r["Sect_ArchivistAdept"]    = new UnitRecipe(ArchivistAdept.Create, ArchivistAdept.Create, UnitClass.Magic, 373);
+            r["Sect_FlameWarden"]       = new UnitRecipe(FlameWarden.Create, FlameWarden.Create, UnitClass.Melee, 374);
+            r["Sect_VaultKeeper"]       = new UnitRecipe(VaultKeeper.Create, VaultKeeper.Create, UnitClass.Melee, 375);
+            r["Sect_GlassmarkArcanist"] = new UnitRecipe(GlassmarkArcanist.Create, GlassmarkArcanist.Create, UnitClass.Magic, 376);
+            r["Sect_Judicator"]         = new UnitRecipe(Judicator.Create, Judicator.Create, UnitClass.Melee, 377);
+            r["Sect_Ashblade"]          = new UnitRecipe(Ashblade.Create, Ashblade.Create, UnitClass.Melee, 378);
+            r["Sect_Brandbreaker"]      = new UnitRecipe(Brandbreaker.Create, Brandbreaker.Create, UnitClass.Siege, 379);
+            r["Sect_Chaincaster"]       = new UnitRecipe(Chaincaster.Create, Chaincaster.Create, UnitClass.Magic, 380);
+            r["Sect_Nullblade"]         = new UnitRecipe(Nullblade.Create, Nullblade.Create, UnitClass.Melee, 381);
+            // Antiquity unit lever (task-063, implemented 2026-07-05).
+            r["Sect_Lorekeeper"]        = new UnitRecipe(Lorekeeper.Create, Lorekeeper.Create, UnitClass.Support, Lorekeeper.PresentationID);
+            // New-roster sect unit levers (playable-sect rollout 2026-07-05):
+            // Renewal's Tinker, Justice's Inquisitor, War's Warbreaker —
+            // trained at the Temple of Ridan once the sect is adopted.
+            r["Sect_Tinker"]            = new UnitRecipe(Tinker.Create, Tinker.Create, UnitClass.Economy, Tinker.PresentationID);
+            r["Sect_Inquisitor"]        = new UnitRecipe(Inquisitor.Create, Inquisitor.Create, UnitClass.Support, Inquisitor.PresentationID);
+            r["Sect_Warbreaker"]        = new UnitRecipe(Warbreaker.Create, Warbreaker.Create, UnitClass.Melee, Warbreaker.PresentationID);
+
+            return r;
+        }
+
         /// <summary>
         /// Create a unit by its ID string.
         /// Automatically loads stats from TechTreeDB if available.
         /// </summary>
         /// <param name="em">EntityManager</param>
-        /// <param name="unitId">Unit type: "Builder", "Miner", "Swordsman", "Archer", "Scout", "Litharch"</param>
+        /// <param name="unitId">Unit type: "Worker" (unified Builder+Miner), "Swordsman", "Archer", "Scout", "Litharch"</param>
         /// <param name="position">World position to spawn at</param>
         /// <param name="faction">Faction the unit belongs to</param>
         /// <returns>Created entity</returns>
         public static Entity Create(EntityManager em, string unitId, float3 position, Faction faction)
         {
-            Entity entity = unitId switch
-            {
-                "Builder" => Builder.Create(em, position, faction),
-                "Miner" => Miner.Create(em, position, faction),
-                "Swordsman" => Swordsman.Create(em, position, faction),
-                "Archer" => Archer.Create(em, position, faction),
-                // task-110: Era 1 Archery Range tier units (L2 / L3)
-                "Crossbowman" => Crossbowman.Create(em, position, faction),
-                "Longbowman" => Longbowman.Create(em, position, faction),
-                "Scout" => Scout.Create(em, position, faction),
-                "Litharch" => Litharch.Create(em, position, faction),
-                "Berserker" or "Feraldis_Berserker" => Berserker.Create(em, position, faction),
-                "Crystalling" => Crystalling.Create(em, position, faction),
-                "Veilstinger" => Veilstinger.Create(em, position, faction),
-                "Godsplinter" => Godsplinter.Create(em, position, faction),
-                // Runai culture units
-                "Runai_Spearman" => Spearman.Create(em, position, faction),
-                "Runai_Skirmisher" => Skirmisher.Create(em, position, faction),
-                "Runai_Raider" => Raider.Create(em, position, faction),
-                "Runai_Catapult" => Catapult.Create(em, position, faction),
-                "Runai_Acolyte" => Acolyte.Create(em, position, faction),
-                // Alanthor culture units
-                "Alanthor_Sentinel" => Sentinel.Create(em, position, faction),
-                "Alanthor_Crossbowman" => AlanthorCrossbowman.Create(em, position, faction),
-                "Alanthor_Cataphract" => Cataphract.Create(em, position, faction),
-                "Alanthor_Ballista" => Ballista.Create(em, position, faction),
-                "Alanthor_Scholar" => Scholar.Create(em, position, faction),
-                // Feraldis culture units
-                "Feraldis_Raider" => FeraldisRaider.Create(em, position, faction),
-                "Feraldis_Hunter" => Hunter.Create(em, position, faction),
-                "Feraldis_WarboarRider" => WarboarRider.Create(em, position, faction),
-                "Feraldis_SiegeRam" => SiegeRam.Create(em, position, faction),
-                "Feraldis_Iconoclast" => Iconoclast.Create(em, position, faction),
-                // Sect unique units
-                "Sect_ScarGuard" => ScarGuard.Create(em, position, faction),
-                "Sect_GolemAutark" => GolemAutark.Create(em, position, faction),
-                "Sect_StoneWarden" => StoneWarden.Create(em, position, faction),
-                "Sect_ArchivistAdept" => ArchivistAdept.Create(em, position, faction),
-                "Sect_FlameWarden" => FlameWarden.Create(em, position, faction),
-                "Sect_VaultKeeper" => VaultKeeper.Create(em, position, faction),
-                "Sect_GlassmarkArcanist" => GlassmarkArcanist.Create(em, position, faction),
-                "Sect_Judicator" => Judicator.Create(em, position, faction),
-                "Sect_Ashblade" => Ashblade.Create(em, position, faction),
-                "Sect_Brandbreaker" => Brandbreaker.Create(em, position, faction),
-                "Sect_Chaincaster" => Chaincaster.Create(em, position, faction),
-                "Sect_Nullblade" => Nullblade.Create(em, position, faction),
-                _ => CreateDefault(em, unitId, position, faction)
-            };
+            Entity entity = Recipes.TryGetValue(unitId, out var recipe)
+                ? recipe.CreateEm(em, position, faction)
+                : CreateDefault(em, unitId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
             // Skip for deferred entities (created via ECB wrapper like Litharch)
@@ -87,9 +186,30 @@ namespace TheWaningBorder.Entities
                     NetworkId = NetworkIdGenerator.GetNextId(),
                     SpawnTick = 0
                 });
+
+                StampDisplayName(em, entity, unitId);
+
+                // Exact requested id — the generic tech-effects engine matches
+                // "unit:X" targets against this stamp.
+                em.AddComponentData(entity, new UnitTypeId { Value = unitId });
             }
 
             return entity;
+        }
+
+        /// <summary>
+        /// Record the exact name of what was asked for. The selection UI used to
+        /// re-derive this from PresentationId, but PIDs select the VISUAL and are
+        /// deliberately shared (Outrider/Cataphract both 336, Caravan/Tinker both
+        /// 405), so units were mislabeled as each other or fell through to a bare
+        /// "Unit". The id the caller passed is unambiguous.
+        /// </summary>
+        private static void StampDisplayName(EntityManager em, Entity entity, string unitId)
+        {
+            em.AddComponentData(entity, new DisplayName
+            {
+                Value = TheWaningBorder.Core.DisplayNames.ForUnitFixed(unitId)
+            });
         }
 
         /// <summary>
@@ -98,54 +218,9 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, string unitId, float3 position, Faction faction)
         {
-            Entity entity = unitId switch
-            {
-                "Builder" => Builder.Create(ecb, position, faction),
-                "Miner" => Miner.Create(ecb, position, faction),
-                "Swordsman" => Swordsman.Create(ecb, position, faction),
-                "Archer" => Archer.Create(ecb, position, faction),
-                // task-110: Era 1 Archery Range tier units (L2 / L3)
-                "Crossbowman" => Crossbowman.Create(ecb, position, faction),
-                "Longbowman" => Longbowman.Create(ecb, position, faction),
-                "Scout" => Scout.Create(ecb, position, faction),
-                "Litharch" => Litharch.Create(ecb, position, faction),
-                "Berserker" or "Feraldis_Berserker" => Berserker.Create(ecb, position, faction),
-                "Crystalling" => Crystalling.Create(ecb, position, faction),
-                "Veilstinger" => Veilstinger.Create(ecb, position, faction),
-                "Godsplinter" => Godsplinter.Create(ecb, position, faction),
-                // Runai culture units
-                "Runai_Spearman" => Spearman.Create(ecb, position, faction),
-                "Runai_Skirmisher" => Skirmisher.Create(ecb, position, faction),
-                "Runai_Raider" => Raider.Create(ecb, position, faction),
-                "Runai_Catapult" => Catapult.Create(ecb, position, faction),
-                "Runai_Acolyte" => Acolyte.Create(ecb, position, faction),
-                // Alanthor culture units
-                "Alanthor_Sentinel" => Sentinel.Create(ecb, position, faction),
-                "Alanthor_Crossbowman" => AlanthorCrossbowman.Create(ecb, position, faction),
-                "Alanthor_Cataphract" => Cataphract.Create(ecb, position, faction),
-                "Alanthor_Ballista" => Ballista.Create(ecb, position, faction),
-                "Alanthor_Scholar" => Scholar.Create(ecb, position, faction),
-                // Feraldis culture units
-                "Feraldis_Raider" => FeraldisRaider.Create(ecb, position, faction),
-                "Feraldis_Hunter" => Hunter.Create(ecb, position, faction),
-                "Feraldis_WarboarRider" => WarboarRider.Create(ecb, position, faction),
-                "Feraldis_SiegeRam" => SiegeRam.Create(ecb, position, faction),
-                "Feraldis_Iconoclast" => Iconoclast.Create(ecb, position, faction),
-                // Sect unique units
-                "Sect_ScarGuard" => ScarGuard.Create(ecb, position, faction),
-                "Sect_GolemAutark" => GolemAutark.Create(ecb, position, faction),
-                "Sect_StoneWarden" => StoneWarden.Create(ecb, position, faction),
-                "Sect_ArchivistAdept" => ArchivistAdept.Create(ecb, position, faction),
-                "Sect_FlameWarden" => FlameWarden.Create(ecb, position, faction),
-                "Sect_VaultKeeper" => VaultKeeper.Create(ecb, position, faction),
-                "Sect_GlassmarkArcanist" => GlassmarkArcanist.Create(ecb, position, faction),
-                "Sect_Judicator" => Judicator.Create(ecb, position, faction),
-                "Sect_Ashblade" => Ashblade.Create(ecb, position, faction),
-                "Sect_Brandbreaker" => Brandbreaker.Create(ecb, position, faction),
-                "Sect_Chaincaster" => Chaincaster.Create(ecb, position, faction),
-                "Sect_Nullblade" => Nullblade.Create(ecb, position, faction),
-                _ => CreateDefault(ecb, unitId, position, faction)
-            };
+            Entity entity = Recipes.TryGetValue(unitId, out var recipe)
+                ? recipe.CreateEcb(ecb, position, faction)
+                : CreateDefault(ecb, unitId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
             ecb.AddComponent(entity, new NetworkedEntity
@@ -153,6 +228,15 @@ namespace TheWaningBorder.Entities
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = 0
             });
+
+            ecb.AddComponent(entity, new DisplayName
+            {
+                Value = TheWaningBorder.Core.DisplayNames.ForUnitFixed(unitId)
+            });
+
+            // Exact requested id — the generic tech-effects engine matches
+            // "unit:X" targets against this stamp.
+            ecb.AddComponent(entity, new UnitTypeId { Value = unitId });
 
             return entity;
         }
@@ -171,53 +255,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static UnitClass GetUnitClass(string unitId)
         {
-            return unitId switch
-            {
-                "Builder" => UnitClass.Economy,
-                "Miner" => UnitClass.Miner,
-                "Swordsman" => UnitClass.Melee,
-                "Archer" => UnitClass.Ranged,
-                "Crossbowman" => UnitClass.Ranged,   // task-110
-                "Longbowman" => UnitClass.Ranged,    // task-110
-                "Scout" => UnitClass.Scout,
-                "Litharch" => UnitClass.Support,
-                "Berserker" or "Feraldis_Berserker" => UnitClass.Melee,
-                "Crystalling" => UnitClass.Melee,
-                "Veilstinger" => UnitClass.Ranged,
-                "Godsplinter" => UnitClass.Siege,
-                // Runai culture units
-                "Runai_Spearman" => UnitClass.Melee,
-                "Runai_Skirmisher" => UnitClass.Ranged,
-                "Runai_Raider" => UnitClass.Melee,
-                "Runai_Catapult" => UnitClass.Siege,
-                "Runai_Acolyte" => UnitClass.Magic,
-                // Alanthor culture units
-                "Alanthor_Sentinel" => UnitClass.Melee,
-                "Alanthor_Crossbowman" => UnitClass.Ranged,
-                "Alanthor_Cataphract" => UnitClass.Melee,
-                "Alanthor_Ballista" => UnitClass.Siege,
-                "Alanthor_Scholar" => UnitClass.Magic,
-                // Feraldis culture units
-                "Feraldis_Raider" => UnitClass.Melee,
-                "Feraldis_Hunter" => UnitClass.Ranged,
-                "Feraldis_WarboarRider" => UnitClass.Melee,
-                "Feraldis_SiegeRam" => UnitClass.Siege,
-                "Feraldis_Iconoclast" => UnitClass.Melee,
-                // Sect unique units
-                "Sect_ScarGuard" => UnitClass.Melee,
-                "Sect_GolemAutark" => UnitClass.Magic,
-                "Sect_StoneWarden" => UnitClass.Melee,
-                "Sect_ArchivistAdept" => UnitClass.Magic,
-                "Sect_FlameWarden" => UnitClass.Melee,
-                "Sect_VaultKeeper" => UnitClass.Melee,
-                "Sect_GlassmarkArcanist" => UnitClass.Magic,
-                "Sect_Judicator" => UnitClass.Melee,
-                "Sect_Ashblade" => UnitClass.Melee,
-                "Sect_Brandbreaker" => UnitClass.Siege,
-                "Sect_Chaincaster" => UnitClass.Magic,
-                "Sect_Nullblade" => UnitClass.Melee,
-                _ => UnitClass.Melee
-            };
+            return Recipes.TryGetValue(unitId, out var recipe) ? recipe.Class : UnitClass.Melee;
         }
 
         /// <summary>
@@ -225,53 +263,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static int GetPresentationId(string unitId)
         {
-            return unitId switch
-            {
-                "Builder" => 200,
-                "Swordsman" => 201,
-                "Archer" => 202,
-                "Miner" => 203,
-                "Crossbowman" => 204,   // task-110: Era 1 Archery Range L2 tier
-                "Longbowman" => 205,    // task-110: Era 1 Archery Range L3 tier
-                "Scout" => 206,
-                "Litharch" => 207,
-                "Berserker" or "Feraldis_Berserker" => 210,
-                "Crystalling" => 320,
-                "Veilstinger" => 321,
-                "Godsplinter" => 322,
-                // Runai culture units
-                "Runai_Spearman" => 330,
-                "Runai_Skirmisher" => 331,
-                "Runai_Raider" => 332,
-                "Runai_Catapult" => 333,
-                "Runai_Acolyte" => 384,
-                // Alanthor culture units
-                "Alanthor_Sentinel" => 334,
-                "Alanthor_Crossbowman" => 335,
-                "Alanthor_Cataphract" => 336,
-                "Alanthor_Ballista" => 337,
-                "Alanthor_Scholar" => 382,
-                // Feraldis culture units
-                "Feraldis_Hunter" => 338,
-                "Feraldis_WarboarRider" => 339,
-                "Feraldis_SiegeRam" => 340,
-                "Feraldis_Raider" => 341,
-                "Feraldis_Iconoclast" => 386,
-                // Sect unique units
-                "Sect_ScarGuard" => 370,
-                "Sect_GolemAutark" => 371,
-                "Sect_StoneWarden" => 372,
-                "Sect_ArchivistAdept" => 373,
-                "Sect_FlameWarden" => 374,
-                "Sect_VaultKeeper" => 375,
-                "Sect_GlassmarkArcanist" => 376,
-                "Sect_Judicator" => 377,
-                "Sect_Ashblade" => 378,
-                "Sect_Brandbreaker" => 379,
-                "Sect_Chaincaster" => 380,
-                "Sect_Nullblade" => 381,
-                _ => 201
-            };
+            return Recipes.TryGetValue(unitId, out var recipe) ? recipe.PresentationId : 201;
         }
 
         /// <summary>

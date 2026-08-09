@@ -1,0 +1,197 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8df52a94a90a555f0c4f5a4d46a1aaa, type: 3}
+  m_Name: GameUICatalog
+  m_EditorClassIdentifier: 
+  resourcePanel: {fileID: 5473546403602641064, guid: 86feecfb893cdb34d974d5fddeceb508, type: 3}
+  selectionHeader: {fileID: 4551617726872865539, guid: 8c4555303b750ea4fbff6dc15e771807, type: 3}
+  unitDetailsPanel: {fileID: 8293112993088329884, guid: 77e6cf0965057d04e9a7d11ff90f5663, type: 3}
+  unitStatsPanel: {fileID: 8464892423247843843, guid: d398f723874446f45b02f2e62113d8b8, type: 3}
+  unitRosterPanel: {fileID: 3758048441573245736, guid: a921ec8a44ec64b4d9b078d619f7bd51, type: 3}
+  minimapPanel: {fileID: 5751338946779721562, guid: 9176c9cb4aae1274c9a1faa4112e2f18, type: 3}
+  actionsPanel: {fileID: 7193735503970001100, guid: f2c2dad614d662341be16952a49423a8, type: 3}
+  specialBuildingMenu: {fileID: 955989845005394636, guid: 2702b4cc2131009459028302a5205b42, type: 3}
+  cultureSelectionMenu: {fileID: 3128216853755069799, guid: f1c11be6345be6547afa40f074b757e4, type: 3}
+  cultureSelectionButton: {fileID: 6277049818944615522, guid: dd8232a55b4be2743aa9ff5565cf7dd7, type: 3}
+  objectivesPanel: {fileID: 5301000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa02, type: 3}
+  religionPanel: {fileID: 5302000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa04, type: 3}
+  entitySymbols:
+  - key: Mixed
+    sprite: {fileID: 21300000, guid: ee6f478863ab54b42b8437f2b606f20b, type: 3}
+  - key: Unit
+    sprite: {fileID: 21300000, guid: cb3032aabdadf4cbebc35ac94a26eeeb, type: 3}
+  - key: Building
+    sprite: {fileID: 21300000, guid: fa8c9e58b4aae4f0b89181cb20a76c9a, type: 3}
+  - key: Worker
+    sprite: {fileID: 21300000, guid: c26ab15f24b624f2094bf9f3abdaf944, type: 3}
+  - key: Swordsman
+    sprite: {fileID: 21300000, guid: 6e2a726804f9a4210b3c805069bc8877, type: 3}
+  - key: Archer
+    sprite: {fileID: 21300000, guid: b128ca3e8bd5946bc92779b62ecc3ff4, type: 3}
+  - key: Crossbowman
+    sprite: {fileID: 21300000, guid: 435365113532a41d4bf12fc795d104ee, type: 3}
+  - key: Longbowman
+    sprite: {fileID: 21300000, guid: 9abeda7c22d3c42d793a7232d6318e9e, type: 3}
+  - key: Scout
+    sprite: {fileID: 21300000, guid: f24a90755caf74712893108ae103d460, type: 3}
+  - key: Litharch
+    sprite: {fileID: 21300000, guid: 8e62048f908064b589254d130af62714, type: 3}
+  - key: Berserker
+    sprite: {fileID: 21300000, guid: a5aef0d060d48461b809539d44e2995a, type: 3}
+  - key: Siege Unit
+    sprite: {fileID: 21300000, guid: ca4101569adef474aa64b06326aa5ec0, type: 3}
+  - key: Crystalling
+    sprite: {fileID: 21300000, guid: ef02a5315e404483db8626750a3242a8, type: 3}
+  - key: Veilstinger
+    sprite: {fileID: 21300000, guid: ba76afc9d9d6b44198f7e6da513d60ec, type: 3}
+  - key: Godsplinter
+    sprite: {fileID: 21300000, guid: 9b1b2a865d2e84f488e2081121a4ed54, type: 3}
+  - key: Spearman
+    sprite: {fileID: 21300000, guid: 5b31f4e4ee41341ae8fff1c85cf3e70b, type: 3}
+  - key: Skirmisher
+    sprite: {fileID: 21300000, guid: 7579dabc3e2d8463fb2b15dd2b70797d, type: 3}
+  - key: Raider
+    sprite: {fileID: 21300000, guid: 6dc62a674e86c43a4a333944ef640130, type: 3}
+  - key: Catapult
+    sprite: {fileID: 21300000, guid: 669e01e2f7d3c48b9be5f2629a48fed2, type: 3}
+  - key: Sentinel
+    sprite: {fileID: 21300000, guid: 51cb371e5a08b42f9a1d5c6a2482e340, type: 3}
+  - key: Cataphract
+    sprite: {fileID: 21300000, guid: 031064f23226b4dedabed17820a457a7, type: 3}
+  - key: Ballista
+    sprite: {fileID: 21300000, guid: fc873110bc7684a83a053ec9152a3214, type: 3}
+  - key: Hunter
+    sprite: {fileID: 21300000, guid: e7fb1ad555a624cd7a5ddd7e6820cc52, type: 3}
+  - key: Warboar Rider
+    sprite: {fileID: 21300000, guid: ce2a25ecc9e484c928ae8e5f8f6817c4, type: 3}
+  - key: Siege Ram
+    sprite: {fileID: 21300000, guid: 1ee3ec351847d43f5a75770801009a7d, type: 3}
+  - key: Lorekeeper
+    sprite: {fileID: 21300000, guid: 206be13e9ada1412c854263cb54ae097, type: 3}
+  - key: Tinker
+    sprite: {fileID: 21300000, guid: afcb1c116f9fa48fc994fec844d0f9a7, type: 3}
+  - key: Inquisitor
+    sprite: {fileID: 21300000, guid: 664260d7e1c3b4221bf5513f70a9766e, type: 3}
+  - key: Warbreaker
+    sprite: {fileID: 21300000, guid: 5542b2bfa177b487b82630641621d8a9, type: 3}
+  - key: Scar Guard
+    sprite: {fileID: 21300000, guid: 053354e0a70b6462ebbce45304ba2b33, type: 3}
+  - key: Golem Autark
+    sprite: {fileID: 21300000, guid: 2724b3a71ec6b4a308163d16c4736cc5, type: 3}
+  - key: Stone Warden
+    sprite: {fileID: 21300000, guid: be733e324df0748359d049aa8b05a85a, type: 3}
+  - key: Archivist Adept
+    sprite: {fileID: 21300000, guid: 48503165a186242d4aa95010eb97f44b, type: 3}
+  - key: Flame Warden
+    sprite: {fileID: 21300000, guid: 8ca4ec50cd47744d2a5542538bc94f2c, type: 3}
+  - key: Vault Keeper
+    sprite: {fileID: 21300000, guid: dae8061d4d96a4ad7980694e9033e51b, type: 3}
+  - key: Glassmark Arcanist
+    sprite: {fileID: 21300000, guid: aff36d813678640f0aa22688551eec58, type: 3}
+  - key: Judicator
+    sprite: {fileID: 21300000, guid: eb36458f1a13040e8bc05f5b3bbd74df, type: 3}
+  - key: Ashblade
+    sprite: {fileID: 21300000, guid: 269a6fcf7b72448f7bc579ec78d180f0, type: 3}
+  - key: Brandbreaker
+    sprite: {fileID: 21300000, guid: 704cf65bfa5ef477893bc50311dffec1, type: 3}
+  - key: Chaincaster
+    sprite: {fileID: 21300000, guid: eb6d7e1f2c2234a53a12553df3ba7cd2, type: 3}
+  - key: Nullblade
+    sprite: {fileID: 21300000, guid: a02bbb33ab14a483d8b14962404caefe, type: 3}
+  - key: Hall
+    sprite: {fileID: 21300000, guid: 4eac6e39855404b8da7046a391bc646e, type: 3}
+  - key: Barracks
+    sprite: {fileID: 21300000, guid: b660c2535b25f42ea980984826364c70, type: 3}
+  - key: Archery Range
+    sprite: {fileID: 21300000, guid: 1939350df570f4bfda571161edc461ab, type: 3}
+  - key: Gatherer's Hut
+    sprite: {fileID: 21300000, guid: 5b1d09927e72d44e681d72af8b4b6460, type: 3}
+  - key: Hut
+    sprite: {fileID: 21300000, guid: fa8c9e58b4aae4f0b89181cb20a76c9a, type: 3}
+  - key: Depot
+    sprite: {fileID: 21300000, guid: 98e83ba2543db420982c9347b9c9062f, type: 3}
+  - key: Workshop
+    sprite: {fileID: 21300000, guid: c122cd998f8a941ff939ce840bd69515, type: 3}
+  - key: Shrine of Ahridan
+    sprite: {fileID: 21300000, guid: 002aad974c70b438689f406cd8e9a5a6, type: 3}
+  - key: Temple of Ridan
+    sprite: {fileID: 21300000, guid: 38446868d4dda4ce5a6584dc973f9fb0, type: 3}
+  - key: Vault of Almiérra
+    sprite: {fileID: 21300000, guid: cbbbd793dcaed47b8b9dc8e019e5dcb3, type: 3}
+  - key: Fiendstone Keep
+    sprite: {fileID: 21300000, guid: d1c102f37f12c485da6e7eb876265a71, type: 3}
+  - key: Forge
+    sprite: {fileID: 21300000, guid: 2724b3a71ec6b4a308163d16c4736cc5, type: 3}
+  - key: The Reliquary
+    sprite: {fileID: 21300000, guid: f7869a5b2ed614a13ae627c422a3dd6a, type: 3}
+  - key: Wall Hub
+    sprite: {fileID: 21300000, guid: be733e324df0748359d049aa8b05a85a, type: 3}
+  - key: Wall Tower
+    sprite: {fileID: 21300000, guid: b29b5f98b12304c7799d3b4778936ae8, type: 3}
+  - key: Wall Gate
+    sprite: {fileID: 21300000, guid: 565bcb795d1c349b3bc09cdab3e78813, type: 3}
+  - key: Wall
+    sprite: {fileID: 21300000, guid: 66f7cce48e01c475884d4d999202b153, type: 3}
+  - key: Wall Segment
+    sprite: {fileID: 21300000, guid: 66f7cce48e01c475884d4d999202b153, type: 3}
+  - key: Runai Outpost
+    sprite: {fileID: 21300000, guid: 1ed12f282f34d4623a6c2628e6cf8469, type: 3}
+  - key: Trade Hub
+    sprite: {fileID: 21300000, guid: a20c985ee87a1481b8d7d6e5219fbd7a, type: 3}
+  - key: Trading Post
+    sprite: {fileID: 21300000, guid: 538c34d376bc34219895e39a75a6a67d, type: 3}
+  - key: Thessara's Bazaar
+    sprite: {fileID: 21300000, guid: c9b0aa974b63448ccb79b1c8734274a4, type: 3}
+  - key: Bazaar Wagon
+    sprite: {fileID: 21300000, guid: e2578f42fc180496c85825e3cfc7359f, type: 3}
+  - key: Siege Workshop
+    sprite: {fileID: 21300000, guid: ca4101569adef474aa64b06326aa5ec0, type: 3}
+  - key: Watch Tower
+    sprite: {fileID: 21300000, guid: ff938cfc0c57c4ab691882e46069196e, type: 3}
+  - key: Practice Range
+    sprite: {fileID: 21300000, guid: d4eda802342e3433199e74547f3b2a02, type: 3}
+  - key: Siege Yard
+    sprite: {fileID: 21300000, guid: d9a0c506ef6764fd2b3738574d8ebf1a, type: 3}
+  - key: Royal Stable
+    sprite: {fileID: 21300000, guid: 031064f23226b4dedabed17820a457a7, type: 3}
+  - key: Hunting Lodge
+    sprite: {fileID: 21300000, guid: d0ace97ada17f4eddacdda63e19aa55d, type: 3}
+  - key: Logging Station
+    sprite: {fileID: 21300000, guid: 00331a87b526249bd9917140ff73685b, type: 3}
+  - key: Longhouse
+    sprite: {fileID: 21300000, guid: 20d7bc1ea856b4c00a995da6fcca095f, type: 3}
+  - key: Totem Tower
+    sprite: {fileID: 21300000, guid: 5c4c8e03a043743f8a88fd0b4297a4ac, type: 3}
+  - key: Veilstone Hive
+    sprite: {fileID: 21300000, guid: a6e60a32888ce4d0e8c76c5eb9907074, type: 3}
+  - key: Veilstone Wellspring
+    sprite: {fileID: 21300000, guid: 29d54496c4c304241b99ef60a20798bf, type: 3}
+  - key: Enforcement Spire
+    sprite: {fileID: 21300000, guid: 7dbbeb62e9410495cbe57d17cdc80b92, type: 3}
+  - key: Suppression Spire
+    sprite: {fileID: 21300000, guid: 6da1b6d90a1754579882bf71c3191b25, type: 3}
+  - key: Restoration Bloom
+    sprite: {fileID: 21300000, guid: ab9b79189bc55459389989217b857287, type: 3}
+  - key: Veilstone Turret
+    sprite: {fileID: 21300000, guid: 7bc4cedfe310b426697dbf9853c5f83b, type: 3}
+  - key: Veilstone Node
+    sprite: {fileID: 21300000, guid: 0ff9427c7254e4bbc828c6cb412029c6, type: 3}
+  - key: AttackType_Melee
+    sprite: {fileID: 21300000, guid: eb35a04d9c1f9430d9402d94ee5bf2a3, type: 3}
+  - key: AttackType_Ranged
+    sprite: {fileID: 21300000, guid: 9abeda7c22d3c42d793a7232d6318e9e, type: 3}
+  - key: AttackType_Siege
+    sprite: {fileID: 21300000, guid: 669e01e2f7d3c48b9be5f2629a48fed2, type: 3}
+  - key: AttackType_Magic
+    sprite: {fileID: 21300000, guid: aff36d813678640f0aa22688551eec58, type: 3}
+  - key: AttackType_True
+    sprite: {fileID: 21300000, guid: ba76afc9d9d6b44198f7e6da513d60ec, type: 3}

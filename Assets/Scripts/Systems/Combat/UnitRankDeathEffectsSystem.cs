@@ -78,19 +78,19 @@ namespace TheWaningBorder.Systems.Combat
                 var c = UnitRankConfig.CostFor(r);
                 drop.Supplies  += c.Supplies;
                 drop.Iron      += c.Iron;
-                drop.Crystal   += c.Crystal;
+                drop.Veilstone   += c.Veilstone;
                 drop.Veilsteel += c.Veilsteel;
                 drop.Glow      += c.Glow;
             }
             // 50% recovery rate.
             drop.Supplies  /= 2;
             drop.Iron      /= 2;
-            drop.Crystal   /= 2;
+            drop.Veilstone   /= 2;
             drop.Veilsteel /= 2;
             drop.Glow      /= 2;
 
             // Skip if nothing to drop (shouldn't happen at Lv 2+ but guard anyway).
-            if (drop.Supplies + drop.Iron + drop.Crystal + drop.Veilsteel + drop.Glow == 0) return;
+            if (drop.Supplies + drop.Iron + drop.Veilstone + drop.Veilsteel + drop.Glow == 0) return;
 
             var pile = em.CreateEntity(typeof(UpgradePile), typeof(LocalTransform));
             em.SetComponentData(pile, new UpgradePile

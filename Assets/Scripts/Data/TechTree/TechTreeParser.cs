@@ -58,12 +58,11 @@ namespace TheWaningBorder.Data
                 ParseBuilding(json, "GatherersHut", result);
                 ParseBuilding(json, "Barracks", result);
                 ParseBuilding(json, "ArcheryRange", result);
-                ParseBuilding(json, "ShrineOfAhridan", result);
+                ParseBuilding(json, "ShrineOfRidan", result);
                 ParseBuilding(json, "TempleOfRidan", result);
                 ParseBuilding(json, "VaultOfAlmierra", result);
 
-                ParseUnit(json, "Builder", result);
-                ParseUnit(json, "Miner", result);
+                ParseUnit(json, "Worker", result);
                 ParseUnit(json, "Scout", result);
                 ParseUnit(json, "Swordsman", result);
                 ParseUnit(json, "Archer", result);
@@ -90,15 +89,13 @@ namespace TheWaningBorder.Data
                 ParseBuilding(json, "KingsCourt", result);
                 ParseBuilding(json, "Alanthor_Wall", result);
                 ParseBuilding(json, "Alanthor_Tower", result);
-                ParseBuilding(json, "Alanthor_PracticeRange", result);
                 ParseBuilding(json, "Alanthor_SiegeYard", result);
                 ParseBuilding(json, "Alanthor_Smelter", result);
-                ParseBuilding(json, "Alanthor_Crucible", result);
 
                 ParseUnit(json, "Alanthor_Sentinel", result);
                 ParseUnit(json, "Alanthor_Crossbowman", result);
                 ParseUnit(json, "Alanthor_Cataphract", result);
-                ParseUnit(json, "Alanthor_Ballista", result);
+                ParseUnit(json, "Alanthor_Catapult", result);
 
                 // Era 2 — Runai
                 ParseBuilding(json, "ThessarasBazaar", result);
@@ -120,12 +117,104 @@ namespace TheWaningBorder.Data
                 ParseTechnology(json, "Runai_PackBazaar", result);
                 ParseTechnology(json, "Runai_EscortedCaravans", result);
 
-                // Era 1 technologies
+                // Era 1 technologies (Age 0 sweep — design-aligned ids)
                 ParseTechnology(json, "Research_Era2", result);
-                ParseTechnology(json, "ImprovedTools", result);
-                ParseTechnology(json, "StorageCarts", result);
-                ParseTechnology(json, "BasicDrills", result);
-                ParseTechnology(json, "WoodenArmor", result);
+                ParseTechnology(json, "StoneTools", result);
+                // Alanthor King's Court tool ladder + building techs
+                ParseTechnology(json, "IronTools", result);
+                ParseTechnology(json, "VeilstoneTools", result);
+                ParseTechnology(json, "VeilsteelTools", result);
+                ParseTechnology(json, "MasonGuild", result);
+                ParseTechnology(json, "ScoutingCelestarii", result);
+                ParseTechnology(json, "ArmedScouts", result);
+                // Alanthor Gatherer's Hut "Guild" line: resource surveys + reinforcements
+                // (DeepGathering removed 2026-08-04 — Surveys are the only hut drips.)
+                ParseTechnology(json, "IronSurveying1", result);
+                ParseTechnology(json, "IronSurveying2", result);
+                ParseTechnology(json, "IronSurveying3", result);
+                ParseTechnology(json, "VeilstoneSurvey1", result);
+                ParseTechnology(json, "VeilstoneSurvey2", result);
+                ParseTechnology(json, "VeilsteelSurvey", result);
+                // Feraldis Raider Camp "Raiding" line: the mirror of the
+                // Alanthor Surveys — tiers raise the Plunderer take, branches
+                // unlock the secondary resources they can carry off.
+                ParseTechnology(json, "Raiding1", result);
+                ParseTechnology(json, "Raiding2", result);
+                ParseTechnology(json, "Raiding3", result);
+                ParseTechnology(json, "IronPlunder", result);
+                ParseTechnology(json, "VeilstonePlunder", result);
+                ParseTechnology(json, "VeilsteelPlunder", result);
+                ParseTechnology(json, "IronReinforcements", result);
+                ParseTechnology(json, "VeilstoneWalls", result);
+                ParseTechnology(json, "VeilsteelPylons", result);
+                // Alanthor House retaliatory attack
+                ParseTechnology(json, "RetaliatoryMeasures", result);
+                ParseTechnology(json, "Conscription", result);
+                ParseTechnology(json, "StoneWeapons", result);
+                ParseTechnology(json, "StoneTippedArrows", result);
+                ParseTechnology(json, "Fletching", result);
+                ParseTechnology(json, "Coffers", result);
+                ParseTechnology(json, "MerchantCharters", result);
+                ParseTechnology(json, "SovereignBonds", result);
+                ParseTechnology(json, "IronSubsidies", result);
+                ParseTechnology(json, "VeilstoneMonetization", result);
+                ParseTechnology(json, "VeilsteelBonds", result);
+                ParseTechnology(json, "HeightenedMasses", result);
+                ParseTechnology(json, "WarriorPriests", result);
+                ParseTechnology(json, "PiousMasses", result);
+                ParseTechnology(json, "FervoredMasses", result);
+                ParseTechnology(json, "BallistaEmplacement", result);
+                ParseTechnology(json, "TrebuchetEmplacement", result);
+                ParseTechnology(json, "AdditionalTowers", result);
+                ParseTechnology(json, "ReinforcedWalls", result);
+
+                // Alanthor military tree (Wave 2 generic-effects techs):
+                // Barracks / Practice Range / Royal Stable / Siege Yard /
+                // Smelter / Shrine ladders driven by "effectsList".
+                ParseTechnology(json, "ChoreographedVolleys", result);
+                ParseTechnology(json, "IronWeapons", result);
+                ParseTechnology(json, "VeilstoneWeapons", result);
+                ParseTechnology(json, "ShardInfusedWeapons", result);
+                ParseTechnology(json, "SeasonedInfantry", result);
+                ParseTechnology(json, "VeteranInfantry", result);
+                ParseTechnology(json, "EliteInfantry", result);
+                ParseTechnology(json, "Charge", result);
+                ParseTechnology(json, "ShieldWall", result);
+                ParseTechnology(json, "IronTippedArrows", result);
+                ParseTechnology(json, "VeilstoneTippedArrows", result);
+                ParseTechnology(json, "ShardTippedArrows", result);
+                ParseTechnology(json, "SeasonedArchers", result);
+                ParseTechnology(json, "VeteranArchers", result);
+                ParseTechnology(json, "EliteArchers", result);
+                ParseTechnology(json, "ArrowVolley", result);
+                ParseTechnology(json, "ArrowShower", result);
+                ParseTechnology(json, "DeployStakes", result);
+                ParseTechnology(json, "SeasonedCavalry", result);
+                ParseTechnology(json, "VeteranCavalry", result);
+                ParseTechnology(json, "EliteCavalry", result);
+                ParseTechnology(json, "WarHorn", result);
+                ParseTechnology(json, "FullGallop", result);
+                ParseTechnology(json, "ReinforcedBolts", result);
+                ParseTechnology(json, "IronShodRam", result);
+                ParseTechnology(json, "CounterweightTuning", result);
+                ParseTechnology(json, "SeasonedCrews", result);
+                ParseTechnology(json, "VeteranCrews", result);
+                ParseTechnology(json, "EliteCrews", result);
+                ParseTechnology(json, "RangingShot", result);
+                ParseTechnology(json, "SiegeScreens", result);
+                ParseTechnology(json, "IronPlate", result);
+                ParseTechnology(json, "VeilstonePlate", result);
+                ParseTechnology(json, "ShardPlate", result);
+                ParseTechnology(json, "IronBrigandine", result);
+                ParseTechnology(json, "VeilstoneBrigandine", result);
+                ParseTechnology(json, "ShardBrigandine", result);
+                ParseTechnology(json, "IronBarding", result);
+                ParseTechnology(json, "VeilstoneBarding", result);
+                ParseTechnology(json, "ShardBarding", result);
+                ParseTechnology(json, "IronPlating", result);
+                ParseTechnology(json, "VeilstonePlating", result);
+                ParseTechnology(json, "ShardPlating", result);
+                ParseTechnology(json, "FieldHospital", result);
 
                 // Sects (+ embedded sect units/techs)
                 ParseAllSects(json, result);
@@ -226,7 +315,7 @@ namespace TheWaningBorder.Data
                 defaultLoS: 14, defaultTrainingTime: 15,
                 defaultArmorType: "infantry_heavy", defaultDamageType: "melee");
 
-            if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Crystal == 0))
+            if (unit.cost == null || (unit.cost.Supplies == 0 && unit.cost.Iron == 0 && unit.cost.Veilstone == 0))
                 unit.cost = new CostBlock { Supplies = 100, Iron = 50 };
 
             result.Units[normalizedId] = unit;
@@ -243,8 +332,8 @@ namespace TheWaningBorder.Data
             tech.name = rawId.Replace("_", " ");
             if (string.IsNullOrEmpty(tech.desc)) tech.desc = tech.effect;
 
-            if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Crystal == 0))
-                tech.cost = new CostBlock { Supplies = 150, Iron = 75, Crystal = 50 };
+            if (tech.cost == null || (tech.cost.Supplies == 0 && tech.cost.Iron == 0 && tech.cost.Veilstone == 0))
+                tech.cost = new CostBlock { Supplies = 150, Iron = 75, Veilstone = 50 };
 
             result.Technologies[normalizedId] = tech;
         }

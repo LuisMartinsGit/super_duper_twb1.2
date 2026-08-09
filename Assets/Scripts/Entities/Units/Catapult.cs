@@ -67,6 +67,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new UnitTag { Class = UnitClass.Siege });
             creator.AddComponent<ArcherTag>(entity);
             creator.AddComponent<SiegeTag>(entity);
+            creator.AddComponent<CatapultTag>(entity);
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new Damage { Value = (int)damage });
@@ -85,7 +86,9 @@ namespace TheWaningBorder.Entities
                 MinRange = minRange,
                 MaxRange = maxRange,
                 IsRetreating = 0,
-                IsFiring = 0
+                IsFiring = 0,
+                Trajectory = ShotTrajectory.High, // lobbed stone, longbow-family parabola
+                ProjectileSpeed = 0f,
             });
 
             // Combat type tags

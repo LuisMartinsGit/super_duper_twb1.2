@@ -46,6 +46,119 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+        private static void QueueLayeredMoveForLockstep(EntityManager em, Entity unit,
+            float3 destination, byte targetLayer)
+        {
+            int networkId = GetNetworkId(em, unit);
+            if (networkId <= 0)
+            {
+                ExecuteLayeredMoveDirect(em, unit, destination, targetLayer);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.LayeredMove,
+                EntityNetworkId = networkId,
+                TargetPosition = destination,
+                // The layer byte rides the spare target-entity field.
+                TargetEntityId = targetLayer
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueAgeUpForLockstep(EntityManager em, Entity hall, byte culture)
+        {
+            int networkId = GetNetworkId(em, hall);
+            if (networkId <= 0)
+            {
+                AgeUpCommandDirect(em, hall, culture);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.AgeUp,
+                EntityNetworkId = networkId,
+                TargetEntityId = culture
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueTempleUpgradeForLockstep(EntityManager em, Entity temple)
+        {
+            int networkId = GetNetworkId(em, temple);
+            if (networkId <= 0)
+            {
+                TempleUpgradeCommandDirect(em, temple);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.TempleUpgrade,
+                EntityNetworkId = networkId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueSectAdoptionForLockstep(EntityManager em, Entity temple,
+            string sectId, int preferredSlot, float buildTime)
+        {
+            int networkId = GetNetworkId(em, temple);
+            if (networkId <= 0)
+            {
+                SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.SectAdopt,
+                EntityNetworkId = networkId,
+                TargetEntityId = preferredSlot,
+                BuildingId = sectId,
+                // Build time rides the spare position field.
+                TargetPosition = new float3(buildTime, 0f, 0f)
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueBuildingUpgradeForLockstep(EntityManager em, Entity building)
+        {
+            int networkId = GetNetworkId(em, building);
+            if (networkId <= 0)
+            {
+                Types.UpgradeBuildingCommandHelper.ApplyDirect(em, building);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.BuildingUpgrade,
+                EntityNetworkId = networkId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueResearchForLockstep(EntityManager em, Entity building, string techId)
+        {
+            int networkId = GetNetworkId(em, building);
+            if (networkId <= 0)
+            {
+                ResearchCommandDirect(em, building, techId);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.Research,
+                EntityNetworkId = networkId,
+                BuildingId = techId // tech id rides the string field
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
         private static void QueueAttackForLockstep(EntityManager em, Entity unit, Entity target)
         {
             int unitId = GetNetworkId(em, unit);
@@ -141,15 +254,14 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueGatherForLockstep(EntityManager em, Entity miner, Entity resource, Entity deposit)
+        private static void QueueGatherForLockstep(EntityManager em, Entity miner, Entity resource)
         {
             int minerId = GetNetworkId(em, miner);
             int resourceId = GetNetworkId(em, resource);
-            int depositId = deposit != Entity.Null ? GetNetworkId(em, deposit) : 0;
 
             if (minerId <= 0)
             {
-                GatherCommandHelper.Execute(em, miner, resource, deposit);
+                GatherCommandHelper.Execute(em, miner, resource);
                 return;
             }
 
@@ -157,8 +269,25 @@ namespace TheWaningBorder.Core.Commands
             {
                 Type = LockstepCommandType.Gather,
                 EntityNetworkId = minerId,
-                TargetEntityId = resourceId,
-                SecondaryTargetId = depositId
+                TargetEntityId = resourceId
+            };
+            LockstepServiceLocator.Instance.QueueCommand(cmd);
+        }
+
+        private static void QueueGatherVeilForLockstep(EntityManager em, Entity miner, float3 site)
+        {
+            int minerId = GetNetworkId(em, miner);
+            if (minerId <= 0)
+            {
+                GatherVeilCommandHelper.Execute(em, miner, site);
+                return;
+            }
+
+            var cmd = new LockstepCommand
+            {
+                Type = LockstepCommandType.GatherVeil,
+                EntityNetworkId = minerId,
+                TargetPosition = site
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

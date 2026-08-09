@@ -1,6 +1,6 @@
 // UnitRankCommand.cs
 // Promote a single military unit to its next rank, charging the
-// per-rank cost gate (Supplies / Crystal / Veilsteel / Glow).
+// per-rank cost gate (Supplies / Veilstone / Veilsteel / Glow).
 // Audit fix #1.
 //
 // Location: Assets/Scripts/Core/Commands/CommandTypes/UnitRankCommand.cs

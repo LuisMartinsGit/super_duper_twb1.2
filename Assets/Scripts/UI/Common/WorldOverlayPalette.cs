@@ -65,11 +65,11 @@ namespace TheWaningBorder.UI.Common
         /// <summary>Dim text — matches --tw-text-dim (rgba 207/214/211 @ 60%).</summary>
         public static readonly Color TextDim = new Color(0.812f, 0.839f, 0.827f, 0.6f);
 
-        // ─── Gem / crystal ────────────────────────────────────────────────
-        /// <summary>Crystal facet — matches --tw-gem (#1d6a55).</summary>
+        // ─── Gem / veilstone ────────────────────────────────────────────────
+        /// <summary>Veilstone facet — matches --tw-gem (#1d6a55).</summary>
         public static readonly Color Gem      = new Color(0.114f, 0.416f, 0.333f, 1.0f);
 
-        /// <summary>Bright crystal — matches --tw-gem-hi (#3fbf9a).</summary>
+        /// <summary>Bright veilstone — matches --tw-gem-hi (#3fbf9a).</summary>
         public static readonly Color GemBright = new Color(0.247f, 0.749f, 0.604f, 1.0f);
 
         // ─── Status colors (kept from the navy theme so semantics don't shift) ─
@@ -82,7 +82,7 @@ namespace TheWaningBorder.UI.Common
 
         /// <summary>
         /// Resource depletion bar — amber, used by FloatingHealthBars for iron
-        /// deposits and crystal cadavers in place of the green health bar
+        /// deposits and veilstone outcroppings in place of the green health bar
         /// (task-108 Phase 5). Matches the panel-side `.sel-bar-resource__fill`
         /// gradient anchor (#d97a2e) so the world-space bar and the selection
         /// panel bar read as the same channel of information.

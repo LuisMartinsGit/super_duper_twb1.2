@@ -112,6 +112,15 @@ namespace TheWaningBorder.Core.Commands.Types
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
 
+            // An individual move order detaches the unit from any formation
+            // group it was travelling with (FormationMoveCommandHelper
+            // re-attaches AFTER calling Execute when this move IS part of a
+            // formation order). Stale group-speed overrides go with it.
+            if (em.HasComponent<FormationMemberState>(unit))
+                em.RemoveComponent<FormationMemberState>(unit);
+            if (em.HasComponent<FormationSpeedOverride>(unit))
+                em.RemoveComponent<FormationSpeedOverride>(unit);
+
             // Add MoveCommand for MovementSystem to process
             if (!em.HasComponent<MoveCommand>(unit))
                 em.AddComponent<MoveCommand>(unit);
@@ -173,9 +182,18 @@ namespace TheWaningBorder.Core.Commands.Types
         /// MoveCommand may race past initialisation); the scheduler
         /// helper falls back to the M3 direct-attach in that window.
         /// </summary>
-        private static void EmitNavPathRequest(EntityManager em, Entity unit, float3 destination)
+        internal static void EmitNavPathRequest(EntityManager em, Entity unit, float3 destination)
         {
             if (!em.Exists(unit) || !em.HasComponent<LocalTransform>(unit)) return;
+
+            // Pathfinding redesign 2026-07-05: ground movement is driven by
+            // whole-map goal flow fields (GoalFlowFieldSystem); portal paths
+            // are only consumed by LayerTransitionSystem for rampart/climb
+            // traversal. Skipping the A* pipeline for plain ground orders
+            // removes the per-click pathfinder spike (a formation move used
+            // to fire one portal A* PER UNIT).
+            if (!NeedsPortalPath(em, unit, destination)) return;
+
             var transform = em.GetComponentData<LocalTransform>(unit);
 
             var startCell = NavGridQuery.WorldToCellInt2(transform.Position);
@@ -200,6 +218,45 @@ namespace TheWaningBorder.Core.Commands.Types
                 startCell, goalCell, profileHash: 0,
                 priority: PendingNavRequest.PriorityUser,
                 generation: generation);
+        }
+
+        /// <summary>
+        /// True only when the order involves the rampart layer: the unit is
+        /// already up on a wall, or the destination cell is wall-top (ground
+        /// layer impassable, rampart layer walkable). Only those orders need
+        /// a portal path (climb/gate traversal via LayerTransitionSystem);
+        /// everything else rides the goal flow fields.
+        /// </summary>
+        private static bool NeedsPortalPath(EntityManager em, Entity unit, float3 destination)
+        {
+            // Unit already on the rampart layer -> needs portal legs to get
+            // around/down.
+            if (em.HasComponent<NavLayerIndex>(unit)
+                && em.GetComponentData<NavLayerIndex>(unit).Layer != 0)
+                return true;
+
+            var goalCell = NavGridQuery.WorldToCellInt2(destination);
+            if (goalCell.x == int.MinValue) return false;
+
+            var fieldQuery = em.CreateEntityQuery(typeof(NavCostField));
+            if (fieldQuery.IsEmptyIgnoreFilter)
+            {
+                fieldQuery.Dispose();
+                return false;
+            }
+            var field = fieldQuery.GetSingleton<NavCostField>();
+            fieldQuery.Dispose();
+
+            if (field.LayerCount < 2 || !field.Cost.IsCreated) return false;
+
+            int layerArea = field.Width * field.Height;
+            int idx = goalCell.y * field.Width + goalCell.x;
+            if (idx < 0 || idx >= layerArea) return false;
+            if (field.Cost.Length < layerArea * 2) return false;
+
+            bool groundBlocked = field.Cost[idx] == NavCostField.CostImpassable;
+            bool rampartWalkable = field.Cost[layerArea + idx] != NavCostField.CostImpassable;
+            return groundBlocked && rampartWalkable;
         }
 
         private static void ClearConflictingCommands(EntityManager em, Entity unit)

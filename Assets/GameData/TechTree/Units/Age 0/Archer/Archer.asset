@@ -12,35 +12,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Archer
   m_EditorClassIdentifier: 
-  id: 'Archer'
-  displayName: 'Archer'
-  unitClass: 'human_ranged'
-  hp: 90
+  id: Archer
+  displayName: Archer
+  unitClass: human_ranged
+  hp: 60
   speed: 5.2
   trainingTime: 20
-  damage: 17
-  damageType: 'ranged'
-  armorType: 'ranged'
+  damage: 8
+  damageType: ranged
+  armorType: ranged
   defense:
     melee: 0
-    ranged: 1
+    ranged: 2
     siege: 0
     magic: 0
-  attackCooldown: 0
+  attackCooldown: 1.5
   attackRange: 25
-  minAttackRange: 1
-  lineOfSight: 30
+  minAttackRange: 10
+  lineOfSight: 20
+  trajectory: low
+  projectileSpeed: 0
   cost:
     Supplies: 50
     Iron: 25
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
+  abilities: []
+  prefab: {fileID: 8768046597960125521, guid: b7a7e2c2795519a4296e5932ac03fbe6, type: 3}
   presentationId: 202
+  animatorController: {fileID: 9100000, guid: 30a8aacb2a2534542a015e8610638d78, type: 2}

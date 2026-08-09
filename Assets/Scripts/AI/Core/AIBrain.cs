@@ -44,12 +44,25 @@ namespace TheWaningBorder.AI
         Expert = 3
     }
 
+    /// <summary>
+    /// Mid/late-game stance the SimpleAISystem evaluates each think tick
+    /// (AI plan M4). Postures GATE the maintenance loop (attack thresholds,
+    /// recalls) — build orders stay the opener.
+    /// </summary>
+    public enum AIPosture : byte
+    {
+        Develop = 0,   // default: follow build order / maintenance floors
+        Pressure = 1,  // army assembled and economy healthy: attack sooner
+        Defend = 2,    // threat spike near own base: recall, repair, hold
+        Rebuild = 3,   // army gutted: train back up before attacking again
+    }
+
     // ==================== AI Strategy ====================
 
     public enum AIStrategy : byte
     {
         Rush = 0,       // Fast barracks, early harassment, minimal economy
-        EcoBoom = 1,    // Heavy gatherers, crystal farming, delayed military
+        EcoBoom = 1,    // Heavy gatherers, veilstone farming, delayed military
         TechRush = 2,   // Tech Boom — rush Age 2 with Barracks tech upgrades
         Aggressive = 3, // Balanced — token military + Shrine + age up
         Defensive = 4,  // Standing army, Drills+Armor research, Vault
@@ -70,14 +83,14 @@ namespace TheWaningBorder.AI
         /// <summary>Whether the AgeUp step has already been issued (latches to prevent re-trigger).</summary>
         public byte AgeUpIssued;
         /// <summary>
-        /// Crystal-miner FLOOR. The runtime allocation is
-        /// <c>max(this, totalMiners / 2)</c> whenever cadavers are reachable —
+        /// Veilstone-miner FLOOR. The runtime allocation is
+        /// <c>max(this, totalMiners / 2)</c> whenever outcroppings are reachable —
         /// 50/50 is the default, this field only matters if a strategy wants
-        /// to front-load more crystal earlier (e.g. TechBoom asking for 2
-        /// crystal miners while only 4 total exist). Set by SetCrystalTarget
+        /// to front-load more veilstone earlier (e.g. TechBoom asking for 2
+        /// veilstone miners while only 4 total exist). Set by SetVeilstoneTarget
         /// build-order steps; 0 = use the 50/50 floor only.
         /// </summary>
-        public int CrystalMinerTarget;
+        public int VeilstoneMinerTarget;
 
         // ───── Replace-lost-units bookkeeping ─────
         // Cumulative count of units the build order has queued so far. Each tick
@@ -92,6 +105,46 @@ namespace TheWaningBorder.AI
         /// <summary>Most recently queued combat unit type — used as the
         /// replacement template (e.g. "Swordsman" for Rush).</summary>
         public Unity.Collections.FixedString64Bytes LastMilitaryUnit;
+
+        // ───── Full-scale AI additions (docs/AI_Assessment_and_Plan.md) ─────
+        /// <summary>Current posture (M4). Evaluated each think tick.</summary>
+        public AIPosture Posture;
+        /// <summary>Scout-then-strike (M3): position the AI wants re-scouted
+        /// before committing to an assault. Consumed by ScoutDirectorSystem.</summary>
+        public float3 ReconTarget;
+        public byte HasReconRequest;
+        /// <summary>Seconds until the army may retreat again (M6 anti-thrash).</summary>
+        public float RetreatCooldown;
+        /// <summary>Seconds the CURRENT build-order step has been failing.
+        /// Skippable steps are abandoned past the timeout so one impossible
+        /// step can never freeze the whole build order (anti-stagnation).</summary>
+        public float StepStuckSeconds;
+
+        // ───── Attack-wave cadence (2026-08-04) ─────
+        /// <summary>Game time the next wave may launch. 0 = not yet armed
+        /// (first wave fires at the difficulty's first-attack gate).</summary>
+        public float NextWaveTime;
+        /// <summary>Successful waves launched — scales the next wave's
+        /// idle-army minimum (increasingly larger armies).</summary>
+        public int WaveNumber;
+
+        /// <summary>
+        /// Where the CURRENT wave was sent, and whether one is out. Set on
+        /// launch, consumed by the reinforcement pass so units finished after
+        /// the wave left march to join it instead of standing in the base
+        /// until the next wave's (larger) minimum is met.
+        /// </summary>
+        public Unity.Mathematics.float3 WaveTarget;
+        /// <summary>1 while a wave is committed and worth reinforcing.</summary>
+        public byte WaveActive;
+        /// <summary>Next time the reinforcement sweep may run.</summary>
+        public float NextReinforceTime;
+        /// <summary>Game time the current wave launched. A wave is retired
+        /// once it exceeds SimpleAISystem.WaveMaxLifetime so the army is
+        /// released and the NEXT wave can draft it — without this a wave
+        /// whose target was already razed reinforced forever (2026-08-07
+        /// match: Red's wave 4 ran 32 minutes and never attacked).</summary>
+        public float WaveStartTime;
     }
 
     /// <summary>
@@ -128,7 +181,7 @@ namespace TheWaningBorder.AI
     {
         public int Supplies;
         public int Iron;
-        public int Crystal;
+        public int Veilstone;
         public int Veilsteel;
         public int Glow;
         public int Priority;

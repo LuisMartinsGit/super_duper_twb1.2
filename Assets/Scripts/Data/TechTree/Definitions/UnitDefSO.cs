@@ -46,6 +46,12 @@ namespace TheWaningBorder.Data
         public float minAttackRange;
         public float lineOfSight = 20f;
 
+        [Header("Projectile Profile (ranged units)")]
+        [Tooltip("low = default shortbow arc | flat = crossbow straight line | high = longbow parabola")]
+        public string trajectory;
+        [Tooltip("Projectile speed override (m/s). 0 = combat system default.")]
+        public float projectileSpeed;
+
         [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
@@ -56,8 +62,15 @@ namespace TheWaningBorder.Data
         [Header("Support Roles")]
         public float buildSpeed;
         public float gatheringSpeed;
-        public int carryCapacity;
         public float healsPerSecond;
+
+        [Header("Siege Specials (0 = unit keeps its built-in constants)")]
+        [Tooltip("Close-range direct siege attack range (Godsplinter siege mode).")]
+        public float siegeRange;
+        [Tooltip("Seconds between close-range siege attacks.")]
+        public float siegeCooldown;
+        [Tooltip("Splash radius of the unit's AoE shots.")]
+        public float aoeRadius;
 
         [Header("Tags & Bonus Damage (AoE4-style)")]
         [Tooltip("Tags this unit HAS — others' bonus damage targets these (Infantry, Cavalry, " +
@@ -66,6 +79,12 @@ namespace TheWaningBorder.Data
         [Tooltip("Flat bonus damage vs target tags (added after armor; ignores armor).")]
         public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
 
+        [Header("Abilities")]
+        [Tooltip("Ability card names attached to this unit (data-driven ability system; " +
+                 "see AbilityCatalog). e.g. King's Call, Liquid Courage, Scout Sight. " +
+                 "Do NOT overload the trainer's Trains list for this.")]
+        public string[] abilities;
+
         [Header("Presentation")]
         [Tooltip("Visual prefab for this unit (kept in this entity's GameData folder). " +
                  "Null = capsule placeholder at runtime.")]
@@ -73,6 +92,12 @@ namespace TheWaningBorder.Data
         [Tooltip("The ECS PresentationId this unit spawns with — links the runtime entity " +
                  "to this SO/prefab (see UnitFactory.GetPresentationId).")]
         public int presentationId;
+        [Tooltip("Optional Animator controller. Assigned to the spawned visual's Animator " +
+                 "when its prefab doesn't already carry one — e.g. a prefab that is a variant " +
+                 "of a character FBX whose inherited Animator has no controller. Null = leave " +
+                 "whatever the prefab already has. Applied by PresentationSpawnSystem via " +
+                 "TechCatalog.TryGetController.")]
+        public RuntimeAnimatorController animatorController;
 
         /// <summary>Build a fresh runtime UnitDef from this asset.</summary>
         public UnitDef ToDef()
@@ -103,14 +128,19 @@ namespace TheWaningBorder.Data
             def.attackRange    = attackRange;
             def.minAttackRange = minAttackRange;
             def.lineOfSight    = lineOfSight;
+            def.trajectory     = trajectory ?? "";
+            def.projectileSpeed = projectileSpeed;
             def.cost           = CloneCost(cost);
             def.minBuildingLevel = minBuildingLevel;
             def.buildSpeed     = buildSpeed;
             def.gatheringSpeed = gatheringSpeed;
-            def.carryCapacity  = carryCapacity;
             def.healsPerSecond = healsPerSecond;
             def.tags           = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
             def.bonusVsTags    = bonusVsTags;   // read-only at runtime -> reference copy
+            def.abilities      = abilities == null ? System.Array.Empty<string>() : (string[])abilities.Clone();
+            def.siegeRange     = siegeRange;
+            def.siegeCooldown  = siegeCooldown;
+            def.aoeRadius      = aoeRadius;
         }
 
         /// <summary>Populate this asset's fields from a runtime UnitDef (used by the generator).</summary>
@@ -130,14 +160,19 @@ namespace TheWaningBorder.Data
             attackRange    = def.attackRange;
             minAttackRange = def.minAttackRange;
             lineOfSight    = def.lineOfSight;
+            trajectory     = def.trajectory ?? "";
+            projectileSpeed = def.projectileSpeed;
             cost           = CloneCost(def.cost);
             minBuildingLevel = def.minBuildingLevel;
             buildSpeed     = def.buildSpeed;
             gatheringSpeed = def.gatheringSpeed;
-            carryCapacity  = def.carryCapacity;
             healsPerSecond = def.healsPerSecond;
             tags           = def.tags == null ? System.Array.Empty<string>() : (string[])def.tags.Clone();
             bonusVsTags    = def.bonusVsTags ?? new List<DamageBonus>();
+            abilities      = def.abilities == null ? System.Array.Empty<string>() : (string[])def.abilities.Clone();
+            siegeRange     = def.siegeRange;
+            siegeCooldown  = def.siegeCooldown;
+            aoeRadius      = def.aoeRadius;
         }
 
         internal static DefenseBlock CloneDefense(DefenseBlock d) => d == null
@@ -146,6 +181,6 @@ namespace TheWaningBorder.Data
 
         internal static CostBlock CloneCost(CostBlock c) => c == null
             ? new CostBlock()
-            : new CostBlock { Supplies = c.Supplies, Iron = c.Iron, Crystal = c.Crystal, Veilsteel = c.Veilsteel };
+            : new CostBlock { Supplies = c.Supplies, Iron = c.Iron, Veilstone = c.Veilstone, Veilsteel = c.Veilsteel };
     }
 }

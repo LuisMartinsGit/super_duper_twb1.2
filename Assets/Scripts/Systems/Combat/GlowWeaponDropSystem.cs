@@ -5,7 +5,7 @@
 // Two phases, both in this system:
 //   - Drop: a unit with effective Glow tier dies → spawn a GlowWeapon at
 //           its death position, then strip the tier from the unit so the
-//           drop only fires once. Curse units never drop.
+//           drop only fires once. Border units never drop.
 //   - Attune + claim: each tick, find qualifying units (Veilsteel-or-Glow
 //           tier) standing within radius of a dropped weapon. First valid
 //           unit becomes the Attuner; their AttunementProgress accumulates
@@ -24,7 +24,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Entities;
-using static TheWaningBorder.Core.Config.CrystalConstants;
+using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -50,7 +50,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 if (health.ValueRO.Value > 0) continue;
                 if (applied.ValueRO.Value != EquipmentTier.Glow) continue;
-                if (faction.ValueRO.Value == Faction.Curse) continue;
+                if (faction.ValueRO.Value == Faction.Border) continue;
 
                 dropPositions.Add(transform.ValueRO.Position);
                 dropClasses.Add(unitTag.ValueRO.Class);
@@ -139,7 +139,7 @@ namespace TheWaningBorder.Systems.Combat
                     for (int i = 0; i < unitEnts.Length; i++)
                     {
                         if (unitHealths[i].Value <= 0) continue;
-                        if (unitFactions[i].Value == Faction.Curse) continue;
+                        if (unitFactions[i].Value == Faction.Border) continue;
                         if (!IsQualifyingTier(unitApplied[i].Value)) continue;
 
                         var uPos = unitTransforms[i].Position;

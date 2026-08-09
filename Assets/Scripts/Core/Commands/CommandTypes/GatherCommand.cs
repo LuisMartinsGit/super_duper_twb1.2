@@ -19,9 +19,6 @@ namespace TheWaningBorder.Core.Commands.Types
     {
         /// <summary>The resource node to gather from (e.g., Iron Mine)</summary>
         public Entity ResourceNode;
-        
-        /// <summary>Where to deposit gathered resources (e.g., GatherersHut, Hall)</summary>
-        public Entity DepositLocation;
     }
 
     /// <summary>
@@ -33,7 +30,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Execute a gather command on a miner unit.
         /// Clears conflicting commands and sets up gathering state.
         /// </summary>
-        public static void Execute(EntityManager em, Entity miner, Entity resourceNode, Entity depositLocation)
+        public static void Execute(EntityManager em, Entity miner, Entity resourceNode)
         {
             if (!em.Exists(miner) || !em.Exists(resourceNode)) return;
 
@@ -41,7 +38,7 @@ namespace TheWaningBorder.Core.Commands.Types
             CommandHelper.ClearAllCommands(em, miner);
 
             // Set up gather command
-            SetupGather(em, miner, resourceNode, depositLocation);
+            SetupGather(em, miner, resourceNode);
         }
 
         /// <summary>
@@ -60,12 +57,11 @@ namespace TheWaningBorder.Core.Commands.Types
             return true;
         }
 
-        private static void SetupGather(EntityManager em, Entity miner, Entity resourceNode, Entity depositLocation)
+        private static void SetupGather(EntityManager em, Entity miner, Entity resourceNode)
         {
             var cmd = new GatherCommand
             {
-                ResourceNode = resourceNode,
-                DepositLocation = depositLocation
+                ResourceNode = resourceNode
             };
 
             if (!em.HasComponent<GatherCommand>(miner))

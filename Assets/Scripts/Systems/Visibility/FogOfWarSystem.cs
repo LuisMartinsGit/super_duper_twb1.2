@@ -4,7 +4,6 @@ using Unity.Collections;
 using Unity.Transforms;
 using Unity.Mathematics;
 using UnityEngine;
-using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.World.FogOfWar;
 using TheWaningBorder.Presentation;
 using TheWaningBorder.Economy;
@@ -35,29 +34,25 @@ namespace TheWaningBorder.Systems.Visibility
             var mgr = FogOfWarManager.Instance;
             if (mgr == null) return;
 
-            var em = EntityWorld.DefaultGameObjectInjectionWorld.EntityManager;
-
             // Begin new frame - clears current visibility
             mgr.BeginFrame();
 
-            // Query all entities with LineOfSight and position
-            // Exclude CrystalTag: crystal entities are enemy to all players and should NOT reveal fog
-            var query = em.CreateEntityQuery(
+            // Query all entities with LineOfSight and position.
+            // Exclude BorderTag: veilstone entities are enemy to all players
+            // and should NOT reveal fog. GetEntityQuery caches per system —
+            // CreateEntityQuery per frame leaks into the world's registry.
+            var query = GetEntityQuery(
                 ComponentType.ReadOnly<LineOfSight>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<CrystalTag>());
+                ComponentType.Exclude<BorderTag>());
 
-            var entities = query.ToEntityArray(Allocator.Temp);
             var lineOfSights = query.ToComponentDataArray<LineOfSight>(Allocator.Temp);
             var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
-            int stamped = 0;
-            for (int i = 0; i < entities.Length; i++)
+            for (int i = 0; i < lineOfSights.Length; i++)
             {
-                if (!em.Exists(entities[i])) continue;
-
                 // Ensure valid radius
                 float radius = Mathf.Max(0.01f, lineOfSights[i].Radius);
 
@@ -67,15 +62,13 @@ namespace TheWaningBorder.Systems.Visibility
 
                 // Stamp visibility circle for this unit's faction
                 mgr.Stamp(factions[i].Value, (Vector3)transforms[i].Position, radius);
-                stamped++;
             }
 
-            entities.Dispose();
             lineOfSights.Dispose();
             transforms.Dispose();
             factions.Dispose();
 
-            // Finalize frame - builds fog texture
+            // Finalize frame - rebuilds the overlay texture (throttled inside)
             mgr.EndFrameAndBuild();
         }
 
@@ -116,18 +109,30 @@ namespace TheWaningBorder.Systems.Visibility
     [UpdateAfter(typeof(FogOfWarSystem))]
     public partial class FogVisibilitySyncSystem : SystemBase
     {
+        // Show/hide runs at 10 Hz — SetActive flips don't need frame-exact
+        // timing, and the full sweep over every presented entity is too
+        // heavy to pay per frame.
+        private const float SyncInterval = 0.1f;
+        private float _nextSync;
+
         protected override void OnUpdate()
         {
+            if (UnityEngine.Time.unscaledTime < _nextSync) return;
+            _nextSync = UnityEngine.Time.unscaledTime + SyncInterval;
+
             var mgr = FogOfWarManager.Instance;
-            var entityViewManager = Object.FindFirstObjectByType<EntityViewManager>();
+            var entityViewManager = EntityViewManager.Instance;
             if (entityViewManager == null) return;
 
-            var em = EntityWorld.DefaultGameObjectInjectionWorld.EntityManager;
+            var em = EntityManager;
 
-            // When fog of war is disabled, make all entities visible
-            if (mgr == null)
+            // When fog of war is disabled — or the local player is an
+            // OBSERVER — make all entities visible. In observer matches the
+            // fog manager still exists so the AIs' intel stays fog-honest
+            // (per-faction grids), but the observer's VIEW is unfogged.
+            if (mgr == null || GameSettings.IsObserver)
             {
-                var allQuery = em.CreateEntityQuery(
+                var allQuery = GetEntityQuery(
                     ComponentType.ReadOnly<PresentationId>(),
                     ComponentType.ReadOnly<LocalTransform>());
                 var allEntities = allQuery.ToEntityArray(Allocator.Temp);
@@ -143,7 +148,7 @@ namespace TheWaningBorder.Systems.Visibility
             var humanFaction = mgr.HumanFaction;
 
             // Cache player unit positions + LOS for direct distance fallback
-            var playerLosQuery = em.CreateEntityQuery(
+            var playerLosQuery = GetEntityQuery(
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LineOfSight>());
@@ -173,7 +178,7 @@ namespace TheWaningBorder.Systems.Visibility
             pAllLOS.Dispose();
 
             // Query entities with presentation
-            var query = em.CreateEntityQuery(
+            var query = GetEntityQuery(
                 ComponentType.ReadOnly<PresentationId>(),
                 ComponentType.ReadOnly<LocalTransform>());
 
@@ -195,18 +200,10 @@ namespace TheWaningBorder.Systems.Visibility
                 bool isMine = em.HasComponent<FactionTag>(entity) && 
                               em.GetComponentData<FactionTag>(entity).Value == humanFaction;
 
-                var renderer = gameObject.GetComponentInChildren<Renderer>();
-
                 // Player-owned entities - always visible
                 if (isMine)
                 {
-                    gameObject.SetActive(true);
-                    if (renderer != null)
-                    {
-                        var mpb = new MaterialPropertyBlock();
-                        renderer.GetPropertyBlock(mpb);
-                        renderer.SetPropertyBlock(mpb);
-                    }
+                    if (!gameObject.activeSelf) gameObject.SetActive(true);
                     continue;
                 }
 
@@ -252,48 +249,24 @@ namespace TheWaningBorder.Systems.Visibility
                         if (!revealedByProximity) isVisible = false;
                     }
 
-                    gameObject.SetActive(isVisible);
+                    if (gameObject.activeSelf != isVisible) gameObject.SetActive(isVisible);
                     continue;
                 }
 
-                // Enemy/neutral static entities (buildings, deposits, curse
+                // Enemy/neutral static entities (buildings, deposits, border
                 // structures — anything without UnitTag). Three-state visibility:
                 //   currently visible              -> show normally
                 //   previously revealed, not visible -> show as ghost (last-seen)
                 //   never revealed                 -> hide entirely
                 // Previously the ghost branch required isBuilding, which made
-                // iron / crystal deposits and any non-BuildingTag static entity
+                // iron / veilstone deposits and any non-BuildingTag static entity
                 // vanish for good once they left vision — fixed here.
-                if (isVisible)
-                {
-                    gameObject.SetActive(true);
-                    if (renderer != null)
-                    {
-                        var mpb = new MaterialPropertyBlock();
-                        renderer.GetPropertyBlock(mpb);
-                        // Clear any ghost effects
-                        renderer.SetPropertyBlock(mpb);
-                    }
-                }
-                else if (isRevealed)
-                {
-                    // Previously seen — show as ghost (last-seen state).
-                    gameObject.SetActive(true);
-                    if (renderer != null)
-                    {
-                        var mpb = new MaterialPropertyBlock();
-                        renderer.GetPropertyBlock(mpb);
-                        // Optional: Apply ghost shader properties
-                        // mpb.SetFloat("_Desaturate", 1f);
-                        // mpb.SetFloat("_Alpha", 0.5f);
-                        renderer.SetPropertyBlock(mpb);
-                    }
-                }
-                else
-                {
-                    // Never seen — hide.
-                    gameObject.SetActive(false);
-                }
+                // (The old per-entity Renderer fetch + MaterialPropertyBlock
+                // get/set pair was a no-op that allocated every frame — the
+                // ghost shader hook can come back on a cached renderer when a
+                // ghost material actually exists.)
+                bool show = isVisible || isRevealed;   // revealed → last-seen ghost
+                if (gameObject.activeSelf != show) gameObject.SetActive(show);
             }
 
             entities.Dispose();

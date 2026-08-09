@@ -61,7 +61,6 @@ namespace TheWaningBorder.Data
         RateOfFirePercent = 4,   // percent bonus (30 = +30% fire rate)
         Speed = 5,
         AttackCooldown = 6,
-        CarryCapacity = 7,
         Defense = 8,             // flat defense (all damage types)
         MoveSpeedPercent = 9,    // percent bonus to move speed (5 = +5%)
     }

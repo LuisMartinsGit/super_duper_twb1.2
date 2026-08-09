@@ -82,9 +82,23 @@ namespace TheWaningBorder.UI.Menus
         // ================================================================
 
         /// <summary>
+        /// Apply persisted settings automatically at app start. The old IMGUI
+        /// MainMenuUI used to call LoadAndApplySettings from its Awake; that
+        /// menu is deleted (2026-07-16) and the live Synty uGUI menu never
+        /// wired it — saved video/audio settings silently stopped applying.
+        /// A RuntimeInitializeOnLoadMethod is scene-independent and survives
+        /// any future menu rework.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void ApplySavedSettingsOnBoot()
+        {
+            LoadAndApplySettings();
+        }
+
+        /// <summary>
         /// Load persisted settings from PlayerPrefs and apply them to Unity APIs.
-        /// Call this once at startup (e.g., from MainMenuUI.Awake) so that
-        /// saved settings take effect before the player opens the Options panel.
+        /// Runs once at startup via ApplySavedSettingsOnBoot so that saved
+        /// settings take effect before the player opens the Options panel.
         /// </summary>
         public static void LoadAndApplySettings()
         {

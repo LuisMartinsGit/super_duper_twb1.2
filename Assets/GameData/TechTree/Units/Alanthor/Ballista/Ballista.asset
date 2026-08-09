@@ -11,39 +11,46 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Ballista
-  m_EditorClassIdentifier: 
-  id: 'Alanthor_Ballista'
-  displayName: 'Alanthor_Ballista'
-  unitClass: 'machinery_siege'
+  m_EditorClassIdentifier:
+  id: Alanthor_Ballista
+  displayName: Ballista
+  unitClass: machinery_siege
   hp: 220
   speed: 3.2
   trainingTime: 38
   damage: 40
-  damageType: 'siege'
-  armorType: 'ranged'
+  damageType: siege
+  armorType: ranged
   defense:
     melee: 0
     ranged: 1
     siege: 2
     magic: 0
-  attackCooldown: 0
+  attackCooldown: 4
   attackRange: 22
   minAttackRange: 6
   lineOfSight: 26
+  trajectory: flat
+  projectileSpeed: 55
   cost:
     Supplies: 180
     Iron: 80
-    Crystal: 40
+    Veilstone: 40
     Veilsteel: 0
-  minBuildingLevel: 0
+  minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Ranged'
-  - 'Siege'
+  - Ranged
+  - Siege
   bonusVsTags:
-  - vsTag: 'Building'
+  - vsTag: Building
     amount: 30
+  abilities: []
+  prefab: {fileID: 3770438709135643749, guid: ece62a5560e11f74bbe49297d4148d10, type: 3}
   presentationId: 337
+  animatorController: {fileID: 0}

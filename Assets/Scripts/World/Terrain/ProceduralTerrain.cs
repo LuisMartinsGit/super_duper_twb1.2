@@ -2,7 +2,7 @@
 // Compatibility shim. Procedural map generation has been removed — the game
 // ships hand-authored maps only (baked Unity Terrain). Nothing creates a
 // ProceduralTerrain instance any more, so Instance is always null and the
-// runtime systems that used to call into it (cursed-ground painting, build
+// runtime systems that used to call into it (border-ground painting, build
 // flatten, minimap water level, passability/bounds) fall through their
 // existing `Instance != null` guards exactly as they already did on
 // hand-authored maps.
@@ -45,14 +45,14 @@ namespace TheWaningBorder.World.Terrain
         // ── Dead, compile-only API (Instance is always null) ───────────────
         // Retained so the null-guarded call sites in PassabilityGrid,
         // BuildCommand(Pannel), GathererHutAreaDisplay, MinimapRenderer,
-        // CrystalSpreadSystem and CursedGroundRecessionSystem keep compiling.
+        // BorderSpreadSystem and BorderGroundRecessionSystem keep compiling.
 
         public Vector2 worldMin = new Vector2(-256, -256);
         public Vector2 worldMax = new Vector2(256, 256);
         public float waterHeight = 20f;
 
         public void FlattenAt(Vector3 worldCenter, float halfExtent) { }
-        public void PaintCursedGround(float worldX, float worldZ, float radius) { }
-        public void UnpaintCursedGround(float worldX, float worldZ, float radius) { }
+        public void PaintBorderGround(float worldX, float worldZ, float radius) { }
+        public void UnpaintBorderGround(float worldX, float worldZ, float radius) { }
     }
 }

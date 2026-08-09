@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands.Types;
 
 namespace TheWaningBorder.Systems.Combat
@@ -26,9 +27,17 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateAfter(typeof(TheWaningBorder.Systems.Navigation.UnitIntegratorSystem))]
     public partial struct TargetingSystem : ISystem
     {
-        private const float MaxGuardDistance = 20f;
+        // Leash: an idle unit only chases a target this far from its guard
+        // point before being sent back. Lowered 20→10 so idle units HOLD their
+        // ground and wait to be massed into an army instead of wandering off to
+        // hunt enemies one by one. Global (player + AI).
+        private const float MaxGuardDistance = 10f;
         private const float GuardReturnThreshold = 2f;
         private const float DefaultMeleeRange = 1.5f;
+        /// <summary>Max height difference melee can strike across (a bridge
+        /// deck is ~3-5m above the underpass — unreachable). Shared meaning
+        /// with MeleeCombatSystem's gate.</summary>
+        public const float MeleeMaxHeightDelta = 2f;
 
         // Fix #207: spatial-hash cell size for the enemy scan.
         // Cell=20 means a unit with LOS<=20 only visits a 3x3 neighborhood
@@ -60,11 +69,21 @@ namespace TheWaningBorder.Systems.Combat
             ProcessAttackCommands(ref state, ref ecb);
 
             // Build enemy arrays ONCE for both auto-acquire and return-to-guard phases
-            // Exclude NodeUntargetable — crystal nodes are immune to targeting unless
-            // an Iconoclast is in aura range (IconoclastAuraSystem toggles the tag).
+            // Exclude NodeUntargetable — veilstone nodes are immune to targeting
+            // unless ACTIVE (NodeTargetabilitySystem toggles the tag: Active =
+            // destroyable, rubble/rebuilding/cleansed = immune husk).
+            // Verb wells (BorderMainNodeTag) are NEVER auto-acquired by anyone
+            // (2026-08-04): breaking a well is a deliberate Feraldis order
+            // (CommandRouter gates it by culture), not something an army does
+            // by standing near the objective.
             var enemyQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, FactionTag, Health>()
-                .WithNone<NodeUntargetable>()
+                // NodeNoAutoAcquire replaces a blanket BorderMainNodeTag
+                // exclusion: NodeTargetabilitySystem stamps it on every well
+                // EXCEPT one that a Feraldis Corruptor has cracked open, so
+                // wells stay un-auto-attackable as before but a corrupted
+                // well can be swarmed by an army attack-moving onto it.
+                .WithNone<NodeUntargetable, NodeNoAutoAcquire>()
                 .Build();
 
             using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
@@ -108,10 +127,37 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
 
+            // M2 (AI plan): tactical target priority per candidate. Within a
+            // bounded distance band (see AutoAcquireTargets), units prefer
+            // high-value classes — healers, siege, casters — over whatever is
+            // merely nearest. Buildings and workers stay lowest.
+            // Not `using var` — indexer writes on a using-variable are CS1654;
+            // disposed manually right after the auto-acquire pass.
+            var allEnemyPriority = new NativeArray<byte>(allEnemies.Length, Allocator.Temp);
+            for (int i = 0; i < allEnemies.Length; i++)
+            {
+                byte prio = 1;
+                if (em.HasComponent<UnitTag>(allEnemies[i]))
+                {
+                    var cls = em.GetComponentData<UnitTag>(allEnemies[i]).Class;
+                    prio = cls switch
+                    {
+                        UnitClass.Support => 5,
+                        UnitClass.Magic   => 4,
+                        UnitClass.Siege   => 4,
+                        UnitClass.Ranged  => 3,
+                        UnitClass.Melee   => 2,
+                        _                 => 1,
+                    };
+                }
+                allEnemyPriority[i] = prio;
+            }
+
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
             // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, spatialMap, ref attackerCount);
+            AutoAcquireTargets(ref state, ref ecb, allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth, allEnemyPriority, spatialMap, ref attackerCount);
+            allEnemyPriority.Dispose();
 
             // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
@@ -135,12 +181,12 @@ namespace TheWaningBorder.Systems.Combat
         private void InitializeCombatComponents(ref SystemState state, ref EntityCommandBuffer ecb)
         {
             // Initialize GuardPoint for units that don't have one
-            // Skip curse units — long-range hunters driven by CrystalAISystem wave dispatch;
+            // Skip border units — long-range hunters driven by BorderAISystem wave dispatch;
             // the 20m guard leash below would yank them home mid-march.
             foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
                 .WithAll<UnitTag>()
                 .WithNone<GuardPoint>()
-                .WithNone<CrystalUnitTag>()
+                .WithNone<BorderUnitTag>()
                 .WithEntityAccess())
             {
                 ecb.AddComponent(entity, new GuardPoint
@@ -273,10 +319,22 @@ namespace TheWaningBorder.Systems.Combat
         private const int MaxAttackersPerEnemy = 8;
         private const float SpreadDistRatio = 1.5f;
 
+        // M2 (AI plan): a higher-priority candidate only wins over the nearest
+        // one when it is within this ratio of the nearest distance — keeps the
+        // value tie-break bounded so units never trek across the map for it.
+        private const float ValuePickDistRatio = 1.25f;
+
+        /// <summary>Lower bound for the distance a proximity RATIO is taken
+        /// against. Candidate distances are surface distances, which legitimately
+        /// hit 0 when a unit is touching a building — and every `x <= nearest *
+        /// ratio` test degenerates to `x <= 0` there. See the use sites.</summary>
+        private const float NearDistFloor = 1.5f;
+
         [BurstCompile]
         private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
             NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
             NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
+            NativeArray<byte> allEnemyPriority,
             NativeParallelMultiHashMap<int2, int> spatialMap,
             ref NativeHashMap<Entity, int> attackerCount)
         {
@@ -289,8 +347,41 @@ namespace TheWaningBorder.Systems.Combat
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
-                .WithNone<CanBuild>()           // Builders are passive workers
+                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
+                                                //   ...except Feraldis Workers, which are
+                                                //   light infantry that also build. The tag
+                                                //   (not CanBuild) is what marks a worker as
+                                                //   non-combatant; FeraldisCultureRetrofitSystem
+                                                //   strips it.
+                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
+                                                //   Workers fight, so dropping PassiveWorkerTag
+                                                //   let this pass (and return-to-guard below)
+                                                //   grab them mid-build and fight the build
+                                                //   order for their DesiredDestination every
+                                                //   frame — the visible worker "glitching"
+                                                //   reported 2026-08-06. Command follow-through:
+                                                //   a worker with a build order finishes it.
                 .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
+                                                //   rule as the committed builder above, added
+                                                //   for the same failure.
+                                                //
+                                                //   The killer is the return-to-guard branch
+                                                //   below, not target acquisition. A ritualist
+                                                //   clears DesiredDestination to channel, which
+                                                //   makes it IDLE; its GuardPoint is still where
+                                                //   it spawned, tens of metres away; so the very
+                                                //   next tick walks it home at full speed. It
+                                                //   `continue`s before the damage check, so even
+                                                //   a 0-damage caster like the Iconoclast is
+                                                //   dragged off.
+                                                //
+                                                //   Measured 2026-08-07: 6 m -> 14 m in ~3 s
+                                                //   (2.7 m/s against a 3.2 move speed), breaking
+                                                //   the 40 s channel every single time. With
+                                                //   MaxGuardDistance at 10 m this hit EVERY
+                                                //   ritual on every map — no well is within
+                                                //   10 m of a spawn.
                 .WithEntityAccess())
             {
                 // Skip units that already have an active target
@@ -305,6 +396,19 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<UnitTag>(entity) &&
                     em.GetComponentData<UnitTag>(entity).Class == UnitClass.Scout)
                     continue;
+
+                // Economy units (workers / miners) NEVER auto-engage. A worker
+                // standing on a deposit is mining, so its DesiredDestination.Has
+                // is 0 — which means the "skip units with a destination" gate
+                // below does NOT protect it, and it would auto-acquire a nearby
+                // enemy and wander off to chase it while still assigned to the
+                // deposit (walking toward the enemy base). Keep them on task,
+                // same as the Scout rule above.
+                if (em.HasComponent<UnitTag>(entity))
+                {
+                    var cls = em.GetComponentData<UnitTag>(entity).Class;
+                    if (cls == UnitClass.Economy || cls == UnitClass.Miner) continue;
+                }
 
                 // Damage gate — only units that actually deal damage
                 // engage enemies. Litharchs (and any future zero-damage
@@ -391,11 +495,21 @@ namespace TheWaningBorder.Systems.Combat
                 bool isMelee = !em.HasComponent<UnitTag>(entity)
                     || em.GetComponentData<UnitTag>(entity).Class == UnitClass.Melee;
 
+                // Buildings-only siege (Battering Ram): never auto-acquire a
+                // non-building target for holders — they exist to crack walls,
+                // not to swing at soldiers (the melee fire path refuses those
+                // anyway; see MeleeCombatSystem).
+                bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
+
                 Entity bestTarget = Entity.Null;
                 Entity underBest = Entity.Null;
                 float underBestDist = float.MaxValue;
                 Entity anyBest = Entity.Null;
                 float anyBestDist = float.MaxValue;
+                byte anyBestPrio = 0;
+                Entity prioBest = Entity.Null;
+                float prioBestDist = float.MaxValue;
+                byte prioBestPrio = 0;
 
                 // ── Spatial-hash enemy scan (Fix #207) ──
                 // Visit only cells within LOS instead of iterating all enemies.
@@ -416,15 +530,57 @@ namespace TheWaningBorder.Systems.Combat
                                 if (allEnemyFactions[i].Value == myFaction) continue;
                                 if (allEnemyHealth[i].Value <= 0) continue;
 
+                                // Buildings-only siege: units are invisible to
+                                // the ram's target scan.
+                                if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
+
                                 var enemyPos = allEnemyTransforms[i].Position;
-                                var dist = DistXZ(myPos, enemyPos);
+                                // SURFACE distance, so a big building is judged by
+                                // where its walls are, not where its pivot is. A
+                                // 7x7 temple's pivot sits 3.5 m inside itself; on
+                                // centre distance it read as further away than a
+                                // hut standing right beside it, and the "nearest
+                                // enemy" pick skipped the thing the unit was
+                                // literally touching.
+                                var dist = TargetGeometry.SurfaceDistXZ(em, myPos, enemyPos, allEnemies[i]);
                                 if (dist > los) continue;
 
-                                // Skip stealthed enemies unless within proximity reveal range (3u)
-                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                // Curse & Shardroot canon §2.1: BORDER units
+                                // GUARD their wells — they don't hunt
+                                // harvesters. Worker-class targets (miners /
+                                // builders) are ignored unless they stray
+                                // right into the horde; military targets are
+                                // engaged normally. Makes sneak-mining the
+                                // crystal fields survivable.
+                                if (myFaction == Faction.Border && dist > 9f
+                                    && (em.HasComponent<MinerTag>(allEnemies[i])
+                                        || em.HasComponent<CanBuild>(allEnemies[i])))
                                     continue;
 
-                                if (dist < anyBestDist) { anyBest = allEnemies[i]; anyBestDist = dist; }
+                                // Melee can't reach a vertically separated
+                                // enemy (bridge deck above / valley floor
+                                // below) — don't acquire it, pick someone
+                                // reachable instead. Ranged units keep the
+                                // target (they shoot up/down with the
+                                // high-ground rules).
+                                if (isMelee && math.abs(enemyPos.y - myPos.y) > MeleeMaxHeightDelta)
+                                    continue;
+
+                                // Skip stealthed enemies unless within proximity
+                                // reveal range (3u) or exposed by a Lorekeeper
+                                // (Antiquity detection stamp).
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f
+                                    && !em.HasComponent<StealthRevealed>(allEnemies[i]))
+                                    continue;
+
+                                byte prio = allEnemyPriority[i];
+                                if (dist < anyBestDist) { anyBest = allEnemies[i]; anyBestDist = dist; anyBestPrio = prio; }
+                                if (prio > prioBestPrio || (prio == prioBestPrio && dist < prioBestDist))
+                                {
+                                    prioBest = allEnemies[i];
+                                    prioBestDist = dist;
+                                    prioBestPrio = prio;
+                                }
                                 if (isMelee)
                                 {
                                     int curCount = attackerCount.TryGetValue(allEnemies[i], out int cv) ? cv : 0;
@@ -436,6 +592,22 @@ namespace TheWaningBorder.Systems.Combat
                                 }
                             } while (spatialMap.TryGetNextValue(out i, ref it));
                         }
+                    }
+
+                    // M2 bounded value tie-break: a higher-priority candidate
+                    // (healer/siege/caster) replaces the nearest pick only when
+                    // it sits within ValuePickDistRatio of it.
+                    // NearDistFloor: distances are now measured to the target's
+                    // SURFACE, so a unit pressed against a building reads 0.0 —
+                    // and a pure ratio against 0 is 0, which would let a wall
+                    // permanently out-rank the soldier standing next to it.
+                    // Floor the comparison basis so "within 25% of nearest" also
+                    // means "or within a metre or so, absolute".
+                    if (prioBest != Entity.Null && prioBestPrio > anyBestPrio
+                        && prioBestDist <= math.max(anyBestDist, NearDistFloor) * ValuePickDistRatio)
+                    {
+                        anyBest = prioBest;
+                        anyBestDist = prioBestDist;
                     }
 
                     bestTarget = PickSpreadOrNearest(underBest, underBestDist, anyBest, anyBestDist);
@@ -482,13 +654,55 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
                 .WithNone<HealCommand>()        // Healers actively healing should not snap back
-                .WithNone<CanBuild>()           // Builders are passive workers
+                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
+                                                //   ...except Feraldis Workers, which are
+                                                //   light infantry that also build. The tag
+                                                //   (not CanBuild) is what marks a worker as
+                                                //   non-combatant; FeraldisCultureRetrofitSystem
+                                                //   strips it.
+                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
+                                                //   Workers fight, so dropping PassiveWorkerTag
+                                                //   let this pass (and return-to-guard below)
+                                                //   grab them mid-build and fight the build
+                                                //   order for their DesiredDestination every
+                                                //   frame — the visible worker "glitching"
+                                                //   reported 2026-08-06. Command follow-through:
+                                                //   a worker with a build order finishes it.
                 .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
+                                                //   rule as the committed builder above, added
+                                                //   for the same failure.
+                                                //
+                                                //   The killer is the return-to-guard branch
+                                                //   below, not target acquisition. A ritualist
+                                                //   clears DesiredDestination to channel, which
+                                                //   makes it IDLE; its GuardPoint is still where
+                                                //   it spawned, tens of metres away; so the very
+                                                //   next tick walks it home at full speed. It
+                                                //   `continue`s before the damage check, so even
+                                                //   a 0-damage caster like the Iconoclast is
+                                                //   dragged off.
+                                                //
+                                                //   Measured 2026-08-07: 6 m -> 14 m in ~3 s
+                                                //   (2.7 m/s against a 3.2 move speed), breaking
+                                                //   the 40 s channel every single time. With
+                                                //   MaxGuardDistance at 10 m this hit EVERY
+                                                //   ritual on every map — no well is within
+                                                //   10 m of a spawn.
                 .WithEntityAccess())
             {
                 // Skip units that have an active target
                 if (rtgTarget.ValueRO.Value != Entity.Null) continue;
                 if (guardPoint.ValueRO.Has == 0) continue;
+
+                // Scouts are vision-only roamers steered by the ScoutDirector
+                // (AI) or the player — they must NEVER snap back to a guard
+                // point on their own. Without this exemption (mirror of the
+                // AutoAcquireTargets scout gate above), return-to-guard
+                // overrode every far scouting assignment with a recall to the
+                // spawn Hall on the next frame.
+                if (em.GetComponentData<UnitTag>(entity).Class == UnitClass.Scout)
+                    continue;
 
                 // Skip healers actively healing (HealCommand is consumed immediately
                 // by LitharchHealingSystem, so check LitharchState.IsHealing instead)
@@ -571,6 +785,11 @@ namespace TheWaningBorder.Systems.Combat
                     Entity nearestEnemy = Entity.Null;
                     float nearestDist = float.MaxValue;
 
+                    // Buildings-only siege (Battering Ram): this engage branch
+                    // is auto-acquisition too — same building-only filter as
+                    // AutoAcquireTargets above.
+                    bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
+
                     int radius = (int)math.ceil(los / TargetingCellSize);
                     var myCell = new int2(
                         (int)math.floor(myPos.x / TargetingCellSize),
@@ -587,11 +806,18 @@ namespace TheWaningBorder.Systems.Combat
                                 if (allEnemyFactions[i].Value == myFaction) continue;
                                 if (allEnemyHealth[i].Value <= 0) continue;
 
+                                // Buildings-only siege: units are invisible to
+                                // the ram's target scan.
+                                if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
+
                                 var enemyPos = allEnemyTransforms[i].Position;
                                 var dist = DistXZ(myPos, enemyPos);
 
-                                // Skip stealthed enemies unless within proximity reveal range (3u)
-                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f)
+                                // Skip stealthed enemies unless within proximity
+                                // reveal range (3u) or exposed by a Lorekeeper
+                                // (Antiquity detection stamp).
+                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f
+                                    && !em.HasComponent<StealthRevealed>(allEnemies[i]))
                                     continue;
 
                                 if (dist <= los && dist < nearestDist)
@@ -708,7 +934,7 @@ namespace TheWaningBorder.Systems.Combat
             if (anyBest == Entity.Null) return underBest;
             // underBest is by definition >= anyBest. Only accept it if the
             // detour cost is within SpreadDistRatio of nearest.
-            if (underBestDist <= anyBestDist * SpreadDistRatio) return underBest;
+            if (underBestDist <= math.max(anyBestDist, NearDistFloor) * SpreadDistRatio) return underBest;
             return anyBest;
         }
 
