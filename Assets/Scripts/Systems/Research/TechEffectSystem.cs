@@ -107,6 +107,34 @@ namespace TheWaningBorder.Systems.Research
                 case "FullGallop":
                     GrantCavalryAbility(em, faction, "Full Gallop");
                     break;
+                case "Charge":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
+                        (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.FirstStrike
+                        { Pct = 30f, Ready = 1 }));
+                    break;
+                case "ShieldWall":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
+                        (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.ShieldWallState
+                        { Pct = 30f }));
+                    break;
+                case "DeployStakes":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Archers,
+                        (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.StakesState
+                        { Pct = 50f }));
+                    break;
+                case "SiegeScreens":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Siege,
+                        (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.SiegeScreens
+                        { Pct = 50f }));
+                    break;
+                case "FieldHospital":
+                    GrantLitharchFieldHospital(em, faction);
+                    break;
+                // RangingShot and ChoreographedVolleys are player-triggered actives,
+                // not stamped state: see AlanthorActiveHelper.
+                case "RangingShot":
+                case "ChoreographedVolleys":
+                    break;
                 // The Gatherer's Hut Guild "survey" (resource) and
                 // "reinforcement" (auto-repair / slow / stop) techs are read
                 // live from FactionResearchState by GathererHutIncomeSystem and
@@ -412,6 +440,78 @@ namespace TheWaningBorder.Systems.Research
                 hp.Value = (int)(hp.Value * 1.30f);
                 em.SetComponentData(entities[i], hp);
             }
+        }
+
+        /// <summary>Field Hospital — grant the deploy ability to every existing
+        /// Litharch of the faction (new Litharchs pick it up at spawn).</summary>
+        private static void GrantLitharchFieldHospital(EntityManager em, Faction faction)
+        {
+            int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf("Deploy Field Hospital");
+            if (idx < 0) return;
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<LitharchTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                TheWaningBorder.Abilities.AbilityAssignment.AddAbility(em, entities[i], idx);
+            }
+        }
+
+        /// <summary>Which roster an Alanthor combat passive applies to.</summary>
+        private enum AlanthorPassiveTarget { GarrisonInfantry, Archers, Siege }
+
+        /// <summary>
+        /// Stamp a passive component on every existing unit of the faction that
+        /// belongs to the given roster. New units get the same component at spawn
+        /// via the research check in their factory. Rosters are matched by
+        /// UnitTypeId so a tech only touches the units the calculator lists.
+        /// </summary>
+        private static void GrantPassiveToUnits(EntityManager em, Faction faction,
+            AlanthorPassiveTarget roster, System.Action<Entity> stamp)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.ReadOnly<UnitTypeId>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                if (!MatchesRoster(em.GetComponentData<UnitTypeId>(entities[i]).Value.ToString(), roster)) continue;
+                stamp(entities[i]);
+            }
+        }
+
+        /// <summary>Roster membership by unit id (the calculator's lists).</summary>
+        internal static bool MatchesRoster(string unitId, int rosterKind)
+            => MatchesRoster(unitId, (AlanthorPassiveTarget)rosterKind);
+
+        private static bool MatchesRoster(string unitId, AlanthorPassiveTarget roster)
+        {
+            switch (roster)
+            {
+                case AlanthorPassiveTarget.GarrisonInfantry:
+                    return unitId == "Spearman" || unitId == "Alanthor_Swordsman"
+                        || unitId == "Alanthor_Nobleman" || unitId == "Alanthor_Sentinel";
+                case AlanthorPassiveTarget.Archers:
+                    return unitId == "Archer" || unitId == "Alanthor_Crossbowman"
+                        || unitId == "Alanthor_Longbowman";
+                case AlanthorPassiveTarget.Siege:
+                    return unitId == "Alanthor_Ballista" || unitId == "Alanthor_BatteringRam"
+                        || unitId == "Alanthor_Trebuchet";
+                default:
+                    return false;
+            }
+        }
+
+        private static void AddOrSet<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData
+        {
+            if (em.HasComponent<T>(e)) em.SetComponentData(e, value);
+            else em.AddComponentData(e, value);
         }
 
         /// <summary>Royal Stable horn techs — grant an ability to every existing

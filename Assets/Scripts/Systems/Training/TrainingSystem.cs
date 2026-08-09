@@ -270,6 +270,10 @@ namespace TheWaningBorder.Systems.Training
 
             // Apply all completed tech effects to the newly spawned unit
             TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
+            // Alanthor combat passives (Charge / Shield Wall / Deploy Stakes /
+            // Siege Screens) are stamped here so a freshly trained unit matches
+            // the ones the research sweep already touched.
+            TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(em, unit, faction, unitId);
             // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed.
 
             // Issue move command to rally point if one is set

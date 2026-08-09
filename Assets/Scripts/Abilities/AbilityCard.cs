@@ -77,6 +77,7 @@ namespace TheWaningBorder.Abilities
         LosRampWhileStill = 12, // passive: line-of-sight grows while stationary (Scout Sight)
         ChargeDamagePct = 13,   // +Value% damage on the NEXT charge hit, for allied cavalry in radius (War Horn)
         DisarmWhileBuffed = 14, // the affected units cannot attack for the duration (Full Gallop's sprint)
+        DeployFieldHospital = 15, // spawn a temporary healing building at the caster (Litharch)
     }
 
     /// <summary>

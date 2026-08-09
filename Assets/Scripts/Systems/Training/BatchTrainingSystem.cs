@@ -213,6 +213,7 @@ namespace TheWaningBorder.Systems.Training
 
                 // Apply completed tech effects
                 TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
+                TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(em, unit, faction, unitId);
                 // task-063 phase 1: SectEffectSystem.ApplySectEffectsToUnit removed
                 // with the old multiplier bridge. Phase 2 reintroduces per-sect dispatch.
 

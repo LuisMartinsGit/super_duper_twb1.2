@@ -365,6 +365,12 @@ namespace TheWaningBorder.Systems.Combat
                             && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
                             cooldownValue *= (1f / 1.30f);
                         cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
+                        // Choreographed Volleys: faction-wide archer fire-rate burst.
+                        if (em.HasComponent<TheWaningBorder.Abilities.VolleyBuff>(entity))
+                        {
+                            float m = em.GetComponentData<TheWaningBorder.Abilities.VolleyBuff>(entity).Mult;
+                            if (m > 1f) cooldownValue /= m;
+                        }
 
                         archer.CooldownTimer = cooldownValue;
                         archer.AimTimer = 0;

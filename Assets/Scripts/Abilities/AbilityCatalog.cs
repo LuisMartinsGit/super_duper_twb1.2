@@ -126,6 +126,18 @@ namespace TheWaningBorder.Abilities
                 },
                 Aftermath = null,
             },
+            // 10 — Deploy Field Hospital (Litharch, Shrine "Field Hospital" tech).
+            // Raises a temporary building that heals nearby allies and tears
+            // itself down after two minutes.
+            new AbilityCard {
+                Name = "Deploy Field Hospital", Activation = AbilityActivation.Active,
+                Targeting = AbilityTargeting.SelfCast, Affects = AbilityAffects.Self,
+                CastTime = 3f, Duration = 0f, Cooldown = 300f, Radius = 12f, Range = 0f,
+                Effects = new[] {
+                    new AbilityEffect(AbilityEffectKind.DeployFieldHospital, 1f),
+                },
+                Aftermath = null,
+            },
         };
 
         private static Dictionary<string, int> _indexByName;

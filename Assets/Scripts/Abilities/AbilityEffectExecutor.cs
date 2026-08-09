@@ -135,6 +135,16 @@ namespace TheWaningBorder.Abilities
                         }
                         break;
 
+                    case AbilityEffectKind.DeployFieldHospital:
+                        {
+                            float3 hpPos = em.HasComponent<LocalTransform>(caster)
+                                ? em.GetComponentData<LocalTransform>(caster).Position : float3.zero;
+                            Faction hpFac = em.HasComponent<FactionTag>(caster)
+                                ? em.GetComponentData<FactionTag>(caster).Value : default;
+                            TheWaningBorder.Entities.FieldHospital.Create(em, hpPos, hpFac);
+                        }
+                        break;
+
                     // ChargeBonusFlat and LosRampWhileStill are continuous passives
                     // handled by AbilityAuraSystem, not one-shot casts.
                     case AbilityEffectKind.ChargeBonusFlat:

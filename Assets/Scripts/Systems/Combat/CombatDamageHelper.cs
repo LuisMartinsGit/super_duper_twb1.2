@@ -313,6 +313,61 @@ namespace TheWaningBorder.Systems.Combat
                 ecb.RemoveComponent<VoidStrikeBuff>(attacker);
             }
 
+            // ---- Alanthor tech passives -------------------------------------
+            // Attacker side: the Garrison "Charge" opening blow and the Siege Yard
+            // "Ranging Shot" aimed shot. Both are one-shot windows spent here.
+            if (em.HasComponent<TheWaningBorder.Abilities.FirstStrike>(attacker))
+            {
+                var fs = em.GetComponentData<TheWaningBorder.Abilities.FirstStrike>(attacker);
+                if (fs.Ready != 0)
+                {
+                    final = (int)(final * (1f + fs.Pct / 100f));
+                    fs.Ready = 0;
+                    fs.OutOfCombatTimer = 0f;
+                    ecb.SetComponent(attacker, fs);
+                }
+            }
+            if (em.HasComponent<TheWaningBorder.Abilities.NextShotBonus>(attacker))
+            {
+                final = (int)(final * (1f + em.GetComponentData<TheWaningBorder.Abilities.NextShotBonus>(attacker).Pct / 100f));
+                ecb.RemoveComponent<TheWaningBorder.Abilities.NextShotBonus>(attacker);
+            }
+
+            // Defender side. Shield Wall eats the first hit while planted; Deploy
+            // Stakes only answers a CHARGING attacker; Siege Screens is continuous
+            // but ranged-only. Each reduction comes off the post-bonus number.
+            if (em.HasComponent<TheWaningBorder.Abilities.ShieldWallState>(target))
+            {
+                var sw = em.GetComponentData<TheWaningBorder.Abilities.ShieldWallState>(target);
+                if (sw.Ready != 0)
+                {
+                    final = (int)(final * (1f - sw.Pct / 100f));
+                    sw.Ready = 0;
+                    sw.StillTimer = 0f;
+                    ecb.SetComponent(target, sw);
+                }
+            }
+            if (em.HasComponent<TheWaningBorder.Abilities.StakesState>(target)
+                && em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker))
+            {
+                var st = em.GetComponentData<TheWaningBorder.Abilities.StakesState>(target);
+                if (st.Ready != 0)
+                {
+                    final = (int)(final * (1f - st.Pct / 100f));
+                    st.Ready = 0;
+                    st.StillTimer = 0f;
+                    ecb.SetComponent(target, st);
+                }
+            }
+            if (em.HasComponent<TheWaningBorder.Abilities.SiegeScreens>(target)
+                && em.HasComponent<DamageTypeData>(attacker)
+                && em.GetComponentData<DamageTypeData>(attacker).Value == DamageType.Ranged)
+            {
+                var ss = em.GetComponentData<TheWaningBorder.Abilities.SiegeScreens>(target);
+                if (ss.Ready != 0) final = (int)(final * (1f - ss.Pct / 100f));
+            }
+            if (final < 1) final = 1;
+
             // Reclamation "Border-Hardened" (combat half): defender takes -25/35/50%
             // damage from Veilstone-faction PvE attackers. Applied last so the
             // reduction comes off the final post-bonus number — same intent as
