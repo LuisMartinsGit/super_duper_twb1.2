@@ -630,7 +630,7 @@ namespace TheWaningBorder.UI
             // Selection-panel data stays per-instance (clicking a wall shows the
             // single wall's HP) but the ACTIONS panel resolves to the parent
             // segment and surfaces:
-            //   - "Convert to Gate (Nx)" — 5-instance segment-level conversion
+            //   - "Convert to Gate (Nx)" — 3-instance segment-level conversion
             //     (Phase 5 WallSegmentUpgradeState path). N is the smaller of
             //     the segment's instance count or 5.
             //   - "Convert to Tower"     — single-instance legacy conversion

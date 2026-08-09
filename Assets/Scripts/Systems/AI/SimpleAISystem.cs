@@ -251,6 +251,13 @@ namespace TheWaningBorder.AI
 
                 TickEconomy(em, brain.Owner, ref aiState, profile, now);
 
+                // ENDGAME RESEARCH SWEEP (era 2+, ~20 s cadence): once the
+                // authored economy ladder has no affordable next step (or
+                // from era 3 regardless), walk every owned research-capable
+                // building and buy whatever its def still offers — the
+                // "eventually research ALL of it" mop-up.
+                TickEndgameResearchSweep(em, brain.Owner, now);
+
                 var buildOrder = AIBuildOrder.For(brain.Strategy);
                 if (aiState.StepIndex >= buildOrder.Length)
                 {
@@ -2358,6 +2365,177 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "RESEARCH", $"{techId} queued");
                     break;
                 }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // ENDGAME RESEARCH SWEEP (era 2+)
+        //
+        // The EconomyResearchLadder is a hand-authored opener covering the
+        // ~15 techs the early game lives on. Everything else — the armour
+        // ladders at the Smelter, the Vault bond line, Shrine masses, the
+        // Stable / Siege Yard military trees, Keep emplacements — exists
+        // only in each building def's research list. This sweep walks every
+        // OWNED research-capable building and queues the first tech that is
+        // unresearched, prereq-satisfied, culture-allowed, level-satisfied
+        // by THAT building, affordable, and not already in flight — so the
+        // AI eventually researches the whole tree (44+ techs) without a
+        // hand-authored list per culture.
+        //
+        // Priority: the ladder keeps the early game. The sweep only fires
+        // when the ladder has no affordable next step, or from era 3 on.
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>Sweep cadence (seconds). Slow mop-up loop — research
+        /// takes 30-90 s per tech, so 20 s keeps every host busy without
+        /// hammering the queries.</summary>
+        private const float ResearchSweepInterval = 20f;
+
+        /// <summary>Per-faction next-sweep time. Managed instance state is
+        /// fine here: the AI runs host-only and every effect flows out as a
+        /// CommandRouter command (same pattern as _missions).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextResearchSweep
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        private void TickEndgameResearchSweep(EntityManager em, Faction faction, float now)
+        {
+            if (!TechCatalog.IsReady) return;
+
+            // Era gate: the sweep is era-2+ behaviour.
+            int era = 1;
+            if (FactionEconomy.TryGetBank(em, faction, out var bank)
+                && em.HasComponent<FactionEra>(bank))
+                era = em.GetComponentData<FactionEra>(bank).Value;
+            if (era < 2) return;
+
+            // Throttle (~20 s per faction).
+            if (_nextResearchSweep.TryGetValue((int)faction, out float next) && now < next)
+                return;
+            _nextResearchSweep[(int)faction] = now + ResearchSweepInterval;
+
+            // Ladder priority: while the authored economy ladder still has an
+            // affordable unresearched step, it keeps the wallet (era 2 only —
+            // from era 3 the sweep runs regardless).
+            if (era < 3 && LadderHasAffordableStep(em, faction)) return;
+
+            var research = FactionResearchState.Instance;
+            byte culture = CultureConfig.GetCompletedCulture(em, faction);
+
+            // Walk every owned research-capable building (a ResearchQueueItem
+            // buffer is the research-host marker).
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<ResearchQueueItem>());
+            using var hosts = q.ToEntityArray(Allocator.Temp);
+            using var hostFacs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < hosts.Length; i++)
+            {
+                if (hostFacs[i].Value != faction) continue;
+                var building = hosts[i];
+                if (em.HasComponent<UnderConstruction>(building)) continue;
+                if (CommandRouter.IsProductionQueueFull(em, building)) continue;
+
+                string buildingId = TheWaningBorder.UI.EntityActionExtractor
+                    .GetBuildingIdPublic(building, em);
+                if (string.IsNullOrEmpty(buildingId)) continue;
+                if (!TechCatalog.TryGetBuilding(buildingId, out var def)
+                    || def == null || def.research == null) continue;
+
+                // Host building level for minBuildingLevel gates (unstamped
+                // buildings count as L1 — mirrors the research extractor).
+                int level = 1;
+                if (em.HasComponent<BuildingUpgradeState>(building))
+                    level = math.max(level,
+                        em.GetComponentData<BuildingUpgradeState>(building).Level);
+
+                for (int t = 0; t < def.research.Length; t++)
+                {
+                    string techId = def.research[t];
+                    if (techId == "Research_Era2") continue; // age-up rides its own flow
+                    if (!TechCatalog.TryGetTechnology(techId, out var tech) || tech == null)
+                        continue;
+                    if (research != null && research.HasResearched(faction, techId)) continue;
+                    if (IsResearchInFlight(em, faction, techId)) continue;
+                    if (!TechCultureAllowed(tech, culture)) continue;
+                    if (math.max(1, tech.minBuildingLevel) > level) continue;
+                    if (research != null
+                        && !research.MeetsPrerequisites(faction, tech.prerequisites)) continue;
+
+                    // Spend-then-issue, mirroring TryResearchTech. IssueResearch
+                    // itself never drops after the pre-checks above (queue cap
+                    // + buffer existence are the only direct-path gates).
+                    var cost = ToCost(tech.cost);
+                    if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                    if (!FactionEconomy.Spend(em, faction, cost)) continue;
+
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
+                        em, building, techId,
+                        TheWaningBorder.Core.Commands.CommandSource.AI);
+                    AILogger.Log(faction, "RESEARCH", $"sweep: {techId} at {buildingId}");
+                    break; // one tech per building per sweep
+                }
+            }
+        }
+
+        /// <summary>True while the authored economy ladder still has an
+        /// unresearched, not-in-flight entry the faction can afford right
+        /// now — the signal that the early-game ladder keeps spending
+        /// priority over the endgame sweep.</summary>
+        private static bool LadderHasAffordableStep(EntityManager em, Faction faction)
+        {
+            var research = FactionResearchState.Instance;
+            var ladder = EconomyLadderFor(em, faction);
+            for (int i = 0; i < ladder.Length; i++)
+            {
+                string techId = ladder[i];
+                if (research != null && research.HasResearched(faction, techId)) continue;
+                if (IsResearchInFlight(em, faction, techId)) continue;
+                if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null) continue;
+                if (FactionEconomy.CanAfford(em, faction, ToCost(def.cost))) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Culture gate for the sweep: data-driven tech.culture
+        /// first, then the legacy Survey/Raiding id split (mirrors
+        /// EntityActionExtractor.TechAvailableToCulture — the Gatherer's Hut
+        /// def lists BOTH economy ladders and each is inert for the other
+        /// culture).</summary>
+        private static bool TechCultureAllowed(TechnologyDef tech, byte culture)
+        {
+            if (!string.IsNullOrEmpty(tech.culture))
+            {
+                switch (tech.culture)
+                {
+                    case "Runai":    return culture == Cultures.Runai;
+                    case "Alanthor": return culture == Cultures.Alanthor;
+                    case "Feraldis": return culture == Cultures.Feraldis;
+                    // Unknown culture name: fall through to the id switch.
+                }
+            }
+            switch (tech.id)
+            {
+                // Feraldis Raider Camp ladder.
+                case "Raiding1":
+                case "Raiding2":
+                case "Raiding3":
+                case "IronPlunder":
+                case "VeilstonePlunder":
+                case "VeilsteelPlunder":
+                    return culture == Cultures.Feraldis;
+
+                // Alanthor Guild gather drips — dead weight on a Raider Camp.
+                case "IronSurveying1":
+                case "IronSurveying2":
+                case "IronSurveying3":
+                case "VeilstoneSurvey1":
+                case "VeilstoneSurvey2":
+                case "VeilsteelSurvey":
+                    return culture != Cultures.Feraldis;
+
+                default:
+                    return true;
             }
         }
 

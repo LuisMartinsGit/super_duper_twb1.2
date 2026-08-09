@@ -1,5 +1,5 @@
 // File: Assets/GameData/TechTree/Buildings/Alanthor/Wall/AlanthorWall.cs
-// Alanthor wall system: hub (cylinder tower) + segment (data-only graph edge) + instances (small wall pieces)
+// Alanthor wall system: hub (3x3 squat bastion) + segment (data-only graph edge) + instances (3x1 curtain modules)
 // Walls form the backbone of Alanthor economy — enclosed areas generate income.
 // Each segment spawns multiple small wall instances that block the passability grid.
 // Instances can be upgraded to towers (ranged attack) or gates (friendly-only passage).
@@ -26,18 +26,28 @@ namespace TheWaningBorder.Entities
         public const int GatePresentationID = 554;
 
         /// <summary>Length of each wall module along the wall, in meters.
-        /// Walkable-rampart rework: modules are longer (4 m) than the old 2 m
-        /// thin-wall tiles. See docs/Design/Age_1_Alanthor.md § Walkable Ramparts.</summary>
-        public const float InstanceSpacing = 4f;
+        /// Compact-wall rework (2026-08-09): 3 m curtain modules replace the
+        /// old 4 m walkable-rampart tiles. Walls are now solid curtain walls —
+        /// no walkable deck.</summary>
+        public const float InstanceSpacing = 3f;
 
-        /// <summary>Walkable-rampart cross-section, in meters (canonical spec values).</summary>
-        public const float WallWidth = 9f;     // total footprint across the wall (X)
-        public const float DeckHeight = 4f;    // walkable deck surface height (units stand here)
+        /// <summary>Compact curtain-wall cross-section, in meters.</summary>
+        public const float WallWidth = 1f;     // masonry thickness across the wall (X)
+        public const float WallHeight = 2.6f;  // parapet crown top (solid curtain, no deck)
+
+        /// <summary>Hub footprint width, in meters (3x3 squat bastion).</summary>
+        public const float HubWidth = 3f;
+
+        /// <summary>Number of contiguous wall instances a segment-level
+        /// Convert-to-Gate replaces (compact-wall rework: 3 modules x 3 m
+        /// = ~9 m gatehouse). Consumed by
+        /// <see cref="PickGateRegionInstances"/>.</summary>
+        public const int GateRegionSpan = 3;
 
         /// <summary>Inset from each hub center to the first wall module, in meters.
-        /// Half the wall width so a module's near edge meets the hub footprint
+        /// Half the hub footprint so a module's near edge meets the bastion face
         /// instead of overlapping the hub core.</summary>
-        private const float HubInset = WallWidth * 0.5f;
+        private const float HubInset = HubWidth * 0.5f;
 
         // Hub defaults (loaded from TechTreeDB "Alanthor_Wall" when available)
         private const float DefaultHubHP = 600f;
@@ -74,7 +84,8 @@ namespace TheWaningBorder.Entities
                 typeof(Radius),
                 typeof(BuildingSize),
                 typeof(WallTag),
-                typeof(WallHubTag)
+                typeof(WallHubTag),
+                typeof(BuildingUpgradeable)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = HubPresentationID });
@@ -84,10 +95,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            // Walkable-rampart hub: a full-width (9 m) square footprint so the deck
-            // matches the segments and so build-range / selection use the real size.
-            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)WallWidth });
-            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
+            // Compact hub: a squat 3x3 bastion footprint so build-range /
+            // selection / passability use the real size.
+            em.SetComponentData(entity, new BuildingSize { Width = (int)HubWidth, Height = (int)HubWidth });
+            em.SetComponentData(entity, new Radius { Value = HubWidth * 0.5f });
 
             // Combat type tags
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -193,9 +204,9 @@ namespace TheWaningBorder.Entities
                 return;
             }
 
-            // Use ceil so actualSpacing never exceeds InstanceSpacing — adjacent
-            // wall instances are 2 m wide each, so spacing > 2 m would leave a
-            // visible gap between them. Ceil guarantees touch-or-overlap.
+            // Use ceil so actualSpacing never exceeds InstanceSpacing — each
+            // module's masonry is InstanceSpacing (3 m) long, so spacing > 3 m
+            // would leave a visible gap. Ceil guarantees touch-or-overlap.
             int count = math.max(1, (int)math.ceil(usable / InstanceSpacing));
             float actualSpacing = usable / count;
 
@@ -246,10 +257,10 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)DefaultInstanceHP, Max = (int)DefaultInstanceHP });
             em.SetComponentData(entity, new LineOfSight { Radius = DefaultInstanceLoS });
-            // Walkable-rampart footprint: WallWidth across, one module long.
-            // (W2 converts this from a navmesh obstacle into a walkable deck.)
+            // Compact curtain footprint: 1 m thick across the wall, one 3 m
+            // module long. Solid obstacle on the passability grid.
             em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)InstanceSpacing });
-            em.SetComponentData(entity, new Radius { Value = WallWidth * 0.5f });
+            em.SetComponentData(entity, new Radius { Value = InstanceSpacing * 0.5f });
             em.SetComponentData(entity, new WallInstanceParent { Segment = parentSegment });
 
             // Combat type tags
@@ -286,17 +297,19 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Pick up to 5 contiguous wall instances along the segment, centred
+        /// Pick up to 3 contiguous wall instances along the segment, centred
         /// on the <paramref name="focusInstance"/>. If
         /// <paramref name="focusInstance"/> is <c>Entity.Null</c> OR not
         /// present in the segment's <see cref="WallInstanceRef"/> buffer,
         /// the segment midpoint is used as the centre. If the segment has
-        /// fewer than 5 instances, every live instance is returned
+        /// fewer than 3 instances, every live instance is returned
         /// (cap-at-segment-length per task-109 Phase 1 / R5 — "short-segment
-        /// gates allowed").
+        /// gates allowed"). Compact-wall rework (2026-08-09): the span shrank
+        /// from 5 to 3 modules — 3 m modules make a 3-wide gate ~9 m, the
+        /// same opening the old 5-wide span gave at 2 m tiles.
         ///
         /// Caller owns the returned <see cref="NativeList{T}"/> and must
-        /// <c>Dispose</c> it. The list is populated with at most 5 entries.
+        /// <c>Dispose</c> it. The list is populated with at most 3 entries.
         /// Empty if the segment has no live instances or no
         /// <c>WallInstanceRef</c> buffer.
         ///
@@ -308,7 +321,7 @@ namespace TheWaningBorder.Entities
             Entity focusInstance,
             Allocator allocator)
         {
-            var result = new NativeList<Entity>(5, allocator);
+            var result = new NativeList<Entity>(GateRegionSpan, allocator);
 
             if (!em.Exists(segment) || !em.HasBuffer<WallInstanceRef>(segment))
                 return result;
@@ -332,7 +345,7 @@ namespace TheWaningBorder.Entities
 
             // Short segment: return every live instance unconditionally
             // (cap-at-segment-length per R5).
-            if (refs.Length <= 5)
+            if (refs.Length <= GateRegionSpan)
             {
                 for (int i = 0; i < refs.Length; i++)
                 {
@@ -342,11 +355,13 @@ namespace TheWaningBorder.Entities
                 return result;
             }
 
-            // Long segment: pick a 5-wide window centred on focusIdx, then
-            // re-anchor against either boundary so the window stays valid.
-            int lo = math.max(0, focusIdx - 2);
-            int hi = math.min(refs.Length - 1, lo + 4);
-            lo = math.max(0, hi - 4); // re-anchor if hi clamped
+            // Long segment: pick a GateRegionSpan-wide window centred on
+            // focusIdx, then re-anchor against either boundary so the window
+            // stays valid.
+            int half = GateRegionSpan / 2;
+            int lo = math.max(0, focusIdx - half);
+            int hi = math.min(refs.Length - 1, lo + GateRegionSpan - 1);
+            lo = math.max(0, hi - (GateRegionSpan - 1)); // re-anchor if hi clamped
 
             for (int i = lo; i <= hi; i++)
             {

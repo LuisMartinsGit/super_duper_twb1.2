@@ -83,7 +83,8 @@ public struct WallUpgradeState : IComponentData
 
 /// <summary>
 /// Presentation-only marker added during a UI hover-preview of the
-/// 5 candidate instances the player is about to convert to a gate.
+/// candidate instances (AlanthorWall.GateRegionSpan = 3) the player is
+/// about to convert to a gate.
 /// Cleared on pointer-leave. PresentationSpawnSystem rims tagged
 /// instances with the accent colour. No simulation behaviour.
 /// (task-109 phase 5, lives here so the segment-level conversion
@@ -111,7 +112,7 @@ public struct WallSegmentFocus : IComponentData
 /// Distinct from the per-instance <see cref="WallUpgradeState"/> which
 /// still drives the Convert-to-Tower (single-instance) path. On
 /// completion, <c>WallUpgradeSystem</c>'s segment-level loop tags the
-/// 5 centre instances with <see cref="WallGateRegionTag"/> +
+/// centre instances (AlanthorWall.GateRegionSpan = 3) with <see cref="WallGateRegionTag"/> +
 /// <see cref="WallGateGroup"/> + <see cref="WallGateTag"/>.
 /// (task-109 phase 5)
 /// </summary>

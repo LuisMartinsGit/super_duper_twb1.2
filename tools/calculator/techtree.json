@@ -15778,7 +15778,7 @@
           "364"
         ]
       ],
-      "banner": "Smelter — Alanthor's veilsteel house and armour works. Passively generates Veilsteel, rising with each level (1 → 2 → 3 per 10 s). Also hosts the four armour ladders — Infantry, Ranged, Cavalry and Siege, three tiers each. Build limit: 1 per faction.",
+      "banner": "Smelter — Alanthor's veilsteel house and armour works. Passively generates Veilsteel, rising with each level (1 → 2 → 3 per 10 s). Also hosts the four armour ladders — Infantry, Ranged, Cavalry and Siege, three tiers each. Build limit: 5 per faction (raised from 1, ruling 2026-08-09 — the endgame AI builds toward the cap and levels each).",
       "nodes": [
         {
           "id": "alanthor_smelter_lv1",
@@ -15792,7 +15792,7 @@
           "race": "",
           "size": "",
           "d": [
-            "Build limit: 1 per faction",
+            "Build limit: 5 per faction (raised from 1, 2026-08-09)",
             "Generates 1 Veilsteel per 10 s",
             "Hosts the Infantry / Ranged / Cavalry / Siege armour ladders"
           ],

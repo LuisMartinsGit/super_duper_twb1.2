@@ -34,8 +34,10 @@ public static class BuildingSizeConfig
             "VaultOfAlmierra"   => new int2(4, 4),
             "FiendstoneKeep"    => new int2(5, 5),
 
-            // Walls - special 1x1
-            "Alanthor_Wall"     => new int2(1, 1),
+            // Walls - hub anchor footprint (compact 3x3 bastion; segment
+            // instances stamp their own 3x1 module footprint in
+            // AlanthorWall.CreateInstance)
+            "Alanthor_Wall"     => new int2(3, 3),
 
             // Alanthor culture
             "Alanthor_Smelter"  => new int2(3, 3),

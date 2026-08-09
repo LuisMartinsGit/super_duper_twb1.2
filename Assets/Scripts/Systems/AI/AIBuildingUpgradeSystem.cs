@@ -4,8 +4,9 @@
 // Each AI brain that's Era >= 2 with a non-None culture picks ONE
 // upgradeable building per tick (slowest cadence so it doesn't dominate
 // the build queue) and tries UpgradeBuildingCommandHelper.Execute on it.
-// Priority: Hall first (multi-target unlock + train speed), then Barracks
-// (training + arrow attack at L3), then Hut (pop scaling).
+// The walk is Smelter-first, then a round-robin over PriorityOrder (every
+// line the faction can own, choice buildings and the wall hub included)
+// so the AI eventually levels EVERYTHING to L3.
 //
 // Reserves a small buffer of resources before upgrading so upgrades
 // don't bankrupt the AI mid-rush. Reserves are loose — if the AI
@@ -67,9 +68,18 @@ namespace TheWaningBorder.AI
         // The walk is now: Smelter strictly first (the veilsteel engine
         // compounds), then a ROUND-ROBIN start index across the rest so every
         // line gets a turn.
+        // 2026-08-10 (endgame completeness): the choice buildings
+        // (VaultOfAlmierra / ShrineOfRidan — both carry BuildingUpgradeable
+        // and have cost rows) and the Wall hub line join the rotation so the
+        // AI eventually levels EVERYTHING it owns. The wall entry is
+        // forward-wired: hubs don't carry BuildingUpgradeable or a
+        // BuildingUpgradeConfig cost row yet, so it no-ops until the wall
+        // ladder ships — wall Tower/Gate CONVERSIONS stay with
+        // WallUpgradeSystem and are NOT driven from here.
         private static readonly string[] PriorityOrder =
             { "GatherersHut", "Hall", "Barracks", "Hut", "ArcheryRange",
-              "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower" };
+              "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
+              "VaultOfAlmierra", "ShrineOfRidan", "Alanthor_Wall" };
 
         /// <summary>Veilsteel kept banked for Smelter levels while the faction's
         /// Smelter is below max: L2 costs 30, L3 costs 60. Without this the
@@ -148,8 +158,11 @@ namespace TheWaningBorder.AI
         // HELPERS
         // ──────────────────────────────────────────────────────────────────
 
-        /// <summary>True while the faction owns a Smelter that has not reached
-        /// max level yet (no Smelter at all = false: nothing to reserve for).</summary>
+        /// <summary>True while the faction owns ANY Smelter that has not
+        /// reached max level yet (no Smelter at all = false: nothing to
+        /// reserve for). Checks every Smelter — the cap is 5 now, and the
+        /// reserve must hold until the whole fleet is levelled, not just
+        /// whichever one the query returns first.</summary>
         private static bool SmelterBelowMax(EntityManager em, Faction faction)
         {
             var query = em.CreateEntityQuery(
@@ -161,7 +174,7 @@ namespace TheWaningBorder.AI
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
                 byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
                     ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
-                return lvl < BuildingUpgradeConfig.MaxLevel;
+                if (lvl < BuildingUpgradeConfig.MaxLevel) return true;
             }
             return false;
         }
@@ -259,6 +272,27 @@ namespace TheWaningBorder.AI
                 case "Alanthor_Smelter":
                     query = em.CreateEntityQuery(
                         ComponentType.ReadOnly<SmelterTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "VaultOfAlmierra":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<VaultTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "ShrineOfRidan":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<ShrineTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "Alanthor_Wall":
+                    // Wall hubs: many instances, lowest-level-first (default
+                    // direction below). Matches nothing until hubs carry
+                    // BuildingUpgradeable — see the PriorityOrder note.
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<WallHubTag>(),
                         ComponentType.ReadOnly<BuildingUpgradeable>(),
                         ComponentType.ReadOnly<FactionTag>());
                     break;

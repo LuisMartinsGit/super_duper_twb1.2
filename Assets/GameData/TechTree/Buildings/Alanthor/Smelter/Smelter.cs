@@ -1,5 +1,5 @@
 // File: Assets/GameData/TechTree/Buildings/Alanthor/Smelter/Smelter.cs
-// Alanthor Smelter (Forge) — passively generates veilsteel (limit 1 per faction).
+// Alanthor Smelter (Forge) — passively generates veilsteel (limit 5 per faction).
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -11,9 +11,12 @@ namespace TheWaningBorder.Entities
     /// <summary>
     /// Alanthor Smelter (Forge) building — passively generates veilsteel
     /// (ForgeConversionSystem: 1/2/3 per 10 s at building Lv1/2/3, no
-    /// inputs). Expensive and build-limited to 1 per faction — output grows
-    /// through the Lv1-3 upgrade ladder (BuildingUpgradeConfig
-    /// "Alanthor_Smelter"), not extra buildings. Hosts research (the armour
+    /// inputs). Expensive and build-limited to 5 per faction (cap raised
+    /// from 1 in the endgame completeness pass — enforced in
+    /// CommandRouter.IssuePlaceBuilding and the build-menu extractor) —
+    /// output grows through both the Lv1-3 upgrade ladder
+    /// (BuildingUpgradeConfig "Alanthor_Smelter") and additional
+    /// Smelters. Hosts research (the armour
     /// tech ladders land here) via ResearchState + ResearchQueueItem, same
     /// pattern as the Barracks. ForgeStorage is kept only for its
     /// ConversionTimer field; the iron/veilstone storage is unused since the

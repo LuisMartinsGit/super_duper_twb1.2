@@ -86,6 +86,8 @@ namespace TheWaningBorder.Core.Settings
                 ("VaultOfAlmierra" or "ShrineOfRidan", 3) => 45f,
                 ("Alanthor_RoyalStable", 2)       => 30f,
                 ("Alanthor_RoyalStable", 3)       => 45f,
+                ("Alanthor_Wall", 2)              => 20f,
+                ("Alanthor_Wall", 3)              => 30f,
                 ("Alanthor_Tower", 2)             => 25f,
                 ("Alanthor_Tower", 3)             => 40f,
                 ("Alanthor_SiegeYard", 2)         => 35f,
@@ -189,6 +191,17 @@ namespace TheWaningBorder.Core.Settings
                         1 => default,
                         2 => new Cost { Supplies = 120, Iron = 60, Veilstone = 20 },
                         3 => new Cost { Supplies = 240, Iron = 120, Veilstone = 60 },
+                        _ => default,
+                    };
+                    return true;
+                case "Alanthor_Wall":
+                    // Wall hub levels (calculator: L2 80S/40I, L3 160S/80I/40V).
+                    // Stat-only bumps via the standard multiplier arrays.
+                    cost = targetLevel switch
+                    {
+                        1 => default,
+                        2 => new Cost { Supplies = 80,  Iron = 40 },
+                        3 => new Cost { Supplies = 160, Iron = 80, Veilstone = 40 },
                         _ => default,
                     };
                     return true;

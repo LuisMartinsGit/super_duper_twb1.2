@@ -22,18 +22,19 @@ public struct WallGateState : IComponentData
 }
 
 /// <summary>
-/// Marks a wall instance that participates in a 5-instance gate region
-/// (the BFME2-style ~10m gate, not the legacy single-instance gate). All
+/// Marks a wall instance that participates in a multi-instance gate region
+/// (AlanthorWall.GateRegionSpan = 3 modules x 3 m = ~9 m gatehouse, not the
+/// legacy single-instance gate). All
 /// region members carry this tag and a shared <see cref="WallGateGroup"/>
 /// with the same Leader entity. Read by
 /// <c>WallGatePassabilitySystem</c> to widen friendly-detect radius
-/// (3.0 → 6.0) so all 5 cells open in unison when a battalion approaches.
+/// (3.0 → 6.0) so all region cells open in unison when a battalion approaches.
 /// (task-109 phase 5)
 /// </summary>
 public struct WallGateRegionTag : IComponentData { }
 
 /// <summary>
-/// Shared group identifier for the 5 instances composing a gate region.
+/// Shared group identifier for the instances composing a gate region.
 /// Every member carries the same <see cref="Leader"/> entity reference
 /// (typically the centre / focus instance picked at conversion time).
 /// <c>em.Exists(Leader)</c> doubles as the membership check — no

@@ -1207,6 +1207,28 @@ namespace TheWaningBorder.Core.Commands
         // PLACE BUILDING COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
+        /// <summary>Smelter (Forge) build cap per faction. Raised from 1 to 5
+        /// (endgame completeness pass) — enforced here at the single
+        /// replicated entry point so UI, AI and lockstep peers all agree.
+        /// The build-menu gate (EntityExtractors.Buildings SmelterCap)
+        /// mirrors this value.</summary>
+        public const int MaxSmeltersPerFaction = 5;
+
+        /// <summary>Count this faction's Smelters (completed AND under
+        /// construction) for the placement cap check.</summary>
+        private static int CountFactionSmelters(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<SmelterTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var facs = query.ToComponentDataArray<FactionTag>(
+                Unity.Collections.Allocator.Temp);
+            int count = 0;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) count++;
+            return count;
+        }
+
         /// <summary>
         /// Issue a place-building command. Creates the building on all clients via lockstep.
         /// Returns true if the command was queued (multiplayer) or executed (singleplayer).
@@ -1229,6 +1251,13 @@ namespace TheWaningBorder.Core.Commands
             Faction faction, out Entity created, CommandSource source = CommandSource.LocalPlayer)
         {
             created = Entity.Null;
+
+            // Smelter cap (5 per faction). Rejected here so callers with a
+            // spend-then-place flow (AI TryBuildOnce) see created == Null and
+            // refund cleanly; the UI normally hides the button first.
+            if (buildingId == "Alanthor_Smelter"
+                && CountFactionSmelters(em, faction) >= MaxSmeltersPerFaction)
+                return false;
 
             if (source == CommandSource.LocalPlayer)
                 TheWaningBorder.AI.AILogger.LogPlayer(faction, "BUILD",

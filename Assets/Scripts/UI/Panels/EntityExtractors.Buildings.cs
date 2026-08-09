@@ -111,7 +111,7 @@ namespace TheWaningBorder.UI
         /// Build the action cells surfaced when the player selects a wall
         /// instance. Per task-109 Phase 6 the action panel resolves an
         /// instance click to its parent segment and presents:
-        ///   - "Convert to Gate (Nx)" — segment-level 5-instance conversion
+        ///   - "Convert to Gate (Nx)" — segment-level 3-instance conversion
         ///     (task-109 Phase 5 path). N is min(instance count, 5); a short
         ///     segment is allowed but the label communicates the shortened
         ///     gate width and the helper surfaces a warning suffix.
@@ -154,7 +154,7 @@ namespace TheWaningBorder.UI
                 string gateLabel = $"Convert to Gate ({gateWidth}x)";
                 string gateSubtitle = shortSegment
                     ? $"Short segment — gate will span {gateWidth} instances. Groups wider than {gateWidth} may not fit."
-                    : "5-instance opening. Units can path through.";
+                    : "3-instance opening. Units can path through.";
 
                 actions.Add(new ActionButton
                 {
@@ -307,7 +307,7 @@ namespace TheWaningBorder.UI
                 ? BuildingFactory.GetFactionBuildingCount<SmelterTag>(em, faction) : 0;
             const int HallCap = 6;
             const int TempleCap = 1;
-            const int SmelterCap = 1;   // Forge: passive veilsteel generator, limit 1
+            const int SmelterCap = 5;   // Forge: passive veilsteel generator, limit 5 (raised from 1, endgame completeness pass)
 
             if (TechCatalog.IsReady)
             {
@@ -332,7 +332,7 @@ namespace TheWaningBorder.UI
                     // Temple of Ridan: one per faction.
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
 
-                    // Forge: one per faction (passive veilsteel generator).
+                    // Forge: capped at 5 per faction (passive veilsteel generator).
                     if (building.id == "Alanthor_Smelter" && smelterCount >= SmelterCap) continue;
 
                     // Data-driven culture gating: buildings with culture prefix require that culture

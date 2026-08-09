@@ -35,8 +35,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // Buildings - Era 1 Advanced
         { 520, "Prefabs/Buildings/ShrineOfAhridan" },    // ShrineOfAhridan.PresentationID = 520 — bearded-man-with-crystal statue (WireTempleAndChapelVisuals)
         { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521
-        { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 (procedural)
-        { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540
+        { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 — intercepted by the authored-visuals switch (CreateProceduralVault); never loaded
+        { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540 — intercepted by the authored-visuals switch (FiendstoneKeepVisual); never loaded
 
         // Units
         { 200, "Prefabs/Units/SK_Character_Human_Peasant" }, // Worker (PresentationID 200) — single-character Humanoid peasant (auto-avatar, no duplicate bones)
@@ -456,7 +456,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === Alanthor authored visuals (tech-tree implementation) ===
+        // === Alanthor + Age-0 choice authored visuals (tech-tree implementation) ===
         // High-detail procedural builders co-located with their entities. Units
         // get the hand-rolled tail (collider + EntityReference; their animator
         // MonoBehaviours self-tint the faction accents); buildings route through
@@ -484,6 +484,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 case 357: authored = TheWaningBorder.Presentation.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
                 case 354: authored = TheWaningBorder.Presentation.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
                 case 358: authored = TheWaningBorder.Presentation.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
+                // Age 0 choice buildings (culture-neutral):
+                // 530: the Vault generator predates this switch and already fits
+                //      its own collider + EntityReference at its tail; both are
+                //      idempotent under FinishProceduralBuilding (the fitter
+                //      reuses the root BoxCollider, the reference is get-or-add),
+                //      which adds the rotation / sink-rise construction animation /
+                //      faction marker the generator lacks. No double-finishing.
+                case 530: authored = CreateProceduralVault(pos, entity); authoredIsBuilding = true; break;
+                case 540: authored = TheWaningBorder.Presentation.FiendstoneKeepVisual.Build(entity.Index + 540); authoredIsBuilding = true; break;
             }
 
             if (authored != null)
@@ -516,7 +525,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             }
         }
 
-        // Units & standard buildings (Hall/Hut/Barracks/Vault/etc.) now get their visual
+        // Units & standard buildings (Hall/Hut/Barracks/etc.) now get their visual
         // from the prefab on their SO (resolved by PresentationId via TechCatalog), with a
         // cube/capsule fallback — see the prefab resolution near the end of this method.
         // The walls / obstacles / veilstone-node / border-tile branches above keep their own
