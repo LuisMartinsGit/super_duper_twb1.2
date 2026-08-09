@@ -720,6 +720,13 @@ namespace TheWaningBorder.AI
 
         private static void TryBuildAge2Ladder(Faction faction, EntityManager em, float3 hallPos)
         {
+            // Veilsteel engine FIRST, independent of ladder progress. This used
+            // to run only after the whole ladder stood, which log-provably
+            // starved it: one unplaceable ladder entry (rings saturated by
+            // gatherer huts) blocked Smelter levels for an entire match while
+            // hut upgrades drained every shard of veilsteel the L1 output made.
+            TryLevelSmelter(faction, em);
+
             for (int i = 0; i < Age2Ladder.Length; i++)
             {
                 var (id, rMin, rMax) = Age2Ladder[i];
@@ -727,12 +734,6 @@ namespace TheWaningBorder.AI
                 TryBuildOnce(faction, em, hallPos, id, rMin, rMax);
                 return; // one ladder attempt per think tick, in order
             }
-
-            // Ladder complete → grow the veilsteel engine: the Smelter is
-            // capped at 1 per faction, so output growth comes from its
-            // Lv1-3 ladder (calculator: 1/2/3 veilsteel per 10 s —
-            // ForgeConversionSystem reads BuildingUpgradeState.Level).
-            TryLevelSmelter(faction, em);
         }
 
         /// <summary>Level the faction's single Smelter (Forge) toward L3.
@@ -762,7 +763,13 @@ namespace TheWaningBorder.AI
             if (CountIdleBuilders(em, faction) == 0) return;
 
             int2 size = BuildingSizeConfig.GetSize(buildingId);
-            if (!TryFindBuildPositionRing(em, hallPos, size, ringMin, ringMax, out float3 pos)) return;
+            // The base rings clog up over a long match (gatherer huts tile the
+            // ground around the hall). If the authored ring has no slot, retry
+            // once at 1.6x the radius rather than silently stalling the ladder
+            // forever — an outlying stable beats no stable.
+            if (!TryFindBuildPositionRing(em, hallPos, size, ringMin, ringMax, out float3 pos)
+                && !TryFindBuildPositionRing(em, hallPos, size, ringMax, ringMax * 1.6f, out pos))
+                return;
 
             if (!FactionEconomy.Spend(em, faction, cost)) return;
 

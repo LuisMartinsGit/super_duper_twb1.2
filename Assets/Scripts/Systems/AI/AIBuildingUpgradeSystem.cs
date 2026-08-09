@@ -58,8 +58,25 @@ namespace TheWaningBorder.AI
         //     for reinforcements to arrive.
         // Researching the Survey ladder while leaving huts at L1 buys the
         // techs and throws away most of what they pay for.
+        //
+        // 2026-08-09 (log-proven, 47-min match): a FIXED walk of this list let
+        // the hut line monopolize the loop — Blue kept founding new L1 huts,
+        // so "lowest-level GatherersHut" always existed, the Hall saw its
+        // first level at minute 24, and the Archery Range / Royal Stable /
+        // Siege Yard / Watch Tower NEVER levelled (they were not even listed).
+        // The walk is now: Smelter strictly first (the veilsteel engine
+        // compounds), then a ROUND-ROBIN start index across the rest so every
+        // line gets a turn.
         private static readonly string[] PriorityOrder =
-            { "GatherersHut", "Hall", "Barracks", "Hut" };
+            { "GatherersHut", "Hall", "Barracks", "Hut", "ArcheryRange",
+              "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower" };
+
+        /// <summary>Veilsteel kept banked for Smelter levels while the faction's
+        /// Smelter is below max: L2 costs 30, L3 costs 60. Without this the
+        /// 5-veilsteel hut upgrades eat the entire L1 drip (6/min) forever and
+        /// the engine never grows — the exact famine the 47-min log shows
+        /// (veilsteel oscillating 0-11 with 12,700 veilstone banked).</summary>
+        private const int SmelterVeilsteelReserve = 60;
 
         public void OnCreate(ref SystemState state)
         {
@@ -116,14 +133,38 @@ namespace TheWaningBorder.AI
                 if (res.Iron     < ReserveIron)     continue;
                 if (res.Veilstone  < ReserveVeilstone)  continue;
 
-                // Walk the priority order; first eligible building gets the upgrade.
-                TryUpgradeOne(em, faction);
+                // Walk the priority order from a rotating start so no single
+                // building line (log-proven: the hut line) monopolizes the loop.
+                var tickState = em.GetComponentData<AIBuildingUpgradeTickState>(brainEntity);
+                int rotation = tickState.Rotation;
+                tickState.Rotation = (byte)((rotation + 1) % PriorityOrder.Length);
+                em.SetComponentData(brainEntity, tickState);
+
+                TryUpgradeOne(em, faction, rotation);
             }
         }
 
         // ──────────────────────────────────────────────────────────────────
         // HELPERS
         // ──────────────────────────────────────────────────────────────────
+
+        /// <summary>True while the faction owns a Smelter that has not reached
+        /// max level yet (no Smelter at all = false: nothing to reserve for).</summary>
+        private static bool SmelterBelowMax(EntityManager em, Faction faction)
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<SmelterTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
+                    ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
+                return lvl < BuildingUpgradeConfig.MaxLevel;
+            }
+            return false;
+        }
 
         private static bool HasCulture(EntityManager em, Faction faction)
         {
@@ -140,11 +181,16 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        private static void TryUpgradeOne(EntityManager em, Faction faction)
+        private static void TryUpgradeOne(EntityManager em, Faction faction, int rotation)
         {
+            // The Smelter jumps the queue: its levels multiply the veilsteel
+            // drip that every OTHER upgrade past L1 wants to spend.
+            if (TryUpgradeBuildingType(em, faction, "Alanthor_Smelter")) return;
+
             for (int p = 0; p < PriorityOrder.Length; p++)
             {
-                if (TryUpgradeBuildingType(em, faction, PriorityOrder[p])) return;
+                int idx = (rotation + p) % PriorityOrder.Length;
+                if (TryUpgradeBuildingType(em, faction, PriorityOrder[idx])) return;
             }
         }
 
@@ -186,6 +232,36 @@ namespace TheWaningBorder.AI
                         .WithNone<RaiderCampTag>()
                         .Build(em);
                     break;
+                case "ArcheryRange":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<ArcheryRangeTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "Alanthor_RoyalStable":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<RoyalStableTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "Alanthor_SiegeYard":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<SiegeYardTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "Alanthor_Tower":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<WatchTowerTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
+                case "Alanthor_Smelter":
+                    query = em.CreateEntityQuery(
+                        ComponentType.ReadOnly<SmelterTag>(),
+                        ComponentType.ReadOnly<BuildingUpgradeable>(),
+                        ComponentType.ReadOnly<FactionTag>());
+                    break;
                 default:
                     return false;
             }
@@ -213,6 +289,18 @@ namespace TheWaningBorder.AI
                 && em.GetComponentData<FactionResources>(upgradeBank).Iron < UpgradeIronReserve)
                 return false;
 
+            // Veilsteel engine first: while the faction's Smelter is below max
+            // level, upgrades that COST veilsteel must leave the Smelter's
+            // reserve untouched (L2+L3 need 90 total; the L1 drip is 6/min).
+            // The Smelter's own upgrade is exempt — it IS the reserve's purpose.
+            if (buildingId != "Alanthor_Smelter"
+                && BuildingUpgradeConfig.TryGetCost(buildingId, (byte)(bestLevel + 1), out var nextCost)
+                && nextCost.Veilsteel > 0
+                && SmelterBelowMax(em, faction)
+                && FactionEconomy.TryGetResources(em, faction, out var vsRes)
+                && vsRes.Veilsteel < nextCost.Veilsteel + SmelterVeilsteelReserve)
+                return false;
+
             var result = UpgradeBuildingCommandHelper.Execute(em, best,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
@@ -231,5 +319,8 @@ namespace TheWaningBorder.AI
     public struct AIBuildingUpgradeTickState : IComponentData
     {
         public float NextThinkTime;
+        /// <summary>Round-robin start index into PriorityOrder — advances every
+        /// think tick so no building line can monopolize the single upgrade slot.</summary>
+        public byte Rotation;
     }
 }
