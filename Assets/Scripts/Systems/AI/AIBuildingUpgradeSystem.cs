@@ -268,8 +268,19 @@ namespace TheWaningBorder.AI
 
             using var ents = query.ToEntityArray(Allocator.Temp);
 
+            // Selection direction. Default is lowest-level-first (highest
+            // marginal benefit per click). GATHERER'S HUTS INVERT THIS
+            // (2026-08-09, log-proven): the veilsteel drip only flows from
+            // MAX-LEVEL huts with VeilsteelSurvey, and with new L1 huts founded
+            // all game, lowest-first meant 31 straight L2 upgrades and not one
+            // hut ever reaching L3 — the entire hut-side veilsteel economy
+            // stayed locked for 47 minutes. Highest-first pushes huts through
+            // to the gate one at a time instead of levelling the whole estate
+            // in lockstep.
+            bool highestFirst = buildingId == "GatherersHut";
+
             Entity best = Entity.Null;
-            int bestLevel = int.MaxValue;
+            int bestLevel = highestFirst ? -1 : int.MaxValue;
             for (int i = 0; i < ents.Length; i++)
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
@@ -280,7 +291,8 @@ namespace TheWaningBorder.AI
                     ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
                 if (lvl >= BuildingUpgradeConfig.MaxLevel) continue;
 
-                if (lvl < bestLevel) { bestLevel = lvl; best = ents[i]; }
+                bool better = highestFirst ? lvl > bestLevel : lvl < bestLevel;
+                if (better) { bestLevel = lvl; best = ents[i]; }
             }
             if (best == Entity.Null) return false;
 
