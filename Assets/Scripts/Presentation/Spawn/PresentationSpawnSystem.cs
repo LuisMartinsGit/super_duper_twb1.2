@@ -456,6 +456,61 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
+        // === Alanthor authored visuals (tech-tree implementation) ===
+        // High-detail procedural builders co-located with their entities. Units
+        // get the hand-rolled tail (collider + EntityReference; their animator
+        // MonoBehaviours self-tint the faction accents); buildings route through
+        // FinishProceduralBuilding for rotation/collider/rise/damage plus the
+        // faction marker for their Stripe_* accent parts. The seed keeps the
+        // deterministic-randomness convention (entity.Index + salt).
+        {
+            GameObject authored = null;
+            bool authoredIsBuilding = false;
+            bool spawnsFinished = false;   // Field Hospital raises pre-built
+            switch (presentationId)
+            {
+                case 349: authored = TheWaningBorder.Presentation.OutriderVisual.Build(entity.Index + 349); break;
+                case 336: authored = TheWaningBorder.Presentation.CataphractVisual.Build(entity.Index + 336); break;
+                case 251: authored = TheWaningBorder.Presentation.KingLexorVisual.Build(entity.Index + 251); break;
+                case 346: authored = TheWaningBorder.Presentation.NoblemanVisual.Build(entity.Index + 346); break;
+                case 347: authored = TheWaningBorder.Presentation.BatteringRamVisual.Build(entity.Index + 347); break;
+                case 348: authored = TheWaningBorder.Presentation.TrebuchetVisual.Build(entity.Index + 348); break;
+                case 356: authored = TheWaningBorder.Presentation.RoyalStableVisual.Build(entity.Index + 356); authoredIsBuilding = true; break;
+                case 357: authored = TheWaningBorder.Presentation.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
+                case 354: authored = TheWaningBorder.Presentation.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
+                case 358: authored = TheWaningBorder.Presentation.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
+            }
+
+            if (authored != null)
+            {
+                authored.transform.position = pos;
+
+                if (authoredIsBuilding)
+                {
+                    var finished = FinishProceduralBuilding(authored, entity, transform);
+                    ApplyFactionColor(finished, entity);   // tints the Stripe_* accents
+                    if (spawnsFinished)
+                    {
+                        // No construction phase: neutralize the sink/rise state the
+                        // builder tail added so the tent stands complete at once.
+                        var rise = finished.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                        if (rise != null) rise.ApplyRise(1f, 0f);
+                    }
+                    return finished;
+                }
+
+                // Unit tail: rotation/scale ride SyncTransforms; collider + link here.
+                var scaleTag = authored.GetComponent<ProceduralScaleTag>();
+                float baseScale = scaleTag != null && scaleTag.BaseScale > 0.001f ? scaleTag.BaseScale : 1f;
+                authored.transform.localScale = Vector3.one * transform.Scale * baseScale;
+                FitSelectionCollider(authored, entity, _em);
+                var er = authored.GetComponent<EntityReference>();
+                if (er == null) er = authored.AddComponent<EntityReference>();
+                er.Entity = entity;
+                return authored;
+            }
+        }
+
         // Units & standard buildings (Hall/Hut/Barracks/Vault/etc.) now get their visual
         // from the prefab on their SO (resolved by PresentationId via TechCatalog), with a
         // cube/capsule fallback — see the prefab resolution near the end of this method.

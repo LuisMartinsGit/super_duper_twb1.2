@@ -696,6 +696,16 @@ namespace TheWaningBorder.UI.GameUI
                 case "Reliquary_Vision":
                     TheWaningBorder.Systems.Sect.ReliquaryHelper.Fire(em, entity, 2, default);
                     return;
+                case "Alanthor_Volleys":
+                    if (!TheWaningBorder.Abilities.AlanthorActiveHelper
+                            .TriggerChoreographedVolleys(em, OwnFaction(em)))
+                        PlayerNotificationSystem.NotifyError("Choreographed Volleys is recharging");
+                    return;
+                case "Alanthor_RangingShot":
+                    if (!TheWaningBorder.Abilities.AlanthorActiveHelper
+                            .TriggerRangingShot(em, OwnFaction(em)))
+                        PlayerNotificationSystem.NotifyError("No planted siege engine ready");
+                    return;
             }
 
             if (b.Id.StartsWith("KeepWing_", System.StringComparison.Ordinal))

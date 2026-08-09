@@ -92,6 +92,17 @@ namespace TheWaningBorder.UI
             if (isKeep)
                 actions.AddRange(GetKeepWingActions(entity, em, faction));
 
+            // Alanthor building-fired actives ride the research grid the same way
+            // Keep wings do (the panel intercepts the click; nothing is queued).
+            AddAlanthorActiveButton(actions, em, faction, buildingId,
+                "ArcheryRange", "ChoreographedVolleys", "Alanthor_Volleys", "Choreographed Volleys",
+                "All your Archers fire twice as fast for 5 s.",
+                TheWaningBorder.Abilities.AlanthorActiveHelper.VolleysCooldownRemaining(faction));
+            AddAlanthorActiveButton(actions, em, faction, buildingId,
+                "Alanthor_SiegeYard", "RangingShot", "Alanthor_RangingShot", "Ranging Shot",
+                "Planted siege engines load an aimed shot: +100% damage on their next shot.",
+                TheWaningBorder.Abilities.AlanthorActiveHelper.RangingShotCooldownRemaining(faction));
+
             // Librarians' wing: Hall economy techs become researchable at the
             // Keep as the "additional researches".
             var researchIds = new List<string>();
@@ -242,6 +253,36 @@ namespace TheWaningBorder.UI
             }
 
             return actions;
+        }
+
+        /// <summary>
+        /// One button for a researched Alanthor building-fired active
+        /// (Choreographed Volleys / Ranging Shot). Free to press; disabled while
+        /// the faction-wide cooldown runs.
+        /// </summary>
+        private static void AddAlanthorActiveButton(List<ActionButton> actions, EntityManager em,
+            Faction faction, string buildingId, string hostBuildingId, string techId,
+            string actionId, string label, string desc, float cooldownRemaining)
+        {
+            if (buildingId != hostBuildingId) return;
+            if (FactionResearchState.Instance == null
+                || !FactionResearchState.Instance.HasResearched(faction, techId)) return;
+
+            bool ready = cooldownRemaining <= 0f;
+            string tooltip = ready
+                ? label + "\n" + desc
+                : label + "\n" + desc + "\nRecharging: " + ((int)cooldownRemaining) + "s";
+
+            actions.Add(new ActionButton
+            {
+                Id = actionId,
+                Label = ready ? label : label + " (" + ((int)cooldownRemaining) + "s)",
+                Tooltip = tooltip,
+                Cost = default,
+                Enabled = ready,
+                CanAfford = ready,
+                Icon = null
+            });
         }
 
         /// <summary>
