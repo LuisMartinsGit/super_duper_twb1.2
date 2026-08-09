@@ -20,7 +20,7 @@ namespace TheWaningBorder.Entities
         private const float DefaultLoS = 16f;
         private const float DefaultAttackCooldown = 1.5f;
         private const float DefaultRadius = 0.5f;
-        private const int PresentationID = 330;
+        private const int PresentationID = 368;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

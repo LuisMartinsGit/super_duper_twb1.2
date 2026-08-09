@@ -48,6 +48,6 @@ MonoBehaviour:
   - Ranged
   bonusVsTags: []
   abilities: []
-  prefab: {fileID: 8768046597960125521, guid: b7a7e2c2795519a4296e5932ac03fbe6, type: 3}
+  prefab: {fileID: 0}
   presentationId: 202
   animatorController: {fileID: 9100000, guid: 30a8aacb2a2534542a015e8610638d78, type: 2}

@@ -60,7 +60,7 @@ namespace TheWaningBorder.Entities
             // so stray "Swordsman" spawns in scenarios still resolve.
             // Age 0 design-canon line unit (Age_0.md): anti-cavalry spear
             // infantry (pid 330 polearm visuals).
-            r["Spearman"]    = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 330);
+            r["Spearman"]    = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 368);
             r["Archer"]      = new UnitRecipe(Archer.Create, Archer.Create, UnitClass.Ranged, 202);
             // Calculator 2026-08: crossbow/longbow are Alanthor Practice Range
             // tiers only. The bare ids stay as aliases of the Alanthor creators
