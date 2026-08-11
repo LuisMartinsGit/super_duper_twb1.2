@@ -123,7 +123,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("ShrineOfAhridan"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train("Worker"),
@@ -135,7 +135,7 @@ namespace TheWaningBorder.AI
             // isn't a passive sandbag in a demo. The maintenance loop in
             // SimpleAISystem takes over from here and keeps pushing waves.
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 
@@ -248,10 +248,10 @@ namespace TheWaningBorder.AI
             BuildOrderStep.SetVeilstoneTarget(2),  // 4 miners â†’ 2 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train("Worker"),
@@ -265,7 +265,7 @@ namespace TheWaningBorder.AI
             // Turtle is defensive but still has a standing army â€” push it
             // out at least once. Maintenance loop keeps the pressure on.
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 
@@ -295,7 +295,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.ResearchTech("Conscription"),
             BuildOrderStep.ResearchTech("StoneWeapons"),
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train("Worker"),
@@ -306,7 +306,7 @@ namespace TheWaningBorder.AI
             // tech upgrades are visible on the map. Maintenance loop keeps
             // sending fresh waves after this.
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Archer"),
+            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 

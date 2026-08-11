@@ -48,7 +48,7 @@ MonoBehaviour:
   - ArrowVolley
   - ArrowShower
   - DeployStakes
-  minEra: 0
+  minEra: 2
   cost:
     Supplies: 180
     Iron: 50
