@@ -266,6 +266,39 @@ namespace TheWaningBorder.UI
             if (!em.HasComponent<ChapelTag>(entity)) return actions;
             string sectId = em.GetComponentData<ChapelTag>(entity).SectId.ToString();
 
+            // Generic chapel unit (2026-08-11, docs/Design/Sect_Units.md):
+            // every sect with a live kit trains its unique unit here —
+            // resolved through SectConfig.UnitIdFor + the TechCatalog def,
+            // executed by the generic train path (ExecuteTrain at this
+            // chapel). Antiquity keeps its bespoke block below (Lorekeeper
+            // tooltip + the Reliquary building lever).
+            string chapelUnitId = TheWaningBorder.Economy.SectConfig.UnitIdFor(sectId);
+            if (chapelUnitId != null
+                && sectId != TheWaningBorder.Economy.SectConfig.Antiquity
+                && TechCatalog.TryGetUnit(chapelUnitId, out var chapelUnit)
+                && chapelUnit != null)
+            {
+                var ucost = Cost.Of(
+                    supplies: chapelUnit.cost?.Supplies ?? 0,
+                    iron: chapelUnit.cost?.Iron ?? 0,
+                    veilstone: chapelUnit.cost?.Veilstone ?? 0);
+                string ability = chapelUnit.abilities != null && chapelUnit.abilities.Length > 0
+                    ? chapelUnit.abilities[0] : null;
+                actions.Add(new ActionButton
+                {
+                    Id = chapelUnitId,
+                    Label = chapelUnit.name,
+                    Tooltip = $"{chapelUnit.name} — the sect's unique unit"
+                        + (ability != null ? $".\n{ability}." : ".")
+                        + $"\nCost: {ucost.Supplies} Supplies, {ucost.Iron} Iron"
+                        + (ucost.Veilstone > 0 ? $", {ucost.Veilstone} Veilstone" : ""),
+                    Cost = ucost,
+                    Enabled = true,
+                    CanAfford = FactionEconomy.CanAfford(em, faction, ucost),
+                    Icon = null
+                });
+            }
+
             // Sect of Antiquity — the Lorekeeper (Unit lever, implemented
             // 2026-07-05). Other sects' unique units surface here as they
             // are implemented.

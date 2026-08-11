@@ -69,14 +69,15 @@ namespace TheWaningBorder.Economy
         public const int SectCount = 12;
 
         /// <summary>
-        /// Playable-sect gate (rollout decision 2026-07-05): only sects whose
-        /// full lever kit is implemented can be adopted; the rest show
-        /// "(Coming soon)" in every adoption UI. Adoption is refused
-        /// authoritatively in SectAdoption.CanAdopt, so AI factions honor the
-        /// gate too. Widen this list as each sect's mechanics land.
+        /// Playable-sect gate. FULLY OPEN since 2026-08-11: every sect ships
+        /// a complete thin-slice kit — chapel, passive lever
+        /// (SectLeverEffects.UnitOf), active power (ActiveOf covers all 12)
+        /// and a chapel-trained unique unit (UnitIdFor below) — so the
+        /// rollout gate that limited adoption to Justice/Renewal/War is
+        /// retired. The method stays as the single choke point should a
+        /// future sect land data-first again.
         /// </summary>
-        public static bool IsImplemented(string sectId)
-            => sectId == Justice || sectId == Renewal || sectId == War;
+        public static bool IsImplemented(string sectId) => IsKnownSect(sectId);
 
         // ─── Chapel building IDs ────────────────────────────────────────────
         // Adoption mechanism: building a chapel inside the Temple's 6-slot
@@ -84,6 +85,31 @@ namespace TheWaningBorder.Economy
         // BuildingFactory registers each as "Chapel_<SectId>".
 
         public static string ChapelIdFor(string sectId) => "Chapel_" + sectId;
+
+        /// <summary>The sect's unique chapel-trained unit id
+        /// (docs/Design/Sect_Units.md — full 12-sect roster since
+        /// 2026-08-11). Chapels are the ONLY trainer for these — the chapel
+        /// action panel and the AI both resolve through this mapping.
+        /// FlameWarden and Brandbreaker remain reserve kits (unmapped).</summary>
+        public static string UnitIdFor(string sectId) => sectId switch
+        {
+            // Alanthor cluster
+            Antiquity   => "Sect_Lorekeeper",
+            Renewal     => "Sect_ScarGuard",
+            Fortitude   => "Sect_StoneWarden",
+            Reclamation => "Sect_GolemAutark",
+            // Runaii cluster
+            Silence     => "Sect_ArchivistAdept",
+            Justice     => "Sect_Judicator",
+            Veneration  => "Sect_VaultKeeper",
+            Witness     => "Sect_GlassmarkArcanist",
+            // Feraldis cluster
+            War         => "Sect_Warbreaker",
+            Ash         => "Sect_Ashblade",
+            Ruin        => "Sect_Nullblade",
+            Wrath       => "Sect_Chaincaster",
+            _ => null,
+        };
 
         /// <summary>True if the building id is one of the 12 sect chapels.</summary>
         public static bool IsChapelId(string buildingId)

@@ -102,6 +102,115 @@ public static class TechCatalog
 
         // 4. Sync the static BuildCosts lookup with the now-loaded data.
         BuildCosts.SyncFromTechTree();
+
+        // 5. Cross-reference audit (2026-08-11, "make the tech tree fool
+        //    proof") — every dangling reference surfaces LOUDLY at load
+        //    instead of as a silent runtime stall.
+        ValidateCrossReferences();
+    }
+
+    /// <summary>
+    /// One-shot cross-reference audit run at the end of Build(). Every
+    /// dangling reference in the tree is a SILENT runtime stall: a tech
+    /// whose prerequisite does not exist can never be researched, a
+    /// building that trains an unknown unit shows a dead button, a
+    /// researchAt host the AI cannot resolve starves its research ladder
+    /// (2026-08-11 match: the Survey line stalled 57 minutes and the map's
+    /// iron ran out — this audit exists so that CLASS of failure is a
+    /// console warning at boot, not a frozen match at minute 40).
+    /// </summary>
+    private static void ValidateCrossReferences()
+    {
+        int issues = 0;
+        void Warn(string msg)
+        {
+            issues++;
+            Debug.LogWarning("[TechTreeValidator] " + msg);
+        }
+
+        // Hosts the AI research ladder can resolve — mirrors the
+        // SimpleAISystem.TryResearchTechWithReason host switch.
+        var aiHosts = new HashSet<string>
+        {
+            "Barracks", "Hall", "ArcheryRange", "GatherersHut", "Hut",
+            "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Smelter",
+            "ShrineOfRidan",
+        };
+
+        // Techs reachable through building research lists (the sweep path).
+        var sweepReachable = new HashSet<string>();
+        foreach (var b in _buildingsById.Values)
+        {
+            if (b?.research == null) continue;
+            for (int i = 0; i < b.research.Length; i++)
+            {
+                string t = b.research[i];
+                if (string.IsNullOrEmpty(t)) continue;
+                sweepReachable.Add(t);
+                if (!_technologiesById.ContainsKey(t))
+                    Warn($"building '{b.id}' lists research '{t}' which has no technology def");
+            }
+        }
+
+        foreach (var tech in _technologiesById.Values)
+        {
+            if (tech == null) continue;
+            if (tech.prerequisites != null)
+                for (int i = 0; i < tech.prerequisites.Length; i++)
+                {
+                    string p = tech.prerequisites[i];
+                    if (!string.IsNullOrEmpty(p) && !_technologiesById.ContainsKey(p))
+                        Warn($"tech '{tech.id}' requires '{p}' which does not exist — it can NEVER be researched");
+                }
+
+            bool ladderReachable = string.IsNullOrEmpty(tech.researchAt)
+                || aiHosts.Contains(tech.researchAt);
+            if (!ladderReachable && !sweepReachable.Contains(tech.id))
+                Warn($"tech '{tech.id}' is unreachable: researchAt '{tech.researchAt}' has no AI host and no building lists it");
+        }
+
+        foreach (var b in _buildingsById.Values)
+        {
+            if (b?.trains == null) continue;
+            for (int i = 0; i < b.trains.Length; i++)
+            {
+                string u = b.trains[i];
+                if (string.IsNullOrEmpty(u)) continue;
+                if (!_unitsById.ContainsKey(u))
+                    Warn($"building '{b.id}' trains '{u}' which has no unit def");
+                if (!TheWaningBorder.Entities.UnitFactory.HasRecipe(u))
+                    Warn($"building '{b.id}' trains '{u}' which has no UnitFactory recipe — it would spawn the default husk");
+            }
+        }
+
+        foreach (var u in _unitsById.Values)
+        {
+            if (u == null) continue;
+            if (u.minBuildingLevel > 4)
+                Warn($"unit '{u.id}' needs building level {u.minBuildingLevel} — nothing levels that high (military L3, Temple L4): impossible gate");
+            if (!TheWaningBorder.Entities.UnitFactory.HasRecipe(u.id))
+                Warn($"unit '{u.id}' has a def but no UnitFactory recipe — trainable in UI, broken at spawn");
+        }
+
+        // Sect chapel pipeline resolves end-to-end for all 12 sects.
+        foreach (var sectId in TheWaningBorder.Economy.SectConfig.AllSectIds)
+        {
+            string unitId = TheWaningBorder.Economy.SectConfig.UnitIdFor(sectId);
+            if (unitId == null)
+            {
+                Warn($"sect '{sectId}' has no chapel unit mapping");
+                continue;
+            }
+            if (!_unitsById.ContainsKey(unitId))
+                Warn($"sect '{sectId}' chapel unit '{unitId}' has no unit def");
+            if (!TheWaningBorder.Entities.UnitFactory.HasRecipe(unitId))
+                Warn($"sect '{sectId}' chapel unit '{unitId}' has no UnitFactory recipe");
+        }
+
+        if (issues == 0)
+            Debug.Log("[TechTreeValidator] tech tree cross-references clean");
+        else
+            Debug.LogWarning($"[TechTreeValidator] {issues} issue(s) found — every one is a silent stall or dead button at runtime");
     }
 
     private static void LoadFromCatalog(TechTreeCatalog catalog)
@@ -201,6 +310,13 @@ public static class TechCatalog
 
     private static void ApplyBuildingDefaults()
     {
+        // RANGED IS AN AGE-1 UNLOCK (design 2026-08-11, Combat_Pacing.md
+        // beat 0): the Age-0 archer rush was uncounterable, so the Archery
+        // Range era-gates to 2. Forced here as the code-side backstop so a
+        // stale SO/JSON minEra can never quietly re-open the rush.
+        if (_buildingsById.TryGetValue("ArcheryRange", out var range) && range != null)
+            range.minEra = 2;
+
         EnsureBuildingDefault("ShrineOfRidan", "Shrine of Ridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" }, ShrineResearch);
         if (!_buildingsById.ContainsKey("TempleOfRidan"))
         {
@@ -249,6 +365,73 @@ public static class TechCatalog
             cost = CostBlock.Of(600, 250, 100, 0),
             minBuildingLevel = 1,
             abilities = new[] { "King's Call", "Liquid Courage" },
+        });
+
+        // Sect chapel units for the three LIVE sects (2026-08-11,
+        // docs/Design/Sect_Units.md): each adopted sect's chapel trains its
+        // unique unit. Stats mirror the entity factories (Judicator.cs /
+        // ScarGuard.cs / Warbreaker.cs); costs are the design-doc numbers
+        // (owner tunes; an authored SO overrides these).
+        EnsureUnitDefault(new UnitDef
+        {
+            id = "Sect_ScarGuard", name = "Scar Guard", unitClass = "melee",
+            hp = 170f, speed = 3.2f, lineOfSight = 10f, trainingTime = 30f,
+            damage = 16f, damageType = "melee", armorType = "infantry_heavy",
+            attackCooldown = 1.2f,
+            cost = CostBlock.Of(140, 50, 20, 0),
+            minBuildingLevel = 1,
+            abilities = new[] { "Rapid Mend" },
+        });
+        EnsureUnitDefault(new UnitDef
+        {
+            id = "Sect_Judicator", name = "Judicator", unitClass = "melee",
+            hp = 160f, speed = 3.4f, lineOfSight = 10f, trainingTime = 30f,
+            damage = 16f, damageType = "melee", armorType = "infantry_heavy",
+            attackCooldown = 1.2f,
+            cost = CostBlock.Of(130, 40, 25, 0),
+            minBuildingLevel = 1,
+            abilities = new[] { "Condemn" },
+        });
+        EnsureUnitDefault(new UnitDef
+        {
+            id = "Sect_Warbreaker", name = "Warbreaker", unitClass = "melee",
+            hp = 260f, speed = 4.4f, lineOfSight = 10f, trainingTime = 36f,
+            damage = 18f, damageType = "melee", armorType = "infantry_heavy",
+            attackCooldown = 1.4f,
+            cost = CostBlock.Of(180, 70, 30, 0),
+            minBuildingLevel = 1,
+            abilities = new[] { "War Cry" },
+        });
+
+        // Full 12-sect roster (2026-08-11, docs/Design/Sect_Units.md): the
+        // remaining chapel units, seeded so adoption + chapel training works
+        // for every sect. Stats mirror each entity factory's defaults.
+        SeedSectUnit("Sect_Lorekeeper",       "Lorekeeper",         "support",  90, 3.4f,  0, 120, 40,  0);
+        SeedSectUnit("Sect_StoneWarden",      "Stone Warden",       "melee",   200, 2.8f, 10, 150, 60, 20);
+        SeedSectUnit("Sect_GolemAutark",      "Golem Autark",       "magic",   320, 2.0f, 22, 200, 80, 40);
+        SeedSectUnit("Sect_ArchivistAdept",   "Archivist Adept",    "magic",   110, 3.5f, 14, 130, 40, 25);
+        SeedSectUnit("Sect_VaultKeeper",      "Vault Keeper",       "melee",   140, 3.5f, 12, 140, 50, 20);
+        SeedSectUnit("Sect_GlassmarkArcanist","Glassmark Arcanist", "magic",   100, 3.5f, 18, 150, 40, 30);
+        SeedSectUnit("Sect_Ashblade",         "Ashblade",           "melee",   155, 5.0f, 14, 150, 60, 20);
+        SeedSectUnit("Sect_Nullblade",        "Nullblade",          "melee",   150, 4.2f, 14, 150, 60, 25);
+        SeedSectUnit("Sect_Chaincaster",      "Chaincaster",        "magic",   105, 3.5f, 10, 130, 40, 25);
+    }
+
+    /// <summary>Compact seeding helper for the sect chapel units — shared
+    /// shape (30 s train, L1 gate, melee/magic damage typing from class).</summary>
+    private static void SeedSectUnit(string id, string name, string unitClass,
+        float hp, float speed, float damage, int supplies, int iron, int veilstone)
+    {
+        EnsureUnitDefault(new UnitDef
+        {
+            id = id, name = name, unitClass = unitClass,
+            hp = hp, speed = speed, lineOfSight = 10f, trainingTime = 30f,
+            damage = damage,
+            damageType = unitClass == "magic" ? "magic" : "melee",
+            armorType = "infantry_heavy",
+            attackCooldown = 1.2f,
+            cost = CostBlock.Of(supplies, iron, veilstone, 0),
+            minBuildingLevel = 1,
         });
     }
 
