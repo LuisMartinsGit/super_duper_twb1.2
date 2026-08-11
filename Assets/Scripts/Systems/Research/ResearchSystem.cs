@@ -34,6 +34,11 @@ namespace TheWaningBorder.Systems.Research
 
             float dt = SystemAPI.Time.DeltaTime;
 
+            // CompleteResearch fires OnTechCompleted, whose handlers
+            // (TechEffectSystem) make structural changes — illegal while the
+            // query below is iterating, so completions are deferred past it.
+            System.Collections.Generic.List<(Faction faction, string techId)> completed = null;
+
             foreach (var (rs, entity) in SystemAPI
                          .Query<RefRW<ResearchState>>()
                          .WithNone<UnderConstruction>()
@@ -91,19 +96,21 @@ namespace TheWaningBorder.Systems.Research
                         var em = state.EntityManager;
                         var faction = em.GetComponentData<FactionTag>(entity).Value;
 
-                        // Mark as researched
-                        researchState.CompleteResearch(faction, techId);
+                        // Mark as researched (fired after the loop)
+                        (completed ??= new()).Add((faction, techId));
 
                         // Remove from queue and reset state
                         queue.RemoveAt(0);
                         rs.ValueRW.Busy = 0;
                         rs.ValueRW.Remaining = 0f;
-
-                        if (TechCatalog.TryGetTechnology(techId, out var techDef))
-                        {
-                        }
                     }
                 }
+            }
+
+            if (completed != null)
+            {
+                foreach (var (faction, techId) in completed)
+                    researchState.CompleteResearch(faction, techId);
             }
         }
     }
