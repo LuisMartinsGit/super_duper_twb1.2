@@ -215,6 +215,13 @@ namespace TheWaningBorder.UI.HUD
                 _aliveFactions.Remove(faction);
                 _eliminatedFactions.Add(faction);
 
+                // Defeat is VISIBLE and TOTAL (2026-08-11): announce it and
+                // self-destruct every remaining asset of the retired faction
+                // — a defeated player's leftover huts and stragglers no
+                // longer litter the match.
+                PlayerNotificationSystem.Notify($"{faction} has been DEFEATED");
+                SelfDestructFactionAssets(faction);
+
                 if (GameStatsTracker.Instance != null)
                 {
                     GameStatsTracker.Instance.RecordElimination(faction, gameTime);
@@ -272,10 +279,6 @@ namespace TheWaningBorder.UI.HUD
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
             }
 
-            // Old post-game UI (EndGameButton / PostGameStatsUI) removed with
-            // the old UI (2026-07-17); the final uGUI will own the post-game
-            // screen. State change above stands; log the result for now.
-            //
             // Mirrored to every faction's AI log because TWBLog compiles out —
             // without this, "did the match actually end, and how?" is
             // unanswerable after the fact.
@@ -283,6 +286,49 @@ namespace TheWaningBorder.UI.HUD
                 TheWaningBorder.AI.AILogger.Log((Faction)i, "VICTORY",
                     $"GAME OVER: {result} (winner={winner})");
             TWBLog.Log($"[Victory] Game over: {result} (winner={winner})");
+
+            // End-of-match flow (2026-08-11): the old post-game UI was
+            // removed with the UI redesign and nothing replaced it, so
+            // matches "ended" invisibly and ran forever. Announce the
+            // outcome, then return to the main menu.
+            PlayerNotificationSystem.Notify($"GAME OVER — {result}");
+            StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
+        }
+
+        /// <summary>Seconds between the outcome banner and the return to
+        /// the main menu — long enough to read how it ended.</summary>
+        private const float ReturnToMenuDelay = 10f;
+
+        private System.Collections.IEnumerator ReturnToMenuAfter(float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(
+                TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+        }
+
+        /// <summary>Retirement is TOTAL: every remaining unit and building
+        /// of a defeated faction self-destructs. Health is zeroed and
+        /// DeathSystem performs the destruction — synchronous DestroyEntity
+        /// outside DeathSystem corrupts EndSimulation ECB playback (the
+        /// unit-death contract).</summary>
+        private void SelfDestructFactionAssets(Faction faction)
+        {
+            var q = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadWrite<Health>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int killed = 0;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                var hp = _em.GetComponentData<Health>(ents[i]);
+                if (hp.Value <= 0) continue;
+                hp.Value = 0;
+                _em.SetComponentData(ents[i], hp);
+                killed++;
+            }
+            TWBLog.Log($"[Victory] {faction} assets self-destruct ({killed} entities)");
         }
 
         /// <summary>
@@ -323,10 +369,12 @@ namespace TheWaningBorder.UI.HUD
                     : $"DEFEAT — {cultureName} node win";
             }
 
-            // Old post-game UI (EndGameButton / PostGameStatsUI) removed with
-            // the old UI (2026-07-17); the final uGUI will own the post-game
-            // screen. State change above stands; log the result for now.
             TWBLog.Log($"[Victory] Node victory: {result} (winner={winner})");
+
+            // Same end-of-match flow as conquest (2026-08-11): visible
+            // banner, then back to the main menu.
+            PlayerNotificationSystem.Notify($"GAME OVER — {result}");
+            StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
         }
 
         /// <summary>

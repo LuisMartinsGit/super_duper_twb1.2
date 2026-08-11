@@ -76,6 +76,17 @@ namespace TheWaningBorder.UI.HUD
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var ft = _active[i];
+
+                // Scene transitions (the victory flow's return-to-menu load,
+                // 2026-08-11) destroy the pooled text objects out from under
+                // us — drop dead entries instead of touching their transforms
+                // (MissingReferenceException every frame in the menu).
+                if (ft.GO == null)
+                {
+                    _active.RemoveAt(i);
+                    continue;
+                }
+
                 ft.Elapsed += Time.deltaTime;
 
                 if (ft.Elapsed >= floatDuration)
@@ -147,13 +158,17 @@ namespace TheWaningBorder.UI.HUD
 
         private void SpawnText(string text, Vector3 position, Color color)
         {
-            FloatingText ft;
-            if (_pool.Count > 0)
+            // Pop until a LIVE pooled object surfaces — scene loads can have
+            // destroyed any of them (see the Update guard).
+            FloatingText ft = default;
+            bool pooled = false;
+            while (_pool.Count > 0)
             {
                 ft = _pool[_pool.Count - 1];
                 _pool.RemoveAt(_pool.Count - 1);
+                if (ft.GO != null) { pooled = true; break; }
             }
-            else
+            if (!pooled)
             {
                 var go = CreateTextObject();
                 ft = new FloatingText { GO = go, Mesh = go.GetComponent<TextMesh>() };
