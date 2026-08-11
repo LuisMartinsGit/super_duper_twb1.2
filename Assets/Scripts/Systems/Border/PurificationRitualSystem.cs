@@ -306,9 +306,9 @@ namespace TheWaningBorder.Systems.Border
                 // (Cleansed never reverts). SetState(Cleansed) from Destroyed
                 // strips NodeDormant but leaves HP at 0 — restore it so
                 // DeathSystem doesn't delete the entity (victory tracking
-                // still needs to count it). Cancel any in-flight rebuild and
-                // silence the self-defense turret so the purified node is
-                // truly gone as a threat.
+                // still needs to count it). Cancel any in-flight rebuild.
+                // (Nodes carry no attack any more — curse nodes never attack,
+                // 2026-08-11 — so there is no turret to silence here.)
                 if (em.HasComponent<NodeRebuilding>(node))
                     em.RemoveComponent<NodeRebuilding>(node);
                 if (em.HasComponent<Health>(node))
@@ -316,12 +316,6 @@ namespace TheWaningBorder.Systems.Border
                     var h = em.GetComponentData<Health>(node);
                     h.Value = h.Max;
                     em.SetComponentData(node, h);
-                }
-                if (em.HasComponent<BuildingRangedAttack>(node))
-                {
-                    var ra = em.GetComponentData<BuildingRangedAttack>(node);
-                    ra.Damage = 0;
-                    em.SetComponentData(node, ra);
                 }
 
                 // Curse & Shardroot canon: per-node Glow rewards are GONE.

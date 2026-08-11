@@ -239,7 +239,9 @@ namespace TheWaningBorder.Systems.Border
                 // (cohesive group advance + group-wide aggro + pathfinding march
                 // to the player spawn). The old per-node intruder intercept set
                 // bare DesiredDestination, which fought the horde controller, so
-                // it's disabled here. Static defence still comes from turret nodes.
+                // it's disabled here. There is NO static node defence any more
+                // (curse nodes never attack, 2026-08-11) — defence is the horde
+                // plus the ritual defender births.
                 // AttackIntruders(em, nodePos, territoryRadius);
 
                 // === EXPANSION PHASE — REMOVED BY DESIGN ===
@@ -296,7 +298,10 @@ namespace TheWaningBorder.Systems.Border
             if (buildPos.x == float.MinValue) return false;
 
             // Build decision tree (per-node limits)
-            // Priority: Resource > Turret > Restoration > Enforcement > Suppression
+            // Priority: Resource > Restoration > Enforcement > Suppression.
+            // Turret nodes are GONE from the tree (design 2026-08-11: curse
+            // nodes never attack) — curse pressure is hostile ground, ritual
+            // defender births and the horde, never static node fire.
             Entity created = Entity.Null;
 
             if (resourceCount < MaxResourceNodesPerMain && veilstoneBank >= ResourceNodeCost)
@@ -305,14 +310,6 @@ namespace TheWaningBorder.Systems.Border
                 {
                     created = BorderResourceNode.Create(em, buildPos);
                     veilstoneBank -= ResourceNodeCost;
-                }
-            }
-            else if (turretCount < MaxTurretNodesPerMain && veilstoneBank >= TurretNodeCost)
-            {
-                if (FactionEconomy.Spend(em, Faction.Border, Cost.Of(veilstone: TurretNodeCost)))
-                {
-                    created = BorderTurretNode.Create(em, buildPos);
-                    veilstoneBank -= TurretNodeCost;
                 }
             }
             else if (restorationCount < MaxRestorationNodesPerMain && veilstoneBank >= RestorationNodeCost && ai.Phase >= 1)

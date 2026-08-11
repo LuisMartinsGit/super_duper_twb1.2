@@ -92,6 +92,77 @@ namespace TheWaningBorder.Systems.Border
                 }
             }
 
+            // ── Host validation + guaranteed surfacing (2026-08-11) ─────
+            // "4 wells claimed and no Shardroot": the host reference can
+            // dangle (extinction respawns REPLACE well entities; a
+            // persisted world can carry a previous match's state), and any
+            // claim path that misses TryAward would strand the artifact
+            // forever. The Shardroot is a map item and MUST enter play:
+            //   * dangling host — re-choose among live UNCLAIMED wells;
+            //   * host claimed without an award, or no unclaimed well
+            //     left — surface the artifact immediately.
+            if (state.HostChosen != 0 && state.Found == 0)
+            {
+                bool hostValid = state.HostNode != Entity.Null
+                    && em.Exists(state.HostNode)
+                    && em.HasComponent<BorderNodeState>(state.HostNode);
+                bool hostClaimed = false;
+                if (hostValid)
+                {
+                    var hs = em.GetComponentData<BorderNodeState>(state.HostNode).State;
+                    hostClaimed = hs == NodeState.Cleansed || hs == NodeState.Converted;
+                }
+
+                if (!hostValid || hostClaimed)
+                {
+                    // Deterministic scan — smallest (x, z) wins per category.
+                    Entity unclaimed = Entity.Null; float3 unclaimedPos = default;
+                    Entity claimed = Entity.Null; float3 claimedPos = default;
+                    foreach (var (ns, xf, e) in SystemAPI
+                        .Query<RefRO<BorderNodeState>, RefRO<LocalTransform>>()
+                        .WithAll<BorderMainNodeTag>()
+                        .WithEntityAccess())
+                    {
+                        var s = ns.ValueRO.State;
+                        var p = xf.ValueRO.Position;
+                        bool isClaimed = s == NodeState.Cleansed || s == NodeState.Converted;
+                        if (!isClaimed)
+                        {
+                            if (unclaimed == Entity.Null || p.x < unclaimedPos.x
+                                || (p.x == unclaimedPos.x && p.z < unclaimedPos.z))
+                            { unclaimed = e; unclaimedPos = p; }
+                        }
+                        else
+                        {
+                            if (claimed == Entity.Null || p.x < claimedPos.x
+                                || (p.x == claimedPos.x && p.z < claimedPos.z))
+                            { claimed = e; claimedPos = p; }
+                        }
+                    }
+
+                    if (!hostValid && unclaimed != Entity.Null)
+                    {
+                        state.HostNode = unclaimed;
+                        TWBLog.Log("[Shardroot] host re-chosen (previous host dangled)");
+                    }
+                    else if (hostClaimed || claimed != Entity.Null)
+                    {
+                        float3 dropPos = hostClaimed
+                            ? em.GetComponentData<LocalTransform>(state.HostNode).Position
+                            : claimedPos;
+                        state.Found = 1;
+                        var pickup = GlowPickup.Create(em,
+                            dropPos + new float3(3f, 0f, 3f),
+                            RitualKind.Purification, ShardrootState.ShardrootPower);
+                        em.AddComponent<ShardrootTag>(pickup);
+                        MakePersistent(em, pickup);
+                        PlayerNotificationSystem.Notify("The SHARDROOT has been unearthed!");
+                        TWBLog.Log("[Shardroot] artifact surfaced by fallback " +
+                            "(host lost or claimed without award)");
+                    }
+                }
+            }
+
             // ── Hall delivery → awaken the Shardbound Hero ──────────────
             if (state.Found != 0)
             {

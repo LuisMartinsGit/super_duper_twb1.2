@@ -40,7 +40,6 @@ namespace TheWaningBorder.Entities
                 typeof(NodeInvulnerabilityState),
                 typeof(LastDamagedByFaction),
                 typeof(LastAttackerEntity),
-                typeof(BuildingRangedAttack),
                 typeof(Defense)
             );
 
@@ -95,15 +94,11 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new LastDamagedByFaction { Value = Faction.Border });
             em.SetComponentData(entity, new LastAttackerEntity { Value = Entity.Null });
 
-            // Self-defense turret
-            em.SetComponentData(entity, new BuildingRangedAttack
-            {
-                Range = MainNodeAttackRange,
-                Damage = MainNodeAttackDamage,
-                Cooldown = MainNodeAttackCooldown,
-                Timer = 0f,
-                MaxTargets = MainNodeAttackMaxTargets
-            });
+            // NO self-defense turret (design 2026-08-11: curse nodes never
+            // attack). The 18 m / 25 dmg / 1.2 s turret made every 35 s
+            // purification channel at 6 m mathematically impossible — a 90 HP
+            // Scholar died in under 5 seconds. Well pressure comes from the
+            // ritual defender births and the Backlash, not from node fire.
             em.SetComponentData(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
 
             // Assign network ID for multiplayer lockstep synchronization
@@ -180,15 +175,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new LastDamagedByFaction { Value = Faction.Border });
             ecb.AddComponent(entity, new LastAttackerEntity { Value = Entity.Null });
 
-            // Self-defense turret
-            ecb.AddComponent(entity, new BuildingRangedAttack
-            {
-                Range = MainNodeAttackRange,
-                Damage = MainNodeAttackDamage,
-                Cooldown = MainNodeAttackCooldown,
-                Timer = 0f,
-                MaxTargets = MainNodeAttackMaxTargets
-            });
+            // NO self-defense turret — see the EntityManager overload's note
+            // (curse nodes never attack, 2026-08-11).
             ecb.AddComponent(entity, new Defense { Melee = 15, Ranged = 15, Siege = 10, Magic = 10 });
 
             // Assign network ID for multiplayer lockstep synchronization

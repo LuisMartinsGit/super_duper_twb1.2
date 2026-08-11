@@ -11,16 +11,22 @@ using TheWaningBorder.World.MapMarkers;
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
-    /// Spawns Veilstone Main Nodes at game start from BorderNodeMarker components
-    /// placed in the hand-authored map scene. Each node acts as a The Border
-    /// hive: it spreads border ground and controls veilstone faction AI behavior.
+    /// Spawns Veilstone Main Nodes at game start — ONE PER MAP CORNER
+    /// (design 2026-08-11: the old centre-of-map marker well is gone; the
+    /// curse presses in from the four corners instead, so every base reads
+    /// its nearest corner as "its" well). BorderNodeMarker presence in the
+    /// scene stays the designer's on/off lever for the Border faction, but
+    /// marker POSITIONS are no longer used.
     /// Call after terrain and player spawns are initialized.
     /// </summary>
     public static class BorderNodeBootstrap
     {
+        /// <summary>Corner inset as a fraction of each map axis — nodes sit
+        /// 12% in from the playable-bounds corner before terrain fitting.</summary>
+        private const float CornerInsetFraction = 0.12f;
+
         /// <summary>
-        /// Spawn veilstone main nodes from scene markers.
-        /// Returns the number of nodes spawned.
+        /// Spawn the four corner wells. Returns the number of nodes spawned.
         /// </summary>
         public static int SpawnBorderNodes()
         {
@@ -36,41 +42,74 @@ namespace TheWaningBorder.Bootstrap
             if (!MapMarkerRegistry.HasBorderMarkers)
             {
                 Debug.LogWarning("[BorderNodeBootstrap] no BorderNodeMarker in the scene — " +
-                                 "no border main nodes will spawn. Place markers in the map if " +
-                                 "the border should be active.");
+                                 "no border main nodes will spawn. Place at least one marker " +
+                                 "(anywhere) if the border should be active; node POSITIONS " +
+                                 "are corner-derived, not marker-derived (2026-08-11).");
                 return 0;
             }
 
-            int spawned = SpawnBorderNodesFromMarkers(em);
+            int spawned = SpawnCornerNodes(em);
             EnsureBorderFactionState(em, spawned);
             return spawned;
         }
 
         /// <summary>
-        /// One BorderMainNode per BorderNodeMarker in the scene, snapped to
-        /// current terrain height. No gates — the designer is responsible for
-        /// placement.
+        /// One BorderMainNode per map corner, inset from the playable bounds
+        /// and walked inward along the corner diagonal until the ground is
+        /// actually passable (a corner buried in mountain or water slides
+        /// toward the map centre until it fits).
         /// </summary>
-        private static int SpawnBorderNodesFromMarkers(EntityManager em)
+        private static int SpawnCornerNodes(EntityManager em)
         {
-            var markers = MapMarkerRegistry.BorderNodes;
-            int spawned = 0;
-            for (int i = 0; i < markers.Count; i++)
+            TerrainUtility.GetPlayableBounds(out var mn, out var mx);
+            float2 center = (mn + mx) * 0.5f;
+            float insetX = (mx.x - mn.x) * CornerInsetFraction;
+            float insetZ = (mx.y - mn.y) * CornerInsetFraction;
+
+            var corners = new float2[4]
             {
-                var m = markers[i];
-                if (m == null) continue;
+                new float2(mn.x + insetX, mn.y + insetZ),
+                new float2(mx.x - insetX, mn.y + insetZ),
+                new float2(mn.x + insetX, mx.y - insetZ),
+                new float2(mx.x - insetX, mx.y - insetZ),
+            };
 
-                var p = m.WorldPosition;
-                float y = TerrainUtility.GetHeight(p.x, p.z);
-                float3 pos = new float3(p.x, y, p.z);
-
+            int spawned = 0;
+            for (int i = 0; i < corners.Length; i++)
+            {
+                float2 xz = FitToPassableGround(corners[i], center);
+                float3 pos = new float3(xz.x, TerrainUtility.GetHeight(xz.x, xz.y), xz.y);
                 BorderMainNode.Create(em, pos);
                 spawned++;
-                TWBLog.Log($"[BorderNodeBootstrap] (marker) placed node {spawned} at " +
+                TWBLog.Log($"[BorderNodeBootstrap] corner well {spawned}/4 at " +
                           $"({pos.x:F0},{pos.z:F0})");
             }
-            TWBLog.Log($"[BorderNodeBootstrap] DONE (marker-driven) — nodesSpawned={spawned}");
+            TWBLog.Log($"[BorderNodeBootstrap] DONE (corner-driven) — nodesSpawned={spawned}");
             return spawned;
+        }
+
+        /// <summary>Walk from the corner candidate toward the map centre in
+        /// 4 m steps until the node footprint stands on passable ground.
+        /// Falls back to the raw candidate if nothing fits within 120 m —
+        /// deterministic either way.</summary>
+        private static float2 FitToPassableGround(float2 candidate, float2 center)
+        {
+            var grid = PassabilityGrid.Instance;
+            if (grid == null) return candidate;
+
+            float2 dir = center - candidate;
+            float len = math.length(dir);
+            if (len < 1f) return candidate;
+            dir /= len;
+
+            for (float step = 0f; step <= 120f; step += 4f)
+            {
+                float2 p = candidate + dir * step;
+                if (grid.IsPassableForRadius(
+                        new float3(p.x, 0f, p.y), BorderConstants.MainNodeRadius))
+                    return p;
+            }
+            return candidate;
         }
 
         /// <summary>

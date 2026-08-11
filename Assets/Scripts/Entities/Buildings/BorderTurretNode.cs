@@ -8,9 +8,10 @@ using static TheWaningBorder.Core.Config.BorderConstants;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Veilstone Turret Node - a defensive sub-node that auto-fires projectiles
-    /// at enemies within range. Leverages the existing BuildingCombatSystem
-    /// via BuildingRangedAttack + BuildingTag components.
+    /// Veilstone Turret Node - LEGACY sub-node. Curse nodes never attack
+    /// (design 2026-08-11), so the turret carries no BuildingRangedAttack
+    /// any more and BorderAISystem no longer builds the type — the factory
+    /// stays only so legacy spawn paths cannot resurrect an armed one.
     /// </summary>
     public static class BorderTurretNode
     {
@@ -29,7 +30,6 @@ namespace TheWaningBorder.Entities
                 typeof(BuildingTag),
                 typeof(BorderTag),
                 typeof(BorderSubNodeTag),
-                typeof(BuildingRangedAttack),
                 typeof(VeilstoneWorth)
             );
 
@@ -40,14 +40,6 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = TurretNodeRadius });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new BorderSubNodeTag { Type = BorderSubNodeType.Turret });
-            em.SetComponentData(entity, new BuildingRangedAttack
-            {
-                Range = TurretRange,
-                Damage = TurretDamage,
-                Cooldown = TurretCooldown,
-                Timer = 0f,
-                MaxTargets = TurretMaxTargets
-            });
             em.SetComponentData(entity, new VeilstoneWorth { BuildCost = TurretNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
@@ -79,14 +71,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
             ecb.AddComponent<BorderTag>(entity);
             ecb.AddComponent(entity, new BorderSubNodeTag { Type = BorderSubNodeType.Turret });
-            ecb.AddComponent(entity, new BuildingRangedAttack
-            {
-                Range = TurretRange,
-                Damage = TurretDamage,
-                Cooldown = TurretCooldown,
-                Timer = 0f,
-                MaxTargets = TurretMaxTargets
-            });
+            // No BuildingRangedAttack — curse nodes never attack (2026-08-11).
             ecb.AddComponent(entity, new VeilstoneWorth { BuildCost = TurretNodeBuildCost });
 
             // Assign network ID for multiplayer lockstep synchronization
