@@ -191,6 +191,21 @@ namespace TheWaningBorder.Economy
 
                     if (research.HasResearched(f, "VeilsteelSurvey")) veilsteelPerMin = 6;
 
+                    // Fully developed huts are the late-game mine (design
+                    // 2026-08-11, Age_1_Alanthor.md § Survey track): map iron
+                    // deposits are finite and run dry mid-game, so the survey
+                    // drips scale with the Guild level — L2 x1.5, L3 x2 —
+                    // and a maxed hut ring with IronSurveying3 carries the
+                    // whole iron economy from there.
+                    float levelMult = guildLevel switch
+                    {
+                        2 => 1.5f,
+                        3 => 2f,
+                        _ => 1f,
+                    };
+                    ironPerMin      = (int)math.round(ironPerMin * levelMult);
+                    veilstonePerMin = (int)math.round(veilstonePerMin * levelMult);
+
                     // Veilsteel gate (2026-08-04, "how are players getting
                     // veilsteel before age 1??"): the design allows exactly
                     // two sources — the Crucible and a FULLY UPGRADED
