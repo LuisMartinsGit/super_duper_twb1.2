@@ -455,35 +455,71 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
 
         private static bool TryTrainUnit(EntityManager em, Faction faction, string unitId)
+            => TryTrainUnitWithReason(em, faction, unitId, out _);
+
+        /// <summary>Training pre-flight + issue, reporting WHICH gate blocked
+        /// on failure — every gate here is silent by design (next tick
+        /// retries), which made big-ticket one-offs like King Lexor
+        /// undiagnosable from the match log (2026-08-11: "AI is not training
+        /// the hero unit" with nothing in the log to say why).</summary>
+        private static bool TryTrainUnitWithReason(EntityManager em, Faction faction,
+            string unitId, out string blockReason)
         {
-            if (!TechCatalog.IsReady) return false;
-            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
+            blockReason = null;
+            if (!TechCatalog.IsReady) { blockReason = "catalog not ready"; return false; }
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null)
+            { blockReason = "no catalog def"; return false; }
 
             // Find the right training building for this unit.
             Entity trainer = FindTrainerForUnit(em, faction, unitId);
-            if (trainer == Entity.Null) return false;
+            if (trainer == Entity.Null) { blockReason = "no trainer"; return false; }
 
             // Don't queue into a building still under construction.
-            if (em.HasComponent<UnderConstruction>(trainer)) return false;
-            if (!em.HasBuffer<TrainQueueItem>(trainer)) return false;
+            if (em.HasComponent<UnderConstruction>(trainer))
+            { blockReason = "trainer under construction"; return false; }
+            if (!em.HasBuffer<TrainQueueItem>(trainer))
+            { blockReason = "trainer has no queue"; return false; }
 
             // Combined train + research cap — see CommandRouter.MaxProductionQueue.
-            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer)) return false;
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer))
+            { blockReason = "trainer queue full"; return false; }
+
+            // King's Court seat (2026-08-11): an aged-up Alanthor faction
+            // that still owes a Hall unique (Ledger / King Lexor) keeps ONE
+            // Hall production slot free — the 5-slot queue stayed
+            // permanently full of workers, so the hero never found an
+            // opening ("trainer queue full" once a minute, all match).
+            if ((unitId == "Worker" || unitId == "Scout")
+                && em.HasComponent<HallTag>(trainer)
+                && CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor
+                && (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, faction)
+                    || !TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, faction)))
+            {
+                int queued = em.GetBuffer<TrainQueueItem>(trainer).Length;
+                if (em.HasBuffer<ResearchQueueItem>(trainer))
+                    queued += em.GetBuffer<ResearchQueueItem>(trainer).Length;
+                if (queued >= TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue - 1)
+                { blockReason = "hall seat reserved"; return false; }
+            }
 
             // Level gate BEFORE spending — IssueTrain drops silently for AI
             // sources, which would leak the cost.
-            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId, out _, out _)) return false;
+            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId,
+                    out int reqLevel, out string trainerName))
+            { blockReason = $"needs Lv{reqLevel} {trainerName}"; return false; }
 
             // ANTI-STAGNATION: don't queue what population can't spawn. A
             // pop-blocked item sits in the 5-slot queue forever, clogging
             // every later train/research order for the faction. The Hut
             // headroom loop (EnsurePopulationHeadroom) frees this gate.
             if (!PopulationHelper.HasPopulationCapacity(faction, UnitFactory.GetPopulationCost(unitId)))
-                return false;
+            { blockReason = "population capped"; return false; }
 
             var cost = ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
-            if (!FactionEconomy.Spend(em, faction, cost)) return false;
+            if (!FactionEconomy.CanAfford(em, faction, cost))
+            { blockReason = "bank short"; return false; }
+            if (!FactionEconomy.Spend(em, faction, cost))
+            { blockReason = "bank short"; return false; }
 
             // Through CommandRouter (CommandSource.AI) so host-AI training
             // replicates — a direct queue.Add spawned units on the host only.
@@ -511,9 +547,21 @@ namespace TheWaningBorder.AI
                     return FindFactionBuilding<HallTag>(em, faction);
                 case "Spearman":
                 case "Swordsman":
+                case "Alanthor_Swordsman":
+                case "Alanthor_Nobleman":
+                case "Alanthor_Sentinel":
                     return FindLeastBusyTrainer<BarracksTag>(em, faction);
                 case "Archer":
+                case "Alanthor_Crossbowman":
+                case "Alanthor_Longbowman":
                     return FindLeastBusyTrainer<ArcheryRangeTag>(em, faction);
+                case "Alanthor_Cataphract":
+                case "Alanthor_Outrider":
+                    return FindLeastBusyTrainer<RoyalStableTag>(em, faction);
+                case "Alanthor_Ballista":
+                case "Alanthor_Trebuchet":
+                case "Alanthor_BatteringRam":
+                    return FindLeastBusyTrainer<SiegeYardTag>(em, faction);
                 case "Litharch":
                 case "Alanthor_Scholar":
                     return FindFactionBuilding<TempleTag>(em, faction);
@@ -629,6 +677,18 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.IsReady) return false;
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) return false;
 
+            // Era gate (2026-08-11): minEra was UI-only, so the AI happily
+            // built era-locked buildings — the Age-0 Archery Range this rule
+            // now delays (ranged units are an Age-1 unlock, Combat_Pacing.md).
+            if (def.minEra > 1)
+            {
+                int era = 1;
+                if (FactionEconomy.TryGetBank(em, faction, out var eraBank)
+                    && em.HasComponent<FactionEra>(eraBank))
+                    era = em.GetComponentData<FactionEra>(eraBank).Value;
+                if (era < def.minEra) return false;
+            }
+
             // task-109 Phase 7 / AD-6 / R9: SimpleAISystem must never try to
             // place wall primitives. Alanthor AI does NOT build walls in v1
             // of the BFME2 rework — wall construction is deferred to a
@@ -660,7 +720,20 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
 
             int2 size = BuildingSizeConfig.GetSize(buildingId);
-            if (!TryFindBuildPosition(em, hallPos, size, buildingId, faction, out float3 pos)) return false;
+
+            // Wall doctrine: the Fiendstone Keep is the chokepoint citadel.
+            // When terrain shelters this base and ingress runs through a
+            // sealable chokepoint, the Keep stands at the primary corridor
+            // (behind the future wall line), not in the base ring.
+            float3 pos;
+            if (buildingId == "FiendstoneKeep"
+                && AIWallPlanner.TryFindKeepChokeSpot(em, hallPos, size, out pos))
+            {
+                AILogger.Log(faction, "BUILDING",
+                    $"FiendstoneKeep sited at the ingress chokepoint ({pos.x:F0},{pos.z:F0})");
+            }
+            else if (!TryFindBuildPosition(em, hallPos, size, buildingId, faction, out pos))
+                return false;
 
             // Pre-flight: at least one idle builder must be available BEFORE we
             // spend the cost and place the foundation. Without this gate the
@@ -1024,48 +1097,81 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
 
         private static bool TryResearchTech(EntityManager em, Faction faction, string techId)
+            => TryResearchTechWithReason(em, faction, techId, out _);
+
+        /// <summary>Research pre-flight + issue, reporting WHICH gate blocked
+        /// on failure — the economy ladder retries failures silently forever,
+        /// which hid a 57-minute survey-line stall in the 2026-08-11 match
+        /// (no Iron Surveying all game, map iron ran dry, total freeze).</summary>
+        private static bool TryResearchTechWithReason(EntityManager em, Faction faction,
+            string techId, out string blockReason)
         {
-            if (!TechCatalog.IsReady) return false;
-            if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null) return false;
+            blockReason = null;
+            if (!TechCatalog.IsReady) { blockReason = "catalog not ready"; return false; }
+            if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null)
+            { blockReason = "no catalog def"; return false; }
 
             // Skip if already researched (or in flight) on this faction.
             var researchState = FactionResearchState.Instance;
             if (researchState != null && researchState.HasResearched(faction, techId)) return true;
 
-            // Conscription/StoneWeapons research at the Barracks. Other techs
-            // route through the Hall. We only ship Barracks techs in the
-            // current build orders, but support both for forward-compat.
+            // Resolve a host that can actually TAKE the research now —
+            // completed, research-capable, queue not full. The old
+            // first-found lookup gambled on chunk order: with the hut
+            // pipeline keeping one Gatherer's Hut permanently under
+            // construction, the first-found hut could be that foundation
+            // for an entire match, silently starving the Survey line.
             string researchAt = string.IsNullOrEmpty(def.researchAt) ? "Hall" : def.researchAt;
             Entity bldg = researchAt switch
             {
-                "Barracks"             => FindFactionBuilding<BarracksTag>(em, faction),
-                "Hall"                 => FindFactionBuilding<HallTag>(em, faction),
-                "ArcheryRange"         => FindFactionBuilding<ArcheryRangeTag>(em, faction),
-                "GatherersHut"         => FindFactionBuilding<GathererHutTag>(em, faction),
-                "Hut"                  => FindFactionBuilding<HutTag>(em, faction),
+                "Barracks"             => FindResearchHost<BarracksTag>(em, faction),
+                "Hall"                 => FindResearchHost<HallTag>(em, faction),
+                "ArcheryRange"         => FindResearchHost<ArcheryRangeTag>(em, faction),
+                "GatherersHut"         => FindResearchHost<GathererHutTag>(em, faction),
+                "Hut"                  => FindResearchHost<HutTag>(em, faction),
                 // Alanthor Age-1 research hosts (Wave 2 military tree).
-                "Alanthor_RoyalStable" => FindFactionBuilding<RoyalStableTag>(em, faction),
-                "Alanthor_SiegeYard"   => FindFactionBuilding<SiegeYardTag>(em, faction),
-                "Alanthor_Smelter"     => FindFactionBuilding<SmelterTag>(em, faction),
-                "ShrineOfRidan"        => FindFactionBuilding<ShrineTag>(em, faction),
+                "Alanthor_RoyalStable" => FindResearchHost<RoyalStableTag>(em, faction),
+                "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
+                "Alanthor_Smelter"     => FindResearchHost<SmelterTag>(em, faction),
+                "ShrineOfRidan"        => FindResearchHost<ShrineTag>(em, faction),
                 _                      => Entity.Null,
             };
-            if (bldg == Entity.Null) return false;
-            if (em.HasComponent<UnderConstruction>(bldg)) return false;
-            if (!em.HasBuffer<ResearchQueueItem>(bldg)) return false;
-
-            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
-            if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, bldg)) return false;
+            if (bldg == Entity.Null)
+            { blockReason = $"no ready {researchAt} host"; return false; }
 
             var cost = ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
-            if (!FactionEconomy.Spend(em, faction, cost)) return false;
+            if (!FactionEconomy.CanAfford(em, faction, cost))
+            { blockReason = "bank short"; return false; }
+            if (!FactionEconomy.Spend(em, faction, cost))
+            { blockReason = "bank short"; return false; }
 
             // Through CommandRouter (CommandSource.AI) so host-AI research
             // replicates to clients in multiplayer.
             TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(em, bldg, techId,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             return true;
+        }
+
+        /// <summary>First faction building of the tag type that can accept a
+        /// research order right now: completed, carries a ResearchQueueItem
+        /// buffer, and its combined production queue has room.</summary>
+        private static Entity FindResearchHost<TTag>(EntityManager em, Faction faction)
+            where TTag : unmanaged, IComponentData
+        {
+            var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<TTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<ResearchQueueItem>());
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            using var facs = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, ents[i])) continue;
+                return ents[i];
+            }
+            return Entity.Null;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -2102,11 +2208,18 @@ namespace TheWaningBorder.AI
             {
                 int barracksCount = CountFactionBuildings<BarracksTag>(em, faction);
                 int rangeCount = CountFactionBuildings<ArcheryRangeTag>(em, faction);
+                // Ranged is an Age-1 unlock (2026-08-11) — the Range only
+                // enters the alternation once aged up; before that every
+                // production slot is a Barracks.
+                bool rangedUnlocked = false;
+                if (FactionEconomy.TryGetBank(em, faction, out var prodBank)
+                    && em.HasComponent<FactionEra>(prodBank))
+                    rangedUnlocked = em.GetComponentData<FactionEra>(prodBank).Value >= 2;
                 if (barracksCount == 0)
                     TryBuildBuildingBudgeted(em, faction, "Barracks", AIBudgetCategory.Military);
                 else if (barracksCount + rangeCount < profile.ProductionBuildingTarget)
                     TryBuildBuildingBudgeted(em, faction,
-                        rangeCount < barracksCount ? "ArcheryRange" : "Barracks",
+                        rangedUnlocked && rangeCount < barracksCount ? "ArcheryRange" : "Barracks",
                         AIBudgetCategory.Military);
             }
 
@@ -2123,9 +2236,13 @@ namespace TheWaningBorder.AI
                 && FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
                 if (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, faction))
-                    TryTrainUnitBudgeted(em, faction, "Ledger", AIBudgetCategory.Advancement);
+                    TryTrainPivotalUnique(em, faction, "Ledger");
+                else
+                    AIPivotalReserve.Clear(faction, "Ledger");
                 if (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, faction))
-                    TryTrainUnitBudgeted(em, faction, "King Lexor", AIBudgetCategory.Advancement);
+                    TryTrainPivotalUnique(em, faction, "King Lexor");
+                else
+                    AIPivotalReserve.Clear(faction, "King Lexor");
             }
 
             // Keep at least one scout alive: the intel pipeline (and the
@@ -2154,7 +2271,11 @@ namespace TheWaningBorder.AI
             // buildings actually pump in parallel instead of growing the army
             // one unit per think tick regardless of capacity.
             if (aiState.DesiredMilitary < profile.SustainArmyCap
-                && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary)
+                && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary
+                // Pivotal savings hold: army GROWTH (beyond the floor) is
+                // discretionary — it was eating every supply the instant it
+                // arrived, so 500-supply lump sums never formed.
+                && !AIPivotalReserve.ShouldHold(em, faction))
             {
                 int trainers = CountFactionBuildings<BarracksTag>(em, faction)
                              + CountFactionBuildings<ArcheryRangeTag>(em, faction);
@@ -2345,8 +2466,14 @@ namespace TheWaningBorder.AI
 
             // (4) Research — GH resource techs draw the Economy wallet, the
             // rest draw Advancement. Skips completed AND in-flight techs.
+            // The walk CONTINUES past failures — but a step that fails every
+            // tick forever must not fail silently (2026-08-11: the Survey
+            // line stalled for 57 minutes and nothing said why), so the
+            // first blocked step logs its reason about once a minute.
             var research = FactionResearchState.Instance;
             var ladder = EconomyLadderFor(em, faction);
+            string firstBlocked = null, firstReason = null;
+            bool queuedAny = false;
             for (int i = 0; i < ladder.Length; i++)
             {
                 string techId = ladder[i];
@@ -2360,13 +2487,37 @@ namespace TheWaningBorder.AI
                        || techId.Contains("Plunder")
                     ? AIBudgetCategory.EconomyExpansion
                     : AIBudgetCategory.Advancement;
-                if (TryResearchTechBudgeted(em, faction, techId, cat))
+                if (TryResearchTechBudgetedWithReason(em, faction, techId, cat, out string reason))
                 {
                     AILogger.Log(faction, "RESEARCH", $"{techId} queued");
+                    queuedAny = true;
                     break;
                 }
+                if (firstBlocked == null) { firstBlocked = techId; firstReason = reason; }
+            }
+
+            if (!queuedAny && firstBlocked != null)
+            {
+                _ladderBlockTicks.TryGetValue(faction, out int ticks);
+                if (++ticks >= 30)
+                {
+                    ticks = 0;
+                    AILogger.Log(faction, "RESEARCH",
+                        $"ladder blocked ~1 min at {firstBlocked} ({firstReason})");
+                }
+                _ladderBlockTicks[faction] = ticks;
+            }
+            else
+            {
+                _ladderBlockTicks.Remove(faction);
             }
         }
+
+        /// <summary>Ticks the economy research ladder has queued nothing
+        /// while at least one step was blocked — drives the throttled
+        /// ladder-block log above.</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, int> _ladderBlockTicks
+            = new System.Collections.Generic.Dictionary<Faction, int>();
 
         // ─────────────────────────────────────────────────────────────
         // ENDGAME RESEARCH SWEEP (era 2+)
@@ -2417,6 +2568,11 @@ namespace TheWaningBorder.AI
             // affordable unresearched step, it keeps the wallet (era 2 only —
             // from era 3 the sweep runs regardless).
             if (era < 3 && LadderHasAffordableStep(em, faction)) return;
+
+            // Pivotal savings hold: the sweep is a steady discretionary
+            // drain (a tech every ~20 s) — it waits while the faction saves
+            // toward a Temple level / King's Court unique.
+            if (AIPivotalReserve.ShouldHold(em, faction)) return;
 
             var research = FactionResearchState.Instance;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
@@ -2555,6 +2711,46 @@ namespace TheWaningBorder.AI
             return true;
         }
 
+        /// <summary>Ticks a King's Court unique has been blocked, per
+        /// faction — drives the throttled block log below.</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, int> _uniqueBlockTicks
+            = new System.Collections.Generic.Dictionary<Faction, int>();
+
+        /// <summary>Train a King's Court pivotal unique (Ledger / King
+        /// Lexor). Deliberately NOT budget-windowed: a 600-supply one-off
+        /// starves inside the Advancement window's weighted share, and the
+        /// HeroTrainLimit caller-side gate already makes this a one-time
+        /// spend. Every silent pre-flight failure surfaces in the log about
+        /// once a minute with its reason (2026-08-11: the hero never
+        /// trained and the log could not say why).</summary>
+        private static void TryTrainPivotalUnique(EntityManager em, Faction faction, string unitId)
+        {
+            if (TryTrainUnitWithReason(em, faction, unitId, out string reason))
+            {
+                _uniqueBlockTicks.Remove(faction);
+                AIPivotalReserve.Clear(faction, unitId);
+                AILogger.Log(faction, "MILITARY", $"King's Court: queued {unitId}");
+                return;
+            }
+
+            // Bank short — reserve the cost so the discretionary spenders
+            // stop eating the lump sum (see AIPivotalReserve).
+            if (reason == "bank short"
+                && TechCatalog.TryGetUnit(unitId, out var def) && def != null)
+            {
+                AIPivotalReserve.Set(faction, unitId, ToCost(def.cost));
+            }
+
+            _uniqueBlockTicks.TryGetValue(faction, out int ticks);
+            if (++ticks >= 30)
+            {
+                ticks = 0;
+                AILogger.Log(faction, "MILITARY",
+                    $"King's Court: {unitId} blocked ~1 min ({reason})");
+            }
+            _uniqueBlockTicks[faction] = ticks;
+        }
+
         private bool TryBuildBuildingBudgeted(EntityManager em, Faction faction,
             string buildingId, AIBudgetCategory cat)
         {
@@ -2568,11 +2764,18 @@ namespace TheWaningBorder.AI
 
         private static bool TryResearchTechBudgeted(EntityManager em, Faction faction,
             string techId, AIBudgetCategory cat)
+            => TryResearchTechBudgetedWithReason(em, faction, techId, cat, out _);
+
+        private static bool TryResearchTechBudgetedWithReason(EntityManager em, Faction faction,
+            string techId, AIBudgetCategory cat, out string blockReason)
         {
-            if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null) return false;
+            blockReason = null;
+            if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null)
+            { blockReason = "no catalog def"; return false; }
             var cost = ToCost(def.cost);
-            if (!AIBudget.CanSpend(faction, cat, cost)) return false;
-            if (!TryResearchTech(em, faction, techId)) return false;
+            if (!AIBudget.CanSpend(faction, cat, cost))
+            { blockReason = $"{cat} wallet short"; return false; }
+            if (!TryResearchTechWithReason(em, faction, techId, out blockReason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;
         }
@@ -2775,6 +2978,7 @@ namespace TheWaningBorder.AI
             }
 
             float desiredRangedFrac = 0.4f;
+            bool cavHeavy = false;
             if (counterComp && em.HasBuffer<EnemySightingRecord>(brainEntity))
             {
                 var buffer = em.GetBuffer<EnemySightingRecord>(brainEntity);
@@ -2790,14 +2994,79 @@ namespace TheWaningBorder.AI
                     else if (cls == UnitClass.Ranged || cls == UnitClass.Siege) rangedStr += rec.EstStrength;
                     else meleeStr += rec.EstStrength;
                 }
-                if (cavStr * 2 > meleeStr + rangedStr) desiredRangedFrac = 0.25f;      // spear wall vs cavalry
+                cavHeavy = cavStr * 2 > meleeStr + rangedStr;
+                if (cavHeavy) desiredRangedFrac = 0.25f;                               // spear wall vs cavalry
                 else if (meleeStr > rangedStr * 3 / 2) desiredRangedFrac = 0.6f;       // shoot the melee blob
                 else if (rangedStr > meleeStr * 3 / 2) desiredRangedFrac = 0.25f;      // close the gap
             }
 
+            // Class choice as before; the unit WITHIN the class follows the
+            // age meta ladder (2026-08-11: the picker only ever returned
+            // Archer/Spearman, so the AI shipped an Age-0 army all game).
+            // Ranged: Longbowman (Range L3) > Crossbowman (L2) > Archer.
+            // Melee: Swordsman > Spearman — EXCEPT under cavalry pressure,
+            // where the spear wall is the counter and stays the pick.
+            string melee = "Spearman";
+            string ranged = "Archer";
+            if (FactionCultureOf(em, faction) == Cultures.Alanthor)
+            {
+                ranged = FirstTrainable(em, faction,
+                    "Alanthor_Longbowman", "Alanthor_Crossbowman", "Archer");
+                if (!cavHeavy)
+                    melee = FirstTrainable(em, faction,
+                        "Alanthor_Swordsman", "Spearman");
+            }
+
+            // Ranged is an Age-1 unlock (2026-08-11): with no Archery Range
+            // standing (era 1 cannot build one, or it was razed), the ranged
+            // pick has no trainer — train the melee line instead of feeding
+            // the "floor blocked" retry loop.
+            if (FindTrainerForUnit(em, faction, ranged) == Entity.Null)
+                return melee;
+
             int total = ownMelee + ownRanged;
-            if (total == 0) return "Spearman";
-            return ownRanged < total * desiredRangedFrac ? "Archer" : "Spearman";
+            if (total == 0) return melee;
+            return ownRanged < total * desiredRangedFrac ? ranged : melee;
+        }
+
+        /// <summary>First unit in <paramref name="priority"/> that has a
+        /// catalog def, a standing trainer, and an open level gate — the
+        /// "best currently trainable" resolver behind the age meta ladder.
+        /// Falls back to the last entry unconditionally.</summary>
+        private static string FirstTrainable(EntityManager em, Faction faction,
+            params string[] priority)
+        {
+            for (int i = 0; i < priority.Length - 1; i++)
+            {
+                string id = priority[i];
+                if (!TechCatalog.TryGetUnit(id, out var def) || def == null) continue;
+                Entity trainer = FindTrainerForUnit(em, faction, id);
+                if (trainer == Entity.Null) continue;
+                if (em.HasComponent<UnderConstruction>(trainer)) continue;
+                if (!CommandRouter.CanTrainAtBuilding(em, trainer, id, out _, out _)) continue;
+                return id;
+            }
+            return priority[priority.Length - 1];
+        }
+
+        /// <summary>Nearest live Sharp Crystals node — deliberately NOT
+        /// home-tethered: the single 1500-unit deposit sits wherever the map
+        /// put it, and a long walk beats zero mined veilsteel.</summary>
+        private static Entity PickNearestVeilsteel(float3 from,
+            NativeArray<Entity> ents, NativeArray<IronDepositState> states,
+            NativeArray<LocalTransform> xfs)
+        {
+            Entity best = Entity.Null;
+            float bestD2 = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (states[i].Depleted != 0) continue;
+                float dx = xfs[i].Position.x - from.x;
+                float dz = xfs[i].Position.z - from.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 < bestD2) { bestD2 = d2; best = ents[i]; }
+            }
+            return best;
         }
 
         /// <summary>Living scouts of this faction (vision pipeline health check).</summary>
@@ -3218,6 +3487,11 @@ namespace TheWaningBorder.AI
         // an old clamp from when veilstone miners were treated as a niche.
         private const int MaxVeilstoneMiners = 16;
 
+        /// <summary>Fixed crew on the veilsteel Sharp Crystals node once the
+        /// faction has aged up — two miners saturate the single finite
+        /// deposit (2026-08-11: it was never tasked at all).</summary>
+        private const int VeilsteelMinerFlowTarget = 2;
+
         // Mining stays anchored to the base: deposits within this range of
         // the home building (Hall) are "home" deposits (miners pick the
         // nearest to themselves among them, so they spread). Only when NO home deposit
@@ -3301,6 +3575,28 @@ namespace TheWaningBorder.AI
             using var outcroppingStates = outcroppingQuery.ToComponentDataArray<VeilstoneOutcroppingState>(Allocator.Temp);
             using var outcroppingTransforms = outcroppingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
+            // VEILSTEEL (2026-08-11): the Sharp Crystals node was never
+            // tasked — the Smelter fleet was the only veilsteel source while
+            // a 1500-unit deposit sat untouched on the map. Deposits reuse
+            // IronDepositState (fixed amount, mined until gone).
+            var veilsteelQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<VeilsteelDepositTag>(),
+                ComponentType.ReadOnly<IronDepositState>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var veilsteelEnts = veilsteelQuery.ToEntityArray(Allocator.Temp);
+            using var veilsteelStates = veilsteelQuery.ToComponentDataArray<IronDepositState>(Allocator.Temp);
+            using var veilsteelTransforms = veilsteelQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            bool anyVeilsteel = false;
+            for (int i = 0; i < veilsteelStates.Length; i++)
+                if (veilsteelStates[i].Depleted == 0) { anyVeilsteel = true; break; }
+
+            // Veilsteel mining is aged-up behaviour — the node usually sits
+            // far from the base, and an Age-0 economy has no veilsteel sink.
+            bool agedUp = false;
+            if (FactionEconomy.TryGetBank(em, faction, out var eraBank)
+                && em.HasComponent<FactionEra>(eraBank))
+                agedUp = em.GetComponentData<FactionEra>(eraBank).Value >= 2;
+
             bool anyIron = HasAnyIron(ironStates);
             bool anyVeilstoneOutcropping = HasAnyVeilstoneOutcropping(outcroppingStates);
 
@@ -3342,7 +3638,7 @@ namespace TheWaningBorder.AI
             }
 
             bool anyVeilSource = anyVeilstoneOutcropping || anyVeilCrust;
-            if (!anyIron && !anyVeilSource) return;
+            if (!anyIron && !anyVeilSource && !anyVeilsteel) return;
 
             // Snapshot this faction's miners.
             var minerQuery = em.CreateEntityQuery(
@@ -3357,6 +3653,7 @@ namespace TheWaningBorder.AI
 
             int totalMiners = 0;
             int crystalMiners = 0;
+            int veilsteelMiners = 0;
             var idleMiners = new System.Collections.Generic.List<(Entity ent, float3 pos)>();
 
             for (int i = 0; i < minerEntities.Length; i++)
@@ -3365,6 +3662,7 @@ namespace TheWaningBorder.AI
                 totalMiners++;
                 var ms = minerStates[i];
                 if (ms.GatheringResource == 1) crystalMiners++;
+                if (ms.GatheringResource == 2) veilsteelMiners++;
                 // Idle = not currently moving/mining/returning AND not already
                 // commanded (no GatherCommand pending). Skipping miners that
                 // already hold a GatherCommand prevents reissuing every tick.
@@ -3400,6 +3698,21 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < idleMiners.Count; i++)
             {
                 var (miner, minerPos) = idleMiners[i];
+
+                // VEILSTEEL first: keep the Sharp Crystals node worked with a
+                // small fixed crew once aged up (the walk is long and the
+                // node is finite — two miners saturate it).
+                if (agedUp && anyVeilsteel && veilsteelMiners < VeilsteelMinerFlowTarget)
+                {
+                    Entity vsTarget = PickNearestVeilsteel(minerPos,
+                        veilsteelEnts, veilsteelStates, veilsteelTransforms);
+                    if (vsTarget != Entity.Null)
+                    {
+                        GatherCommandHelper.Execute(em, miner, vsTarget);
+                        veilsteelMiners++;
+                        continue;
+                    }
+                }
 
                 // Prefer veilstone until the AI hits its target count, but only
                 // if a source is actually available. Otherwise send to iron.

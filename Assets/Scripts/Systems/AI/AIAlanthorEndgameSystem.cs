@@ -51,13 +51,14 @@
 //      enemy unit within FleeRadius, issue a MoveCommand toward the
 //      nearest own Hall. Cooldowned per-worker so we don't spam orders.
 //
-// Walls: the wall doctrine (phase 6b) flanks the enemy-approach
-// chokepoint with a hub pair, or — when no chokepoint qualifies —
-// grows a hub ring around the Hall (segments created explicitly since
-// WallAutoSegmentSystem is [DisableAutoCreation]). Wall Tower / Gate
-// CONVERSIONS stay with WallUpgradeSystem and are NOT driven from here
-// (future work, along with gating the ring so it doesn't wall in the
-// AI's own army).
+// Walls: the wall doctrine (phase 6b) executes a frozen AIWallPlanner
+// plan — terrain-sheltered bases seal their ingress corridors wall-to-
+// wall (gate in the middle, towers on the ends), open bases enclose the
+// building cluster in a large square-ish perimeter with a gate facing
+// each cardinal direction and towers on corners and gate shoulders.
+// Segments are created explicitly since WallAutoSegmentSystem is
+// [DisableAutoCreation]; gate conversion rides IssueConvertSegmentToGate
+// and tower conversion mirrors the player's per-instance path.
 // Sect aura/passive effects are applied automatically by their dedicated
 // systems once a chapel is adopted; nothing for the AI to do there.
 //
@@ -108,19 +109,25 @@ namespace TheWaningBorder.AI
         // bookkeeping elsewhere; we just react to it.
         private const int LossesBeforeDefensiveFlip = 2;
 
-        // Alanthor-cluster sect priority (best-first). IMPLEMENTED sects
-        // lead (2026-07-12: the old order started with Fortitude/Antiquity/
-        // Reclamation — all rejected by the SectConfig.IsImplemented rollout
-        // gate, so the AI adopted at most ONE sect and rarely fired a power).
-        // The flavor picks stay at the tail for when their kits land.
+        // Sect adoption priority (best-first for a defensive economic
+        // culture). ALL 12 sects are adoptable since 2026-08-11 — the Temple
+        // caps at 6 chapels and RP is finite, so this order IS the strategy:
+        // the home cluster's defense/eco kits lead, high-value cross-cluster
+        // powers follow, pure aggression flavor sits at the tail.
         private static readonly string[] AlanthorSectPriority =
         {
-            SectConfig.Renewal,      // implemented — auto-repair fits defense
-            SectConfig.Justice,      // implemented — support cleanse
-            SectConfig.War,          // implemented — smite + elite unit
-            SectConfig.Fortitude,    // pending kit
-            SectConfig.Antiquity,    // pending kit
-            SectConfig.Reclamation,  // pending kit
+            SectConfig.Renewal,      // heal circle + hp lever — defense core
+            SectConfig.Fortitude,    // armor circle + melee armor — the wall behind the wall
+            SectConfig.Justice,      // reveal + global damage lever
+            SectConfig.Antiquity,    // Lorekeeper + Reliquary intel hub
+            SectConfig.Reclamation,  // miner armor + heal — the economy insurance
+            SectConfig.Veneration,   // damage circle on the garrison
+            SectConfig.War,          // speed surge + Warbreaker shock elite
+            SectConfig.Witness,      // wide reveal — scout redundancy
+            SectConfig.Silence,      // ranged damage lever
+            SectConfig.Ash,          // burning ground
+            SectConfig.Ruin,         // smite + siege lever
+            SectConfig.Wrath,        // pyre — pure aggression flavor
         };
 
         // All 12 sects — for the Active-Power firing pass (sect adoption is
@@ -276,11 +283,17 @@ namespace TheWaningBorder.AI
                 // domination), and the Shardroot if the well is the host.
                 TryPurifyWells(faction, em, hallPos);
 
+                // Pivotal savings hold (AIPivotalReserve): while the faction
+                // saves toward a Temple level / King's Court unique, the
+                // discretionary passes below skip their spends. The verbs
+                // (temple, purify, sects) and worker flee always run.
+                bool saving = AIPivotalReserve.ShouldHold(em, faction);
+
                 // ─── 4c/4d. Expansion targets ─────────────────────────
                 // Once the Age-2 core stands: Smelters toward the 5-cap
                 // (one foundation at a time), then Huts toward 8 Houses.
                 // One foundation per think tick across the two passes.
-                if (!ladderBusy && !TryExpandSmelters(faction, em, hallPos))
+                if (!saving && !ladderBusy && !TryExpandSmelters(faction, em, hallPos))
                     TryBuildHouses(faction, em, hallPos);
 
                 // ─── 6. Tower doctrine ────────────────────────────────
@@ -289,16 +302,24 @@ namespace TheWaningBorder.AI
                 // toward the known threat with chokepoint preference and
                 // anti-clump spacing — from era-2 start, budget by
                 // difficulty (no more 4-in-a-row ring spam at minute 5).
-                TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
+                if (!saving)
+                    TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
 
                 // ─── 6b. Wall doctrine ────────────────────────────────
-                // Chokepoint hub pair, else base ring — endgame only (the
-                // ladder keeps priority on the bank while it is building).
-                if (!ladderBusy)
+                // Terrain-aware plan execution — endgame only (the ladder
+                // keeps priority on the bank while it is building).
+                if (!saving && !ladderBusy)
                     TryBuildWallDefenses(faction, em, entity, hallPos);
 
                 // ─── 7. Armoured-unit production ──────────────────────
-                TryQueueArmouredUnits(faction, em);
+                if (!saving)
+                    TryQueueArmouredUnits(faction, em);
+
+                // ─── 7b. Sect chapel units ────────────────────────────
+                // Every adopted sect's chapel keeps its unique unit in
+                // play (docs/Design/Sect_Units.md; cap 2 per sect).
+                if (!saving)
+                    TryTrainSectUnits(faction, em);
 
                 // ─── 8. Worker flee ───────────────────────────────────
                 HandleWorkerFlee(faction, em, hallPos, time);
@@ -377,6 +398,9 @@ namespace TheWaningBorder.AI
                     case SectActivePowerKind.SmiteCircle:
                     case SectActivePowerKind.BurningCircle:
                     case SectActivePowerKind.SpawnPyre:
+                    // Recall the Codex (Antiquity): freezing enemy cooldowns
+                    // is an offensive cast — same cluster targeting.
+                    case SectActivePowerKind.FreezeCooldowns:
                         haveTarget = TryPickEnemyClusterNearBase(em, faction, hallPos, spec.Radius, out target);
                         break;
                     case SectActivePowerKind.HealCircle:
@@ -419,12 +443,16 @@ namespace TheWaningBorder.AI
             const float scanRadius = 80f;
             float scanRadiusSq = scanRadius * scanRadius;
 
-            // Snapshot enemy positions within scan radius.
+            // Snapshot enemy positions within scan radius. PLAYER enemies
+            // only (2026-08-11): offensive powers were burning their 60-150 s
+            // cooldowns on Border creature clusters at the wells — curse
+            // critters respawn from the node, so the smite bought nothing.
             var enemyPositions = new NativeList<float3>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
-                if (em.GetComponentData<FactionTag>(e).Value == faction) continue;
+                var fac = em.GetComponentData<FactionTag>(e).Value;
+                if (fac == faction || fac == Faction.Border) continue;
                 if (em.GetComponentData<Health>(e).Value <= 0) continue;
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
@@ -432,7 +460,11 @@ namespace TheWaningBorder.AI
                 enemyPositions.Add(p);
             }
 
-            if (enemyPositions.Length == 0) { enemyPositions.Dispose(); return false; }
+            if (enemyPositions.Length == 0)
+            {
+                enemyPositions.Dispose();
+                return TryPickEnemyBuildingNearBase(em, faction, hallPos, out target);
+            }
 
             // Pick the densest cluster: for each candidate enemy, count
             // how many other enemies are within castRadius; pick the
@@ -453,11 +485,51 @@ namespace TheWaningBorder.AI
                 if (count > bestCount) { bestCount = count; bestIdx = i; }
             }
 
-            // Need at least 3 units in the cluster to justify a 60-150s cd power.
-            if (bestCount < 3) { enemyPositions.Dispose(); return false; }
+            // Need at least 3 units in the cluster to justify a 60-150s cd
+            // power — with no such cluster, fall back to the nearest enemy
+            // PLAYER building (smite damages structures since 2026-08-11).
+            if (bestCount < 3)
+            {
+                enemyPositions.Dispose();
+                return TryPickEnemyBuildingNearBase(em, faction, hallPos, out target);
+            }
             target = enemyPositions[bestIdx];
             enemyPositions.Dispose();
             return true;
+        }
+
+        /// <summary>Nearest enemy PLAYER building within the base scan
+        /// radius — the offensive-power fallback target. Walls are skipped
+        /// (siege-only per Combat_Pacing.md, smite cannot hurt them) and so
+        /// is anything Border-owned (wells are verb objectives).</summary>
+        private static bool TryPickEnemyBuildingNearBase(
+            EntityManager em, Faction faction, float3 hallPos, out float3 target)
+        {
+            target = default;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<Health>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+
+            const float scanRadius = 80f;
+            float bestD2 = scanRadius * scanRadius;
+            bool found = false;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                var fac = em.GetComponentData<FactionTag>(e).Value;
+                if (fac == faction || fac == Faction.Border) continue;
+                if (em.GetComponentData<Health>(e).Value <= 0) continue;
+                if (em.HasComponent<WallTag>(e)) continue;
+                if (em.HasComponent<UnderConstruction>(e)) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 < bestD2) { bestD2 = d2; target = p; found = true; }
+            }
+            return found;
         }
 
         // Pick the centroid of our largest army group within ~120 m of the
@@ -715,27 +787,57 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        /// <summary>Level the Temple toward max on the Advancement budget —
-        /// era progression, sect levers, and (at max) the Holy Scholar all
-        /// hang off it. One attempt per think tick; the cost is spent by the
-        /// caller (TempleUpgradeCommandDirect never touches the bank).</summary>
+        /// <summary>Ticks the Temple ladder has been bank-blocked, per
+        /// faction — drives the throttled stall log below.</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, int> _templeBlockTicks
+            = new System.Collections.Generic.Dictionary<Faction, int>();
+
+        /// <summary>Level the Temple toward max — era progression, sect
+        /// levers, and (at L3) the Holy Scholar all hang off it, and the
+        /// Scholar is the faction's well verb, i.e. the victory path.
+        /// Deliberately NOT budget-windowed (2026-08-11): the 500-1200
+        /// supply single spends starved inside the Advancement window's
+        /// weighted share — one L2 upgrade happened across four AIs in a
+        /// 35-minute match, so no Temple ever hit L3, no Scholar ever
+        /// trained, and no ritual was EVER attempted. Bank-affordability
+        /// still gates. One attempt per think tick.</summary>
         private static void TryLevelTemple(Faction faction, EntityManager em)
         {
             Entity temple = FindFactionBuilding<TempleOfRidanTag>(em, faction);
-            if (temple == Entity.Null) return;
-            if (em.HasComponent<UnderConstruction>(temple)) return;
-            if (!em.HasComponent<TempleLevel>(temple)) return;
-            if (em.HasComponent<TempleUpgradeState>(temple)) return;
+            if (temple == Entity.Null
+                || !em.HasComponent<TempleLevel>(temple)
+                || em.HasComponent<UnderConstruction>(temple)
+                || em.HasComponent<TempleUpgradeState>(temple)
+                || em.GetComponentData<TempleLevel>(temple).Level >= TempleLevelConfig.MaxLevel)
+            {
+                // No fundable goal right now — never hold the economy for it.
+                AIPivotalReserve.Clear(faction, "Temple");
+                return;
+            }
 
             int level = em.GetComponentData<TempleLevel>(temple).Level;
-            if (level >= TempleLevelConfig.MaxLevel) return;
-
             var cost = TempleLevelConfig.GetUpgradeCost(level);
-            if (!TheWaningBorder.AI.AIBudget.CanSpend(faction,
-                    TheWaningBorder.AI.AIBudgetCategory.Advancement, cost)) return;
-            if (!FactionEconomy.Spend(em, faction, cost)) return;
-            TheWaningBorder.AI.AIBudget.RecordSpend(faction,
-                TheWaningBorder.AI.AIBudgetCategory.Advancement, cost);
+            if (!FactionEconomy.Spend(em, faction, cost))
+            {
+                // Bank short — RESERVE the cost so discretionary spending
+                // holds until the lump sum forms (2026-08-11: supplies were
+                // consumed the tick they arrived, so 500s never accumulated
+                // and the Temple sat at L1 for the whole match), and surface
+                // the stall about once a minute.
+                AIPivotalReserve.Set(faction, "Temple", cost);
+                _templeBlockTicks.TryGetValue(faction, out int ticks);
+                if (++ticks >= 12)
+                {
+                    ticks = 0;
+                    AILogger.Log(faction, "BUILDING",
+                        $"Temple L{level + 1} blocked ~1 min (bank short: " +
+                        $"{cost.Supplies}s {cost.Iron}i {cost.Veilstone}v)");
+                }
+                _templeBlockTicks[faction] = ticks;
+                return;
+            }
+            _templeBlockTicks.Remove(faction);
+            AIPivotalReserve.Clear(faction, "Temple");
 
             CommandRouter.IssueTempleUpgrade(em, temple, CommandSource.AI);
             AILogger.Log(faction, "BUILDING", $"Temple upgrading to L{level + 1}");
@@ -1220,60 +1322,99 @@ namespace TheWaningBorder.AI
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // 6b. WALL DOCTRINE (chokepoint pair, else base ring)
+        // 6b. WALL DOCTRINE (terrain-aware: seal chokepoints, else enclose
+        //     the base in a large square-ish perimeter)
         // ──────────────────────────────────────────────────────────────────
         //
-        // Two modes:
-        //   * CHOKEPOINT — reuse the tower doctrine's corridor scan; when a
-        //     sub-threshold corridor sits on the enemy approach near the
-        //     base, drop TWO wall hubs flanking it (kept within
-        //     MaxAutoSegmentDistance) and span the connecting segment
-        //     explicitly. WallAutoSegmentSystem is [DisableAutoCreation], so
-        //     segments never auto-form — this mirrors the player's per-hub
-        //     Build Wall action (BuilderCommandPanel.SpawnExtendedWallHub).
-        //   * RING — when no chokepoint qualifies, grow a hub ring around
-        //     the Hall (radius WallRingRadius, slots spaced at 0.9x
-        //     MaxAutoSegmentDistance so neighbours always link), one hub per
-        //     think tick, skipping slots that fail placement, until the ring
-        //     closes or MaxWallHubs stand.
+        // The doctrine follows the player thought process: "Am I sheltered
+        // by terrain? Does ingress mean going through chokepoints? If yes,
+        // wall off and fortify the chokepoints. If not, wall a LARGE
+        // square-ish area around what's important and push from there."
+        //
+        // AIWallPlanner runs the terrain-only shelter scan ONCE when the
+        // doctrine first ticks and freezes the resulting plan (mode + hub
+        // slot list with gate/tower flags) on the brain entity. Every think
+        // tick afterwards executes one action from the plan:
+        //   1. place the next missing hub (linking it to in-range friendly
+        //      hubs — that stitching closes lines and perimeter loops);
+        //   2. convert a finished gate-flagged segment to a Gate
+        //      (gates auto-open for friendlies, so the enclosure never
+        //      walls in the AI's own army; perimeter gates sit at the four
+        //      side midpoints — one facing each cardinal direction);
+        //   3. convert the wall instance at a tower-flagged slot (corners,
+        //      line ends, gate shoulders) to a Wall Tower.
         //
         // Wall placement has no lockstep command yet — the player panel also
         // places hubs/segments with direct EM calls, so the AI mirrors that
-        // (parity; multiplayer wall replication is future work).
-        // FUTURE WORK: convert a ring segment to a Gate so the closed ring
-        // doesn't wall in the AI's own army, and drive wall Tower/Gate
-        // conversions — those stay with WallUpgradeSystem, deliberately NOT
-        // rebuilt here (the hubs also join the AIBuildingUpgradeSystem
-        // rotation for the day a wall level ladder ships).
+        // (parity; multiplayer wall replication is future work). Gate
+        // conversion rides the replicating CommandRouter entry point; tower
+        // conversion mirrors ActionsPanelBinder's direct-EM path.
 
-        /// <summary>Hard cap on doctrine-built wall hubs per faction.</summary>
-        private const int MaxWallHubs = 16;
-
-        /// <summary>Base-ring radius (m) for the fallback wall ring.</summary>
-        private const float WallRingRadius = 34f;
-
-        /// <summary>A chokepoint with a friendly hub within this range counts
-        /// as already walled — the pair is placed exactly once.</summary>
-        private const float WallChokeHandledRadius = 12f;
-
-        /// <summary>Chokepoint scan cap for walls — "near the base".</summary>
-        private const float WallChokeMaxDistance = 60f;
+        /// <summary>Hard cap on doctrine-built wall hubs per faction —
+        /// sized for a full max-extent perimeter (4 x 124 m / 12.5 m).</summary>
+        private const int MaxWallHubs = 40;
 
         /// <summary>Hub / instance self-build time — mirrors
         /// BuilderCommandPanel.WallExtendBuildSeconds (30 s, AutoConstructTag,
         /// no builder dispatched).</summary>
         private const float WallHubBuildSeconds = 30f;
 
-        /// <summary>A ring slot with a friendly hub within this range counts
+        /// <summary>A plan slot with a friendly hub within this range counts
         /// as filled.</summary>
         private const float WallSlotOccupiedRadius = 5f;
+
+        /// <summary>Link radius for stitching a fresh hub to its plan
+        /// neighbours — covers the plan's 30 m spacing plus nudge tolerance.
+        /// Segments span any length (CreateSegment tiles 3 m modules); the
+        /// 16 m WallAutoSegmentSystem constant is that DISABLED system's
+        /// auto-link rule, not a segment limit, so it does not bound this.
+        /// Kept under 2x HubSpacing so the wall never links across a dead
+        /// slot's hole (that hole is deliberate — usually a mountain).</summary>
+        private const float WallLinkRadius = AIWallPlanner.HubSpacing + 3f;
 
         private static void TryBuildWallDefenses(Faction faction, EntityManager em,
             Entity brainEntity, float3 hallPos)
         {
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) return;
+            // ── Plan once, then execute forever. ──
+            if (!em.HasComponent<AIWallPlan>(brainEntity))
+            {
+                var planned = new NativeList<AIWallPlanSlot>(Allocator.Temp);
+                byte mode = AIWallPlanner.BuildPlan(em, faction, hallPos, planned,
+                    out string why);
+                int gates = 0, towers = 0;
+                for (int i = 0; i < planned.Length; i++)
+                {
+                    if ((planned[i].Flags & AIWallPlanner.FlagGateAfter) != 0) gates++;
+                    if ((planned[i].Flags & AIWallPlanner.FlagTower) != 0) towers++;
+                }
+                em.AddComponentData(brainEntity, new AIWallPlan { Mode = mode });
+                var buf = em.AddBuffer<AIWallPlanSlot>(brainEntity);
+                for (int i = 0; i < planned.Length; i++) buf.Add(planned[i]);
+                int slotCount = planned.Length;
+                planned.Dispose();
 
-            // Snapshot own hubs once (cap check, handled checks, link targets).
+                string modeName = mode switch
+                {
+                    AIWallPlanner.ModeNone => "fully sheltered, no walls needed",
+                    AIWallPlanner.ModeChokepoints => "seal chokepoints",
+                    _ => "perimeter around the base",
+                };
+                AILogger.Log(faction, "BUILDING",
+                    $"Alanthor walls: plan = {modeName} " +
+                    $"({slotCount} hubs, {gates} gates, {towers} towers; {why})");
+                return; // build from the next tick
+            }
+
+            var plan = em.GetComponentData<AIWallPlan>(brainEntity);
+            if (plan.Mode == AIWallPlanner.ModeNone) return;
+            if (!em.HasBuffer<AIWallPlanSlot>(brainEntity)) return;
+
+            // Snapshot the slots — hub placement below is structural and
+            // would invalidate a live buffer handle.
+            var slots = em.GetBuffer<AIWallPlanSlot>(brainEntity)
+                .ToNativeArray(Allocator.Temp);
+
+            // Own hubs, snapshotted once (occupancy checks, link targets).
             var hubEntities = new NativeList<Entity>(Allocator.Temp);
             var hubPositions = new NativeList<float3>(Allocator.Temp);
             {
@@ -1294,157 +1435,295 @@ namespace TheWaningBorder.AI
 
             try
             {
-                if (hubEntities.Length >= MaxWallHubs) return;
+                // One action per think tick, in priority order.
+                if (hubEntities.Length < MaxWallHubs
+                    && TryPlacePlannedHub(faction, em, brainEntity, slots,
+                        hubEntities, hubPositions))
+                    return;
 
-                int2 hubSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
+                if (TryConvertPlannedGate(faction, em, slots, hubEntities, hubPositions))
+                    return;
 
-                // ── CHOKEPOINT MODE ──
-                GetThreatHint(em, brainEntity, out float3 threatHint);
-                float3 dir = threatHint - hallPos;
-                dir.y = 0f;
-                float len = math.length(dir);
-                if (len >= 20f)
-                {
-                    dir /= len;
-                    float3 perp = new float3(-dir.z, 0f, dir.x);
-                    float maxWalk = math.min(len - 10f, WallChokeMaxDistance);
-                    if (TryFindApproachChokepoint(hallPos, dir, perp, maxWalk,
-                            out float3 chokePos, out float3 chokeSide, out _))
-                    {
-                        // Already walled? Then the chokepoint doctrine is done
-                        // (the ring is the no-chokepoint answer, not a follow-up).
-                        for (int i = 0; i < hubPositions.Length; i++)
-                        {
-                            float dx = hubPositions[i].x - chokePos.x;
-                            float dz = hubPositions[i].z - chokePos.z;
-                            if (dx * dx + dz * dz
-                                <= WallChokeHandledRadius * WallChokeHandledRadius)
-                                return;
-                        }
-
-                        TryPlaceChokepointWallPair(faction, em, chokePos, chokeSide,
-                            hubSize, hubCost);
-                        return;
-                    }
-                }
-
-                // ── RING MODE ──
-                TryPlaceRingWallHub(faction, em, hallPos, hubSize, hubCost,
-                    hubEntities, hubPositions);
+                TryConvertPlannedTower(faction, em, slots);
             }
             finally
             {
+                slots.Dispose();
                 hubEntities.Dispose();
                 hubPositions.Dispose();
             }
         }
 
-        /// <summary>Place the two flanking hubs across a corridor and span
-        /// the segment between them. Pays the hub cost twice; the segment +
-        /// instances ride free (matches the player's Build Wall bundling).</summary>
-        private static void TryPlaceChokepointWallPair(Faction faction, EntityManager em,
-            float3 chokePos, float3 chokeSide, int2 hubSize, Cost hubCost)
+        /// <summary>Index of the first hub within <paramref name="radius"/>
+        /// of <paramref name="pos"/>, or -1.</summary>
+        private static int FindHubNear(NativeList<float3> hubPositions, float3 pos,
+            float radius)
         {
-            var pairCost = new Cost
+            float r2 = radius * radius;
+            for (int h = 0; h < hubPositions.Length; h++)
             {
-                Supplies  = hubCost.Supplies * 2,
-                Iron      = hubCost.Iron * 2,
-                Veilstone = hubCost.Veilstone * 2,
-                Veilsteel = hubCost.Veilsteel * 2,
-            };
-            if (!FactionEconomy.CanAfford(em, faction, pairCost)) return;
-
-            // Flank offsets: stay inside the corridor walls and keep the pair
-            // within MaxAutoSegmentDistance (16 m) so ONE segment spans it.
-            float left  = ClearanceAlong(chokePos, chokeSide, 14f);
-            float right = ClearanceAlong(chokePos, -chokeSide, 14f);
-            float offA = math.clamp(left - 1.5f, 2f, 7.5f);
-            float offB = math.clamp(right - 1.5f, 2f, 7.5f);
-
-            // The exact scan point may be unbuildable — nudge the pair along
-            // the corridor axis until both ends place.
-            float3 axis = new float3(chokeSide.z, 0f, -chokeSide.x);
-            float[] nudges = { 0f, 4f, -4f, 8f, -8f };
-            for (int n = 0; n < nudges.Length; n++)
-            {
-                float3 center = chokePos + axis * nudges[n];
-                float3 posA = center + chokeSide * offA;
-                float3 posB = center - chokeSide * offB;
-                posA.y = TerrainUtility.GetHeight(posA.x, posA.z);
-                posB.y = TerrainUtility.GetHeight(posB.x, posB.z);
-                if (!BuildCommandHelper.IsValidBuildPosition(em, posA, hubSize)) continue;
-                if (!BuildCommandHelper.IsValidBuildPosition(em, posB, hubSize)) continue;
-
-                if (!FactionEconomy.Spend(em, faction, pairCost)) return;
-                Entity hubA = PlaceAutoBuildWallHub(em, posA, faction);
-                Entity hubB = PlaceAutoBuildWallHub(em, posB, faction);
-                ConnectWallHubs(em, hubA, hubB, faction);
-                AILogger.Log(faction, "BUILDING",
-                    $"Alanthor walls: chokepoint pair at ({center.x:F0},{center.z:F0})");
-                return;
+                float dx = hubPositions[h].x - pos.x, dz = hubPositions[h].z - pos.z;
+                if (dx * dx + dz * dz <= r2) return h;
             }
+            return -1;
         }
 
-        /// <summary>Fill the next empty base-ring slot with a hub and link it
-        /// to every friendly hub in segment range (normally the two ring
-        /// neighbours) — that linking is what closes the ring. One hub per
-        /// think tick.</summary>
-        private static void TryPlaceRingWallHub(Faction faction, EntityManager em,
-            float3 hallPos, int2 hubSize, Cost hubCost,
+        /// <summary>Unit direction along the plan chain at slot i — the
+        /// nudge axis when the exact slot point is unbuildable.</summary>
+        private static float3 ChainDirAt(NativeArray<AIWallPlanSlot> slots, int i)
+        {
+            int j = (i + 1 < slots.Length && slots[i + 1].Chain == slots[i].Chain) ? i + 1
+                  : (i > 0 && slots[i - 1].Chain == slots[i].Chain) ? i - 1 : i;
+            if (j == i) return new float3(1f, 0f, 0f);
+            float3 d = slots[math.max(i, j)].Position - slots[math.min(i, j)].Position;
+            d.y = 0f;
+            float len = math.length(d);
+            return len > 0.01f ? d / len : new float3(1f, 0f, 0f);
+        }
+
+        /// <summary>Place the first missing plan hub and link it to every
+        /// friendly hub within <see cref="WallLinkRadius"/> (plan neighbours
+        /// sit at HubSpacing, so the chain stitches itself and the perimeter
+        /// loop closes on the last slot). Slots that fail placement even
+        /// after nudging are marked dead. Returns true when a hub was placed
+        /// this tick.</summary>
+        private static bool TryPlacePlannedHub(Faction faction, EntityManager em,
+            Entity brainEntity, NativeArray<AIWallPlanSlot> slots,
             NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
         {
-            if (!FactionEconomy.CanAfford(em, faction, hubCost)) return;
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) return false;
+            int2 hubSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
+            const float maxLink = WallLinkRadius;
 
-            const float maxLink = TheWaningBorder.Systems.Buildings
-                .WallAutoSegmentSystem.MaxAutoSegmentDistance;
+            int live = 0, filled = 0;
+            for (int i = 0; i < slots.Length; i++)
+                if ((slots[i].Flags & AIWallPlanner.FlagDead) == 0)
+                {
+                    live++;
+                    if (FindHubNear(hubPositions, slots[i].Position,
+                            WallSlotOccupiedRadius) >= 0) filled++;
+                }
 
-            // Slot count sized so neighbouring slots sit within segment range
-            // (0.9 safety factor on the arc length).
-            int slots = (int)math.ceil(2f * math.PI * WallRingRadius / (maxLink * 0.9f));
-
-            for (int i = 0; i < slots; i++)
+            for (int i = 0; i < slots.Length; i++)
             {
-                float ang = (i / (float)slots) * 2f * math.PI;
-                float3 pos = hallPos + new float3(
-                    math.cos(ang) * WallRingRadius, 0f, math.sin(ang) * WallRingRadius);
-                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                var slot = slots[i];
+                if ((slot.Flags & AIWallPlanner.FlagDead) != 0) continue;
+                if (FindHubNear(hubPositions, slot.Position,
+                        WallSlotOccupiedRadius) >= 0) continue;
 
-                // Slot already filled?
-                bool occupied = false;
-                for (int h = 0; h < hubPositions.Length; h++)
+                // Wait for the bank rather than skipping ahead — the wall
+                // grows in chain order so partial lines stay contiguous.
+                if (!FactionEconomy.CanAfford(em, faction, hubCost)) return false;
+
+                // Nudge candidates: PERPENDICULAR slides lead (2026-08-11,
+                // Green's half wall: a rock on the line killed the middle
+                // slot because along-chain nudges walked straight back into
+                // it; sliding sideways clears a rock while keeping the
+                // neighbour spacing inside the link radius).
+                float3 chainDir = ChainDirAt(slots, i);
+                float3 perp = new float3(-chainDir.z, 0f, chainDir.x);
+                var nudges = new float3[]
                 {
-                    float dx = hubPositions[h].x - pos.x, dz = hubPositions[h].z - pos.z;
-                    if (dx * dx + dz * dz
-                        <= WallSlotOccupiedRadius * WallSlotOccupiedRadius)
-                    { occupied = true; break; }
-                }
-                if (occupied) continue;
-
-                // Skip slots that fail placement (rocks, buildings, veil crust).
-                if (!BuildCommandHelper.IsValidBuildPosition(em, pos, hubSize)) continue;
-
-                if (!FactionEconomy.Spend(em, faction, hubCost)) return;
-                Entity hub = PlaceAutoBuildWallHub(em, pos, faction);
-
-                for (int h = 0; h < hubEntities.Length; h++)
+                    float3.zero,
+                    perp * 2.5f, perp * -2.5f,
+                    chainDir * 2.5f, chainDir * -2.5f,
+                    perp * 5f, perp * -5f,
+                };
+                for (int n = 0; n < nudges.Length; n++)
                 {
-                    float dx = hubPositions[h].x - pos.x, dz = hubPositions[h].z - pos.z;
-                    if (dx * dx + dz * dz > maxLink * maxLink) continue;
-                    if (!em.Exists(hubEntities[h])) continue;
-                    if (AlanthorWall.AreHubsConnected(em, hub, hubEntities[h])) continue;
-                    ConnectWallHubs(em, hub, hubEntities[h], faction);
+                    float3 pos = slot.Position + nudges[n];
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                    if (!BuildCommandHelper.IsValidBuildPosition(em, pos, hubSize)) continue;
+
+                    if (!FactionEconomy.Spend(em, faction, hubCost)) return false;
+                    Entity hub = PlaceAutoBuildWallHub(em, pos, faction);
+                    for (int h = 0; h < hubEntities.Length; h++)
+                    {
+                        float dx = hubPositions[h].x - pos.x;
+                        float dz = hubPositions[h].z - pos.z;
+                        if (dx * dx + dz * dz > maxLink * maxLink) continue;
+                        if (!em.Exists(hubEntities[h])) continue;
+                        if (AlanthorWall.AreHubsConnected(em, hub, hubEntities[h])) continue;
+                        ConnectWallHubs(em, hub, hubEntities[h], faction);
+                    }
+                    AILogger.Log(faction, "BUILDING",
+                        $"Alanthor walls: hub {filled + 1}/{live} at ({pos.x:F0},{pos.z:F0})");
+                    return true;
                 }
 
+                // Unplaceable (veil crust / a building landed there since
+                // planning) — kill the slot so the doctrine moves on, and
+                // SAY SO: a dead slot is a hole in the wall (2026-08-11,
+                // Green's silent half wall). No structural change has
+                // happened this call, so the live buffer fetch is safe.
                 AILogger.Log(faction, "BUILDING",
-                    $"Alanthor walls: ring hub {hubEntities.Length + 1}/{math.min(slots, MaxWallHubs)}");
-                return; // one hub per think tick
+                    $"Alanthor walls: slot at ({slot.Position.x:F0},{slot.Position.z:F0}) " +
+                    "unplaceable after nudges — marked dead (HOLE in the wall line)");
+                var buf = em.GetBuffer<AIWallPlanSlot>(brainEntity);
+                var s = buf[i];
+                s.Flags |= AIWallPlanner.FlagDead;
+                buf[i] = s;
+                slots[i] = s;
             }
-            // Every slot occupied or unplaceable — the ring is as closed as
-            // the terrain allows.
+            return false;
+        }
+
+        /// <summary>Convert the segment behind each gate-flagged slot to a
+        /// Gate once both hubs stand and the wall pieces have finished
+        /// self-building. One conversion per think tick; returns true when
+        /// one was issued.</summary>
+        private static bool TryConvertPlannedGate(Faction faction, EntityManager em,
+            NativeArray<AIWallPlanSlot> slots,
+            NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
+        {
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if ((slots[i].Flags & AIWallPlanner.FlagGateAfter) == 0) continue;
+                if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+
+                // Far hub = next live slot of the same chain.
+                int j = -1;
+                for (int k = i + 1; k < slots.Length; k++)
+                {
+                    if (slots[k].Chain != slots[i].Chain) break;
+                    if ((slots[k].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                    j = k;
+                    break;
+                }
+                if (j < 0) continue;
+
+                int ha = FindHubNear(hubPositions, slots[i].Position, WallSlotOccupiedRadius);
+                int hb = FindHubNear(hubPositions, slots[j].Position, WallSlotOccupiedRadius);
+                if (ha < 0 || hb < 0) continue;
+                Entity hubA = hubEntities[ha], hubB = hubEntities[hb];
+                if (!em.Exists(hubA) || !em.Exists(hubB)) continue;
+                if (em.HasComponent<UnderConstruction>(hubA)) continue;
+                if (em.HasComponent<UnderConstruction>(hubB)) continue;
+                if (!em.HasBuffer<WallHubLink>(hubA)) continue;
+
+                Entity segment = Entity.Null;
+                var links = em.GetBuffer<WallHubLink>(hubA);
+                for (int l = 0; l < links.Length; l++)
+                    if (links[l].ConnectedHub == hubB) { segment = links[l].Segment; break; }
+                if (segment == Entity.Null || !em.Exists(segment)) continue;
+                if (em.HasComponent<WallSegmentUpgradeState>(segment)) continue; // converting
+                if (SegmentHasGate(em, segment)) continue;                       // done
+                if (SegmentUnderConstruction(em, segment)) continue;             // still rising
+
+                if (!FactionEconomy.CanAfford(em, faction,
+                        ConvertSegmentToGateCommandHelper.ConversionCost)) return false;
+                CommandRouter.IssueConvertSegmentToGate(em, segment, Entity.Null,
+                    CommandSource.AI);
+                AILogger.Log(faction, "BUILDING",
+                    $"Alanthor walls: gate conversion at " +
+                    $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");
+                return true;
+            }
+            return false;
+        }
+
+        private static bool SegmentHasGate(EntityManager em, Entity segment)
+        {
+            if (!em.HasBuffer<WallInstanceRef>(segment)) return false;
+            var insts = em.GetBuffer<WallInstanceRef>(segment);
+            for (int i = 0; i < insts.Length; i++)
+                if (em.Exists(insts[i].Instance)
+                    && em.HasComponent<WallGateTag>(insts[i].Instance))
+                    return true;
+            return false;
+        }
+
+        private static bool SegmentUnderConstruction(EntityManager em, Entity segment)
+        {
+            if (!em.HasBuffer<WallInstanceRef>(segment)) return false;
+            var insts = em.GetBuffer<WallInstanceRef>(segment);
+            for (int i = 0; i < insts.Length; i++)
+                if (em.Exists(insts[i].Instance)
+                    && em.HasComponent<UnderConstruction>(insts[i].Instance))
+                    return true;
+            return false;
+        }
+
+        /// <summary>Convert the wall instance nearest each tower-flagged
+        /// slot (corners, line ends, gate shoulders) to a Wall Tower —
+        /// mirrors ActionsPanelBinder's player path (cost + per-instance
+        /// WallUpgradeState, UpgradeType 1). One conversion per think tick.
+        /// A slot whose nearest instance already carries WallTowerTag is
+        /// done and skipped.</summary>
+        private static void TryConvertPlannedTower(Faction faction, EntityManager em,
+            NativeArray<AIWallPlanSlot> slots)
+        {
+            if (!BuildCosts.TryGet("Alanthor_WallTower", out var towerCost)) return;
+
+            var instEnts = new NativeList<Entity>(Allocator.Temp);
+            var instPos = new NativeList<float3>(Allocator.Temp);
+            {
+                var q = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<WallInstanceTag>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadOnly<LocalTransform>());
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    instEnts.Add(ents[i]);
+                    instPos.Add(xfs[i].Position);
+                }
+            }
+
+            try
+            {
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if ((slots[i].Flags & AIWallPlanner.FlagTower) == 0) continue;
+                    if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+
+                    int best = -1;
+                    float bestD2 = 8f * 8f;
+                    for (int k = 0; k < instEnts.Length; k++)
+                    {
+                        float dx = instPos[k].x - slots[i].Position.x;
+                        float dz = instPos[k].z - slots[i].Position.z;
+                        float d2 = dx * dx + dz * dz;
+                        if (d2 < bestD2) { bestD2 = d2; best = k; }
+                    }
+                    if (best < 0) continue;
+                    Entity inst = instEnts[best];
+                    if (!em.Exists(inst)) continue;
+                    if (em.HasComponent<WallTowerTag>(inst)) continue;      // done
+                    if (em.HasComponent<WallUpgradeState>(inst)) continue;  // converting
+                    if (em.HasComponent<WallGateTag>(inst)) continue;       // gate piece
+                    if (em.HasComponent<WallGateRegionTag>(inst)) continue;
+                    if (em.HasComponent<UnderConstruction>(inst)) continue; // still rising
+
+                    if (!FactionEconomy.CanAfford(em, faction, towerCost)) return;
+                    if (!FactionEconomy.Spend(em, faction, towerCost)) return;
+                    em.AddComponentData(inst, new WallUpgradeState
+                    {
+                        UpgradeType = 1,
+                        Duration = 10f,
+                        Remaining = 10f,
+                    });
+                    AILogger.Log(faction, "BUILDING",
+                        $"Alanthor walls: tower conversion at " +
+                        $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");
+                    return; // one per tick
+                }
+            }
+            finally
+            {
+                instEnts.Dispose();
+                instPos.Dispose();
+            }
         }
 
         /// <summary>Place a self-building wall hub (30 s AutoConstruct, no
-        /// builder) — mirrors BuilderCommandPanel.SpawnExtendedWallHub.</summary>
+        /// builder) — mirrors BuilderCommandPanel.SpawnExtendedWallHub.
+        /// Every hub SEALS to adjacent impassable terrain (curtain modules
+        /// across the hub-to-rock gap) so chokepoint lines cannot be
+        /// squeezed around at their ends.</summary>
         private static Entity PlaceAutoBuildWallHub(EntityManager em, float3 pos, Faction faction)
         {
             Entity hub = AlanthorWall.CreateHub(em, pos, faction);
@@ -1459,6 +1738,7 @@ namespace TheWaningBorder.AI
                 var hp = em.GetComponentData<Health>(hub);
                 em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
             }
+            AlanthorWall.SealToTerrain(em, hub, autoConstruct: true);
             return hub;
         }
 
@@ -1503,39 +1783,129 @@ namespace TheWaningBorder.AI
         // 7. ARMOURED-UNIT PRODUCTION
         // ──────────────────────────────────────────────────────────────────
 
-        // Push Cataphract / Ballista directly into the Barracks / SiegeYard
-        // TrainQueue. Same pattern SimpleAISystem uses for Age-1 units.
-        // Charges cost via FactionEconomy.Spend so we don't double-deduct.
+        // Push the armoured lines into their production buildings' queues.
+        // Same pattern SimpleAISystem uses for Age-1 units; charges cost via
+        // FactionEconomy.Spend so we don't double-deduct.
+        //   Stable    — Cataphract first (the heavy line), Outrider filler.
+        //   SiegeYard — Trebuchet when its level gate opens, else Ballista.
+        //     (Was "Alanthor_Catapult" — a UnitFactory ALIAS the TechCatalog
+        //     does not carry, so TryGetUnit failed and the AI shipped ZERO
+        //     siege in every match up to 2026-08-11. The catalog id is
+        //     "Alanthor_Ballista".)
+        // Infantry/archer lines stay with SimpleAISystem's composition
+        // picker — the Barracks queue belongs to it.
         private static void TryQueueArmouredUnits(Faction faction, EntityManager em)
         {
-            TryQueueAt<BarracksTag> (em, faction, "Alanthor_Cataphract");
-            TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Catapult");
+            if (!TryQueueAt<RoyalStableTag>(em, faction, "Alanthor_Cataphract"))
+                TryQueueAt<RoyalStableTag>(em, faction, "Alanthor_Outrider");
+            if (!TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Trebuchet"))
+                TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Ballista");
         }
 
-        private static void TryQueueAt<TBuildingTag>(EntityManager em, Faction faction, string unitId)
+        /// <summary>Alive-or-queued cap per sect for the chapel unit
+        /// (docs/Design/Sect_Units.md) — elite specialists, not a line.</summary>
+        private const int SectUnitCap = 2;
+
+        /// <summary>Train each adopted sect's unique unit at its chapel —
+        /// chapels carry a train queue from birth and are the ONLY trainer
+        /// for these (SectConfig.UnitIdFor). One queue attempt per think
+        /// tick across all chapels.</summary>
+        private static void TryTrainSectUnits(Faction faction, EntityManager em)
+        {
+            if (!TechCatalog.IsReady) return;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<ChapelTag>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                Entity chapel = ents[i];
+                if (em.HasComponent<UnderConstruction>(chapel)) continue;
+                if (!em.HasBuffer<TrainQueueItem>(chapel)) continue;
+                if (em.GetBuffer<TrainQueueItem>(chapel).Length >= MaxTrainQueue) continue;
+
+                string sectId = em.GetComponentData<ChapelTag>(chapel).SectId.ToString();
+                string unitId = SectConfig.UnitIdFor(sectId);
+                if (unitId == null) continue;
+                if (CountAliveAndQueued(em, faction, unitId) >= SectUnitCap) continue;
+                if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) continue;
+
+                var cost = ToCost(def.cost);
+                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                if (!FactionEconomy.Spend(em, faction, cost)) continue;
+                CommandRouter.IssueTrain(em, chapel, unitId, CommandSource.AI);
+                AILogger.Log(faction, "MILITARY",
+                    $"Alanthor: queued {unitId} at the {sectId.Substring(5)} chapel");
+                return; // one per tick
+            }
+        }
+
+        /// <summary>Living units of the exact type plus copies waiting in any
+        /// of this faction's train queues — the sect-unit cap check.</summary>
+        private static int CountAliveAndQueued(EntityManager em, Faction faction, string unitId)
+        {
+            int n = 0;
+            var uq = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTypeId>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<Health>());
+            using (var uEnts = uq.ToEntityArray(Allocator.Temp))
+            using (var uFacs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            {
+                for (int i = 0; i < uEnts.Length; i++)
+                {
+                    if (uFacs[i].Value != faction) continue;
+                    if (em.GetComponentData<Health>(uEnts[i]).Value <= 0) continue;
+                    if (em.GetComponentData<UnitTypeId>(uEnts[i]).Value.ToString() == unitId) n++;
+                }
+            }
+            var tq = em.CreateEntityQuery(
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<TrainQueueItem>());
+            using (var tEnts = tq.ToEntityArray(Allocator.Temp))
+            using (var tFacs = tq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            {
+                for (int i = 0; i < tEnts.Length; i++)
+                {
+                    if (tFacs[i].Value != faction) continue;
+                    var buf = em.GetBuffer<TrainQueueItem>(tEnts[i]);
+                    for (int j = 0; j < buf.Length; j++)
+                        if (buf[j].UnitId.ToString() == unitId) n++;
+                }
+            }
+            return n;
+        }
+
+        /// <summary>Returns true when the unit was queued — false on any
+        /// pre-flight failure so callers can fall back down a priority list
+        /// (e.g. Trebuchet gate closed, queue Ballista instead).</summary>
+        private static bool TryQueueAt<TBuildingTag>(EntityManager em, Faction faction, string unitId)
             where TBuildingTag : unmanaged, IComponentData
         {
             Entity trainer = FindFactionBuilding<TBuildingTag>(em, faction);
-            if (trainer == Entity.Null) return;
-            if (em.HasComponent<UnderConstruction>(trainer)) return;
-            if (!em.HasBuffer<TrainQueueItem>(trainer)) return;
-            if (em.GetBuffer<TrainQueueItem>(trainer).Length >= MaxTrainQueue) return;
+            if (trainer == Entity.Null) return false;
+            if (em.HasComponent<UnderConstruction>(trainer)) return false;
+            if (!em.HasBuffer<TrainQueueItem>(trainer)) return false;
+            if (em.GetBuffer<TrainQueueItem>(trainer).Length >= MaxTrainQueue) return false;
 
-            if (!TechCatalog.IsReady) return;
-            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return;
+            if (!TechCatalog.IsReady) return false;
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
 
             // Level gate BEFORE spending — IssueTrain drops silently for AI
             // sources, which would leak the cost.
-            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId, out _, out _)) return;
+            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId, out _, out _)) return false;
 
             var cost = ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return;
-            if (!FactionEconomy.Spend(em, faction, cost)) return;
+            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            if (!FactionEconomy.Spend(em, faction, cost)) return false;
 
             // Through CommandRouter (CommandSource.AI) so host-AI training
             // replicates — a direct queue.Add spawned units on the host only.
             CommandRouter.IssueTrain(em, trainer, unitId, CommandSource.AI);
             AILogger.Log(faction, "MILITARY", $"Alanthor: queued {unitId}");
+            return true;
         }
 
         // ──────────────────────────────────────────────────────────────────

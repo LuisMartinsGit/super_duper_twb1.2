@@ -846,6 +846,11 @@ namespace TheWaningBorder.UI.Panels
                 _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
             }
 
+            // Terrain anchor (2026-08-11): a hub dropped beside impassable
+            // terrain seals the hub-to-rock gap with curtain modules so
+            // nothing squeezes through.
+            AlanthorWall.SealToTerrain(_em, hub, autoConstruct: true);
+
             AssignBuildersToConstruction(hub, "Alanthor_Wall", pos);
         }
 
@@ -912,6 +917,9 @@ namespace TheWaningBorder.UI.Panels
                     var hp = _em.GetComponentData<Health>(hub);
                     _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
                 }
+
+                // Terrain anchor (2026-08-11): seal the hub-to-rock gap.
+                AlanthorWall.SealToTerrain(_em, hub, autoConstruct: true);
             }
 
             // Segment — CreateSegment also spawns the wall instances along the

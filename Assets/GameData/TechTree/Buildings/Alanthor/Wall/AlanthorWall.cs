@@ -278,6 +278,138 @@ namespace TheWaningBorder.Entities
             return entity;
         }
 
+        /// <summary>Max centre-to-rock distance a hub will throw a terrain
+        /// seal across. 2026-08-11: Red's finished chokepoint wall was
+        /// flanked anyway — units squeezed through the 2-4 m gap between
+        /// the end bastions and the rock face they stood against.</summary>
+        public const float TerrainSealRange = 9f;
+
+        /// <summary>
+        /// TERRAIN ANCHOR (2026-08-11): when impassable TERRAIN sits within
+        /// <see cref="TerrainSealRange"/> of the hub, span the gap with
+        /// curtain modules so nothing squeezes between the bastion and the
+        /// rock. The modules hang off a SELF-SEGMENT (WallConnection.HubA ==
+        /// HubB == the hub), so WallSegmentCleanupSystem cascades the seal
+        /// exactly like any wall piece — hub dies, seal dies; modules die,
+        /// segment dies. Seals the nearest terrain bearing only; no-op when
+        /// no terrain is in range, the footprint already touches, or the
+        /// hub already carries a seal. Call once after hub placement.
+        /// </summary>
+        public static void SealToTerrain(EntityManager em, Entity hub, bool autoConstruct)
+        {
+            var grid = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+            if (grid == null) return;
+            if (!em.Exists(hub) || !em.HasComponent<LocalTransform>(hub)) return;
+
+            // Already sealed? (self-link in the hub's link buffer)
+            if (em.HasBuffer<WallHubLink>(hub))
+            {
+                var existing = em.GetBuffer<WallHubLink>(hub);
+                for (int i = 0; i < existing.Length; i++)
+                    if (existing[i].ConnectedHub == hub) return;
+            }
+
+            float3 hubPos = em.GetComponentData<LocalTransform>(hub).Position;
+            Faction faction = em.HasComponent<FactionTag>(hub)
+                ? em.GetComponentData<FactionTag>(hub).Value : Faction.Blue;
+
+            // 16-bearing scan for the nearest terrain-blocked cell beyond
+            // the bastion footprint. Terrain only — buildings and razeable
+            // obstacles are not shelter and must not be sealed against.
+            float bestDist = float.MaxValue;
+            float3 bestDir = default;
+            for (int b = 0; b < 16; b++)
+            {
+                float ang = (b / 16f) * 2f * math.PI;
+                float3 dir = new float3(math.cos(ang), 0f, math.sin(ang));
+                for (float d = HubInset + 0.5f; d <= TerrainSealRange; d += 1f)
+                {
+                    float3 p = hubPos + dir * d;
+                    if (grid.GetCell(grid.WorldToCell(p))
+                        != TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
+                        continue;
+                    if (d < bestDist) { bestDist = d; bestDir = dir; }
+                    break; // first blocked sample decides this bearing
+                }
+            }
+            if (bestDist == float.MaxValue) return;
+
+            float start = HubInset;
+            float end = bestDist + 1f;         // overlap into the rock cell
+            float span = end - start;
+            if (span < 0.5f) return;           // footprint already touches
+
+            quaternion rot = quaternion.LookRotationSafe(bestDir, math.up());
+            float3 mid = hubPos + bestDir * (start + span * 0.5f);
+
+            // Self-segment — mirrors CreateSegment's archetype, both
+            // endpoints the placing hub.
+            var segment = em.CreateEntity(
+                typeof(LocalTransform),
+                typeof(FactionTag),
+                typeof(BuildingTag),
+                typeof(Health),
+                typeof(WallTag),
+                typeof(WallSegmentTag),
+                typeof(WallConnection)
+            );
+            em.SetComponentData(segment, LocalTransform.FromPositionRotationScale(mid, rot, 1f));
+            em.SetComponentData(segment, new FactionTag { Value = faction });
+            em.SetComponentData(segment, new BuildingTag { IsBase = 0 });
+            em.SetComponentData(segment, new Health { Value = 1, Max = 1 });
+            em.SetComponentData(segment, new WallConnection { HubA = hub, HubB = hub });
+            em.AddComponentData(segment, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            em.AddComponentData(segment, new Radius { Value = 0.1f });
+            em.AddBuffer<WallInstanceRef>(segment);
+            em.AddComponentData(segment, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = 0
+            });
+
+            // Curtain modules across the gap — collect first (CreateInstance
+            // is structural), then fill the buffer.
+            int count = math.max(1, (int)math.ceil(span / InstanceSpacing));
+            float spacing = span / count;
+            var made = new Entity[count];
+            for (int i = 0; i < count; i++)
+            {
+                float t = start + spacing * (i + 0.5f);
+                made[i] = CreateInstance(em, hubPos + bestDir * t, rot, faction, segment);
+            }
+            var buf = em.GetBuffer<WallInstanceRef>(segment);
+            for (int i = 0; i < count; i++)
+                buf.Add(new WallInstanceRef { Instance = made[i] });
+
+            // Register on the hub's link buffer (self-link) so the
+            // hub-death cascade and the seal-dedup check both see it.
+            if (em.HasBuffer<WallHubLink>(hub))
+            {
+                var links = em.GetBuffer<WallHubLink>(hub);
+                links.Add(new WallHubLink { ConnectedHub = hub, Segment = segment });
+            }
+
+            if (autoConstruct)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    var inst = made[i];
+                    if (!em.Exists(inst)) continue;
+                    em.AddComponentData(inst, new UnderConstruction
+                    {
+                        Progress = 0f,
+                        Total = 30f,
+                    });
+                    em.AddComponent<AutoConstructTag>(inst);
+                    if (em.HasComponent<Health>(inst))
+                    {
+                        var hp = em.GetComponentData<Health>(inst);
+                        em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// True if <paramref name="hubA"/> already has a <c>WallHubLink</c> entry
         /// referencing <paramref name="hubB"/>. O(N) on the link-buffer length
