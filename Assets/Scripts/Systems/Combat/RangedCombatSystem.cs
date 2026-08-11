@@ -103,6 +103,23 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
+                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
+                // damages wall pieces — a non-siege shooter refuses to loose
+                // at one even when force-ordered. Same drop contract as the
+                // melee path; the targeting pass filters walls out the same
+                // way, so the re-pick lands elsewhere.
+                if (em.HasComponent<WallTag>(tgt.Value)
+                    && (!em.HasComponent<DamageTypeData>(entity)
+                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
+                {
+                    tgt.Value = Entity.Null;
+                    if (em.HasComponent<AttackCommand>(entity))
+                    {
+                        ecb.RemoveComponent<AttackCommand>(entity);
+                    }
+                    continue;
+                }
+
                 // Fix #211: skip targets that are currently Invulnerable.
                 if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
 

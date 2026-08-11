@@ -42,5 +42,7 @@ MonoBehaviour:
   healsPerSecond: 0
   tags:
   - 'Cavalry'
-  bonusVsTags: []
+  bonusVsTags:
+  - vsTag: 'Ranged'
+    amount: 10
   presentationId: 336

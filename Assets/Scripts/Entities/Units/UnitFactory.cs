@@ -192,9 +192,34 @@ namespace TheWaningBorder.Entities
                 // Exact requested id — the generic tech-effects engine matches
                 // "unit:X" targets against this stamp.
                 em.AddComponentData(entity, new UnitTypeId { Value = unitId });
+
+                StampCounterTags(em, entity, unitId);
             }
 
             return entity;
+        }
+
+        /// <summary>
+        /// Target-side tags + attacker-side tag bonuses from the SO def,
+        /// stamped CENTRALLY so every unit participates in the counter
+        /// system (docs/Design/Combat_Pacing.md). A handful of factories
+        /// stamp the same values themselves (Spearman, the Border units) —
+        /// add-or-set semantics make that a harmless overwrite with the
+        /// same data. Before this, only the three Border factories stamped
+        /// UnitTagsData at all, so tag bonuses like the Spearman's
+        /// +15 vs Cavalry never landed on player cavalry.
+        /// </summary>
+        private static void StampCounterTags(EntityManager em, Entity entity, string unitId)
+        {
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return;
+
+            uint mask = UnitTagParse.Mask(def.tags);
+            if (mask != 0)
+                em.AddComponentData(entity, new UnitTagsData { Mask = mask });
+
+            var bonus = UnitTagParse.Bonus(def.bonusVsTags);
+            if (!bonus.IsEmpty)
+                em.AddComponentData(entity, bonus);
         }
 
         /// <summary>
@@ -238,6 +263,19 @@ namespace TheWaningBorder.Entities
             // "unit:X" targets against this stamp.
             ecb.AddComponent(entity, new UnitTypeId { Value = unitId });
 
+            // Counter-system stamps — same contract as the EM path's
+            // StampCounterTags (ECB AddComponent is add-or-set at playback).
+            if (TechCatalog.TryGetUnit(unitId, out var def) && def != null)
+            {
+                uint mask = UnitTagParse.Mask(def.tags);
+                if (mask != 0)
+                    ecb.AddComponent(entity, new UnitTagsData { Mask = mask });
+
+                var bonus = UnitTagParse.Bonus(def.bonusVsTags);
+                if (!bonus.IsEmpty)
+                    ecb.AddComponent(entity, bonus);
+            }
+
             return entity;
         }
 
@@ -249,6 +287,12 @@ namespace TheWaningBorder.Entities
         {
             return PopulationHelper.GetUnitPopulationCost(unitId);
         }
+
+        /// <summary>True when a spawn recipe exists for the unit id — the
+        /// TechTreeValidator uses this to catch catalog defs that would
+        /// spawn the default husk (trainable in UI, broken at spawn).</summary>
+        public static bool HasRecipe(string unitId)
+            => !string.IsNullOrEmpty(unitId) && Recipes.ContainsKey(unitId);
 
         /// <summary>
         /// Get the UnitClass for a unit type.

@@ -116,6 +116,23 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
+                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
+                // damages wall pieces — a non-siege attacker refuses to swing
+                // at one even when force-ordered. Same drop contract as the
+                // ram's buildings-only rule above; the targeting pass filters
+                // walls out the same way, so the re-pick lands elsewhere.
+                if (em.HasComponent<WallTag>(tgt.Value)
+                    && (!em.HasComponent<DamageTypeData>(entity)
+                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
+                {
+                    tgt.Value = Entity.Null;
+                    if (em.HasComponent<AttackCommand>(entity))
+                    {
+                        ecb.RemoveComponent<AttackCommand>(entity);
+                    }
+                    continue;
+                }
+
                 // Full Gallop: cavalry mid-sprint cannot swing. They keep chasing —
                 // only the attack is suppressed for the burst's duration.
                 if (em.HasComponent<TheWaningBorder.Abilities.TempDisarm>(entity)) continue;

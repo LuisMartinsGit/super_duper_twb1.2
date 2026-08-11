@@ -403,6 +403,32 @@ namespace TheWaningBorder.Systems.Sect
                 hp.Value = math.max(0, hp.Value - dmg);
                 em.SetComponentData(e, hp);
             }
+
+            // Buildings burn under the god's hand too (2026-08-11: smite
+            // ignored structures entirely — "Sect powers should damage
+            // buildings but they don't"). Two exemptions: WALL pieces (only
+            // siege touches the fortification line — Combat_Pacing.md) and
+            // Border-owned structures (wells are verb objectives, never
+            // splash targets).
+            var bq = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadWrite<Health>());
+            using var buildings = bq.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                var e = buildings[i];
+                var fac = em.GetComponentData<FactionTag>(e).Value;
+                if (fac == faction || fac == Faction.Border) continue;
+                if (em.HasComponent<WallTag>(e)) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - center.x, dz = p.z - center.z;
+                if (dx * dx + dz * dz > r2) continue;
+                var hp = em.GetComponentData<Health>(e);
+                hp.Value = math.max(0, hp.Value - dmg);
+                em.SetComponentData(e, hp);
+            }
         }
 
         private static void ApplyCircleHeal(EntityManager em, Faction faction,

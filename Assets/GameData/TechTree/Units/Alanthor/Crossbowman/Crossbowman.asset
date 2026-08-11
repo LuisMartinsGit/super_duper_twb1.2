@@ -44,7 +44,9 @@ MonoBehaviour:
   healsPerSecond: 0
   tags:
   - Ranged
-  bonusVsTags: []
+  bonusVsTags:
+  - vsTag: Cavalry
+    amount: 12
   prefab: {fileID: 2130948330614242297, guid: 5166d7c3bd9625542b2403b9689e4626, type: 3}
   presentationId: 335
   animatorController: {fileID: 9100000, guid: f7426f3d7d1dece4d9bec86edd11afec, type: 2}

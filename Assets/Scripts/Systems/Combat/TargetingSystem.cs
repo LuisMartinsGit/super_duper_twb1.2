@@ -501,6 +501,11 @@ namespace TheWaningBorder.Systems.Combat
                 // anyway; see MeleeCombatSystem).
                 bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
 
+                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
+                // damages wall pieces, so non-siege never auto-acquires one.
+                bool nonSiegeAttacker = !em.HasComponent<DamageTypeData>(entity)
+                    || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege;
+
                 Entity bestTarget = Entity.Null;
                 Entity underBest = Entity.Null;
                 float underBestDist = float.MaxValue;
@@ -533,6 +538,10 @@ namespace TheWaningBorder.Systems.Combat
                                 // Buildings-only siege: units are invisible to
                                 // the ram's target scan.
                                 if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
+
+                                // The Wall Rule: wall pieces are invisible to
+                                // non-siege target scans.
+                                if (nonSiegeAttacker && em.HasComponent<WallTag>(allEnemies[i])) continue;
 
                                 var enemyPos = allEnemyTransforms[i].Position;
                                 // SURFACE distance, so a big building is judged by
@@ -790,6 +799,10 @@ namespace TheWaningBorder.Systems.Combat
                     // AutoAcquireTargets above.
                     bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
 
+                    // The Wall Rule: same non-siege wall filter as above.
+                    bool nonSiegeAttacker = !em.HasComponent<DamageTypeData>(entity)
+                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege;
+
                     int radius = (int)math.ceil(los / TargetingCellSize);
                     var myCell = new int2(
                         (int)math.floor(myPos.x / TargetingCellSize),
@@ -809,6 +822,10 @@ namespace TheWaningBorder.Systems.Combat
                                 // Buildings-only siege: units are invisible to
                                 // the ram's target scan.
                                 if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
+
+                                // The Wall Rule: wall pieces are invisible to
+                                // non-siege target scans.
+                                if (nonSiegeAttacker && em.HasComponent<WallTag>(allEnemies[i])) continue;
 
                                 var enemyPos = allEnemyTransforms[i].Position;
                                 var dist = DistXZ(myPos, enemyPos);
