@@ -20,8 +20,10 @@ without updating the Design folder first.
 
 | Doc | Scope |
 |-----|-------|
-| [docs/Design/Overview.md](docs/Design/Overview.md) | Cross-faction framing — two-age structure, movement axis, age-up transformations, per-battalion upgrades, Glow economy, religious-unit tier, population model, caravan-death rule, Petriarchy |
+| [docs/Design/Overview.md](docs/Design/Overview.md) | Cross-faction framing — two-age structure, movement axis, age-up transformations, per-battalion upgrades, religious-unit tier, population model, caravan-death rule, Petriarchy. (Glow economy: **superseded** — see Curse_And_Shardroot.md) |
+| [docs/Design/Curse_And_Shardroot.md](docs/Design/Curse_And_Shardroot.md) | **The curse & Shardroot loop** (replaces the old Border design AND the Glow economy): N wells, per-culture verbs (destroy/pacify/purify) with 10-min holds + tempo refresh, **well-domination victory** (all N wells yours at once), veilstone-only-from-curse, the Shardroot power artifact (One-Ring model, three Shardbound Heroes, first verb on the host well claims it) |
 | [docs/Design/Tech_Tree.md](docs/Design/Tech_Tree.md) | At-a-glance Mermaid charts of every building, unit, and tech across Age 0 and the three cultures |
+| [docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md) | Match pacing — the five meta beats, the unit counter table (bonusVsTags truth source), the siege-only wall rule |
 | [docs/Design/Age_0.md](docs/Design/Age_0.md) | Pre-culture Age 0 — every building / unit / tech / cost |
 | [docs/Design/Age_1_Alanthor.md](docs/Design/Age_1_Alanthor.md) | Alanthor (defense focus) Age 1 tree |
 | [docs/Design/Age_1_Runai.md](docs/Design/Age_1_Runai.md) | Runai (economy / movement focus) Age 1 tree |
@@ -35,9 +37,11 @@ the code currently does, often pre-design-pass) lives in
 ## Architecture
 
 ### ECS (Data-Oriented)
-- **Components** are in global namespace, defined in `Core/Components/` (CoreComponents.cs, UnitComponents.cs, BuildingComponents.cs, etc.)
-- **Systems** live in `Systems/` organized by domain (Movement, Combat, Work, Training, Visibility)
-- **Entity factories** are in `Entities/Units/` and `Entities/Buildings/`
+- **Per-entity code is co-located with its data** in `Assets/GameData/TechTree/{Units,Buildings}/<Culture>/<Entity>/`: the factory, the entity's components file, any single-entity systems and visuals, next to its SO/prefab. Kept in the runtime assembly via `Assets/GameData/TechTree/TheWaningBorder.Runtime.asmref`.
+- **Set-level code sits one level above**: culture-wide tier components at `.../<Culture>/` (e.g. `Age0UnitComponents.cs`), all-unit/all-building code at `Units/` / `Buildings/` root (e.g. `UnitComponents.cs`, `BuildingUpgradeSystem.cs`, wall-set systems at `Buildings/Alanthor/`).
+- **Cross-domain components** (CoreComponents, CombatComponents, etc.) stay in `Scripts/Components/`; **cross-domain systems** (Combat, Navigation, Work, Training, AI, Border) stay in `Scripts/Systems/` by domain.
+- **Shared factories**: `UnitFactory.cs` + sect-unit factories in `Entities/Units/`; `BuildingFactory.cs` + Border-node factories in `Entities/Buildings/`.
+- **Presentation** (`Scripts/Presentation/`) is organized into `Spawn/`, `Buildings/`, `Units/`, `Border/`, `Vfx/`, `Procedural/`; entity-specific visuals live in that entity's GameData folder.
 - All player commands route through `Core/Commands/CommandRouter.cs`
 
 ### Managed (MonoBehaviour)
@@ -60,11 +64,12 @@ the code currently does, often pre-design-pass) lives in
 
 ## Key Design Decisions (Do Not Change)
 - Player color does NOT change on culture selection
+- Mined resources are credited straight to the faction bank on each gather
+  tick — there are NO carrying workers and NO dropoff buildings
 - Miners: local player miners require explicit GatherCommand; AI miners auto-find
 - Miners auto-find new deposits only on depletion and only within LineOfSight range
 - Builders auto-chain to nearby unfinished structures within LOS
 - Shift+click stays in building placement mode for repeated placement
-- Right-click on Hall/GathererHut with miners selected -> force return/deposit
 
 ## Development Workflow
 
@@ -95,7 +100,7 @@ Scopes: `ai`, `combat`, `economy`, `ui`, `input`, `movement`, `building`, `minin
 |--------|-----------|
 | Commands | `Core/Commands/CommandRouter.cs` |
 | Economy | `Economy/FactionEconomy.cs`, `Economy/FactionResources.cs` |
-| Mining | `Systems/Work/MiningSystem.cs`, `Systems/Work/CrystalMiningSystem.cs` |
+| Mining | `Systems/Work/MiningSystem.cs`, `Systems/Work/VeilstoneMiningSystem.cs` |
 | Construction | `Systems/Work/BuildingConstructionSystem.cs` |
 | Combat | `Systems/Combat/TargetingSystem.cs`, `Systems/Combat/MeleeCombatSystem.cs` |
 | AI | `AI/Core/AIBrain.cs`, `AI/Managers/AIEconomyManager.cs` |

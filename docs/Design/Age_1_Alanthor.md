@@ -1,9 +1,10 @@
 # Age 1 — Alanthor
 
 > Defensive culture. Stone / medieval aesthetic. Strength comes from walls,
-> long-range archery, and steady building HP / repair scaling. Economy is
-> gated behind closed wall compartments (you must wall a zone to earn from
-> it, [TechTree.json Alanthor.economy](../../Assets/Resources/TechTree.json)).
+> long-range archery, and steady building HP / repair scaling. Territorial
+> identity: fortifications project **Alanthor influence** on the shared
+> influence map ([Overview.md § The influence map](Overview.md)). The old
+> closed-wall-compartment supply income was removed 2026-07-06.
 >
 > **See also:** [Overview.md](Overview.md) (two-age framing), [Age_0.md](Age_0.md)
 > (pre-culture starting buildings), and the cross-age [Petriarchy doc TBD] for sects.
@@ -22,7 +23,8 @@
 |--------|----------|
 | Focus | **Defense** (walls, towers, long-range archery, building HP) |
 | Style | Stone / Medieval |
-| Economy | **Walled compartments only** — supplies generate inside closed wall areas; when a wall segment falls, that compartment's income pauses until repaired. |
+| Economy | Gathering, doubled inside the border: **ground inside Alanthor influence (≥0.5) produces 2× resources**. The old walled-compartment supply income was removed (2026-07-06). |
+| Territory | Every Alanthor building except Gatherer's Huts grants influence — the **Hall is the potent anchor** (r32 @ 16/s, claims a buildable bubble within seconds; a fresh Age 1 start owns nothing else), fortifications are strong (hubs r18 / instances r9 / towers r22 @ 9/s), everything else weak (r16 @ 4.5/s). Influence **decays back to neutral** (5 %/s proportional) once its source dies. **Alanthor cannot build outside its own influence border** — except **Gatherer's Huts** and **Watch Towers**, which may be placed anywhere (huts harvest beyond the border; towers are forward claims that project influence into new ground). Claimed ground also repaints the terrain itself via the `AlanthorInfluence` terrain layer (see [Overview.md § The influence map](Overview.md)). |
 | Vault yield modifier | **+30 %** (best of the three cultures) |
 | Shrine heal modifier | neutral (0 %) |
 | Fiendstone Keep HP/arrows | **−50 %** (worst of the three) |
@@ -97,8 +99,8 @@ passive set (no per-unit upgrade — they apply automatically when researched).
 | **Iron tools** (T2) | L2 | **Unlocks** tier-2 Worker upgrade | *(new)* |
 | **Veilstone tools** (T3) | L3 | **Unlocks** tier-3 Worker upgrade | *(new)* |
 | **Veilsteel tools** (T4) | L3 + post-research of T3 | **Unlocks** tier-4 Worker upgrade (consumes Veilsteel per Worker when applied) | *(new — verify L4 fits in the L3 cap)* |
-| **Wheel cart** | L1 | +20 % worker move speed *(faction-wide passive)* | Currently `StorageCarts` (+10 carry); design splits speed vs carry vs HP into three separate techs *(new)* |
-| **Cranes** | L2 | +10 carry capacity for workers *(faction-wide passive)* | *(new)* |
+| **Wheel cart** | L1 | +20 % worker move speed *(faction-wide passive)* | *(new — the old carry-capacity effect is gone: mined resources credit the stockpile directly, 2026-07-20)* |
+| ~~**Cranes**~~ | — | *(removed 2026-07-20 — carry capacity no longer exists; workers never carry resources)* | — |
 | **Mason Guild** | L2 | +20 % HP to all friendly buildings *(faction-wide passive)* | **Replaces and renames** the old `Alanthor_MasonGuild` code tech (was "+15 % HP / +20 % repair"). The "Masonry" name from the draft is dropped — final canonical name is **Mason Guild**. |
 | **Advance from Age 0** | — | already triggered to enter Age 1 | (paid in Age 0) | Hooked, see `Research_Era2` |
 
@@ -229,9 +231,59 @@ No trainable units or tech.
 
 ---
 
-### Gatherer's Hut (Age 0 carryover) — per-hut age-up choice (Wall Hub or Watch Tower)
+### Gatherer's Hut (Age 0 carryover) → the **Guild** (canonical 2026-07-08)
 
-> **Superseded by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The earlier "transforms into a wall-segment anchor that auto-fortifies a small radius" model is **retired**. The canonical mechanic is now the **per-hut player-choice prompt** described below; the full wall mechanic is specified in [§ Wall System (BFME2 hub-and-segment)](#wall-system-bfme2-hub-and-segment).
+> **Superseded by the tech-tree calculator canon ([tools/calculator/techtree.json](../../tools/calculator/techtree.json), 2026-07-08).** The Alanthor
+> Gatherer's Hut **no longer converts** to a Wall Hub or Watch Tower at age-up.
+> Instead it **becomes the Guild** — it keeps generating Supplies and gains a
+> per-building **level ladder (L1–L3)** plus two faction-wide research tracks:
+> a **resource Survey** track and a **defensive reinforcement** track. Walls and
+> Watch Towers remain **directly buildable** primitives (see [§ Wall System](#wall-system-bfme2-hub-and-segment)); they are simply
+> no longer sourced from a hut conversion. The per-hut Wall Hub / Watch Tower
+> conversion prompt described below is **retired**.
+>
+> **Guild — level ladder** (per building, via the standard `BuildingUpgradeable`
+> path; auto-bumps to L1 at age-up, L2/L3 manual):
+>
+> | Level | Cost | Effect |
+> |-------|------|--------|
+> | **L1** | 120 S + 25 I + 5 Vs | +5 Supplies/tick, +10% HP, +gather radius |
+> | **L2** | 240 S + 50 I + 15 V + 5 Vs | +10 Supplies/tick (cumulative), +15% HP |
+> | **L3** | 360 S + 75 I + 40 V + 20 Vs | +20 Supplies/tick (cumulative), +20% HP |
+>
+> **Guild — Survey track** (faction-wide research; the hut also generates the
+> resource, doubled inside the owner's influence border). The old single
+> `DeepGathering` tech is **removed outright** (2026-08-04) — the Surveys are
+> the only hut drips:
+>
+> | Tech | Yield |
+> |------|-------|
+> | Iron Surveying I / II / III | +12 / +24 / +42 Iron / min |
+> | Veilstone Survey I / II | +6 / +18 Veilstone / min |
+> | Veilsteel Survey | +6 Veilsteel / min — **max-level (L4) huts only** |
+>
+> **Level scaling (2026-08-11 — "fully developed huts are the late-game
+> mine"):** the Iron / Veilstone survey drips scale with the hut's Guild
+> level — **L2 ×1.5, L3 ×2** (before the influence doubling). Map iron
+> deposits are finite and run dry around mid-game (67-min playtest:
+> map-wide iron extinction at minute 30 froze every faction); a maxed hut
+> ring with Iron Surveying III is DESIGNED to carry the whole iron economy
+> from there — e.g. an L3 hut inside influence yields 42 × 2 × 2 =
+> 168 Iron / min.
+>
+> **Guild — Reinforcement track** (faction-wide research; behaviour-by-id):
+>
+> | Tech | Effect |
+> |------|--------|
+> | Iron reinforcements | Hut auto-repairs 5 HP/s once out of combat ≥ 10 s |
+> | Veilstone walls | Below 50% HP, **casts** a **Slow** burst (−50% speed for 7.5 s) on every enemy in the hut's **gather radius** (~19.5) — one-shot, **90 s cooldown**; repair → 10 HP/s |
+> | Veilsteel Pylons | The low-HP cast becomes a **Stop** burst (−100% speed for 10 s, same gather-radius area, 90 s cooldown); repair → 20 HP/s |
+>
+> Implemented in: `GathererHutIncomeSystem` (surveys + level supplies),
+> `GathererHutReinforcementSystem` (auto-repair + slow/stop), `BuildingUpgradeConfig`
+> (level ladder), and `Assets/Resources/TechTree.json` (tech defs).
+
+> **Historical — retired [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The text below described the earlier per-hut Wall Hub / Watch Tower conversion prompt, itself a replacement for an even older "wall-segment anchor" model. Both are **retired** by the Guild canon above; the section is kept for provenance only.
 
 At age-up for **Alanthor**, each Gatherer's Hut owned by the player gains
 a `GathererHutAgeUpChoice` marker (no automatic transformation, no
@@ -258,6 +310,13 @@ Watch Towers for arrow coverage and far-LoS scouting.
 generating Age-0 income indefinitely. There is **no timeout, no auto-
 default**. This is intentional: Alanthor's age-up does not force a
 re-planning beat; the player commits each hut on their own schedule.
+
+**Huts never despawn and stay buildable** (directive 2026-07-04) —
+Alanthor Gatherer's Huts do not self-destruct at age-up, and **new
+Gatherer's Huts remain buildable throughout the whole game** (the old
+"Alanthor cannot build Gatherer's Huts after culture selection" rule is
+retired). Conversion to Wall Hub / Watch Tower stays a purely optional
+per-hut choice.
 
 **Cancel** — once the timer starts, the conversion cannot be cancelled
 in v1 (matches the existing structure-construction model). The
@@ -318,7 +377,8 @@ These exist only after the player picks Alanthor at age-up. All present in
 
 | Doc name | Building lvl unlock | Mapped to code id | Stats (from code) |
 |----------|---------------------|-------------------|-------------------|
-| **Cataphract** | L1 | `Alanthor_Cataphract` ([TechTree.json:1495](../../Assets/Resources/TechTree.json#L1495)) | HP 180 / spd 6.6 / 25 s train / dmg 20 melee / def 2/1/0/0 / range 1.6 / cost 220 S + 80 I + 40 C / pop 1 |
+| **Outrider** *(new 2026-08-04)* | L1 | `Alanthor_Outrider` | Cheap, fast LIGHT cavalry — the raid/screen slot under the Cataphract. HP 95 / spd 8.2 / 22 s train / dmg 12 melee / def 1/1/0/0 / cost 130 S + 40 I / pop 1 |
+| **Cataphract** | L1 | `Alanthor_Cataphract` | **Rebalanced 2026-08-04 (substantially pricier, slightly weaker):** HP 160 / spd 6.6 / 40 s train / dmg 18 melee / def 2/1/0/0 / range 1.6 / **cost 320 S + 120 I + 60 C** / pop 2 |
 | *(L2 / L3 cavalry tiers)* | TBD | **(new)** | TBD |
 
 #### Researchable techs
@@ -354,17 +414,24 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 | LoS | 20 |
 | Defense | 1 / 1 / 0 / 0 |
 | Build cost | 260 S + 100 I + 60 C |
-| Trains | Alanthor_Ballista |
+| Trains | Alanthor_Catapult *(was Alanthor_Ballista — replaced 2026-08-02)* |
 
-### Smelter — `Alanthor_Smelter`
+### Smelter (Forge) — `Alanthor_Smelter`
+
+> Reworked by directive 2026-07-04: the Forge no longer converts iron +
+> veilstone (the miner supply chain was removed). It **passively generates
+> Veilsteel** — 1 Veilsteel / 10 s, no inputs — is **much more expensive**,
+> and is **build-limited to 1 per faction**. It is the slow, infinite
+> complement to mining the Sharp Crystals map node.
 
 | Stat | Value |
 |------|-------|
 | HP | 1 200 |
 | LoS | 18 |
 | Defense | 1 / 1 / 0 / 0 |
-| Build cost | 220 S + 100 I |
-| Role | Iron processing (and later Veilsteel input). |
+| Build cost | 800 S + 400 I + 100 Veilstone |
+| Build limit | **1 per faction** |
+| Role | Passive Veilsteel generation (1 / 10 s). |
 
 ### Crucible — `Alanthor_Crucible`
 
@@ -374,8 +441,8 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 | LoS | 18 |
 | Defense | 1 / 1 / 0 / 0 |
 | Loss factor on craft | 20 % |
-| Build cost | 300 S + 80 Crystal + 30 Veilsteel ⚠ |
-| Role | Veilsteel forging (Iron + Crystal → Veilsteel). |
+| Build cost | 300 S + 80 Veilstone + 30 Veilsteel ⚠ |
+| Role | **Veilsteel GENERATOR (2026-08-04):** each completed Crucible passively produces **1 Veilsteel per 10 s**. **Hard cap: 5 per player** (enforced at placement, players and AI alike). Building Crucibles is THE veilsteel engine — the AI builds toward the cap in its Age-2 ladder. |
 
 > ⚠ The 30 Veilsteel build cost in [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs) creates a
 > **chicken-and-egg problem** — you need a Crucible to forge Veilsteel,
@@ -436,7 +503,7 @@ This is the player-facing trade triangle:
 | Property | Old (thin wall) | **New (rampart)** | Notes |
 |----------|-----------------|-------------------|-------|
 | Deck **walkable width** (across the wall) | ~0.8 m | **8 m** | Battalion corridor is 7 m (`BattalionAgentRadius` 3.5 m); 8 m leaves clearance for the outer garrison rank inside the parapets. |
-| Total footprint width (incl. parapets) | ~1.1 m | **~9 m** | 8 m deck + ~0.5 m parapet each side. Widens the passability/obstacle footprint → re-check placement spacing and `WallEnclosureIncomeSystem` compartment detection. |
+| Total footprint width (incl. parapets) | ~1.1 m | **~9 m** | 8 m deck + ~0.5 m parapet each side. Widens the passability/obstacle footprint → re-check placement spacing. |
 | Module length (along the wall) | 2 m | **4 m** | Fewer, longer modules ("segments longer and wider"). `AlanthorWall.InstanceSpacing` 2 m → 4 m. |
 | Deck surface height (where units stand) | n/a | **4 m** | **Symmetrical** crenellated parapets to ~5.4 m on **both** edges — no inner/outer face. |
 | Hub footprint | ~2.4 m drum | **~9 m** square w/ doors | Must be ≥ deck width so the deck lands flush on the hub. |
@@ -630,9 +697,10 @@ and is **canonical**. Rationale: instant cascade gives sieges a sharp
 decisive moment (kill the hub, the wall falls). A grace period would
 muddy the read.
 
-If a destroyed hub was the **only** endpoint connecting a compartment,
-the income from that compartment stops immediately (existing
-`WallEnclosureIncomeSystem` re-detects compartments per tick).
+Compartment income no longer exists (removed 2026-07-06 with
+`WallEnclosureIncomeSystem`) — the territorial consequence of losing a hub
+is that the destroyed fortifications stop granting Alanthor influence, and
+the area slowly decays back to neutral on the influence map.
 
 ### Auto-segment formation feedback
 
@@ -688,7 +756,7 @@ should revisit after first playtest:
 ### Cross-references
 
 - **UI / UX spec (full):** [task-109 § UI / UX Specification](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md).
-- **Code touchpoints:** `AlanthorWall.cs` (hub / segment / instance factories), `WallUpgradeSystem.cs` (conversion to gate / tower), `WallGatePassabilitySystem.cs` (friendly-detect open / close), `WallSegmentCleanupSystem.cs` (hub-death cascade), `WallEnclosureIncomeSystem.cs` (closed-compartment income), `WallAutoSegmentSystem.cs` (Phase 4, new — retroactive auto-formation).
+- **Code touchpoints:** `AlanthorWall.cs` (hub / segment / instance factories), `WallUpgradeSystem.cs` (conversion to gate / tower), `WallGatePassabilitySystem.cs` (friendly-detect open / close), `WallSegmentCleanupSystem.cs` (hub-death cascade), `InfluenceMapSystem.cs` (fortification influence), `WallAutoSegmentSystem.cs` (Phase 4, new — retroactive auto-formation).
 - **Wall-economy compartment yield** is unchanged from prior spec: `+8 Supplies per 10 u² closed compartment / min` via the `Alanthor_StoneLedgers` tech (PLAYTEST PLACEHOLDER, see [§ Cultured carryover buildings — KingsCourt techs](#existing-code-techs-that-need-re-homing-or-removal)).
 
 ---
@@ -744,19 +812,22 @@ Trained at Garrison (Barracks), L2.
 | Field | Value |
 |------|-------|
 | Class | `human_cavalry` |
-| HP | 180 |
+| HP | **160** *(2026-08-04 rebalance — was 180)* |
 | Speed | 6.6 |
-| Training time | 25 s |
-| Min building lvl | 2 |
+| Training time | 40 s |
+| Min building lvl | 1 (Royal Stable) |
 | Armor type | cavalry |
-| Damage | 20 (melee) |
+| Damage | **18** (melee) *(was 20)* |
 | Defense | 2 / 1 / 0 / 0 |
 | Attack range | 1.6 |
 | LoS | 20 |
-| Cost | 220 Supplies + 80 Iron + 40 Crystal |
-| Pop | 1 |
+| Cost | **320 Supplies + 120 Iron + 60 Veilstone** *(was 220/80/40 — the Outrider fills the cheap slot)* |
+| Pop | 2 |
 
-### Alanthor Ballista — siege
+### Alanthor Catapult — siege
+
+> **Replaced the Alanthor Ballista (2026-08-02).** Same battlefield slot,
+> but a lobbed AOE stone-thrower instead of a piercing bolt-thrower.
 
 Trained at Siege Yard.
 
@@ -766,13 +837,39 @@ Trained at Siege Yard.
 | HP | 220 |
 | Speed | 3.2 |
 | Armor type | ranged |
-| Damage | 40 (siege) |
+| Damage | 40 (siege), **AOE radius 3** on impact — shots do NOT pierce (that was the ballista bolt's trait) |
+| Reload | **4 s** |
+| Trajectory | High lob (longbow-family parabola) |
 | Defense | 0 / 1 / 2 / 0 |
-| Attack range | 22 |
-| Min attack range | 6 |
-| LoS | 26 |
-| Cost | 180 Supplies + 80 Iron + 40 Crystal |
+| Attack range | **30** |
+| Min attack range | **10** |
+| LoS | **20** — the catapult OUTRANGES its own vision: it auto-engages only inside 20, and firing at 20-30 needs a spotter (scout/ally vision) plus an explicit attack order. Artillery doctrine (2026-08-02). |
+| Cost | 180 Supplies + 80 Iron + 40 Veilstone |
 | Pop | 1 |
+| Visual | Synty `SM_Wep_Catapult_01` with procedural arm release/re-wind; shots render as the `FX_Catapult_Single_01` effect. The shooter's launch angle is solved ballistically (speed + gravity from the authored FX, launch height and terrain height difference included) so the stone impacts the ground at the target's location. |
+
+### Alanthor Ledger — court automaton (visual identity, 2026-08-02)
+
+Mechanics unchanged (autonomous economy automaton, King's Court / Hall L2).
+Visual identity: a **legless floating automaton** — it hovers on a
+**forcefield disc** projected beneath it (tinted the owning player's color,
+with a low synthesized hum). The open-frame torso is **full of cogwheels**
+(spinning constantly), it has **four articulated arms**, and at its center
+floats a **shining crystal in the player's color**, pulsing with its
+machinery.
+
+Rules (confirmed 2026-08-02):
+
+- **Automate Facility**: +30 % yield for **30 s** on one economy building.
+- **Per-building cycle: 90 s** — the 30 s boost is followed by a 60 s
+  *Under Automation* lockout, so the same building can be re-automated
+  exactly 90 s after the previous application. (Implemented as the
+  Aftermath chain: boost Duration 30 + lockout Duration 60.)
+- **One Ledger per player** — enforced at the training-command gate, same
+  mechanism as King Lexor (live unit or queued order both count).
+- Feedback VFX: automated buildings carry a golden rising-spark aura for
+  the boost's 30 s; a larger golden burst plays at the building the moment
+  the ability lands.
 
 ### Alanthor Scholar — religious / magic
 
@@ -792,10 +889,10 @@ stage).
 | Damage type | magic |
 | Defense | 0 / 0 / 0 / 1 |
 | LoS | 14 |
-| Cost | **~300 Supplies + 150 Iron + 100 Crystal + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
+| Cost | **~300 Supplies + 150 Iron + 100 Veilstone + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
 | Pop | 1 |
 | Single unit / battalion | **Single** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)) |
-| Role | Channels **Purification** rituals on Active crystal nodes — Alanthor's Glow-generator. Vulnerable to direct attack, needs escort. *(Note: L4 building level conflicts with the L1-L3 cap stated in this culture summary — the Temple/Shrine's "level 4" is the spec-refinement #5 stage, not a fourth upgrade tier in the building-upgrade system.)* |
+| Role | Channels **Purification** rituals on Active veilstone nodes — Alanthor's Glow-generator. Vulnerable to direct attack, needs escort. *(Note: L4 building level conflicts with the L1-L3 cap stated in this culture summary — the Temple/Shrine's "level 4" is the spec-refinement #5 stage, not a fourth upgrade tier in the building-upgrade system.)* |
 
 ---
 
@@ -834,7 +931,7 @@ record** so future readers can trace why a number or rule is the way it is.
    applied. Same rule applies in all cultures. See
    [Overview.md § Per-battalion military upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule).
 5. **Glow source / drop rules** — **resolved.** Glow is now defined as a
-   cross-faction resource produced only by Crystal-Curse node state
+   cross-faction resource produced only by Border node state
    changes (cleanse / convert / destroy, once per node). Drop conditions
    defined for unit / building death and the "drop Glow" UI button. See
    [Overview.md § The Glow economy](Overview.md#the-glow-economy-cross-faction).
