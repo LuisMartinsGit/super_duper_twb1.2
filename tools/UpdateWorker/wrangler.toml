@@ -1,0 +1,15 @@
+name = "twb-updates"
+main = "src/index.js"
+compatibility_date = "2026-08-18"
+
+# Per-tester keys. Revoking a tester is a single `wrangler kv key delete`,
+# no redeploy. See README.md for the provisioning commands.
+[[kv_namespaces]]
+binding = "KEYS"
+id = "fa8c1b5913494faba25c936fc2156359"
+
+[vars]
+RELEASE_REPO = "Ahridan/TWB-Releases"
+
+# GITHUB_TOKEN is a secret, never a var:
+#   wrangler secret put GITHUB_TOKEN

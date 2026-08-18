@@ -171,3 +171,16 @@ Assets/Resources/Grass007_1K-JPG.meta
 .deft/SCHEMA.md
 .deft/memory/
 .deft/project.md
+
+# ===========================
+# Updater tooling (tools/Launcher, tools/UpdateWorker)
+# ===========================
+tools/Launcher/bin/
+tools/Launcher/obj/
+tools/Launcher/publish/
+tools/UpdateWorker/node_modules/
+tools/UpdateWorker/.wrangler/
+
+# The launcher project file is real source, not a Unity-generated csproj,
+# so it has to survive the blanket *.csproj rule above.
+!tools/Launcher/TWBLauncher.csproj
