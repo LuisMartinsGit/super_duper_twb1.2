@@ -70,6 +70,45 @@ if (-not $token) {
 
 if (-not (Test-Path $BuildPath)) { throw "Build folder not found: $BuildPath" }
 
+# ---------------------------------------------------------------- preflight
+
+# Everything that can be checked cheaply is checked BEFORE packaging, because
+# zipping a gigabyte and then failing on a two-second API call is a miserable
+# way to find out the repo was not ready.
+$preflightHeaders = @{
+    Authorization          = "Bearer $token"
+    Accept                 = 'application/vnd.github+json'
+    'X-GitHub-Api-Version' = '2022-11-28'
+    'User-Agent'           = 'twb-release-script'
+}
+
+try {
+    $repoInfo = Invoke-RestMethod -Headers $preflightHeaders -Uri "https://api.github.com/repos/$Repo"
+}
+catch {
+    throw "Cannot reach $Repo with GH_RELEASE_TOKEN. Check the token and the repo name. $($_.Exception.Message)"
+}
+
+if (-not $repoInfo.permissions.push) {
+    throw "GH_RELEASE_TOKEN cannot write to $Repo. It needs Contents: Read and write."
+}
+
+# A release tag needs a commit to point at; GitHub rejects the create with a
+# bare "Repository is empty." otherwise.
+if ($repoInfo.size -eq 0) {
+    try {
+        $null = Invoke-RestMethod -Headers $preflightHeaders -Uri "https://api.github.com/repos/$Repo/commits?per_page=1"
+    }
+    catch {
+        throw "$Repo has no commits yet. Add a README to it on GitHub, then re-run."
+    }
+}
+
+$existing = Invoke-RestMethod -Headers $preflightHeaders -Uri "https://api.github.com/repos/$Repo/releases?per_page=100"
+if ($existing | Where-Object { $_.tag_name -eq "v$Version" }) {
+    throw "v$Version is already released. Delete that release and its tag first, or bump bundleVersion."
+}
+
 # ---------------------------------------------------------------- package
 
 if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force }
@@ -80,9 +119,42 @@ $zipPath = Join-Path $StagingDir $zipName
 
 Write-Host "Packaging $BuildPath ..." -ForegroundColor Cyan
 
-# Zip the CONTENTS, not the wrapping folder. The launcher tolerates either,
-# but this keeps the archive layout predictable.
-Compress-Archive -Path (Join-Path $BuildPath '*') -DestinationPath $zipPath -CompressionLevel Optimal
+# Never ship these. Unity puts the literal words DoNotShip in the Burst folder
+# name; logs would hand every tester a copy of whoever built it match history,
+# and the game recreates the folder on launch anyway.
+$excludedTopLevel = @('logs')
+$excludedPattern = '*_BurstDebugInformation_DoNotShip'
+
+# ZipFile rather than Compress-Archive: the cmdlet is very slow on a build this
+# size and is unreliable past 2 GB, and it cannot exclude a subtree. Zips the
+# CONTENTS, not the wrapping folder, so the archive layout stays predictable.
+Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
+
+$root = (Resolve-Path $BuildPath).Path.TrimEnd('\')
+$archive = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+$added = 0
+$skipped = 0
+
+try {
+    foreach ($file in Get-ChildItem -Path $root -Recurse -File -Force) {
+        $relative = $file.FullName.Substring($root.Length + 1)
+        $top = $relative.Split('\')[0]
+
+        if ($excludedTopLevel -contains $top -or $top -like $excludedPattern) {
+            $skipped++
+            continue
+        }
+
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive, $file.FullName, $relative, 'Optimal') | Out-Null
+        $added++
+    }
+}
+finally {
+    $archive.Dispose()
+}
+
+Write-Host "  packed $added files, excluded $skipped"
 
 $zipItem = Get-Item $zipPath
 $sizeBytes = $zipItem.Length
