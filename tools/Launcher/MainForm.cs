@@ -108,6 +108,11 @@ internal sealed class MainForm : Form
 
         if (!EnsureKey()) return;
 
+        // Before the update check, so a crashed session reports itself even if
+        // the tester quits at the "update available" prompt. Costs nothing in
+        // the common case, where there is nothing pending.
+        await SweepLogsAsync().ConfigureAwait(true);
+
         Manifest manifest;
 
         try
@@ -181,6 +186,32 @@ internal sealed class MainForm : Form
 
         SetStatus($"Updated to version {manifest.Version}.", Theme.Text);
         Launch();
+    }
+
+    /// <summary>
+    /// Sends whatever the previous session left behind. Bounded and swallowed
+    /// on purpose: a log upload must never delay or block someone starting the
+    /// game, so a stall here costs 30 seconds and then gets dropped until the
+    /// next launch.
+    /// </summary>
+    private async Task SweepLogsAsync()
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+
+            var uploader = new LogUploader(_settings.ApiBase, _settings.Key);
+            var status = new Progress<string>(text => SetDetail(text));
+
+            var (sent, _) = await uploader.SweepAsync(status, timeout.Token).ConfigureAwait(true);
+
+            SetDetail(sent > 0 ? $"Sent {sent} match log{(sent == 1 ? "" : "s")}." : "");
+        }
+        catch (Exception)
+        {
+            SetDetail("");
+        }
     }
 
     /// <summary>Prompts until a key is entered, or the tester quits.</summary>

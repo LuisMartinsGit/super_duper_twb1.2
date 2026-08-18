@@ -245,6 +245,12 @@ namespace TheWaningBorder.Core.Diagnostics
 
             WriteConsoleLine($"=== Match ended ({outcome ?? "unfinished"}) ===");
 
+            // Fire-and-forget, after Summary.txt exists so the upload can
+            // describe the match. Only reaches the network if this install came
+            // from the launcher; the launcher re-sweeps anything that fails or
+            // that a crash prevented from ever running.
+            MatchLogUploader.Send(_matchFolder);
+
             _matchFolder = null;
             OpenConsole();   // back to the logs root for menu-time output
         }
