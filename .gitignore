@@ -187,3 +187,6 @@ tools/UpdateWorker/.wrangler/
 
 # Tester access keys - never commit
 testers.local.md
+
+# Downloaded tester logs - never commit
+logs-inbox/
