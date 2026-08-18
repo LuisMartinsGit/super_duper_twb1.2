@@ -9,6 +9,33 @@ build always name the same number.
 
 ---
 
+## [Unreleased]
+
+Tooling only — nothing here changes the game, so it does not need a build.
+
+### Added
+
+- **`tools/fetch-logs.ps1`.** Lists what testers have uploaded and unzips
+  anything new into `logs-inbox/<tester>/<match>/`, skipping what is already
+  there. Sorted worst-first: a match that threw an exception lists above one
+  that only logged errors, above a clean one.
+
+### Fixed
+
+- **Release notes reached testers as mojibake.** Three separate encoding
+  faults in the release script, each invisible while the notes were a
+  hand-typed ASCII sentence and each fatal the moment they came from this
+  file. `Get-Content` reads with the system ANSI codepage on Windows
+  PowerShell 5.1, so every em-dash came back as three Latin-1 characters;
+  `Invoke-RestMethod` encodes a string body as Latin-1 too, so the euro sign
+  that produced could not be represented at all and GitHub rejected the
+  release *after* the build had been zipped; and `Set-Content -Encoding utf8`
+  writes a BOM, which every `manifest.json` so far has carried and which only
+  parsed because the fetch specification strips a leading BOM. The published
+  v0.0.9 notes were repaired in place without re-uploading the build.
+
+---
+
 ## [0.0.9] — 2026-08-18
 
 The plumbing build. Testers now get updates and send back their logs without
@@ -57,11 +84,14 @@ that is not free to differ between two brands of CPU.
   window with a handful of suspects; it now names the tick.
 - **Floating-point behaviour pinned across the simulation.** All 52
   Burst-compiled entry points in the simulation and tech-tree code now
-  specify `FloatMode.Deterministic` and `FloatPrecision.High`. Without it,
-  the maths library is free to use lower-precision routines that differ
-  between processors, so two players on different hardware could compute
-  slightly different results from identical inputs — which in lockstep is a
-  desync waiting for a long enough match.
+  specify `FloatMode.Deterministic` and `FloatPrecision.High`; not one of
+  them pinned either before. This is belt-and-braces rather than a fix for
+  a live fault: 0.0.7 already pinned Burst to a single CPU target, so every
+  machine runs identical instructions and the compiler was not free to pick
+  a different maths routine per processor. What it buys is that the
+  guarantee no longer rests *only* on that one setting — adding a second
+  target later, for the performance, would otherwise quietly re-open the
+  0.0.7 desync.
 
 ---
 
