@@ -13,3 +13,8 @@ RELEASE_REPO = "Ahridan/TWB-Releases"
 
 # GITHUB_TOKEN is a secret, never a var:
 #   wrangler secret put GITHUB_TOKEN
+
+# Match logs uploaded by the launcher and the game.
+[[r2_buckets]]
+binding = "LOGS"
+bucket_name = "twb-logs"
