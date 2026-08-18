@@ -184,3 +184,6 @@ tools/UpdateWorker/.wrangler/
 # The launcher project file is real source, not a Unity-generated csproj,
 # so it has to survive the blanket *.csproj rule above.
 !tools/Launcher/TWBLauncher.csproj
+
+# Tester access keys - never commit
+testers.local.md
