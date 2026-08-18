@@ -62,7 +62,12 @@ if (-not $Notes) {
     $changelog = Join-Path $root '..\CHANGELOG.md'
 
     if (Test-Path $changelog) {
-        $lines = Get-Content $changelog
+        # -Encoding UTF8 is not optional. Windows PowerShell 5.1 reads with the
+        # system ANSI codepage by default, so every em-dash in the changelog
+        # comes back as "a-EUR-quote" and ships to testers as mojibake. The
+        # UTF-8 byte encoding on the POST below is a SEPARATE fix; both are
+        # needed, and this one has to come first or the bytes are already wrong.
+        $lines = Get-Content $changelog -Encoding UTF8
         $start = -1
 
         for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -164,14 +169,18 @@ $excludedPattern = '*_BurstDebugInformation_DoNotShip'
 # CONTENTS, not the wrapping folder, so the archive layout stays predictable.
 Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 
-$root = (Resolve-Path $BuildPath).Path.TrimEnd('\')
+# NOT $root - that is the script directory, used above to find .env and
+# CHANGELOG.md. Reassigning it here worked only because every use came
+# earlier; the next $root-relative path added below would have silently
+# resolved against the build folder.
+$buildRoot = (Resolve-Path $BuildPath).Path.TrimEnd('\')
 $archive = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
 $added = 0
 $skipped = 0
 
 try {
-    foreach ($file in Get-ChildItem -Path $root -Recurse -File -Force) {
-        $relative = $file.FullName.Substring($root.Length + 1)
+    foreach ($file in Get-ChildItem -Path $buildRoot -Recurse -File -Force) {
+        $relative = $file.FullName.Substring($buildRoot.Length + 1)
         $top = $relative.Split('\')[0]
 
         if ($excludedTopLevel -contains $top -or $top -like $excludedPattern) {
@@ -207,7 +216,16 @@ $manifestPath = Join-Path $StagingDir 'manifest.json'
     sha256    = $sha
     sizeBytes = $sizeBytes
     notes     = $Notes
-} | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding utf8
+} | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding utf8NoBOM -ErrorAction SilentlyContinue
+
+# PS 5.1 has no utf8NoBOM, and its -Encoding utf8 writes a BOM. The Worker
+# survives one only because the fetch spec strips a leading BOM before
+# parsing - luck, not design. Write the bytes ourselves instead.
+if (-not (Test-Path $manifestPath)) {
+    $json = [ordered]@{ version = $Version; sha256 = $sha; sizeBytes = $sizeBytes; notes = $Notes } |
+        ConvertTo-Json
+    [System.IO.File]::WriteAllBytes($manifestPath, [System.Text.Encoding]::UTF8.GetBytes($json))
+}
 
 Write-Host "  $zipName  $([math]::Round($sizeBytes/1MB,1)) MB"
 Write-Host "  sha256    $sha"
@@ -230,9 +248,15 @@ $body = @{
     draft    = $false
 } | ConvertTo-Json
 
+# UTF-8 BYTES, not the string. Invoke-RestMethod on Windows PowerShell 5.1
+# encodes a string body as Latin-1, so the em-dashes and middle dots the
+# changelog notes are full of arrive as invalid bytes and GitHub answers
+# "Problems parsing JSON" - after the build has already been zipped.
+$bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+
 $release = Invoke-RestMethod -Method Post -Headers $headers `
     -Uri "https://api.github.com/repos/$Repo/releases" `
-    -ContentType 'application/json' -Body $body
+    -ContentType 'application/json; charset=utf-8' -Body $bodyBytes
 
 $uploadBase = ($release.upload_url -split '\{')[0]
 
