@@ -16,6 +16,26 @@ internal static class Theme
     public static readonly Font Body = new("Segoe UI", 9.75F);
     public static readonly Font Small = new("Segoe UI", 8.5F);
 
+    /// <summary>Width the text columns wrap at, in base 96-DPI units.</summary>
+    public const int ContentWidth = 440;
+
+    /// <summary>
+    /// A label that grows to fit its text instead of clipping it.
+    ///
+    /// Every label here is AutoSize with a MaximumSize width: fixing a label's
+    /// height in pixels works only at 100% scaling, and clips the moment the
+    /// font gets bigger.
+    /// </summary>
+    public static Label Label(string text, Font font, Color color, int maxWidth = ContentWidth) => new()
+    {
+        Text = text,
+        Font = font,
+        ForeColor = color,
+        AutoSize = true,
+        MaximumSize = new Size(maxWidth, 0),
+        Margin = new Padding(0, 0, 0, 6),
+    };
+
     public static void Style(Button button, bool primary)
     {
         button.FlatStyle = FlatStyle.Flat;
@@ -24,8 +44,34 @@ internal static class Theme
         button.BackColor = primary ? Color.FromArgb(58, 50, 34) : Panel;
         button.ForeColor = primary ? Accent : Text;
         button.Font = Body;
-        button.Height = 30;
         button.Cursor = Cursors.Hand;
+
+        // Sized by its own text plus padding rather than a fixed Height, for
+        // the same reason the labels are.
+        button.AutoSize = true;
+        button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        button.Padding = new Padding(18, 7, 18, 7);
+        button.Margin = new Padding(8, 0, 0, 0);
+    }
+
+    /// <summary>A right-aligned row of buttons, laid out in the order given.</summary>
+    public static FlowLayoutPanel ButtonRow(params Button[] buttons)
+    {
+        var row = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.RightToLeft,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Anchor = AnchorStyles.Right,
+            Margin = new Padding(0, 10, 0, 0),
+            BackColor = Color.Transparent,
+        };
+
+        // RightToLeft flow lays the first control out furthest right, so the
+        // array reads left-to-right on screen when reversed here.
+        for (int i = buttons.Length - 1; i >= 0; i--) row.Controls.Add(buttons[i]);
+
+        return row;
     }
 
     public static string Bytes(long value)

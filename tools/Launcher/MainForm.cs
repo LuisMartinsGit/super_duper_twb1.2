@@ -10,7 +10,6 @@ internal sealed class MainForm : Form
     private readonly TextBox _notes;
     private readonly ProgressBar _progress;
     private readonly Button _play;
-    private readonly Button _quit;
 
     private readonly CancellationTokenSource _cancellation = new();
     private LauncherSettings _settings = LauncherSettings.Load();
@@ -21,34 +20,42 @@ internal sealed class MainForm : Form
         FormBorderStyle = FormBorderStyle.FixedSingle;
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = false;
-        ClientSize = new Size(520, 322);
         BackColor = Theme.Background;
         ForeColor = Theme.Text;
+
+        // Font before AutoScaleMode, and the whole window sized from its
+        // contents: the first version pinned every control to a pixel offset,
+        // which clipped every label the moment the display was scaled.
+        Font = Theme.Body;
         AutoScaleMode = AutoScaleMode.Font;
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        Padding = new Padding(24);
 
-        Controls.Add(new Label
+        // FlowLayoutPanel, undocked, positioned at the padding origin. A
+        // docked panel takes its width FROM the form, so the form had nothing
+        // to auto-size against and collapsed to 258px around 440px of content.
+        var layout = new FlowLayoutPanel
         {
-            Text = "The Waning Border",
-            Font = Theme.Title,
-            ForeColor = Theme.Accent,
-            Location = new Point(24, 20),
-            Size = new Size(400, 28),
-        });
-
-        _status = new Label
-        {
-            Text = "Starting up...",
-            Font = Theme.Body,
-            ForeColor = Theme.Text,
-            Location = new Point(24, 54),
-            Size = new Size(472, 20),
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Location = new Point(24, 24),
+            BackColor = Color.Transparent,
         };
-        Controls.Add(_status);
+
+        var title = Theme.Label("The Waning Border", Theme.Title, Theme.Accent);
+        title.Margin = new Padding(0, 0, 0, 10);
+        layout.Controls.Add(title);
+
+        _status = Theme.Label("Starting up...", Theme.Body, Theme.Text);
+        layout.Controls.Add(_status);
 
         _notes = new TextBox
         {
-            Location = new Point(24, 82),
-            Size = new Size(472, 122),
+            Width = Theme.ContentWidth,
+            Height = 120,
             Multiline = true,
             ReadOnly = true,
             ScrollBars = ScrollBars.Vertical,
@@ -58,38 +65,38 @@ internal sealed class MainForm : Form
             Font = Theme.Body,
             TabStop = false,
             Visible = false,
+            Margin = new Padding(0, 6, 0, 10),
         };
-        Controls.Add(_notes);
+        layout.Controls.Add(_notes);
 
         _progress = new ProgressBar
         {
-            Location = new Point(24, 216),
-            Size = new Size(472, 12),
+            Width = Theme.ContentWidth,
+            Height = 12,
             Maximum = 1000,
             Style = ProgressBarStyle.Continuous,
             Visible = false,
+            Margin = new Padding(0, 4, 0, 6),
         };
-        Controls.Add(_progress);
+        layout.Controls.Add(_progress);
 
-        _detail = new Label
-        {
-            Text = "",
-            Font = Theme.Small,
-            ForeColor = Theme.Muted,
-            Location = new Point(24, 234),
-            Size = new Size(472, 18),
-        };
-        Controls.Add(_detail);
+        _detail = Theme.Label("", Theme.Small, Theme.Muted);
+        // Reserved so the window does not resize every time this text appears
+        // and disappears mid-download.
+        _detail.MinimumSize = new Size(Theme.ContentWidth, 0);
+        layout.Controls.Add(_detail);
 
-        _play = new Button { Text = "Play", Location = new Point(304, 268), Width = 100, Enabled = false };
+        _play = new Button { Text = "Play", Enabled = false };
+        var quit = new Button { Text = "Quit" };
+
         Theme.Style(_play, primary: true);
-        _play.Click += (_, _) => Launch();
-        Controls.Add(_play);
+        Theme.Style(quit, primary: false);
 
-        _quit = new Button { Text = "Quit", Location = new Point(412, 268), Width = 84 };
-        Theme.Style(_quit, primary: false);
-        _quit.Click += (_, _) => Close();
-        Controls.Add(_quit);
+        _play.Click += (_, _) => Launch();
+        quit.Click += (_, _) => Close();
+
+        layout.Controls.Add(Theme.ButtonRow(_play, quit));
+        Controls.Add(layout);
 
         Shown += async (_, _) => await RunAsync().ConfigureAwait(true);
         FormClosing += (_, _) => _cancellation.Cancel();
@@ -99,7 +106,7 @@ internal sealed class MainForm : Form
     {
         Installer.Sweep();
 
-        if (!await EnsureKeyAsync().ConfigureAwait(true)) return;
+        if (!EnsureKey()) return;
 
         Manifest manifest;
 
@@ -117,10 +124,19 @@ internal sealed class MainForm : Form
             // playing the build they already have.
             if (AppPaths.FindGameExe() is not null)
             {
-                SetStatus($"{ex.Message}", Theme.Danger);
+                SetStatus(ex.Message, Theme.Danger);
                 SetDetail("Starting the installed build instead.");
                 _play.Enabled = true;
-                await Task.Delay(2500, _cancellation.Token).ConfigureAwait(true);
+
+                try
+                {
+                    await Task.Delay(2500, _cancellation.Token).ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
                 Launch();
             }
             else
@@ -150,7 +166,6 @@ internal sealed class MainForm : Form
         {
             var message = ex is UpdateException ? ex.Message : $"The update failed. {ex.Message}";
 
-            // The previous build is still on disk untouched, so offer it.
             if (AppPaths.FindGameExe() is not null)
             {
                 Fail(message, "You can still play the version you already have.");
@@ -168,8 +183,8 @@ internal sealed class MainForm : Form
         Launch();
     }
 
-    /// <summary>Prompts until the stored key is accepted, or the tester quits.</summary>
-    private async Task<bool> EnsureKeyAsync()
+    /// <summary>Prompts until a key is entered, or the tester quits.</summary>
+    private bool EnsureKey()
     {
         while (string.IsNullOrWhiteSpace(_settings.Key))
         {
@@ -182,18 +197,9 @@ internal sealed class MainForm : Form
             }
 
             _settings.Key = prompt.Key;
-
-            try
-            {
-                _settings.Save();
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // Not fatal: the key just will not persist to the next run.
-            }
+            TrySaveSettings();
         }
 
-        await Task.CompletedTask.ConfigureAwait(true);
         return true;
     }
 
@@ -221,7 +227,7 @@ internal sealed class MainForm : Form
                     if (prompt.ShowDialog(this) != DialogResult.OK) throw new OperationCanceledException();
 
                     _settings.Key = prompt.Key;
-                    try { _settings.Save(); } catch (IOException) { }
+                    TrySaveSettings();
                 }
             }
         }
@@ -262,8 +268,8 @@ internal sealed class MainForm : Form
 
                 _progress.Value = (int)(p.Fraction * _progress.Maximum);
 
-                var rate = p.BytesPerSecond > 0 ? $"  -  {Theme.Bytes((long)p.BytesPerSecond)}/s" : "";
-                var eta = p.Remaining is { } left ? $"  -  {Theme.Duration(left)}" : "";
+                var rate = p.BytesPerSecond > 0 ? $"   {Theme.Bytes((long)p.BytesPerSecond)}/s" : "";
+                var eta = p.Remaining is { } left ? $"   {Theme.Duration(left)}" : "";
 
                 SetDetail($"{Theme.Bytes(p.BytesRead)} of {Theme.Bytes(p.TotalBytes)}{rate}{eta}");
             });
@@ -294,6 +300,18 @@ internal sealed class MainForm : Form
 
         _progress.Value = _progress.Maximum;
         SetDetail("");
+    }
+
+    private void TrySaveSettings()
+    {
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Not fatal: the key just will not persist to the next run.
+        }
     }
 
     private void Launch()
@@ -346,9 +364,15 @@ internal sealed class MainForm : Form
 
     private void Marquee(bool on)
     {
-        _progress.Visible = on || _progress.Visible;
-        _progress.Style = on ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
-        if (!on && _progress.Value == 0) _progress.Visible = false;
+        if (on)
+        {
+            _progress.Style = ProgressBarStyle.Marquee;
+            _progress.Visible = true;
+            return;
+        }
+
+        _progress.Style = ProgressBarStyle.Continuous;
+        if (_progress.Value == 0) _progress.Visible = false;
     }
 
     protected override void Dispose(bool disposing)

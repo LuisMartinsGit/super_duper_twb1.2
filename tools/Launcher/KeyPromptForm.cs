@@ -13,84 +13,77 @@ internal sealed class KeyPromptForm : Form
     {
         Text = "The Waning Border";
         FormBorderStyle = FormBorderStyle.FixedDialog;
-        StartPosition = FormStartPosition.CenterScreen;
+        StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(440, problem is null ? 168 : 196);
+        ShowInTaskbar = false;
         BackColor = Theme.Background;
         ForeColor = Theme.Text;
+
+        // Font before AutoScaleMode: WinForms scales against the form font, so
+        // setting it afterwards gives the layout the wrong baseline.
+        Font = Theme.Body;
         AutoScaleMode = AutoScaleMode.Font;
 
-        var y = 18;
+        // The dialog takes its size from its contents rather than a hardcoded
+        // ClientSize, so nothing clips when the display is scaled.
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        Padding = new Padding(22);
+
+        // FlowLayoutPanel, undocked, positioned at the padding origin. A
+        // docked panel takes its width FROM the form, so the form had nothing
+        // to auto-size against and collapsed to 258px around 440px of content.
+        var layout = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Location = new Point(22, 22),
+            BackColor = Color.Transparent,
+        };
 
         if (problem is not null)
         {
-            Controls.Add(new Label
-            {
-                Text = problem,
-                Font = Theme.Body,
-                ForeColor = Theme.Danger,
-                Location = new Point(20, y),
-                Size = new Size(400, 32),
-            });
-            y += 36;
+            var warning = Theme.Label(problem, Theme.Body, Theme.Danger);
+            warning.Margin = new Padding(0, 0, 0, 14);
+            layout.Controls.Add(warning);
         }
 
-        Controls.Add(new Label
-        {
-            Text = "Enter the access key you were given.",
-            Font = Theme.Body,
-            ForeColor = Theme.Text,
-            Location = new Point(20, y),
-            Size = new Size(400, 20),
-        });
+        layout.Controls.Add(Theme.Label(
+            "Enter the access key you were given.", Theme.Body, Theme.Text));
 
-        Controls.Add(new Label
-        {
-            Text = "It is stored on this machine, so you only do this once.",
-            Font = Theme.Small,
-            ForeColor = Theme.Muted,
-            Location = new Point(20, y + 20),
-            Size = new Size(400, 18),
-        });
+        var hint = Theme.Label(
+            "It is stored on this machine, so you only do this once.",
+            Theme.Small, Theme.Muted);
+        hint.Margin = new Padding(0, 0, 0, 12);
+        layout.Controls.Add(hint);
 
         _input = new TextBox
         {
-            Location = new Point(20, y + 46),
-            Size = new Size(400, 26),
-            Font = new Font("Consolas", 10F),
+            Width = Theme.ContentWidth,
+            Font = new Font("Consolas", 10.5F),
             BackColor = Theme.Panel,
             ForeColor = Theme.Text,
             BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(0, 0, 0, 4),
         };
-        Controls.Add(_input);
+        layout.Controls.Add(_input);
 
-        var ok = new Button
-        {
-            Text = "Continue",
-            DialogResult = DialogResult.OK,
-            Location = new Point(240, y + 84),
-            Width = 88,
-        };
+        var ok = new Button { Text = "Continue", DialogResult = DialogResult.OK, Enabled = false };
+        var cancel = new Button { Text = "Quit", DialogResult = DialogResult.Cancel };
+
         Theme.Style(ok, primary: true);
-
-        var cancel = new Button
-        {
-            Text = "Quit",
-            DialogResult = DialogResult.Cancel,
-            Location = new Point(336, y + 84),
-            Width = 84,
-        };
         Theme.Style(cancel, primary: false);
 
-        Controls.Add(ok);
-        Controls.Add(cancel);
+        layout.Controls.Add(Theme.ButtonRow(ok, cancel));
+        Controls.Add(layout);
 
         AcceptButton = ok;
         CancelButton = cancel;
 
-        // Blocks Continue until something has actually been typed.
-        ok.Enabled = false;
         _input.TextChanged += (_, _) => ok.Enabled = Key.Length > 0;
+        Shown += (_, _) => _input.Focus();
     }
 }
