@@ -22,7 +22,7 @@ using Unity.Mathematics;
 
 namespace TheWaningBorder.Systems.Navigation
 {
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct StampOverpassJob : IJob
     {
         public NativeArray<byte> Cost;

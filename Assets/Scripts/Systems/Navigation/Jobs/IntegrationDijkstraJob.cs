@@ -30,7 +30,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// goal, and a deterministic frontier order is cheaper to enforce on
     /// one thread than to recover across threads.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct IntegrationDijkstraJob : IJob
     {
         [ReadOnly] public NativeArray<byte> Cost;

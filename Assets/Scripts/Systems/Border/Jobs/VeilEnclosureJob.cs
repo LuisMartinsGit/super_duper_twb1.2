@@ -21,7 +21,7 @@ using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
 namespace TheWaningBorder.Systems.Border.Jobs
 {
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     public struct VeilEnclosureJob : IJob
     {
         public NativeArray<byte> Saturation;        // read + write (fills pockets)

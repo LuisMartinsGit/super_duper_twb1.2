@@ -37,7 +37,7 @@ namespace TheWaningBorder.Systems.Border.Jobs
         All = 2,    // main burst — every tendril
     }
 
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     public struct VeilSpreadJob : IJobParallelFor
     {
         // ── Field state (double buffer) ────────────────────────────────

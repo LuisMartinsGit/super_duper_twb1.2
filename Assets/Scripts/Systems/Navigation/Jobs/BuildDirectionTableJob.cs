@@ -21,7 +21,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// Burst-friendly helper so the math is identical regardless of where
     /// the blob is ultimately assembled.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct BuildDirectionTableJob : IJob
     {
         public Unity.Collections.NativeArray<float2> Out;

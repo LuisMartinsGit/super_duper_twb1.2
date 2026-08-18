@@ -10,6 +10,7 @@ using System.Text;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Collections;
+using Unity.Mathematics;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.Core.Commands;
 using EntityWorld = Unity.Entities.World;
@@ -47,10 +48,16 @@ namespace TheWaningBorder.Multiplayer
         // CONFIGURATION
         // ═══════════════════════════════════════════════════════════════════════
         
-        public const int TICKS_PER_SECOND = 10;
-        public const float TICK_DURATION = 1f / TICKS_PER_SECOND;
-        public const int INPUT_DELAY_TICKS = 2;
-        public const int MAX_TICK_BUFFER = 60;
+        // Tick rate and input delay live in Core so the match-settings sync can
+        // put them on the wire; these forward to it. They are no longer consts —
+        // the tick rate is a per-match value the host chooses, and the input
+        // delay adapts to measured latency. docs/Multiplayer_LAN_Readiness.md
+        public static int TICKS_PER_SECOND => LockstepTiming.TicksPerSecond;
+        public static float TICK_DURATION => LockstepTiming.TickDuration;
+        public static int INPUT_DELAY_TICKS => LockstepTiming.InputDelayTicks;
+
+        /// <summary>Ticks of command history kept for replay/late arrival.</summary>
+        public const int MAX_TICK_BUFFER = 180;
         private Faction _localFaction;
         // ═══════════════════════════════════════════════════════════════════════
         // NETWORK STATE
@@ -193,12 +200,72 @@ namespace TheWaningBorder.Multiplayer
         // ═══════════════════════════════════════════════════════════════════════
         
         private Dictionary<int, uint> _checksums = new Dictionary<int, uint>();
-        private const int SYNC_CHECK_INTERVAL = 30; // Check every 30 ticks
+
+        /// <summary>
+        /// Sync every ~1 second of simulated time. Expressed in ticks, so it
+        /// follows the tick rate instead of drifting when the rate changes.
+        /// </summary>
+        private static int SYNC_CHECK_INTERVAL => LockstepTiming.TicksPerSecond;
+
+        /// <summary>How many past sync points stay comparable.</summary>
+        private const int ChecksumHistoryTicks = 8;
+
+        /// <summary>Networked entity count at the last checksum, for the log.</summary>
+        private int _lastChecksumEntityCount;
 
         /// <summary>Set true when a per-tick checksum mismatch is detected.</summary>
         public bool DesyncDetected { get; private set; }
         /// <summary>The tick at which the desync was first observed.</summary>
         public int DesyncTick { get; private set; }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // LIVENESS, LATENCY AND STALL REPORTING
+        // ═══════════════════════════════════════════════════════════════════════
+        //
+        // A peer that quit used to freeze the other one forever: CanAdvanceTick
+        // never returns true again, and in the old frame-driven mode the world
+        // kept animating while every order was silently ignored — a game that
+        // looks alive but is deaf, with nothing on screen to explain it.
+        //
+        // These fields are what the network HUD reads. They are deliberately
+        // plain properties rather than events: the HUD polls once a frame and
+        // nothing else in the simulation may depend on them (they are wall-clock
+        // derived and therefore NOT deterministic state).
+
+        /// <summary>Wall-clock seconds since we last heard anything from a peer.</summary>
+        private readonly Dictionary<int, float> _lastHeardFrom = new Dictionary<int, float>();
+        /// <summary>Measured round-trip time per peer, milliseconds.</summary>
+        private readonly Dictionary<int, float> _latencyMs = new Dictionary<int, float>();
+        private float _nextPingAt;
+        private const float PingInterval = 1f;
+
+        /// <summary>Seconds of silence before a peer is reported as stalled.</summary>
+        public const float StallWarnSeconds = 1.0f;
+        /// <summary>Seconds of silence before a peer is treated as gone.</summary>
+        public const float StallDropSeconds = 15f;
+
+        /// <summary>
+        /// The player index this peer is currently blocked on, or -1 when the
+        /// simulation is advancing normally. Read by the network HUD.
+        /// </summary>
+        public int BlockedOnPlayer { get; private set; } = -1;
+
+        /// <summary>How long we have been blocked on <see cref="BlockedOnPlayer"/>.</summary>
+        public float BlockedSeconds { get; private set; }
+
+        /// <summary>True once a peer has been silent past <see cref="StallDropSeconds"/>.</summary>
+        public bool PeerLost { get; private set; }
+
+        /// <summary>Round-trip time to the slowest peer in milliseconds, 0 if unknown.</summary>
+        public float WorstLatencyMs
+        {
+            get
+            {
+                float worst = 0f;
+                foreach (var kv in _latencyMs) if (kv.Value > worst) worst = kv.Value;
+                return worst;
+            }
+        }
         
         // ═══════════════════════════════════════════════════════════════════════
         // DEBUG
@@ -272,6 +339,15 @@ namespace TheWaningBorder.Multiplayer
             StopNetwork();
             ReleaseSimGate();
 
+            // Tear the fixed-step driver down with the match. It was never
+            // uninstalled, so its statics (and the presentation layer's
+            // interpolation switch, which reads them) survived into whatever
+            // came next — a single-player game started after a multiplayer one
+            // would have inherited both.
+            LockstepFixedStep.Uninstall();
+            LockstepTiming.Reset();
+            LockstepLog.Close();
+
             // Release the cached query; guard against the world being torn
             // down first (disposing a query of a dead world throws).
             if (_networkedQueryCreated)
@@ -286,8 +362,30 @@ namespace TheWaningBorder.Multiplayer
             if (!_isSimulationRunning) return;
 
             ReceiveNetworkMessages();
+            MaintainLiveness();
+
+            // Tick 0 must not run until the world is fully built. The terrain
+            // mask is produced by a coroutine and the nav cost field is baked by
+            // a one-shot system in InitializationSystemGroup — neither of which
+            // the tick loop governs, and neither of which lands at the same
+            // moment on two machines. Starting before they do gives the faster
+            // peer several ticks of a world with no water, no cliffs and no
+            // bridges that the slower peer never had.
+            //
+            // Each peer gates itself; lockstep does the rest. A peer that is not
+            // ready does not broadcast, so the other one runs out of its primed
+            // confirmations and waits — which is exactly the behaviour wanted.
+            if (!_worldReady && !IsWorldReady()) return;
 
             _tickAccumulator += Time.deltaTime;
+
+            // Bound the catch-up burst. Without a cap, a peer returning from a
+            // long stall (alt-tab, a hitch, a stalled peer that came back) runs
+            // every missed tick in ONE frame — and under the fixed-step driver
+            // each of those is a full simulation update, so the recovery frame
+            // takes longer than the stall did and the game appears to hang.
+            float maxCatchUp = MaxCatchUpTicks * TICK_DURATION;
+            if (_tickAccumulator > maxCatchUp) _tickAccumulator = maxCatchUp;
 
             while (_tickAccumulator >= TICK_DURATION)
             {
@@ -319,6 +417,169 @@ namespace TheWaningBorder.Multiplayer
                 {
                     // Waiting for other players
                     break;
+                }
+            }
+        }
+
+        /// <summary>Most ticks a single frame may run while catching up.</summary>
+        private const int MaxCatchUpTicks = 8;
+
+        /// <summary>Latches once the world has finished building — see Update().</summary>
+        private bool _worldReady;
+        private float _worldWaitStarted;
+
+        /// <summary>
+        /// True when everything the simulation reads from the map exists: the
+        /// terrain passability mask, the nav cost field baked from it, and the
+        /// full match-start entity population.
+        /// </summary>
+        private bool IsWorldReady()
+        {
+            var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+            if (pg == null || !pg.IsMaskReady) return NotYet();
+
+            var world = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return NotYet();
+
+            var em = world.EntityManager;
+            using var q = em.CreateEntityQuery(typeof(NavCostField));
+            if (q.CalculateEntityCount() == 0) return NotYet();
+            if (q.GetSingleton<NavCostField>().TerrainBaked == 0) return NotYet();
+
+            // The frame-paced spawn coroutine must have placed EVERY starting
+            // entity (factions, deposits, wells, pockets) before tick 0. A tick
+            // that elapses mid-population sees a world the other peer does not
+            // have yet, and any spawn after BeginTick(0) gets a tick-partition
+            // NetworkId stamped with this machine's LOCAL tick — both fork the
+            // first checksum (the instant tick-30 desync, 2026-08-16).
+            if (!TheWaningBorder.Bootstrap.SpawnDelayHelper.MapPopulated) return NotYet();
+
+            // LAST-LINE ASSERTION before the clock starts: in deterministic
+            // mode the fixed-step driver MUST be holding the sim group. If it
+            // is not — a failed Install, a stray Uninstall, any lifecycle bug
+            // — every tick from here would advance a frame-driven world and
+            // the match forks at the first checksum while looking healthy.
+            // Repair it here and say so, rather than desyncing silently.
+            // IsAttached, NOT Active: desync #5 proved the flag can stand
+            // while the manager has been detached from the group.
+            if (GameSettings.DeterministicLockstep
+                && !TheWaningBorder.Multiplayer.LockstepFixedStep.IsAttached)
+            {
+                UnityEngine.Debug.LogError(
+                    "[Lockstep] Fixed-step driver was NOT attached at world-ready — " +
+                    "re-installing now. Whatever detached it is a bug; this match " +
+                    "is safe, but check the log above for the cause.");
+                TheWaningBorder.Multiplayer.LockstepFixedStep.Install(
+                    EntityWorld.DefaultGameObjectInjectionWorld, TICK_DURATION);
+            }
+
+            _worldReady = true;
+            if (_worldWaitStarted > 0f)
+            {
+                UnityEngine.Debug.Log($"[Lockstep] World ready after " +
+                    $"{Time.realtimeSinceStartup - _worldWaitStarted:0.00}s — starting tick 0.");
+            }
+            // Deliberately WITHOUT the wait duration: how long each peer took to
+            // build its world is per-machine, and putting it in the diffable log
+            // would make two healthy peers' files differ on line one.
+            LockstepLog.Event(0, "world ready — tick 0 begins");
+            return true;
+
+            bool NotYet()
+            {
+                if (_worldWaitStarted <= 0f) _worldWaitStarted = Time.realtimeSinceStartup;
+                // 120s, not the old 30s: the gate now also waits for the full
+                // spawn coroutine, and MapMagic terrain generation alone can
+                // blow 30s on a slow machine. A force-start before population
+                // finishes is a GUARANTEED desync, so the bail-out exists only
+                // for a world that will truly never finish.
+                else if (Time.realtimeSinceStartup - _worldWaitStarted > 120f)
+                {
+                    // Never hang the match on a world that will not finish.
+                    UnityEngine.Debug.LogError(
+                        "[Lockstep] The world did not finish building within 120s — starting anyway. " +
+                        "Terrain blocking, pathing and the entity population may be wrong for the whole match.");
+                    _worldReady = true;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Wall-clock housekeeping: measure latency, notice peers that have gone
+        /// quiet, and keep <see cref="BlockedOnPlayer"/> current for the HUD.
+        ///
+        /// NOTHING here may touch simulation state — it all reads Time.time and
+        /// is therefore per-peer and nondeterministic by construction.
+        /// </summary>
+        private void MaintainLiveness()
+        {
+            float now = Time.realtimeSinceStartup;
+            LockstepLog.Pump(now);
+
+            // ── Latency probe ──────────────────────────────────────────
+            if (now >= _nextPingAt)
+            {
+                _nextPingAt = now + PingInterval;
+                SendPing(now);
+            }
+
+            // ── Who, if anyone, are we waiting on? ─────────────────────
+            int blocking = -1;
+            foreach (int playerIndex in _expectedPlayers)
+            {
+                if (_confirmedTicks.GetValueOrDefault(playerIndex, -1) < _currentTick)
+                {
+                    blocking = playerIndex;
+                    break;
+                }
+            }
+
+            if (blocking != BlockedOnPlayer)
+            {
+                // Console, not the lockstep log: which peer is momentarily
+                // ahead is a per-machine fact, and two healthy peers block on
+                // each other constantly.
+                if (blocking >= 0)
+                    UnityEngine.Debug.Log($"[Lockstep] tick {_currentTick}: waiting on player {blocking}.");
+                else if (BlockedOnPlayer >= 0 && BlockedSeconds > StallWarnSeconds)
+                    UnityEngine.Debug.Log($"[Lockstep] tick {_currentTick}: player {BlockedOnPlayer} " +
+                                          $"caught up after {BlockedSeconds:0.0}s.");
+
+                BlockedOnPlayer = blocking;
+                BlockedSeconds = 0f;
+            }
+            else if (blocking >= 0)
+            {
+                float was = BlockedSeconds;
+                BlockedSeconds += Time.unscaledDeltaTime;
+
+                // One line each time a stall crosses a whole second, so a long
+                // hang leaves a trail rather than a single ambiguous entry.
+                if ((int)BlockedSeconds != (int)was && BlockedSeconds >= StallWarnSeconds)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[Lockstep] tick {_currentTick}: still waiting on player {blocking} " +
+                        $"({BlockedSeconds:0}s). Their last confirmed tick is " +
+                        $"{_confirmedTicks.GetValueOrDefault(blocking, -1)}.");
+                }
+            }
+
+            // ── Has anyone gone for good? ──────────────────────────────
+            if (!PeerLost)
+            {
+                foreach (int playerIndex in _expectedPlayers)
+                {
+                    float last = _lastHeardFrom.GetValueOrDefault(playerIndex, now);
+                    if (now - last > StallDropSeconds)
+                    {
+                        PeerLost = true;
+                        UnityEngine.Debug.LogError(
+                            $"[Lockstep] Player {playerIndex} has been silent for " +
+                            $"{StallDropSeconds:0}s — treating the match as ended for them.");
+                        break;
+                    }
                 }
             }
         }
@@ -390,10 +651,39 @@ namespace TheWaningBorder.Multiplayer
             _currentTick = 0;
             _tickAccumulator = 0;
             _isSimulationRunning = true;
+
+            // The manager OBJECT is reused across matches (InitializeLockstepNow
+            // reuses Instance), and this latch was the one piece of per-match
+            // state not reset here: a stale true skips the whole world gate on
+            // match 2 of a session, so ticks start mid-bootstrap on a world
+            // still populating — the exact desync the gate exists to prevent.
+            _worldReady = false;
+            _worldWaitStarted = 0f;
             _localCommandBuffer.Clear();
             _remoteCommands.Clear();
             _confirmedTicks.Clear();
             _checksums.Clear();
+            _pendingRemoteChecksums.Clear();
+
+            _lastHeardFrom.Clear();
+            _latencyMs.Clear();
+            _seenPlayers.Clear();
+            _recentTickPayloads.Clear();
+            DesyncDetected = false;
+            DesyncTick = 0;
+            PeerLost = false;
+            BlockedOnPlayer = -1;
+            BlockedSeconds = 0f;
+            _nextPingAt = 0f;
+
+            // Everyone starts "just heard from" so the stall detector does not
+            // fire during the scene load the other peer is still finishing.
+            float now = Time.realtimeSinceStartup;
+            foreach (int p in _expectedPlayers) _lastHeardFrom[p] = now;
+
+            // The diffable per-tick record. Opened here so it covers the whole
+            // match including the pre-tick-0 wait.
+            LockstepLog.Begin(_localPlayerIndex, _isHost);
 
             // Initialize confirmed ticks — start at INPUT_DELAY_TICKS so the first
             // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
@@ -414,6 +704,9 @@ namespace TheWaningBorder.Multiplayer
             _isSimulationRunning = false;
             // Never leave the world frozen behind a gate that can no longer lift.
             ReleaseSimGate();
+
+            LockstepLog.Event(_currentTick, "simulation stopped");
+            LockstepLog.Close();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -501,15 +794,31 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
 
-            // Sort for determinism (by player index, then command index)
-            if (allCommands.Count > 0)
+            // Execution order is (PlayerIndex, CommandIndex) and it must be a
+            // TOTAL order, because List.Sort is not stable: any pair the
+            // comparison calls equal may come out either way round, and the
+            // input order itself differs between peers (each dictionary is
+            // built in the order its own datagrams arrived). CommandIndex is
+            // unique per player per tick, so the pair is total and the sort's
+            // instability cannot express itself.
+            if (allCommands.Count > 1)
             {
                 allCommands.Sort((a, b) =>
                 {
                     int cmp = a.PlayerIndex.CompareTo(b.PlayerIndex);
-                    return cmp != 0 ? cmp : a.CommandIndex.CompareTo(b.CommandIndex);
+                    if (cmp != 0) return cmp;
+                    cmp = a.CommandIndex.CompareTo(b.CommandIndex);
+                    if (cmp != 0) return cmp;
+                    // Last resort so the comparison is never "equal" for two
+                    // distinct commands: type is stable across peers.
+                    return ((int)a.Type).CompareTo((int)b.Type);
                 });
             }
+
+            // Log the tick's input BEFORE executing it, in execution order.
+            // This is the line two peers' logs are diffed on; writing it after
+            // execution would lose it if a command threw.
+            LockstepLog.Tick(tick, allCommands);
 
             foreach (var cmd in allCommands)
             {
@@ -525,13 +834,43 @@ namespace TheWaningBorder.Multiplayer
 
             // Cleanup old tick data
             _remoteCommands.Remove(tick - MAX_TICK_BUFFER);
-            
+
             // Periodic sync check
             if (tick % SYNC_CHECK_INTERVAL == 0)
             {
                 uint checksum = ComputeGameStateChecksum();
                 _checksums[tick] = checksum;
                 BroadcastSync(tick, checksum);
+                LockstepLog.Checksum(tick, checksum, _lastChecksumEntityCount);
+
+                // A peer ahead of us may have sent this tick's SYNC before we
+                // computed ours — compare against the stash now, so the
+                // mismatch is detected on BOTH sides and both write dumps.
+                if (_pendingRemoteChecksums.TryGetValue(tick, out uint earlyRemote))
+                {
+                    _pendingRemoteChecksums.Remove(tick);
+                    if (earlyRemote != checksum)
+                        OnChecksumMismatch(tick, checksum, earlyRemote, "stashed early SYNC");
+                }
+
+                // The checksum history was never pruned — one entry every sync
+                // tick, kept for the life of the match. Only recent ones can
+                // still be compared against an arriving SYNC.
+                _checksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
+                _pendingRemoteChecksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
+            }
+            else if (GameSettings.DeterministicLockstep)
+            {
+                // Deterministic mode hashes EVERY tick into the log while still
+                // broadcasting only on the interval. Costs no network traffic,
+                // and it is the difference between "the fork is somewhere in
+                // the last 30 ticks, here are nine suspect entities" and "the
+                // fork is this tick" when the two logs are diffed.
+                //
+                // Desync 2026-08-18 was localised only to ticks 3421-3450 for
+                // exactly this reason: positions were bit-identical at 3420 and
+                // wrong at 3450, with no way to narrow it further.
+                LockstepLog.Checksum(tick, ComputeGameStateChecksum(), _lastChecksumEntityCount);
             }
         }
 
@@ -550,7 +889,16 @@ namespace TheWaningBorder.Multiplayer
             bool needsEntity = cmd.Type != LockstepCommandType.SetRally
                             && cmd.Type != LockstepCommandType.PlaceBuilding
                             && cmd.Type != LockstepCommandType.GodPower
-                            && cmd.Type != LockstepCommandType.EquipmentUpgrade;
+                            && cmd.Type != LockstepCommandType.EquipmentUpgrade
+                            // SectPower packs the caster FACTION into
+                            // EntityNetworkId, not an entity id — same as
+                            // GodPower above.
+                            && cmd.Type != LockstepCommandType.SectPower
+                            // PlaceWallHub packs the FACTION too (there is no
+                            // entity yet — the executor creates it).
+                            && cmd.Type != LockstepCommandType.PlaceWallHub
+                            // SectGlowAlloc packs the FACTION as well.
+                            && cmd.Type != LockstepCommandType.SectGlowAlloc;
 
             if (needsEntity)
             {
@@ -665,17 +1013,16 @@ namespace TheWaningBorder.Multiplayer
                     break;
 
                 case LockstepCommandType.Train:
-                    if (entity != Entity.Null && em.HasBuffer<TrainQueueItem>(entity))
+                    if (entity != Entity.Null)
                     {
-                        string unitId = cmd.BuildingId;
-                        // Authoritative level gate — same check IssueTrain
-                        // does on the originating peer. Drops silently on
-                        // mismatch (replay can't notify; the local peer
-                        // already heard about the rejection client-side).
-                        if (!CommandRouter.CanTrainAtBuilding(em, entity, unitId, out _, out _))
-                            break;
-                        var queue = em.GetBuffer<TrainQueueItem>(entity);
-                        queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+                        // Through the SAME executor the single-player path
+                        // uses: it validates (level gate, hero caps, queue
+                        // cap) and SPENDS the unit cost on this peer. The
+                        // spend must run here, not at the issue site — the
+                        // faction banks feed the desync checksum, so an
+                        // issuer-only debit desynced on the first purchase
+                        // (docs/Multiplayer_LAN_Readiness.md).
+                        CommandRouter.TrainCommandDirect(em, entity, cmd.BuildingId);
                     }
                     break;
 
@@ -738,6 +1085,35 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                case LockstepCommandType.PlaceWallHub:
+                    {
+                        // EntityNetworkId carries the FACTION (no entity exists
+                        // until the executor creates the hub); TargetEntityId
+                        // is the autoBuild flag.
+                        var hub = CommandRouter.PlaceWallHubDirect(
+                            em, cmd.TargetPosition, (Faction)cmd.EntityNetworkId,
+                            autoBuild: cmd.TargetEntityId != 0);
+                        if (hub != Entity.Null && em.HasComponent<NetworkedEntity>(hub))
+                            _networkIdLookup[em.GetComponentData<NetworkedEntity>(hub).NetworkId] = hub;
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed PlaceWallHub from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.WallExtend:
+                    if (entity != Entity.Null)
+                    {
+                        // TargetEntityId: snap-target hub network id (0 = place
+                        // a new hub at TargetPosition). SecondaryTargetId:
+                        // faction.
+                        Entity snap = cmd.TargetEntityId != 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId)
+                            : Entity.Null;
+                        CommandRouter.WallExtendDirect(em, entity, snap,
+                            cmd.TargetPosition, (Faction)cmd.SecondaryTargetId);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed WallExtend from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
                 case LockstepCommandType.ConvertSegmentToGate:
                     if (entity != Entity.Null)
                     {
@@ -786,6 +1162,40 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                case LockstepCommandType.VaultTransfer:
+                    if (entity != Entity.Null)
+                    {
+                        // TargetEntityId: resource type in the low byte,
+                        // deposit flag at bit 8. SecondaryTargetId: amount.
+                        CommandRouter.VaultTransferDirect(em, entity,
+                            cmd.TargetEntityId & 0xFF, cmd.SecondaryTargetId,
+                            (cmd.TargetEntityId & 0x100) != 0);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed VaultTransfer from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.BazaarPack:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.BazaarPackDirect(em, entity, cmd.TargetEntityId != 0);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed BazaarPack from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.SectGlowAlloc:
+                    CommandRouter.SectGlowAllocDirect(em, (Faction)cmd.EntityNetworkId,
+                        cmd.BuildingId, cmd.TargetEntityId != 0);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectGlowAlloc from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.Corrupt:
+                    if (entity != Entity.Null && targetEntity != Entity.Null)
+                    {
+                        CommandRouter.IssueCorruptDirect(em, entity, targetEntity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Corrupt from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
                 case LockstepCommandType.ConvertNode:
                     if (entity != Entity.Null && targetEntity != Entity.Null)
                     {
@@ -811,6 +1221,68 @@ namespace TheWaningBorder.Multiplayer
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed GodPower {caster} from player {cmd.PlayerIndex}");
                     }
                     break;
+
+                // ── 2026-08-15: the six that used to bypass lockstep ──────
+                case LockstepCommandType.SectPower:
+                    {
+                        Faction caster = (Faction)cmd.EntityNetworkId;
+                        CommandRouter.SectPowerDirect(em, caster, cmd.BuildingId,
+                            cmd.TargetEntityId, cmd.TargetPosition);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectPower {cmd.BuildingId} t{cmd.TargetEntityId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.ReliquaryAbility:
+                    if (entity != Entity.Null)
+                    {
+                        CommandRouter.ReliquaryAbilityDirect(em, entity,
+                            cmd.TargetEntityId, cmd.TargetPosition);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed ReliquaryAbility {cmd.TargetEntityId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.WallUpgrade:
+                    if (entity != Entity.Null)
+                    {
+                        // Charged variant: validates + spends on this peer
+                        // before stamping the timer (the plain Direct is
+                        // stamp-only; paying at the click site forked the
+                        // banks — docs/Multiplayer_LAN_Readiness.md).
+                        CommandRouter.WallUpgradeChargedDirect(em, entity,
+                            cmd.TargetEntityId, cmd.TargetPosition.x);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed WallUpgrade {cmd.TargetEntityId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.KeepWing:
+                    if (entity != Entity.Null)
+                    {
+                        // Charged variant — same reasoning as WallUpgrade.
+                        CommandRouter.KeepWingChargedDirect(em, entity,
+                            (byte)(cmd.TargetEntityId & 0xFF), cmd.TargetPosition.x);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed KeepWing {cmd.TargetEntityId} from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.UnitPromote:
+                    if (entity != Entity.Null)
+                    {
+                        UnitRankCommandHelper.Execute(em, entity);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed UnitPromote from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.QueueWaypoint:
+                    if (entity != Entity.Null)
+                    {
+                        Entity wpTarget = cmd.SecondaryTargetId > 0
+                            ? FindEntityByNetworkId(cmd.SecondaryTargetId)
+                            : Entity.Null;
+                        CommandRouter.QueuedWaypointDirect(em, entity,
+                            (QueuedCommandType)cmd.TargetEntityId, cmd.TargetPosition, wpTarget);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed QueueWaypoint from player {cmd.PlayerIndex}");
+                    }
+                    break;
             }
         }
 
@@ -832,19 +1304,55 @@ namespace TheWaningBorder.Multiplayer
         // NETWORK - SEND
         // ═══════════════════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// Largest payload we will put in one datagram.
+        ///
+        /// Ethernet's MTU is 1500 bytes; past roughly 1400 (after IP+UDP
+        /// headers) the datagram is fragmented at the IP layer, and losing ONE
+        /// fragment discards the whole thing. A 50-100 command tick serialises
+        /// to several KB, so exactly the ticks that matter most — the ones
+        /// during a big fight — were the ones most likely to vanish whole.
+        /// Splitting them into MTU-sized datagrams means a loss costs one
+        /// chunk's commands, and the resend window can recover it.
+        /// </summary>
+        private const int MaxDatagramBytes = 1200;
+
         private void BroadcastTick(int tick, List<LockstepCommand> commands)
         {
-            var sb = new StringBuilder();
-            sb.Append($"TICK|{_localPlayerIndex}|{tick}|{commands.Count}");
+            // Build one datagram per chunk. Every chunk is a self-describing
+            // TICK message carrying its own command count, so a receiver that
+            // gets two of three chunks applies what it got and the resend
+            // covers the rest — rather than the all-or-nothing of one big
+            // fragmented datagram.
+            var payloads = new List<byte[]>(1);
+            var sb = new StringBuilder(256);
+            int chunkStart = 0;
 
-            foreach (var cmd in commands)
+            while (true)
             {
-                sb.Append("|");
-                sb.Append(cmd.Serialize());
-            }
+                int count = 0;
+                sb.Clear();
+                // Header is rewritten once the chunk's size is known, so build
+                // the body first and prepend afterwards.
+                var body = new StringBuilder(256);
+                for (int i = chunkStart; i < commands.Count; i++)
+                {
+                    string piece = "|" + commands[i].Serialize();
+                    if (count > 0 && body.Length + piece.Length > MaxDatagramBytes) break;
+                    body.Append(piece);
+                    count++;
+                }
 
-            string message = sb.ToString();
-            byte[] data = Encoding.UTF8.GetBytes(message);
+                sb.Append("TICK|").Append(_localPlayerIndex).Append('|')
+                  .Append(tick).Append('|').Append(count).Append(body);
+
+                payloads.Add(Encoding.UTF8.GetBytes(sb.ToString()));
+                chunkStart += count;
+
+                // A tick with NO commands still sends one datagram: the
+                // confirmation is what lets the other peer advance.
+                if (chunkStart >= commands.Count) break;
+            }
 
             foreach (var player in _remotePlayers)
             {
@@ -858,15 +1366,18 @@ namespace TheWaningBorder.Multiplayer
                         var payload = _recentTickPayloads[i].Data;
                         _udpClient?.Send(payload, payload.Length, player.EndPoint);
                     }
-                    _udpClient?.Send(data, data.Length, player.EndPoint);
+                    for (int i = 0; i < payloads.Count; i++)
+                        _udpClient?.Send(payloads[i], payloads[i].Length, player.EndPoint);
                 }
                 catch (Exception)
-            {
+                {
                 }
             }
 
             if (commands.Count > 0)
-                _recentTickPayloads.Add((tick, data));
+                for (int i = 0; i < payloads.Count; i++)
+                    _recentTickPayloads.Add((tick, payloads[i]));
+
             while (_recentTickPayloads.Count > 0 && _recentTickPayloads[0].Tick <= tick - RESEND_HISTORY)
                 _recentTickPayloads.RemoveAt(0);
         }
@@ -942,9 +1453,92 @@ namespace TheWaningBorder.Multiplayer
                     break;
                 case "PING":
                     SendPong(sender, parts.Length > 1 ? parts[1] : "0");
+                    // The pinger advertises its input delay as a 4th field;
+                    // adopt it if it is higher than ours (see AdoptPeerInputDelay).
+                    if (parts.Length > 3 && int.TryParse(parts[3], out int peerDelay))
+                        AdoptPeerInputDelay(peerDelay);
                     break;
                 case "PONG":
+                    ProcessPongMessage(parts);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Fold a round-trip sample into the peer's latency estimate and let the
+        /// input delay follow it.
+        ///
+        /// The delay used to be a hard-coded 2 ticks no matter the link — 200 ms
+        /// of self-inflicted lag on a LAN whose real round trip is a fraction of
+        /// a millisecond. PING was handled but never SENT by anything, so
+        /// nothing had ever measured the link at all.
+        /// </summary>
+        private void ProcessPongMessage(string[] parts)
+        {
+            if (parts.Length < 3) return;
+            if (!float.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float sentAt)) return;
+            if (!int.TryParse(parts[2], out int fromPlayer)) return;
+
+            float rtt = (Time.realtimeSinceStartup - sentAt) * 1000f;
+            if (rtt < 0f) return;
+
+            // Exponential smoothing: a single delayed datagram must not yank the
+            // whole input delay up a tick.
+            float prev = _latencyMs.GetValueOrDefault(fromPlayer, rtt);
+            _latencyMs[fromPlayer] = prev * 0.7f + rtt * 0.3f;
+            _lastHeardFrom[fromPlayer] = Time.realtimeSinceStartup;
+
+            // Follow the SLOWEST peer — the delay has to cover everyone.
+            int wanted = LockstepTiming.RecommendInputDelay(WorstLatencyMs);
+            if (wanted != LockstepTiming.InputDelayTicks)
+            {
+                // Only ever raise it mid-match. Lowering it would stamp a command
+                // for a tick that has already been confirmed and executed, and it
+                // would be dropped on arrival.
+                if (wanted > LockstepTiming.InputDelayTicks)
+                {
+                    LockstepTiming.InputDelayTicks = wanted;
+                    UnityEngine.Debug.Log(
+                        $"[Lockstep] input delay raised to {LockstepTiming.InputDelayTicks} ticks " +
+                        $"({LockstepTiming.InputDelayMs:0} ms) — worst round trip {WorstLatencyMs:0} ms.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Take a peer's advertised input delay and raise ours to match.
+        ///
+        /// Desync #6's dumps read "input delay 5" on the host and "3" on the
+        /// client: ProcessPongMessage adapts each peer to ITS OWN measured
+        /// round trip, so the two ends of one link settle on different
+        /// delays. Execution ticks are issuer-stamped, so the mismatch never
+        /// forked the sim — but it paces the two pipelines asymmetrically and
+        /// makes the per-peer log headers disagree, which cost real diagnosis
+        /// time. Peers now advertise their delay in every PING and everyone
+        /// adopts the highest. Raise-only, for the same reason
+        /// ProcessPongMessage only raises: lowering would stamp commands into
+        /// ticks that have already been confirmed and executed.
+        /// </summary>
+        private void AdoptPeerInputDelay(int peerDelayTicks)
+        {
+            if (peerDelayTicks <= LockstepTiming.InputDelayTicks) return;
+            if (peerDelayTicks > 30) return;   // corrupt-datagram guard: >1s of delay is never right
+            LockstepTiming.InputDelayTicks = peerDelayTicks;
+            UnityEngine.Debug.Log(
+                $"[Lockstep] input delay raised to {peerDelayTicks} ticks "
+                + $"({LockstepTiming.InputDelayMs:0} ms) to match a peer.");
+        }
+
+        private void SendPing(float now)
+        {
+            string message = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "PING|{0:R}|{1}|{2}", now, _localPlayerIndex, LockstepTiming.InputDelayTicks);
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            foreach (var player in _remotePlayers)
+            {
+                try { _udpClient?.Send(data, data.Length, player.EndPoint); }
+                catch { }
             }
         }
 
@@ -959,6 +1553,7 @@ namespace TheWaningBorder.Multiplayer
             // First contact from this player lifts the match-start barrier
             // once everyone has been heard from.
             _seenPlayers.Add(playerIndex);
+            _lastHeardFrom[playerIndex] = Time.realtimeSinceStartup;
             MaybeReleaseSimGate();
 
             _confirmedTicks[playerIndex] = Math.Max(_confirmedTicks.GetValueOrDefault(playerIndex, -1), tick);
@@ -968,24 +1563,43 @@ namespace TheWaningBorder.Multiplayer
             // buffer (the tick ran; its outcome cannot be revised).
             if (tick >= _currentTick)
             {
-                var commands = new List<LockstepCommand>();
+                if (!_remoteCommands.TryGetValue(tick, out var byPlayer))
+                {
+                    byPlayer = new Dictionary<int, List<LockstepCommand>>();
+                    _remoteCommands[tick] = byPlayer;
+                }
+                if (!byPlayer.TryGetValue(playerIndex, out var commands))
+                {
+                    commands = new List<LockstepCommand>();
+                    byPlayer[playerIndex] = commands;
+                }
+
                 int cmdStartIndex = 4;
                 for (int i = 0; i < cmdCount && cmdStartIndex < parts.Length; i++)
                 {
                     var cmd = LockstepCommand.Deserialize(parts[cmdStartIndex]);
-                    if (cmd != null)
-                    {
-                        cmd.PlayerIndex = playerIndex;
-                        cmd.Tick = tick;
-                        commands.Add(cmd);
-                    }
                     cmdStartIndex++;
+                    if (cmd == null) continue;
+
+                    cmd.PlayerIndex = playerIndex;
+                    cmd.Tick = tick;
+
+                    // MERGE, don't replace. A tick's commands can arrive across
+                    // several datagrams (chunked to stay under the MTU) and the
+                    // same datagram can arrive twice (the resend window), so
+                    // the arriving set is deduplicated by CommandIndex rather
+                    // than overwriting what is already held.
+                    bool duplicate = false;
+                    for (int k = 0; k < commands.Count; k++)
+                    {
+                        if (commands[k].CommandIndex == cmd.CommandIndex)
+                        {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    if (!duplicate) commands.Add(cmd);
                 }
-
-                if (!_remoteCommands.ContainsKey(tick))
-                    _remoteCommands[tick] = new Dictionary<int, List<LockstepCommand>>();
-
-                _remoteCommands[tick][playerIndex] = commands;
             }
 
             // Host relays to other clients (resends included — a client may
@@ -997,6 +1611,15 @@ namespace TheWaningBorder.Multiplayer
             }
         }
 
+        /// <summary>
+        /// Remote checksums that arrived BEFORE this peer computed its own for
+        /// that tick. Without this stash the early arrival was silently
+        /// dropped, the mismatch went undetected on the slower peer, and only
+        /// ONE side ever wrote a Desync dump — leaving nothing to diff the
+        /// forked entity against (2026-08-16, tick-0 desync investigation).
+        /// </summary>
+        private readonly Dictionary<int, uint> _pendingRemoteChecksums = new Dictionary<int, uint>();
+
         private void ProcessSyncMessage(string[] parts, IPEndPoint sender)
         {
             if (parts.Length < 3) return;
@@ -1004,32 +1627,150 @@ namespace TheWaningBorder.Multiplayer
             if (!int.TryParse(parts[1], out int tick)) return;
             if (!uint.TryParse(parts[2], out uint remoteChecksum)) return;
 
-            if (_checksums.TryGetValue(tick, out uint localChecksum))
+            if (!_checksums.TryGetValue(tick, out uint localChecksum))
             {
-                if (localChecksum != remoteChecksum)
+                // Ours is not computed yet — keep theirs and compare in
+                // ProcessTick the moment ours lands.
+                _pendingRemoteChecksums[tick] = remoteChecksum;
+                return;
+            }
+            if (localChecksum == remoteChecksum) return;
+
+            OnChecksumMismatch(tick, localChecksum, remoteChecksum, sender.ToString());
+        }
+
+        /// <summary>
+        /// The one mismatch handler, reached from BOTH directions: a SYNC
+        /// arriving after our checksum (ProcessSyncMessage) and our checksum
+        /// landing after a stashed early SYNC (ProcessTick). Either way both
+        /// peers must end up here, each writing its own Desync dump.
+        /// </summary>
+        private void OnChecksumMismatch(int tick, uint localChecksum, uint remoteChecksum, string senderDesc)
+        {
+            // Only the FIRST mismatch is worth anything: after a fork the two
+            // worlds diverge further every tick, so tick 900's mismatch tells you
+            // nothing that tick 870's did not.
+            if (DesyncDetected) return;
+
+            DesyncDetected = true;
+            DesyncTick = tick;
+
+            if (!GameSettings.DeterministicLockstep)
+            {
+                // Frame-driven mode drifts by design; a mismatch here is expected
+                // and halting on it would freeze a game that was never promised
+                // to be in sync. Say so once, quietly, and carry on.
+                UnityEngine.Debug.LogWarning(
+                    $"[Lockstep] Checksum mismatch at tick {tick} with DeterministicLockstep OFF — " +
+                    "expected, the simulation is frame-driven in this mode.");
+                return;
+            }
+
+            UnityEngine.Debug.LogError(
+                $"[Lockstep] DESYNC at tick {tick}: local checksum 0x{localChecksum:X8} " +
+                $"!= remote 0x{remoteChecksum:X8} (from {senderDesc}).");
+
+            // Both peers record it, so whichever log you open says the same
+            // tick — and the checksum lines above it show how far back they
+            // still agreed.
+            LockstepLog.Event(tick,
+                $"DESYNC local=0x{localChecksum:X8} remote=0x{remoteChecksum:X8} " +
+                "— diff this file against the other peer's from the top");
+
+            // A desync is a bug that has already happened; freezing tells the
+            // player nothing and destroys the evidence. Write the state that
+            // produced it to the match log folder FIRST — the first forked
+            // entity is the whole answer, and without this the report is "it
+            // desynced at tick 900" and nothing more.
+            DumpDesyncState(tick, localChecksum, remoteChecksum);
+
+            _isSimulationRunning = false;
+        }
+
+        /// <summary>
+        /// Write every networked entity's contribution to the checksum, plus the
+        /// faction banks, into the match log folder. Both peers write their own;
+        /// diffing the two files names the entity that forked.
+        /// </summary>
+        private void DumpDesyncState(int tick, uint localChecksum, uint remoteChecksum)
+        {
+            try
+            {
+                var world = EntityWorld.DefaultGameObjectInjectionWorld;
+                if (world == null || !world.IsCreated) return;
+                var em = world.EntityManager;
+
+                var sb = new StringBuilder(64 * 1024);
+                sb.AppendLine($"=== DESYNC tick {tick} ===");
+                sb.AppendLine($"player       : {_localPlayerIndex} ({(_isHost ? "host" : "client")})");
+                sb.AppendLine($"local  cksum : 0x{localChecksum:X8}");
+                sb.AppendLine($"remote cksum : 0x{remoteChecksum:X8}");
+                sb.AppendLine($"build        : {MatchSettingsSync.BuildLabel} fp={MatchSettingsSync.Fingerprint}");
+                sb.AppendLine($"tick rate    : {TICKS_PER_SECOND} Hz, input delay {INPUT_DELAY_TICKS} ticks");
+                sb.AppendLine();
+
+                var query = GetNetworkedQuery(em);
+                using var entities = query.ToEntityArray(Allocator.Temp);
+                using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
+
+                // Sorted by NetworkId so the two peers' dumps line up in a plain
+                // text diff even when their chunk layouts differ.
+                var rows = new List<(int Id, string Line)>(entities.Length);
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    DesyncDetected = true;
-                    DesyncTick = tick;
-                    // Only ACT on a desync in true-deterministic mode. With the
-                    // fixed-step OFF (the default), the simulation is frame-rate
-                    // driven, so positions/timers legitimately drift between
-                    // clients and the checksum mismatches every sync tick — that
-                    // is EXPECTED here, not a real desync. Halting on it would
-                    // freeze the game (and stop move commands from executing).
-                    if (GameSettings.DeterministicLockstep)
+                    var e = entities[i];
+                    int hpv = -1, hpm = -1;
+                    if (em.HasComponent<Health>(e))
                     {
-                        UnityEngine.Debug.LogError(
-                            $"[Lockstep] DESYNC at tick {tick}: local checksum 0x{localChecksum:X8} " +
-                            $"!= remote 0x{remoteChecksum:X8} (from {sender}). Halting simulation.");
-                        _isSimulationRunning = false;
+                        var hp = em.GetComponentData<Health>(e);
+                        hpv = hp.Value; hpm = hp.Max;
                     }
+                    string fac = em.HasComponent<FactionTag>(e)
+                        ? em.GetComponentData<FactionTag>(e).Value.ToString() : "-";
+                    float3 p = em.HasComponent<Unity.Transforms.LocalTransform>(e)
+                        ? em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position
+                        : default;
+
+                    // Invariant on purpose: desync #6's dumps came off a
+                    // Portuguese Windows with decimal COMMAS — diffed against
+                    // a dot-locale peer, every line is a false difference in
+                    // the one file that exists to be diffed.
+                    rows.Add((ids[i].NetworkId, FormattableString.Invariant(
+                        $"id={ids[i].NetworkId,-10} spawn={ids[i].SpawnTick,-6} fac={fac,-7} hp={hpv}/{hpm,-6} pos=({p.x:F3},{p.y:F3},{p.z:F3})")));
                 }
+                rows.Sort((a, b) => a.Id.CompareTo(b.Id));
+                foreach (var r in rows) sb.AppendLine(r.Line);
+
+                sb.AppendLine();
+                for (int f = 0; f < 8; f++)
+                {
+                    if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(
+                            em, (Faction)f, out var bank)) continue;
+                    sb.AppendLine($"bank {(Faction)f,-7} supplies={bank.Supplies} iron={bank.Iron} " +
+                                  $"veilstone={bank.Veilstone} veilsteel={bank.Veilsteel}");
+                }
+
+                string fileName = $"Desync_tick{tick}_p{_localPlayerIndex}.log";
+                System.IO.File.WriteAllText(
+                    TheWaningBorder.Core.Diagnostics.MatchLogSession.File(fileName), sb.ToString());
+
+                UnityEngine.Debug.LogError(
+                    $"[Lockstep] Desync state written to the match log folder ({fileName}). " +
+                    "Diff it against the other player's copy — the first differing line is the fork.");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[Lockstep] Could not write the desync dump: {e.Message}");
             }
         }
 
+        /// <summary>
+        /// Echo the pinger's own timestamp back, plus OUR player index so they
+        /// can attribute the round trip to the right peer.
+        /// </summary>
         private void SendPong(IPEndPoint target, string timestamp)
         {
-            string message = $"PONG|{timestamp}";
+            string message = $"PONG|{timestamp}|{_localPlayerIndex}";
             byte[] data = Encoding.UTF8.GetBytes(message);
             try
             {
@@ -1042,38 +1783,121 @@ namespace TheWaningBorder.Multiplayer
         // SYNC VALIDATION
         // ═══════════════════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// Hash of everything the two peers must agree on.
+        ///
+        /// The old version XORed per-entity terms of NetworkId and health.
+        /// XOR is order-independent, which was the right instinct — entity
+        /// iteration order is a chunk-layout detail, not simulation state — but
+        /// it is also self-cancelling: two entities swapping health values
+        /// produced an IDENTICAL checksum, and so did a hundred other
+        /// permutations. It also excluded positions (deliberately, because the
+        /// frame-driven simulation drifted by design) and with them the whole
+        /// movement system, plus resources, research and construction.
+        ///
+        /// Now: each entity is hashed into a well-mixed per-entity value with
+        /// FNV-1a, and those values are SUMMED. Summation keeps the
+        /// order-independence and loses the self-cancelling — a swap changes the
+        /// per-entity hashes, so it changes the total. Positions are included
+        /// because under the fixed-step simulation they are deterministic; if
+        /// they ever drift again, that is the bug, and this is what reports it.
+        /// </summary>
         private uint ComputeGameStateChecksum()
         {
-            uint checksum = 0;
-
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return checksum;
+            if (world == null || !world.IsCreated) return 0u;
 
             var em = world.EntityManager;
-
-            // Checksum based on entity count + health (game-logic state).
-            // Positions are NOT included because movement uses frame-rate-dependent
-            // deltaTime, causing tiny floating-point drift between clients.
-            // Commands are still synchronized via lockstep — drift is cosmetic only.
             var query = GetNetworkedQuery(em);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
 
-            checksum ^= (uint)(entities.Length * 31);
+            _lastChecksumEntityCount = entities.Length;
 
-            for (int i = 0; i < entities.Length; i++)
+            unchecked
             {
-                checksum ^= (uint)(ids[i].NetworkId * 7919);
+                uint total = (uint)entities.Length * 2654435761u;
 
-                // Include health if present — tracks combat state
-                if (em.HasComponent<Health>(entities[i]))
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    var hp = em.GetComponentData<Health>(entities[i]);
-                    checksum ^= (uint)(hp.Value * 17 + hp.Max * 53);
-                }
-            }
+                    uint h = 2166136261u;
+                    Mix(ref h, (uint)ids[i].NetworkId);
 
-            return checksum;
+                    var e = entities[i];
+
+                    if (em.HasComponent<Health>(e))
+                    {
+                        var hp = em.GetComponentData<Health>(e);
+                        Mix(ref h, (uint)hp.Value);
+                        Mix(ref h, (uint)hp.Max);
+                    }
+
+                    if (em.HasComponent<FactionTag>(e))
+                        Mix(ref h, (uint)(int)em.GetComponentData<FactionTag>(e).Value);
+
+                    // Positions, quantised to a millimetre. Raw float bits would
+                    // make the checksum fire on differences far below anything
+                    // that can affect gameplay; a millimetre is well under any
+                    // decision threshold in the simulation and still catches a
+                    // genuine divergence within a tick or two of it starting.
+                    if (em.HasComponent<Unity.Transforms.LocalTransform>(e))
+                    {
+                        var p = em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
+                        Mix(ref h, (uint)(int)math.round(p.x * 1000f));
+                        Mix(ref h, (uint)(int)math.round(p.y * 1000f));
+                        Mix(ref h, (uint)(int)math.round(p.z * 1000f));
+
+                        // Deterministic mode promises a BIT-EXACT simulation, so
+                        // hash the exact bits. Desync #6 proved the quantised
+                        // mixes alone are not enough: sub-millimetre drift hid
+                        // below them for 13 clean checks and only surfaced once
+                        // it crossed a decision threshold (a build-range test),
+                        // reporting tick 420 for a divergence born around tick
+                        // 31. With the raw bits in, the fork is caught at the
+                        // first sync check after it exists, and the fork tick
+                        // points at the guilty window instead of a symptom.
+                        if (GameSettings.DeterministicLockstep)
+                        {
+                            Mix(ref h, math.asuint(p.x));
+                            Mix(ref h, math.asuint(p.y));
+                            Mix(ref h, math.asuint(p.z));
+                        }
+                    }
+
+                    total += h;
+                }
+
+                // Faction banks sit on bank entities that carry no
+                // NetworkedEntity, so the scan above never saw them — and an
+                // economy that has quietly diverged is exactly the desync that
+                // only surfaces much later as "how can they afford that".
+                for (int f = 0; f < 8; f++)
+                {
+                    if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(
+                            em, (Faction)f, out var bank)) continue;
+                    uint bh = 2166136261u;
+                    Mix(ref bh, (uint)f);
+                    Mix(ref bh, (uint)bank.Supplies);
+                    Mix(ref bh, (uint)bank.Iron);
+                    Mix(ref bh, (uint)bank.Veilstone);
+                    Mix(ref bh, (uint)bank.Veilsteel);
+                    total += bh;
+                }
+
+                return total;
+            }
+        }
+
+        /// <summary>FNV-1a round over a 32-bit word.</summary>
+        private static void Mix(ref uint h, uint value)
+        {
+            unchecked
+            {
+                h ^= value & 0xFF; h *= 16777619u;
+                h ^= (value >> 8) & 0xFF; h *= 16777619u;
+                h ^= (value >> 16) & 0xFF; h *= 16777619u;
+                h ^= (value >> 24) & 0xFF; h *= 16777619u;
+            }
         }
     }
 }

@@ -18,19 +18,19 @@ namespace TheWaningBorder.Systems.Movement
     /// per-tick movement integration (so DesiredDestination.Has == 0 on
     /// arrival is observable) and before TargetingSystem.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(UnitIntegratorSystem))]
     [UpdateBefore(typeof(Combat.TargetingSystem))]
     public partial struct PatrolSystem : ISystem
     {
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;

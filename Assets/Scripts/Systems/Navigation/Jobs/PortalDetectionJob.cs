@@ -59,7 +59,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// construction (see file header), so the assemble job downstream
     /// only needs a stable sort by (TileIndex, CellIndex).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct PortalDetectionJob : IJob
     {
         [ReadOnly] public NativeArray<byte> Cost;

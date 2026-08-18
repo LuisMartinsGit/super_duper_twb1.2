@@ -52,6 +52,40 @@ elseif ($bundleVersion -and $Version -ne $bundleVersion) {
            'Bump bundleVersion in Player Settings and rebuild, or drop -Version to use Unity.')
 }
 
+# ---------------------------------------------------------------- notes
+
+# Notes come from CHANGELOG.md for the same reason the version comes from
+# Player Settings: the real text already exists, keyed by exactly this
+# version, and anything hand-typed here drifts from it immediately. These
+# notes are what the launcher shows a tester while the build downloads.
+if (-not $Notes) {
+    $changelog = Join-Path $root '..\CHANGELOG.md'
+
+    if (Test-Path $changelog) {
+        $lines = Get-Content $changelog
+        $start = -1
+
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match "^##\s*\[$([regex]::Escape($Version))\]") { $start = $i + 1; break }
+        }
+
+        if ($start -ge 0) {
+            $body = New-Object System.Collections.Generic.List[string]
+
+            for ($i = $start; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match '^##\s*\[') { break }
+                $body.Add($lines[$i])
+            }
+
+            $Notes = ($body -join "`n").Trim()
+            Write-Host "Notes taken from CHANGELOG.md ($($Notes.Length) chars)." -ForegroundColor Cyan
+        }
+        else {
+            Write-Warning "CHANGELOG.md has no [$Version] section - releasing with empty notes."
+        }
+    }
+}
+
 # ---------------------------------------------------------------- token
 
 $token = $env:GH_RELEASE_TOKEN

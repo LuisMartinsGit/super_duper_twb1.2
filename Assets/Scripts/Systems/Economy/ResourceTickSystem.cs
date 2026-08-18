@@ -17,7 +17,7 @@ namespace TheWaningBorder.Economy
     ///
     /// Only completed buildings contribute (those without UnderConstruction component).
     /// </summary>
-    // NOTE: No [BurstCompile] — historically read managed FactionSectState. The
+    // NOTE: No [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)] — historically read managed FactionSectState. The
     // multiplier bridge was removed in task-063 phase 1; Burst could be re-enabled
     // once Phase 2 reintroduces sect income effects via component-only state.
     [UpdateInGroup(typeof(SimulationSystemGroup))]

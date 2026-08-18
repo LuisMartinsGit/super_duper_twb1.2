@@ -22,7 +22,7 @@ namespace TheWaningBorder.Systems.Combat
     /// Ordering: after TargetingSystem (fresh Target / DesiredDestination
     /// intent), before RangedCombatSystem (which reads Deployed this frame).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TargetingSystem))]
     [UpdateBefore(typeof(RangedCombatSystem))]
@@ -31,13 +31,13 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>Seconds of standing with a live target before the engine may fire.</summary>
         public const float DeployTime = 3f;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<TrebuchetState>();
         }
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
