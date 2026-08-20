@@ -15,10 +15,10 @@ Nothing yet.
 
 ---
 
-## [0.0.12] — 2026-08-20
+## [0.0.13] — 2026-08-20
 
-The last full download. From the next version on, an update fetches only the
-files that changed.
+The last full download. From the next version on, an update fetches only
+the files that changed.
 
 ### Added
 
@@ -35,6 +35,12 @@ files that changed.
   asking you to download one by hand. Installing this version updates it for
   you, in the background, with nothing to click. **This is why 0.0.12 is still a
   full download** — it is the one carrying the new launcher.
+
+---
+
+## [0.0.12] — 2026-08-20
+
+A one-fix patch on 0.0.11.
 
 ### Fixed
 
