@@ -48,6 +48,45 @@ namespace TheWaningBorder.EditorTools
                 Debug.LogWarning($"[AlphaBuildPostProcess] Could not prepare the logs "
                                  + $"folder: {e.GetType().Name}: {e.Message}");
             }
+
+            CarryLauncher(buildRoot);
+        }
+
+        /// <summary>
+        /// Ship the launcher INSIDE the build, so the game can upgrade the
+        /// copy sitting in the install root (see LauncherSelfUpdate).
+        ///
+        /// The launcher lives outside game\ and an update never touches it, so
+        /// there was no way to get a new one to a tester short of asking them
+        /// to download it by hand. Carrying it in the build costs ~150 KB and
+        /// removes that step entirely.
+        /// </summary>
+        private static void CarryLauncher(string buildRoot)
+        {
+            const string LauncherName = "TWBLauncher.exe";
+            string source = Path.GetFullPath(Path.Combine(
+                Application.dataPath, "..", "tools", "Launcher", "publish", LauncherName));
+
+            if (!File.Exists(source))
+            {
+                // Not fatal: a build without it simply cannot upgrade the
+                // launcher, which is exactly the old behaviour.
+                Debug.LogWarning($"[AlphaBuildPostProcess] No launcher at {source} — this build "
+                                 + "will not be able to update a tester's launcher. Run "
+                                 + "tools/Launcher/publish.ps1 first.");
+                return;
+            }
+
+            try
+            {
+                File.Copy(source, Path.Combine(buildRoot, LauncherName), overwrite: true);
+                Debug.Log($"[AlphaBuildPostProcess] Carried {LauncherName} into the build.");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[AlphaBuildPostProcess] Could not carry the launcher: "
+                                 + $"{e.GetType().Name}: {e.Message}");
+            }
         }
 
         private static string ReadmeText() =>

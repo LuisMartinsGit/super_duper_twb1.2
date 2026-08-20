@@ -268,6 +268,111 @@ internal sealed class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Try to update by fetching only what changed. True when the install is
+    /// finished and swapped in; false to fall back to the full download.
+    ///
+    /// A build is 1.1 GB and most of it is one 863 MB asset file that only
+    /// changes when an asset does, so a code-only patch moves a few MB rather
+    /// than 473. See Patcher.
+    /// </summary>
+    private async Task<bool> TryPatchAsync(Manifest manifest)
+    {
+        var token = _cancellation.Token;
+
+        try
+        {
+            SetStatus($"Checking what changed in {manifest.Version}...", Theme.Text);
+            Marquee(true);
+
+            // Hashing the installed build is a second or two of disk; keep it
+            // off the UI thread with the rest.
+            var plan = await Task.Run(() => Patcher.Plan(manifest, token), token).ConfigureAwait(true);
+
+            Marquee(false);
+            if (plan is null) return false;
+
+            if (!plan.IsWorthwhile)
+            {
+                // Byte-identical to what is already installed. Can happen when
+                // a release is re-cut without a content change.
+                SetStatus("Already up to date.", Theme.Text);
+                return true;
+            }
+
+            SetStatus($"Updating to {manifest.Version}...", Theme.Text);
+            SetDetail($"{plan.Fetch.Count} file(s) changed - {Theme.Bytes(plan.BytesToFetch)} to fetch.");
+            _progress.Visible = true;
+            _progress.Value = 0;
+
+            var lastPaint = Stopwatch.StartNew();
+
+            var progress = new Progress<DownloadProgress>(p =>
+            {
+                if (lastPaint.ElapsedMilliseconds < 50 && p.Fraction < 1) return;
+                lastPaint.Restart();
+                _progress.Value = (int)(p.Fraction * _progress.Maximum);
+                SetDetail($"{Theme.Bytes(p.BytesRead)} of {Theme.Bytes(p.TotalBytes)}");
+            });
+
+            await Patcher
+                .ApplyAsync(plan, manifest, _settings.ApiBase, _settings.Key, progress, token)
+                .ConfigureAwait(true);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;   // the tester cancelled; not a patch failure
+        }
+        catch (Exception ex)
+        {
+            // Deliberately broad. Anything from a server that ignores ranges to
+            // a half-written staging folder ends the same way: throw the
+            // attempt away and download the build properly. The tester loses
+            // time, never a working install.
+            Marquee(false);
+            Log($"Incremental update failed ({ex.GetType().Name}: {ex.Message}); " +
+                "falling back to the full download.");
+
+            TryDiscardStaging();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// One line into launcher.log beside the exe.
+    ///
+    /// The incremental path can decline or fail for reasons that are invisible
+    /// to a tester — the update simply takes longer — so without this, "it
+    /// still downloads the whole thing" would be unanswerable from a bug
+    /// report. Best-effort: logging must never break an update.
+    /// </summary>
+    private static void Log(string message)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(AppPaths.Root, "launcher.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}{Environment.NewLine}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void TryDiscardStaging()
+    {
+        try
+        {
+            if (Directory.Exists(AppPaths.Staging))
+                Directory.Delete(AppPaths.Staging, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     private async Task UpdateAsync(Manifest manifest)
     {
         var installed = AppPaths.ReadInstalledVersion();
@@ -286,6 +391,16 @@ internal sealed class MainForm : Form
         _progress.Value = 0;
 
         var zip = Path.Combine(AppPaths.DownloadCache, $"TheWaningBorder-{manifest.Version}.zip");
+
+        // Incremental first. Everything about it is best-effort: a null plan
+        // means "not worth it or not possible", and a throw means it went
+        // wrong partway. Both land on the full download below, which is the
+        // path that has always worked.
+        if (await TryPatchAsync(manifest).ConfigureAwait(true))
+        {
+            AppPaths.WriteInstalledVersion(manifest.Version);
+            return;
+        }
 
         using (var client = new UpdateClient(_settings.ApiBase, _settings.Key))
         {

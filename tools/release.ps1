@@ -178,6 +178,16 @@ $archive = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
 $added = 0
 $skipped = 0
 
+# Per-file inventory for incremental updates. The launcher hashes what it
+# already has and range-reads only the entries whose hash differs, so a
+# code-only patch pulls a few MB instead of the whole archive.
+#
+# `path` is the ZIP ENTRY NAME verbatim, backslashes and all - the launcher
+# looks entries up by it, so the two must not drift. Hashes come from the
+# source file, not the archive, because that is what the launcher compares
+# against on disk.
+$fileEntries = New-Object System.Collections.Generic.List[object]
+
 try {
     foreach ($file in Get-ChildItem -Path $buildRoot -Recurse -File -Force) {
         $relative = $file.FullName.Substring($buildRoot.Length + 1)
@@ -191,6 +201,12 @@ try {
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
             $archive, $file.FullName, $relative, 'Optimal') | Out-Null
         $added++
+
+        $fileEntries.Add([ordered]@{
+            path   = $relative
+            sha256 = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash.ToLower()
+            size   = $file.Length
+        })
     }
 }
 finally {
@@ -226,12 +242,16 @@ $manifestPath = Join-Path $StagingDir 'manifest.json'
 #
 # UTF8Encoding.GetBytes emits no preamble, so this is UTF-8 without a BOM on
 # both editions with nothing to detect or fall back to.
+# -Depth is NOT optional now that `files` is an array of objects:
+# ConvertTo-Json defaults to depth 2 and would serialise every entry as the
+# literal string "System.Collections.Specialized.OrderedDictionary".
 $json = [ordered]@{
     version   = $Version
     sha256    = $sha
     sizeBytes = $sizeBytes
     notes     = $Notes
-} | ConvertTo-Json
+    files     = $fileEntries
+} | ConvertTo-Json -Depth 5
 [System.IO.File]::WriteAllBytes($manifestPath, [System.Text.Encoding]::UTF8.GetBytes($json))
 
 Write-Host "  $zipName  $([math]::Round($sizeBytes/1MB,1)) MB"

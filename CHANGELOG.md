@@ -15,6 +15,42 @@ Nothing yet.
 
 ---
 
+## [0.0.12] — 2026-08-20
+
+The last full download. From the next version on, an update fetches only the
+files that changed.
+
+### Added
+
+- **Updates are incremental.** A build is 1.1 GB and 863 MB of that is a single
+  asset file that only changes when an asset does — v0.0.10 and v0.0.11 differed
+  by one line of code, their packages differed by 78 bytes, and every tester
+  downloaded 473 MB to get it. The launcher now checks what it already has and
+  fetches only the parts that differ, straight out of the same package by byte
+  range. A code-only patch should be a few MB. Anything that goes wrong falls
+  back to the download you get today, so an update can cost time but never a
+  working install.
+- **The game keeps the launcher up to date.** The launcher sits outside the
+  folder an update replaces, so until now a fix to it could only reach you by
+  asking you to download one by hand. Installing this version updates it for
+  you, in the background, with nothing to click. **This is why 0.0.12 is still a
+  full download** — it is the one carrying the new launcher.
+
+### Fixed
+
+- **The skirmish menu's panel backgrounds looked stretched on 16:10 displays.**
+  The menu canvas scaled to match screen HEIGHT, so on anything narrower than
+  16:9 the canvas got narrower too — 3456 units wide at 16:10 instead of 3840.
+  The two columns are sized as a fraction of that width and shrank with it, but
+  the plate artwork inside them is a fixed width baked at 16:9, so the
+  backgrounds no longer fitted the panels they belonged to. The canvas now keeps
+  its full width at every aspect and puts the leftover height into empty margin
+  above and below instead: the layout on a 16:10 screen is now exactly the 16:9
+  one, just with more breathing room top and bottom. 16:9 and ultrawide are
+  unchanged.
+
+---
+
 ## [0.0.11] — 2026-08-20
 
 A one-fix patch on 0.0.10.

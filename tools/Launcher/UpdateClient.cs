@@ -12,6 +12,23 @@ internal sealed class Manifest
     [JsonPropertyName("sha256")] public string Sha256 { get; set; } = "";
     [JsonPropertyName("sizeBytes")] public long SizeBytes { get; set; }
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
+
+    /// <summary>
+    /// Every file in the build, for incremental updates. Absent on releases
+    /// published before 0.0.12, which is why every consumer treats null as
+    /// "download the whole zip" rather than as an error.
+    /// </summary>
+    [JsonPropertyName("files")] public List<ManifestFile>? Files { get; set; }
+}
+
+internal sealed class ManifestFile
+{
+    /// <summary>Path relative to the game folder, and simultaneously the ZIP
+    /// ENTRY NAME — release.ps1 writes the one string into both, so the
+    /// patcher can look an entry up without guessing at separators.</summary>
+    [JsonPropertyName("path")] public string Path { get; set; } = "";
+    [JsonPropertyName("sha256")] public string Sha256 { get; set; } = "";
+    [JsonPropertyName("size")] public long Size { get; set; }
 }
 
 internal readonly record struct DownloadProgress(long BytesRead, long TotalBytes, TimeSpan Elapsed)

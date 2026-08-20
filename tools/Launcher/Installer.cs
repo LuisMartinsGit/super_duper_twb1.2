@@ -23,6 +23,18 @@ internal static class Installer
         Extract(zipPath, AppPaths.Staging, progress, ct);
         FlattenSingleRoot(AppPaths.Staging);
 
+        Swap();
+    }
+
+    /// <summary>
+    /// Promote game.new to game, keeping the outgoing build as game.old.
+    ///
+    /// Shared by the full install and the incremental one: both end with a
+    /// finished staging folder, and the swap is the part that must never go
+    /// wrong, so there is one copy of it.
+    /// </summary>
+    public static void Swap()
+    {
         var hadPrevious = Directory.Exists(AppPaths.Game);
 
         if (hadPrevious)
@@ -43,6 +55,38 @@ internal static class Installer
                 Directory.Move(AppPaths.Previous, AppPaths.Game);
 
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Seed staging with the build already installed, so a patch only has to
+    /// write what changed.
+    ///
+    /// A plain copy rather than hardlinks: links would make this instant, but
+    /// a link broken carelessly writes THROUGH to the live install and there
+    /// is no rollback from that. Peak disk stays at two copies either way,
+    /// because game.old is reclaimed before this runs.
+    /// </summary>
+    public static void SeedStagingFromInstalled(CancellationToken ct)
+    {
+        Directory.CreateDirectory(AppPaths.Staging);
+
+        // GetRelativePath, not string.Replace on the full path: Replace swaps
+        // EVERY occurrence, so an install at ...\game\game would rewrite both
+        // segments and scatter the copy.
+        foreach (var dir in Directory.GetDirectories(AppPaths.Game, "*", SearchOption.AllDirectories))
+        {
+            ct.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(
+                Path.Combine(AppPaths.Staging, Path.GetRelativePath(AppPaths.Game, dir)));
+        }
+
+        foreach (var file in Directory.GetFiles(AppPaths.Game, "*", SearchOption.AllDirectories))
+        {
+            ct.ThrowIfCancellationRequested();
+            File.Copy(file,
+                Path.Combine(AppPaths.Staging, Path.GetRelativePath(AppPaths.Game, file)),
+                overwrite: true);
         }
     }
 
