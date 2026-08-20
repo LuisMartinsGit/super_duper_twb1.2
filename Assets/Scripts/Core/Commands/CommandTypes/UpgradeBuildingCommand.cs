@@ -48,16 +48,19 @@ namespace TheWaningBorder.Core.Commands.Types
 
             byte targetLevel = (byte)(currentLevel + 1);
 
-            // Cost lookup + spend.
+            // Cost lookup + affordability CHECK only — the SPEND lives in
+            // ApplyDirect, the path every peer executes. Spending here (on
+            // the issuing peer alone) forked the faction banks, which feed
+            // the desync checksum (docs/Multiplayer_LAN_Readiness.md).
             if (!BuildingUpgradeConfig.TryGetCost(buildingId, targetLevel, out var cost))
                 return UpgradeBuildingResult.NotUpgradeable;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
-            if (!FactionEconomy.Spend(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
 
-            // Validation + spend stay on the issuing peer; the state
-            // mutation routes through CommandRouter so it replicates in
-            // multiplayer. Without this the upgrade existed on one peer and
-            // the remote silently dropped level-gated Train commands.
+            // Validation stays on the issuing peer; the spend + state
+            // mutation route through CommandRouter so both land on every
+            // peer in multiplayer. Without this the upgrade existed on one
+            // peer and the remote silently dropped level-gated Train
+            // commands.
             CommandRouter.IssueBuildingUpgrade(em, building, source);
             return UpgradeBuildingResult.Ok;
         }
@@ -67,7 +70,12 @@ namespace TheWaningBorder.Core.Commands.Types
         /// once, stamp the in-progress timer. The target level is recomputed
         /// from local state so every peer derives the same result from the
         /// same command stream. Re-entry safe: no-ops when already upgrading
-        /// or at max level.
+        /// or at max level. Validates affordability again and SPENDS here —
+        /// this is the executor every peer runs (single-player direct path
+        /// and lockstep replay alike), so the debit stays identical on all
+        /// banks and the desync checksum holds
+        /// (docs/Multiplayer_LAN_Readiness.md). A short bank rejects the
+        /// whole command everywhere: no stats captured, no timer stamped.
         /// </summary>
         public static void ApplyDirect(EntityManager em, Entity building)
         {
@@ -79,6 +87,15 @@ namespace TheWaningBorder.Core.Commands.Types
                 currentLevel = em.GetComponentData<BuildingUpgradeState>(building).Level;
             if (currentLevel >= BuildingUpgradeConfig.MaxLevel) return;
             byte targetLevel = (byte)(currentLevel + 1);
+
+            // Cost lookup + SPEND — after the re-entry guards above so a
+            // duplicate command can never double-charge.
+            string buildingId = ResolveBuildingId(em, building);
+            if (string.IsNullOrEmpty(buildingId)) return;
+            if (!BuildingUpgradeConfig.TryGetCost(buildingId, targetLevel, out var cost)) return;
+            if (!em.HasComponent<FactionTag>(building)) return;
+            var faction = em.GetComponentData<FactionTag>(building).Value;
+            if (!FactionEconomy.Spend(em, faction, cost)) return;
 
             // Capture base stats once. After this they NEVER change — the
             // upgrade system always recomputes scaled values from base, so

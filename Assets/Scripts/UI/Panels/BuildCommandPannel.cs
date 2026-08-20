@@ -16,6 +16,7 @@ using TheWaningBorder.Data;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Presentation;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.UI.Panels
 {
@@ -58,6 +59,7 @@ namespace TheWaningBorder.UI.Panels
 
         // Current placement preview
         private GameObject _placingInstance;
+        private bool _placementIsPlaceholderCube;
 
         // Build type
         public enum BuildType
@@ -152,6 +154,24 @@ namespace TheWaningBorder.UI.Panels
 
                 if (TryGetMouseWorld(out Vector3 p))
                 {
+                    // Snap the ghost to the 2 m build grid so the player sees
+                    // the exact cells the building will take, not a free-float
+                    // position that jumps when BuildingFactory snaps it later.
+                    // Wall HUBS snap too (they are buildings); wall segments
+                    // are freeform but are never placed through this path.
+                    // docs/Design/Build_Grid.md
+                    string snapId = BuildId(_currentBuild);
+                    if (!string.IsNullOrEmpty(snapId))
+                    {
+                        float3 snapped = BuildGrid.Snap((float3)p, snapId);
+                        // Re-sample terrain height AT the snapped column — the
+                        // raycast height belongs to the unsnapped point and can
+                        // be metres off on a slope.
+                        p = new Vector3(snapped.x,
+                                        TerrainUtility.GetHeight(snapped.x, snapped.z),
+                                        snapped.z);
+                    }
+
                     _placingInstance.transform.position = p + Vector3.up * yOffset;
                     if (_currentBuild != BuildType.Wall && _currentBuild != BuildType.WallExtend)
                         // +180° visual offset so building previews face the
@@ -169,8 +189,12 @@ namespace TheWaningBorder.UI.Panels
                     {
                         _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
                         var buildSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
+                        // The id goes in so the crust rule can make its one
+                        // exception: Veilworks (Reclamation) is the only
+                        // building that may be raised on cursed ground.
                         _placementValid = BuildCommandHelper.IsValidBuildPosition(
-                            _em, (float3)_placingInstance.transform.position, buildSize);
+                            _em, (float3)_placingInstance.transform.position, buildSize,
+                            BuildId(_currentBuild));
                         // Alanthor territorial rule: no building outside your
                         // own influence border (design 2026-07-06).
                         if (_placementValid && !MeetsInfluenceRequirement(
@@ -189,6 +213,23 @@ namespace TheWaningBorder.UI.Panels
                                 BuildId(_currentBuild)))
                             _placementValid = false;
                         UpdatePreviewColor(_placementValid);
+
+                        // Grid marks under the cursor, then the footprint
+                        // outline on top. docs/Design/Build_Grid.md
+                        BuildGridOverlay.Show((float3)_placingInstance.transform.position);
+                        BuildFootprintOutline.Show(
+                            (float3)_placingInstance.transform.position,
+                            buildSize, _placementValid);
+                    }
+                    else
+                    {
+                        BuildGridOverlay.Show((float3)_placingInstance.transform.position);
+                        // Wall hubs snap and are footprint-shaped too; they
+                        // just skip the AABB validity gate (hub-anchor
+                        // proximity gates them instead), so draw as valid.
+                        BuildFootprintOutline.Show(
+                            (float3)_placingInstance.transform.position,
+                            BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild)), true);
                     }
                 }
 
@@ -196,7 +237,7 @@ namespace TheWaningBorder.UI.Panels
                 bool isWallBuild = _currentBuild == BuildType.Wall || _currentBuild == BuildType.WallExtend;
                 if (UnityEngine.Input.GetMouseButtonDown(0) && !isWallBuild && !_placementValid)
                 {
-                    PlayerNotificationSystem.Notify("Invalid placement");
+                    PlayerNotificationSystem.Notify(Loc.T("Invalid placement"));
                 }
                 if (UnityEngine.Input.GetMouseButtonDown(0) && (isWallBuild || _placementValid))
                 {
@@ -297,10 +338,17 @@ namespace TheWaningBorder.UI.Panels
         {
             CancelPlacement();
             _currentBuildId = BuildId(_currentBuild);
+            _placementIsPlaceholderCube = false;
 
-            // Determine the player's current culture for preview tone
+            // Culture for the preview: the COMPLETED culture only.
+            // FactionColors flips at click time (unit-tint preview), but
+            // buildings must not change until the age-up research finishes
+            // (AgeUpSystem writes FactionProgress.Culture on completion).
             byte playerCulture = Cultures.None;
-            playerCulture = FactionColors.GetFactionCulture(GameSettings.LocalPlayerFaction);
+            var cultureWorld = _world ?? EntityWorld.DefaultGameObjectInjectionWorld;
+            if (cultureWorld != null && cultureWorld.IsCreated)
+                playerCulture = CultureConfig.GetCompletedCulture(
+                    cultureWorld.EntityManager, GameSettings.LocalPlayerFaction);
 
             // Get presentation ID for the current build type
             int previewPid = GetPreviewPresentationId(_currentBuild);
@@ -352,9 +400,14 @@ namespace TheWaningBorder.UI.Panels
                 }
                 else
                 {
-                    // Final fallback: placeholder cube
+                    // Final fallback: placeholder cube, sized to the actual
+                    // footprint rather than a fixed 2 m block so the ghost
+                    // reads as the ground the building will take.
+                    var fbSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
+                    _placementIsPlaceholderCube = true;
                     _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    _placingInstance.transform.localScale = Vector3.one * 2f;
+                    _placingInstance.transform.localScale =
+                        new Vector3(fbSize.x, math.max(fbSize.x, fbSize.y) * 0.5f, fbSize.y);
                     var r = _placingInstance.GetComponent<Renderer>();
                     if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
                 }
@@ -363,6 +416,32 @@ namespace TheWaningBorder.UI.Panels
             } // end of else (no upgrade-aware prefab found)
 
             _placingInstance.name = "PlacementPreview";
+
+            if (!_placementIsPlaceholderCube)
+            {
+                // Scale the ghost exactly like the real spawn: the runtime
+                // multiplies every prefab visual by ComputeFootprintFit, so a
+                // preview without it renders up to 4x the finished building.
+                // Measured BEFORE the variant setup below so the ghost and the
+                // spawn see the same set of active renderers.
+                var fitSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
+                float fit = PresentationSpawnSystem.ComputeFootprintFitForSize(
+                    _placingInstance, fitSize.x, fitSize.y);
+                _placingInstance.transform.localScale *= fit;
+
+                // Multi-variant prefabs author every culture branch active; the
+                // real spawn hides them via BuildingVariantVisual. Without the
+                // same setup the ghost shows Lv0 AND every level stacked.
+                var variant = TheWaningBorder.Presentation.BuildingVariantVisual
+                    .TrySetup(_placingInstance);
+                if (variant != null)
+                {
+                    TheWaningBorder.Presentation.BuildingAbVariantPicker
+                        .Apply(_placingInstance, 0);
+                    if (playerCulture != Cultures.None)
+                        variant.ShowVariant(playerCulture, 1);
+                }
+            }
 
             // Disable colliders on preview
             foreach (var col in _placingInstance.GetComponentsInChildren<Collider>())
@@ -411,6 +490,8 @@ namespace TheWaningBorder.UI.Panels
             _placingInstance = null;
             IsPlacingBuilding = false;
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
+            BuildFootprintOutline.Hide();
+            BuildGridOverlay.Hide();
 
             // Reset hub-anchored placement state (per-hub Build Wall action).
             _wallExtendSourceHub = Entity.Null;
@@ -422,6 +503,8 @@ namespace TheWaningBorder.UI.Panels
             _placingInstance = null;
             IsPlacingBuilding = false;
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
+            BuildFootprintOutline.Hide();
+            BuildGridOverlay.Hide();
         }
 
         private void UpdatePreviewColor(bool valid)
@@ -464,7 +547,7 @@ namespace TheWaningBorder.UI.Panels
                 int tpCount = BuildingFactory.GetFactionBuildingCount<TradingPostTag>(_em, fac);
                 if (tpCount >= 10)
                 {
-                    PlayerNotificationSystem.Notify("Maximum 10 Trading Posts");
+                    PlayerNotificationSystem.Notify(Loc.T("Maximum 10 Trading Posts"));
                     return;
                 }
             }
@@ -480,7 +563,7 @@ namespace TheWaningBorder.UI.Panels
                 int hallCount = BuildingFactory.GetFactionBuildingCount<HallTag>(_em, fac);
                 if (hallCount >= 6)
                 {
-                    PlayerNotificationSystem.Notify("Maximum 6 Halls per faction");
+                    PlayerNotificationSystem.Notify(Loc.T("Maximum 6 Halls per faction"));
                     return;
                 }
             }
@@ -493,7 +576,7 @@ namespace TheWaningBorder.UI.Panels
                 int templeCount = BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(_em, fac);
                 if (templeCount >= 1)
                 {
-                    PlayerNotificationSystem.Notify("Only one Temple of Ridan per faction");
+                    PlayerNotificationSystem.Notify(Loc.T("Only one Temple of Ridan per faction"));
                     return;
                 }
             }
@@ -504,7 +587,7 @@ namespace TheWaningBorder.UI.Panels
                 var existing = BuildingFactory.GetFactionChoiceBuilding(_em, fac);
                 if (existing != null)
                 {
-                    PlayerNotificationSystem.Notify("Already have a choice building");
+                    PlayerNotificationSystem.Notify(Loc.T("Already have a choice building"));
                     return;
                 }
             }
@@ -513,29 +596,34 @@ namespace TheWaningBorder.UI.Panels
             // validity check (design 2026-07-06).
             if (!MeetsInfluenceRequirement(fac, pos, id))
             {
-                PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
                 return;
             }
 
             // Feraldis blood rule — runtime guard behind the preview check.
             if (!MeetsBloodRequirement(pos, id))
             {
-                PlayerNotificationSystem.NotifyError("War Totems must be planted on blood");
+                PlayerNotificationSystem.NotifyError(Loc.T("War Totems must be planted on blood"));
                 return;
             }
 
             // Mine patch rule — runtime guard behind the preview check.
             if (!MeetsPatchRequirement(_em, pos, id))
             {
-                PlayerNotificationSystem.NotifyError("Mines must be built next to iron or veilstone");
+                PlayerNotificationSystem.NotifyError(Loc.T("Mines must be built next to iron or veilstone"));
                 return;
             }
 
             if (!BuildCosts.TryGet(id, out var cost)) cost = default;
 
-            if (!FactionEconomy.Spend(_em, fac, cost))
+            // Affordability CHECK only — the SPEND lives in
+            // CommandRouter.PlaceBuildingDirect, the executor both the
+            // single-player branch below and every lockstep peer run, so all
+            // banks (and the desync checksum built from them) stay aligned
+            // (docs/Multiplayer_LAN_Readiness.md).
+            if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
-                PlayerNotificationSystem.NotifyError("Not enough resources");
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return;
             }
 
@@ -561,8 +649,15 @@ namespace TheWaningBorder.UI.Panels
                 return;
             }
 
-            // Single player: create building directly and assign builders
+            // Single player: create building directly and assign builders.
+            // PlaceBuildingDirect validates + spends; Entity.Null means the
+            // bank came up short between the CanAfford check and now.
             Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac);
+            if (building == Entity.Null)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                return;
+            }
 
             // Apply mouse-wheel rotation to the new building's transform.
             if (_em.HasComponent<LocalTransform>(building))
@@ -611,7 +706,12 @@ namespace TheWaningBorder.UI.Panels
         private static bool MeetsInfluenceRequirement(Faction fac, float3 pos, string buildingId)
         {
             if (buildingId == "GatherersHut" || buildingId == "Alanthor_Tower") return true;
-            if (FactionColors.GetFactionCulture(fac) != Cultures.Alanthor) return true;
+            // COMPLETED culture only: the territorial rule must not switch on
+            // at the click that starts the 60s age-up research.
+            var w = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (w == null || !w.IsCreated) return true;
+            if (CultureConfig.GetCompletedCulture(w.EntityManager, fac) != Cultures.Alanthor)
+                return true;
             return TheWaningBorder.Influence.PlayerInfluenceMap.ChannelStrengthWorld(
                 (int)fac, pos.x, pos.z) >= 0.5f;
         }
@@ -825,31 +925,49 @@ namespace TheWaningBorder.UI.Panels
             // the border from inside it, one influence-covered hop at a time.
             if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
             {
-                PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
                 return;
             }
 
+            // Affordability CHECK only — the SPEND and the hub creation live
+            // in CommandRouter.PlaceWallHubDirect, which every peer executes.
+            // The old body created the hub straight from this click handler,
+            // so in MP the wall existed on this machine alone AND its off-tick
+            // NetworkId consumption shifted every later id assigned that tick.
+            // docs/Multiplayer_Desync_Sweep_2026-08-16.md
             if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
-            if (!FactionEconomy.Spend(_em, fac, cost))
+            if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
-                PlayerNotificationSystem.NotifyError("Not enough resources");
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return;
             }
 
-            Entity hub = AlanthorWall.CreateHub(_em, pos, fac);
-
-            if (!_em.HasComponent<UnderConstruction>(hub))
-                _em.AddComponentData(hub, new UnderConstruction { Progress = 0f, Total = 5f });
-            if (_em.HasComponent<Health>(hub))
+            if (GameSettings.IsMultiplayer)
             {
-                var hp = _em.GetComponentData<Health>(hub);
-                _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
+                CommandRouter.IssuePlaceWallHub(_em, pos, fac);
+
+                // Builders head for the position now; the hub entity is
+                // created two ticks later, so Build rides Entity.Null and
+                // auto-finds the foundation on arrival — same pattern as
+                // ordinary MP placement above.
+                var sel = SelectionSystem.CurrentSelection;
+                if (sel != null)
+                {
+                    foreach (var b in sel)
+                    {
+                        if (!_em.Exists(b) || !_em.HasComponent<CanBuild>(b)) continue;
+                        CommandRouter.IssueBuild(_em, b, Entity.Null, "Alanthor_Wall", pos);
+                    }
+                }
+                return;
             }
 
-            // Terrain anchor (2026-08-11): a hub dropped beside impassable
-            // terrain seals the hub-to-rock gap with curtain modules so
-            // nothing squeezes through.
-            AlanthorWall.SealToTerrain(_em, hub, autoConstruct: true);
+            Entity hub = CommandRouter.PlaceWallHubDirect(_em, pos, fac);
+            if (hub == Entity.Null)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                return;
+            }
 
             AssignBuildersToConstruction(hub, "Alanthor_Wall", pos);
         }
@@ -871,7 +989,7 @@ namespace TheWaningBorder.UI.Panels
 
             if (_wallExtendSourceHub == Entity.Null || !_em.Exists(_wallExtendSourceHub))
             {
-                PlayerNotificationSystem.NotifyError("Source hub no longer exists");
+                PlayerNotificationSystem.NotifyError(Loc.T("Source hub no longer exists"));
                 _wallExtendSourceHub = Entity.Null;
                 return;
             }
@@ -879,12 +997,15 @@ namespace TheWaningBorder.UI.Panels
             // Snap: a click near an existing friendly hub (other than the source)
             // reuses that hub and builds ONLY the connecting segment — no new hub,
             // no hub cost. Otherwise place + pay for a new self-building hub.
+            // The checks below are issue-side UX; the SPEND and every entity
+            // creation live in CommandRouter.WallExtendDirect, which every
+            // peer executes (docs/Multiplayer_Desync_Sweep_2026-08-16.md).
             Entity hub = FindNearestHubForSnap(pos, fac, _wallExtendSourceHub);
             if (hub != Entity.Null)
             {
                 if (AlanthorWall.AreHubsConnected(_em, _wallExtendSourceHub, hub))
                 {
-                    PlayerNotificationSystem.NotifyError("Those hubs are already connected");
+                    PlayerNotificationSystem.NotifyError(Loc.T("Those hubs are already connected"));
                     _wallExtendSourceHub = Entity.Null;
                     return;
                 }
@@ -895,71 +1016,20 @@ namespace TheWaningBorder.UI.Panels
                 // current border; hub influence (r18) covers the next hop.
                 if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
                 {
-                    PlayerNotificationSystem.NotifyError("Must build inside your influence");
+                    PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
                     _wallExtendSourceHub = Entity.Null;
                     return;
                 }
 
                 if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
-                if (!FactionEconomy.Spend(_em, fac, cost))
+                if (!FactionEconomy.CanAfford(_em, fac, cost))
                 {
-                    PlayerNotificationSystem.NotifyError("Not enough resources");
+                    PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                     return;
                 }
-
-                // New hub — auto-construct, no builder, 30s.
-                hub = AlanthorWall.CreateHub(_em, pos, fac);
-                _em.AddComponentData(hub,
-                    new UnderConstruction { Progress = 0f, Total = WallExtendBuildSeconds });
-                _em.AddComponent<AutoConstructTag>(hub);
-                if (_em.HasComponent<Health>(hub))
-                {
-                    var hp = _em.GetComponentData<Health>(hub);
-                    _em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
-                }
-
-                // Terrain anchor (2026-08-11): seal the hub-to-rock gap.
-                AlanthorWall.SealToTerrain(_em, hub, autoConstruct: true);
             }
 
-            // Segment — CreateSegment also spawns the wall instances along the
-            // line and wires both hubs' WallHubLink buffers. The source hub may
-            // still be under construction; that's fine — the segment graph
-            // doesn't gate on hub completion.
-            Entity segment = AlanthorWall.CreateSegment(_em, _wallExtendSourceHub, hub, fac);
-
-            // Tag every spawned wall instance for auto-construction too.
-            // CreateSegment's structural changes have all settled by the time
-            // it returns, but we snapshot the buffer anyway because the
-            // AddComponentData calls below ARE structural — iterating the
-            // live buffer while archetypes change would crash. (Same pattern
-            // the old chain-placement code used.)
-            if (_em.HasBuffer<WallInstanceRef>(segment))
-            {
-                var instances = _em.GetBuffer<WallInstanceRef>(segment);
-                int count = instances.Length;
-                var snapshot = new Unity.Collections.NativeArray<Entity>(
-                    count, Unity.Collections.Allocator.Temp);
-                for (int i = 0; i < count; i++)
-                    snapshot[i] = instances[i].Instance;
-
-                for (int i = 0; i < count; i++)
-                {
-                    var inst = snapshot[i];
-                    if (!_em.Exists(inst)) continue;
-                    if (!_em.HasComponent<UnderConstruction>(inst))
-                        _em.AddComponentData(inst,
-                            new UnderConstruction { Progress = 0f, Total = WallExtendBuildSeconds });
-                    if (!_em.HasComponent<AutoConstructTag>(inst))
-                        _em.AddComponent<AutoConstructTag>(inst);
-                    if (_em.HasComponent<Health>(inst))
-                    {
-                        var hp = _em.GetComponentData<Health>(inst);
-                        _em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
-                    }
-                }
-                snapshot.Dispose();
-            }
+            CommandRouter.IssueWallExtend(_em, _wallExtendSourceHub, hub, pos, fac);
 
             // Single-shot action — clear the anchor so the next Build Wall
             // click on a hub starts fresh.

@@ -1,4 +1,4 @@
-# Crystal Curse — Code Sweep + Redesigned Checklist v2 (Alanthor + neutral scope)
+# The Border — Code Sweep + Redesigned Checklist v2 (Alanthor + neutral scope)
 
 > ⚠ **Test checklist for shipped phases — not a design doc.** Game-design
 > truth lives in **[docs/Design/](Design/Overview.md)**. Where this checklist
@@ -18,9 +18,9 @@ This document captures the bug-sweep, structural fixes that shipped in this batc
 - **Resource HUD**: dropped the Glow row entirely. Glow is a sect-shrine resource on TempleOfRidan.
 - **Caravan rendering**: PresentationID 401 → 405. The old ID collided with `Procedural/Rock` and was spawning rocks under every caravan ("large blocks" you saw).
 - **Caravan controllability**: spawn now adds `NotControllableTag`. `PatrolThreatDetectionSystem` strips/restores the tag correctly — caravans default to autonomous, become commandable when an enemy is within range.
-- **UnitAnimationSync crash on main-menu return**: re-acquires `EntityManager` each frame; bails when the world is disposed. Pre-existing bug, not introduced by Crystal Curse work.
+- **UnitAnimationSync crash on main-menu return**: re-acquires `EntityManager` each frame; bails when the world is disposed. Pre-existing bug, not introduced by The Border work.
 - **VictoryProgressHUD gating**: hidden entirely in Timeless Age. After culture commit, shows only the local player's culture row prominently + a small summary of the other two cultures.
-- **CrystalMainNode LineOfSight = 8u**: curse faction can react to nearby attackers without revealing the full map. Player factions still gate node visibility on their own scouts.
+- **BorderMainNode LineOfSight = 8u**: border faction can react to nearby attackers without revealing the full map. Player factions still gate node visibility on their own scouts.
 
 ### Phase 2 — `03e8bcb`, `5df68fe`: nodes un-targetable + Iconoclast as enabler
 - **Replaces** the per-frame HP-refund invulnerability with a `NodeUntargetable` tag. `TargetingSystem.WithNone<NodeUntargetable>` skips tagged nodes — AI doesn't path there, right-click attacks no-op, no infinite-DPS soak.
@@ -68,18 +68,18 @@ Mark each row with `X` in either PASS or FAIL. Leave blank if untested.
 
 | PASS | FAIL | Test |
 |:----:|:----:|------|
-| [ ] | [ ] | B.1 Resource HUD shows Pop / RP / Supplies / Iron / Crystal / Veilsteel rows |
+| [ ] | [ ] | B.1 Resource HUD shows Pop / RP / Supplies / Iron / Veilstone / Veilsteel rows |
 | [ ] | [ ] | B.2 Resource HUD does **NOT** show a Glow row (verify the row is gone) |
 | [ ] | [ ] | B.3 Pop count matches actual unit count |
 
-### C. Crystal nodes — visibility + un-targetability
+### C. Veilstone nodes — visibility + un-targetability
 
 | PASS | FAIL | Test |
 |:----:|:----:|------|
-| [ ] | [ ] | C.1 At match start, crystal nodes are **NOT visible** through fog of war |
+| [ ] | [ ] | C.1 At match start, veilstone nodes are **NOT visible** through fog of war |
 | [ ] | [ ] | C.2 Sending a scout near a node reveals it; pulling back hides it again |
 | [ ] | [ ] | C.3 Any non-Iconoclast unit attacking a node: node is **NOT targetable** (right-click on node = no attack, AI doesn't path to it) |
-| [ ] | [ ] | C.4 Curse units near their own node react to player units approaching (LOS = 8u) |
+| [ ] | [ ] | C.4 Border units near their own node react to player units approaching (LOS = 8u) |
 | [ ] | [ ] | C.5 An Iconoclast within 12u of a node makes the node **targetable** to surrounding units |
 | [ ] | [ ] | C.6 Pulling the Iconoclast away → node becomes un-targetable again |
 | [ ] | [ ] | C.7 Iconoclast itself does NOT attack nodes (Damage = 0) |
@@ -138,12 +138,12 @@ Mark each row with `X` in either PASS or FAIL. Leave blank if untested.
 
 | PASS | FAIL | Test |
 |:----:|:----:|------|
-| [ ] | [ ] | H.1 Trigger Crystal-tier equipment upgrade via debug → existing Swordsmen show shield bar widget |
+| [ ] | [ ] | H.1 Trigger Veilstone-tier equipment upgrade via debug → existing Swordsmen show shield bar widget |
 | [ ] | [ ] | H.2 Shield bar = horizontal cyan bar above rank pips |
 | [ ] | [ ] | H.3 Damaging the unit drains the cyan fill before HP drops |
 | [ ] | [ ] | H.4 Out-of-combat shield regenerates after a 3s no-damage window |
-| [ ] | [ ] | H.5 Siege at Crystal+ allies inside aura range get a wider shield bar (bonus stacked into ShieldBar.Max) |
-| [ ] | [ ] | H.6 Magic/Support hero at Crystal+ absorbs 50% of one damage hit on a 12s cooldown |
+| [ ] | [ ] | H.5 Siege at Veilstone+ allies inside aura range get a wider shield bar (bonus stacked into ShieldBar.Max) |
+| [ ] | [ ] | H.6 Magic/Support hero at Veilstone+ absorbs 50% of one damage hit on a 12s cooldown |
 
 ### I. Visual indicators
 
@@ -181,7 +181,7 @@ Mark each row with `X` in either PASS or FAIL. Leave blank if untested.
 | [ ] | [ ] | L.1 Active ritual sites show as cyan-white blips |
 | [ ] | [ ] | L.2 Free Glow pickups show as gold blips |
 | [ ] | [ ] | L.3 Both visible regardless of fog of war |
-| [ ] | [ ] | L.4 Crystal nodes show on minimap ONLY when explored (not pre-revealed) |
+| [ ] | [ ] | L.4 Veilstone nodes show on minimap ONLY when explored (not pre-revealed) |
 
 ### M. Regression / stability
 

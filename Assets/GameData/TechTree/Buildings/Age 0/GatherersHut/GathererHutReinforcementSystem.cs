@@ -152,7 +152,9 @@ namespace TheWaningBorder.Economy
 
                 for (int u = 0; u < unitEntities.Length; u++)
                 {
-                    if (unitFactions[u].Value == faction) continue; // enemies only
+                    // enemies only — allies do not trigger reinforcement.
+                    // docs/Design/Teams.md
+                    if (!Alliances.AreHostile(faction, unitFactions[u].Value)) continue;
 
                     float2 upos = new float2(unitTransforms[u].Position.x, unitTransforms[u].Position.z);
                     if (math.distancesq(center, upos) > radiusSq) continue;

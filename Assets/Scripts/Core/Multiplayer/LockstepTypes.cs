@@ -49,6 +49,30 @@ namespace TheWaningBorder.Core.Multiplayer
         AgeUp = 27,              // CommandRouter.IssueAgeUp (hall + culture byte in TargetEntityId)
         TempleUpgrade = 28,      // CommandRouter.IssueTempleUpgrade (temple; level/duration recomputed per peer)
         SectAdopt = 29,          // CommandRouter.IssueSectAdoption (temple + sect id in BuildingId + slot in TargetEntityId + build time in TargetPosition.x)
+
+        // ── Added 2026-08-15 (docs/Multiplayer_LAN_Readiness.md) ─────────
+        // Every one of these was a UI button writing ECS directly, so the
+        // effect existed on the clicking peer alone. They follow the
+        // established shape: the ISSUER validates and pays, every peer applies
+        // the mutation.
+        SectPower = 30,          // CommandRouter.IssueSectPower (faction in EntityNetworkId, sect id in BuildingId, tier in TargetEntityId, target in TargetPosition)
+        ReliquaryAbility = 31,   // CommandRouter.IssueReliquaryAbility (reliquary + ability index in TargetEntityId + target in TargetPosition)
+        WallUpgrade = 32,        // CommandRouter.IssueWallUpgrade (wall instance + upgrade type in TargetEntityId)
+        KeepWing = 33,           // CommandRouter.IssueKeepWing (keep + KeepWingType byte in TargetEntityId)
+        UnitPromote = 34,        // CommandRouter.IssueUnitPromote (unit)
+        QueueWaypoint = 35,      // CommandRouter.IssueQueuedWaypoint (unit + QueuedCommandType byte in TargetEntityId + point in TargetPosition)
+
+        // ── Added 2026-08-16 (docs/Multiplayer_Desync_Sweep_2026-08-16.md) ──
+        // Alanthor wall placement was created OUTSIDE the command stream on
+        // both the player and AI paths — worse than a missing feature, the
+        // off-tick entity creation consumed NetworkId slots on one peer only
+        // and shifted every later id assigned that tick.
+        PlaceWallHub = 36,       // CommandRouter.IssuePlaceWallHub (faction in EntityNetworkId, autoBuild flag in TargetEntityId, position in TargetPosition)
+        WallExtend = 37,         // CommandRouter.IssueWallExtend (source hub; snap hub network id in TargetEntityId or 0 for a new hub at TargetPosition; faction in SecondaryTargetId)
+        Corrupt = 38,            // CommandRouter.IssueCorrupt (corruptor + node in TargetEntityId — the Feraldis verb; mirrors Purify)
+        SectGlowAlloc = 39,      // CommandRouter.IssueSectGlowAlloc (faction in EntityNetworkId, sect id in BuildingId, allocate flag in TargetEntityId — halves that sect's power cooldown, so peers must agree)
+        BazaarPack = 40,         // CommandRouter.IssueBazaarPack (bazaar + pack flag in TargetEntityId; BazaarPackSystem destroys the building and spawns the wagon, so it must run on every peer)
+        VaultTransfer = 41,      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
     }
 
     /// <summary>
@@ -91,19 +115,30 @@ namespace TheWaningBorder.Core.Multiplayer
 
         /// <summary>
         /// Serialize command to string for network transmission.
-        /// Format: Type,EntityId,PosX,PosY,PosZ,TargetId,SecondaryId,BuildingId
+        /// Format: Index,Type,EntityId,PosX,PosY,PosZ,TargetId,SecondaryId,BuildingId
         ///
         /// Floats use the round-trip ("R") format specifier to preserve full
         /// IEEE 754 precision. The previous "F2" format truncated positions to
         /// two decimal places, causing building placements to desync between
         /// peers whose source float values differed in the third+ decimal.
+        ///
+        /// CommandIndex leads the payload because EXECUTION ORDER DEPENDS ON IT.
+        /// It used not to be sent at all: every received command arrived with
+        /// CommandIndex 0, so LockstepManager's "sort by (PlayerIndex,
+        /// CommandIndex)" had nothing to order a single player's commands by,
+        /// and fell back on the order the datagrams happened to be parsed in.
+        /// Two commands issued in one tick — select-all then attack, or two
+        /// buildings placed on the same frame — could therefore execute in
+        /// opposite orders on the two peers. Chunked datagrams make that
+        /// certain rather than merely possible.
         /// </summary>
         public string Serialize()
         {
             // Use InvariantCulture to ensure '.' decimal separator on all locales
             var c = CultureInfo.InvariantCulture;
-            return string.Format(c, "{0},{1},{2:R},{3:R},{4:R},{5},{6},{7}",
-                (int)Type, EntityNetworkId, TargetPosition.x, TargetPosition.y, TargetPosition.z,
+            return string.Format(c, "{0},{1},{2},{3:R},{4:R},{5:R},{6},{7},{8}",
+                CommandIndex, (int)Type, EntityNetworkId,
+                TargetPosition.x, TargetPosition.y, TargetPosition.z,
                 TargetEntityId, SecondaryTargetId, BuildingId ?? "");
         }
 
@@ -115,21 +150,22 @@ namespace TheWaningBorder.Core.Multiplayer
             try
             {
                 string[] parts = data.Split(',');
-                if (parts.Length < 7) return null;
+                if (parts.Length < 8) return null;
 
                 // Use InvariantCulture to parse '.' decimal separator on all locales
                 var c = CultureInfo.InvariantCulture;
                 return new LockstepCommand
                 {
-                    Type = (LockstepCommandType)int.Parse(parts[0], c),
-                    EntityNetworkId = int.Parse(parts[1], c),
+                    CommandIndex = int.Parse(parts[0], c),
+                    Type = (LockstepCommandType)int.Parse(parts[1], c),
+                    EntityNetworkId = int.Parse(parts[2], c),
                     TargetPosition = new float3(
-                        float.Parse(parts[2], c),
                         float.Parse(parts[3], c),
-                        float.Parse(parts[4], c)),
-                    TargetEntityId = int.Parse(parts[5], c),
-                    SecondaryTargetId = int.Parse(parts[6], c),
-                    BuildingId = parts.Length > 7 ? parts[7] : ""
+                        float.Parse(parts[4], c),
+                        float.Parse(parts[5], c)),
+                    TargetEntityId = int.Parse(parts[6], c),
+                    SecondaryTargetId = int.Parse(parts[7], c),
+                    BuildingId = parts.Length > 8 ? parts[8] : ""
                 };
             }
             catch (Exception)
@@ -235,6 +271,16 @@ namespace TheWaningBorder.Core.Multiplayer
         private static int _nextIdInTick;
 
         /// <summary>
+        /// The tick the ids handed out right now belong to: 0 during
+        /// bootstrap, the executing lockstep tick after BeginTick. Factories
+        /// stamp it into NetworkedEntity.SpawnTick so the desync dump's
+        /// spawn column says when an entity appeared — it printed 0 for
+        /// every entity in the desync #6 dumps, leaving the spawn tick to be
+        /// reverse-engineered from the id's slot range.
+        /// </summary>
+        public static int CurrentTick { get; private set; }
+
+        /// <summary>
         /// Get the next available network ID.
         /// Must be called on the main thread. Returns bootstrap-range IDs
         /// before the first BeginTick() call, and tick-aligned IDs after.
@@ -277,6 +323,7 @@ namespace TheWaningBorder.Core.Multiplayer
             }
             _currentTickBase = BOOTSTRAP_RESERVE + tick * SLOTS_PER_TICK;
             _nextIdInTick = 0;
+            CurrentTick = tick;
         }
 
         /// <summary>
@@ -289,6 +336,7 @@ namespace TheWaningBorder.Core.Multiplayer
             _bootstrapNextId = 1;
             _currentTickBase = -1;
             _nextIdInTick = 0;
+            CurrentTick = 0;
         }
 
         /// <summary>

@@ -74,12 +74,6 @@ public static class CombatModifiers
     }
 
     /// <summary>
-    /// Legacy combat-pacing scalar. NO LONGER APPLIED — the AoE4-style flat-armor
-    /// formula below does not use it. Kept only so external references still compile.
-    /// </summary>
-    public const float GlobalDamageMultiplier = 0.5f;
-
-    /// <summary>
     /// AoE4-style damage:
     ///   final = max(1, baseDamage − armor) + bonusDamage
     /// Armor is a FLAT subtraction with a hard floor of 1 (chip damage always lands);

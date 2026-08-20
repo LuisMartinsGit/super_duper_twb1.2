@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Unity.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
@@ -128,12 +129,15 @@ namespace TheWaningBorder.UI
                     trainingTime: unit.trainingTime
                 );
                 if (levelLocked)
-                    tooltip = $"Requires Lv {minLv} {buildingDef.name ?? buildingId}\n" + tooltip;
+                    tooltip = string.Format(Loc.T("Requires Lv {0} {1}"),
+                        minLv, Loc.T(buildingDef.name ?? buildingId)) + "\n" + tooltip;
 
                 actions.Add(new ActionButton
                 {
                     Id = unit.id,
-                    Label = levelLocked ? $"{unit.name}  (Lv {minLv})" : unit.name,
+                    Label = levelLocked
+                        ? string.Format(Loc.T("{0}  (Lv {1})"), Loc.T(unit.name), minLv)
+                        : Loc.T(unit.name),
                     Tooltip = tooltip,
                     Cost = cost,
                     Enabled = !levelLocked,
@@ -287,11 +291,13 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = chapelUnitId,
-                    Label = chapelUnit.name,
-                    Tooltip = $"{chapelUnit.name} — the sect's unique unit"
-                        + (ability != null ? $".\n{ability}." : ".")
-                        + $"\nCost: {ucost.Supplies} Supplies, {ucost.Iron} Iron"
-                        + (ucost.Veilstone > 0 ? $", {ucost.Veilstone} Veilstone" : ""),
+                    Label = Loc.T(chapelUnit.name),
+                    Tooltip = string.Format(Loc.T("{0} — the sect's unique unit"), Loc.T(chapelUnit.name))
+                        + (ability != null ? ".\n" + Loc.T(ability) + "." : ".")
+                        + "\n" + Loc.T("Cost: ")
+                        + string.Format(Loc.T("{0} Supplies, {1} Iron"), ucost.Supplies, ucost.Iron)
+                        + (ucost.Veilstone > 0
+                            ? string.Format(Loc.T(", {0} Veilstone"), ucost.Veilstone) : ""),
                     Cost = ucost,
                     Enabled = true,
                     CanAfford = FactionEconomy.CanAfford(em, faction, ucost),
@@ -308,13 +314,14 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = "Sect_Lorekeeper",
-                    Label = "Lorekeeper",
-                    Tooltip = "Lorekeeper — Antiquity support scholar.\n"
+                    Label = Loc.T("Lorekeeper"),
+                    Tooltip = Loc.T("Lorekeeper — Antiquity support scholar.\n"
                         + "Reveals stealthed enemies nearby (Lv II: doubled radius; "
                         + "Lv III: far-sight through fog).\n"
                         + "Garrison the Reliquary (stand beside it) to speed up its "
-                        + "ability cooldowns.\n"
-                        + $"Cost: {cost.Supplies} Supplies, {cost.Iron} Iron",
+                        + "ability cooldowns.")
+                        + "\n" + Loc.T("Cost: ")
+                        + string.Format(Loc.T("{0} Supplies, {1} Iron"), cost.Supplies, cost.Iron),
                     Cost = cost,
                     Enabled = true,
                     CanAfford = FactionEconomy.CanAfford(em, faction, cost),
@@ -329,13 +336,15 @@ namespace TheWaningBorder.UI
                     actions.Add(new ActionButton
                     {
                         Id = "Reliquary_Build",
-                        Label = "Reliquary",
-                        Tooltip = "The Reliquary — Antiquity intel hub (one per faction).\n"
+                        Label = Loc.T("Reliquary"),
+                        Tooltip = Loc.T("The Reliquary — Antiquity intel hub (one per faction).\n"
                             + "Lv I: Scry (reveal a distant area). Lv II: adds Ability "
                             + "Lockout and a Vision aura. Lv III: cooldowns -30%, "
                             + "garrison effects doubled.\n"
-                            + "Garrison a Lorekeeper beside it to recharge abilities faster.\n"
-                            + $"Cost: {relCost.Supplies} Supplies, {relCost.Iron} Iron, {relCost.Veilstone} Veilstone",
+                            + "Garrison a Lorekeeper beside it to recharge abilities faster.")
+                            + "\n" + Loc.T("Cost: ")
+                            + string.Format(Loc.T("{0} Supplies, {1} Iron, {2} Veilstone"),
+                                relCost.Supplies, relCost.Iron, relCost.Veilstone),
                         Cost = relCost,
                         Enabled = true,
                         CanAfford = FactionEconomy.CanAfford(em, faction, relCost),
@@ -384,11 +393,13 @@ namespace TheWaningBorder.UI
                 bool unlocked = TheWaningBorder.Systems.Sect.ReliquaryHelper
                     .AbilityUnlocked(em, faction, abilityIdx);
                 bool ready = cdRemaining <= 0f;
+                string locLabel = Loc.T(label);
                 actions.Add(new ActionButton
                 {
                     Id = id,
-                    Label = ready ? label : $"{label}\n{(int)cdRemaining}s",
-                    Tooltip = desc + (unlocked ? "" : "\n(Requires Reliquary lever Lv II)"),
+                    Label = ready ? locLabel : $"{locLabel}\n{(int)cdRemaining}s",
+                    Tooltip = desc + (unlocked ? ""
+                        : "\n" + Loc.T("(Requires Reliquary lever Lv II)")),
                     Enabled = unlocked && ready,
                     CanAfford = true,
                     Icon = null
@@ -396,17 +407,16 @@ namespace TheWaningBorder.UI
             }
 
             Add("Reliquary_Scry", "Scry", s.ScryCooldown, 0,
-                "Scry — reveal a distant area of the map "
-                + $"({TheWaningBorder.Systems.Sect.ReliquaryHelper.ScryRadius:0}m for "
-                + $"{TheWaningBorder.Systems.Sect.ReliquaryHelper.ScryDuration:0}s).");
+                string.Format(Loc.T("Scry — reveal a distant area of the map ({0}m for {1}s)."),
+                    TheWaningBorder.Systems.Sect.ReliquaryHelper.ScryRadius.ToString("0"),
+                    TheWaningBorder.Systems.Sect.ReliquaryHelper.ScryDuration.ToString("0")));
             Add("Reliquary_Lockout", "Lockout", s.LockoutCooldown, 1,
-                "Ability Lockout — enemy attack & ability cooldowns in the "
-                + $"target circle stop recovering for "
-                + $"{TheWaningBorder.Systems.Sect.ReliquaryHelper.LockoutDuration:0}s.");
+                string.Format(Loc.T("Ability Lockout — enemy attack & ability cooldowns in the target circle stop recovering for {0}s."),
+                    TheWaningBorder.Systems.Sect.ReliquaryHelper.LockoutDuration.ToString("0")));
             Add("Reliquary_Vision", "Vision", s.VisionCooldown, 2,
-                "Vision Aura — a wide reveal around the Reliquary "
-                + $"({TheWaningBorder.Systems.Sect.ReliquaryHelper.VisionRadius:0}m for "
-                + $"{TheWaningBorder.Systems.Sect.ReliquaryHelper.VisionDuration:0}s).");
+                string.Format(Loc.T("Vision Aura — a wide reveal around the Reliquary ({0}m for {1}s)."),
+                    TheWaningBorder.Systems.Sect.ReliquaryHelper.VisionRadius.ToString("0"),
+                    TheWaningBorder.Systems.Sect.ReliquaryHelper.VisionDuration.ToString("0")));
 
             return actions;
         }
@@ -439,7 +449,7 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = "Litharch",
-                    Label = lithUnit.name,
+                    Label = Loc.T(lithUnit.name),
                     Tooltip = BuildTooltip(lithUnit.name, lithUnit.unitClass, cost, available, trainingTime: lithUnit.trainingTime),
                     Cost = cost,
                     Enabled = true,
@@ -471,17 +481,19 @@ namespace TheWaningBorder.UI
                         Veilsteel = scholarUnit.cost.Veilsteel,
                     } : default;
 
-                    string sTooltip = "Holy Scholar — purifies wells (channels the ritual) and "
-                        + "walks a wide cleansing font that burns away curse and blood.\n"
+                    string sTooltip = Loc.T("Holy Scholar — purifies wells (channels the ritual) and "
+                        + "walks a wide cleansing font that burns away curse and blood.") + "\n"
                         + BuildTooltip(scholarUnit.name, scholarUnit.unitClass, sCost, available,
                             trainingTime: scholarUnit.trainingTime);
                     if (levelLocked)
-                        sTooltip = $"Requires Temple Level {minLv}\n" + sTooltip;
+                        sTooltip = string.Format(Loc.T("Requires Temple Level {0}"), minLv) + "\n" + sTooltip;
 
                     actions.Add(new ActionButton
                     {
                         Id = scholarUnit.id,
-                        Label = levelLocked ? $"{scholarUnit.name}  (Temple Lv {minLv})" : scholarUnit.name,
+                        Label = levelLocked
+                            ? string.Format(Loc.T("{0}  (Temple Lv {1})"), Loc.T(scholarUnit.name), minLv)
+                            : Loc.T(scholarUnit.name),
                         Tooltip = sTooltip,
                         Cost = sCost,
                         Enabled = !levelLocked,
@@ -514,18 +526,21 @@ namespace TheWaningBorder.UI
                         Veilsteel = corruptorUnit.cost.Veilsteel,
                     } : default;
 
-                    string cTooltip = "Corruptor — channels on a well to crack it OPEN, "
+                    string cTooltip = Loc.T("Corruptor — channels on a well to crack it OPEN, "
                         + "leaving it vulnerable to attack for a short window. "
                         + "The curse defends it while it is exposed; break the well "
-                        + "before it seals. Destroy every well to win.\n"
+                        + "before it seals. Destroy every well to win.") + "\n"
                         + BuildTooltip("Corruptor", corruptorUnit.unitClass, cCost, available,
                             trainingTime: corruptorUnit.trainingTime);
-                    if (locked) cTooltip = $"Requires Temple Level {minLv}\n" + cTooltip;
+                    if (locked)
+                        cTooltip = string.Format(Loc.T("Requires Temple Level {0}"), minLv) + "\n" + cTooltip;
 
                     actions.Add(new ActionButton
                     {
                         Id = corruptorUnit.id,
-                        Label = locked ? $"Corruptor  (Temple Lv {minLv})" : "Corruptor",
+                        Label = locked
+                            ? string.Format(Loc.T("{0}  (Temple Lv {1})"), Loc.T("Corruptor"), minLv)
+                            : Loc.T("Corruptor"),
                         Tooltip = cTooltip,
                         Cost = cCost,
                         Enabled = !locked,
@@ -553,8 +568,10 @@ namespace TheWaningBorder.UI
                     actions.Add(new ActionButton
                     {
                         Id = unitId,
-                        Label = label,
-                        Tooltip = tooltip + $"\nCost: {unitCost.Supplies} Supplies, {unitCost.Iron} Iron",
+                        Label = Loc.T(label),
+                        Tooltip = Loc.T(tooltip) + "\n" + Loc.T("Cost: ")
+                            + string.Format(Loc.T("{0} Supplies, {1} Iron"),
+                                unitCost.Supplies, unitCost.Iron),
                         Cost = unitCost,
                         Enabled = true,
                         CanAfford = FactionEconomy.CanAfford(em, faction, unitCost),

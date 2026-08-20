@@ -66,20 +66,85 @@ namespace TheWaningBorder.Influence
             _values = null;
         }
 
-        /// <summary>Uniform decay toward neutral, all channels. Proportional
+        /// <summary>Uniform decay toward neutral. Proportional
         /// (<paramref name="fraction"/> of the current value per call) so
         /// territory collapses back to neutral within tens of seconds of
         /// losing its source, plus a small <paramref name="linear"/> term so
-        /// cells actually reach 0 instead of asymptoting forever.</summary>
-        public static void Decay(float fraction, float linear)
+        /// cells actually reach 0 instead of asymptoting forever.
+        /// <para><paramref name="exemptChannelMask"/> (bit i = channel i)
+        /// names channels that do NOT decay at all — Feraldis territory is
+        /// permanent and recedes only where something takes it, which is
+        /// <see cref="DecayOutranked"/>'s job (design:
+        /// docs/Design/Age_1_Feraldis.md § Feraldis influence never
+        /// decays).</para></summary>
+        public static void Decay(float fraction, float linear, int exemptChannelMask = 0)
         {
             if (!Ready) return;
             float keep = 1f - Mathf.Clamp01(fraction);
             var v = _values;
-            for (int i = 0; i < v.Length; i++)
+
+            if (exemptChannelMask == 0)
             {
-                float x = v[i] * keep - linear;
-                v[i] = x > 0f ? x : 0f;
+                for (int i = 0; i < v.Length; i++)
+                {
+                    float x = v[i] * keep - linear;
+                    v[i] = x > 0f ? x : 0f;
+                }
+                return;
+            }
+
+            for (int i = 0; i < v.Length; i += ChannelCount)
+            {
+                for (int c = 0; c < ChannelCount; c++)
+                {
+                    if ((exemptChannelMask & (1 << c)) != 0) continue;
+                    float x = v[i + c] * keep - linear;
+                    v[i + c] = x > 0f ? x : 0f;
+                }
+            }
+        }
+
+        /// <summary>The "can only be REPLACED" half of a non-decaying
+        /// channel: the channels in <paramref name="channelMask"/> lose
+        /// strength on a cell only while some OTHER channel (any other
+        /// player, or the curse) sits at or above them there. Everywhere
+        /// else they hold their value forever.
+        /// <para>The comparison is deliberately "at or above", not "above":
+        /// values saturate at <see cref="MaxValue"/>, so under a strict
+        /// greater-than a saturated cell could never be contested at all and
+        /// a maxed Feraldis claim would be permanently unconquerable.</para>
+        /// </summary>
+        public static void DecayOutranked(int channelMask, float fraction, float linear)
+        {
+            if (!Ready || channelMask == 0) return;
+            float keep = 1f - Mathf.Clamp01(fraction);
+            var v = _values;
+
+            for (int i = 0; i < v.Length; i += ChannelCount)
+            {
+                // Top two values on this cell: for the strongest channel the
+                // best rival is the runner-up, for every other channel it is
+                // the leader. One pass, no per-channel rescan.
+                float best = 0f, second = 0f;
+                int bestChannel = -1;
+                for (int c = 0; c < ChannelCount; c++)
+                {
+                    float x = v[i + c];
+                    if (x > best) { second = best; best = x; bestChannel = c; }
+                    else if (x > second) second = x;
+                }
+                if (best <= 0f) continue;
+
+                for (int c = 0; c < ChannelCount; c++)
+                {
+                    if ((channelMask & (1 << c)) == 0) continue;
+                    float mine = v[i + c];
+                    if (mine <= 0f) continue;
+                    float rival = c == bestChannel ? second : best;
+                    if (rival <= 0f || rival < mine) continue; // unchallenged — holds
+                    float x = mine * keep - linear;
+                    v[i + c] = x > 0f ? x : 0f;
+                }
             }
         }
 
@@ -280,6 +345,40 @@ namespace TheWaningBorder.Influence
             float v = (worldZ - _worldMin.y) / _worldSize.y;
             if (u < 0f || u > 1f || v < 0f || v > 1f) return false;
             return SampleSmooth(u, v, out channel, out strength01);
+        }
+
+        /// <summary>Fill <paramref name="dst"/> (<see cref="Resolution"/>²
+        /// entries, row-major) with the index of the strongest channel on
+        /// each cell, or -1 where the cell is empty. The border tracer needs
+        /// dominance for every cell of every channel; deriving it once here
+        /// is one pass over the grid instead of nine.</summary>
+        public static void FillDominantChannels(sbyte[] dst)
+        {
+            if (!Ready || dst == null || dst.Length < Resolution * Resolution) return;
+            var v = _values;
+            for (int cell = 0, i = 0; cell < Resolution * Resolution; cell++, i += ChannelCount)
+            {
+                float best = 0f;
+                int bestChannel = -1;
+                for (int c = 0; c < ChannelCount; c++)
+                {
+                    float x = v[i + c];
+                    if (x > best) { best = x; bestChannel = c; }
+                }
+                dst[cell] = (sbyte)bestChannel;
+            }
+        }
+
+        /// <summary>Fill <paramref name="dst"/> with one channel's
+        /// normalized (0..1) value per cell, row-major. Strided single pass —
+        /// far cheaper than <see cref="CellValue"/> per cell.</summary>
+        public static void FillChannel(int channel, float[] dst)
+        {
+            if (!Ready || dst == null || channel < 0 || channel >= ChannelCount
+                || dst.Length < Resolution * Resolution) return;
+            var v = _values;
+            for (int cell = 0, i = channel; cell < Resolution * Resolution; cell++, i += ChannelCount)
+                dst[cell] = v[i] / MaxValue;
         }
 
         /// <summary>Display colour: players use their banner colour, the

@@ -15,13 +15,16 @@ namespace TheWaningBorder.Input
     ///      └─ Camera (grandchild)      ← Actual camera, looks at rig center
     ///
     /// Features:
-    /// - WASD keyboard movement
+    /// - Arrow-key movement (NOT WASD — see the Update() note below)
     /// - Edge scrolling
     /// - Middle mouse drag panning
     /// - Scroll wheel zoom
-    /// - Q/E keyboard rotation
-    /// - R/F tilt control
     /// - Smooth damping on all axes
+    ///
+    /// HandleRotation (Q/E) and HandleTilt (R/F) exist below but are NEVER
+    /// CALLED — the camera holds a fixed angle by design. They are kept only
+    /// so the behaviour can be restored if that decision is revisited; do not
+    /// document them to the player as working controls.
     /// - World bounds clamping
     /// - Terrain height following
     /// - Minimap click support (MoveToPosition)
@@ -94,6 +97,15 @@ namespace TheWaningBorder.Input
         private float _currentZoom;
         private float _targetZoom;
         private float _zoomVelocity;
+
+        /// <summary>
+        /// Current zoom as 0..1 between minZoom and maxZoom. Exposed so UI can
+        /// tell whether the player has actually used the control — the tutorial
+        /// completes its "zoom and angle" step off this rather than trying to
+        /// poll the scroll axis, which would only be true on the frames the
+        /// wheel is moving.
+        /// </summary>
+        public static float ZoomNormalized { get; private set; }
         
         // Rotation (Y-axis)
         private float _currentRotation;
@@ -197,12 +209,29 @@ namespace TheWaningBorder.Input
                     var camGO = new GameObject("Main Camera");
                     camGO.tag = "MainCamera";
                     mainCamera = camGO.AddComponent<Camera>();
-                    mainCamera.clearFlags = CameraClearFlags.Skybox;
+                    // Solid black, not the skybox: anything drawn BEYOND the
+                    // map is backdrop, and a lit sky silhouettes the map's
+                    // outline against it — so the shape and extent of the
+                    // terrain read clearly even where nothing has been
+                    // explored. Black makes the edge indistinguishable from
+                    // unexplored fog, which is also pure black.
+                    mainCamera.clearFlags = CameraClearFlags.SolidColor;
+                    mainCamera.backgroundColor = Color.black;
                     mainCamera.fieldOfView = 40f;
                     mainCamera.nearClipPlane = 0.1f;
                     mainCamera.farClipPlane = 5000f;
                     camGO.AddComponent<AudioListener>();
                 }
+            }
+
+            // Black backdrop on the ADOPTED camera too. Map scenes ship their
+            // own Camera.main, so setting this only in the creation branch
+            // above would leave every real map still clearing to the skybox —
+            // i.e. the change would appear to do nothing in the actual game.
+            if (mainCamera != null)
+            {
+                mainCamera.clearFlags = CameraClearFlags.SolidColor;
+                mainCamera.backgroundColor = Color.black;
             }
 
             // Belt-and-suspenders AudioListener guarantee — if we adopted an
@@ -446,6 +475,9 @@ namespace TheWaningBorder.Input
                 _targetZoom -= scroll * zoomSpeed;
                 _targetZoom = Mathf.Clamp(_targetZoom, minZoom, maxZoom);
             }
+            ZoomNormalized = maxZoom > minZoom
+                ? Mathf.InverseLerp(minZoom, maxZoom, _targetZoom)
+                : 0f;
         }
         
         // ═══════════════════════════════════════════════════════════════════════

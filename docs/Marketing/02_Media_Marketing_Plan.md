@@ -34,7 +34,7 @@ re-engagement moments. Each chapter has its own audience peak.
 
 | Chapter | Trigger event | Wishlist push duration | Devlog topics |
 |---------|---------------|------------------------|---------------|
-| **1. Alanthor demo** | Steam page + demo go live together | ~6-8 weeks | Walls, sects, Crystal Curse, Glow, "what's coming" tease |
+| **1. Alanthor demo** | Steam page + demo go live together | ~6-8 weeks | Walls, sects, The Border, Glow, "what's coming" tease |
 | **2. Runai reveal** | When Runai is playable (full game beta or paid early access) | ~4-6 weeks | Caravan transit-spike, trader-warrior networks, "no walls" identity, Acolyte's Conversion ritual |
 | **3. Feraldis reveal** | Full game launch lead-up | ~6-8 weeks | Pillage / damage-as-income, Houses spawning raiders, Veilsteel Frenzy, Iconoclast |
 
@@ -113,7 +113,7 @@ Even before anyone joins, create:
 - `#devlog` (long-form updates auto-posted from the website / RSS)
 - `#feedback` (bug reports, suggestions)
 - `#art-and-screenshots` (you'll dump WIP here as you build)
-- `#crystal-curse-lore` (worldbuilding teasers when you're ready)
+- `#veilstone-border-lore` (worldbuilding teasers when you're ready)
 
 Pin the game pitch in `#announcements`. Set up a simple "welcome"
 auto-message via Carl-bot or MEE6 (free tiers). Discord becomes the
@@ -178,7 +178,7 @@ show," and each should be visual:
    compartment, a Runai caravan in transit, and a Feraldis raid party.
    30 seconds, three thumbnails. *This is your single most important
    marketing asset until you have key art.*
-2. **The Crystal Curse spreading** — a timelapse of cursed ground
+2. **The The Border spreading** — a timelapse of border ground
    creeping across a map. Players will want to see the PvE layer.
 3. **One culture deep-dive** — pick the most polished faction (probably
    Alanthor given the wall system just landed) and do a 5-minute video
@@ -357,7 +357,7 @@ weekly — you're *reusing* monthly content weekly.
    economy mechanic; gif-friendly.
 4. **Feraldis raid pressure** — Houses spawning raiders, Pillage
    economy. Show the autonomous violence loop.
-5. **The Crystal Curse spreading** — PvE layer; foreboding screenshots.
+5. **The The Border spreading** — PvE layer; foreboding screenshots.
 6. **Glow as one-shot finite resource** — explain the late-game
    bottleneck; players will theorycraft.
 7. **Petriarchy sect picks** — once balance settles, reveal sects
@@ -423,8 +423,8 @@ preys on it through raids and a "damage = income" pillage economy.
 
 We're doing something unusual on the release side: shipping one
 culture at a time. The Alanthor demo is live now on Steam — full
-defensive-wall culture, six of twelve religious sects, and the Crystal
-Curse PvE layer. Runai and Feraldis arrive as chapters two and three.
+defensive-wall culture, six of twelve religious sects, and the Veilstone
+Border PvE layer. Runai and Feraldis arrive as chapters two and three.
 
 I noticed *[specific thing about their channel/site, e.g., "your recent
 Tempest Rising coverage" / "your asymmetric RTS retrospective"]* and

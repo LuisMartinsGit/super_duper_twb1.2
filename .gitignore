@@ -190,3 +190,15 @@ testers.local.md
 
 # Downloaded tester logs - never commit
 logs-inbox/
+
+# Per-user runtime state written by PlayerProfile (name, volumes, resolution).
+# Committing one developer's copy would ship their name to everyone.
+settings.json
+
+# Blender writes a .blend1 backup of the previous save beside every .blend.
+# Never source, and ~180 MB of them. Same for the vendor archives next to the
+# asset library: this is a code-only repo (see the asset rules above).
+*.blend1
+Blender_assets/**/*.zip
+Blender_assets/AssetLibrary/_build_log.txt
+Blender_assets/AssetLibrary/_failed_*.txt

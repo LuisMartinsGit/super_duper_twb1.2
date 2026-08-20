@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Core.Multiplayer;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.Core.Commands
 {
@@ -71,6 +72,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueMove(EntityManager em, Entity unit, float3 destination,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
@@ -94,6 +96,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueAttack(EntityManager em, Entity unit, Entity target,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
@@ -110,7 +113,7 @@ namespace TheWaningBorder.Core.Commands
                 {
                     if (source == CommandSource.LocalPlayer)
                         TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                            "The well resists all arms — only Feraldis may break it");
+                            Loc.T("The well resists all arms — only Feraldis may break it"));
                     return;
                 }
             }
@@ -136,6 +139,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueAttackMove(EntityManager em, Entity unit, float3 destination,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
@@ -161,6 +165,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssuePatrol(EntityManager em, Entity unit, float3 destination,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
@@ -184,6 +189,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueStop(EntityManager em, Entity unit,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
@@ -208,6 +214,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueHoldPosition(EntityManager em, Entity unit,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
@@ -235,6 +242,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueLayeredMove(EntityManager em, Entity unit, float3 dest,
             byte targetLayer, CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (em.HasComponent<BuildingTag>(unit)) return;
@@ -280,6 +288,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueBuild(EntityManager em, Entity builder, Entity targetBuilding,
             string buildingId, float3 position, CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (builder == Entity.Null || !em.Exists(builder)) return;
             if (IsBlockedByNotControllable(em, builder, source)) return;
 
@@ -303,6 +312,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueGather(EntityManager em, Entity miner, Entity resource,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
 
@@ -323,6 +333,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueGatherVeil(EntityManager em, Entity miner, float3 site,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
 
@@ -346,6 +357,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueHeal(EntityManager em, Entity healer, Entity target,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (healer == Entity.Null || !em.Exists(healer)) return;
             if (IsBlockedByNotControllable(em, healer, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
@@ -370,6 +382,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueConvert(EntityManager em, Entity miner, Entity keep,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (miner == Entity.Null || !em.Exists(miner)) return;
             if (IsBlockedByNotControllable(em, miner, source)) return;
             if (keep == Entity.Null || !em.Exists(keep)) return;
@@ -394,6 +407,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueRepair(EntityManager em, Entity builder, Entity building,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (builder == Entity.Null || !em.Exists(builder)) return;
             if (IsBlockedByNotControllable(em, builder, source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
@@ -423,7 +437,18 @@ namespace TheWaningBorder.Core.Commands
             Entity targetEntity = default,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
+
+            // A resource rally is anchored to the NODE'S CELL CENTRE, not the
+            // pixel that was clicked. The click lands anywhere on the node's
+            // 2 m collider, so a raw click point put the marker off-centre and
+            // the guide line pointed at the node's edge. Snapping here rather
+            // than at the call site keeps every caller — click router, AI, any
+            // future UI — consistent, and the lockstep payload carries the
+            // snapped position too (it cannot replicate TargetEntity).
+            if (ResourceNodeQuery.TryGetCellCentre(em, targetEntity, out var nodeCentre))
+                position = nodeCentre;
 
             if (ShouldQueueForLockstep(source))
             {
@@ -462,6 +487,7 @@ namespace TheWaningBorder.Core.Commands
             UnitClass unitClass, EquipmentTier targetTier,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return false;
             if (ShouldQueueForLockstep(source))
             {
                 QueueEquipmentUpgradeForLockstep(faction, unitClass, targetTier);
@@ -494,6 +520,10 @@ namespace TheWaningBorder.Core.Commands
             if ((byte)targetTier != (byte)current + 1) return false;
 
             var cost = TheWaningBorder.Core.Settings.EquipmentTierConfig.UpgradeCost(current, targetTier);
+            // Muster Yard (War): per-battalion upgrades cost 50% less while one
+            // stands. Non-stacking, and read from world state that is identical
+            // on every peer, so the debit stays deterministic under lockstep.
+            cost = TheWaningBorder.Economy.MusterYardDiscount.Apply(em, faction, cost);
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return false;
 
@@ -527,6 +557,7 @@ namespace TheWaningBorder.Core.Commands
             Unity.Mathematics.float3 targetPosition,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return false;
             if (ShouldQueueForLockstep(source))
             {
                 QueueGodPowerForLockstep(caster, targetPosition);
@@ -588,6 +619,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssuePurify(EntityManager em, Entity scholar, Entity node,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (scholar == Entity.Null || !em.Exists(scholar)) return;
             if (node == Entity.Null || !em.Exists(node)) return;
             if (IsBlockedByNotControllable(em, scholar, source)) return;
@@ -604,18 +636,32 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>
         /// Send a Feraldis Corruptor to crack a well open (the Feraldis verb —
-        /// docs/Design/Age_1_Feraldis.md § Corruptor). Mirrors IssuePurify.
-        ///
-        /// NOTE: not yet lockstep-replicated — it takes the direct path on
-        /// every peer. Purify/Convert have opcodes; Corrupt needs one before
-        /// multiplayer (see CommandRouter.LockstepQueue.cs + LockstepTypes).
+        /// docs/Design/Age_1_Feraldis.md § Corruptor). Mirrors IssuePurify,
+        /// opcode included (Corrupt = 38): the direct write used to exist on
+        /// the issuing peer alone (docs/Multiplayer_Desync_Sweep_2026-08-16.md).
         /// </summary>
         public static void IssueCorrupt(EntityManager em, Entity corruptor, Entity node,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (corruptor == Entity.Null || !em.Exists(corruptor)) return;
             if (node == Entity.Null || !em.Exists(node)) return;
             if (IsBlockedByNotControllable(em, corruptor, source)) return;
+            if (!em.HasComponent<CorruptorTag>(corruptor)) return;
+            if (!em.HasComponent<BorderMainNodeTag>(node)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueCorruptForLockstep(em, corruptor, node);
+                return;
+            }
+            IssueCorruptDirect(em, corruptor, node);
+        }
+
+        /// <summary>Execute IssueCorrupt on this peer. Used by LockstepManager dispatch.</summary>
+        public static void IssueCorruptDirect(EntityManager em, Entity corruptor, Entity node)
+        {
+            if (!em.Exists(corruptor) || !em.Exists(node)) return;
             if (!em.HasComponent<CorruptorTag>(corruptor)) return;
             if (!em.HasComponent<BorderMainNodeTag>(node)) return;
 
@@ -649,6 +695,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueConvertNode(EntityManager em, Entity acolyte, Entity node,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (acolyte == Entity.Null || !em.Exists(acolyte)) return;
             if (node == Entity.Null || !em.Exists(node)) return;
             if (IsBlockedByNotControllable(em, acolyte, source)) return;
@@ -687,6 +734,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueAbility(EntityManager em, Entity unit, Entity target,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (!em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (!em.HasComponent<UnitAbility>(unit)) return;
@@ -733,11 +781,38 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool IssueUnitAbility(EntityManager em, Entity unit, Entity target = default,
             CommandSource source = CommandSource.LocalPlayer)
+            => IssueUnitAbility(em, unit, target, null, source);
+
+        /// <summary>
+        /// Cast with an optional AIMED ground point, for Area abilities the
+        /// player pointed at with the targeting ring (Use Celestar). The point
+        /// is stamped on the caster and read when the effects fire — the
+        /// pipeline's Entity target cannot express "that patch of empty map".
+        /// </summary>
+        public static bool IssueUnitAbility(EntityManager em, Entity unit, Entity target,
+            float3? aimPoint,
+            CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return false;
             if (!em.Exists(unit)) return false;
             if (IsBlockedByNotControllable(em, unit, source)) return false;
             if (!em.HasComponent<TheWaningBorder.Abilities.UnitAbilities>(unit)) return false;
             if (!TheWaningBorder.Abilities.AbilityQuery.HasReadyActiveAbility(em, unit)) return false;
+
+            // Stamp (or clear) the aim BEFORE the cast starts, so a previous
+            // cast's point can never leak into an unaimed one.
+            if (aimPoint.HasValue)
+            {
+                var aim = new TheWaningBorder.Abilities.AbilityAimPoint { Position = aimPoint.Value };
+                if (em.HasComponent<TheWaningBorder.Abilities.AbilityAimPoint>(unit))
+                    em.SetComponentData(unit, aim);
+                else
+                    em.AddComponentData(unit, aim);
+            }
+            else if (em.HasComponent<TheWaningBorder.Abilities.AbilityAimPoint>(unit))
+            {
+                em.RemoveComponent<TheWaningBorder.Abilities.AbilityAimPoint>(unit);
+            }
 
             if (ShouldQueueForLockstep(source))
             {
@@ -758,6 +833,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueTrain(EntityManager em, Entity building, string unitId,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
@@ -774,7 +850,7 @@ namespace TheWaningBorder.Core.Commands
                 if (source == CommandSource.LocalPlayer)
                 {
                     TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                        $"Requires Lv {requiredLevel} {buildingDisplay}");
+                        string.Format(Loc.T("Requires Lv {0} {1}"), requiredLevel, buildingDisplay));
                 }
                 return;
             }
@@ -790,11 +866,13 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Queue a technology on a building's research queue. The COST is the
-        /// caller's business (the UI spends before issuing, mirroring the
-        /// training flow) — this routes only the enqueue, so the research
-        /// replicates to every peer in multiplayer instead of finishing on
-        /// the issuer's screen alone.
+        /// Queue a technology on a building's research queue. The COST is
+        /// charged inside ResearchCommandDirect — the executor that runs on
+        /// EVERY peer — never at the issue site. Spending at the issue site
+        /// debited the issuing peer's bank only, and the faction banks are
+        /// folded into the desync checksum, so the first research of any
+        /// multiplayer match desynced it (docs/Multiplayer_LAN_Readiness.md).
+        /// Callers keep a CanAfford check for UX gating only.
         /// </summary>
         public static void IssueResearch(EntityManager em, Entity building, string techId,
             CommandSource source = CommandSource.LocalPlayer)
@@ -818,13 +896,15 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Start a building level-up. Validation and cost live in
-        /// UpgradeBuildingCommandHelper.Execute (the caller); this routes the
-        /// state mutation so it lands on every peer in multiplayer.
+        /// Start a building level-up. UpgradeBuildingCommandHelper.Execute
+        /// (the caller) VALIDATES for UX feedback; the cost is spent inside
+        /// ApplyDirect so the debit lands on every peer alongside the state
+        /// mutation (docs/Multiplayer_LAN_Readiness.md).
         /// </summary>
         public static void IssueBuildingUpgrade(EntityManager em, Entity building,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
             if (ShouldQueueForLockstep(source))
@@ -838,13 +918,16 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Start the Hall's age-up with the chosen culture. Cost is spent by
-        /// the caller (popup / AI); this routes the AgeUpState stamp and the
-        /// culture registration so every peer sees the era advance.
+        /// Start the Hall's age-up with the chosen culture. Cost is spent in
+        /// AgeUpCommandDirect on EVERY peer — never by the caller (popup /
+        /// AI keep a CanAfford check for UX/decision gating only). Issuer-
+        /// side spends forked the banks and with them the desync checksum
+        /// (docs/Multiplayer_LAN_Readiness.md).
         /// </summary>
         public static void IssueAgeUp(EntityManager em, Entity hall, byte culture,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (hall == Entity.Null || !em.Exists(hall)) return;
 
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(hall))
@@ -858,33 +941,44 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>Apply the age-up on this peer. Duration is recomputed
-        /// locally; re-entry safe (no-op when already ageing).</summary>
+        /// locally; re-entry safe (no-op when already ageing — checked
+        /// BEFORE the spend so a duplicate command cannot double-charge).
+        /// Validates affordability and SPENDS here so every peer debits the
+        /// same bank; a short bank rejects the whole command identically
+        /// everywhere (no partial effects, no culture registration).</summary>
         public static void AgeUpCommandDirect(EntityManager em, Entity hall, byte culture)
         {
             if (!em.Exists(hall)) return;
+            if (em.HasComponent<AgeUpState>(hall)) return;
 
             if (em.HasComponent<FactionTag>(hall))
-                FactionColors.SetFactionCulture(em.GetComponentData<FactionTag>(hall).Value, culture);
-
-            if (!em.HasComponent<AgeUpState>(hall))
             {
-                float duration = CultureConfig.AgeUpDuration;
-                em.AddComponentData(hall, new AgeUpState
-                {
-                    Culture   = culture,
-                    Duration  = duration,
-                    Remaining = duration,
-                });
+                var faction = em.GetComponentData<FactionTag>(hall).Value;
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(
+                        em, faction, CultureConfig.AgeUpCost))
+                    return;
+                FactionColors.SetFactionCulture(faction, culture);
             }
+
+            float duration = CultureConfig.AgeUpDuration;
+            em.AddComponentData(hall, new AgeUpState
+            {
+                Culture   = culture,
+                Duration  = duration,
+                Remaining = duration,
+            });
         }
 
         /// <summary>
-        /// Start a Temple of Ridan level upgrade. Cost is spent by the
-        /// caller; target level and duration are recomputed on each peer.
+        /// Start a Temple of Ridan level upgrade. Cost is spent in
+        /// TempleUpgradeCommandDirect on EVERY peer (never by the caller —
+        /// see IssueAgeUp); target level and duration are recomputed on each
+        /// peer.
         /// </summary>
         public static void IssueTempleUpgrade(EntityManager em, Entity temple,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (temple == Entity.Null || !em.Exists(temple)) return;
 
             if (ShouldQueueForLockstep(source))
@@ -894,7 +988,10 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>Apply the temple upgrade stamp on this peer. Re-entry
-        /// safe (no-op when already upgrading).</summary>
+        /// safe (no-op when already upgrading — checked BEFORE the spend so
+        /// a duplicate command cannot double-charge). Validates level +
+        /// affordability and SPENDS here so every peer debits the same bank
+        /// (docs/Multiplayer_LAN_Readiness.md).</summary>
         public static void TempleUpgradeCommandDirect(EntityManager em, Entity temple)
         {
             if (!em.Exists(temple)) return;
@@ -902,6 +999,16 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<TempleUpgradeState>(temple)) return;
 
             int level = em.GetComponentData<TempleLevel>(temple).Level;
+            if (level >= TempleLevelConfig.MaxLevel) return;
+
+            if (em.HasComponent<FactionTag>(temple))
+            {
+                var faction = em.GetComponentData<FactionTag>(temple).Value;
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(
+                        em, faction, TempleLevelConfig.GetUpgradeCost(level)))
+                    return;
+            }
+
             float duration = TempleLevelConfig.GetUpgradeDuration(level);
             em.AddComponentData(temple, new TempleUpgradeState
             {
@@ -913,12 +1020,15 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>
         /// Stamp a chapel build slot for an adopted sect. RP + material spend
-        /// happen in SectAdoption.TryStartAdoption on the issuing peer; this
-        /// routes only the slot stamp so the chapel rises on every peer.
+        /// happen in SectAdoptionCommandDirect on EVERY peer — the issuer
+        /// only VALIDATES (SectAdoption.ValidateAdoption) so the click can be
+        /// rejected with feedback. Spending at the issue site debited one
+        /// peer's bank and RP pool only (docs/Multiplayer_LAN_Readiness.md).
         /// </summary>
         public static void IssueSectAdoption(EntityManager em, Entity temple, string sectId,
             int preferredSlot, float buildTime, CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (temple == Entity.Null || !em.Exists(temple)) return;
             if (string.IsNullOrEmpty(sectId)) return;
 
@@ -930,11 +1040,17 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>Apply the chapel-slot stamp on this peer. Prefers the
         /// targeted slot, falls back to the first free one; no-ops when the
-        /// sect is already building or complete (replay safety).</summary>
+        /// sect is already building or complete (replay safety). Validates
+        /// and SPENDS the RP + chapel material cost here — both live in
+        /// replicated ECS state on the bank entity, so charging in the
+        /// executor keeps every peer's bank (and the desync checksum)
+        /// aligned. A failed spend rejects the whole command identically on
+        /// every peer: no slot stamp, no partial effects.</summary>
         public static void SectAdoptionCommandDirect(EntityManager em, Entity temple,
             string sectId, int preferredSlot, float buildTime)
         {
             if (!em.Exists(temple) || !em.HasBuffer<TempleChapelSlot>(temple)) return;
+            if (!em.HasComponent<FactionTag>(temple)) return;
 
             var slots = em.GetBuffer<TempleChapelSlot>(temple);
             for (int i = 0; i < slots.Length; i++)
@@ -953,6 +1069,13 @@ namespace TheWaningBorder.Core.Commands
             }
             if (idx < 0) return;
 
+            var faction = em.GetComponentData<FactionTag>(temple).Value;
+            if (!TheWaningBorder.Economy.SectAdoption.TrySpendAdoptionCosts(em, faction, sectId))
+                return;
+
+            // Re-fetch the buffer: the spend wrote other components on the
+            // bank entity and a stale buffer handle would throw.
+            slots = em.GetBuffer<TempleChapelSlot>(temple);
             slots[idx] = new TempleChapelSlot
             {
                 Chapel        = Entity.Null,
@@ -964,10 +1087,36 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>Append to the research queue on this peer. Used by the
-        /// direct path and by LockstepManager dispatch.</summary>
+        /// direct path and by LockstepManager dispatch. Validates
+        /// affordability and SPENDS here so single-player and every
+        /// multiplayer peer debit the same bank at the same tick; rejects
+        /// the whole command identically everywhere when the bank is short
+        /// (no partial effects).</summary>
         public static void ResearchCommandDirect(EntityManager em, Entity building, string techId)
         {
             if (!em.HasBuffer<ResearchQueueItem>(building)) return;
+
+            // Cost comes from the shared TechCatalog — identical data on all
+            // peers, so the debit is deterministic. A tech missing from the
+            // catalog enqueues free (same lenient fallback the old UI spend
+            // path had for a zero-cost button).
+            if (em.HasComponent<FactionTag>(building)
+                && TechCatalog.TryGetTechnology(techId, out var techDef)
+                && techDef != null && techDef.cost != null)
+            {
+                var faction = em.GetComponentData<FactionTag>(building).Value;
+                // Royal Index (Antiquity): all research costs 10% less.
+                float techMult = TheWaningBorder.Economy.SectResearchEffects
+                    .ResearchCostMultiplier(faction);
+                var cost = TheWaningBorder.Core.Cost.Of(
+                    supplies:  (int)(techDef.cost.Supplies  * techMult),
+                    iron:      (int)(techDef.cost.Iron      * techMult),
+                    veilstone: (int)(techDef.cost.Veilstone * techMult),
+                    veilsteel: (int)(techDef.cost.Veilsteel * techMult));
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                    return;
+            }
+
             var queue = em.GetBuffer<ResearchQueueItem>(building);
             queue.Add(new ResearchQueueItem
             {
@@ -985,6 +1134,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueCancelTrain(EntityManager em, Entity building, int slotIndex,
             CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
             if (!em.HasComponent<TrainingState>(building)) return;
             if (IsBlockedByNotControllable(em, building, source)) return;
@@ -1013,6 +1163,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueConvertHut(EntityManager em, Entity hut,
             HutConversionTarget target, CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (hut == Entity.Null || !em.Exists(hut)) return;
             if (!em.HasComponent<GathererHutAgeUpChoice>(hut)) return;
             if (IsBlockedByNotControllable(em, hut, source)) return;
@@ -1044,6 +1195,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssueConvertSegmentToGate(EntityManager em, Entity segment,
             Entity focusInstance, CommandSource source = CommandSource.LocalPlayer)
         {
+            if (ShouldDropCommand(source)) return;
             if (segment == Entity.Null || !em.Exists(segment)) return;
             if (!em.HasComponent<WallSegmentTag>(segment)) return;
             // Idempotent: don't double-charge if the conversion is already running.
@@ -1058,6 +1210,115 @@ namespace TheWaningBorder.Core.Commands
             {
                 ConvertSegmentToGateCommandHelper.Execute(em, segment, focusInstance);
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CHARGED WALL-UPGRADE / KEEP-WING ENTRY POINTS
+        // ═══════════════════════════════════════════════════════════════
+        // IssueWallUpgrade / IssueKeepWing and their *Direct executors live
+        // in CommandRouter.Replication2026.cs and stamp the timer only —
+        // their COST used to be paid at the UI click site, i.e. on the
+        // issuing peer alone, which forked the banks and with them the
+        // desync checksum (docs/Multiplayer_LAN_Readiness.md). These
+        // wrappers keep the spend beside the mutation: the *ChargedDirect
+        // methods validate + spend + stamp, and they are what the SP direct
+        // path AND LockstepManager.ExecuteCommand both call, so every peer
+        // debits the same bank at the same tick.
+
+        /// <summary>
+        /// Wall instance upgrade with the cost charged in the executor.
+        /// Multiplayer queues through the existing WallUpgrade opcode; the
+        /// spend then happens inside WallUpgradeChargedDirect when the
+        /// command replays on every peer.
+        /// </summary>
+        public static void IssueWallUpgradeCharged(EntityManager em, Entity wall,
+            int upgradeType, float duration, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (wall == Entity.Null || !em.Exists(wall)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                IssueWallUpgrade(em, wall, upgradeType, duration, source);
+                return;
+            }
+            WallUpgradeChargedDirect(em, wall, upgradeType, duration);
+        }
+
+        /// <summary>
+        /// Validate + SPEND + stamp for a wall instance upgrade. Runs on
+        /// every peer (LockstepManager dispatches through here). Mirrors
+        /// WallUpgradeDirect's no-op guards BEFORE the spend so a duplicate
+        /// or replayed command can never double-charge; a short bank rejects
+        /// the whole command identically everywhere.
+        /// </summary>
+        public static bool WallUpgradeChargedDirect(EntityManager em, Entity wall,
+            int upgradeType, float duration)
+        {
+            if (wall == Entity.Null || !em.Exists(wall)) return false;
+            if (em.HasComponent<WallUpgradeState>(wall)) return false;   // already upgrading
+            if (!em.HasComponent<FactionTag>(wall)) return false;
+
+            // Type 1 (tower) is the only wall-instance upgrade sold today;
+            // gates convert through ConvertSegmentToGate, which carries its
+            // own executor-side spend. Unknown types stamp free rather than
+            // guessing a price.
+            var cost = upgradeType == 1
+                ? TheWaningBorder.Data.BuildCosts.Get("Alanthor_WallTower")
+                : default;
+            var faction = em.GetComponentData<FactionTag>(wall).Value;
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return false;
+
+            WallUpgradeDirect(em, wall, upgradeType, duration);
+            return true;
+        }
+
+        /// <summary>
+        /// Fiendstone Keep wing construction with the cost charged in the
+        /// executor. Same shape as IssueWallUpgradeCharged.
+        /// </summary>
+        public static void IssueKeepWingCharged(EntityManager em, Entity keep,
+            byte wing, float duration, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (keep == Entity.Null || !em.Exists(keep)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                IssueKeepWing(em, keep, wing, duration, source);
+                return;
+            }
+            KeepWingChargedDirect(em, keep, wing, duration);
+        }
+
+        /// <summary>
+        /// Validate + SPEND + stamp for a Keep wing. Runs on every peer.
+        /// Re-checks the wing rules (one build at a time, each wing type
+        /// once, three wings max) BEFORE the spend so a replayed duplicate
+        /// cannot double-charge.
+        /// </summary>
+        public static bool KeepWingChargedDirect(EntityManager em, Entity keep,
+            byte wing, float duration)
+        {
+            if (keep == Entity.Null || !em.Exists(keep)) return false;
+            if (!em.HasComponent<KeepWings>(keep)) return false;
+            if (em.HasComponent<KeepWingConstruction>(keep)) return false;   // one at a time
+            if (!em.HasComponent<FactionTag>(keep)) return false;
+
+            var wingType = (KeepWingType)wing;
+            var wings = em.GetComponentData<KeepWings>(keep);
+            if (wings.Count >= TheWaningBorder.Core.Settings.KeepWingConfig.MaxWings
+                || wings.Has(wingType))
+                return false;
+
+            var faction = em.GetComponentData<FactionTag>(keep).Value;
+            var cost = TheWaningBorder.Core.Settings.KeepWingConfig.CostOf(wingType);
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return false;
+
+            KeepWingDirect(em, keep, wing, duration);
+            return true;
         }
 
         /// <summary>
@@ -1134,8 +1395,9 @@ namespace TheWaningBorder.Core.Commands
         // ─── Production-queue cap (combined train + research) ────────────
         // A single building queues both unit-training and research orders
         // through separate buffers, but the player perceives them as one
-        // production queue. 5 is the cap: train and research orders share it.
-        public const int MaxProductionQueue = 5;
+        // production queue. 16 is the cap (the roster HUD area shows all 16
+        // slots): train and research orders share it.
+        public const int MaxProductionQueue = 16;
 
         public static int GetTrainQueueLength(EntityManager em, Entity building)
         {
@@ -1160,18 +1422,36 @@ namespace TheWaningBorder.Core.Commands
                    >= MaxProductionQueue;
         }
 
-        private static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
+        /// <summary>
+        /// The train EXECUTOR — reached by the single-player direct path AND
+        /// by LockstepManager.ExecuteCommand on every peer. Public so the
+        /// lockstep dispatch shares this exact validation + spend path.
+        /// Validates, then SPENDS the unit cost here — never at the issue
+        /// site. Issuer-side spends debited one peer's bank only, and the
+        /// faction banks are folded into the desync checksum, so the first
+        /// purchase of any multiplayer match desynced it
+        /// (docs/Multiplayer_LAN_Readiness.md).
+        /// </summary>
+        public static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
             if (!em.HasBuffer<TrainQueueItem>(building))
             {
                 // Silent-drop instrumentation (2026-08-04, "sect unit button
                 // doesn't work" hunt): a train order landing on a building
                 // with no queue is a wiring bug — say so instead of eating
-                // the click (and the player's already-spent cost).
+                // the click.
                 TWBLog.Log($"[CommandRouter] TRAIN '{unitId}' DROPPED — target " +
                            $"building has no TrainQueueItem buffer.");
                 return;
             }
+
+            // Notifications are presentation-only, so gate them on the local
+            // player's faction — this method now also replays REMOTE
+            // players' commands via lockstep, and their rejections are not
+            // this screen's business.
+            bool notifyLocal = em.HasComponent<FactionTag>(building)
+                && em.GetComponentData<FactionTag>(building).Value == GameSettings.LocalPlayerFaction;
+
             // Belt-and-suspenders: IssueTrain already filters above, but
             // direct callers (post-lockstep apply, scripted spawns) hit
             // this path bypass-style. Silent drop on level mismatch since
@@ -1182,7 +1462,8 @@ namespace TheWaningBorder.Core.Commands
                 em.HasComponent<FactionTag>(building) &&
                 TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, em.GetComponentData<FactionTag>(building).Value))
             {
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("King Lexor already serves your realm");
+                if (notifyLocal)
+                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("King Lexor already serves your realm"));
                 return;
             }
             // Same gate for the Ledger: one automaton per player.
@@ -1190,17 +1471,51 @@ namespace TheWaningBorder.Core.Commands
                 em.HasComponent<FactionTag>(building) &&
                 TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, em.GetComponentData<FactionTag>(building).Value))
             {
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("Your court already employs a Ledger");
+                if (notifyLocal)
+                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("Your court already employs a Ledger"));
                 return;
             }
             // Reject when combined production queue would exceed the cap.
             if (IsProductionQueueFull(em, building))
             {
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify("Production queue full");
+                if (notifyLocal)
+                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("Production queue full"));
                 return;
             }
+
+            // SPEND — after every reject gate so a refused order never
+            // touches the bank, before the enqueue so a short bank rejects
+            // the whole command with no partial effects. The cost formula
+            // (base catalog cost through War's military discount, which
+            // reads replicated sect state) is deterministic on every peer.
+            // CancelTrainCommandHelper refunds through the same formula.
+            // Call to Arms (War) cuts the price of everything this building
+            // trains while it stands. Deterministic on every peer - the boon is
+            // replicated sect state like the passive discount - and recorded on
+            // the queue item so the cancel refund matches what was charged.
+            float boonMult = TheWaningBorder.Economy.WarSectCostHelper
+                .TrainingBoonCostMultiplier(em, building);
+            if (em.HasComponent<FactionTag>(building))
+            {
+                var trainFaction = em.GetComponentData<FactionTag>(building).Value;
+                var cost = TheWaningBorder.Economy.WarSectCostHelper.MilitaryDiscount(
+                    em, trainFaction, unitId,
+                    TheWaningBorder.UI.EntityActionExtractor.GetUnitCost(unitId));
+                cost = TheWaningBorder.Economy.WarSectCostHelper.ApplyPaidMultiplier(cost, boonMult);
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, trainFaction, cost))
+                {
+                    if (notifyLocal)
+                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                    return;
+                }
+            }
+
             var queue = em.GetBuffer<TrainQueueItem>(building);
-            queue.Add(new TrainQueueItem { UnitId = new Unity.Collections.FixedString64Bytes(unitId) });
+            queue.Add(new TrainQueueItem
+            {
+                UnitId             = new Unity.Collections.FixedString64Bytes(unitId),
+                PaidCostMultiplier = boonMult,
+            });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -1217,9 +1532,16 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>Count this faction's Smelters (completed AND under
         /// construction) for the placement cap check.</summary>
         private static int CountFactionSmelters(EntityManager em, Faction faction)
+            => CountFactionBuildings<SmelterTag>(em, faction);
+
+        /// <summary>Count a faction's buildings of one tag type, completed and
+        /// under construction alike. The generic form of the Smelter count —
+        /// the sect buildings all need the same query with a different tag.</summary>
+        private static int CountFactionBuildings<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
         {
             var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<SmelterTag>(),
+                ComponentType.ReadOnly<T>(),
                 ComponentType.ReadOnly<FactionTag>());
             using var facs = query.ToComponentDataArray<FactionTag>(
                 Unity.Collections.Allocator.Temp);
@@ -1227,6 +1549,38 @@ namespace TheWaningBorder.Core.Commands
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) count++;
             return count;
+        }
+
+        /// <summary>
+        /// True when this faction may still place one more of this building.
+        /// Callers with a spend-then-place flow should check this BEFORE
+        /// spending — IssuePlaceBuilding also rejects, but by then the
+        /// resources are already gone.
+        /// </summary>
+        public static bool CanPlaceBuilding(EntityManager em, string buildingId, Faction faction)
+        {
+            if (buildingId == "Alanthor_Smelter")
+                return CountFactionSmelters(em, faction) < MaxSmeltersPerFaction;
+            return !SectBuildingCapReached(em, buildingId, faction);
+        }
+
+        /// <summary>
+        /// True when this faction is already at its cap for a SECT building.
+        /// Every sect building is capped at SectBuilding.CapPerFaction (5) —
+        /// docs/Design/Sects.md section 1. Non-sect ids answer false.
+        /// </summary>
+        private static bool SectBuildingCapReached(EntityManager em, string buildingId, Faction faction)
+        {
+            int cap = TheWaningBorder.Entities.SectBuilding.CapPerFaction;
+            switch (buildingId)
+            {
+                case "Sect_Reliquary":   return CountFactionBuildings<ReliquaryTag>(em, faction)   >= cap;
+                case "Sect_MendingHall": return CountFactionBuildings<MendingHallTag>(em, faction) >= cap;
+                case "Sect_Stonehold":   return CountFactionBuildings<StoneholdTag>(em, faction)   >= cap;
+                case "Sect_MusterYard":  return CountFactionBuildings<MusterYardTag>(em, faction)  >= cap;
+                case "Sect_Veilworks":   return CountFactionBuildings<VeilworksTag>(em, faction)   >= cap;
+                default: return false;
+            }
         }
 
         /// <summary>
@@ -1251,12 +1605,19 @@ namespace TheWaningBorder.Core.Commands
             Faction faction, out Entity created, CommandSource source = CommandSource.LocalPlayer)
         {
             created = Entity.Null;
+            if (ShouldDropCommand(source)) return false;
 
             // Smelter cap (5 per faction). Rejected here so callers with a
             // spend-then-place flow (AI TryBuildOnce) see created == Null and
             // refund cleanly; the UI normally hides the button first.
             if (buildingId == "Alanthor_Smelter"
                 && CountFactionSmelters(em, faction) >= MaxSmeltersPerFaction)
+                return false;
+
+            // Sect buildings, 5 per faction. Same reasoning as the Smelter cap:
+            // rejected here so a spend-then-place caller sees created == Null
+            // and refunds cleanly.
+            if (SectBuildingCapReached(em, buildingId, faction))
                 return false;
 
             if (source == CommandSource.LocalPlayer)
@@ -1286,9 +1647,54 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Execute building placement: create entity, mark under construction, set HP to 1.
         /// Called by lockstep ExecuteCommand on all clients, or directly in singleplayer.
+        /// Validates affordability and SPENDS here — never at the issue site
+        /// (UI panel / AI). Issuer-side spends debited one peer's bank only
+        /// while the banks feed the desync checksum
+        /// (docs/Multiplayer_LAN_Readiness.md). Returns Entity.Null when the
+        /// bank cannot pay, identically on every peer — no entity, no
+        /// partial effects.
         /// </summary>
         public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
         {
+            // COLLISION, LAST LINE. The issue site validated a CANDIDATE
+            // position; this is the only place that knows the position the
+            // building will actually occupy, because BuildingFactory.Create
+            // snaps to the build grid on the way in. Between those two points
+            // the position can move by up to a cell, the world can change
+            // (a queued lockstep command executes ticks after it was issued),
+            // and on a remote peer the validation never ran at all — which is
+            // how towers ended up standing inside the Hall (2026-08-18).
+            // Geometry only, and refused BEFORE the spend so a rejected
+            // placement costs nothing.
+            float3 snappedPos = BuildGrid.Snap(position, buildingId);
+            if (BuildCommandHelper.OverlapsExistingBuilding(
+                    em, snappedPos, BuildingSizeConfig.GetSize(buildingId)))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"[CommandRouter] Refused {buildingId} for {faction} at " +
+                    $"({snappedPos.x:F1},{snappedPos.z:F1}) — footprint overlaps an existing building.");
+                return Entity.Null;
+            }
+
+            // BuildCosts is synced from the shared TechTree on every peer, so
+            // the debit is deterministic. An id missing from the table places
+            // free — the same lenient fallback the old panel spend had.
+            if (!TheWaningBorder.Data.BuildCosts.TryGet(buildingId, out var cost))
+                cost = default;
+            // Deep Foundations (Fortitude): defensive structures cost 20% less.
+            // Deterministic on every peer - it reads replicated research state.
+            float buildMult = TheWaningBorder.Economy.SectResearchEffects
+                .BuildingCostMultiplier(faction, buildingId);
+            if (buildMult < 1f)
+                cost = TheWaningBorder.Core.Cost.Of(
+                    supplies:  (int)(cost.Supplies  * buildMult),
+                    iron:      (int)(cost.Iron      * buildMult),
+                    veilstone: (int)(cost.Veilstone * buildMult),
+                    veilsteel: (int)(cost.Veilsteel * buildMult),
+                    glow:      (int)(cost.Glow      * buildMult));
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return Entity.Null;
+
             Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
 
             // Mark as under construction
@@ -1298,11 +1704,17 @@ namespace TheWaningBorder.Core.Commands
                 else
                     em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
-            // Set HP to 1 during construction
+            // Set HP to 1 during construction. Mason's Charter (Renewal) raises
+            // the MAX the site will complete to by 20%, applied here so the
+            // building is stamped with its final ceiling from birth rather than
+            // being retro-patched by a system that would also have to know when
+            // to take the bonus away again.
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
-                em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
+                int maxHp = (int)(hp.Max * TheWaningBorder.Economy.SectResearchEffects
+                    .BuildingHpMultiplier(faction));
+                em.SetComponentData(building, new Health { Value = 1, Max = maxHp });
             }
 
             // Choice buildings (Shrine / Vault / Keep) self-construct with no
@@ -1372,7 +1784,7 @@ namespace TheWaningBorder.Core.Commands
         {
             // Only queue if in multiplayer with active lockstep
             if (!GameSettings.IsMultiplayer) return false;
-            
+
             var lockstep = LockstepServiceLocator.Instance;
             if (lockstep == null || !lockstep.IsSimulationRunning)
                 return false;
@@ -1385,6 +1797,28 @@ namespace TheWaningBorder.Core.Commands
                 CommandSource.System => false,       // Deterministic - execute immediately
                 _ => false
             };
+        }
+
+        /// <summary>
+        /// True when this peer must DROP the command entirely. AI brains run
+        /// their think loops on every peer, but only the HOST may inject AI
+        /// commands into the lockstep stream — ShouldQueueForLockstep answers
+        /// false for AI on a client, and the old fallthrough then executed
+        /// the command directly on that peer alone, forking the simulation
+        /// (docs/Multiplayer_LAN_Readiness.md). Every Issue* method checks
+        /// this BEFORE the queue/direct branch. Single-player and host
+        /// behaviour are unchanged (this only answers true on a non-host
+        /// multiplayer peer, for AI-sourced commands).
+        /// </summary>
+        public static bool ShouldDropCommand(CommandSource source)
+        {
+            if (source != CommandSource.AI) return false;
+            if (!GameSettings.IsMultiplayer) return false;
+
+            var lockstep = LockstepServiceLocator.Instance;
+            if (lockstep == null || !lockstep.IsSimulationRunning) return false;
+
+            return !lockstep.IsHost;
         }
 
         private static int GetNetworkId(EntityManager em, Entity entity)

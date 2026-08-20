@@ -1,0 +1,453 @@
+=== Perf spikes (ms) ===
+[   122,9s f34119] AIThink: 28,6 ms brains 6
+[   127,0s f34321] VeilPulse: 5,6 ms 
+[   128,0s f34402] AIThink: 29,4 ms brains 1
+[   128,1s f34403] FRAME: 69,8 ms gc0+0 gc1+0 gc2+0
+[   128,2s f34404] FRAME: 97,4 ms gc0+0 gc1+0 gc2+0
+[   128,2s f34405] FRAME: 98,1 ms gc0+0 gc1+0 gc2+0
+[   128,4s f34406] FRAME: 125,7 ms gc0+2 gc1+2 gc2+2
+[   128,5s f34407] FRAME: 78,8 ms gc0+0 gc1+0 gc2+0
+[   128,6s f34408] FRAME: 120,9 ms gc0+2 gc1+2 gc2+2
+[   156,0s f36482] AIThink: 13,0 ms brains 1
+[   171,2s f37478] AIThink: 8,2 ms brains 1
+[   184,2s f38273] AIThink: 9,4 ms brains 1
+[   186,5s f38397] AIThink: 10,4 ms brains 1
+[   228,4s f40688] HutIncome: 5,0 ms huts 18
+[   232,4s f40903] HutIncome: 5,6 ms huts 20
+[   236,4s f41117] HutIncome: 5,6 ms huts 22
+[   238,5s f41224] HutIncome: 5,4 ms huts 22
+[   240,5s f41331] HutIncome: 5,3 ms huts 22
+[   242,5s f41439] HutIncome: 6,3 ms huts 23
+[   244,5s f41543] HutIncome: 6,4 ms huts 24
+[   246,5s f41635] HutIncome: 6,2 ms huts 24
+[   248,5s f41741] HutIncome: 6,4 ms huts 24
+[   250,5s f41834] HutIncome: 6,4 ms huts 25
+[   252,5s f41939] HutIncome: 6,5 ms huts 25
+[   254,5s f42037] HutIncome: 7,1 ms huts 25
+[   256,5s f42136] HutIncome: 6,0 ms huts 25
+[   258,6s f42238] HutIncome: 7,6 ms huts 26
+[   260,6s f42332] HutIncome: 7,1 ms huts 28
+[   262,6s f42434] HutIncome: 7,5 ms huts 29
+[   264,6s f42526] HutIncome: 7,1 ms huts 30
+[   266,6s f42627] HutIncome: 8,0 ms huts 30
+[   268,6s f42722] HutIncome: 7,7 ms huts 30
+[   270,6s f42817] HutIncome: 8,8 ms huts 30
+[   272,6s f42913] HutIncome: 7,6 ms huts 30
+[   274,6s f43010] HutIncome: 7,3 ms huts 30
+[   276,6s f43108] HutIncome: 8,2 ms huts 32
+[   278,6s f43204] HutIncome: 8,2 ms huts 32
+[   280,7s f43299] HutIncome: 8,4 ms huts 32
+[   282,7s f43398] HutIncome: 9,7 ms huts 34
+[   284,7s f43497] HutIncome: 8,8 ms huts 34
+[   286,7s f43596] HutIncome: 8,5 ms huts 34
+[   288,7s f43696] HutIncome: 8,9 ms huts 34
+[   290,7s f43799] HutIncome: 9,3 ms huts 34
+[   292,8s f43901] HutIncome: 10,8 ms huts 34
+[   294,8s f44001] HutIncome: 9,5 ms huts 36
+[   296,8s f44099] HutIncome: 9,2 ms huts 38
+[   298,8s f44200] HutIncome: 9,8 ms huts 38
+[   300,8s f44288] HutIncome: 9,4 ms huts 38
+[   302,8s f44377] HutIncome: 9,5 ms huts 38
+[   304,8s f44466] HutIncome: 9,6 ms huts 38
+[   306,8s f44568] HutIncome: 10,9 ms huts 39
+[   308,8s f44665] HutIncome: 9,9 ms huts 40
+[   310,8s f44760] HutIncome: 11,4 ms huts 40
+[   312,8s f44861] HutIncome: 11,1 ms huts 41
+[   314,9s f44959] HutIncome: 10,3 ms huts 41
+[   316,9s f45057] HutIncome: 10,5 ms huts 41
+[   318,9s f45155] HutIncome: 11,1 ms huts 41
+[   320,9s f45254] HutIncome: 11,6 ms huts 41
+[   322,9s f45352] HutIncome: 10,7 ms huts 42
+[   324,9s f45449] HutIncome: 11,0 ms huts 43
+[   326,9s f45548] HutIncome: 11,3 ms huts 44
+[   328,9s f45647] HutIncome: 11,1 ms huts 45
+[   330,9s f45746] HutIncome: 11,8 ms huts 45
+[   333,0s f45843] HutIncome: 11,8 ms huts 45
+[   335,0s f45940] HutIncome: 11,7 ms huts 46
+[   337,0s f46038] HutIncome: 13,8 ms huts 47
+[   339,0s f46134] HutIncome: 12,5 ms huts 47
+[   341,0s f46233] HutIncome: 12,2 ms huts 47
+[   343,0s f46331] HutIncome: 11,8 ms huts 47
+[   345,0s f46427] HutIncome: 12,3 ms huts 47
+[   347,0s f46524] HutIncome: 11,9 ms huts 47
+[   349,0s f46620] HutIncome: 11,5 ms huts 48
+[   351,1s f46708] HutIncome: 12,5 ms huts 49
+[   353,1s f46803] HutIncome: 13,7 ms huts 50
+[   355,1s f46899] HutIncome: 12,3 ms huts 51
+[   357,1s f46996] HutIncome: 15,9 ms huts 51
+[   359,1s f47094] HutIncome: 13,4 ms huts 52
+[   361,1s f47185] HutIncome: 13,0 ms huts 52
+[   363,1s f47260] HutIncome: 13,7 ms huts 52
+[   365,1s f47356] HutIncome: 14,0 ms huts 52
+[   367,1s f47447] HutIncome: 13,2 ms huts 53
+[   369,2s f47538] HutIncome: 13,4 ms huts 53
+[   371,2s f47630] HutIncome: 13,4 ms huts 53
+[   373,2s f47721] HutIncome: 13,8 ms huts 53
+[   375,2s f47811] HutIncome: 15,0 ms huts 54
+[   377,2s f47900] HutIncome: 16,3 ms huts 55
+[   379,2s f47989] HutIncome: 13,9 ms huts 55
+[   381,2s f48078] HutIncome: 14,2 ms huts 56
+[   383,3s f48167] HutIncome: 16,5 ms huts 56
+[   385,3s f48257] HutIncome: 14,9 ms huts 56
+[   387,3s f48346] HutIncome: 14,5 ms huts 56
+[   389,3s f48436] HutIncome: 16,1 ms huts 56
+[   391,3s f48526] HutIncome: 14,6 ms huts 57
+[   393,3s f48616] HutIncome: 14,6 ms huts 57
+[   395,3s f48707] HutIncome: 15,8 ms huts 57
+[   397,3s f48794] FRAME: 66,5 ms gc0+0 gc1+0 gc2+0
+[   397,4s f48796] HutIncome: 21,7 ms huts 57
+[   397,4s f48797] FRAME: 52,2 ms gc0+0 gc1+0 gc2+0
+[   399,4s f48884] HutIncome: 15,1 ms huts 57
+[   401,4s f48981] HutIncome: 17,2 ms huts 57
+[   403,4s f49067] HutIncome: 13,9 ms huts 57
+[   405,4s f49158] HutIncome: 14,8 ms huts 58
+[   407,4s f49249] HutIncome: 15,3 ms huts 59
+[   407,4s f49250] FRAME: 50,1 ms gc0+0 gc1+0 gc2+0
+[   409,4s f49340] HutIncome: 15,1 ms huts 59
+[   411,4s f49433] HutIncome: 14,6 ms huts 59
+[   413,4s f49525] HutIncome: 16,1 ms huts 59
+[   415,4s f49619] HutIncome: 14,9 ms huts 59
+[   417,5s f49704] HutIncome: 15,2 ms huts 59
+[   419,5s f49787] HutIncome: 18,7 ms huts 61
+[   419,5s f49788] FRAME: 56,0 ms gc0+0 gc1+0 gc2+0
+[   421,5s f49870] HutIncome: 16,5 ms huts 62
+[   421,5s f49871] FRAME: 51,3 ms gc0+0 gc1+0 gc2+0
+[   423,5s f49954] HutIncome: 16,5 ms huts 63
+[   425,5s f50039] HutIncome: 16,9 ms huts 63
+[   427,6s f50125] HutIncome: 16,2 ms huts 63
+[   429,6s f50209] HutIncome: 17,5 ms huts 63
+[   431,6s f50297] HutIncome: 17,8 ms huts 64
+[   433,6s f50384] HutIncome: 17,1 ms huts 64
+[   435,6s f50472] HutIncome: 17,7 ms huts 64
+[   437,6s f50560] HutIncome: 16,9 ms huts 65
+[   437,6s f50561] FRAME: 52,2 ms gc0+0 gc1+0 gc2+0
+[   439,6s f50646] HutIncome: 21,5 ms huts 66
+[   439,7s f50647] FRAME: 58,3 ms gc0+0 gc1+0 gc2+0
+[   441,6s f50731] HutIncome: 17,2 ms huts 66
+[   443,7s f50816] HutIncome: 17,4 ms huts 66
+[   445,7s f50904] HutIncome: 16,3 ms huts 66
+[   447,7s f50991] HutIncome: 18,4 ms huts 66
+[   449,7s f51079] HutIncome: 18,3 ms huts 67
+[   449,7s f51080] FRAME: 56,1 ms gc0+0 gc1+0 gc2+0
+[   451,7s f51163] HutIncome: 17,2 ms huts 67
+[   453,7s f51247] HutIncome: 18,7 ms huts 67
+[   455,7s f51332] HutIncome: 18,3 ms huts 67
+[   457,7s f51418] HutIncome: 18,6 ms huts 67
+[   459,8s f51505] HutIncome: 20,3 ms huts 67
+[   459,8s f51506] FRAME: 52,9 ms gc0+0 gc1+0 gc2+0
+[   461,8s f51592] HutIncome: 18,5 ms huts 69
+[   461,8s f51593] FRAME: 53,8 ms gc0+0 gc1+0 gc2+0
+[   463,8s f51679] HutIncome: 21,0 ms huts 69
+[   465,8s f51765] HutIncome: 17,4 ms huts 70
+[   467,8s f51849] HutIncome: 21,1 ms huts 70
+[   469,8s f51942] HutIncome: 20,8 ms huts 71
+[   469,8s f51942] AIThink: 11,9 ms brains 1
+[   469,9s f51943] FRAME: 68,9 ms gc0+0 gc1+0 gc2+0
+[   471,2s f51995] AIThink: 10,9 ms brains 1
+[   471,8s f52016] HutIncome: 21,9 ms huts 72
+[   471,8s f52016] AIThink: 13,1 ms brains 1
+[   471,8s f52017] FRAME: 55,7 ms gc0+0 gc1+0 gc2+0
+[   472,0s f52024] AIThink: 14,7 ms brains 1
+[   473,4s f52084] AIThink: 14,0 ms brains 1
+[   473,8s f52104] HutIncome: 18,4 ms huts 73
+[   473,8s f52104] AIThink: 11,2 ms brains 1
+[   473,9s f52105] FRAME: 59,5 ms gc0+0 gc1+0 gc2+0
+[   474,1s f52115] AIThink: 15,5 ms brains 1
+[   475,6s f52186] AIThink: 13,1 ms brains 1
+[   475,8s f52198] HutIncome: 20,1 ms huts 73
+[   476,2s f52215] AIThink: 14,1 ms brains 1
+[   477,7s f52283] AIThink: 12,7 ms brains 1
+[   477,8s f52288] HutIncome: 22,2 ms huts 73
+[   477,9s f52289] FRAME: 58,7 ms gc0+0 gc1+0 gc2+0
+[   478,3s f52306] AIThink: 13,5 ms brains 1
+[   479,9s f52376] HutIncome: 20,2 ms huts 73
+[   479,9s f52377] FRAME: 51,8 ms gc0+0 gc1+0 gc2+0
+[   479,9s f52377] AIThink: 13,8 ms brains 1
+[   480,3s f52397] AIThink: 20,5 ms brains 1
+[   481,9s f52463] HutIncome: 19,3 ms huts 73
+[   482,1s f52472] AIThink: 13,6 ms brains 1
+[   482,4s f52488] AIThink: 12,3 ms brains 1
+[   483,9s f52551] HutIncome: 20,1 ms huts 73
+[   484,2s f52567] AIThink: 12,7 ms brains 1
+[   484,5s f52580] AIThink: 13,3 ms brains 1
+[   485,9s f52638] HutIncome: 19,3 ms huts 73
+[   486,4s f52660] AIThink: 15,4 ms brains 1
+[   486,6s f52670] AIThink: 12,7 ms brains 1
+[   487,9s f52727] HutIncome: 20,5 ms huts 73
+[   487,9s f52728] FRAME: 54,5 ms gc0+0 gc1+0 gc2+0
+[   488,7s f52761] AIThink: 12,5 ms brains 1
+[   489,9s f52812] AIThink: 10,8 ms brains 1
+[   489,9s f52813] HutIncome: 25,7 ms huts 74
+[   489,9s f52814] FRAME: 66,9 ms gc0+0 gc1+0 gc2+0
+[   490,8s f52851] AIThink: 12,4 ms brains 1
+[   491,9s f52900] HutIncome: 19,3 ms huts 74
+[   492,1s f52907] AIThink: 11,8 ms brains 1
+[   492,9s f52941] AIThink: 11,9 ms brains 1
+[   493,9s f52987] HutIncome: 20,7 ms huts 74
+[   494,3s f53004] AIThink: 11,5 ms brains 1
+[   495,9s f53074] HutIncome: 20,4 ms huts 73
+[   496,6s f53101] AIThink: 10,7 ms brains 1
+[   498,0s f53163] HutIncome: 19,0 ms huts 73
+[   498,8s f53199] AIThink: 10,0 ms brains 1
+[   500,0s f53249] HutIncome: 22,4 ms huts 73
+[   500,0s f53249] AIThink: 12,3 ms brains 1
+[   500,0s f53250] FRAME: 54,5 ms gc0+0 gc1+0 gc2+0
+[   501,0s f53295] AIThink: 10,1 ms brains 1
+[   502,0s f53336] HutIncome: 19,9 ms huts 73
+[   502,0s f53336] AIThink: 11,3 ms brains 1
+[   502,0s f53337] FRAME: 50,1 ms gc0+0 gc1+0 gc2+0
+[   504,0s f53416] HutIncome: 19,9 ms huts 73
+[   504,0s f53416] AIThink: 11,0 ms brains 1
+[   504,0s f53417] FRAME: 51,4 ms gc0+0 gc1+0 gc2+0
+[   506,0s f53504] HutIncome: 20,8 ms huts 73
+[   506,0s f53504] AIThink: 11,1 ms brains 1
+[   506,0s f53505] FRAME: 65,2 ms gc0+0 gc1+0 gc2+0
+[   508,0s f53590] HutIncome: 19,8 ms huts 73
+[   508,0s f53590] AIThink: 12,2 ms brains 1
+[   508,0s f53591] FRAME: 55,1 ms gc0+0 gc1+0 gc2+0
+[   510,0s f53678] HutIncome: 19,0 ms huts 74
+[   510,0s f53678] AIThink: 11,2 ms brains 1
+[   510,0s f53679] FRAME: 64,5 ms gc0+0 gc1+0 gc2+0
+[   511,6s f53741] AIThink: 11,5 ms brains 1
+[   512,0s f53755] HutIncome: 21,8 ms huts 75
+[   512,0s f53755] AIThink: 11,2 ms brains 1
+[   512,1s f53756] FRAME: 69,0 ms gc0+0 gc1+0 gc2+0
+[   512,3s f53764] AIThink: 16,9 ms brains 1
+[   513,7s f53830] AIThink: 10,0 ms brains 1
+[   514,0s f53841] HutIncome: 21,3 ms huts 76
+[   514,0s f53841] AIThink: 11,4 ms brains 1
+[   514,1s f53842] FRAME: 73,4 ms gc0+0 gc1+0 gc2+0
+[   514,4s f53855] AIThink: 9,6 ms brains 1
+[   515,8s f53909] AIThink: 11,4 ms brains 1
+[   516,0s f53917] HutIncome: 20,9 ms huts 76
+[   516,1s f53918] FRAME: 51,4 ms gc0+0 gc1+0 gc2+0
+[   516,6s f53937] AIThink: 9,8 ms brains 1
+[   517,9s f53990] AIThink: 9,9 ms brains 1
+[   518,0s f53995] HutIncome: 20,7 ms huts 76
+[   518,7s f54026] AIThink: 11,1 ms brains 1
+[   520,0s f54077] AIThink: 10,6 ms brains 1
+[   520,1s f54079] HutIncome: 21,1 ms huts 76
+[   520,1s f54080] FRAME: 54,5 ms gc0+1 gc1+1 gc2+1
+[   520,9s f54116] AIThink: 14,6 ms brains 1
+[   522,1s f54163] HutIncome: 21,3 ms huts 76
+[   522,1s f54163] AIThink: 13,2 ms brains 2
+[   522,1s f54164] FRAME: 54,9 ms gc0+0 gc1+0 gc2+0
+[   523,0s f54199] AIThink: 10,0 ms brains 1
+[   523,4s f54205] FRAME: 243,0 ms gc0+0 gc1+0 gc2+0
+[   524,1s f54239] HutIncome: 23,4 ms huts 76
+[   525,2s f54285] AIThink: 9,9 ms brains 1
+[   526,1s f54319] HutIncome: 22,1 ms huts 77
+[   526,2s f54320] FRAME: 53,6 ms gc0+0 gc1+0 gc2+0
+[   527,4s f54375] AIThink: 9,9 ms brains 1
+[   528,1s f54411] HutIncome: 23,5 ms huts 77
+[   528,2s f54412] FRAME: 57,9 ms gc0+0 gc1+0 gc2+0
+[   529,5s f54466] AIThink: 11,1 ms brains 1
+[   530,1s f54492] HutIncome: 20,1 ms huts 77
+[   531,7s f54560] AIThink: 11,3 ms brains 1
+[   532,1s f54579] HutIncome: 20,7 ms huts 77
+[   533,9s f54656] AIThink: 12,2 ms brains 1
+[   534,2s f54668] HutIncome: 22,1 ms huts 77
+[   534,2s f54669] FRAME: 51,4 ms gc0+0 gc1+0 gc2+0
+[   536,0s f54750] AIThink: 10,6 ms brains 1
+[   536,2s f54757] HutIncome: 22,5 ms huts 77
+[   537,9s f54830] AIThink: 8,9 ms brains 1
+[   538,2s f54842] HutIncome: 22,4 ms huts 77
+[   540,2s f54927] HutIncome: 21,8 ms huts 77
+[   540,2s f54930] AIThink: 8,9 ms brains 1
+[   542,2s f55013] HutIncome: 21,1 ms huts 77
+[   544,2s f55100] HutIncome: 21,5 ms huts 77
+[   546,2s f55185] HutIncome: 21,0 ms huts 78
+[   546,2s f55185] AIThink: 11,4 ms brains 1
+[   546,3s f55186] FRAME: 64,7 ms gc0+0 gc1+0 gc2+0
+[   547,1s f55224] AIThink: 11,2 ms brains 1
+[   548,0s f55259] AIThink: 9,4 ms brains 1
+[   548,3s f55270] HutIncome: 21,6 ms huts 77
+[   548,3s f55270] AIThink: 11,6 ms brains 1
+[   548,3s f55271] FRAME: 64,7 ms gc0+0 gc1+0 gc2+0
+[   549,2s f55310] AIThink: 9,8 ms brains 1
+[   550,2s f55353] AIThink: 10,9 ms brains 1
+[   550,3s f55355] HutIncome: 21,1 ms huts 77
+[   550,3s f55355] AIThink: 11,3 ms brains 1
+[   550,3s f55356] FRAME: 51,6 ms gc0+0 gc1+0 gc2+0
+[   551,3s f55399] AIThink: 11,1 ms brains 1
+[   552,3s f55442] HutIncome: 21,0 ms huts 77
+[   552,3s f55442] AIThink: 10,9 ms brains 1
+[   552,4s f55449] AIThink: 10,3 ms brains 1
+[   553,4s f55490] AIThink: 10,6 ms brains 1
+[   554,3s f55531] HutIncome: 20,5 ms huts 77
+[   554,3s f55531] AIThink: 11,6 ms brains 1
+[   554,3s f55532] FRAME: 51,1 ms gc0+0 gc1+0 gc2+0
+[   554,7s f55547] AIThink: 10,3 ms brains 1
+[   555,4s f55580] AIThink: 10,4 ms brains 1
+[   556,3s f55616] HutIncome: 19,3 ms huts 77
+[   556,3s f55616] AIThink: 10,7 ms brains 1
+[   556,9s f55642] AIThink: 22,9 ms brains 2
+[   557,5s f55669] AIThink: 10,4 ms brains 1
+[   558,3s f55703] HutIncome: 19,9 ms huts 77
+[   558,3s f55703] AIThink: 11,1 ms brains 1
+[   558,4s f55704] FRAME: 54,9 ms gc0+0 gc1+0 gc2+0
+[   559,1s f55739] AIThink: 10,2 ms brains 1
+[   559,3s f55746] AIThink: 8,1 ms brains 1
+[   559,6s f55759] AIThink: 10,2 ms brains 1
+[   559,7s f55763] AIThink: 8,8 ms brains 1
+[   560,3s f55789] HutIncome: 21,0 ms huts 77
+[   560,3s f55789] AIThink: 11,1 ms brains 1
+[   561,4s f55834] AIThink: 9,6 ms brains 1
+[   561,7s f55847] AIThink: 19,9 ms brains 2
+[   562,0s f55861] AIThink: 8,3 ms brains 1
+[   562,4s f55875] HutIncome: 20,1 ms huts 77
+[   562,4s f55875] AIThink: 10,8 ms brains 1
+[   562,4s f55876] FRAME: 52,0 ms gc0+0 gc1+0 gc2+0
+[   564,3s f55960] AIThink: 10,6 ms brains 1
+[   564,4s f55961] HutIncome: 20,8 ms huts 77
+[   564,4s f55961] AIThink: 11,3 ms brains 1
+[   564,4s f55962] FRAME: 56,0 ms gc0+0 gc1+0 gc2+0
+[   566,4s f56047] HutIncome: 22,3 ms huts 77
+[   566,4s f56047] AIThink: 11,9 ms brains 1
+[   566,4s f56048] FRAME: 55,0 ms gc0+0 gc1+0 gc2+0
+[   566,6s f56057] AIThink: 8,8 ms brains 1
+[   568,4s f56134] HutIncome: 20,3 ms huts 77
+[   568,4s f56134] AIThink: 11,0 ms brains 1
+[   568,5s f56135] FRAME: 50,1 ms gc0+0 gc1+0 gc2+0
+[   569,0s f56156] AIThink: 10,2 ms brains 1
+[   570,5s f56219] HutIncome: 23,6 ms huts 77
+[   570,5s f56219] AIThink: 12,0 ms brains 1
+[   570,5s f56220] FRAME: 56,2 ms gc0+0 gc1+0 gc2+0
+[   571,3s f56253] AIThink: 10,0 ms brains 1
+[   572,5s f56303] HutIncome: 21,7 ms huts 77
+[   572,5s f56303] AIThink: 10,7 ms brains 1
+[   572,5s f56304] FRAME: 55,8 ms gc0+1 gc1+1 gc2+1
+[   574,5s f56387] HutIncome: 21,0 ms huts 76
+[   574,5s f56387] AIThink: 11,0 ms brains 1
+[   574,5s f56388] FRAME: 51,7 ms gc0+0 gc1+0 gc2+0
+[   576,5s f56472] HutIncome: 24,0 ms huts 76
+[   576,5s f56472] AIThink: 15,9 ms brains 1
+[   576,5s f56473] FRAME: 68,4 ms gc0+0 gc1+0 gc2+0
+[   577,1s f56495] AIThink: 11,3 ms brains 1
+[   578,4s f56552] AIThink: 9,8 ms brains 2
+[   578,5s f56556] HutIncome: 25,8 ms huts 76
+[   578,5s f56556] AIThink: 13,8 ms brains 1
+[   578,5s f56557] FRAME: 63,7 ms gc0+0 gc1+0 gc2+0
+[   580,5s f56641] HutIncome: 19,5 ms huts 76
+[   580,5s f56641] AIThink: 11,7 ms brains 2
+[   580,8s f56653] AIThink: 8,6 ms brains 1
+[   581,4s f56677] AIThink: 10,1 ms brains 1
+[   582,5s f56727] HutIncome: 20,9 ms huts 76
+[   582,5s f56727] AIThink: 10,9 ms brains 1
+[   582,6s f56728] FRAME: 57,2 ms gc0+1 gc1+1 gc2+1
+[   584,5s f56814] HutIncome: 19,7 ms huts 76
+[   584,6s f56814] AIThink: 11,4 ms brains 1
+[   584,6s f56815] FRAME: 61,8 ms gc0+0 gc1+0 gc2+0
+[   586,6s f56899] HutIncome: 19,6 ms huts 76
+[   586,6s f56899] AIThink: 13,0 ms brains 1
+[   586,6s f56900] FRAME: 62,8 ms gc0+0 gc1+0 gc2+0
+[   587,9s f56958] AIThink: 8,5 ms brains 1
+[   588,6s f56985] HutIncome: 19,5 ms huts 76
+[   588,6s f56985] AIThink: 11,0 ms brains 1
+[   588,6s f56986] FRAME: 53,3 ms gc0+0 gc1+0 gc2+0
+[   588,8s f56995] AIThink: 10,4 ms brains 1
+[   590,3s f57060] AIThink: 8,7 ms brains 1
+[   590,6s f57071] HutIncome: 19,8 ms huts 76
+[   590,6s f57071] AIThink: 10,5 ms brains 1
+[   590,9s f57084] AIThink: 10,4 ms brains 1
+[   592,2s f57139] AIThink: 9,7 ms brains 1
+[   592,6s f57157] HutIncome: 20,5 ms huts 76
+[   592,6s f57157] AIThink: 10,9 ms brains 1
+[   592,6s f57158] FRAME: 52,1 ms gc0+0 gc1+0 gc2+0
+[   592,7s f57161] AIThink: 8,4 ms brains 1
+[   593,0s f57173] AIThink: 10,9 ms brains 1
+[   594,3s f57228] AIThink: 10,7 ms brains 2
+[   594,6s f57239] HutIncome: 19,4 ms huts 77
+[   594,6s f57239] AIThink: 10,4 ms brains 1
+[   594,6s f57240] FRAME: 59,8 ms gc0+0 gc1+0 gc2+0
+[   595,1s f57258] AIThink: 11,2 ms brains 1
+[   596,5s f57318] AIThink: 10,1 ms brains 1
+[   596,6s f57323] HutIncome: 21,5 ms huts 77
+[   596,7s f57323] AIThink: 11,0 ms brains 1
+[   596,7s f57324] FRAME: 52,8 ms gc0+0 gc1+0 gc2+0
+[   597,2s f57345] AIThink: 11,1 ms brains 1
+[   598,6s f57409] HutIncome: 20,4 ms huts 77
+[   598,7s f57409] AIThink: 11,7 ms brains 1
+[   598,7s f57410] FRAME: 54,6 ms gc0+0 gc1+0 gc2+0
+[   599,2s f57433] AIThink: 11,0 ms brains 1
+[   600,7s f57489] HutIncome: 21,7 ms huts 77
+[   600,7s f57489] AIThink: 11,3 ms brains 1
+[   600,7s f57490] FRAME: 52,0 ms gc0+0 gc1+0 gc2+0
+[   601,3s f57518] AIThink: 11,6 ms brains 1
+[   602,7s f57574] HutIncome: 19,5 ms huts 77
+[   602,7s f57574] AIThink: 10,4 ms brains 1
+[   602,7s f57575] FRAME: 59,0 ms gc0+0 gc1+0 gc2+0
+[   603,0s f57589] AIThink: 9,9 ms brains 1
+[   603,4s f57606] AIThink: 10,4 ms brains 1
+[   604,6s f57658] AIThink: 8,7 ms brains 1
+[   604,7s f57659] HutIncome: 20,0 ms huts 77
+[   605,2s f57681] AIThink: 14,0 ms brains 1
+[   605,5s f57694] AIThink: 10,9 ms brains 1
+[   605,9s f57712] AIThink: 8,7 ms brains 1
+[   606,7s f57744] HutIncome: 19,8 ms huts 77
+[   606,7s f57745] FRAME: 57,0 ms gc0+0 gc1+0 gc2+0
+[   607,0s f57758] AIThink: 8,4 ms brains 1
+[   607,5s f57772] AIThink: 109,4 ms brains 1
+[   607,5s f57773] FRAME: 130,3 ms gc0+0 gc1+0 gc2+0
+[   607,6s f57778] AIThink: 10,4 ms brains 1
+[   608,2s f57805] AIThink: 8,7 ms brains 1
+[   608,7s f57824] HutIncome: 20,9 ms huts 77
+[   609,5s f57860] AIThink: 9,1 ms brains 1
+[   609,7s f57866] AIThink: 10,8 ms brains 1
+[   610,5s f57903] AIThink: 8,6 ms brains 1
+[   610,7s f57909] HutIncome: 21,5 ms huts 77
+[   611,7s f57950] AIThink: 12,3 ms brains 1
+[   611,7s f57952] AIThink: 12,4 ms brains 1
+[   612,7s f57991] HutIncome: 20,7 ms huts 77
+[   612,9s f57998] AIThink: 8,7 ms brains 1
+[   613,9s f58037] AIThink: 20,4 ms brains 2
+[   614,7s f58072] HutIncome: 19,7 ms huts 77
+[   615,9s f58121] AIThink: 11,0 ms brains 1
+[   616,0s f58123] AIThink: 9,9 ms brains 1
+[   616,7s f58151] HutIncome: 19,8 ms huts 77
+[   618,0s f58203] AIThink: 11,2 ms brains 1
+[   618,2s f58209] AIThink: 11,0 ms brains 1
+[   618,7s f58233] HutIncome: 22,1 ms huts 77
+[   618,8s f58234] FRAME: 55,3 ms gc0+0 gc1+0 gc2+0
+[   620,1s f58288] AIThink: 11,2 ms brains 1
+[   620,3s f58297] AIThink: 10,2 ms brains 1
+[   620,7s f58314] HutIncome: 22,7 ms huts 77
+[   621,3s f58338] AIThink: 8,6 ms brains 1
+[   621,6s f58351] AIThink: 12,6 ms brains 1
+[   622,2s f58373] AIThink: 11,2 ms brains 1
+[   622,5s f58385] AIThink: 9,9 ms brains 1
+[   622,8s f58396] HutIncome: 24,8 ms huts 77
+[   623,7s f58435] AIThink: 10,8 ms brains 1
+[   623,9s f58442] AIThink: 10,1 ms brains 1
+[   624,6s f58473] AIThink: 11,3 ms brains 1
+[   624,8s f58478] HutIncome: 21,3 ms huts 77
+[   626,1s f58534] AIThink: 11,8 ms brains 1
+[   626,8s f58562] HutIncome: 21,8 ms huts 77
+[   626,8s f58563] AIThink: 12,0 ms brains 1
+[   628,4s f58627] AIThink: 9,9 ms brains 1
+[   628,8s f58645] HutIncome: 19,2 ms huts 77
+[   630,6s f58722] AIThink: 15,3 ms brains 1
+[   630,8s f58731] HutIncome: 20,4 ms huts 77
+[   630,9s f58733] AIThink: 8,6 ms brains 1
+[   631,1s f58745] AIThink: 9,4 ms brains 1
+[   632,8s f58816] HutIncome: 21,3 ms huts 77
+[   632,8s f58816] AIThink: 11,0 ms brains 2
+[   632,9s f58817] FRAME: 51,4 ms gc0+0 gc1+0 gc2+0
+[   633,3s f58834] AIThink: 8,0 ms brains 1
+[   633,3s f58836] AIThink: 9,3 ms brains 1
+[   634,8s f58897] HutIncome: 22,3 ms huts 77
+[   635,1s f58906] AIThink: 10,0 ms brains 1
+[   635,5s f58923] AIThink: 10,8 ms brains 1
+[   635,6s f58929] AIThink: 8,4 ms brains 1
+[   636,9s f58979] HutIncome: 21,3 ms huts 77
+[   637,3s f58998] AIThink: 9,9 ms brains 1
+[   637,7s f59011] AIThink: 11,9 ms brains 1
+[   638,0s f59027] AIThink: 8,0 ms brains 1
+[   638,9s f59060] HutIncome: 21,3 ms huts 77
+[   639,5s f59087] AIThink: 10,4 ms brains 1
+[   639,8s f59094] AIThink: 9,9 ms brains 1
+[   640,4s f59111] AIThink: 8,4 ms brains 1
+[   640,9s f59130] HutIncome: 19,4 ms huts 77
+[   640,9s f59130] AIThink: 10,0 ms brains 1
+[   641,8s f59165] AIThink: 11,1 ms brains 1
+[   642,0s f59173] AIThink: 10,3 ms brains 1

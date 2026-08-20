@@ -5,21 +5,117 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
-    path: Assets/GameData/Scenes/Menus/MainMenu.unity
-    guid: 61c437bf18f080b46b3878218becd234
+    path: Assets/GameData/Scenes/Menus/MainMenu/MainMenu.unity
+    guid: 97eb3b31053f90d43b3dc6f1c58afa0c
   - enabled: 1
-    path: Assets/GameData/Scenes/Game.unity
-    guid: 67f769e31c9405446ae16df9bedde2fa
+    path: Assets/GameData/Scenes/Menus/SkirmishMenu/SkirmishMenu.unity
+    guid: 142b108e0c1d4bf45a60d4612c0e56af
   - enabled: 1
-    path: "Assets/Maps/YielLymw\xE9rra/yielLymw\xE9rra.unity"
-    guid: 581c5328d87e600478671c84ebd0616f
-  - enabled: 0
-    path: Assets/GameData/Scenes/MainScene.unity
-    guid: 132ddd247671acd44b20ebb387c1e03e
+    path: Assets/GameData/Scenes/Menus/MultiplayerMenu/MultiplayerMenu.unity
+    guid: 8cb2894e6641040428d034c13fafa391
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Sundered Crown/SunderedCrown.unity
+    guid: 9189c8bdfd86d40498d3184be23c2851
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Twin Spans/TwinSpans.unity
+    guid: 893ab4316333c3c4886dc584788851f8
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Hollow Table/HollowTable.unity
+    guid: e8a015cf6098831419f48c865d4bccaa
+  - enabled: 1
+    path: Assets/GameData/Scenarios/ScenarioA/ScenarioA.unity
+    guid: 9cc2db05c9cff1a46b00a2a1117e10bb
+  - enabled: 1
+    path: Assets/GameData/Scenarios/ScenarioB/ScenarioB.unity
+    guid: 1fed56fc0749ec1418fe85e688c36066
+  - enabled: 1
+    path: Assets/GameData/Scenarios/ScenarioC/ScenarioC.unity
+    guid: 21133f400ab06a44fb88c2c348e5e619
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/PlasterDamageScenario.unity
+    guid: 8c9d0e1f2a3b4c5d6e7f809102132435
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/ScenarioMap.unity
+    guid: c15f19117e55fef4fac1dad663560f3c
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_AlanthorVsBorder.unity
+    guid: d975564d7b7013eb3d5ef22eea30eac0
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_BorderCombatTest.unity
+    guid: 4b9aeba371ae3a74b9936e87e9f9aa31
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_BuildingDamageShowcase.unity
+    guid: 2dd80909b74f7b2f6535e631d111c9c4
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_BuildingDamageTest.unity
+    guid: 291ce13848c02f737567593e518608d4
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_BuildingShowcase.unity
+    guid: 9847dc2f62fcafacf8f34482154b531e
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_FourWayCultures.unity
+    guid: 41d1bf300c118dc450f39553e20070a6
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_FullArmy.unity
+    guid: 9f0b5e40b45d7a4ae43183222690c58e
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_GuildDefenseTest.unity
+    guid: 6aff48050019da23eb7f24cfbdb1b7d1
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_HealerTest.unity
+    guid: 49b33543b3253af981aed09d8e31e32f
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_HutEvolution.unity
+    guid: 11a3f3df58c5cff3c7d3929336d18a9e
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_LargeMelee.unity
+    guid: a210b198eaf806132ed5b7c4d4dfe49f
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_LargeMixed.unity
+    guid: 40b4571e6d989e714be9dd80192f3fdc
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_LargeRanged.unity
+    guid: aac6b641c4122ecf6866c06a47bb81dc
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_LongbowmanBattle.unity
+    guid: 6968b1a7c3c86bdb722a28ef46599429
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_LongbowmanShowcase.unity
+    guid: b164e11b49e836ce60e4a14a2337476f
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_PatrolDefense.unity
+    guid: 02e4be4b9b3743621cac1914f45d26de
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase1Test.unity
+    guid: 14725cab0bc65567e6d295cba6995ac7
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase2Test.unity
+    guid: 3afebbed120e68faf509cd157667ba03
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase3Test.unity
+    guid: 8c1f3a95b2b9ebaf20e1b1dab75d70a2
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase4Test.unity
+    guid: ba861028e06d288c974eb9c45fbe7883
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase5Test.unity
+    guid: 7b439a33891c1725dc68d2a73259cccb
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Phase7Test.unity
+    guid: 4626f7a09f9ed82b10d873e545a7c0b4
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_SectShowcase.unity
+    guid: a07519157108ea54b5b9ef9cb0eba3b5
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_SpellShowcase.unity
+    guid: 9b58e874509179c381a7ea2e7728cd2b
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_WallClimbTest.unity
+    guid: a4d9b3c4ce4d02f0331bb40093754d92
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_WallSiege.unity
+    guid: e419667e56fa77d0f3b0b3ef16dbc9d7
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

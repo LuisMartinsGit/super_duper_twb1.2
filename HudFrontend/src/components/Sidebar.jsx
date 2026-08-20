@@ -121,21 +121,28 @@ function HexIcon({ kind, color, dim }) {
   }
 }
 
-function HexButton({ theme, variant, sect, onAction }) {
+function HexButton({ theme, variant, sect, onAction, active, tier }) {
   const lvl = theme.ornament;
-  const id = `hex-${theme.key}-${sect.key}-${variant}`;
+  const id = `hex-${theme.key}-${sect.key}-${variant}-${tier || 0}`;
   const showOrn = lvl !== 'minimal';
 
+  // Tiered actives (design 2026-07-05): `active` carries one tier's skill
+  // ({icon,label,hint,unlocked}); locked tiers render muted (clicking still
+  // dispatches — the C# side answers with an unlock-hint notification).
   const cfg = variant === 'active' ? {
-    icon: sect.active.icon, title: sect.active.label, kicker: 'Active', hint: sect.active.hint,
-    glow: theme.accent, muted: false,
+    icon: (active || sect.active).icon,
+    title: (active || sect.active).label,
+    kicker: tier ? `Active ${['', 'I', 'II', 'III'][tier] || tier}` : 'Active',
+    hint: (active || sect.active).hint,
+    glow: theme.accent,
+    muted: active ? active.unlocked === false : false,
   } : variant === 'passive' ? {
     icon: 'eye', title: sect.passive.label, kicker: 'Passive', hint: sect.passive.hint,
     glow: theme.inlay, muted: true,
   } : {
-    icon: 'levelup', title: 'Ascend',
+    icon: 'levelup', title: 'Rank',
     kicker: `Level ${sect.level} / ${sect.maxLevel}`,
-    hint: sect.level >= sect.maxLevel ? 'Mastered' : `Next tier · ${sect.cost}`,
+    hint: sect.level >= sect.maxLevel ? 'Highest rank' : `${sect.cost}`,
     glow: theme.accent, muted: sect.level >= sect.maxLevel,
   };
 
@@ -146,7 +153,7 @@ function HexButton({ theme, variant, sect, onAction }) {
     <button
       type="button"
       className={`hex-btn hex-btn-${variant} ${cfg.muted ? 'muted' : ''}`}
-      onClick={() => { if (variant !== 'passive' && onAction) onAction(sect.key, variant); }}
+      onClick={() => { if (variant !== 'passive' && onAction) onAction(sect.key, variant, tier); }}
       title={cfg.title}
       aria-disabled={variant === 'passive' ? 'true' : undefined}
     >
@@ -247,6 +254,12 @@ function SectRow({ sect, theme, onAction }) {
     );
   }
 
+  // Tiered actives: prefer the `actives` array (one hex per skill tier);
+  // fall back to the single legacy `active` object for old payloads/mocks.
+  const actives = (sect.actives && sect.actives.length)
+    ? sect.actives
+    : (sect.active ? [{ tier: 1, unlocked: true, icon: sect.active.icon, label: sect.active.label, hint: sect.active.hint }] : []);
+
   return (
     <div className="sect-row">
       <div className="sect-name" style={{ color: theme.textDim }}>
@@ -256,7 +269,10 @@ function SectRow({ sect, theme, onAction }) {
       <div className="sect-buttons">
         <HexButton theme={theme} variant="level"   sect={sect} onAction={onAction} />
         <HexButton theme={theme} variant="passive" sect={sect} onAction={onAction} />
-        <HexButton theme={theme} variant="active"  sect={sect} onAction={onAction} />
+        {actives.map((a) => (
+          <HexButton key={`a${a.tier}`} theme={theme} variant="active" sect={sect}
+                     onAction={onAction} active={a} tier={a.tier} />
+        ))}
       </div>
     </div>
   );
@@ -275,7 +291,8 @@ export function Sidebar({ theme }) {
   // hidden until the local faction owns a completed Temple of Ridan. We
   // default to `false` so the rail never flashes pre-temple on first load.
   const sectsVisible = useBridge('sectsVisible', { visible: false });
-  const handleAction = (sectKey, variant) => sendToUnity('sidebar:action', { sect: sectKey, variant });
+  const handleAction = (sectKey, variant, tier) =>
+    sendToUnity('sidebar:action', tier ? { sect: sectKey, variant, tier } : { sect: sectKey, variant });
 
   if (!sectsVisible || !sectsVisible.visible) return null;
 
@@ -376,18 +393,26 @@ function PowersRail({ theme, sects, onAction }) {
         <div className="rc-corner rc-corner-bl"><FiligreeCorner size={28} color={theme.inlay} dim={theme.inlayDim} accent={theme.accent} level={lvl} /></div>
         <div className="rc-corner rc-corner-br"><FiligreeCorner size={28} color={theme.inlay} dim={theme.inlayDim} accent={theme.accent} level={lvl} /></div>
         <div className="powers-stack">
-          {sects.filter(s => s && s.state !== 'empty' && s.state !== 'building' && s.active).map((s, i) => (
-            <React.Fragment key={s.key}>
-              {i > 0 && (
-                <div className="powers-divider" aria-hidden style={{
-                  background: `linear-gradient(90deg, transparent, ${theme.inlay}, transparent)`,
-                }} />
-              )}
-              <div className="powers-row">
-                <HexButton theme={theme} variant="active" sect={s} onAction={onAction} />
-              </div>
-            </React.Fragment>
-          ))}
+          {sects
+            .filter(s => s && s.state !== 'empty' && s.state !== 'building' && (s.active || (s.actives && s.actives.length)))
+            .flatMap(s => {
+              const actives = (s.actives && s.actives.length)
+                ? s.actives
+                : [{ tier: 1, unlocked: true, icon: s.active.icon, label: s.active.label, hint: s.active.hint }];
+              return actives.map(a => ({ s, a }));
+            })
+            .map(({ s, a }, i) => (
+              <React.Fragment key={`${s.key}-t${a.tier}`}>
+                {i > 0 && (
+                  <div className="powers-divider" aria-hidden style={{
+                    background: `linear-gradient(90deg, transparent, ${theme.inlay}, transparent)`,
+                  }} />
+                )}
+                <div className="powers-row">
+                  <HexButton theme={theme} variant="active" sect={s} onAction={onAction} active={a} tier={a.tier} />
+                </div>
+              </React.Fragment>
+            ))}
         </div>
       </div>
     </div>

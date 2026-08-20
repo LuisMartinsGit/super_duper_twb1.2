@@ -197,6 +197,26 @@ public struct BloodPool : IComponentData
 public struct InBloodPool : IComponentData { }
 
 /// <summary>
+/// Timed attack-speed haste (Blood Rain). The attack cooldown is DIVIDED by
+/// Multiplier, so 1.15 means the unit swings on 1/1.15 of its normal cooldown.
+///
+/// Deliberately NOT a SpellBuff field. SpellBuff is the friendly-buff channel:
+/// it is applied through ApplyCircleBuff, which filters to allies, and
+/// MergeSpellBuff takes the per-field max INCLUDING TimeRemaining. Blood Rain
+/// is map-wide and side-blind, so folding it into SpellBuff would (a) put an
+/// enemy-affecting effect in an allies-only channel and (b) stretch every
+/// unit's unrelated damage/armor buffs out to Blood Rain's 30 s whenever it
+/// landed. Its own component keeps its own clock.
+///
+/// Ticked by WarSectEffectSystem; read by CombatDamageHelper.GetHasteCooldownMult.
+/// </summary>
+public struct SectHaste : IComponentData
+{
+    public float Multiplier;
+    public float TimeRemaining;
+}
+
+/// <summary>
 /// Per-unit buffer recording which sect Unit-lever bumps have already
 /// been applied to this unit. <see cref="SectIndex"/> is the [0..11]
 /// index into <see cref="TheWaningBorder.Economy.SectConfig.AllSectIds"/>;

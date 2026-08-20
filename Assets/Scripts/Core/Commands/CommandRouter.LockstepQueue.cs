@@ -520,6 +520,23 @@ namespace TheWaningBorder.Core.Commands
             });
         }
 
+        private static void QueueCorruptForLockstep(EntityManager em, Entity corruptor, Entity node)
+        {
+            int corruptorId = GetNetworkId(em, corruptor);
+            int nodeId = GetNetworkId(em, node);
+            if (corruptorId <= 0 || nodeId <= 0)
+            {
+                IssueCorruptDirect(em, corruptor, node);
+                return;
+            }
+            LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+            {
+                Type = LockstepCommandType.Corrupt,
+                EntityNetworkId = corruptorId,
+                TargetEntityId = nodeId,
+            });
+        }
+
         private static void QueueConvertNodeForLockstep(EntityManager em, Entity acolyte, Entity node)
         {
             int acolyteId = GetNetworkId(em, acolyte);

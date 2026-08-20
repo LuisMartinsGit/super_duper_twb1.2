@@ -48,6 +48,25 @@ namespace Gen90Software.Tools
 			if (HasWallMesh())
 				return;
 
+			// MapMagic terrains re-create their TerrainData at runtime, so at
+			// scene load the assigned terrain can exist with a null
+			// terrainData. In play mode, defer until the bootstrap reports
+			// the terrain ready so the wall is built from the real heightmap.
+			if (Application.isPlaying)
+				StartCoroutine(GenerateWhenTerrainReady());
+			else
+				RegenerateWall();
+		}
+
+		private System.Collections.IEnumerator GenerateWhenTerrainReady()
+		{
+			float deadline = Time.realtimeSinceStartup + 180f;
+			while (Time.realtimeSinceStartup < deadline
+				&& terrain != null
+				&& (terrain.terrainData == null
+					|| !TheWaningBorder.World.Terrain.ProceduralTerrain.IsGenerationComplete))
+				yield return null;
+
 			RegenerateWall();
 		}
 
@@ -62,7 +81,7 @@ namespace Gen90Software.Tools
 
 		public void RegenerateWall()
 		{
-			if (terrain == null)
+			if (terrain == null || terrain.terrainData == null)
 				return;
 
 			Generate();

@@ -57,8 +57,9 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<LocalTransform> _transformLookup;
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
+        private ComponentLookup<FormationMemberState> _memberLookup;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NavSpatialHash>();
@@ -80,6 +81,7 @@ namespace TheWaningBorder.Systems.Navigation
             _transformLookup = state.GetComponentLookup<LocalTransform>(isReadOnly: true);
             _destLookup = state.GetComponentLookup<DesiredDestination>(isReadOnly: true);
             _factionLookup = state.GetComponentLookup<FactionTag>(isReadOnly: true);
+            _memberLookup = state.GetComponentLookup<FormationMemberState>(isReadOnly: true);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -106,6 +108,7 @@ namespace TheWaningBorder.Systems.Navigation
             _transformLookup.Update(ref state);
             _destLookup.Update(ref state);
             _factionLookup.Update(ref state);
+            _memberLookup.Update(ref state);
 
             var job = new AccumulateSteeringForcesJob
             {
@@ -119,6 +122,7 @@ namespace TheWaningBorder.Systems.Navigation
                 TransformLookup = _transformLookup,
                 DestLookup = _destLookup,
                 FactionLookup = _factionLookup,
+                MemberLookup = _memberLookup,
                 Flags = cost.Flags,
             };
             state.Dependency = job.ScheduleParallel(_hasComponentQuery, state.Dependency);
@@ -135,7 +139,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// scaled vector to a running sum, no full RVO2 ORCA constraint solver
     /// (rejected as overkill per the architecture's M2 section).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct AccumulateSteeringForcesJob : IJobEntity
     {
         // ── Force weights. Const float -- identical bits on every machine.
@@ -200,6 +204,23 @@ namespace TheWaningBorder.Systems.Navigation
         private const float WallClearanceRadius = 1.6f;
         private const float WallClearanceWeight = 1.5f;
 
+        /// <summary>
+        /// How far to either side the wall-slide looks for an opening.
+        ///
+        /// Was 2.5 m, which is wider than most corridors: BOTH flanks read as
+        /// blocked in anything under 5 m across, so the code fell through to
+        /// its "true dead-end" branch and REVERSED — units backed out of every
+        /// gate, alley and wall breach they were ordered through. One
+        /// separation radius plus a little is the honest question here: "is
+        /// there room for me beside this wall", not "is the whole flank open".
+        /// </summary>
+        private const float SideProbeDist = 1.7f;
+
+        /// <summary>Hit distance at which the wall counts as underfoot — the
+        /// nearest sweep sample. Only then is "both flanks blocked" a real
+        /// dead end worth reversing out of, rather than a corridor.</summary>
+        private const float ContactDistance = 0.5f;
+
         [ReadOnly] public NativeParallelMultiHashMap<int, Entity> HashMap;
         public float CellSize;
         [ReadOnly] public NativeArray<byte> Cost;
@@ -210,6 +231,7 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public ComponentLookup<LocalTransform> TransformLookup;
         [ReadOnly] public ComponentLookup<DesiredDestination> DestLookup;
         [ReadOnly] public ComponentLookup<FactionTag> FactionLookup;
+        [ReadOnly] public ComponentLookup<FormationMemberState> MemberLookup;
         [ReadOnly] public NativeArray<byte> Flags;
 
         // Within this radius of the goal, BOTH the flow contribution
@@ -250,6 +272,19 @@ namespace TheWaningBorder.Systems.Navigation
             // (Layer 1, purely radial) stays full strength so units still
             // push apart inside the cluster.
             //
+            // A unit travelling as a FORMATION MEMBER is exempt from the fade.
+            // FormationGroupSystem writes the "steer to your moving spot"
+            // vector into FlowDesiredDir, so fading flow inside ArrivalRadius
+            // faded the FORMATION, not just the final approach: over the last
+            // 15 m the 1.2-weight separation force outvoted what was left of
+            // the 3.0-weight flow and the shape mushed into a blob exactly as
+            // it arrived. The fade exists for "N units converging on ONE
+            // point", which is the opposite of a formation, where every member
+            // has its own distinct slot and they are not competing for it.
+            // The group dissolves the moment the leader lands (design §2.8),
+            // so the settle itself still gets the full arrival damping.
+            bool inFormation = MemberLookup.HasComponent(self);
+
             float arrivalScale = 1f;
             bool atGoal = false;
             if (DestLookup.HasComponent(self))
@@ -261,7 +296,7 @@ namespace TheWaningBorder.Systems.Navigation
                     float ddz = d.Position.z - pos.z;
                     float distSq = ddx * ddx + ddz * ddz;
                     float r2 = ArrivalRadius * ArrivalRadius;
-                    if (distSq < r2)
+                    if (distSq < r2 && !inFormation)
                     {
                         arrivalScale = math.sqrt(distSq) / ArrivalRadius;
                     }
@@ -430,7 +465,9 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 float3 fwd = math.normalize(new float3(flow.Value.x, 0f, flow.Value.z));
 
-                // Multi-distance sweep along forward direction.
+                // Multi-distance sweep along forward direction. Record HOW FAR
+                // the blockage is — the response is scaled by it below.
+                float hitDist = ObstacleLookAhead;
                 for (float probe = 0.5f; probe <= ObstacleLookAhead; probe += 0.5f)
                 {
                     float3 sample = pos + fwd * probe;
@@ -440,13 +477,13 @@ namespace TheWaningBorder.Systems.Navigation
                     if (IsCellBlocked(sx, sz, selfFactionIdx))
                     {
                         wallBlockedAhead = true;
+                        hitDist = probe;
                         break;
                     }
                 }
 
                 if (wallBlockedAhead)
                 {
-                    const float SideProbeDist = 2.5f;
                     float3 perpLeft  = new float3(-fwd.z, 0f, fwd.x);
                     float3 perpRight = new float3( fwd.z, 0f, -fwd.x);
 
@@ -462,20 +499,47 @@ namespace TheWaningBorder.Systems.Navigation
                         && rZ >= 0 && rZ < CostHeight
                         && !IsCellBlocked(rX, rZ, selfFactionIdx);
 
-                    // OVERRIDE accumulated force with a pure slide. Keep
-                    // separation Layer 1's contribution by re-applying it
-                    // on top -- otherwise crowded units would interpenetrate.
+                    // Keep separation Layer 1's contribution -- otherwise
+                    // crowded units would interpenetrate.
                     float3 sepCopy = float3.zero;
                     if (separationCount > 0)
                         sepCopy = (separation / separationCount) * SeparationWeight;
 
+                    // URGENCY: 1 at contact, 0 at the far end of the sweep.
+                    //
+                    // This used to be a hard override — the slide REPLACED the
+                    // whole force, at any hit distance. That threw away what the
+                    // flow field knows: at 2 m from a bend the field has already
+                    // turned, and discarding it made the unit crab sideways,
+                    // clear the sweep, lurch forward, clip again. In a corridor
+                    // that reads as constant stuttering. Blend instead: press on
+                    // along the flow while the wall is still distant, commit to
+                    // the slide only as it gets close.
+                    float urgency = math.saturate(1f - hitDist / ObstacleLookAhead);
+                    float3 flowKeep = fwd * (FlowWeight * arrivalScale * (1f - urgency));
+
                     if (rightClear)
                     {
-                        force = perpRight * (FlowWeight + ObstacleAvoidanceWeight) + sepCopy;
+                        force = perpRight * ((FlowWeight + ObstacleAvoidanceWeight) * urgency)
+                              + flowKeep + sepCopy;
                     }
                     else if (leftClear)
                     {
-                        force = perpLeft  * (FlowWeight + ObstacleAvoidanceWeight) + sepCopy;
+                        force = perpLeft * ((FlowWeight + ObstacleAvoidanceWeight) * urgency)
+                              + flowKeep + sepCopy;
+                    }
+                    else if (hitDist > ContactDistance)
+                    {
+                        // Both flanks blocked but the wall is not yet underfoot:
+                        // this is an ordinary CORRIDOR, not a dead end. Keep
+                        // following the flow — it is the only thing that knows
+                        // where the corridor goes.
+                        //
+                        // Gated on the raw hit distance, not on urgency: the
+                        // sweep starts at 0.5 m so urgency tops out well below
+                        // 1, and testing it against ~1 would make the reverse
+                        // below unreachable.
+                        force = fwd * (FlowWeight * arrivalScale) + sepCopy;
                     }
                     else
                     {

@@ -115,6 +115,17 @@ public struct TrainingState : IComponentData
 public struct TrainQueueItem : IBufferElementData
 {
     public FixedString64Bytes UnitId;
+
+    /// <summary>
+    /// The Call to Arms cost multiplier this item was CHARGED at (0 = the item
+    /// predates the field, or no boon was up; both mean "full price").
+    ///
+    /// Recorded rather than recomputed because the boon is a 15-30 s window:
+    /// queue a unit at half price, let the boon lapse, then cancel, and a
+    /// refund computed live would hand back the full cost and mint the
+    /// difference. The refund reads this field instead.
+    /// </summary>
+    public float PaidCostMultiplier;
 }
 
 /// <summary>
@@ -229,21 +240,6 @@ public struct ChapelSmallTag : IComponentData { }
 public struct ChapelLargeTag : IComponentData { }
 
 /// <summary>
-/// Chapel building tag — generic across all 12 sects.
-/// SectId identifies which sect this chapel belongs to (e.g., "Sect_Antiquity"
-/// in the task-063 roster). Chapels are the adoption marker + per-sect lever
-/// upgrade host. TODO(task-063 phase 2): kept for reuse — Phase 2 chapel
-/// creators will tag chapels with this and call SectAdoption.OnChapelCompleted.
-/// </summary>
-public struct ChapelTag : IComponentData
-{
-    public FixedString64Bytes SectId;
-}
-
-/// <summary>Unique sect-specific building.</summary>
-public struct SectUniqueBuildingTag : IComponentData { }
-
-/// <summary>
 /// Buffer element on Temple entities tracking each of its 6 chapel build
 /// slots (SectConfig.MaxAdoptedSects). Slots sit on the six non-door faces
 /// of the seven-sided temple (BFME2-style expansion plots) — see
@@ -292,10 +288,15 @@ public struct TempleOwner : IComponentData
 public static class TempleChapelRing
 {
     /// <summary>Distance from temple centre to a chapel slot centre.
-    /// BFME2-fortress-style docking: temple wall apothem is ~3.06 and the
-    /// sect statue's pedestal is 1.7 deep, so 3.95 puts each statue's back
-    /// edge flush against its temple face — the monument reads as part of
-    /// the cathedral, not a detached prop.</summary>
+    /// BFME2-fortress-style docking: the statue's back edge sits flush against
+    /// its temple face, so the monument reads as part of the cathedral rather
+    /// than a detached prop.
+    ///
+    /// Scales with the Temple footprint. The 2026-08-13 doubling took the
+    /// Temple to 16 x 16 m and this radius to 7.9; the Temple was HALVED BACK
+    /// to 8 x 8 m on 2026-08-17 (it dwarfed everything in play), so the ring
+    /// returns to the pre-doubling tuning it was originally authored at.
+    /// Geometry: apothem ~3.06 at half-extent 4, pedestal 1.7 deep.</summary>
     public const float SlotRadius = 3.95f;
 
     /// <summary>World-space XZ offset of slot i from the temple centre.</summary>

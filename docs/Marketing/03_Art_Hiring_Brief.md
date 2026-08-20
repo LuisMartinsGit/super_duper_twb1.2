@@ -92,8 +92,8 @@ partner for, but not a precondition.
    Sentinel, Crossbowman (or Longbowman), Cataphract, Scholar,
    Ballista. With animations: walk, run, idle, attack, death, build
    (workers only), gather (workers only).
-7. **Crystal Curse VFX kit** — curse-creature models (2-3 variants),
-   cursed-ground shader, Glow pickup particle, curse-node visual state
+7. **The Border VFX kit** — border-creature models (2-3 variants),
+   border-ground shader, Glow pickup particle, border-node visual state
    transitions (Active → Cleansed). The PvE layer is half the demo's
    appeal; VFX must sell it.
 8. **UI / panel chrome** — stylized IMGUI panel backgrounds in Alanthor
@@ -104,7 +104,7 @@ partner for, but not a precondition.
 10. **Sect chapel art for the 6 demo sects** — Fortitude, Renewal,
     Witness, Veneration, War, Ruin (each is one building model, distinct
     silhouette per sect)
-11. **Religious unit (Scholar) VFX** — Purification ritual on curse
+11. **Religious unit (Scholar) VFX** — Purification ritual on border
     nodes; high importance because the Scholar is the demo's "Glow
     unlock" moment
 
@@ -127,7 +127,7 @@ These are described in detail in the original brief below but are
 
 - Building icons for the action panel (128×128 per building)
 - Unit portraits for the selection panel
-- Glow effect refinement / Crystal-Curse VFX polish
+- Glow effect refinement / Border VFX polish
 - Main menu / loading screen art
 - Particle work for combat hits, building destruction, magic effects
 

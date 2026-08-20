@@ -19,5 +19,29 @@ namespace TheWaningBorder.Bootstrap
         /// codebase (InGameMenuPanel, PostGameStatsUI). Make sure this scene is
         /// added to Build Settings.</summary>
         public const string MenuSceneName = "MainMenu";
+
+        /// <summary>
+        /// Skirmish setup screen. Its own scene since 2026-08-18 — it used to
+        /// be a panel inside MainMenu.unity that the blue menu's Skirmish entry
+        /// switched on with SetActive. The blue menu reaches it through a
+        /// MenuSceneLink; its CANCEL button comes back to
+        /// <see cref="MenuSceneName"/>. Also needs to be in Build Settings.
+        /// </summary>
+        public const string SkirmishSceneName = "SkirmishMenu";
+
+        /// <summary>
+        /// LAN multiplayer screen. Its own scene since 2026-08-19, built from a
+        /// copy of the skirmish one so the two lobbies read identically — the
+        /// map plate, the roster plate and the footer are the same objects, and
+        /// only the slot row differs (flat AI / difficulty / team controls
+        /// instead of the skirmish dropdowns). The host / join / browse cards
+        /// came across from MainMenu's Panel_Multiplayer and sit on top of the
+        /// lobby as centred overlays, which is how that panel already worked.
+        ///
+        /// MainMenu.unity still carries its own Panel_Multiplayer. Nothing
+        /// routes here yet — the blue menu's Multiplayer entry still switches
+        /// that in-scene panel on. Also needs to be in Build Settings.
+        /// </summary>
+        public const string MultiplayerSceneName = "MultiplayerMenu";
     }
 }

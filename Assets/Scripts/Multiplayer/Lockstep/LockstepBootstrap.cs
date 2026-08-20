@@ -74,8 +74,19 @@ namespace TheWaningBorder.Multiplayer
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
-                return;
+                // The NEWER bootstrap always wins: it was just created by a
+                // lobby start and carries THIS match's configuration. The old
+                // branch here destroyed the NEW one — and because the caller's
+                // Destroy(old) is deferred to end of frame, Instance still
+                // pointed at the dying old object at this moment, so every
+                // second-and-later multiplayer match of an app session killed
+                // its own fresh bootstrap. GameBootstrap then found
+                // Instance == null and silently skipped lockstep: both peers
+                // ran parallel single-player worlds with the remote human's
+                // faction handed to the AI ("ran completely in async",
+                // 2026-08-17). OnDestroy's Instance == this guard makes
+                // destroying the old object here safe.
+                Destroy(Instance.gameObject);
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
@@ -146,15 +157,32 @@ namespace TheWaningBorder.Multiplayer
             // growth, and timers run seconds ahead and never re-align.
             lockstep.HoldSimulationUntilPeersReady();
 
-            // TRUE-determinism path: drive the ECS sim at a fixed timestep, one
-            // step per lockstep tick (see LockstepFixedRateManager). Off unless
-            // the flag is set, so the default build keeps the per-frame sim.
+            // Drive the ECS sim at a fixed timestep, one step per lockstep tick
+            // (see LockstepFixedRateManager). This is what makes two peers agree
+            // on anything beyond the commands themselves; the flag exists to
+            // turn it OFF for diagnosis, not as a normal mode.
             if (GameSettings.DeterministicLockstep)
             {
                 LockstepFixedStep.Install(
                     Unity.Entities.World.DefaultGameObjectInjectionWorld,
                     LockstepManager.TICK_DURATION);
+
+                TWBLog.Log($"[Lockstep] Fixed-step simulation at " +
+                           $"{TheWaningBorder.Core.Multiplayer.LockstepTiming.TicksPerSecond} Hz, " +
+                           $"input delay {TheWaningBorder.Core.Multiplayer.LockstepTiming.InputDelayTicks} ticks " +
+                           $"({TheWaningBorder.Core.Multiplayer.LockstepTiming.InputDelayMs:0} ms).");
             }
+            else
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[Lockstep] DeterministicLockstep is OFF — only commands are synchronised and the " +
+                    "two peers WILL diverge. This is a diagnostic mode, not a playable one.");
+            }
+
+            // The match's only window onto its own network state: waiting-for-
+            // player, connection lost, desync. Without it a stalled or desynced
+            // match just stops with nothing on screen to say why.
+            NetworkStatusOverlay.EnsureExists();
 
             _initialized = true;
         }

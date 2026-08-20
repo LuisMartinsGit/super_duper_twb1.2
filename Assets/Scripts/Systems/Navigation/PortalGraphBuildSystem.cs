@@ -51,7 +51,17 @@ namespace TheWaningBorder.Systems.Navigation
         private byte _initialised;
         private byte _builtOnce;
 
-        // NOT [BurstCompile]: BC1028 (EntityManager.CreateEntity is managed).
+        // NOTE: deliberately NO system-side mirror of the graph blob, unlike
+        // the other nav singletons. PortalGraphSingleton.Graph has TWO
+        // publishers — this system and IncrementalPortalRebuildSystem, which
+        // swaps in its own blob and disposes the old one. A mirror here goes
+        // stale the moment that system rebuilds, and disposing it later threw
+        // "The BlobAssetReference is not valid. Likely it has already been
+        // unloaded or released." The singleton is the single source of truth
+        // for who owns the live blob; GameBootstrap disposes it just before
+        // the end-of-match wipe destroys the entity holding it.
+
+        // NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]: BC1028 (EntityManager.CreateEntity is managed).
         public void OnCreate(ref SystemState state)
         {
             _initialised = 0;
@@ -66,11 +76,21 @@ namespace TheWaningBorder.Systems.Navigation
 
             // Lazy singleton creation -- can't do it in OnCreate (managed
             // CreateEntity trips BC1028 even though OnCreate isn't
-            // [BurstCompile]'d on this system; keep it consistent with the
+            // [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]'d on this system; keep it consistent with the
             // M1 bootstrap pattern).
-            if (_initialised == 0)
+            // Existence-gated: the end-of-match wipe destroys this singleton
+            // while the system survives, and the publish path below calls
+            // GetSingleton unguarded. _builtOnce must reset too, or the graph
+            // for the NEW map is never built.
+            if (_initialised == 0
+                || !em.Exists(_graphEntity)
+                || !em.HasComponent<PortalGraphSingleton>(_graphEntity))
             {
+                // Nothing to free here: if the singleton is gone its blob was
+                // already disposed by GameBootstrap's pre-wipe pass, and if it
+                // never existed there is no blob yet.
                 _initialised = 1;
+                _builtOnce = 0;
                 _graphEntity = em.CreateEntity(typeof(PortalGraphSingleton));
                 em.SetComponentData(_graphEntity, new PortalGraphSingleton
                 {
@@ -219,7 +239,11 @@ namespace TheWaningBorder.Systems.Navigation
             System.Array.Sort(managedEdges, (a, b) =>
             {
                 if (a.FromPortalId != b.FromPortalId) return a.FromPortalId - b.FromPortalId;
-                return a.ToPortalId - b.ToPortalId;
+                if (a.ToPortalId != b.ToPortalId) return a.ToPortalId - b.ToPortalId;
+                // Cost as final key makes the comparison TOTAL: Array.Sort is
+                // unstable, so if duplicate (From,To) pairs ever appear, the
+                // survivor order would otherwise differ per peer.
+                return a.Cost.CompareTo(b.Cost);
             });
 
             // Build NodeFirstEdge by scanning the sorted edge list.
@@ -261,6 +285,13 @@ namespace TheWaningBorder.Systems.Navigation
             nodeFirstEdge.Dispose();
 
             // ── Publish (CCD-5 swap) ────────────────────────────────────
+            if (!SystemAPI.HasSingleton<PortalGraphSingleton>())
+            {
+                // The singleton was wiped mid-build; drop this graph rather
+                // than throwing, and let the next tick rebuild from scratch.
+                if (newBlob.IsCreated) newBlob.Dispose();
+                return;
+            }
             var singleton = SystemAPI.GetSingleton<PortalGraphSingleton>();
             var oldBlob = singleton.Graph;
             singleton.Graph = newBlob;
@@ -275,7 +306,10 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
+            // Dispose via the SINGLETON, which is the authority on the live
+            // blob — IncrementalPortalRebuildSystem may have swapped it since
+            // we published. If the entity is already gone, GameBootstrap's
+            // pre-wipe pass disposed the blob and there is nothing to do.
             var em = state.EntityManager;
             if (em.Exists(_graphEntity) && em.HasComponent<PortalGraphSingleton>(_graphEntity))
             {

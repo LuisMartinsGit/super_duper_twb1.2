@@ -3,6 +3,7 @@
 // PresentationId -> unit display name, and unit-id -> TechTreeDB name lookup.
 
 using Unity.Entities;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 
 namespace TheWaningBorder.UI
@@ -38,9 +39,23 @@ namespace TheWaningBorder.UI
                 if (stamped.Length > 0) return stamped.ToString();
             }
 
+            // Resource nodes are neither buildings nor units and are built
+            // outside the factories, so they carry no DisplayName. Without this
+            // they fell all the way through GetUnitName's ladder — no
+            // PresentationId match, no CanBuild, no MinerTag, no UnitTag — and
+            // the selection header labelled every one of them a bare "Unit".
+            if (em.HasComponent<VeilsteelDepositTag>(entity)) return VeilsteelNodeName;
+            if (em.HasComponent<IronMineTag>(entity)) return "Iron Deposit";
+            if (em.HasComponent<VeilstoneOutcroppingTag>(entity)) return "Veilstone Node";
+
             if (em.HasComponent<BuildingTag>(entity)) return GetBuildingName(entity, em);
             return GetUnitName(entity, em);
         }
+
+        /// <summary>Player-facing name of the veilsteel map node. Internally
+        /// still VeilsteelDeposit* / "Sharp Crystals" in older comments;
+        /// renamed for the player 2026-08-15 (docs/Design/Overview.md).</summary>
+        internal const string VeilsteelNodeName = "Veilsteel Mine";
 
         /// <summary>
         /// Name for an Age 0 carryover building that its owner's culture
@@ -118,16 +133,27 @@ namespace TheWaningBorder.UI
         {
             if (mask == 0 || amount == 0) return;
             if (sb.Length > 0) sb.Append(", ");
-            sb.Append(amount > 0 ? "+" : "").Append(amount).Append(" vs ");
+            // BonusVsText is a pure display field (rendered verbatim by the
+            // stat chips), so the "vs" glue and the tag names localize here.
+            sb.Append(amount > 0 ? "+" : "").Append(amount)
+                .Append(' ').Append(Loc.T("vs")).Append(' ');
             bool first = true;
             foreach (UnitTagBits bit in System.Enum.GetValues(typeof(UnitTagBits)))
             {
                 if (bit == UnitTagBits.None || (mask & (uint)bit) == 0) continue;
                 if (!first) sb.Append('/');
-                sb.Append(bit.ToString());
+                sb.Append(Loc.T(bit.ToString()));
                 first = false;
             }
         }
+
+        /// <summary>
+        /// Catalog display name for a unit ID, for UI that only has the id in
+        /// hand — the production-queue chips, notification lines, tooltips.
+        /// Falls back to the id itself when it is not in the catalog.
+        /// </summary>
+        public static string GetUnitDisplayName(string unitId) =>
+            string.IsNullOrEmpty(unitId) ? "" : ResolveUnitDisplayName(unitId);
 
         private static string ResolveUnitDisplayName(string unitId)
         {
@@ -177,21 +203,10 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<LonghouseTag>(entity)) return "Longhouse";
             if (em.HasComponent<TotemTowerTag>(entity)) return "Totem Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Siege Yard";
-            // Border faction buildings
+            // Border faction buildings — the curse has exactly two structures:
+            // the Large node (corner well) and the small node (pocket anchor).
             if (em.HasComponent<BorderMainNodeTag>(entity)) return "Veilstone Hive";
-            if (em.HasComponent<BorderSubNodeTag>(entity))
-            {
-                var subType = em.GetComponentData<BorderSubNodeTag>(entity).Type;
-                return subType switch
-                {
-                    BorderSubNodeType.Resource => "Veilstone Wellspring",
-                    BorderSubNodeType.Enforcement => "Enforcement Spire",
-                    BorderSubNodeType.Suppression => "Suppression Spire",
-                    BorderSubNodeType.Restoration => "Restoration Bloom",
-                    BorderSubNodeType.Turret => "Veilstone Turret",
-                    _ => "Veilstone Node"
-                };
-            }
+            if (em.HasComponent<SmallNodeTag>(entity)) return "Curse Node";
             // Tags that had no branch and so rendered as bare "Building".
             if (em.HasComponent<WarbrandFoundryTag>(entity)) return "Warbrand Foundry";
             if (em.HasComponent<ChapelTag>(entity))
@@ -339,6 +354,10 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
+            if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
+            if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
+            if (em.HasComponent<MusterYardTag>(entity)) return "Sect_MusterYard";
+            if (em.HasComponent<VeilworksTag>(entity)) return "Sect_Veilworks";
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";

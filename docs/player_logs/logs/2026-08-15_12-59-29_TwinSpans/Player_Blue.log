@@ -1,0 +1,50 @@
+=== HUMAN player log for Blue — Game started ===
+
+[00:15,8] TRAIN: Worker
+[00:16,0] TRAIN: Worker
+[00:16,1] TRAIN: Worker
+[00:16,3] TRAIN: Worker
+[00:17,8] TRAIN: Worker
+[00:52,3] SNAPSHOT: supplies 300 iron 150 veilstone 73 veilsteel 0 military 5 influence 0,0% curse 9,4%
+[01:52,4] SNAPSHOT: supplies 176 iron 128 veilstone 185 veilsteel 0 military 5 influence 0,0% curse 10,0%
+[02:30,4] TRAIN: Worker
+[02:30,6] TRAIN: Worker
+[02:30,8] TRAIN: Worker
+[02:30,9] TRAIN: Worker
+[02:52,5] SNAPSHOT: supplies 165 iron 152 veilstone 343 veilsteel 0 military 5 influence 0,0% curse 9,9%
+[03:52,6] SNAPSHOT: supplies 581 iron 211 veilstone 570 veilsteel 0 military 5 influence 0,0% curse 10,3%
+[04:52,7] SNAPSHOT: supplies 447 iron 220 veilstone 768 veilsteel 0 military 5 influence 0,0% curse 11,0%
+[05:35,8] AGEUP: culture 2
+[05:52,9] SNAPSHOT: supplies 205 iron 140 veilstone 916 veilsteel 0 military 5 influence 0,0% curse 11,3%
+[05:56,1] RESEARCH: BallistaEmplacement
+[06:37,3] TRAIN: Alanthor_Swordsman
+[06:37,9] TRAIN: Alanthor_Swordsman
+[06:53,0] SNAPSHOT: supplies 311 iron 32 veilstone 1167 veilsteel 0 military 5 influence 2,6% curse 11,6%
+[06:55,0] RESEARCH: ScoutingCelestarii
+[07:53,2] SNAPSHOT: supplies 1018 iron 161 veilstone 1227 veilsteel 0 military 7 influence 3,5% curse 11,5%
+[08:19,2] TRAIN: Spearman
+[08:19,7] TRAIN: Alanthor_Swordsman
+[08:53,3] SNAPSHOT: supplies 1472 iron 329 veilstone 1227 veilsteel 0 military 8 influence 3,6% curse 13,8%
+[09:53,5] SNAPSHOT: supplies 1335 iron 271 veilstone 997 veilsteel 0 military 9 influence 3,6% curse 14,7%
+[10:53,6] SNAPSHOT: supplies 1618 iron 237 veilstone 847 veilsteel 0 military 6 influence 3,7% curse 15,6%
+[10:56,6] TRAIN: Litharch
+[10:56,8] TRAIN: Litharch
+[11:53,8] SNAPSHOT: supplies 1799 iron 5 veilstone 787 veilsteel 113 military 5 influence 3,8% curse 15,6%
+[12:53,9] SNAPSHOT: supplies 2584 iron 147 veilstone 787 veilsteel 119 military 5 influence 3,9% curse 18,7%
+[13:25,8] TRAIN: Archer
+[13:26,0] TRAIN: Archer
+[13:26,2] TRAIN: Archer
+[13:26,3] TRAIN: Archer
+[13:26,5] TRAIN: Archer
+[13:32,3] TRAIN: Spearman
+[13:54,2] SNAPSHOT: supplies 2908 iron 57 veilstone 787 veilsteel 125 military 7 influence 6,4% curse 17,1%
+[14:54,4] SNAPSHOT: supplies 3702 iron 172 veilstone 787 veilsteel 131 military 11 influence 6,8% curse 14,8%
+[15:54,5] SNAPSHOT: supplies 4500 iron 278 veilstone 787 veilsteel 137 military 11 influence 14,7% curse 11,6%
+[16:51,9] SNAPSHOT: supplies 5294 iron 361 veilstone 787 veilsteel 142 military 11 influence 7,0% curse 12,7%
+[17:52,3] SNAPSHOT: supplies 6088 iron 450 veilstone 787 veilsteel 148 military 10 influence 6,9% curse 12,7%
+[18:52,7] SNAPSHOT: supplies 6354 iron 349 veilstone 787 veilsteel 155 military 10 influence 11,5% curse 12,6%
+[19:52,9] SNAPSHOT: supplies 6643 iron 156 veilstone 787 veilsteel 161 military 10 influence 14,5% curse 12,4%
+[20:53,2] SNAPSHOT: supplies 7069 iron 36 veilstone 787 veilsteel 167 military 10 influence 19,3% curse 13,6%
+[21:53,7] SNAPSHOT: supplies 7916 iron 124 veilstone 787 veilsteel 173 military 10 influence 23,4% curse 11,1%
+[22:54,0] SNAPSHOT: supplies 8515 iron 133 veilstone 687 veilsteel 179 military 10 influence 27,3% curse 10,9%
+[23:54,4] SNAPSHOT: supplies 8967 iron 33 veilstone 647 veilsteel 180 military 10 influence 24,4% curse 11,2%

@@ -1,16 +1,6 @@
 {
-  "scopedRegistries": [
-    {
-      "name": "Voltstro UPR",
-      "url": "https://upr.voltstro.dev/",
-      "scopes": [
-        "dev.voltstro",
-        "org.nuget",
-        "com.cysharp.unitask"
-      ]
-    }
-  ],
   "dependencies": {
+    "com.coffee.ui-particle": "https://github.com/mob-sakai/ParticleEffectForUGUI.git",
     "com.unity.ai.navigation": "2.0.8",
     "com.unity.collab-proxy": "2.8.2",
     "com.unity.entities": "1.3.14",
@@ -33,9 +23,6 @@
     "com.unity.visualeffectgraph": "17.0.3",
     "com.unity.visualscripting": "1.9.5",
     "com.veriorpies.parrelsync": "https://github.com/VeriorPies/ParrelSync.git?path=/ParrelSync",
-    "dev.voltstro.unitywebbrowser": "2.2.8",
-    "dev.voltstro.unitywebbrowser.engine.cef": "2.2.8",
-    "dev.voltstro.unitywebbrowser.engine.cef.win.x64": "2.2.8",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",

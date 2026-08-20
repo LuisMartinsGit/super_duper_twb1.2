@@ -14,6 +14,7 @@ using TMPro;
 using Unity.Entities;
 using UnityEngine;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Entities;
 using TheWaningBorder.UI.Panels;
 
@@ -122,11 +123,11 @@ namespace TheWaningBorder.UI.GameUI
             bool started = !done && BuildingFactory.GetFactionChoiceBuilding(em, faction) != null;
 
             if (done)
-                Set(_stepSpecial, "<s>1. Build a special building</s>", Done);
+                Set(_stepSpecial, Loc.T("<s>1. Build a special building</s>"), Done);
             else if (started)
-                Set(_stepSpecial, "1. Build a special building - under construction", Active);
+                Set(_stepSpecial, Loc.T("1. Build a special building - under construction"), Active);
             else
-                Set(_stepSpecial, "1. Build a special building (Shrine / Vault / Keep)", Active);
+                Set(_stepSpecial, Loc.T("1. Build a special building (Shrine / Vault / Keep)"), Active);
         }
 
         // ── Step 2: culture + age up ───────────────────────────────────────
@@ -138,7 +139,7 @@ namespace TheWaningBorder.UI.GameUI
             byte culture = FactionColors.GetFactionCulture(faction);
             if (culture != Cultures.None)
             {
-                Set(_stepCulture, "<s>2. Select a culture and age up</s>", Done);
+                Set(_stepCulture, Loc.T("<s>2. Select a culture and age up</s>"), Done);
                 return;
             }
 
@@ -154,14 +155,16 @@ namespace TheWaningBorder.UI.GameUI
                     var s = em.GetComponentData<AgeUpState>(halls[i]);
                     float pct = s.Duration > 0f
                         ? Mathf.Clamp01((s.Duration - s.Remaining) / s.Duration) : 0f;
-                    Set(_stepCulture, $"2. Advancing to Era 2 - {(int)(pct * 100f)}%", Active);
+                    Set(_stepCulture,
+                        string.Format(Loc.T("2. Advancing to Era 2 - {0}%"), (int)(pct * 100f)),
+                        Active);
                     return;
                 }
                 break;
             }
 
             bool gate = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction) != null;
-            Set(_stepCulture, "2. Select a culture and age up", gate ? Active : Dim);
+            Set(_stepCulture, Loc.T("2. Select a culture and age up"), gate ? Active : Dim);
         }
 
         // ── Step 3A: temple path ───────────────────────────────────────────
@@ -174,7 +177,7 @@ namespace TheWaningBorder.UI.GameUI
             if (culture == Cultures.None)
             {
                 Set(_stepTemple,
-                    "3A. Build the Temple, ascend the ages,\n     then cleanse the curse nodes",
+                    Loc.T("3A. Build the Temple, ascend the ages,\n     then cleanse the curse nodes"),
                     Dim);
                 return;
             }
@@ -194,6 +197,8 @@ namespace TheWaningBorder.UI.GameUI
                 }
             }
 
+            // The verb variable stays English; Loc.T translates it at each
+            // composition site below.
             string verb = culture == Cultures.Runai ? "Pacify"
                 : culture == Cultures.Feraldis ? "Destroy" : "Purify";
             var sb = new System.Text.StringBuilder(160);
@@ -201,15 +206,19 @@ namespace TheWaningBorder.UI.GameUI
             // Phase 1: build the Temple.
             if (temple == Entity.Null)
             {
-                Set(_stepTemple, $"3A. Build the Temple of Ridan,\n     then {verb.ToLowerInvariant()} the curse nodes", Active);
+                Set(_stepTemple,
+                    string.Format(
+                        Loc.T("3A. Build the Temple of Ridan,\n     then {0} the curse nodes"),
+                        Loc.T(verb).ToLowerInvariant()),
+                    Active);
                 return;
             }
             if (building)
             {
-                Set(_stepTemple, "3A. Temple of Ridan - under construction", Active);
+                Set(_stepTemple, Loc.T("3A. Temple of Ridan - under construction"), Active);
                 return;
             }
-            sb.Append("<s>3A. Build the Temple of Ridan</s>\n");
+            sb.Append(Loc.T("<s>3A. Build the Temple of Ridan</s>")).Append('\n');
 
             // Phase 2: upgrade the Temple through the ages (L1..L4 = Era 2..5).
             int level = em.HasComponent<TempleLevel>(temple)
@@ -221,16 +230,20 @@ namespace TheWaningBorder.UI.GameUI
                     var up = em.GetComponentData<TempleUpgradeState>(temple);
                     float pct = up.Duration > 0f
                         ? Mathf.Clamp01((up.Duration - up.Remaining) / up.Duration) : 0f;
-                    sb.Append($"     Upgrade the Temple (Lv {level}, upgrading {(int)(pct * 100f)}%)");
+                    sb.Append(string.Format(
+                        Loc.T("     Upgrade the Temple (Lv {0}, upgrading {1}%)"),
+                        level, (int)(pct * 100f)));
                 }
                 else
                 {
-                    sb.Append($"     Upgrade the Temple to age up (Lv {level} of {TempleLevelConfig.MaxLevel})");
+                    sb.Append(string.Format(
+                        Loc.T("     Upgrade the Temple to age up (Lv {0} of {1})"),
+                        level, TempleLevelConfig.MaxLevel));
                 }
                 Set(_stepTemple, sb.ToString(), Active);
                 return;
             }
-            sb.Append("<s>     Upgrade the Temple to age up</s>\n");
+            sb.Append(Loc.T("<s>     Upgrade the Temple to age up</s>")).Append('\n');
 
             // Phase 3: claim every curse node with the culture verb.
             CountWells(em, faction, culture, out int claimed, out int total);
@@ -238,13 +251,19 @@ namespace TheWaningBorder.UI.GameUI
             {
                 float hold = HoldRemaining(em, culture);
                 if (hold > 0f)
-                    sb.Append($"     {verb} the curse nodes ({claimed}/{total}) - hold {hold:0.0}s");
+                    sb.Append(string.Format(
+                        Loc.T("     {0} the curse nodes ({1}/{2}) - hold {3:0.0}s"),
+                        Loc.T(verb), claimed, total, hold));
                 else
-                    sb.Append($"<s>     {verb} the curse nodes ({claimed}/{total})</s>");
+                    sb.Append(string.Format(
+                        Loc.T("<s>     {0} the curse nodes ({1}/{2})</s>"),
+                        Loc.T(verb), claimed, total));
             }
             else
             {
-                sb.Append($"     {verb} the curse nodes ({claimed}/{total})");
+                sb.Append(string.Format(
+                    Loc.T("     {0} the curse nodes ({1}/{2})"),
+                    Loc.T(verb), claimed, total));
             }
             Set(_stepTemple, sb.ToString(), Active);
         }
@@ -305,9 +324,13 @@ namespace TheWaningBorder.UI.GameUI
             int destroyed = opponents - aliveOpponents;
 
             if (opponents > 0 && aliveOpponents == 0)
-                Set(_stepMilitary, $"<s>3B. Destroy all other players ({destroyed}/{opponents})</s>", Done);
+                Set(_stepMilitary,
+                    string.Format(Loc.T("<s>3B. Destroy all other players ({0}/{1})</s>"),
+                        destroyed, opponents), Done);
             else
-                Set(_stepMilitary, $"3B. Destroy all other players ({destroyed}/{opponents})",
+                Set(_stepMilitary,
+                    string.Format(Loc.T("3B. Destroy all other players ({0}/{1})"),
+                        destroyed, opponents),
                     culture == Cultures.None ? Dim : Active);
         }
 

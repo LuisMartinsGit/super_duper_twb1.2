@@ -22,6 +22,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Data.AI;
 using TheWaningBorder.Systems.Navigation;
 
@@ -91,6 +92,10 @@ namespace TheWaningBorder.AI
 
         protected override void OnUpdate()
         {
+            // Host-only: scout tasking is an AI brain decision, and those run on
+            // the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
+            if (!GameSettings.ShouldRunAIBrains()) return;
+
             _acc += SystemAPI.Time.DeltaTime;
             if (_acc < TickInterval) return;
             _acc -= TickInterval;
@@ -178,13 +183,13 @@ namespace TheWaningBorder.AI
                             if (plan == null || !plan.Fleeing)
                             {
                                 _plans[scout] = new ScoutPlan { Target = hallPos, Since = now, Fleeing = true };
-                                em.SetComponentData(scout, new DesiredDestination { Position = hallPos, Has = 1 });
+                                CommandRouter.IssueMove(em, scout, hallPos, CommandSource.AI);
                             }
                             else if (sDds[i].Has == 0)
                             {
                                 // Movement consumed the destination — re-issue
                                 // toward the SAME target (no re-decision).
-                                em.SetComponentData(scout, new DesiredDestination { Position = plan.Target, Has = 1 });
+                                CommandRouter.IssueMove(em, scout, plan.Target, CommandSource.AI);
                             }
                             continue;
                         }
@@ -202,7 +207,7 @@ namespace TheWaningBorder.AI
                         if (!arrived && !timedOut)
                         {
                             if (sDds[i].Has == 0)
-                                em.SetComponentData(scout, new DesiredDestination { Position = plan.Target, Has = 1 });
+                                CommandRouter.IssueMove(em, scout, plan.Target, CommandSource.AI);
                             continue;
                         }
                         if (arrived && !plan.Fleeing)
@@ -229,11 +234,7 @@ namespace TheWaningBorder.AI
                         if (reconOk)
                         {
                             _plans[scout] = new ScoutPlan { Target = reconPos, Since = now };
-                            em.SetComponentData(scout, new DesiredDestination
-                            {
-                                Position = reconPos,
-                                Has = 1
-                            });
+                            CommandRouter.IssueMove(em, scout, reconPos, CommandSource.AI);
                             continue;
                         }
                     }
@@ -271,11 +272,7 @@ namespace TheWaningBorder.AI
                     dest = snapped;
 
                     _plans[scout] = new ScoutPlan { Target = dest, Since = now };
-                    em.SetComponentData(scout, new DesiredDestination
-                    {
-                        Position = dest,
-                        Has = 1
-                    });
+                    CommandRouter.IssueMove(em, scout, dest, CommandSource.AI);
                 }
 
                 if (stateChanged)

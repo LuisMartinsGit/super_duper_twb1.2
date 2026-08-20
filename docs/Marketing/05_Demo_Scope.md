@@ -6,7 +6,7 @@
 > sub-domains.
 
 **Demo type:** Free permanent demo on Steam (wishlist funnel)
-**Build target:** Single playable culture (Alanthor) + Crystal Curse + 6 of 12 sects
+**Build target:** Single playable culture (Alanthor) + The Border + 6 of 12 sects
 **Status (2026-05-26):** Scope decision committed. Cut list and content checklist below.
 **Owner:** Luis Martins / Shardroot
 
@@ -15,7 +15,7 @@
 ## North-star pitch (one sentence)
 
 > *Play the demo as Alanthor — defensive wall-builders with BFME2-style
-> hub-and-segment fortifications — survive the Crystal Curse, and
+> hub-and-segment fortifications — survive the The Border, and
 > wishlist to play the other two cultures (Runai, Feraldis) on launch.*
 
 This frames the demo as a **complete experience of one culture**, not
@@ -30,7 +30,7 @@ locked-faction touchpoint must read "preview of what's coming," never
 ### Cultures
 - **Alanthor only** — player-playable
 - **AI also plays Alanthor** — mirror matches. Cleanest scope; the
-  Crystal Curse provides PvE variety, so matches don't feel
+  The Border provides PvE variety, so matches don't feel
   homogeneous.
 
 ### Mechanics (all of these ship)
@@ -45,8 +45,8 @@ locked-faction touchpoint must read "preview of what's coming," never
 - **All three Age 0 choice buildings** (Vault of Almiérra, Shrine of
   Ridan, Fiendstone Keep) — these are pre-culture, so they ship
   regardless
-- **Crystal Curse PvE layer** (full — curse nodes, curse creatures,
-  cursed-ground spread, Glow drops on cleanse)
+- **The Border PvE layer** (full — border nodes, border creatures,
+  border-ground spread, Glow drops on cleanse)
 - **Per-battalion upgrade system** for Alanthor units (Stone → Iron →
   Veilstone → Glow weapons + Stone-tipped → Glow-tipped arrows)
 - **Petriarchy / sect system** — but only 6 of 12 sects (see roster below)
@@ -54,7 +54,7 @@ locked-faction touchpoint must read "preview of what's coming," never
 - Saving / loading single-player matches
 - Tutorial / in-game tooltips (minimum viable, see UI section)
 - Win conditions: standard RTS — eliminate opponent OR survive N
-  minutes against curse waves (optional secondary win condition adds
+  minutes against border waves (optional secondary win condition adds
   PvE flavor)
 
 ### Sects in the demo — 6 of 12 (balanced across clusters)
@@ -98,8 +98,8 @@ stand-still buff), or feel niche for a first-impression demo.
   - 1 small (1v1, ~5-10 min matches) — quick play
   - 1 medium (1v1, ~15-25 min matches) — full experience including
     age-up and Petriarchy
-- Both maps should feature **at least one Crystal Curse node** for the
-  PvE/Glow layer to be experienced. Medium map: 2-3 curse nodes.
+- Both maps should feature **at least one The Border node** for the
+  PvE/Glow layer to be experienced. Medium map: 2-3 border nodes.
 - Map art reuses the existing terrain system; no new biome art required.
 
 ### UI / UX
@@ -193,7 +193,7 @@ preprocessor pollution.
 | Alanthor Hall→Town Hall age-up | ✓ working | Verify cultured rename triggers cleanly |
 | Hub-and-segment walls | ✓ landed | Polish: SFX on auto-segment formation, hub-death cascade VFX |
 | Wall conversion to gate/tower | ✓ landed | UI clarity pass |
-| Crystal Curse spread | ✓ working | Verify deterministic seeding for demo maps |
+| The Border spread | ✓ working | Verify deterministic seeding for demo maps |
 | Glow drop on cleanse | ✓ working | VFX pass — Glow needs to feel valuable |
 | Per-battalion upgrades | ⚠ partial | Verify Alanthor full ladder; numbers playtest |
 | Religious unit (Scholar) | ⚠ partial | Purification VFX critical to ship in demo |
@@ -203,7 +203,7 @@ preprocessor pollution.
 | Tutorial | ✗ missing | Required — see UX section |
 | `DemoMode` feature flag | ✗ missing | New: single source-of-truth boolean |
 | AI personality (Alanthor only) | ⚠ unknown | Tune at least 2 difficulty levels |
-| Crystal Curse difficulty scaling | ⚠ unknown | Important for solo demo pacing |
+| The Border difficulty scaling | ⚠ unknown | Important for solo demo pacing |
 
 ### Art (the priority list for hiring)
 
@@ -220,7 +220,7 @@ See updated [03_Art_Hiring_Brief.md](03_Art_Hiring_Brief.md). Summary:
 - Alanthor unit roster — Worker, Scout, Spearman, Sentinel, Crossbowman,
   Cataphract, Scholar, Ballista (8 units, plus animations)
 - UI chrome / panel frames (stylized)
-- Crystal Curse VFX (creatures, cursed ground, Glow particles)
+- The Border VFX (creatures, border ground, Glow particles)
 
 **Tier 2 — Polish for demo**
 - Building icons (Alanthor set)
@@ -240,7 +240,7 @@ need doesn't shrink; it just shifts later in the timeline.
 
 ### Sound / music
 - Faction-specific OST track for Alanthor (medieval / orchestral)
-- Crystal Curse ambient theme (eerie / dissonant)
+- The Border ambient theme (eerie / dissonant)
 - Main menu theme
 - ~30 SFX tags (combat, build, unit voice, UI clicks)
 - Lock Runai/Feraldis music to "coming soon" — single placeholder
@@ -250,7 +250,7 @@ need doesn't shrink; it just shifts later in the timeline.
 - Mirror-match Alanthor playtest pass — different sect builds need to
   feel like real choices (Fortitude vs Veneration vs War-rush vs
   Ruin-breaker is the matrix)
-- Crystal Curse pacing for solo demo — survive-N-minutes mode tuning
+- The Border pacing for solo demo — survive-N-minutes mode tuning
 - Tutorial scripting (see UX section)
 
 ### UX
@@ -262,7 +262,7 @@ need doesn't shrink; it just shifts later in the timeline.
      marketing hook!)
   5. Convert your first Gatherer's Hut to Wall Hub
   6. Adopt your first sect
-  7. Defeat first Crystal Curse creature
+  7. Defeat first The Border creature
   8. Defeat AI Alanthor opponent
 - Win/lose screens with wishlist CTA on win, "try again" on loss
 - **Wishlist Full Game button** in main menu, prominent
@@ -280,7 +280,7 @@ which becomes the spine of marketing for the next year:
 
 | Chapter | Public moment | Devlog beats |
 |---------|---------------|---------------|
-| **1. Alanthor demo** | Steam page + demo go live together | "Building the wall system," "The Petriarchy explained," "Surviving the Crystal Curse" |
+| **1. Alanthor demo** | Steam page + demo go live together | "Building the wall system," "The Petriarchy explained," "Surviving the The Border" |
 | **2. Runai reveal** | ~3-6 months post-demo, when Runai is playable | "Caravans on trade lanes," "The trader-warrior network," "Identity through absence" |
 | **3. Feraldis reveal** | ~6-12 months post-demo, full game launch lead-up | "Damage-as-income," "Veilsteel Frenzy," "Houses that spawn raiders" |
 
@@ -295,7 +295,7 @@ becomes a year-long content engine.**
 | Risk | Mitigation |
 |------|------------|
 | Players judge "the whole game" by the Alanthor demo and decide it's not for them | Locked-culture UI tells the story explicitly — the other two are *very* different. Press kit explains the triangle. Demo length is short enough that even a "not for me" player tries it. |
-| Mirror matches feel monotonous | 6 distinct sect archetypes (especially Ruin vs Fortitude) provide variety. Crystal Curse adds PvE flavor. 2 maps with different curse-node counts. |
+| Mirror matches feel monotonous | 6 distinct sect archetypes (especially Ruin vs Fortitude) provide variety. The Border adds PvE flavor. 2 maps with different border-node counts. |
 | "Coming soon" reads as vaporware | Tease with **dated content beats** (devlog posts revealing each culture on a schedule), not vague promises. |
 | The 6 cut sects feel arbitrary | Don't apologize for it. Frame as "6 sects to start, 12 in the full game." Most players won't notice; the ones who do are engaged enough to wishlist. |
 | Engineering scope creep — "while we're here, let's also fix X" | This file is the line. Defer X to post-demo unless it's a demo-blocker. |

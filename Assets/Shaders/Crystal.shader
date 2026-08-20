@@ -156,8 +156,8 @@ Shader "Custom/Crystal"
                 for (int z = -1; z <= 1; z++)
                 {
                     float3 neighbor = float3(x, y, z);
-                    float3 point    = _hash33(i + neighbor);
-                    float3 diff     = neighbor + point - f;
+                    float3 cellPt   = _hash33(i + neighbor);
+                    float3 diff     = neighbor + cellPt - f;
                     float  d        = dot(diff, diff);
                     minDist = min(minDist, d);
                 }

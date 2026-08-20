@@ -28,7 +28,27 @@ namespace TheWaningBorder.Economy
         // Age_0.md: GathererHut emits 60 S/min at 100 % area.
         private const float BasePerTick = 10f;     // 10 supplies per 10-s tick → 60 S/min
         private const float TickInterval = 10f;    // Tick every 10 seconds
-        private const float UpdateInterval = 2f;   // Recalculate every 2 seconds
+        // Faction-rotated recalculation (2026-08-16 perf sweep): every 0.5s
+        // tick re-evaluates ONE of four faction buckets, so each hut still
+        // refreshes every 2s but the ~90k-150k cell iterations of a 4-AI
+        // late game no longer land in a single frame (avg 8.8ms spikes).
+        private const float UpdateInterval = 0.5f; // One faction bucket per tick
+        private int _rotationPhase;
+
+        /// <summary>
+        /// Yield multiplier on ground inside the OWNER's influence border.
+        /// +50% (user call 2026-08-15); was a flat doubling.
+        /// </summary>
+        private const float InfluenceYieldMult = 1.5f;
+
+        /// <summary>
+        /// Dominant-channel strength at which a cell counts as another player's
+        /// territory. Matches the 0.5 border threshold the influence border,
+        /// the terrain painter and the own-influence bonus all use, so the
+        /// ground a player sees as theirs is exactly the ground that stops
+        /// feeding their neighbour.
+        /// </summary>
+        public const float EnemyOwnershipThreshold = 0.5f;
 
         private double _lastUpdateTime;
         private int _nextBuildOrder;
@@ -46,8 +66,9 @@ namespace TheWaningBorder.Economy
             if (currentTime - _lastUpdateTime < UpdateInterval)
                 return;
             _lastUpdateTime = currentTime;
+            _rotationPhase = (_rotationPhase + 1) & 3;
 
-            var perfSw = System.Diagnostics.Stopwatch.StartNew();
+            double perfT0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
             var em = state.EntityManager;
 
             // =========================================================
@@ -89,14 +110,40 @@ namespace TheWaningBorder.Economy
 
             var enclosureEntities = enclosureQuery.ToEntityArray(Allocator.Temp);
 
+            // Flatten the enclosure polygons ONCE. The per-cell loop used to
+            // call em.HasBuffer + em.GetBuffer per enclosure per cell — an ECS
+            // random-access lookup roughly 125k x enclosures times per pass.
+            var enclosureVerts = new NativeList<float2>(64, Allocator.Temp);
+            var enclosureRanges = new NativeList<int2>(8, Allocator.Temp);
+            for (int e = 0; e < enclosureEntities.Length; e++)
+            {
+                if (!em.HasBuffer<WallEnclosureVertex>(enclosureEntities[e])) continue;
+                var verts = em.GetBuffer<WallEnclosureVertex>(enclosureEntities[e]);
+                if (verts.Length < 3) continue;
+                int start = enclosureVerts.Length;
+                for (int v = 0; v < verts.Length; v++)
+                    enclosureVerts.Add(verts[v].Position);
+                enclosureRanges.Add(new int2(start, verts.Length));
+            }
+
             // =========================================================
             // Calculate income for each GathererHut using grid sampling
             // =========================================================
             var grid = PassabilityGrid.Instance;
             float totalArea = math.PI * GatherRadius * GatherRadius;
 
+            // Cursed ground yields nothing — sampled per cell below. Same
+            // "is this ground cursed" test the exposure DOT and the AI's node
+            // pickers use, so the hut agrees with the rest of the game about
+            // where the curse is.
+            bool hasVeil = SystemAPI.TryGetSingleton<VeilField>(out var veilField)
+                && veilField.Initialised == 1 && veilField.Saturation.IsCreated;
+
             for (int h = 0; h < hutEntities.Length; h++)
             {
+                // This tick's faction bucket only (see UpdateInterval note).
+                if (((int)hutFactions[h].Value & 3) != _rotationPhase) continue;
+
                 // Feraldis Raider Camps do NOT gather. The hut is the same
                 // entity, but at age-up it switched to producing Plunderers
                 // and the faction's income is whatever they steal
@@ -123,7 +170,7 @@ namespace TheWaningBorder.Economy
                         em, grid, hutEntities[h], hutTransforms[h].Position,
                         hutFactions[h].Value, hutBuildOrders[h].Value,
                         hutEntities, hutTransforms, hutFactions, hutBuildOrders,
-                        enclosureEntities);
+                        enclosureVerts, enclosureRanges, in veilField, hasVeil);
                 }
                 else
                 {
@@ -134,6 +181,15 @@ namespace TheWaningBorder.Economy
                         hutEntities, hutTransforms, hutFactions, hutBuildOrders,
                         totalArea);
                 }
+
+                // Keep the raw coverage readable after the fact — by the time
+                // it reaches SuppliesIncome it has been compounded with the
+                // guild bonus and the influence doubling and cannot be
+                // recovered. See GathererHutYield.
+                if (em.HasComponent<GathererHutYield>(hutEntities[h]))
+                    em.SetComponentData(hutEntities[h], new GathererHutYield { Ratio = ratio });
+                else
+                    em.AddComponentData(hutEntities[h], new GathererHutYield { Ratio = ratio });
 
                 float effectivePerTick = BasePerTick * ratio;
 
@@ -151,15 +207,15 @@ namespace TheWaningBorder.Economy
                     _ => 0f,
                 };
 
-                // Influence bonus (design 2026-07-06): ground inside the
-                // owner's influence border (own channel ≥ 0.5) produces
-                // double the resources.
+                // Influence bonus: a hut standing inside its owner's influence
+                // border (own channel >= 0.5) yields +50%. Was a flat doubling
+                // (design 2026-07-06); reduced 2026-08-15 on request.
                 bool insideInfluence = PlayerInfluenceMap.ChannelStrengthWorld(
                     (int)hutFactions[h].Value,
                     hutTransforms[h].Position.x,
-                    hutTransforms[h].Position.z) >= 0.5f;
+                    hutTransforms[h].Position.z) >= EnemyOwnershipThreshold;
                 if (insideInfluence)
-                    effectivePerTick *= 2f;
+                    effectivePerTick *= InfluenceYieldMult;
 
                 // --- Update the component (preserve Elapsed timer) ---
                 var current = em.GetComponentData<SuppliesIncome>(hutEntities[h]);
@@ -215,11 +271,14 @@ namespace TheWaningBorder.Economy
                     if (guildLevel < TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel)
                         veilsteelPerMin = 0;
 
+                    // Same +50% as the supplies rule above — the two must move
+                    // together or the survey drips quietly outscale the thing
+                    // they are meant to complement.
                     if (insideInfluence)
                     {
-                        ironPerMin      *= 2;
-                        veilstonePerMin *= 2;
-                        veilsteelPerMin *= 2;
+                        ironPerMin      = (int)math.round(ironPerMin * InfluenceYieldMult);
+                        veilstonePerMin = (int)math.round(veilstonePerMin * InfluenceYieldMult);
+                        veilsteelPerMin = (int)math.round(veilsteelPerMin * InfluenceYieldMult);
                     }
                 }
                 SetSecondaryIncome(em, hutEntities[h], ironPerMin, veilstonePerMin, veilsteelPerMin);
@@ -232,10 +291,13 @@ namespace TheWaningBorder.Economy
             hutFactions.Dispose();
             hutBuildOrders.Dispose();
             enclosureEntities.Dispose();
+            enclosureVerts.Dispose();
+            enclosureRanges.Dispose();
 
-            perfSw.Stop();
-            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report(
-                "HutIncome", perfSw.Elapsed.TotalMilliseconds, $"huts {hutCount}");
+            double perfMs = (UnityEngine.Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0;
+            if (perfMs >= TheWaningBorder.Core.Diagnostics.PerfSpikeLog.DefaultThresholdMs)
+                TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report(
+                    "HutIncome", perfMs, $"huts {hutCount}");
         }
 
         /// <summary>Set (or attach) the hut's Survey secondary income
@@ -293,7 +355,10 @@ namespace TheWaningBorder.Economy
             NativeArray<LocalTransform> hutTransforms,
             NativeArray<FactionTag> hutFactions,
             NativeArray<FarmBuildOrder> hutBuildOrders,
-            NativeArray<Entity> enclosureEntities)
+            NativeList<float2> enclosureVerts,
+            NativeList<int2> enclosureRanges,
+            in VeilField veilField,
+            bool hasVeil)
         {
             float radiusSq = GatherRadius * GatherRadius;
             float2 hutPos2D = new float2(hutPos.x, hutPos.z);
@@ -354,8 +419,9 @@ namespace TheWaningBorder.Economy
                 for (int cx = minCell.x; cx <= maxCell.x; cx++)
                 {
                     var cell = new int2(cx, cy);
-                    float3 cellWorld = grid.CellToWorld(cell);
-                    float2 cellPos = new float2(cellWorld.x, cellWorld.z);
+                    // XZ only — CellToWorld would sample the terrain height
+                    // here, once per cell, for a value this loop never reads.
+                    float2 cellPos = grid.CellToWorldXZ(cell);
 
                     // Check if cell is within the gather circle
                     float dx = cellPos.x - hutPos2D.x;
@@ -367,11 +433,38 @@ namespace TheWaningBorder.Economy
                     // above — we no longer count loop iterations here.)
 
                     // --- Exclusion 1: Terrain-blocked or building-blocked (Bug C) ---
+                    // This is also what makes NoWalk-painted ground yield
+                    // nothing: PassabilityGrid bakes the hand-painted "NoWalk"
+                    // terrain layer into TerrainBlocked, so it is already
+                    // outside Passable here.
                     byte cellValue = grid.GetCell(cell);
                     if (cellValue != PassabilityGrid.Passable)
                     {
                         continue;
                     }
+
+                    // --- Exclusion 5: CURSED GROUND ---
+                    // The curse does not feed anyone. Same saturation test the
+                    // exposure DOT and the AI's node pickers use.
+                    if (hasVeil && veilField.SaturationAt(
+                            new float3(cellPos.x, 0f, cellPos.y)) >= VeilField.CrustThreshold)
+                        continue;
+
+                    // --- Exclusion 6: GROUND OWNED BY ANOTHER PLAYER ---
+                    // Territory that a hostile faction's influence dominates
+                    // feeds them, not us. Allied ground still counts (a shared
+                    // border must not starve both partners) — Alliances.AreHostile
+                    // is the only valid hostility test, docs/Design/Teams.md.
+                    // The curse's own channel is skipped here: cursed ground is
+                    // handled above and must not be double-counted as "someone
+                    // else's territory".
+                    if (PlayerInfluenceMap.Sample(cellPos.x, cellPos.y,
+                            out int ownerChannel, out float ownerStrength)
+                        && ownerStrength >= EnemyOwnershipThreshold
+                        && ownerChannel != PlayerInfluenceMap.CurseChannel
+                        && ownerChannel != (int)hutFaction
+                        && Alliances.AreHostile(hutFaction, (Faction)ownerChannel))
+                        continue;
 
                     // --- Exclusion 2: Inside older same-faction GathererHut circle ---
                     // (pre-filtered neighbour list — see relevantSame above)
@@ -411,15 +504,11 @@ namespace TheWaningBorder.Economy
                     if (excluded) continue;
 
                     // --- Exclusion 4: Inside any wall enclosure polygon (Bug B) ---
-                    for (int e = 0; e < enclosureEntities.Length; e++)
+                    // (flattened once per pass — see enclosureVerts above)
+                    for (int e = 0; e < enclosureRanges.Length; e++)
                     {
-                        if (!em.HasBuffer<WallEnclosureVertex>(enclosureEntities[e]))
-                            continue;
-
-                        var vertices = em.GetBuffer<WallEnclosureVertex>(enclosureEntities[e]);
-                        if (vertices.Length < 3) continue;
-
-                        if (PointInPolygon(cellPos, vertices))
+                        var range = enclosureRanges[e];
+                        if (PointInPolygon(cellPos, enclosureVerts, range.x, range.y))
                         {
                             excluded = true;
                             break;
@@ -517,6 +606,31 @@ namespace TheWaningBorder.Economy
                 }
             }
 
+            return inside;
+        }
+
+        /// <summary>
+        /// Ray-casting point-in-polygon over a FLATTENED vertex list: the
+        /// polygon occupies <paramref name="count"/> entries starting at
+        /// <paramref name="start"/>. Lets the per-cell scan test enclosures
+        /// without re-fetching a DynamicBuffer from the EntityManager on every
+        /// cell.
+        /// </summary>
+        public static bool PointInPolygon(float2 point, NativeList<float2> vertices,
+            int start, int count)
+        {
+            bool inside = false;
+            for (int i = 0, j = count - 1; i < count; j = i++)
+            {
+                float2 vi = vertices[start + i];
+                float2 vj = vertices[start + j];
+
+                if (((vi.y > point.y) != (vj.y > point.y)) &&
+                    (point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x))
+                {
+                    inside = !inside;
+                }
+            }
             return inside;
         }
 

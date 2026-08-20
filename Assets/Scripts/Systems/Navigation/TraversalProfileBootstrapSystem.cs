@@ -32,6 +32,8 @@ namespace TheWaningBorder.Systems.Navigation
     {
         private Entity _entity;
         private byte _initialised;
+        /// <summary>Mirror of the profile blob, disposable after a wipe.</summary>
+        private BlobAssetReference<TraversalProfileBlob> _blob;
 
         public void OnCreate(ref SystemState state)
         {
@@ -40,7 +42,18 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnUpdate(ref SystemState state)
         {
-            if (_initialised != 0) return;
+            // Existence-gated. This one fails SILENTLY: both consumers guard
+            // with TryGetSingleton / IsEmptyIgnoreFilter and fall back to
+            // defaults, so a stale latch meant every unit quietly got
+            // CanClimb = 1 and default footprint/layer masks from match 2
+            // onward — rampart and ground layer restrictions simply stopped
+            // being enforced, with no error to show for it.
+            var emCheck = state.EntityManager;
+            if (_initialised != 0
+                && emCheck.Exists(_entity)
+                && emCheck.HasComponent<TraversalProfileSingleton>(_entity)) return;
+
+            if (_blob.IsCreated) _blob.Dispose();
             _initialised = 1;
 
             BlobAssetReference<TraversalProfileBlob> blob;
@@ -82,17 +95,13 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 Profiles = blob,
             });
+            _blob = blob;   // mirror for disposal after a wipe
         }
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-            var em = state.EntityManager;
-            if (em.Exists(_entity) && em.HasComponent<TraversalProfileSingleton>(_entity))
-            {
-                var s = em.GetComponentData<TraversalProfileSingleton>(_entity);
-                if (s.Profiles.IsCreated) s.Profiles.Dispose();
-            }
+            // Mirror, not the component — the entity may already be wiped.
+            if (_blob.IsCreated) _blob.Dispose();
         }
     }
 }

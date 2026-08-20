@@ -1,0 +1,138 @@
+=== Session started 2026-08-15 12:33:53 ===
+Build: The Waning Border 0.0.3 (WindowsPlayer, Unity 6000.0.37f1)
+[3,2s] LOG: [MenuQuitButton] Wired 1 Quit button(s) to Application.Quit.
+[3,6s] LOG: [ShipGateMenuTrim] Switched 7 menu item(s) to automatic navigation so keyboard/gamepad skips the hidden entries.
+[3,6s] LOG: [ShipGateMenuTrim] Alpha menu trim applied — hid Menu_Item_Campaign, Menu_Item_Multiplayer, Menu_Item_Scenarios, Menu_Item_LoadGame
+[119,3s] WARNING: The tree SM_Env_Big_Tree_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Burnt_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Burnt_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Dead_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Dead_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Dead_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Dead_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Large_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Large_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Pine_Cluster_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Pine_Cluster_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Pine_Cluster_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Pine_Cluster_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Tree_Round_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_06 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,3s] WARNING: The tree SM_Env_Bush_Cluster_06 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[119,4s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+=== Session ended 2026-08-15 12:44:37 ===
+=== Session started 2026-08-15 12:58:40 ===
+Build: The Waning Border 0.0.3 (WindowsPlayer, Unity 6000.0.37f1)
+[2,9s] LOG: [MenuQuitButton] Wired 1 Quit button(s) to Application.Quit.
+[3,2s] LOG: [ShipGateMenuTrim] Switched 7 menu item(s) to automatic navigation so keyboard/gamepad skips the hidden entries.
+[3,2s] LOG: [ShipGateMenuTrim] Alpha menu trim applied — hid Menu_Item_Campaign, Menu_Item_Multiplayer, Menu_Item_Scenarios, Menu_Item_LoadGame
+[52,6s] WARNING: The tree SM_Env_Big_Tree_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Burnt_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Burnt_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Dead_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Dead_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Dead_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Dead_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Large_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Large_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Pine_Cluster_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Pine_Cluster_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Pine_Cluster_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Pine_Cluster_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Tree_Round_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_06 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_01 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_02 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_03 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_04 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_05 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: The tree SM_Env_Bush_Cluster_06 must use the Nature/Soft Occlusion shader. Otherwise billboarding/lighting will not work correctly.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+[52,7s] WARNING: TerrainCollider: MeshCollider is not supported on terrain at the moment.
+=== Session ended 2026-08-15 13:24:03 ===

@@ -17,6 +17,17 @@ namespace TheWaningBorder.UI.HUD
         [Header("Rally Marker")]
         [SerializeField] private Color markerColor = new Color(0.2f, 0.6f, 1f, 0.8f);
         [SerializeField] private Color lineColor = new Color(0.2f, 0.6f, 1f, 0.4f);
+
+        [Header("Resource Rally")]
+        [Tooltip("Marker/line colour when the rally targets a resource node — " +
+                 "trainees gather it on spawn instead of just walking there.")]
+        [SerializeField] private Color resourceMarkerColor = new Color(0.25f, 0.9f, 0.3f, 0.85f);
+        [SerializeField] private Color resourceLineColor = new Color(0.25f, 0.9f, 0.3f, 0.45f);
+
+        [Tooltip("Height the marker floats above a resource node, so it clears " +
+                 "the node mesh it is centred on. A node fills one 2 m build cell.")]
+        [SerializeField] private float ResourceRallyLift = 2.2f;
+
         [SerializeField] private float markerSize = 0.6f;
         [SerializeField] private float lineWidth = 0.08f;
 
@@ -27,6 +38,10 @@ namespace TheWaningBorder.UI.HUD
         private GameObject _markerObj;
         private LineRenderer _lineRenderer;
         private Material _markerMat;
+
+        // Live instances, re-tinted per frame from the rally kind.
+        private Material _markerInstance;
+        private Material _lineInstance;
 
         void Awake()
         {
@@ -68,8 +83,23 @@ namespace TheWaningBorder.UI.HUD
                 var rally = _em.GetComponentData<RallyPoint>(entity);
                 if (rally.Has == 0) continue;
 
+                // GREEN = a gather rally: trainees mine this node on spawn
+                // rather than just walking to a spot. Distinct enough from the
+                // default blue to read at a glance which of the two a building
+                // is set to. rally.Position is already the node's cell centre
+                // (CommandRouter snaps it), so the marker sits dead centre on
+                // the cell and the guide line points at it.
+                bool gatherRally = ResourceNodeQuery.IsGatherable(_em, rally.TargetEntity);
+                Tint(gatherRally ? resourceMarkerColor : markerColor,
+                     gatherRally ? resourceLineColor : lineColor);
+
                 var buildingPos = _em.GetComponentData<LocalTransform>(entity).Position;
-                float rallyY = TerrainUtility.GetHeight(rally.Position.x, rally.Position.z) + 0.2f;
+                // A gather rally sits at the node's cell centre — which is
+                // INSIDE the node's mesh. Float the marker above it, or the
+                // colour change the player is meant to read is buried in the
+                // ore. Ground rallies keep hugging the terrain.
+                float rallyLift = gatherRally ? ResourceRallyLift : 0.2f;
+                float rallyY = TerrainUtility.GetHeight(rally.Position.x, rally.Position.z) + rallyLift;
                 float buildingY = TerrainUtility.GetHeight(buildingPos.x, buildingPos.z) + 0.5f;
 
                 Vector3 rallyWorld = new Vector3(rally.Position.x, rallyY, rally.Position.z);
@@ -97,6 +127,28 @@ namespace TheWaningBorder.UI.HUD
             }
         }
 
+        /// <summary>Re-tint the existing material instances. Cheap: setting a
+        /// colour that is already set is a no-op upload, and this avoids
+        /// allocating a Material per frame.</summary>
+        private void Tint(Color marker, Color line)
+        {
+            if (_markerInstance != null)
+            {
+                if (_markerInstance.HasProperty("_BaseColor")) _markerInstance.SetColor("_BaseColor", marker);
+                if (_markerInstance.HasProperty("_Color")) _markerInstance.SetColor("_Color", marker);
+            }
+            if (_lineInstance != null)
+            {
+                if (_lineInstance.HasProperty("_BaseColor")) _lineInstance.SetColor("_BaseColor", line);
+                if (_lineInstance.HasProperty("_Color")) _lineInstance.SetColor("_Color", line);
+            }
+            if (_lineRenderer != null)
+            {
+                _lineRenderer.startColor = line;
+                _lineRenderer.endColor = line;
+            }
+        }
+
         private void CreateMarker()
         {
             _markerObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -109,6 +161,7 @@ namespace TheWaningBorder.UI.HUD
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", markerColor);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", markerColor);
             renderer.material = mat;
+            _markerInstance = mat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
@@ -129,6 +182,7 @@ namespace TheWaningBorder.UI.HUD
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", lineColor);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", lineColor);
             _lineRenderer.material = mat;
+            _lineInstance = mat;
             _lineRenderer.startColor = lineColor;
             _lineRenderer.endColor = lineColor;
             _lineRenderer.startWidth = lineWidth;

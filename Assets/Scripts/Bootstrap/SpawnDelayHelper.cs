@@ -17,6 +17,33 @@ namespace TheWaningBorder.Bootstrap
 {
     public class SpawnDelayHelper : MonoBehaviour
     {
+        /// <summary>
+        /// True once EVERY match-start entity exists: factions, iron,
+        /// veilstone/veilsteel, border wells and blight pockets. Multiplayer's
+        /// LockstepManager refuses to start tick 0 before this — the spawn
+        /// phases below are frame-paced (yield return null), so on two peers
+        /// they finish at different WALL times, and any tick that elapses
+        /// mid-population sees a world the other peer does not have yet. That
+        /// was the instant tick-30 desync of 2026-08-16: host 748 entities,
+        /// client 744, with tick-partitioned NetworkIds stamped by whatever
+        /// tick each machine happened to be on. Gating tick 0 here keeps all
+        /// of these spawns in the generator's bootstrap-ID mode, where the
+        /// single deterministic call order gives both peers identical IDs.
+        /// GameBootstrap resets this at match-bootstrap start.
+        /// </summary>
+        public static bool MapPopulated;
+
+        /// <summary>
+        /// Bumped by GameBootstrap at every match-bootstrap start. Stateful
+        /// sim systems SURVIVE across matches (the entity world is wiped, the
+        /// system objects are not), so any per-match field — an accumulator, a
+        /// seeded RNG's stream position, a cached singleton — carries residue
+        /// into the next match, and the residue differs per multiplayer peer.
+        /// A system with such state caches this value and resets its fields
+        /// when it changes. See BlightPocketSystem for the pattern.
+        /// </summary>
+        public static int MatchEpoch;
+
         public IEnumerator WaitForTerrainAndSpawn()
         {
             // Wait until terrain exists and has valid data. The LoadingScreen
@@ -25,7 +52,12 @@ namespace TheWaningBorder.Bootstrap
             LoadingScreen.SetStatus("Waiting for terrain…");
             LoadingScreen.SetProgress(0.55f);
 
-            float timeout = 5f;
+            // 120 s, aligned with the lockstep world-gate bail-out — this used
+            // to be a 5 s timeout that PROCEEDED on expiry, so a slow peer
+            // spawned everything onto an unfinished heightmap: every position
+            // and passability cell differed from the peer that had waited.
+            // Spawning onto wrong terrain is never better than spawning late.
+            float timeout = 120f;
             float elapsed = 0f;
 
             while (elapsed < timeout && !TerrainUtility.IsReady())
@@ -33,6 +65,9 @@ namespace TheWaningBorder.Bootstrap
                 elapsed += Time.deltaTime;
                 yield return null;
             }
+            if (!TerrainUtility.IsReady())
+                Debug.LogError("[SpawnDelayHelper] Terrain still not ready after 120s — " +
+                               "spawning anyway; positions may be wrong for the whole match.");
 
             // Bootstrap phases — each one yields a frame so the progress
             // bar can repaint between heavy synchronous calls, and the
@@ -83,12 +118,17 @@ namespace TheWaningBorder.Bootstrap
                 yield return null;
                 BorderNodeBootstrap.SpawnBorderNodes();
                 // §2.5b Age 0 blight pockets — near-spawn haze patches with
-                // Sporeling anchors. Needs the Halls (spawned above) and only
+                // SmallNode anchors. Needs the Halls (spawned above) and only
                 // makes sense with the curse on; the VeilField itself
                 // initialises later and BlightPocketSystem seeds the discs
                 // as soon as it exists.
                 BlightPocketBootstrap.SpawnBlightPockets();
             }
+
+            // Last sim-entity spawn is above this line. Prewarm below creates
+            // only presentation GameObjects (no NetworkIds), so the lockstep
+            // clock may start while shaders warm.
+            MapPopulated = true;
 
             FocusCameraOnHall();
 

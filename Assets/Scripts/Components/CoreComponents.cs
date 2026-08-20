@@ -178,29 +178,6 @@ public struct StuckState : IComponentData
 }
 
 /// <summary>
-/// Caches the last snapped flow field destination index to avoid calling
-/// FlowFieldManager.RequestFlowField every frame when the destination hasn't changed.
-/// Also caches the terrain height for the current cell to reduce TerrainUtility.GetHeight calls.
-/// </summary>
-public struct MovementCache : IComponentData
-{
-    /// <summary>Last destination position that was sent to FlowFieldManager.</summary>
-    public float3 LastDestination;
-    /// <summary>Snapped destination cell index returned by the last successful RequestFlowField.</summary>
-    public int LastSnappedDest;
-    /// <summary>Grid cell the unit was in for the last terrain height sample.</summary>
-    public int2 LastHeightCell;
-    /// <summary>Cached terrain height for LastHeightCell.</summary>
-    public float CachedHeight;
-    /// <summary>
-    /// FlowFieldManager.GridVersion at the time the cached flow-field lookup
-    /// was acquired. When the live grid version diverges, the cached field is
-    /// stale and the unit must re-request even if its destination is unchanged.
-    /// </summary>
-    public int LastGridVersion;
-}
-
-/// <summary>
 /// Rally point for newly trained units. Position is where the unit walks
 /// to after spawning; TargetEntity is an optional follow-up action target
 /// (currently used to point newly-trained miners at a specific resource
@@ -212,6 +189,35 @@ public struct RallyPoint : IComponentData
     public float3 Position;
     public byte Has;
     public Entity TargetEntity;
+}
+
+/// <summary>
+/// The LATCHED point a chaser is walking to, and what it was computed against.
+///
+/// A chase destination is the closest point on the target's surface pulled back
+/// toward the chaser — so deriving it from the chaser's CURRENT position every
+/// frame makes the goal slide sideways as the chaser does. Lateral movement can
+/// then never close the gap: a unit that needs to walk AROUND an obstacle just
+/// presses into it and spins, because every sidestep drags the destination
+/// along. Combat MUST re-issue the destination every frame (TargetingSystem
+/// clears DesiredDestination.Has on attackers), so the fix is not to stop
+/// writing — it is to write the same STABLE point until the target actually
+/// moves.
+/// </summary>
+public struct ChaseAnchor : IComponentData
+{
+    /// <summary>Target this anchor was computed for.</summary>
+    public Entity Target;
+    /// <summary>Where that target was at the time. Recompute once it moves
+    /// further than <see cref="RecomputeDistance"/>.</summary>
+    public float3 TargetPos;
+    /// <summary>The latched destination.</summary>
+    public float3 Point;
+
+    /// <summary>How far the target may drift before the anchor is re-derived.
+    /// Comfortably under melee reach, so a shuffling target does not thrash the
+    /// goal, but a target that walks away is followed promptly.</summary>
+    public const float RecomputeDistance = 1.0f;
 }
 
 // ==================== Hold Position ====================

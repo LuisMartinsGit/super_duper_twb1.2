@@ -84,6 +84,10 @@ namespace TheWaningBorder.Entities
             r["Runai_Raider"]     = new UnitRecipe(Raider.Create, Raider.Create, UnitClass.Melee, 332);
             r["Runai_Catapult"]   = new UnitRecipe(Catapult.Create, Catapult.Create, UnitClass.Siege, 333);
             r["Runai_Acolyte"]    = new UnitRecipe(Acolyte.Create, Acolyte.Create, UnitClass.Magic, 384);
+            // Trade-lane caravan: spawned by TradingPostSystem, never trained.
+            // Registered so the spawn routes through the factory (UnitTypeId /
+            // DisplayName / counter stamps) and the validator stays quiet.
+            r["Runai_Caravan"]    = new UnitRecipe(Caravan.Create, Caravan.Create, UnitClass.Economy, Caravan.PresentationID);
 
             // Alanthor culture units
             r["Alanthor_Sentinel"]    = new UnitRecipe(Sentinel.Create, Sentinel.Create, UnitClass.Melee, 334);
@@ -184,7 +188,7 @@ namespace TheWaningBorder.Entities
                 em.AddComponentData(entity, new NetworkedEntity
                 {
                     NetworkId = NetworkIdGenerator.GetNextId(),
-                    SpawnTick = 0
+                    SpawnTick = NetworkIdGenerator.CurrentTick
                 });
 
                 StampDisplayName(em, entity, unitId);
@@ -251,7 +255,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
-                SpawnTick = 0
+                SpawnTick = NetworkIdGenerator.CurrentTick
             });
 
             ecb.AddComponent(entity, new DisplayName

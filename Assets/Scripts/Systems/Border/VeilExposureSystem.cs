@@ -109,6 +109,12 @@ namespace TheWaningBorder.Systems.Border
                 if (facs[i].Value == Faction.Border) continue; // the curse is home here
                 if (hps[i].Value <= 0) continue; // dying — DeathSystem owns it now
 
+                // Veil-Touched (Reclamation) and Border-Hardened: warded units
+                // take no exposure at all, and their accrued seconds stop
+                // climbing so the ward is a real reprieve rather than a pause
+                // before the same death. docs/Design/Sects.md section 4.
+                if (em.HasComponent<SectCurseWard>(ents[i])) continue;
+
                 byte sat = field.SaturationAt(xfs[i].Position);
                 bool onCrust = sat >= VeilField.CrustThreshold;
                 bool hasVeilTag = em.HasComponent<VeilDebuffTag>(ents[i]);
@@ -205,13 +211,19 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < ents.Length; i++)
             {
                 if (hps[i].Value <= 0) continue;
-                if (em.HasComponent<SporelingTag>(ents[i])) continue; // starves, never crumbles
+                if (em.HasComponent<SmallNodeTag>(ents[i])) continue; // starves, never crumbles
                 // The curse's own structures are HOME in the crust — wells
                 // (BorderMainNode carries BuildingTag + BorderTag) sit at the
                 // centre of their deep seed discs and were crumbling to death
                 // by mid-game (2026-08-03 playtest). Only PLAYER buildings
                 // engulfed by later growth crumble.
                 if (em.HasComponent<BorderTag>(ents[i])) continue;
+                // Veilworks takes no curse damage - it is a smelter FOR cursed
+                // matter and is meant to stand in the crust it feeds on
+                // (docs/Design/Sects.md section 4). Without this it would be
+                // the only building allowed onto cursed ground and the only one
+                // guaranteed to crumble there.
+                if (em.HasComponent<VeilworksTag>(ents[i])) continue;
                 if (field.SaturationAt(xfs[i].Position) < VeilField.DeepThreshold) continue;
 
                 var hp = hps[i];

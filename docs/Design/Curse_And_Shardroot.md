@@ -37,14 +37,32 @@ Three perception rules (hard requirements):
 
 ### 2.1 Setup & Age 0
 
-**N = 4, one well per map corner (2026-08-11).** Wells spawn at the four
-corners of the playable bounds (12% inset, slid toward the map centre
-until the ground fits) — the curse presses in from the edges and every
-spawn reads its nearest corner as "its" well. The old centre-of-map well
-is gone: it sat in everyone's lap and nobody's territory. Scene
-`BorderNodeMarker`s remain the per-map on/off lever for the Border
-faction, but marker positions are no longer used
+**Default: N = 4, one well per map corner (2026-08-11).** Wells spawn at
+the four corners of the playable bounds (12% inset, slid toward the map
+centre until the ground fits) — the curse presses in from the edges and
+every spawn reads its nearest corner as "its" well. The old
+always-centre-of-map well is gone: it sat in everyone's lap and nobody's
+territory. Scene `BorderNodeMarker`s are the per-map on/off lever for the
+Border faction; by default their positions are unused
 (`BorderNodeBootstrap.SpawnCornerNodes`).
+
+**Per-map override: the map may author its own well set (2026-08-12).**
+Ticking `BorderNodeMarker.AuthoredPosition` on one marker hands the whole
+well list to that map — one well per ticked marker, where it stands, and
+**N is whatever the map placed** (`BorderNodeBootstrap.SpawnAuthoredNodes`;
+un-ticked markers are then ignored, because a half-authored well set would
+be a silent balance change). Corner wells are the right default and a poor
+fit whenever the well layout *is* the map:
+
+| Map | Wells | Why not corners |
+|---|---|---|
+| Hollow Table (1v1) | **N = 1**, dead centre | The map is a duel over one piece of ground; four objectives would be four duels |
+| Twin Spans (3v3) | **N = 4**, one per bridgehead | The map is about two river crossings; corner wells would put every objective as far from the river as the map allows |
+
+Nothing downstream needs a special case: `NodeVictorySystem` scores well
+domination against the **live node count**, so N = 1 and N = 4 both work —
+at N = 1 the victory condition simply reads as king-of-the-hill, and the
+"holds all but ONE well" match-point broadcast self-disables below N = 2.
 > **REVERTED (2026-08-03, playtest):** mining the Veil directly is
 > retired — the reforming crust stranded diggers, output was a trickle,
 > and crust spawns killed them. **Veilstone now comes from discrete

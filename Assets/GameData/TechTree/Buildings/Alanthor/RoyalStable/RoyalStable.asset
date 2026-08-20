@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: RoyalStable
   m_EditorClassIdentifier: 
-  id: 'Alanthor_RoyalStable'
-  displayName: 'Royal Stable'
-  role: 'Heavy-cavalry trainer (Cataphract).'
+  id: Alanthor_RoyalStable
+  displayName: Royal Stable
+  role: Heavy-cavalry trainer (Cataphract).
+  description: 
   hp: 1000
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 2
     ranged: 1
@@ -25,20 +26,32 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 18
   trains:
-  - 'Alanthor_Outrider'
-  - 'Alanthor_Cataphract'
+  - Alanthor_Outrider
+  - Alanthor_Cataphract
   research:
-  - 'SeasonedCavalry'
-  - 'VeteranCavalry'
-  - 'EliteCavalry'
-  - 'WarHorn'
-  - 'FullGallop'
+  - SeasonedCavalry
+  - VeteranCavalry
+  - EliteCavalry
+  - WarHorn
+  - FullGallop
   minEra: 0
   cost:
     Supplies: 220
     Iron: 80
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 7473497023553055802, guid: 32d81834753f05e458dd6bd997599698, type: 3}
   presentationId: 356
+  prefabPath: 
+  canUpgradeTo: []

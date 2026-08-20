@@ -66,9 +66,64 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private static bool IsManaged(string path)
         {
             if (path.StartsWith(MapRegistry.MapsRoot)) return true;
+            return IsScenario(path);
+        }
+
+        private static bool IsScenario(string path)
+        {
             for (int i = 0; i < MapRegistry.ScenarioRoots.Length; i++)
                 if (path.StartsWith(MapRegistry.ScenarioRoots[i])) return true;
             return false;
+        }
+
+        /// <summary>
+        /// Whether a managed scene belongs in the EDITOR's Build Settings
+        /// list. Editor play mode can only load scenes that are listed, so
+        /// scenario scenes must stay in — the whole ship-gate design promised
+        /// "fully playable in the editor", but gating them out of the list
+        /// broke every scenario launch in play mode (2026-08-17: the
+        /// Scenarios menu failed with "scene not in build profile"). Player
+        /// builds still exclude them via <see cref="FilterScenesForBuild"/>.
+        /// Non-shipping MAPS stay gated here on purpose: the lobby dropdown
+        /// reads this list, and the gate is what keeps them unselectable.
+        /// </summary>
+        private static bool AllowedInEditorList(string path)
+            => IsScenario(path) || MapRegistry.ShouldShip(path);
+
+        /// <summary>
+        /// Build-time half of the scenario gate: the editor list keeps
+        /// scenario scenes (see <see cref="AllowedInEditorList"/>), so the
+        /// exclusion from PLAYER builds happens here, on the Build button's
+        /// scene list. The shipped menu hides the Scenarios entry anyway
+        /// (ShipGateMenuTrim); this keeps the scenes' bytes out of the build
+        /// as Alpha_Build.md promises.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void RegisterBuildFilter()
+        {
+            try
+            {
+                BuildPlayerWindow.RegisterBuildPlayerHandler(FilterScenesForBuild);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[MapSceneSync] Could not register the build-time " +
+                                 $"scenario filter ({e.Message}) — a player build would " +
+                                 "include scenario scenes.");
+            }
+        }
+
+        private static void FilterScenesForBuild(BuildPlayerOptions options)
+        {
+            if (!MapRegistry.ShipScenarios && options.scenes != null)
+            {
+                var kept = options.scenes.Where(s => !IsScenario(Normalize(s))).ToArray();
+                if (kept.Length != options.scenes.Length)
+                    Debug.Log($"[MapSceneSync] Player build: {options.scenes.Length - kept.Length} " +
+                              "scenario scene(s) filtered out (ship gate).");
+                options.scenes = kept;
+            }
+            BuildPlayerWindow.DefaultBuildMethods.BuildPlayer(options);
         }
 
         private static void Sync()
@@ -93,7 +148,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             {
                 string path = Normalize(s.path);
                 if (IsManaged(path)
-                    && (!File.Exists(path) || !MapRegistry.ShouldShip(path)))
+                    && (!File.Exists(path) || !AllowedInEditorList(path)))
                 {
                     removed++;
                     continue;
@@ -107,7 +162,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             foreach (var path in onDisk)
             {
                 if (listed.Contains(path)) continue;
-                if (!MapRegistry.ShouldShip(path)) continue;
+                if (!AllowedInEditorList(path)) continue;
                 kept.Add(new EditorBuildSettingsScene(path, true));
                 added++;
             }

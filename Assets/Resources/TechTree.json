@@ -391,7 +391,7 @@
                     "speed": 5.2,
                     "trainingTime": 15.0,
                     "armorType": "ranged",
-                    "damage": 17,
+                    "damage": 8,
                     "damageType": "ranged",
                     "attackSpeed": 2.0,
                     "defense": {
@@ -400,9 +400,9 @@
                         "siege": 0,
                         "magic": 0
                     },
-                    "lineOfSight": 30,
-                    "attackRange": 25.0,
-                    "minAttackRange": 1.0,
+                    "lineOfSight": 10,
+                    "attackRange": 10.0,
+                    "minAttackRange": 2.0,
                     "cost": {
                         "Supplies": 50,
                         "Iron": 25
@@ -427,9 +427,9 @@
                         "siege": 0,
                         "magic": 0
                     },
-                    "lineOfSight": 22,
-                    "attackRange": 18.0,
-                    "minAttackRange": 6.0,
+                    "lineOfSight": 12,
+                    "attackRange": 12.0,
+                    "minAttackRange": 3.0,
                     "trainAt": [
                         "ArcheryRange"
                     ],
@@ -458,9 +458,9 @@
                         "siege": 0,
                         "magic": 0
                     },
-                    "lineOfSight": 35,
-                    "attackRange": 40.0,
-                    "minAttackRange": 12.0,
+                    "lineOfSight": 20,
+                    "attackRange": 20.0,
+                    "minAttackRange": 8.0,
                     "trainAt": [
                         "ArcheryRange"
                     ],
@@ -994,6 +994,51 @@
                     },
                     "researchTime": 35,
                     "researchAt": "ArcheryRange"
+                },
+                {
+                    "id": "RoyalIndex",
+                    "name": "Royal Index",
+                    "role": "Utility",
+                    "desc": "Sect of Antiquity. All technologies and building upgrades take 30% less time and 10% fewer resources.",
+                    "cost": { "Supplies": 300, "Iron": 100, "Veilstone": 60 },
+                    "researchTime": 50,
+                    "researchAt": "Sect_Reliquary"
+                },
+                {
+                    "id": "MasonsCharter",
+                    "name": "Mason's Charter",
+                    "role": "Defense",
+                    "desc": "Sect of Renewal. All buildings gain +20% HP and construct 25% faster.",
+                    "cost": { "Supplies": 280, "Iron": 120, "Veilstone": 40 },
+                    "researchTime": 45,
+                    "researchAt": "Sect_MendingHall"
+                },
+                {
+                    "id": "DeepFoundations",
+                    "name": "Deep Foundations",
+                    "role": "Defense",
+                    "desc": "Sect of Fortitude. Defensive structures cost 20% less and build 30% faster.",
+                    "cost": { "Supplies": 260, "Iron": 140, "Veilstone": 40 },
+                    "researchTime": 45,
+                    "researchAt": "Sect_Stonehold"
+                },
+                {
+                    "id": "WardensLedger",
+                    "name": "Warden's Ledger",
+                    "role": "Economy",
+                    "desc": "Sect of Reclamation. Veilstone yields +25%, and every cursed node is harvestable regardless of tier.",
+                    "cost": { "Supplies": 300, "Iron": 100, "Veilstone": 80 },
+                    "researchTime": 50,
+                    "researchAt": "Sect_Veilworks"
+                },
+                {
+                    "id": "EndlessMuster",
+                    "name": "Endless Muster",
+                    "role": "Military",
+                    "desc": "Sect of War. Military buildings train two units at once. Queue depth is unchanged.",
+                    "cost": { "Supplies": 320, "Iron": 180, "Veilstone": 40 },
+                    "researchTime": 50,
+                    "researchAt": "Sect_MusterYard"
                 }
             ]
         },
@@ -1179,7 +1224,7 @@
                             "lineOfSight": 20,
                             "role": "Train siege engines",
                             "trains": [
-                                "Runai_SandBallista"
+                                "Runai_Catapult"
                             ],
                             "cost": {
                                 "Supplies": 320,
@@ -1293,7 +1338,8 @@
                             "notes": "Channels Conversion ritual on Active veilstone nodes. Trains at a fully-leveled Temple of Ridan (spec refinement #5). Node fights enslavement harder than destruction — escort doubly required (spec §5.5)."
                         },
                         {
-                            "id": "Runai_SandBallista",
+                            "id": "Runai_Catapult",
+                            "name": "Catapult",
                             "class": "machinery_siege",
                             "hp": 200,
                             "speed": 3.4,

@@ -10,6 +10,7 @@ using TMPro;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.UI.GameUI
 {
@@ -23,36 +24,59 @@ namespace TheWaningBorder.UI.GameUI
         private EntityManager _em;
         private bool _emReady;
 
+        // Sizes are CANVAS units on a 3840x2160 reference, i.e. roughly half
+        // these numbers in screen pixels at 1080p. The strip was originally
+        // built at 332x46 with 11-13pt text, which rendered as a 166px sliver
+        // of ~6px lettering — present, unreadable.
+        private const float PanelWidth = 700f;
+        private const float PanelHeight = 108f;
+        private const float ButtonWidth = 162f;
+        private const float ButtonHeight = 58f;
+        private const float ButtonGap = 8f;
+
+        private static readonly string[] Labels = { "Box", "Line", "Wedge", "Stagger" };
+        private static readonly string[] Tips =
+        {
+            "<b>Box</b>\nCompact rectangle. The all-round default — good for moving a "
+                + "mixed group without exposing a flank.",
+            "<b>Line</b>\nWide, shallow rank. Maximises how many units can shoot or "
+                + "engage at once; fragile if hit from the side.",
+            "<b>Wedge</b>\nArrowhead. Concentrates the leading edge for a charge that "
+                + "punches through a line.",
+            "<b>Stagger</b>\nOffset rows. Spreads the group out so area damage and "
+                + "siege hit fewer units at a time.",
+        };
+
         void Start()
         {
             _root = GameUIKit.Rect(transform, "GameUI_FormationsPanel");
             _root.anchorMin = _root.anchorMax = new Vector2(0.5f, 0f);
             _root.pivot = new Vector2(0.5f, 0f);
-            _root.anchoredPosition = new Vector2(0f, 12f);
-            _root.sizeDelta = new Vector2(332f, 46f);
+            _root.anchoredPosition = new Vector2(0f, 24f);
+            _root.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
             var bg = _root.gameObject.AddComponent<Image>();
             bg.color = GameUIKit.PanelBg;
             GameUIKit.PanelChrome(_root);
 
-            GameUIKit.Text(_root, "Title", "FORMATION", 11f, GameUIKit.TextDim,
-                TextAlignmentOptions.Center);
-            var title = (RectTransform)_root.Find("Title");
-            title.anchorMin = new Vector2(0f, 1f);
-            title.anchorMax = new Vector2(1f, 1f);
-            title.pivot = new Vector2(0.5f, 1f);
-            title.anchoredPosition = new Vector2(0f, -2f);
-            title.sizeDelta = new Vector2(0f, 12f);
+            var title = GameUIKit.Text(_root, "Title", Loc.T("FORMATION  (X to cycle)"), 20f,
+                GameUIKit.TextDim, TextAlignmentOptions.Center);
+            var titleRect = title.rectTransform;
+            titleRect.anchorMin = new Vector2(0f, 1f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -6f);
+            titleRect.sizeDelta = new Vector2(0f, 24f);
 
-            string[] labels = { "Box", "Line", "Wedge", "Stag." };
+            float left = (PanelWidth - (4f * ButtonWidth + 3f * ButtonGap)) * 0.5f;
             for (int i = 0; i < 4; i++)
             {
                 var shape = (FormationShape)i;
-                var btnRect = GameUIKit.Rect(_root, $"Btn_{labels[i]}");
+                var btnRect = GameUIKit.Rect(_root, $"Btn_{Labels[i]}");
                 btnRect.anchorMin = btnRect.anchorMax = new Vector2(0f, 0f);
                 btnRect.pivot = new Vector2(0f, 0f);
-                btnRect.anchoredPosition = new Vector2(6f + i * 81f, 4f);
-                btnRect.sizeDelta = new Vector2(77f, 26f);
+                btnRect.anchoredPosition = new Vector2(left + i * (ButtonWidth + ButtonGap), 10f);
+                btnRect.sizeDelta = new Vector2(ButtonWidth, ButtonHeight);
 
                 var img = btnRect.gameObject.AddComponent<Image>();
                 img.color = GameUIKit.ButtonBg;
@@ -62,10 +86,13 @@ namespace TheWaningBorder.UI.GameUI
                 btn.targetGraphic = img;
                 btn.onClick.AddListener(() =>
                     TheWaningBorder.Input.RTSInputManager.RequestFormationShape(shape));
+                // Labels[]/Tips[] stay English (GameObject names key off
+                // Labels); translation happens here, at render.
+                UITooltip.Bind(btnRect.gameObject, Loc.T(Tips[i]));
 
-                var label = GameUIKit.Text(btnRect, "Label", labels[i], 13f,
-                    GameUIKit.TextMain, TextAlignmentOptions.Center);
-                GameUIKit.Stretch((RectTransform)label.transform);
+                var label = GameUIKit.Text(btnRect, "Label", Loc.T(Labels[i]), 24f,
+                    GameUIKit.TextMain, TextAlignmentOptions.Center, wrap: false);
+                GameUIKit.Stretch(label.rectTransform);
             }
 
             _root.gameObject.SetActive(false);

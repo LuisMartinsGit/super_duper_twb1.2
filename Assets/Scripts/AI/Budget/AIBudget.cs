@@ -71,14 +71,50 @@ namespace TheWaningBorder.AI
         public static void EvaluateWeights(AIPosture posture, bool advancementGateActive,
             bool suppliesStarved, out float adv, out float mil, out float eco)
         {
-            // Base: early/neutral split — economy-leaning like every
-            // surveyed game's opening posture.
-            adv = 0.25f; mil = 0.35f; eco = 0.40f;
+            // ORDER MATTERS, AND IT USED TO BE WRONG (2026-08-18).
+            //
+            // These were four independent `if`s, so the POSTURE clause
+            // overwrote the advancement gate outright and a threatened AI
+            // dropped to adv 0.15 no matter how overdue its age-up was. The
+            // logged Expert reproduces exactly: gate on (0.60/0.25/0.15),
+            // then Rebuild overwrote it (0.15/0.60/0.25), then starved added
+            // 0.20 to eco (0.15/0.60/0.45), normalising to the 0.13/0.50/0.38
+            // in its BUDGET line — advancement LAST while it was supposed to
+            // be saving to advance.
+            //
+            // That inverted the whole difficulty ladder: aggressive, higher
+            // tiers attack early (Expert from 180 s), lose their army, fall
+            // into Rebuild, and so are precisely the AIs whose advancement
+            // budget gets killed. Easy attacks last, stays in Develop, and
+            // was the only tier that ever aged up.
+            //
+            // Now: posture sets the BASE, and the advancement push is applied
+            // LAST as an override that nothing else can undo.
 
-            if (advancementGateActive) { adv = 0.60f; mil = 0.25f; eco = 0.15f; }
-            if (posture == AIPosture.Defend || posture == AIPosture.Rebuild)
-            { mil = 0.60f; eco = 0.25f; adv = 0.15f; }
-            if (suppliesStarved) { eco += 0.20f; }
+            bool threatened = posture == AIPosture.Defend || posture == AIPosture.Rebuild;
+
+            // 1. Base split by posture. Opening is economy-leaning; a
+            //    threatened AI rebuilds its army first.
+            if (threatened) { adv = 0.10f; mil = 0.60f; eco = 0.30f; }
+            else            { adv = 0.15f; mil = 0.35f; eco = 0.50f; }
+
+            // 2. A supply famine buys more economy — but NEVER while the age
+            //    up push is on. Advancing IS the cure for a poor economy
+            //    (Age 1 is where the income multipliers live), so tilting to
+            //    eco here funds the very worker/hut spending that keeps the
+            //    bank empty.
+            if (suppliesStarved && !advancementGateActive) eco += 0.15f;
+
+            // 3. THE PUSH WINS. Applied last and unconditionally: while an
+            //    age-up is pending this AI is saving, and no posture may
+            //    quietly opt out of it. Under threat the army still gets an
+            //    equal share so saving never means standing there unarmed.
+            if (advancementGateActive)
+            {
+                adv = threatened ? 0.45f : 0.65f;
+                mil = threatened ? 0.45f : 0.20f;
+                eco = 0.10f;
+            }
 
             // Floor + normalize.
             if (adv < WeightFloor) adv = WeightFloor;
@@ -135,12 +171,49 @@ namespace TheWaningBorder.AI
                         : b.IncomeEma[r] * 0.9f + perSecond * 0.1f;
                 }
 
-                float cap = b.IncomeEma[r] * WalletCapSeconds;
-                if (cap < WalletCapMinimum) cap = WalletCapMinimum;
+                // 1. Split this window's income by the weights.
                 for (int c = 0; c < Categories; c++)
-                {
                     b.Wallets[c, r] += gross * weights[c];
-                    if (b.Wallets[c, r] > cap) b.Wallets[c, r] = cap;
+
+                // 2. RECONCILE — THE INVARIANT (2026-08-18):
+                //        wallet[adv] + wallet[mil] + wallet[eco] == bank
+                //
+                // The wallets are a PARTITION of the money the faction
+                // actually has, not a set of independent allowances. Without
+                // this step they drifted apart from the bank in both
+                // directions: the per-wallet CAP silently deleted allocation,
+                // and every bank-direct purchase (build-order steps, the
+                // opening huts, scouts, heroes) debited the bank while
+                // leaving the wallets untouched. The result was entitlement
+                // that did not exist — a logged Expert held 391 supplies of
+                // Advancement against a bank of 70, so its 210-supply Shrine
+                // was unaffordable while its own budget said otherwise.
+                //
+                // Scaling to the real balance fixes both directions at once:
+                // spending outside the budget shrinks every wallet in
+                // proportion, and a wallet can never promise money the
+                // faction does not hold. CanSpend therefore means what it
+                // says, and no floor, reserve or pause is needed to make it
+                // true.
+                float sum = 0f;
+                for (int c = 0; c < Categories; c++) sum += b.Wallets[c, r];
+
+                float actual = bank[r];
+                if (actual <= 0f)
+                {
+                    for (int c = 0; c < Categories; c++) b.Wallets[c, r] = 0f;
+                }
+                else if (sum <= 0.0001f)
+                {
+                    // Nothing allocated yet (or everything was spent): split
+                    // what is on hand by the current weights.
+                    for (int c = 0; c < Categories; c++)
+                        b.Wallets[c, r] = actual * weights[c];
+                }
+                else
+                {
+                    float scale = actual / sum;
+                    for (int c = 0; c < Categories; c++) b.Wallets[c, r] *= scale;
                 }
             }
 
@@ -163,6 +236,83 @@ namespace TheWaningBorder.AI
 
         /// <summary>True when the category's wallet covers the cost. Check
         /// BEFORE the real purchase attempt; on success call RecordSpend.</summary>
+        /// <summary>
+        /// Supplies currently allocated to one wallet. Used to turn the
+        /// Advancement allocation into a REAL floor in the shared bank —
+        /// see the note on <see cref="CanSpend"/>.
+        /// </summary>
+        public static int WalletSupplies(Faction faction, AIBudgetCategory cat)
+        {
+            var b = GetBrain(faction);
+            return !b.Seeded ? 0 : (int)b.Wallets[(int)cat, 0];
+        }
+
+        /// <summary>
+        /// Cover <paramref name="cost"/> from <paramref name="cat"/>, BORROWING
+        /// from the other wallets when this one is short and they are flush.
+        ///
+        /// The wallets partition the bank, so a transfer between them moves no
+        /// real money — the invariant (sum == bank) is untouched. What it
+        /// prevents is the failure this budget kept producing: a faction
+        /// sitting on money it was not allowed to use, because the allocation
+        /// happened to sit in the wrong pocket. One logged AI banked 1,546
+        /// supplies while its Advancement share was too small to buy a
+        /// 210-supply Shrine.
+        ///
+        /// ADVANCEMENT NEVER LENDS. It is the strategic wallet: the age-up is
+        /// a lump sum that only pays off once it completes, so letting the
+        /// army raid it is precisely how a faction spends its future on
+        /// another Barracks. Economy and Military lend freely — to each other
+        /// and to Advancement.
+        ///
+        /// Returns false when even the whole bank cannot cover the cost, in
+        /// which case nothing is moved.
+        /// </summary>
+        public static bool TryAfford(Faction faction, AIBudgetCategory cat, Cost cost)
+        {
+            var b = GetBrain(faction);
+            if (!b.Seeded) return true;   // pre-allocator grace
+
+            int c = (int)cat;
+            var want = new float[Resources]
+                { cost.Supplies, cost.Iron, cost.Veilstone, cost.Veilsteel };
+
+            // Lenders, poorest-priority first. Advancement is absent by design.
+            System.Span<int> lenders = stackalloc int[2];
+            int lenderCount = 0;
+            if (cat != AIBudgetCategory.EconomyExpansion)
+                lenders[lenderCount++] = (int)AIBudgetCategory.EconomyExpansion;
+            if (cat != AIBudgetCategory.Military)
+                lenders[lenderCount++] = (int)AIBudgetCategory.Military;
+
+            // Affordability first: never move anything for a purchase that
+            // still cannot happen.
+            for (int r = 0; r < Resources; r++)
+            {
+                if (want[r] <= b.Wallets[c, r]) continue;
+                float available = b.Wallets[c, r];
+                for (int i = 0; i < lenderCount; i++) available += b.Wallets[lenders[i], r];
+                if (available < want[r]) return false;
+            }
+
+            // Move the shortfall.
+            for (int r = 0; r < Resources; r++)
+            {
+                float shortfall = want[r] - b.Wallets[c, r];
+                if (shortfall <= 0f) continue;
+                for (int i = 0; i < lenderCount && shortfall > 0f; i++)
+                {
+                    int l = lenders[i];
+                    float take = System.Math.Min(shortfall, b.Wallets[l, r]);
+                    if (take <= 0f) continue;
+                    b.Wallets[l, r] -= take;
+                    b.Wallets[c, r] += take;
+                    shortfall -= take;
+                }
+            }
+            return true;
+        }
+
         public static bool CanSpend(Faction faction, AIBudgetCategory cat, Cost cost)
         {
             var b = GetBrain(faction);

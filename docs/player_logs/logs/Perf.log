@@ -1,0 +1,4 @@
+=== Perf spikes (ms) ===
+[     3,7s f1] FRAME: 3680,0 ms gc0+46 gc1+46 gc2+46
+[     4,4s f2] FRAME: 677,9 ms gc0+1 gc1+1 gc2+1
+[     6,6s f598] FRAME: 87,3 ms gc0+0 gc1+0 gc2+0

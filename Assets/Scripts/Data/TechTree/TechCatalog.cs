@@ -334,7 +334,39 @@ public static class TechCatalog
                 existing.research = ShrineResearch;
             _buildingsById["TempleOfRidan"] = existing;
         }
+
+        // Sect buildings (docs/Design/Sects.md section 1). Seeded in code for
+        // the same reason the sect UNITS are: no BuildingDefSO exists yet, and
+        // the build menu iterates GetAllBuildings — a building with no def
+        // never gets a button, however well its factory is wired. An authored
+        // SO loaded above wins; this only fills the gap.
+        //
+        // Alanthor cluster only so far. The other eight land with their pass.
+        SeedSectBuilding("Sect_Reliquary",   "Reliquary",    "Antiquity sect building. Trains the Lorekeeper.",
+                         900f,  16f, "Sect_Lorekeeper",  "RoyalIndex");
+        SeedSectBuilding("Sect_MendingHall", "Mending Hall", "Renewal sect building. Trains the Scar Guard.",
+                         750f,  14f, "Sect_ScarGuard",   "MasonsCharter");
+        SeedSectBuilding("Sect_Stonehold",   "Stonehold",    "Fortitude sect building. Trains the Stone Warden.",
+                         1800f, 12f, "Sect_StoneWarden", "DeepFoundations");
+        SeedSectBuilding("Sect_Veilworks",   "Veilworks",    "Reclamation sect building. Trains the Golem Autark.",
+                         850f,  15f, "Sect_GolemAutark", "WardensLedger");
+        SeedSectBuilding("Sect_MusterYard",  "Muster Yard",  "War sect building. Trains the Warbreaker.",
+                         1100f, 14f, "Sect_Warbreaker",  "EndlessMuster");
     }
+
+    /// <summary>
+    /// Seed one sect building. Every sect building has the same shape — it
+    /// trains exactly its sect's unit and sells exactly its sect's research —
+    /// so only hp / line of sight / the two ids differ.
+    ///
+    /// minEra 1 deliberately: the real gate is adoption, checked in
+    /// EntityExtractors.GetBuildingActions, and an era gate on top of it would
+    /// only be able to hide a building the player has already paid RP for.
+    /// </summary>
+    private static void SeedSectBuilding(string id, string name, string role,
+        float hp, float los, string unitId, string techId)
+        => EnsureBuildingDefault(id, name, role, hp, los, radius: 1.6f, minEra: 1,
+                                 trains: new[] { unitId }, research: new[] { techId });
 
     /// <summary>
     /// Seed the two Alanthor King's Court units in code so they train, show in
@@ -467,4 +499,63 @@ public static class TechCatalog
         }
         return null;
     }
+
+    // ─── culture gating ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Is this technology researchable by the given culture?
+    ///
+    /// GAME RULE, single-sourced (2026-08-12): this used to exist as two
+    /// byte-identical copies — SimpleAISystem.TechCultureAllowed and
+    /// EntityExtractors.TechAvailableToCulture. The AI decides what to research
+    /// with it and the UI decides what to SHOW with it, so any drift between
+    /// them meant the AI researching techs the player cannot see, or the panel
+    /// offering techs the AI would never take. One copy, both callers.
+    ///
+    /// `tech.culture` wins when the JSON declares one. Otherwise the id switch
+    /// handles the shared-building case: the Gatherer's Hut carries both the
+    /// Alanthor Survey drips and the Feraldis Raiding ladder, and each line is
+    /// inert for the other culture (a Feraldis hut is a Raider Camp that
+    /// gathers nothing, and only Feraldis fields Plunderers).
+    /// </summary>
+    public static bool CultureAllows(TechnologyDef tech, byte culture)
+    {
+        if (tech == null) return true;
+
+        if (!string.IsNullOrEmpty(tech.culture))
+        {
+            switch (tech.culture)
+            {
+                case "Runai":    return culture == Cultures.Runai;
+                case "Alanthor": return culture == Cultures.Alanthor;
+                case "Feraldis": return culture == Cultures.Feraldis;
+                // Unknown culture name: fall through to the id switch.
+            }
+        }
+
+        switch (tech.id)
+        {
+            // Feraldis Raider Camp ladder.
+            case "Raiding1":
+            case "Raiding2":
+            case "Raiding3":
+            case "IronPlunder":
+            case "VeilstonePlunder":
+            case "VeilsteelPlunder":
+                return culture == Cultures.Feraldis;
+
+            // Alanthor Guild gather drips — dead weight on a Raider Camp.
+            case "IronSurveying1":
+            case "IronSurveying2":
+            case "IronSurveying3":
+            case "VeilstoneSurvey1":
+            case "VeilstoneSurvey2":
+            case "VeilsteelSurvey":
+                return culture != Cultures.Feraldis;
+
+            default:
+                return true;
+        }
+    }
+
 }

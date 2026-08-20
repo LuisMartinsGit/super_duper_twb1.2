@@ -55,8 +55,29 @@ Building, Worker, Religious, Ship.
 | Alanthor_Trebuchet | +80 vs Building | Area siege, wall-line killer (beats 2-3) |
 | Alanthor_BatteringRam | +80 vs Building | Buildings-only attacker (`BuildingsOnlyAttacker`) |
 
+### The ranged ladder
+
+Truth source for the three bow lines. Rebalanced 2026-08-13 — the old numbers
+had the **Archer out-ranging the Crossbowman** (25 vs 18) despite sitting below
+it on the ladder, and every line shot further than it could see.
+
+| Unit | Damage | Range | Min range | Line of sight |
+|---|---|---|---|---|
+| Archer | 8 | 10 | 2 | 10 |
+| Crossbowman | 18 | 12 | 3 | 12 |
+| Longbowman | 25 | 20 | 8 | 20 |
+
+Two rules hold across the ladder, and new ranged units must respect both:
+
+- **Range never exceeds line of sight.** A unit that outranges its own vision
+  can only use the difference through someone else's eyes, which reads as
+  shooting at nothing. Range and sight are set equal here.
+- **Range rises with the ladder.** Damage and reach both increase
+  Archer → Crossbowman → Longbowman, so the ordering is unambiguous and a
+  higher-tier bow is never a sidegrade.
+
 Longbowmen deliberately carry **no** bonus tag — their dominance is raw
-stats (25 dmg / 40 range vs the crossbow's 18 / 18), which is exactly what
+stats (25 dmg / 20 range vs the crossbow's 18 / 12), which is exactly what
 makes the cavalry counter necessary.
 
 Runai / Feraldis counter data follows the same pattern when those trees

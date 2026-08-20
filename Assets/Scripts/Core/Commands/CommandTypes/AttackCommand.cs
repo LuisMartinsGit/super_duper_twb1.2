@@ -51,38 +51,28 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(unit) || !em.Exists(target)) return false;
             if (!em.HasComponent<Damage>(unit)) return false;
 
-            // Verify not attacking friendly unit
+            // Verify not attacking a friendly OR allied unit. An explicit
+            // attack order on an ally is rejected outright — allied damage
+            // does not happen by any route. docs/Design/Teams.md
             if (em.HasComponent<FactionTag>(unit) && em.HasComponent<FactionTag>(target))
             {
                 var unitFaction = em.GetComponentData<FactionTag>(unit).Value;
                 var targetFaction = em.GetComponentData<FactionTag>(target).Value;
-                if (unitFaction == targetFaction) return false;
+                if (!Alliances.AreHostile(unitFaction, targetFaction)) return false;
             }
 
             return true;
         }
 
+        /// <summary>Cancel whatever this unit was doing before the new order.
+        /// Steps are shared via CommandCleanup — see that file for why the four
+        /// order helpers clear different sets.</summary>
         private static void ClearConflictingCommands(EntityManager em, Entity unit)
         {
-            // Clear build
-            if (em.HasComponent<BuildCommand>(unit))
-                em.RemoveComponent<BuildCommand>(unit);
-
-            // Clear gather
-            if (em.HasComponent<GatherCommand>(unit))
-                em.RemoveComponent<GatherCommand>(unit);
-
-            // Clear heal
-            if (em.HasComponent<HealCommand>(unit))
-                em.RemoveComponent<HealCommand>(unit);
-            // Clear Litharch healing state
-            if (em.HasComponent<LitharchState>(unit))
-            {
-                var ls = em.GetComponentData<LitharchState>(unit);
-                if (ls.IsHealing != 0) { ls.HealTarget = Entity.Null; ls.IsHealing = 0; em.SetComponentData(unit, ls); }
-            }
-
-            // Clear UserMoveOrder to allow combat system to take over
+            // Attack installs AttackCommand/Target itself, so it must NOT
+            // clear combat here — only the work orders, plus the player-move
+            // shield so the combat system can take the unit over.
+            CommandCleanup.ClearWorkOrders(em, unit);
             if (em.HasComponent<UserMoveOrder>(unit))
                 em.RemoveComponent<UserMoveOrder>(unit);
         }

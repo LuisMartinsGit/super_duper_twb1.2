@@ -88,6 +88,14 @@ namespace TheWaningBorder.Systems.Navigation
                 var keep = new NativeList<FormationMember>(snapshot.Length, Allocator.Temp);
                 var toDetach = new NativeList<Entity>(snapshot.Length, Allocator.Temp);
                 float slowest = float.MaxValue;
+
+                // Worst member lag against the PRE-advance leader pose. Drives
+                // the leader tether below: the leader may only travel as fast
+                // as the formation it is leading can actually follow.
+                float3 preRight = math.cross(new float3(0f, 1f, 0f), g.Facing);
+                float maxLag = 0f;
+                Entity worstLaggard = Entity.Null;
+
                 for (int i = 0; i < snapshot.Length; i++)
                 {
                     var m = snapshot[i];
@@ -129,6 +137,15 @@ namespace TheWaningBorder.Systems.Navigation
                         float sp = em.GetComponentData<MoveSpeed>(u).Value;
                         if (sp > 0f && sp < slowest) slowest = sp;
                     }
+
+                    if (em.HasComponent<LocalTransform>(u))
+                    {
+                        float3 sp0 = g.LeaderPos + preRight * m.Slot.x + g.Facing * m.Slot.y;
+                        float3 p0 = em.GetComponentData<LocalTransform>(u).Position;
+                        float lx = sp0.x - p0.x, lz = sp0.z - p0.z;
+                        float lag = math.sqrt(lx * lx + lz * lz);
+                        if (lag > maxLag) { maxLag = lag; worstLaggard = u; }
+                    }
                 }
                 snapshot.Dispose();
 
@@ -153,6 +170,52 @@ namespace TheWaningBorder.Systems.Navigation
                 if (slowest > 0f && slowest != float.MaxValue)
                     g.GroupSpeed = slowest;
 
+                // ── Leader tether ──────────────────────────────────────────
+                // The virtual leader pays none of the costs its members pay:
+                // no separation, no obstacle slide, no turn-rate clamp, and —
+                // crucially — no terrain cost and no BorderDebuff.SpeedPenalty,
+                // all of which UnitIntegratorSystem DOES apply to the members.
+                // At equal nominal speed the leader therefore always pulls
+                // ahead, the members lose line of sight to their spots, fall
+                // back to their own goal flow, and the formation stops being a
+                // formation. Scale the leader's step by how far the group has
+                // actually fallen behind. This also removes the need for a
+                // separate "wait while we form up" rule: on tick 1 members can
+                // be a whole CohesionRadius from their spots, so the leader
+                // starts slow and accelerates as the shape comes together.
+                float lagScale = 1f;
+                if (maxLag > FormationGroup.LeaderTetherDistance)
+                {
+                    lagScale = math.saturate(
+                        1f - (maxLag - FormationGroup.LeaderTetherDistance)
+                             / FormationGroup.LeaderTetherDistance);
+                }
+
+                // Only a group that is FAILING to close up counts toward the
+                // release fuse — a formation still forming has a large lag that
+                // is steadily shrinking, and must not be torn apart for it.
+                Entity pendingDrop = Entity.Null;
+                if (maxLag < g.BestLag - FormationGroup.TetherProgressEpsilon)
+                {
+                    g.BestLag = maxLag;
+                    g.TetherTicks = 0;
+                }
+                else if (lagScale <= 0.01f)
+                {
+                    g.TetherTicks = (byte)math.min(g.TetherTicks + 1, 255);
+                    if (g.TetherTicks >= FormationGroup.TetherReleaseTicks
+                        && worstLaggard != Entity.Null)
+                    {
+                        // One wedged member would otherwise freeze the whole
+                        // group at a standstill. Drop it; it finishes to its
+                        // own slot independently (design §2.4 outlier rule).
+                        pendingDrop = worstLaggard;
+                        g.TetherTicks = 0;
+                        g.BestLag = float.MaxValue;
+                        lagScale = 1f;
+                    }
+                }
+
                 // ── Advance the virtual leader. ──
                 if (g.State == FormationGroup.StateMoving)
                 {
@@ -171,7 +234,7 @@ namespace TheWaningBorder.Systems.Navigation
                             hasDirTable, in dirTable, g.LeaderPos, g.Destination, g.FactionIdx);
 
                         float destDist = math.sqrt(destDistSq);
-                        float stepLen = math.min(g.GroupSpeed * dt, destDist);
+                        float stepLen = math.min(g.GroupSpeed * lagScale * dt, destDist);
                         float3 next = g.LeaderPos + dir * stepLen;
 
                         if (IsLeaderCellPassable(in grid, in cost, next, g.FactionIdx))
@@ -202,16 +265,35 @@ namespace TheWaningBorder.Systems.Navigation
                     }
                 }
 
+                // ── Arrival DISSOLVES the group (design §2.8). ─────────────
+                // The leader has reached the destination, so every member's
+                // own DesiredDestination — its final slot — already IS the
+                // frozen spot. Keeping the group alive past this point kept
+                // FormationMemberState / FormationSpeedOverride on units that
+                // the system no longer steers, which (a) leaked the group
+                // entity whenever a member could not close the last 0.5 m, and
+                // (b) held SteeringSystem's formation exemption open during the
+                // settle, when the arrival damping is exactly what's wanted.
+                if (g.State == FormationGroup.StateArrived)
+                {
+                    var settling = em.GetBuffer<FormationMember>(groupEntity);
+                    var settled = new NativeArray<Entity>(settling.Length, Allocator.Temp);
+                    for (int i = 0; i < settling.Length; i++) settled[i] = settling[i].Unit;
+                    for (int i = 0; i < settled.Length; i++) Detach(em, settled[i]);
+                    settled.Dispose();
+                    keep.Dispose();
+                    em.DestroyEntity(groupEntity);
+                    continue;
+                }
+
                 // ── Steer members to their moving spots. ──
                 float3 right = math.cross(new float3(0f, 1f, 0f), g.Facing);
-                bool moving = g.State == FormationGroup.StateMoving;
                 float catchUpSpeed = g.GroupSpeed * FormationGroup.CatchUpMultiplier;
 
                 buffer = em.GetBuffer<FormationMember>(groupEntity);
                 for (int i = 0; i < buffer.Length; i++)
                 {
                     var u = buffer[i].Unit;
-                    if (!moving) continue; // Arrived: members finish their own final-slot moves.
 
                     if (!em.HasComponent<LocalTransform>(u)
                         || !em.HasComponent<FlowDesiredDir>(u)) continue;
@@ -223,7 +305,14 @@ namespace TheWaningBorder.Systems.Navigation
                     toSpot.y = 0f;
                     float spotDist = math.length(toSpot);
 
-                    float speed;
+                    // Catch-up hysteresis: engage above the trigger distance,
+                    // release only once genuinely back in place. See
+                    // FormationMember.CatchingUp for why a single threshold
+                    // produced a permanent lag instead of a catch-up.
+                    bool catching = buffer[i].CatchingUp != 0;
+                    if (spotDist > FormationGroup.CatchUpTriggerDistance) catching = true;
+                    else if (spotDist <= InPlaceDistance) catching = false;
+
                     if (spotDist <= InPlaceDistance)
                     {
                         // In place: march with the leader.
@@ -232,7 +321,6 @@ namespace TheWaningBorder.Systems.Navigation
                             Value = g.Facing,
                             HasValue = 1,
                         });
-                        speed = g.GroupSpeed;
                     }
                     else if (HasLineOfSight(in grid, in cost, pos, spot, g.FactionIdx))
                     {
@@ -242,25 +330,39 @@ namespace TheWaningBorder.Systems.Navigation
                             Value = toSpot / math.max(1e-5f, spotDist),
                             HasValue = 1,
                         });
-                        speed = spotDist > FormationGroup.CatchUpTriggerDistance
-                            ? catchUpSpeed
-                            : g.GroupSpeed;
                     }
                     else
                     {
                         // No LOS to the spot (blocker between): fall back to
                         // the unit's own goal flow toward its final slot
-                        // destination (already in FlowDesiredDir), at
-                        // catch-up speed so it can rejoin.
-                        speed = catchUpSpeed;
+                        // destination (already in FlowDesiredDir), at catch-up
+                        // speed so it can rejoin once it clears the blocker.
+                        catching = true;
+                    }
+
+                    byte catchByte = (byte)(catching ? 1 : 0);
+                    if (buffer[i].CatchingUp != catchByte)
+                    {
+                        var m = buffer[i];
+                        m.CatchingUp = catchByte;
+                        buffer[i] = m;
                     }
 
                     if (em.HasComponent<FormationSpeedOverride>(u))
-                        em.SetComponentData(u, new FormationSpeedOverride { Value = speed });
+                    {
+                        em.SetComponentData(u, new FormationSpeedOverride
+                        {
+                            Value = catching ? catchUpSpeed : g.GroupSpeed,
+                        });
+                    }
                 }
 
                 em.SetComponentData(groupEntity, g);
                 keep.Dispose();
+
+                // Structural change last: Detach removes components, which
+                // would invalidate the member buffer held above.
+                if (pendingDrop != Entity.Null) Detach(em, pendingDrop);
             }
         }
 
@@ -374,7 +476,8 @@ namespace TheWaningBorder.Systems.Navigation
                 if (c == NavCostField.CostConditional)
                 {
                     byte ownerIdx = (byte)(cost.Flags[idx] & NavCostField.FlagOwnerMask);
-                    if (ownerIdx != selfFactionIdx) return false;
+                    // Owner or ally. docs/Design/Teams.md
+                    if (!Alliances.AreAlliedBurst(ownerIdx, selfFactionIdx)) return false;
                 }
                 if (c == NavCostField.CostBridgeDeckOnly) return false;
                 if (x == x1 && z == z1) return true;

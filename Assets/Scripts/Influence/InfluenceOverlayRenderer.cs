@@ -1,32 +1,47 @@
 // InfluenceOverlayRenderer.cs
-// In-world influence visualization, toggled from the HUD's INFLUENCE
-// button. BORDER-ONLY (design 2026-07-06 rev.4): for every channel with
-// territory (players + curse), the 0.5 iso-contour is traced with marching
-// squares over the influence grid, the segments are chained into polylines
-// and Chaikin-smoothed into clean splines, then rendered as terrain-draped
-// ribbon meshes — players in their banner colour, the curse in purple.
-// No fill, no texture, no pixelation.
+// In-world influence BORDERS — the visible outline of every territory.
+//
+// Design (docs/Design/Overview.md § The influence map): "in-world overlay =
+// border lines only, traced as smooth splines along the 0.5 contour".
+// For every channel that holds ground (the 8 players + the curse) the 0.5
+// iso-contour is traced with marching squares over the influence grid, the
+// segments are chained into polylines and Chaikin-smoothed into clean
+// splines, then emitted as terrain-draped ribbon meshes — players in their
+// banner colour, the curse in purple, blood in dark red at its own level.
+// No fill, no texture, no pixelation: the FILLS are the terrain shader's job
+// (InfluenceMaskTexture), this is only the outline.
+//
+// Restored 2026-08-18: the tracer was written for the old IMGUI HUD's
+// INFLUENCE button, lost its only caller in the UI redesign, and was then
+// dropped as dead code in the scripts-layout refactor — so the ground had
+// coloured territory with no borders at all. It now mounts itself on
+// gameplay scenes and is ON by default; Toggle()/SetVisible() remain for a
+// HUD hook.
 //
 // Fog of war applies (as on the minimap): border vertices in unexplored
 // ground are invisible, in explored-but-unseen ground they dim.
-//
-// Rebuilt every sim tick (0.1 s) — the contour only moves when the
-// influence field does.
 
 using System.Collections.Generic;
+using TheWaningBorder.Core.Maps;
 using TheWaningBorder.Systems.Visibility;
-using TheWaningBorder.World.FogOfWar;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace TheWaningBorder.Influence
 {
+    [DefaultExecutionOrder(2001)] // just after InfluenceMaskTexture (2000)
     public sealed class InfluenceOverlayRenderer : MonoBehaviour
     {
-        private const float RebuildInterval = 0.1f;  // matches InfluenceMapSystem's tick
+        // The influence field ticks at 0.1 s; retracing every other tick is
+        // indistinguishable in motion and halves the cost.
+        private const float RebuildInterval = 0.2f;
         private const float Threshold = 0.5f;        // the border contour level
         private const float HeightOffset = 0.6f;     // drape height above terrain
-        private const float HalfWidth = 0.24f;       // ribbon half-width (world units; −60 % 2026-07-06)
+        // Ribbon half-width. 0.24 was tuned for the old always-off debug
+        // overlay; at 0.4 the line reads as a border from normal RTS camera
+        // height, which is the point of having it on permanently.
+        private const float HalfWidth = 0.4f;
         private const int ChaikinIterations = 2;     // corner-cutting passes
         private const byte VisibleAlpha = 230;
         private const byte RevealedAlpha = 110;
@@ -39,41 +54,79 @@ namespace TheWaningBorder.Influence
 
         public static bool IsVisible => _instance != null && _instance._visible;
 
-        /// <summary>Toggle the in-world border overlay. Creates the renderer
-        /// on first use; geometry builds lazily once terrain + influence map
-        /// exist.</summary>
-        public static void Toggle()
+        /// <summary>Toggle the in-world border overlay (HUD hook). Creates
+        /// the renderer on first use; geometry builds lazily once terrain +
+        /// influence map exist.</summary>
+        public static void Toggle() => SetVisible(!IsVisible);
+
+        /// <summary>Show / hide the in-world border overlay.</summary>
+        public static void SetVisible(bool on)
         {
             if (_instance == null)
             {
-                var go = new GameObject("[Influence Overlay]");
-                _instance = go.AddComponent<InfluenceOverlayRenderer>();
+                if (!on) return;
+                _instance = new GameObject("[Influence Overlay]")
+                    .AddComponent<InfluenceOverlayRenderer>();
             }
-            _instance.SetVisible(!_instance._visible);
+            _instance.ApplyVisible(on);
         }
 
-        private bool _visible;
+        // ─── Auto-mount on gameplay scenes ────────────────────────────────
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void Init()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (!MapRegistry.IsGameplayScene(scene.name)) return;
+            if (Object.FindFirstObjectByType<InfluenceOverlayRenderer>() != null) return;
+            _instance = new GameObject("[Influence Overlay]")
+                .AddComponent<InfluenceOverlayRenderer>();
+            _instance.ApplyVisible(true);
+        }
+
+        // ─── State ────────────────────────────────────────────────────────
+        private bool _visible = true;
         private bool _built;
         private GameObject _meshGo;
         private Mesh _mesh;
         private Material _mat;
-        private Terrain _terrain;
-        private float _terrainY;
         private float _nextRebuild;
 
-        // Reused scratch buffers.
+        // Terrain height cache — the ribbon has thousands of vertices and
+        // Terrain.SampleHeight per vertex per rebuild is milliseconds of main
+        // thread. One GetHeights snapshot (re-taken only when the terrain
+        // object itself changes) plus bilinear lookup is free by comparison.
+        private float[,] _heights;
+        private int _heightRes;
+        private Vector3 _terrainPos, _terrainSize;
+        private int _terrainVersion = -1;
+
+        // Reused scratch — this runs five times a second, so nothing here
+        // may allocate after warm-up.
         private readonly List<Vector3> _verts = new();
         private readonly List<Color32> _colors = new();
         private readonly List<int> _tris = new();
         private readonly List<Vector2> _segA = new();
         private readonly List<Vector2> _segB = new();
+        private readonly List<Vector2> _pts = new();
+        private readonly List<Vector2> _smoothScratch = new();
+        private readonly Dictionary<long, int> _endA = new();
+        private readonly Dictionary<long, int> _endB = new();
+        private bool[] _used = new bool[256];
+        private sbyte[] _dominant;   // strongest channel per cell
+        private float[] _field;      // scalar field currently being marched
 
-        private void SetVisible(bool on)
+        private void ApplyVisible(bool on)
         {
             _visible = on;
             if (on && !_built) TryBuild();
             if (_meshGo != null) _meshGo.SetActive(on && _built);
-            if (on) { _nextRebuild = 0f; }
+            if (on) _nextRebuild = 0f;
         }
 
         private void Update()
@@ -89,7 +142,12 @@ namespace TheWaningBorder.Influence
 
             if (Time.time < _nextRebuild) return;
             _nextRebuild = Time.time + RebuildInterval;
+
+            double t0 = Time.realtimeSinceStartupAsDouble;
+            RefreshTerrainCache();
             RebuildBorders();
+            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceBorders",
+                (Time.realtimeSinceStartupAsDouble - t0) * 1000.0);
         }
 
         private void OnDestroy()
@@ -104,19 +162,28 @@ namespace TheWaningBorder.Influence
         private void TryBuild()
         {
             if (!PlayerInfluenceMap.Ready) return;
-            _terrain = Terrain.activeTerrain;
-            if (_terrain == null || _terrain.terrainData == null) return;
-            _terrainY = _terrain.transform.position.y;
+            if (!RefreshTerrainCache()) return;
+
+            // Sprites/Default: vertex-colour, alpha-blended, double-sided —
+            // renders fine under URP, and it is in the project's
+            // always-included shader list, so Shader.Find still resolves it
+            // in a player build (unreferenced shaders get stripped).
+            var shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                Debug.LogWarning("[InfluenceOverlay] Sprites/Default missing — " +
+                                 "influence borders will not render.");
+                return;
+            }
 
             _mesh = new Mesh
             {
                 name = "InfluenceBorders",
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
+            _mesh.MarkDynamic();
 
-            // Sprites/Default: vertex-colour, alpha-blended, double-sided —
-            // and it renders fine under URP. No custom shader asset needed.
-            _mat = new Material(Shader.Find("Sprites/Default"))
+            _mat = new Material(shader)
             {
                 name = "InfluenceBorderMat",
                 renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent
@@ -131,7 +198,30 @@ namespace TheWaningBorder.Influence
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
 
+            int cells = PlayerInfluenceMap.Resolution * PlayerInfluenceMap.Resolution;
+            _dominant = new sbyte[cells];
+            _field = new float[cells];
+
             _built = true;
+            TWBLog.Log("[InfluenceOverlay] territory borders online.");
+        }
+
+        /// <summary>Snapshot the terrain heightmap once per terrain object.
+        /// False while no terrain exists yet (MapMagic generates it late).</summary>
+        private bool RefreshTerrainCache()
+        {
+            var terrain = TheWaningBorder.World.Terrain.TerrainUtility.GetActiveTerrain();
+            if (terrain == null || terrain.terrainData == null) return false;
+            int version = TheWaningBorder.World.Terrain.TerrainUtility.TerrainVersion;
+            if (_heights != null && version == _terrainVersion) return true;
+
+            var data = terrain.terrainData;
+            _heightRes = data.heightmapResolution;
+            _heights = data.GetHeights(0, 0, _heightRes, _heightRes);
+            _terrainPos = terrain.transform.position;
+            _terrainSize = data.size;
+            _terrainVersion = version;
+            return true;
         }
 
         // ─── Rebuild ──────────────────────────────────────────────────────
@@ -142,41 +232,34 @@ namespace TheWaningBorder.Influence
             _colors.Clear();
             _tris.Clear();
 
+            // Dominance for every cell, once. The per-channel contour below
+            // is ownership-clipped against it, and re-deriving that inside
+            // each channel's march would be nine passes instead of one.
+            PlayerInfluenceMap.FillDominantChannels(_dominant);
+
             for (int ch = 0; ch < PlayerInfluenceMap.ChannelCount; ch++)
             {
-                if (!PlayerInfluenceMap.ChannelHasPresence(ch, Threshold)) continue;
+                if (!BuildClippedField(ch)) continue;
 
-                int channel = ch;
                 _segA.Clear();
                 _segB.Clear();
-                // OWNERSHIP-CLIPPED contour (2026-08-04): a cell only counts
-                // as this channel's territory while it is the STRONGEST
-                // channel there. Where two players' fields meet, each border
-                // stops at the seam — the meeting reads as a clean DOUBLE
-                // line in the two players' colours, instead of each contour
-                // wandering deep into the other's ground (both fields sit
-                // over 0.5 across the whole overlap).
-                MarchField((x, y) =>
-                {
-                    float v = PlayerInfluenceMap.CellValue(x, y, channel);
-                    if (v < Threshold) return v;
-                    for (int o = 0; o < PlayerInfluenceMap.ChannelCount; o++)
-                        if (o != channel && PlayerInfluenceMap.CellValue(x, y, o) > v)
-                            return Threshold - 0.01f; // outranked — seam cell
-                    return v;
-                }, Threshold);
+                MarchField(Threshold);
                 if (_segA.Count == 0) continue;
 
-                Color32 color = PlayerInfluenceMap.ChannelColor(ch);
-                ChainAndEmit(color);
+                ChainAndEmit(PlayerInfluenceMap.ChannelColor(ch));
             }
 
             // Blood — an independent field with its own contour level.
             if (BloodMap.Ready && BloodMap.HasPresence(BloodThreshold))
             {
+                int res = PlayerInfluenceMap.Resolution;
+                for (int y = 0; y < res; y++)
+                    for (int x = 0; x < res; x++)
+                        _field[y * res + x] = BloodMap.CellValue(x, y);
+
                 _segA.Clear();
                 _segB.Clear();
-                MarchField(BloodMap.CellValue, BloodThreshold);
+                MarchField(BloodThreshold);
                 if (_segA.Count > 0) ChainAndEmit(BloodColor);
             }
 
@@ -187,22 +270,48 @@ namespace TheWaningBorder.Influence
             _mesh.RecalculateBounds();
         }
 
-        /// <summary>Marching squares over a scalar cell grid at the given
+        /// <summary>
+        /// Load one channel's field into <see cref="_field"/>, OWNERSHIP-CLIPPED:
+        /// a cell only counts as this channel's territory while it is the
+        /// STRONGEST channel there. Where two players' fields meet, each
+        /// border stops at the seam — the meeting reads as a clean DOUBLE
+        /// line in the two players' colours, instead of each contour
+        /// wandering deep into the other's ground (both fields sit over 0.5
+        /// across the whole overlap). Returns false when nothing crosses the
+        /// threshold, so an empty channel costs one pass and no tracing.
+        /// </summary>
+        private bool BuildClippedField(int channel)
+        {
+            PlayerInfluenceMap.FillChannel(channel, _field);
+
+            bool any = false;
+            for (int i = 0; i < _field.Length; i++)
+            {
+                if (_field[i] < Threshold) continue;
+                if (_dominant[i] != channel) _field[i] = Threshold - 0.01f; // outranked — seam cell
+                else any = true;
+            }
+            return any;
+        }
+
+        /// <summary>Marching squares over <see cref="_field"/> at the given
         /// contour level — emits raw contour segments in grid space
-        /// (cell-centre coordinates). The getter is (x, y) → 0..1; both the
-        /// influence channels and the blood map share the same grid layout.</summary>
-        private void MarchField(System.Func<int, int, float> value, float t)
+        /// (cell-centre coordinates). Influence channels and the blood map
+        /// share the same grid layout.</summary>
+        private void MarchField(float t)
         {
             int res = PlayerInfluenceMap.Resolution;
+            var f = _field;
 
             for (int y = 0; y < res - 1; y++)
             {
+                int row = y * res, next = row + res;
                 for (int x = 0; x < res - 1; x++)
                 {
-                    float v00 = value(x, y);
-                    float v10 = value(x + 1, y);
-                    float v11 = value(x + 1, y + 1);
-                    float v01 = value(x, y + 1);
+                    float v00 = f[row + x];
+                    float v10 = f[row + x + 1];
+                    float v11 = f[next + x + 1];
+                    float v01 = f[next + x];
 
                     int c = (v00 >= t ? 1 : 0) | (v10 >= t ? 2 : 0)
                           | (v11 >= t ? 4 : 0) | (v01 >= t ? 8 : 0);
@@ -258,66 +367,62 @@ namespace TheWaningBorder.Influence
         private void ChainAndEmit(Color32 color)
         {
             int n = _segA.Count;
-            var used = new bool[n];
-            var map = new Dictionary<long, List<int>>(n * 2);
+            if (_used.Length < n) _used = new bool[Mathf.NextPowerOfTwo(n)];
+            else System.Array.Clear(_used, 0, n);
 
+            _endA.Clear();
+            _endB.Clear();
             for (int i = 0; i < n; i++)
             {
-                Register(map, Key(_segA[i]), i);
-                Register(map, Key(_segB[i]), i);
+                Register(Key(_segA[i]), i);
+                Register(Key(_segB[i]), i);
             }
 
-            var pts = new List<Vector2>(64);
             for (int s = 0; s < n; s++)
             {
-                if (used[s]) continue;
-                used[s] = true;
+                if (_used[s]) continue;
+                _used[s] = true;
 
-                pts.Clear();
-                pts.Add(_segA[s]);
-                pts.Add(_segB[s]);
-                Extend(map, used, pts, atHead: false); // grow from the tail
-                pts.Reverse();
-                Extend(map, used, pts, atHead: false); // grow from the (old) head
+                _pts.Clear();
+                _pts.Add(_segA[s]);
+                _pts.Add(_segB[s]);
+                Extend(_pts);        // grow from the tail
+                _pts.Reverse();
+                Extend(_pts);        // grow from the (old) head
 
-                bool closed = pts.Count > 3 && Key(pts[0]) == Key(pts[pts.Count - 1]);
-                if (closed) pts.RemoveAt(pts.Count - 1);
+                bool closed = _pts.Count > 3 && Key(_pts[0]) == Key(_pts[_pts.Count - 1]);
+                if (closed) _pts.RemoveAt(_pts.Count - 1);
 
                 for (int it = 0; it < ChaikinIterations; it++)
-                    Chaikin(pts, closed);
+                    Chaikin(_pts, closed);
 
-                EmitRibbon(pts, closed, color);
+                EmitRibbon(_pts, closed, color);
             }
         }
 
-        private static void Register(Dictionary<long, List<int>> map, long key, int seg)
+        /// <summary>A contour endpoint sits on a cell EDGE shared by exactly
+        /// two cells, so it carries at most two segments — two slots is the
+        /// whole adjacency structure, and the dictionaries are reused.</summary>
+        private void Register(long key, int seg)
         {
-            if (!map.TryGetValue(key, out var list))
-            {
-                list = new List<int>(2);
-                map[key] = list;
-            }
-            list.Add(seg);
+            if (!_endA.ContainsKey(key)) _endA[key] = seg;
+            else if (!_endB.ContainsKey(key)) _endB[key] = seg;
         }
 
-        private void Extend(Dictionary<long, List<int>> map, bool[] used,
-            List<Vector2> pts, bool atHead)
+        private void Extend(List<Vector2> pts)
         {
             while (true)
             {
                 long key = Key(pts[pts.Count - 1]);
-                if (!map.TryGetValue(key, out var candidates)) return;
 
                 int next = -1;
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (!used[candidates[i]]) { next = candidates[i]; break; }
-                }
+                if (_endA.TryGetValue(key, out int a) && !_used[a]) next = a;
+                else if (_endB.TryGetValue(key, out int b) && !_used[b]) next = b;
                 if (next < 0) return;
 
-                used[next] = true;
-                Vector2 a = _segA[next], b = _segB[next];
-                pts.Add(Key(a) == key ? b : a);
+                _used[next] = true;
+                Vector2 pa = _segA[next], pb = _segB[next];
+                pts.Add(Key(pa) == key ? pb : pa);
 
                 // Stop when the loop closes.
                 if (Key(pts[pts.Count - 1]) == Key(pts[0])) return;
@@ -325,26 +430,26 @@ namespace TheWaningBorder.Influence
         }
 
         /// <summary>One Chaikin corner-cutting pass, in place.</summary>
-        private static void Chaikin(List<Vector2> pts, bool closed)
+        private void Chaikin(List<Vector2> pts, bool closed)
         {
             int count = pts.Count;
             if (count < 3) return;
 
-            var outPts = new List<Vector2>(count * 2);
-            if (!closed) outPts.Add(pts[0]);
+            _smoothScratch.Clear();
+            if (!closed) _smoothScratch.Add(pts[0]);
 
             int last = closed ? count : count - 1;
             for (int i = 0; i < last; i++)
             {
                 Vector2 a = pts[i];
                 Vector2 b = pts[(i + 1) % count];
-                outPts.Add(a * 0.75f + b * 0.25f);
-                outPts.Add(a * 0.25f + b * 0.75f);
+                _smoothScratch.Add(a * 0.75f + b * 0.25f);
+                _smoothScratch.Add(a * 0.25f + b * 0.75f);
             }
-            if (!closed) outPts.Add(pts[count - 1]);
+            if (!closed) _smoothScratch.Add(pts[count - 1]);
 
             pts.Clear();
-            pts.AddRange(outPts);
+            pts.AddRange(_smoothScratch);
         }
 
         private void EmitRibbon(List<Vector2> pts, bool closed, Color32 color)
@@ -353,7 +458,10 @@ namespace TheWaningBorder.Influence
             if (count < 2) return;
 
             bool fogged = GameSettings.FogOfWarEnabled;
-            var localFaction = GameSettings.LocalPlayerFaction;
+            // Observer perspective: outline what the VIEWED player can see;
+            // an observer with nothing selected sees every border.
+            var viewFaction = GameSettings.ViewFactionOrLocal;
+            bool fullReveal = GameSettings.IsObserver && GameSettings.ViewFaction == null;
             Vector2 min = PlayerInfluenceMap.WorldMin;
             Vector2 size = PlayerInfluenceMap.WorldSize;
             float cellX = size.x / PlayerInfluenceMap.Resolution;
@@ -378,12 +486,12 @@ namespace TheWaningBorder.Influence
 
                 // Fog of war: hidden → invisible, revealed → dim, visible → full.
                 byte alpha = VisibleAlpha;
-                if (fogged)
+                if (fogged && !fullReveal)
                 {
                     var p3 = new float3(w.x, 0f, w.y);
-                    if (FogOfWarSystem.IsVisibleToFaction(localFaction, p3))
+                    if (FogOfWarSystem.IsVisibleToFaction(viewFaction, p3))
                         alpha = VisibleAlpha;
-                    else if (FogOfWarSystem.IsRevealedToFaction(localFaction, p3))
+                    else if (FogOfWarSystem.IsRevealedToFaction(viewFaction, p3))
                         alpha = RevealedAlpha;
                     else
                         alpha = 0;
@@ -411,9 +519,30 @@ namespace TheWaningBorder.Influence
 
         private void AddRibbonVert(Vector2 xz, Color32 c)
         {
-            float y = _terrainY + _terrain.SampleHeight(new Vector3(xz.x, 0f, xz.y)) + HeightOffset;
-            _verts.Add(new Vector3(xz.x, y, xz.y));
+            _verts.Add(new Vector3(xz.x, HeightAt(xz.x, xz.y) + HeightOffset, xz.y));
             _colors.Add(c);
+        }
+
+        /// <summary>Bilinear terrain height from the cached heightmap.</summary>
+        private float HeightAt(float worldX, float worldZ)
+        {
+            if (_heights == null || _heightRes < 2) return _terrainPos.y;
+
+            float u = Mathf.Clamp01((worldX - _terrainPos.x) / Mathf.Max(0.001f, _terrainSize.x))
+                      * (_heightRes - 1);
+            float v = Mathf.Clamp01((worldZ - _terrainPos.z) / Mathf.Max(0.001f, _terrainSize.z))
+                      * (_heightRes - 1);
+            int x0 = (int)u, y0 = (int)v;
+            int x1 = Mathf.Min(x0 + 1, _heightRes - 1);
+            int y1 = Mathf.Min(y0 + 1, _heightRes - 1);
+            float tx = u - x0, ty = v - y0;
+
+            // GetHeights is indexed [z, x] and normalized 0..1 over size.y.
+            float h00 = _heights[y0, x0], h10 = _heights[y0, x1];
+            float h01 = _heights[y1, x0], h11 = _heights[y1, x1];
+            float top = h00 + (h10 - h00) * tx;
+            float bot = h01 + (h11 - h01) * tx;
+            return _terrainPos.y + (top + (bot - top) * ty) * _terrainSize.y;
         }
     }
 }

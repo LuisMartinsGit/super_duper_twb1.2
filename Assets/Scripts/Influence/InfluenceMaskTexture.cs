@@ -68,6 +68,18 @@ namespace TheWaningBorder.Influence
         private Color32[] _culturePixels;
         private Color32[] _bloodPixels;
         private float[] _eased;    // 5 channels per cell: A, F, R, curse, blood
+        // ── Player frontier ────────────────────────────────────────────
+        // The culture channels below collapse every player of a culture into
+        // ONE colour (MaxChannel), so two Alanthor players with touching
+        // territory painted as a single indistinguishable blob and neither
+        // could see the frontier. These track WHICH player owns each cell so
+        // a seam can be carved where two owners meet. -1 = unowned.
+        private sbyte[] _owner;
+        private bool[] _frontier;
+        /// <summary>How much of the culture fill survives on a frontier cell.
+        /// Low enough to read as a dark line through the territory colour.</summary>
+        private const float FrontierFill = 0.30f;
+
         private float[] _curseRaw; // pre-dilation curse coverage
         private float[] _curseTmp; // separable dilation scratch
         private bool _configured;
@@ -120,6 +132,10 @@ namespace TheWaningBorder.Influence
             if (!PlayerInfluenceMap.Ready) return;
             if (!_configured) Configure();
 
+            // Instrumented (2026-08-16 perf sweep): two 128x128 passes plus a
+            // texture upload on most frames (the ease keeps values creeping).
+            double perfT0 = Time.realtimeSinceStartupAsDouble;
+
             RefreshCultureChannels();
 
             // First frame snaps to targets so established territory shows
@@ -135,9 +151,23 @@ namespace TheWaningBorder.Influence
                     int i = row + x;
                     int e = i * 5;
 
-                    float a = Ramp(MaxChannel(_alanthorChannels, x, y), InfluenceStart, InfluenceFull);
-                    float f = Ramp(MaxChannel(_feraldisChannels, x, y), InfluenceStart, InfluenceFull);
-                    float r = Ramp(MaxChannel(_runaiChannels, x, y), InfluenceStart, InfluenceFull);
+                    // Owner = the single strongest PLAYER channel on this cell,
+                    // across every culture. Needed for the frontier pass below;
+                    // the culture fills themselves stay culture-collapsed.
+                    float aRaw = MaxChannelOwner(_alanthorChannels, x, y, out int aOwner);
+                    float fRaw = MaxChannelOwner(_feraldisChannels, x, y, out int fOwner);
+                    float rRaw = MaxChannelOwner(_runaiChannels,   x, y, out int rOwner);
+
+                    int owner = -1;
+                    float ownerVal = InfluenceStart;
+                    if (aRaw > ownerVal) { ownerVal = aRaw; owner = aOwner; }
+                    if (fRaw > ownerVal) { ownerVal = fRaw; owner = fOwner; }
+                    if (rRaw > ownerVal) { ownerVal = rRaw; owner = rOwner; }
+                    _owner[i] = (sbyte)owner;
+
+                    float a = Ramp(aRaw, InfluenceStart, InfluenceFull);
+                    float f = Ramp(fRaw, InfluenceStart, InfluenceFull);
+                    float r = Ramp(rRaw, InfluenceStart, InfluenceFull);
                     float b = Ramp(BloodMap.CellValue(x, y), BloodStart, BloodFull);
                     _curseRaw[i] = Ramp(
                         PlayerInfluenceMap.CellValue(x, y, PlayerInfluenceMap.CurseChannel),
@@ -153,6 +183,46 @@ namespace TheWaningBorder.Influence
                     _culturePixels[i].b = (byte)(_eased[e + 2] * 255f);
                     _bloodPixels[i].r = (byte)(_eased[e + 4] * 255f);
                 }
+            }
+
+            // ── Player frontier seam ─────────────────────────────────────
+            // Where two DIFFERENT players own adjoining cells, carve the fill
+            // back so a dark line reads through the territory colour. This is
+            // what makes an Alanthor-vs-Alanthor border visible at all: both
+            // players share one culture channel, so without this their fills
+            // are literally the same colour and the frontier is invisible.
+            //
+            // Done as a data pass on the mask rather than a new channel or a
+            // shader edit: RGB are the three cultures and A is the curse, so
+            // there is no spare channel to put a border in.
+            for (int y = 0; y < Res; y++)
+            {
+                int row = y * Res;
+                for (int x = 0; x < Res; x++)
+                {
+                    int i = row + x;
+                    sbyte mine = _owner[i];
+                    bool edge = false;
+                    if (mine >= 0)
+                    {
+                        // 4-neighbourhood is enough for a 1-cell seam and keeps
+                        // the pass cheap; diagonals fill in visually.
+                        if (x > 0        && _owner[i - 1]   >= 0 && _owner[i - 1]   != mine) edge = true;
+                        else if (x < Res - 1 && _owner[i + 1]   >= 0 && _owner[i + 1]   != mine) edge = true;
+                        else if (y > 0        && _owner[i - Res] >= 0 && _owner[i - Res] != mine) edge = true;
+                        else if (y < Res - 1 && _owner[i + Res] >= 0 && _owner[i + Res] != mine) edge = true;
+                    }
+                    _frontier[i] = edge;
+                }
+            }
+
+            for (int i = 0; i < _frontier.Length; i++)
+            {
+                if (!_frontier[i]) continue;
+                _culturePixels[i].r = (byte)(_culturePixels[i].r * FrontierFill);
+                _culturePixels[i].g = (byte)(_culturePixels[i].g * FrontierFill);
+                _culturePixels[i].b = (byte)(_culturePixels[i].b * FrontierFill);
+                cultureDirty = true;
             }
 
             // ── Curse halo: separable max-dilate with linear falloff, so the
@@ -207,6 +277,9 @@ namespace TheWaningBorder.Influence
                 _bloodTex.Apply(false, false);
             }
             _snapFirstFrame = false;
+
+            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceMask",
+                (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
         }
 
         private void Configure()
@@ -216,6 +289,8 @@ namespace TheWaningBorder.Influence
             _culturePixels = new Color32[Res * Res];
             _bloodPixels = new Color32[Res * Res];
             _eased = new float[Res * Res * 5];
+            _owner = new sbyte[Res * Res];
+            _frontier = new bool[Res * Res];
             _curseRaw = new float[Res * Res];
             _curseTmp = new float[Res * Res];
             _snapFirstFrame = true;
@@ -263,6 +338,24 @@ namespace TheWaningBorder.Influence
 
         private static float Ramp(float s, float start, float full)
             => Mathf.Clamp01((s - start) / (full - start));
+
+        /// <summary>
+        /// Strongest value across <paramref name="channels"/> on this cell, plus
+        /// WHICH channel produced it. MaxChannel throws the owner away, which is
+        /// exactly why same-culture frontiers were invisible.
+        /// </summary>
+        private static float MaxChannelOwner(System.Collections.Generic.List<int> channels,
+            int x, int y, out int owner)
+        {
+            float best = 0f;
+            owner = -1;
+            for (int i = 0; i < channels.Count; i++)
+            {
+                float v = PlayerInfluenceMap.CellValue(x, y, channels[i]);
+                if (v > best) { best = v; owner = channels[i]; }
+            }
+            return best;
+        }
 
         private static float MaxChannel(System.Collections.Generic.List<int> channels, int x, int y)
         {

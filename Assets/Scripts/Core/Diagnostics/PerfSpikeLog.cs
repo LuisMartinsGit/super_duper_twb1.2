@@ -19,12 +19,23 @@ namespace TheWaningBorder.Core.Diagnostics
         private static string _path;
         private static bool _ready;
 
+        /// <summary>
+        /// Forget the resolved path so the next spike re-resolves it against
+        /// the current match folder. Called by MatchLogSession.Begin — without
+        /// it the path is cached for the whole session and every match after
+        /// the first would append to (and re-truncate) the first match's file.
+        /// </summary>
+        public static void Reset() => _ready = false;
+
         private static bool Ensure()
         {
             if (_ready) return true;
             try
             {
-                string dir = Path.Combine(Application.dataPath, "..", "logs");
+                // Into the current match's folder, so a tester's Perf.log sits
+                // next to the AI / player / console logs for the same match
+                // instead of being overwritten by the next one.
+                string dir = MatchLogSession.CurrentFolder;
                 Directory.CreateDirectory(dir);
                 _path = Path.Combine(dir, "Perf.log");
                 File.WriteAllText(_path, "=== Perf spikes (ms) ===\n");

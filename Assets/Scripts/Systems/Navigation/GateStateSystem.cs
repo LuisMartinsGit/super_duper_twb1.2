@@ -120,7 +120,11 @@ namespace TheWaningBorder.Systems.Navigation
                 bool friendlyNearby = false;
                 for (int u = 0; u < unitFactions.Length; u++)
                 {
-                    if (unitFactions[u].Value != gateFac) continue;
+                    // A gate opens for its TEAM. A wall that shuts your ally
+                    // out is worse than no wall — the wall still belongs to
+                    // its owner, but passage follows the alliance.
+                    // docs/Design/Teams.md
+                    if (!Alliances.AreAllied(gateFac, unitFactions[u].Value)) continue;
                     var up = unitTransforms[u].Position;
                     float dx = up.x - gatePos.x;
                     float dz = up.z - gatePos.z;

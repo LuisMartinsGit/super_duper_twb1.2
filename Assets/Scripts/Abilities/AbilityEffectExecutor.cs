@@ -190,7 +190,8 @@ namespace TheWaningBorder.Abilities
             for (int i = 0; i < units.Length; i++)
             {
                 var u = units[i];
-                if (em.GetComponentData<FactionTag>(u).Value != srcFac) continue;
+                // Allied cavalry includes team allies. docs/Design/Teams.md
+                if (!Alliances.AreAllied(srcFac, em.GetComponentData<FactionTag>(u).Value)) continue;
                 if (em.GetComponentData<ArmorTypeData>(u).Value != ArmorType.Cavalry) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(u).Position;
@@ -204,7 +205,12 @@ namespace TheWaningBorder.Abilities
         private static void SpawnFogReveal(EntityManager em, Entity caster, Entity target, float radius, float dur)
         {
             float3 pos;
-            if (target != Entity.Null && em.Exists(target) && em.HasComponent<LocalTransform>(target))
+            // The player's AIMED point wins. Without this an Area ability could
+            // only ever centre on an entity, so Use Celestar revealed around the
+            // scout that cast it — useless for scouting somewhere you can't see.
+            if (em.HasComponent<AbilityAimPoint>(caster))
+                pos = em.GetComponentData<AbilityAimPoint>(caster).Position;
+            else if (target != Entity.Null && em.Exists(target) && em.HasComponent<LocalTransform>(target))
                 pos = em.GetComponentData<LocalTransform>(target).Position;
             else if (em.HasComponent<LocalTransform>(caster))
                 pos = em.GetComponentData<LocalTransform>(caster).Position;

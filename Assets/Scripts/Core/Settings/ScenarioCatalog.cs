@@ -29,7 +29,7 @@ public static class ScenarioCatalog
         ("Wall Siege (Walls vs Siege)", ScenarioType.WallSiege),
         ("Spell Showcase (all spells, flat map)", ScenarioType.SpellShowcase),
         ("Sect Showcase (12 Sect Abilities)", ScenarioType.SectShowcase),
-        ("Building Showcase (every culture)", ScenarioType.BuildingShowcase),
+        ("Building Showcase (all levels + Age 0, green grid)", ScenarioType.BuildingShowcase),
         ("The Border Combat Test", ScenarioType.BorderCombatTest),
         ("Patrol Defense (6 Veilstingers vs Wave)", ScenarioType.PatrolDefense),
         ("Alanthor vs Veilstone Horde (6 batt. vs 50)", ScenarioType.AlanthorVsBorder),
@@ -70,6 +70,7 @@ public static class ScenarioCatalog
         GameSettings.TotalPlayers = 2;
         GameSettings.LocalPlayerFaction = Faction.Blue;
         GameSettings.FogOfWarEnabled = false;
+        GameSettings.TutorialActive = false;   // sticky static; see TutorialMenuItem
 
         LoadingScreen.Show(SceneFor(scenario));
     }

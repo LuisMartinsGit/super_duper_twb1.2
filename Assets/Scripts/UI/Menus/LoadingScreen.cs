@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Menus
@@ -176,6 +177,23 @@ namespace TheWaningBorder.UI.Menus
             yield return null;
 
             var op = SceneManager.LoadSceneAsync(sceneName);
+            if (op == null)
+            {
+                // Scene missing from Build Settings (ship-gate exclusion or a
+                // stale name). Without this guard the next line NREd and
+                // stranded the player on a frozen overlay — Update re-stamps
+                // timeScale = 0 every frame, so nothing could ever move again
+                // (2026-08-17, Scenario_BuildingShowcase).
+                Debug.LogError($"[LoadingScreen] Scene '{sceneName}' could not be loaded " +
+                               "(not in Build Settings) — returning to the main menu.");
+                _statusText = "Scene could not be loaded";
+                float wait = 0f;
+                while (wait < 2.5f) { wait += Time.unscaledDeltaTime; yield return null; }
+                SceneManager.LoadScene(TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+                _instance = null;
+                Destroy(gameObject);   // OnDestroy restores timeScale
+                yield break;
+            }
             op.allowSceneActivation = true;
 
             // Scene disk-read covers 5 → 35 % of the bar. After that the
@@ -286,13 +304,17 @@ namespace TheWaningBorder.UI.Menus
                 var tipRect = new Rect(60f, tipY, sw - 120f, TipBandHeight);
                 var c = _tipStyle.normal.textColor;
                 _tipStyle.normal.textColor = new Color(c.r, c.g, c.b, _tipFadeT * _alpha);
-                GUI.Label(tipRect, _tips[_tipIndex], _tipStyle);
+                // Tips are stored in English (the JSON is the key source);
+                // translated at render. Tip translations live in the tips
+                // domain table.
+                GUI.Label(tipRect, Loc.T(_tips[_tipIndex]), _tipStyle);
                 _tipStyle.normal.textColor = c;
 
                 // Status text underneath the tip — small, muted. Sits just
                 // above the bar so the bar's % isn't visually crowded.
+                // _statusText stays English in state; translate at render.
                 var statusRect = new Rect(0, sh - BarHeight - 22f, sw, 18f);
-                GUI.Label(statusRect, _statusText, _statusStyle);
+                GUI.Label(statusRect, Loc.T(_statusText), _statusStyle);
             }
 
             // ── Progress bar (full-width, golden, bottom) ───────────────

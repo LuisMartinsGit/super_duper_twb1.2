@@ -53,7 +53,7 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GoalFlowFieldCache>();
@@ -124,7 +124,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// expanded via the direction-table blob, else direct bearing while
     /// the field is pending. NoDirection in a valid field = hold position.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct SampleGoalFlowJob : IJobEntity
     {
         [ReadOnly] public NativeHashMap<GoalFlowKey, int> GoalSlotIndex;
@@ -251,9 +251,11 @@ namespace TheWaningBorder.Systems.Navigation
                 // two steps put it back on integrated ground.
                 int hereIdx = ucz * GridWidth + ucx;
                 byte cHere = Cost[hereIdx];
+                // Allied gates count as open. docs/Design/Teams.md
                 bool hereOpen = cHere != NavCostField.CostImpassable
                     && (cHere != NavCostField.CostConditional
-                        || (byte)(Flags[hereIdx] & NavCostField.FlagOwnerMask) == selfFactionIdx);
+                        || Alliances.AreAlliedBurst(
+                               (byte)(Flags[hereIdx] & NavCostField.FlagOwnerMask), selfFactionIdx));
                 if (hereOpen) return; // genuine hold (at goal / unreachable)
             }
 
@@ -306,8 +308,9 @@ namespace TheWaningBorder.Systems.Navigation
                 if (c == NavCostField.CostConditional)
                 {
                     byte ownerIdx = (byte)(Flags[idx] & NavCostField.FlagOwnerMask);
-                    if (ownerIdx != selfFactionIdx) return false;
-                    // Else: owner match -- fall through, cell is walkable.
+                    // Owner or ally. docs/Design/Teams.md
+                    if (!Alliances.AreAlliedBurst(ownerIdx, selfFactionIdx)) return false;
+                    // Else: owner/ally match -- fall through, cell is walkable.
                 }
                 // Bridge deck-only cells break the straight-line shortcut:
                 // whether they're actually crossable depends on the unit's

@@ -93,6 +93,7 @@ namespace TheWaningBorder.UI.GameUI
         {
             var bg = Image(panelRoot, "bg", PanelBg, raycast: true);
             Stretch(bg.rectTransform);
+            IgnoreLayout(bg.gameObject);
 
             const float t = 3f;
             MakeBorderStrip(panelRoot, "border_top",    new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, t), new Vector2(0.5f, 1f));
@@ -100,6 +101,36 @@ namespace TheWaningBorder.UI.GameUI
             MakeBorderStrip(panelRoot, "border_left",   new Vector2(0, 0), new Vector2(0, 1), new Vector2(t, 0), new Vector2(0f, 0.5f));
             MakeBorderStrip(panelRoot, "border_right",  new Vector2(1, 0), new Vector2(1, 1), new Vector2(t, 0), new Vector2(1f, 0.5f));
             return bg;
+        }
+
+        /// <summary>
+        /// Keep a node out of its parent's layout group. Several panels put a
+        /// VerticalLayoutGroup on the same rect that carries the chrome, which
+        /// otherwise stacks the background and the four border strips as if
+        /// they were content rows — the frame collapses and the rows shift.
+        /// </summary>
+        public static void IgnoreLayout(GameObject go)
+        {
+            var le = go.GetComponent<LayoutElement>();
+            if (le == null) le = go.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+        }
+
+        /// <summary>
+        /// Make a whole subtree invisible to the EventSystem.
+        ///
+        /// Anything that APPEARS ON HOVER has to do this. A raycast-target
+        /// graphic switched on under the pointer becomes the new top hit, the
+        /// widget beneath it gets a pointer-exit, the overlay switches off, the
+        /// widget gets a pointer-enter — a flicker loop at frame rate. Hover
+        /// highlights, selection tints and the tooltip itself are decoration
+        /// and must never take input.
+        /// </summary>
+        public static void DisableRaycasts(GameObject root)
+        {
+            if (root == null) return;
+            foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+                graphic.raycastTarget = false;
         }
 
         private static void MakeBorderStrip(Transform parent, string name,
@@ -112,6 +143,7 @@ namespace TheWaningBorder.UI.GameUI
             rt.pivot = pivot;
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = size;
+            IgnoreLayout(img.gameObject);
         }
 
         public static TMP_Text Text(Transform parent, string name, string text,
@@ -154,5 +186,64 @@ namespace TheWaningBorder.UI.GameUI
             le.minHeight = height;
             return le;
         }
+
+        /// <summary>
+        /// Pin an authored widget to the top center of its canvas and nudge it
+        /// until its FULL bounds — children included — sit inside the screen,
+        /// <paramref name="margin"/> below the top edge.
+        ///
+        /// Authored prefab roots here are 100x100 hubs whose real content is a
+        /// nested instance hanging off them at an arbitrary offset (the culture
+        /// pill sits +90 above its hub and is 160 tall, so anchoring the HUB to
+        /// the top edge pushed most of the pill off-screen). Measuring the
+        /// rendered bounds instead of trusting the root rect is the only way to
+        /// place these reliably.
+        ///
+        /// Returns false while the layout has not resolved yet (degenerate
+        /// bounds) so the caller can retry on a later frame. Assumes the widget
+        /// is parented directly to the canvas — the correction is applied in
+        /// canvas units.
+        /// </summary>
+        public static bool PinTopCenter(RectTransform target, float margin)
+        {
+            if (target == null) return false;
+            var canvas = target.GetComponentInParent<Canvas>();
+            if (canvas == null) return false;
+            var canvasRect = (RectTransform)canvas.rootCanvas.transform;
+
+            target.anchorMin = new Vector2(0.5f, 1f);
+            target.anchorMax = new Vector2(0.5f, 1f);
+            target.pivot = new Vector2(0.5f, 0.5f);
+
+            Canvas.ForceUpdateCanvases();
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                canvasRect, target);
+            if (bounds.size.x <= 1f || bounds.size.y <= 1f) return false;
+
+            target.anchoredPosition += new Vector2(
+                canvasRect.rect.center.x - bounds.center.x,
+                (canvasRect.rect.yMax - margin) - bounds.max.y);
+            return true;
+        }
+
+        /// <summary>
+        /// Find a descendant by name, including inactive ones, case-insensitively.
+        ///
+        /// Single-sourced 2026-08-12: three panels carried their own copy and one
+        /// of them (ReligionPanelBinder) compared with `==`, i.e. case-SENSITIVE.
+        /// Since these lookups resolve authored prefab nodes by name, a node
+        /// renamed with different casing bound fine in two panels and silently
+        /// returned null in the third. Case-insensitive is the behaviour the
+        /// majority used and the one that fails loudly rather than quietly.
+        /// </summary>
+        public static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrEmpty(name)) return null;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (string.Equals(t.name, name, System.StringComparison.OrdinalIgnoreCase))
+                    return t;
+            return null;
+        }
+
     }
 }

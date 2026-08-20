@@ -27,7 +27,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// same value (255 / FlagBuildingFootprint). M4's incremental rebuild
     /// switches to Interlocked.Or per DR-6.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct StampBuildingFootprintJob : IJobEntity
     {
         [NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
@@ -81,7 +81,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// after <see cref="StampBuildingFootprintJob"/> to refine the stamp
     /// for entities that carry an explicit size.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct StampBuildingFootprintSizedJob : IJobEntity
     {
         [NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
@@ -90,6 +90,11 @@ namespace TheWaningBorder.Systems.Navigation
         public int Height;
         public float CellSize;
         public float3 Origin;
+
+        /// <summary>How much of each side a building stops blocking, in metres.
+        /// One nav cell — the smallest amount that can actually free a cell,
+        /// since the stamp rounds outward to every touched cell.</summary>
+        public const float EdgeClearance = 1f;
 
         public void Execute(in BuildingTag tag, in BuildingSize size, in LocalTransform xf)
         {
@@ -106,6 +111,29 @@ namespace TheWaningBorder.Systems.Navigation
             // spawn ring) beside it.
             float halfW = size.Width * 0.5f * CellSize;
             float halfH = size.Height * 0.5f * CellSize;
+
+            // EDGE CLEARANCE: a building stops blocking its outermost ring, so
+            // two buildings placed flush leave a walkable lane between them and
+            // units can move between the houses instead of treating a block of
+            // them as one solid wall. Buildings tile the 2 m build grid exactly
+            // — flush footprints touch with zero space — and the stamp below
+            // rounds outward to every cell a footprint TOUCHES, so nothing
+            // narrower than a whole nav cell frees anything at all.
+            //
+            // The cost is that the blocked rect is one metre smaller per side
+            // than the visual, i.e. units clip slightly into building edges.
+            // Deliberate trade (user call 2026-08-15).
+            //
+            // NOT applied when it would consume the whole footprint: a 1-cell
+            // building (Hut is 1 cell — docs/Design/Build_Grid.md) would block
+            // nothing at all and units would walk straight through it. Those
+            // keep their full stamp and stay solid when placed flush.
+            //
+            // Walls never reach this job — CostFieldStampSystem's building
+            // queries exclude WallTag and stamp walls through their own path,
+            // which is what keeps a wall line sealed.
+            if (halfW > EdgeClearance) halfW -= EdgeClearance;
+            if (halfH > EdgeClearance) halfH -= EdgeClearance;
 
             int x0 = math.max(0, (int)math.floor((dx - halfW) / CellSize));
             int z0 = math.max(0, (int)math.floor((dz - halfH) / CellSize));
@@ -133,11 +161,17 @@ namespace TheWaningBorder.Systems.Navigation
     /// task-112 follow-up -- stamps the cost field for entities tagged
     /// <see cref="ObstacleTag"/> (iron deposits, veilstone nodes, outcroppings,
     /// forest macro cells, etc.). Mirror of <see cref="StampBuildingFootprintJob"/>
-    /// but reads ObstacleTag instead of BuildingTag. Uses a 3x3 default
-    /// footprint; if the entity also carries BuildingSize, that variant
-    /// can be added later (most obstacles don't).
+    /// but reads ObstacleTag instead of BuildingTag.
+    ///
+    /// Build-grid rework: every node occupies exactly ONE 2 m build cell and
+    /// is impassable while it exists, so the stamp is a centred 2x2 nav-cell
+    /// span rather than the old hardcoded 3x3. The 3x3 blocked a metre of
+    /// ground the node did not own on every side, which is what made ore
+    /// patches feel like walls. Uses the same centred-span math as
+    /// <see cref="StampBuildingFootprintSizedJob"/> so an even footprint
+    /// stamps exactly its own cells. docs/Design/Build_Grid.md
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct StampObstacleFootprintJob : IJobEntity
     {
         [NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
@@ -147,23 +181,21 @@ namespace TheWaningBorder.Systems.Navigation
         public float CellSize;
         public float3 Origin;
 
-        private const int DefaultFootprint = 3;
+        /// <summary>One build cell, in metres. Kept as a literal because
+        /// Burst jobs cannot read the managed BuildGrid constant.</summary>
+        private const float NodeFootprintMeters = 2f;
 
         public void Execute(in ObstacleTag tag, in LocalTransform xf)
         {
             float dx = xf.Position.x - Origin.x;
             float dz = xf.Position.z - Origin.z;
-            int cx = (int)math.floor(dx / CellSize);
-            int cz = (int)math.floor(dz / CellSize);
 
-            int w = DefaultFootprint;
-            int h = DefaultFootprint;
-            int halfW = w / 2;
-            int halfH = h / 2;
-            int x0 = math.max(0, cx - halfW);
-            int z0 = math.max(0, cz - halfH);
-            int x1 = math.min(Width - 1, cx + halfW);
-            int z1 = math.min(Height - 1, cz + halfH);
+            float half = NodeFootprintMeters * 0.5f;
+
+            int x0 = math.max(0, (int)math.floor((dx - half) / CellSize));
+            int z0 = math.max(0, (int)math.floor((dz - half) / CellSize));
+            int x1 = math.min(Width - 1, (int)math.ceil((dx + half) / CellSize) - 1);
+            int z1 = math.min(Height - 1, (int)math.ceil((dz + half) / CellSize) - 1);
 
             for (int z = z0; z <= z1; z++)
             {
@@ -178,7 +210,7 @@ namespace TheWaningBorder.Systems.Navigation
         }
     }
 
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct ClearLayer0Job : IJobParallelFor
     {
         // Each Execute(row) writes the entire row [row*Width .. row*Width+Width-1].
@@ -214,7 +246,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// own footprint via <see cref="StampWallLayersJob"/>. Parallel over
     /// rows within the layer's slab.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct ClearLayerImpassableJob : IJobParallelFor
     {
         // Same per-row-disjoint write pattern as ClearLayer0Job -- see the
@@ -250,7 +282,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// (<see cref="NavCostField.FlagStaticWall"/>,
     /// <see cref="NavCostField.FlagGate"/>) are set by OR.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct StampWallLayersJob : IJobEntity
     {
         [NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
@@ -311,16 +343,24 @@ namespace TheWaningBorder.Systems.Navigation
                     int idxR = rowR + x;
 
                     // Ground layer: impassable wall (255), conditional at
-                    // gate (254). Climb access stays walkable (cost 1)
-                    // because units must approach via the ground first.
-                    if (IsClimbAccess != 0)
-                    {
-                        Cost[idxG] = 1; // walkable approach to the stair
-                    }
-                    else
-                    {
-                        Cost[idxG] = groundCost;
-                    }
+                    // gate (254).
+                    //
+                    // Hubs (IsClimbAccess) are IMPASSABLE too. They used to
+                    // stamp cost 1 here — "walkable approach to the stair" —
+                    // back when walls carried a walkable rampart deck and the
+                    // hub was its stair core. The compact-wall rework
+                    // (2026-08-09) made walls solid curtain walls with NO
+                    // deck, but this carve stayed: running AFTER the plain-
+                    // wall pass, it re-opened the hub's whole 7x7 footprint,
+                    // punching a ~7 m walkable corridor clean through the
+                    // wall line at every bastion — including over the first
+                    // curtain module on each side. That is the "units slip
+                    // through the wall where it meets the hub" leak: the join
+                    // between segments was the one place the wall was open.
+                    // The FlagClimbAccess bit is still written below so
+                    // WallPortalDetectionSystem keeps emitting its layer-0/1
+                    // climb portal; only the ground hole is gone.
+                    Cost[idxG] = groundCost;
                     // Preserve any existing flag bits / owner bits, then
                     // overlay this stamp's flag + owner. For gates we
                     // write owner bits; for plain walls / climbs we

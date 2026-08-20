@@ -24,6 +24,8 @@ using Unity.Entities;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using TheWaningBorder.Core.Commands;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.UI.GameUI
 {
@@ -178,6 +180,7 @@ namespace TheWaningBorder.UI.GameUI
         private float _timer;
         private bool _visible = true;
         private SelectionChangeDetector _selectionDetector;
+        private Entity _queueBuilding;
 
         /// <summary>Symbol sprites keyed by display name (shared with
         /// GameUIManager's catalog lookup). Call right after AddComponent.</summary>
@@ -263,10 +266,92 @@ namespace TheWaningBorder.UI.GameUI
                     shown++;
                 }
             }
+            // No units selected: the slot grid is free real estate — use it
+            // for the training queue of a selected production building
+            // (up to all 16 authored slots; slot 0 carries a progress bar).
+            if (shown == 0)
+                shown = RefreshBuildingQueue(em);
+
             for (int i = shown; i < _slots.Count; i++)
                 if (_slots[i].gameObject.activeSelf) _slots[i].gameObject.SetActive(false);
 
             SetVisible(shown > 0);
+        }
+
+        /// <summary>
+        /// Render the selected building's training queue into the roster
+        /// slots. Buffer order IS display order: index 0 is the unit in
+        /// production (TrainingSystem trains queue[0] in place), so it gets
+        /// the progress bar; the rest are pending and right-click cancels.
+        /// Returns the number of slots used (0 = not a queue selection).
+        /// </summary>
+        private int RefreshBuildingQueue(EntityManager em)
+        {
+            _queueBuilding = Entity.Null;
+
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (selection == null) return 0;
+
+            for (int i = 0; i < selection.Count; i++)
+            {
+                var e = selection[i];
+                if (!em.Exists(e) || !em.HasBuffer<TrainQueueItem>(e)) continue;
+                if (!em.HasComponent<FactionTag>(e)) continue;
+                if (!GameSettings.IsObserver
+                    && em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
+                    continue;
+                _queueBuilding = e;
+                break;
+            }
+            if (_queueBuilding == Entity.Null) return 0;
+
+            var queue = em.GetBuffer<TrainQueueItem>(_queueBuilding);
+            float progress = -1f;
+            if (em.HasComponent<TrainingState>(_queueBuilding))
+            {
+                var ts = em.GetComponentData<TrainingState>(_queueBuilding);
+                if (ts.Busy != 0 && ts.Total > 0f)
+                    progress = Mathf.Clamp01((ts.Total - ts.Remaining) / ts.Total);
+            }
+
+            int shown = 0;
+            for (int i = 0; i < queue.Length && shown < _slots.Count; i++)
+            {
+                string id = queue[i].UnitId.ToString();
+                string name = EntityInfoExtractor.GetUnitDisplayName(id);
+                if (string.IsNullOrEmpty(name)) name = id;
+
+                Sprite sprite = null;
+                if (_symbols != null
+                    && !_symbols.TryGetValue(name, out sprite)
+                    && !_symbols.TryGetValue(id, out sprite))
+                    _symbols.TryGetValue("Unit", out sprite);
+
+                var slot = _slots[shown];
+                if (!slot.gameObject.activeSelf) slot.gameObject.SetActive(true);
+                slot.BindQueue(name, sprite, i, i == 0 ? progress : -1f);
+                shown++;
+            }
+            return shown;
+        }
+
+        /// <summary>Right-click on a pending queue slot: cancel + refund.
+        /// Slot 0 (in production) is not cancellable, matching the previous
+        /// queue strip's behaviour.</summary>
+        internal void OnQueueCancelClicked(int index)
+        {
+            if (index <= 0 || _queueBuilding == Entity.Null) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            if (!em.Exists(_queueBuilding)) return;
+            if (index >= CommandRouter.GetTrainQueueLength(em, _queueBuilding)) return;
+
+            // Route through CommandRouter (never the helper directly) so the
+            // refund + lockstep replication stay deterministic.
+            CommandRouter.IssueCancelTrain(em, _queueBuilding, index,
+                Core.Commands.CommandSource.LocalPlayer);
+            _timer = RefreshInterval; // repaint next frame
         }
 
         /// <summary>Entry click: pin the stats UI to this type.</summary>
@@ -300,6 +385,12 @@ namespace TheWaningBorder.UI.GameUI
         private GameObject _selected, _highlighted;
         private string _typeName;
 
+        // Queue mode (building selected): slot shows a queued unit instead of
+        // a selected one. -1 = unit mode.
+        private int _queueIndex = -1;
+        private GameObject _progressRoot;
+        private RectTransform _progressFill;
+
         public void Setup(UnitRosterPanelBinder owner, Color selectedTint, Color highlightedTint)
         {
             _owner = owner;
@@ -322,8 +413,31 @@ namespace TheWaningBorder.UI.GameUI
 
             EnsureOverlayVisual(_selected, selectedTint);
             EnsureOverlayVisual(_highlighted, highlightedTint);
+
+            // These switch on UNDER THE POINTER. An AUTHORED overlay with a
+            // raycast-target graphic would become the top hit the instant it
+            // appears, pull the pointer off this entry, hide itself again and
+            // flicker at frame rate. Decoration never takes input.
+            GameUIKit.DisableRaycasts(_selected);
+            GameUIKit.DisableRaycasts(_highlighted);
+
             _selected.SetActive(false);
             _highlighted.SetActive(false);
+
+            UITooltip.Bind(gameObject, () =>
+            {
+                // _typeName stays untranslated: it keys the symbol lookup and
+                // the roster group matching.
+                if (_typeName == null) return null;
+                if (_queueIndex == 0)
+                    return $"<b>{_typeName}</b>\n" + Loc.T("In production.");
+                if (_queueIndex > 0)
+                    return $"<b>{_typeName}</b>\n" + string.Format(
+                        Loc.T("#{0} in queue — right-click to cancel and refund."),
+                        _queueIndex + 1);
+                return $"<b>{_typeName}</b>\n" + Loc.T(
+                    "Click to pin the stats panel to this unit type for the rest of the selection.");
+            });
         }
 
         private GameObject CreateOverlayNode(string name)
@@ -336,10 +450,66 @@ namespace TheWaningBorder.UI.GameUI
         public void Bind(string typeName, Sprite sprite, bool focused)
         {
             _typeName = typeName;
+            _queueIndex = -1;
+            SetProgress(-1f);
             if (_icon != null && sprite != null && _icon.sprite != sprite)
                 _icon.sprite = sprite;
             if (_selected != null && _selected.activeSelf != focused)
                 _selected.SetActive(focused);
+        }
+
+        /// <summary>Queue mode: slot i of the selected building's training
+        /// queue. progress01 &gt;= 0 draws the fill bar (slot 0 only).</summary>
+        public void BindQueue(string typeName, Sprite sprite, int queueIndex, float progress01)
+        {
+            _typeName = typeName;
+            _queueIndex = queueIndex;
+            SetProgress(progress01);
+            if (_icon != null && sprite != null && _icon.sprite != sprite)
+                _icon.sprite = sprite;
+            if (_selected != null && _selected.activeSelf)
+                _selected.SetActive(false);
+        }
+
+        private void SetProgress(float progress01)
+        {
+            if (progress01 < 0f)
+            {
+                if (_progressRoot != null && _progressRoot.activeSelf)
+                    _progressRoot.SetActive(false);
+                return;
+            }
+
+            if (_progressRoot == null)
+            {
+                _progressRoot = new GameObject("QueueProgress", typeof(RectTransform));
+                _progressRoot.transform.SetParent(transform, false);
+                var bgRect = (RectTransform)_progressRoot.transform;
+                bgRect.anchorMin = new Vector2(0f, 0f);
+                bgRect.anchorMax = new Vector2(1f, 0f);
+                bgRect.pivot = new Vector2(0.5f, 0f);
+                bgRect.sizeDelta = new Vector2(-4f, 6f);       // 2px inset per side
+                bgRect.anchoredPosition = new Vector2(0f, 2f); // 2px off the bottom
+                var bg = _progressRoot.AddComponent<Image>();
+                bg.color = new Color(0f, 0f, 0f, 0.65f);
+                bg.raycastTarget = false;
+
+                var fillGo = new GameObject("Fill", typeof(RectTransform));
+                fillGo.transform.SetParent(_progressRoot.transform, false);
+                _progressFill = (RectTransform)fillGo.transform;
+                _progressFill.anchorMin = new Vector2(0f, 0f);
+                _progressFill.anchorMax = new Vector2(0f, 1f);
+                _progressFill.pivot = new Vector2(0f, 0.5f);
+                _progressFill.offsetMin = Vector2.zero;
+                _progressFill.offsetMax = Vector2.zero;
+                var fill = fillGo.AddComponent<Image>();
+                fill.color = new Color(0.98f, 0.80f, 0.30f, 0.95f);
+                fill.raycastTarget = false;
+            }
+
+            if (!_progressRoot.activeSelf) _progressRoot.SetActive(true);
+            _progressFill.anchorMax = new Vector2(Mathf.Clamp01(progress01), 1f);
+            _progressFill.sizeDelta = Vector2.zero;
         }
 
         /// <summary>The authored Selected/Highlighted nodes are empty
@@ -374,7 +544,15 @@ namespace TheWaningBorder.UI.GameUI
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (_owner != null && _typeName != null) _owner.OnEntryClicked(_typeName);
+            if (_owner == null || _typeName == null) return;
+            if (_queueIndex >= 0)
+            {
+                if (eventData.button == PointerEventData.InputButton.Right)
+                    _owner.OnQueueCancelClicked(_queueIndex);
+                return;
+            }
+            if (eventData.button == PointerEventData.InputButton.Left)
+                _owner.OnEntryClicked(_typeName);
         }
     }
 }

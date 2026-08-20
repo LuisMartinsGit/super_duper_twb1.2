@@ -35,8 +35,13 @@ namespace TheWaningBorder.Entities
         public const float WallWidth = 1f;     // masonry thickness across the wall (X)
         public const float WallHeight = 2.6f;  // parapet crown top (solid curtain, no deck)
 
-        /// <summary>Hub footprint width, in meters (3x3 squat bastion).</summary>
-        public const float HubWidth = 3f;
+        /// <summary>Hub footprint width, in meters. 4 x 4 build cells — hubs
+        /// are buildings and snap to the 2 m grid like any other, so this must
+        /// stay in step with BuildingSizeConfig's "Alanthor_Wall" entry
+        /// (doubled 2026-08-13 with every other building footprint).
+        /// The curtain SEGMENTS between hubs remain freeform, at whatever
+        /// bearing the hub-to-hub line has. docs/Design/Build_Grid.md</summary>
+        public const float HubWidth = 8f;
 
         /// <summary>Number of contiguous wall instances a segment-level
         /// Convert-to-Gate replaces (compact-wall rework: 3 modules x 3 m
@@ -95,7 +100,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
             em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
-            // Compact hub: a squat 3x3 bastion footprint so build-range /
+            // Compact hub: a squat 2x2-cell bastion footprint so build-range /
             // selection / passability use the real size.
             em.SetComponentData(entity, new BuildingSize { Width = (int)HubWidth, Height = (int)HubWidth });
             em.SetComponentData(entity, new Radius { Value = HubWidth * 0.5f });

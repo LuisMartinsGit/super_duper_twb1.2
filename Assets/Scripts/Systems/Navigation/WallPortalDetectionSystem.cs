@@ -38,6 +38,8 @@ namespace TheWaningBorder.Systems.Navigation
     {
         private Entity _specEntity;
         private byte _initialised;
+        /// <summary>Mirror of the singleton's list, disposable after a wipe.</summary>
+        private NativeList<WallPortalSpec> _specs;
         private EntityQuery _hubQuery;
         private EntityQuery _gateQuery;
         private int _prevHubCount;
@@ -66,15 +68,27 @@ namespace TheWaningBorder.Systems.Navigation
         {
             var em = state.EntityManager;
 
-            if (_initialised == 0)
+            // Existence-gated: the end-of-match wipe destroys this singleton
+            // while the system survives. This system has no RequireForUpdate,
+            // so it runs every frame regardless — the unguarded GetSingleton
+            // below would throw forever once the nav grid came back.
+            if (_initialised == 0
+                || !em.Exists(_specEntity)
+                || !em.HasComponent<WallPortalSpecList>(_specEntity))
             {
+                if (_specs.IsCreated) _specs.Dispose();
+                _specs = new NativeList<WallPortalSpec>(64, Allocator.Persistent);
+
                 _initialised = 1;
                 _specEntity = em.CreateEntity(typeof(WallPortalSpecList));
                 em.SetComponentData(_specEntity, new WallPortalSpecList
                 {
-                    Specs = new NativeList<WallPortalSpec>(64, Allocator.Persistent),
+                    Specs = _specs,
                     Generation = 0,
                 });
+                // Counts belong to the previous match's wall set.
+                _prevHubCount = -1;
+                _prevGateCount = -1;
             }
 
             // Cheap "did the wall set change" gate: hubs + gates counts.
@@ -91,6 +105,7 @@ namespace TheWaningBorder.Systems.Navigation
             if (!SystemAPI.HasSingleton<NavGridSingleton>()) return;
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
 
+            if (!SystemAPI.HasSingleton<WallPortalSpecList>()) return;
             var specList = SystemAPI.GetSingleton<WallPortalSpecList>();
             if (!specList.Specs.IsCreated) return;
 
@@ -230,13 +245,8 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-            var em = state.EntityManager;
-            if (em.Exists(_specEntity) && em.HasComponent<WallPortalSpecList>(_specEntity))
-            {
-                var s = em.GetComponentData<WallPortalSpecList>(_specEntity);
-                if (s.Specs.IsCreated) s.Specs.Dispose();
-            }
+            // Mirror, not component — the entity may already be wiped.
+            if (_specs.IsCreated) _specs.Dispose();
         }
 
         private static int2 WorldToCell(in NavGridSingleton grid, float3 world)

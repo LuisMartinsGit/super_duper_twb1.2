@@ -287,9 +287,9 @@ namespace TheWaningBorder.Systems.Combat
 
             for (int i = 0; i < entities.Length; i++)
             {
-                // Skip self and friendlies
+                // Skip self, friendlies and allies. docs/Design/Teams.md
                 if (entities[i] == caster) continue;
-                if (factions[i].Value == casterFaction) continue;
+                if (!Alliances.AreHostile(casterFaction, factions[i].Value)) continue;
                 // Skip Invulnerable (task-062 C-4)
                 if (em.HasComponent<Invulnerable>(entities[i])) continue;
 
@@ -334,8 +334,10 @@ namespace TheWaningBorder.Systems.Combat
 
             for (int i = 0; i < entities.Length; i++)
             {
-                // Only affect friendlies (including self)
-                if (factions[i].Value != casterFaction) continue;
+                // Only affect friendlies and allies (including self). The
+                // MergeSpellBuff call at the apply site is what prevents two
+                // allied casters from stacking. docs/Design/Teams.md
+                if (!Alliances.AreAllied(casterFaction, factions[i].Value)) continue;
 
                 float3 pos = transforms[i].Position;
                 float distSq = math.distancesq(
@@ -382,9 +384,9 @@ namespace TheWaningBorder.Systems.Combat
 
             for (int i = 0; i < entities.Length; i++)
             {
-                // Skip self and friendlies
+                // Skip self, friendlies and allies. docs/Design/Teams.md
                 if (entities[i] == caster) continue;
-                if (factions[i].Value == casterFaction) continue;
+                if (!Alliances.AreHostile(casterFaction, factions[i].Value)) continue;
 
                 float3 pos = transforms[i].Position;
                 float distSq = math.distancesq(

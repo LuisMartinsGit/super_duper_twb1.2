@@ -183,6 +183,36 @@ public static class GameSettings
     /// <summary>Whether the local player is observing (no units, no commands, full visibility).</summary>
     public static bool IsObserver = false;
 
+    /// <summary>
+    /// Observer perspective: the faction whose HUD and fog the observer is
+    /// currently viewing. Written every frame by SelectionSystem from the
+    /// selected asset's owner; null = nothing selected = see everything.
+    /// Meaningless outside observer mode — read ViewFaction instead.
+    /// </summary>
+    public static Faction? ObserverViewFaction = null;
+
+    /// <summary>
+    /// The faction whose perspective the local VIEW renders (fog overlay,
+    /// entity culling, minimap, resource bar). Normal play: always the
+    /// local player. Observer: the selected asset's owner, or null for
+    /// full reveal.
+    /// </summary>
+    public static Faction? ViewFaction => IsObserver ? ObserverViewFaction : LocalPlayerFaction;
+
+    /// <summary>ViewFaction with the local player as fallback, for readers
+    /// that need a concrete faction.</summary>
+    public static Faction ViewFactionOrLocal => ViewFaction ?? LocalPlayerFaction;
+
+    /// <summary>
+    /// Tutorial run: an ordinary match on the shipped map with the coach
+    /// overlay (TutorialDirector) walking the player through Age 0.
+    ///
+    /// Every other launch path clears this — it is static state that would
+    /// otherwise survive "quit to menu, start a skirmish" and leave the coach
+    /// running over a normal game.
+    /// </summary>
+    public static bool TutorialActive = false;
+
     /// <summary>Convenience: true when current mode is Sandbox.</summary>
     public static bool IsSandbox => Mode == GameMode.Sandbox;
 
@@ -336,14 +366,37 @@ public static class GameSettings
     public static bool IsMultiplayer = false;
 
     /// <summary>
-    /// Enables TRUE deterministic lockstep: when on (multiplayer only) the ECS
-    /// SimulationSystemGroup is driven at a FIXED timestep, exactly once per
-    /// lockstep tick, instead of free-running on the render frame rate. This is
-    /// the prerequisite for cross-client determinism. OFF by default while the
-    /// fixed-step path is being validated — flip to true to test it. See
-    /// LockstepFixedRateManager.
+    /// TRUE deterministic lockstep: the ECS SimulationSystemGroup is driven at a
+    /// FIXED timestep, exactly once per lockstep tick, instead of free-running on
+    /// the render frame rate.
+    ///
+    /// This is not a tuning option — it is the difference between two players
+    /// sharing a match and two players running separate games that happen to
+    /// share a lobby. With it off, only COMMANDS are synchronised; every outcome
+    /// (combat resolution, mining, construction, training) advances on each
+    /// peer's own frame clock and the worlds fork within a minute or two.
+    ///
+    /// Default ON. It is only consulted in multiplayer — single-player keeps its
+    /// per-frame simulation either way — and every multiplayer entry point sets
+    /// it explicitly so a stale value from a previous session can never decide
+    /// it. docs/Multiplayer_LAN_Readiness.md
     /// </summary>
-    public static bool DeterministicLockstep = false;
+    public static bool DeterministicLockstep = true;
+
+    /// <summary>
+    /// True when THIS peer should run AI brains.
+    ///
+    /// In multiplayer the AI is simulated on the HOST ONLY and its orders reach
+    /// everyone else through the lockstep command stream. A client that also ran
+    /// its own brains would apply every AI decision twice — once from its local
+    /// brain (CommandSource.AI does not queue on a client, so it executes
+    /// directly) and once from the host's replicated command — while the two
+    /// brains' RNG streams forked on the first differing call.
+    ///
+    /// Every AI system's OnUpdate must open with this test.
+    /// docs/Multiplayer_LAN_Readiness.md
+    /// </summary>
+    public static bool ShouldRunAIBrains() => !IsMultiplayer || IsHost();
 
     /// <summary>The network role of this instance (None for single-player).</summary>
     public static NetworkRole NetworkRole = NetworkRole.None;
@@ -370,6 +423,7 @@ public static class GameSettings
         LocalPlayerFaction = Faction.Blue;
         FactionToPlayerMapping.Clear();
         IsObserver = false;
+        ObserverViewFaction = null;
         Mode = GameMode.FreeForAll;
     }
 

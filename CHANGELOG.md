@@ -11,17 +11,86 @@ build always name the same number.
 
 ## [Unreleased]
 
-Tooling only — nothing here changes the game, so it does not need a build.
+Nothing yet.
+
+---
+
+## [0.0.10] — 2026-08-20
+
+The menus build. Multiplayer gets its own screen, laid out like the skirmish
+one so the two lobbies read the same, and the settings that used to be typed
+into a lobby every time now live in a file the player owns. Several menu
+controls that had never actually worked — dead buttons, unclickable options,
+text that ignored its own colour — turned out to share three causes.
 
 ### Added
 
+- **`settings.json`, beside the executable.** The player's name and every
+  persisted setting in one file, created with defaults on first run. It
+  replaces PlayerPrefs, which on Windows means the registry: invisible,
+  un-editable, and impossible for a tester to send back with a bug report —
+  the same reason the logs already sit there. Existing installs are migrated
+  on the run that creates the file, so nobody loses their video or audio
+  settings.
+- **First run asks the player's name**, once, and Settings can change it any
+  time. Multiplayer reads it from there instead of asking again in every
+  lobby.
+- **`MultiplayerMenu.unity`.** The LAN screen is its own scene now, built from
+  a copy of the skirmish one: same map plate, same roster plate, same footer.
+  The host / join cards overlay it.
+- **The multiplayer lobby is editable while you are in it** — map, starting
+  resources, starting age, fog, curse nodes, teams, colours and the game name,
+  none of which could be changed after the lobby opened.
+- **AI personality per slot**, matching the skirmish roster, and the lobby is
+  sized from the roster itself: the top free rung adds a player, the bottom
+  one closes it.
+- **The game browser shows what a game is** before you commit to it — host,
+  map and occupancy — and you pick a row and press CONNECT rather than hunting
+  for the right JOIN button. A full lobby lists but cannot be joined.
 - **`tools/fetch-logs.ps1`.** Lists what testers have uploaded and unzips
   anything new into `logs-inbox/<tester>/<match>/`, skipping what is already
   there. Sorted worst-first: a match that threw an exception lists above one
   that only logged errors, above a clean one.
 
+### Changed
+
+- **Three clicks to a multiplayer match**: Multiplayer, HOST, START. The
+  create-lobby window is gone — everything it asked for is either editable in
+  the lobby or no longer worth asking.
+- **No more port field.** The game port is standard and moves itself when it
+  is busy, so two instances on one machine both host without being told to.
+  Direct connect keeps a port box, because a joiner whose broadcast is blocked
+  has no other way to name the host.
+- **The lobby title reads `MULTIPLAYER — <game name>`** on both peers. A
+  client used to see a generic "LOBBY" while the host looked at a named one.
+
 ### Fixed
 
+- **Every menu label rendered dark olive yellow.** Synty ships the menu font
+  with a gold `_FaceColor` on its default material, and TMP draws a glyph as
+  vertex colour × face colour — so every authored colour was multiplied into
+  gold, and the pass that sets the whole screen white had been a no-op on
+  screen for as long as it has existed.
+- **Pressing Play landed on a main menu whose buttons did nothing.** The
+  editor's play-mode override pointed at Synty's *sample* menu scene, which is
+  built from the same prefabs and so is indistinguishable from the real one —
+  but is not named `MainMenu`, and every runtime hook that wires those buttons
+  gates on that name. It now targets the real scene, announces itself in the
+  console, and flags a boot scene that is not in Build Settings.
+- **Decorative frames swallowed every click underneath them.** A full-rect
+  border drawn last with `raycastTarget` left on absorbs the pointer for the
+  whole plate. This is what made the lobby's map start-positions unclickable.
+- **The map options could not be clicked at all.** They sit under a nested
+  Canvas with no `GraphicRaycaster`, which takes every graphic below it out of
+  the root canvas's registry and hands them to nobody.
+- **Buttons and dropdowns ignored their authored widths**, growing with the
+  display: `childForceExpandWidth` overrules a `LayoutElement` that asked for
+  none, and the two footer buttons were rendering at nearly three times the
+  size they were built for.
+- **A name typed with a comma or a pipe corrupted the lobby for everyone.**
+  Those are the delimiters the lobby protocol packs names into, so one of
+  either shifted every field after it — a colour index read as a team, or the
+  slot list dropped entirely. Names are sanitised at the source now.
 - **Release notes reached testers as mojibake.** Three separate encoding
   faults in the release script, each invisible while the notes were a
   hand-typed ASCII sentence and each fatal the moment they came from this

@@ -61,7 +61,7 @@ namespace TheWaningBorder.Influence
         /// keeps a freshly discovered front easing in instead of popping.</summary>
         private const float MaxCatchUpSeconds = 0.5f;
 
-        private enum SourceKind : byte { AlanthorCulture, RunaiCulture, FeraldisCulture, Curse, Blood }
+        private enum SourceKind : byte { AlanthorCulture, RunaiCulture, FeraldisCulture, Curse, Blood, VeilstonePatch }
 
         private struct PaintLayer
         {
@@ -106,6 +106,7 @@ namespace TheWaningBorder.Influence
             "TerrainLayers/AlanthorInfluence",
             "TerrainLayers/Blood",
             "TerrainLayers/CurseInfluence",
+            "TerrainLayers/VeilstonePatch",
         };
 
         private static void EnsureRequiredLayers(TerrainData data)
@@ -219,6 +220,7 @@ namespace TheWaningBorder.Influence
                 else if (Is(n, tex, "FeraldisInfluence")) kind = SourceKind.FeraldisCulture;
                 else if (Is(n, tex, "CurseInfluence")) kind = SourceKind.Curse;
                 else if (Is(n, tex, "Blood")) kind = SourceKind.Blood;
+                else if (Is(n, tex, "VeilstonePatch")) kind = SourceKind.VeilstonePatch;
 
                 if (kind.HasValue)
                 {
@@ -432,6 +434,15 @@ namespace TheWaningBorder.Influence
                 case SourceKind.FeraldisCulture:
                     return Ramp(MaxChannelStrength(_feraldisChannels, wx, wz),
                         InfluenceWeightStart, InfluenceWeightFull);
+
+                // Ore-bearing ground under a veilstone patch. Already a 0..1
+                // coverage with its own soft edge, so no influence ramp — and
+                // its own layer, never the curse's: a resource patch is not
+                // cursed ground.
+                case SourceKind.VeilstonePatch:
+                    return TheWaningBorder.Entities.VeilstonePatchGround.Any
+                        ? TheWaningBorder.Entities.VeilstonePatchGround.CoverageAt(wx, wz)
+                        : 0f;
 
                 default:
                     return 0f;

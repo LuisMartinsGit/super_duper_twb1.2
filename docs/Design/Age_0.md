@@ -135,37 +135,18 @@ lvl 0 form exists.
 
 ---
 
-### Mine — workerless ore extraction *(new, 2026-08-05 rev.4)*
+### Mine — MOVED to Feraldis Age 1 *(2026-08-13)*
 
-Placed **next to an iron or veilstone patch** (placement is rejected
-elsewhere). It works **every** iron and veilstone node inside its radius
-with **no workers at all**, and — the point of the building — **without
-depleting them**.
+**The Mine is no longer an Age 0 building and is no longer universal.** It
+is now **Feraldis-only, Age 1** — see
+[Age_1_Feraldis.md § Mine](Age_1_Feraldis.md#mine--mine-2026-08-13--feraldis-only-age-1).
 
-| Stat | Value |
-|------|-------|
-| HP | 700 |
-| Footprint | 3 x 3 |
-| LoS | 12 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 180 S + 40 I |
-| Build time | 25 s |
-| Working radius | 18 |
-| Yield | 0.25 Iron/s and 0.15 Veilstone/s **per node in range**, capped at 8 worked nodes |
-| Depletion | **none** — nodes are never consumed |
-
-> **The trade is the design.** Hand-mining is fast and finite; a Mine is
-> slow and permanent. A patch worked by hand pays out sooner and then is
-> gone forever; the same patch with a Mine pays less per second but pays for
-> the rest of the match. The node cap stops one Mine dropped in the middle
-> of a huge field from scaling without limit.
->
-> Universal — every culture may build one. It matters most to **Feraldis**,
-> whose Workers cannot gather at all, so a Mine is that culture's ONLY
-> route to ore.
->
-> *(spec gap — whether Mines should be capturable, and whether an enemy Mine
-> on your patch should block your own workers from hand-mining it.)*
+The 2026-08-05 rev.4 spec placed it here and argued for keeping it universal
+*because* it matters most to Feraldis (whose Workers cannot gather at all).
+That is reversed: the Feraldis dependency is exactly what makes it a culture
+identity building rather than a shared Age 0 option, and a workerless,
+never-depleting income source in the pre-culture opening undercut the
+hand-mining economy every other Age 0 lesson is built on.
 
 ---
 
@@ -325,8 +306,23 @@ No level-up path. No trainable units.
 > hosts no researchable tech of its own.
 
 > Note: Gatherer's Huts deliberately grant **no influence** on the influence
-> map, but their income **doubles** when the hut stands inside its owner's
+> map, but their income gains **+50%** when the hut stands inside its owner's
 > influence border (see [Overview.md Â§ The influence map](Overview.md)).
+> (Was a flat doubling until 2026-08-15.)
+
+> **What reduces a hut's yield.** The hut's % indicator and its output are the
+> same number: the fraction of its gather circle that is *productive ground*.
+> A cell yields nothing when it is
+> - **NoWalk / terrain-blocked** ground (also building- or obstacle-blocked),
+> - **cursed** ground (veil saturation at or past the crust threshold),
+> - **owned by a hostile player** (their influence channel dominates it at
+>   >= 0.5 — allied ground still counts, so a shared border does not starve
+>   both partners),
+> - already claimed by an **older friendly hut** or **any enemy hut** circle, or
+> - inside a **wall enclosure** polygon.
+>
+> The +50% influence bonus multiplies whatever survives that, so a hut deep in
+> its own territory is worth far more than one on a contested or cursed frontier.
 
 ---
 

@@ -31,7 +31,7 @@ namespace TheWaningBorder.Entities
         // dictionary so no prefab is instantiated. CaravanVisualSystem builds the
         // procedural desert-traveler GameObject instead. The previous value 401
         // collided with "Procedural/Rock" and spawned rocks under every caravan.
-        private const int PresentationID = 405;
+        public const int PresentationID = 405;
 
         /// <summary>
         /// Create Caravan using EntityManager.

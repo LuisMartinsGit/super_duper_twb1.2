@@ -56,7 +56,10 @@ namespace TheWaningBorder.Systems.Combat
             {
                 var e = entities[i];
                 if (e == attacker || e == primaryTarget) continue;
-                if (em.GetComponentData<FactionTag>(e).Value == attackerFaction) continue;
+                // Whirlwind spares allies as well as own units.
+                // docs/Design/Teams.md
+                if (!Alliances.AreHostile(attackerFaction,
+                        em.GetComponentData<FactionTag>(e).Value)) continue;
                 if (em.HasComponent<Invulnerable>(e)) continue;
                 if (em.HasComponent<DeathAnimationState>(e)) continue;
 

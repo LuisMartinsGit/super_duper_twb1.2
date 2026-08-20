@@ -1,18 +1,21 @@
 // File: Assets/Scripts/UI/Menus/OptionsMenuUI.cs
 // Options menu panel with graphics, resolution, fullscreen, and volume settings.
-// Persists settings via PlayerPrefs and applies them to Unity APIs.
+// Persists settings through PlayerProfile (settings.json beside the exe).
 
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using TheWaningBorder.Core.Config;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.Audio;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.UI.Menus
 {
     /// <summary>
     /// Options menu accessible from the main menu.
     /// Provides settings for graphics quality, resolution, fullscreen mode,
-    /// and master volume. All settings persist via PlayerPrefs.
+    /// and master volume. All settings persist through PlayerProfile.
     /// </summary>
     public class OptionsMenuUI : MonoBehaviour
     {
@@ -21,16 +24,6 @@ namespace TheWaningBorder.UI.Menus
         // ================================================================
 
         public event Action OnBackPressed;
-
-        // ================================================================
-        // PLAYERPREFS KEYS
-        // ================================================================
-
-        private const string PrefGraphicsQuality = "graphics_quality";
-        private const string PrefResolutionWidth = "resolution_width";
-        private const string PrefResolutionHeight = "resolution_height";
-        private const string PrefFullscreen = "fullscreen";
-        private const string PrefMasterVolume = "master_volume";
 
         // ================================================================
         // UI STATE
@@ -52,11 +45,15 @@ namespace TheWaningBorder.UI.Menus
 
         // Volume (0-100)
         private float _masterVolume;
+        private float _musicVolume;
+
+        // Player name — the one setting that is not about the machine.
+        private string _playerName = "";
 
         // Layout
         private Rect _windowRect;
         private const float PanelWidth = 400f;
-        private const float PanelHeight = 500f;
+        private const float PanelHeight = 720f;   // + the player-name row
 
         // Specialty cached styles (no Styles.cs counterpart — custom hover/active textures,
         // light-blue section headers, green-gold apply button, slider-specific styles).
@@ -96,45 +93,38 @@ namespace TheWaningBorder.UI.Menus
         }
 
         /// <summary>
-        /// Load persisted settings from PlayerPrefs and apply them to Unity APIs.
+        /// Load persisted settings from PlayerProfile and apply them to Unity APIs.
         /// Runs once at startup via ApplySavedSettingsOnBoot so that saved
         /// settings take effect before the player opens the Options panel.
         /// </summary>
         public static void LoadAndApplySettings()
         {
-            // Graphics quality
-            if (PlayerPrefs.HasKey(PrefGraphicsQuality))
+            // Graphics quality. -1 means the player has never chosen, so the
+            // project's own default stands.
+            if (PlayerProfile.GraphicsQuality >= 0)
             {
-                int quality = PlayerPrefs.GetInt(PrefGraphicsQuality);
-                quality = Mathf.Clamp(quality, 0, QualitySettings.names.Length - 1);
+                int quality = Mathf.Clamp(PlayerProfile.GraphicsQuality,
+                                          0, QualitySettings.names.Length - 1);
                 QualitySettings.SetQualityLevel(quality, true);
             }
 
             // Resolution & fullscreen
-            bool hasResolution = PlayerPrefs.HasKey(PrefResolutionWidth) &&
-                                 PlayerPrefs.HasKey(PrefResolutionHeight);
-            bool fullscreen = PlayerPrefs.GetInt(PrefFullscreen, Screen.fullScreen ? 1 : 0) == 1;
+            int w = PlayerProfile.ResolutionWidth;
+            int h = PlayerProfile.ResolutionHeight;
+            bool fullscreen = PlayerProfile.Fullscreen >= 0
+                ? PlayerProfile.Fullscreen == 1
+                : Screen.fullScreen;
 
-            if (hasResolution)
-            {
-                int w = PlayerPrefs.GetInt(PrefResolutionWidth);
-                int h = PlayerPrefs.GetInt(PrefResolutionHeight);
-                if (w > 0 && h > 0)
-                {
-                    Screen.SetResolution(w, h, fullscreen);
-                }
-            }
-            else
-            {
-                Screen.fullScreen = fullscreen;
-            }
+            if (w > 0 && h > 0) Screen.SetResolution(w, h, fullscreen);
+            else Screen.fullScreen = fullscreen;
 
             // Master volume
-            if (PlayerPrefs.HasKey(PrefMasterVolume))
-            {
-                float vol = PlayerPrefs.GetFloat(PrefMasterVolume, 100f);
-                AudioListener.volume = Mathf.Clamp01(vol / 100f);
-            }
+            AudioListener.volume = Mathf.Clamp01(PlayerProfile.MasterVolume / 100f);
+
+            // Music volume. MusicManager reads the profile in Awake; this call
+            // covers the case where it already exists (domain reload, settings
+            // re-applied mid-session) and no-ops before that.
+            MusicManager.SetVolume(Mathf.Clamp01(PlayerProfile.MusicVolume / 100f));
         }
 
         // ================================================================
@@ -184,20 +174,30 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.BeginArea(new Rect(pad, 15f, contentWidth, PanelHeight - 30f));
 
             // Title
-            GUILayout.Label("OPTIONS", _titleStyle);
+            GUILayout.Label(Loc.T("OPTIONS"), _titleStyle);
             GUILayout.Space(8f);
             DrawSeparator(contentWidth);
             GUILayout.Space(10f);
 
+            // ---- Player Name ----
+            // First in the list on purpose: it is the only setting here that
+            // is about the player rather than the machine, and it is the one
+            // they came looking for after being asked once at first run.
+            GUILayout.Label(Loc.T("Player Name"), _sectionHeaderStyle);
+            GUILayout.Space(4f);
+            _playerName = GUILayout.TextField(_playerName ?? "", 24,
+                                              Styles.Label, GUILayout.Height(28f));
+            GUILayout.Space(12f);
+
             // ---- Graphics Quality ----
-            GUILayout.Label("Graphics Quality", _sectionHeaderStyle);
+            GUILayout.Label(Loc.T("Graphics Quality"), _sectionHeaderStyle);
             GUILayout.Space(4f);
 
             GUILayout.BeginHorizontal();
             for (int i = 0; i < _qualityLabels.Length; i++)
             {
                 var style = (i == _qualityLevel) ? _activeButtonStyle : _buttonStyle;
-                if (GUILayout.Button(_qualityLabels[i], style, GUILayout.Height(30f)))
+                if (GUILayout.Button(Loc.T(_qualityLabels[i]), style, GUILayout.Height(30f)))
                 {
                     _qualityLevel = i;
                 }
@@ -209,12 +209,12 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.Space(14f);
 
             // ---- Resolution ----
-            GUILayout.Label("Resolution", _sectionHeaderStyle);
+            GUILayout.Label(Loc.T("Resolution"), _sectionHeaderStyle);
             GUILayout.Space(4f);
 
             string currentResLabel = _selectedResolutionIndex >= 0 && _selectedResolutionIndex < _resolutionLabels.Length
                 ? _resolutionLabels[_selectedResolutionIndex]
-                : "Unknown";
+                : Loc.T("Unknown");
 
             if (GUILayout.Button(currentResLabel, _dropdownButtonStyle, GUILayout.Height(28f)))
             {
@@ -246,17 +246,17 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.Space(14f);
 
             // ---- Fullscreen ----
-            GUILayout.Label("Display Mode", _sectionHeaderStyle);
+            GUILayout.Label(Loc.T("Display Mode"), _sectionHeaderStyle);
             GUILayout.Space(4f);
 
             GUILayout.BeginHorizontal();
             var windowedStyle = _fullscreen ? _buttonStyle : _activeButtonStyle;
             var fullscreenStyle = _fullscreen ? _activeButtonStyle : _buttonStyle;
 
-            if (GUILayout.Button("Windowed", windowedStyle, GUILayout.Height(30f)))
+            if (GUILayout.Button(Loc.T("Windowed"), windowedStyle, GUILayout.Height(30f)))
                 _fullscreen = false;
             GUILayout.Space(4f);
-            if (GUILayout.Button("Fullscreen", fullscreenStyle, GUILayout.Height(30f)))
+            if (GUILayout.Button(Loc.T("Fullscreen"), fullscreenStyle, GUILayout.Height(30f)))
                 _fullscreen = true;
 
             GUILayout.EndHorizontal();
@@ -264,7 +264,7 @@ namespace TheWaningBorder.UI.Menus
             GUILayout.Space(14f);
 
             // ---- Master Volume ----
-            GUILayout.Label("Master Volume", _sectionHeaderStyle);
+            GUILayout.Label(Loc.T("Master Volume"), _sectionHeaderStyle);
             GUILayout.Space(4f);
 
             GUILayout.BeginHorizontal();
@@ -274,12 +274,50 @@ namespace TheWaningBorder.UI.Menus
                 GUILayout.Height(20f));
             // Apply volume immediately so the user can hear what they're setting.
             // Was previously only applied on Apply, leaving the slider feeling
-            // disconnected. Persistence still happens at Apply via PlayerPrefs.
+            // disconnected. Persistence still happens at Apply, into settings.json.
             // (task-062 Q-33)
             if (!Mathf.Approximately(prevVolume, _masterVolume))
                 AudioListener.volume = Mathf.Clamp01(_masterVolume / 100f);
             GUILayout.Space(8f);
             GUILayout.Label($"{Mathf.RoundToInt(_masterVolume)}%", Styles.Label, GUILayout.Width(40f));
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(14f);
+
+            // ---- Music Volume ----
+            GUILayout.Label(Loc.T("Music Volume"), _sectionHeaderStyle);
+            GUILayout.Space(4f);
+
+            GUILayout.BeginHorizontal();
+            float prevMusic = _musicVolume;
+            _musicVolume = GUILayout.HorizontalSlider(
+                _musicVolume, 0f, 100f, _sliderStyle, _sliderThumbStyle,
+                GUILayout.Height(20f));
+            // Same immediate-audition rule as the master slider: the music is
+            // playing while the menu is open, so the change is audible as the
+            // thumb moves. Persistence happens at Apply.
+            if (!Mathf.Approximately(prevMusic, _musicVolume))
+                MusicManager.SetVolume(Mathf.Clamp01(_musicVolume / 100f));
+            GUILayout.Space(8f);
+            GUILayout.Label($"{Mathf.RoundToInt(_musicVolume)}%", Styles.Label, GUILayout.Width(40f));
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(14f);
+
+            // ---- Language ----
+            GUILayout.Label(Loc.T("Language"), _sectionHeaderStyle);
+            GUILayout.Space(4f);
+
+            GUILayout.BeginHorizontal();
+            bool isPt = Loc.IsPortuguese;
+            // Language names are shown in THEIR OWN language on purpose — a
+            // player stuck in the wrong one must be able to find their way
+            // back without reading it.
+            if (GUILayout.Button("English", isPt ? _buttonStyle : _activeButtonStyle, GUILayout.Height(30f)))
+                Loc.Language = Loc.English;
+            GUILayout.Space(4f);
+            if (GUILayout.Button("Português", isPt ? _activeButtonStyle : _buttonStyle, GUILayout.Height(30f)))
+                Loc.Language = Loc.Portuguese;
             GUILayout.EndHorizontal();
 
             GUILayout.FlexibleSpace();
@@ -297,14 +335,14 @@ namespace TheWaningBorder.UI.Menus
 
             GUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Back", _buttonStyle, GUILayout.Height(36f), GUILayout.Width(100f)))
+            if (GUILayout.Button(Loc.T("Back"), _buttonStyle, GUILayout.Height(36f), GUILayout.Width(100f)))
             {
                 OnBackPressed?.Invoke();
             }
 
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("Apply", _applyButtonStyle, GUILayout.Height(36f), GUILayout.Width(120f)))
+            if (GUILayout.Button(Loc.T("Apply"), _applyButtonStyle, GUILayout.Height(36f), GUILayout.Width(120f)))
             {
                 ApplySettings();
             }
@@ -341,20 +379,26 @@ namespace TheWaningBorder.UI.Menus
             // Build resolution list
             BuildResolutionList();
 
+            // Player name
+            _playerName = PlayerProfile.PlayerName;
+
             // Graphics quality
-            _qualityLevel = PlayerPrefs.GetInt(PrefGraphicsQuality, QualitySettings.GetQualityLevel());
+            _qualityLevel = PlayerProfile.GraphicsQuality >= 0
+                ? PlayerProfile.GraphicsQuality : QualitySettings.GetQualityLevel();
             _qualityLevel = Mathf.Clamp(_qualityLevel, 0, _qualityLabels.Length - 1);
 
             // Resolution - find current
-            int curW = PlayerPrefs.GetInt(PrefResolutionWidth, Screen.width);
-            int curH = PlayerPrefs.GetInt(PrefResolutionHeight, Screen.height);
+            int curW = PlayerProfile.ResolutionWidth > 0 ? PlayerProfile.ResolutionWidth : Screen.width;
+            int curH = PlayerProfile.ResolutionHeight > 0 ? PlayerProfile.ResolutionHeight : Screen.height;
             _selectedResolutionIndex = FindResolutionIndex(curW, curH);
 
             // Fullscreen
-            _fullscreen = PlayerPrefs.GetInt(PrefFullscreen, Screen.fullScreen ? 1 : 0) == 1;
+            _fullscreen = PlayerProfile.Fullscreen >= 0
+                ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
 
             // Volume
-            _masterVolume = PlayerPrefs.GetFloat(PrefMasterVolume, AudioListener.volume * 100f);
+            _masterVolume = PlayerProfile.MasterVolume;
+            _musicVolume = PlayerProfile.MusicVolume;
         }
 
         private void BuildResolutionList()
@@ -407,26 +451,32 @@ namespace TheWaningBorder.UI.Menus
             // Graphics quality (clamp to valid range in case labels changed)
             _qualityLevel = Mathf.Clamp(_qualityLevel, 0, QualitySettings.names.Length - 1);
             QualitySettings.SetQualityLevel(_qualityLevel, true);
-            PlayerPrefs.SetInt(PrefGraphicsQuality, _qualityLevel);
+            PlayerProfile.GraphicsQuality = _qualityLevel;
 
             // Resolution & fullscreen
             if (_selectedResolutionIndex >= 0 && _selectedResolutionIndex < _availableResolutions.Length)
             {
                 var res = _availableResolutions[_selectedResolutionIndex];
                 Screen.SetResolution(res.width, res.height, _fullscreen);
-                PlayerPrefs.SetInt(PrefResolutionWidth, res.width);
-                PlayerPrefs.SetInt(PrefResolutionHeight, res.height);
+                PlayerProfile.ResolutionWidth = res.width;
+                PlayerProfile.ResolutionHeight = res.height;
             }
-            PlayerPrefs.SetInt(PrefFullscreen, _fullscreen ? 1 : 0);
+            PlayerProfile.Fullscreen = _fullscreen ? 1 : 0;
 
             // Volume
             AudioListener.volume = Mathf.Clamp01(_masterVolume / 100f);
-            PlayerPrefs.SetFloat(PrefMasterVolume, _masterVolume);
+            PlayerProfile.MasterVolume = _masterVolume;
 
-            PlayerPrefs.Save();
+            // Music volume
+            MusicManager.SetVolume(Mathf.Clamp01(_musicVolume / 100f));
+            PlayerProfile.MusicVolume = _musicVolume;
+
+            // The name is written straight through by its own setter, so this
+            // covers everything above it in one file write.
+            PlayerProfile.PlayerName = _playerName;
 
             // Show status
-            _statusMessage = "Settings applied!";
+            _statusMessage = Loc.T("Settings applied!");
             _statusTimer = 2f;
 
         }

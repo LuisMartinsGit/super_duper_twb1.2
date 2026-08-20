@@ -42,6 +42,10 @@ namespace TheWaningBorder.AI
 
         protected override void OnUpdate()
         {
+            // Host-only: this feeds the AI brains and nothing else, and those
+            // run on the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
+            if (!GameSettings.ShouldRunAIBrains()) return;
+
             _acc += SystemAPI.Time.DeltaTime;
             if (_acc < TickInterval) return;
             _acc -= TickInterval;
@@ -91,9 +95,14 @@ namespace TheWaningBorder.AI
                     if (hps[j].Value <= 0) continue;
                     var pos = xfs[j].Position;
 
-                    if (facs[j].Value == owner)
+                    // Allies are not intel targets. Treated exactly like own
+                    // units: an ally under attack still marks a threat at its
+                    // position (the fight is on your side of the line), but it
+                    // is never recorded as an enemy sighting and never stamped
+                    // as enemy strength. docs/Design/Teams.md
+                    if (!Alliances.AreHostile(owner, facs[j].Value))
                     {
-                        // 3b. Own damaged unit under attack -> threat at its position.
+                        // 3b. Own/allied damaged unit under attack -> threat at its position.
                         if (hps[j].Value < hps[j].Max
                             && em.HasComponent<LastAttackerEntity>(ents[j])
                             && em.GetComponentData<LastAttackerEntity>(ents[j]).Value != Entity.Null)
@@ -170,7 +179,7 @@ namespace TheWaningBorder.AI
             // and made its OWN army-strength reads meaningless.
             if (em.HasComponent<PlundererTag>(e)) { cat = IntelCategory.Miner; isMilitary = false; return; }
             if (em.HasComponent<HallTag>(e)) { cat = IntelCategory.Hall; isMilitary = false; return; }
-            if (em.HasComponent<BorderMainNodeTag>(e) || em.HasComponent<BorderSubNodeTag>(e))
+            if (em.HasComponent<BorderMainNodeTag>(e) || em.HasComponent<SmallNodeTag>(e))
             { cat = IntelCategory.BorderNode; isMilitary = false; return; }
             if (em.HasComponent<MinerTag>(e)) { cat = IntelCategory.Miner; isMilitary = false; return; }
             if (em.HasComponent<BuildingTag>(e))

@@ -29,24 +29,15 @@ namespace TheWaningBorder.AI
         {
             Cleanup(); // Close any previous writers
 
-            _logFolder = Path.Combine(Application.dataPath, "..", "logs");
-
-            // Clear and recreate folder
-            if (Directory.Exists(_logFolder))
-            {
-                foreach (var file in Directory.GetFiles(_logFolder, "AI_*.log"))
-                {
-                    try { File.Delete(file); } catch { }
-                }
-                foreach (var file in Directory.GetFiles(_logFolder, "Player_*.log"))
-                {
-                    try { File.Delete(file); } catch { }
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory(_logFolder);
-            }
+            // Write into THIS match's folder. Logs used to go flat into logs/
+            // and every previous AI_*.log / Player_*.log was DELETED here on
+            // each game start — fine for a developer running one match, but it
+            // means an alpha tester only ever keeps their last match, and a
+            // crash-then-relaunch destroys the logs that would have explained
+            // the crash. Nothing is deleted now; MatchLogSession gives each
+            // match its own timestamped folder and prunes only very old ones.
+            _logFolder = TheWaningBorder.Core.Diagnostics.MatchLogSession.CurrentFolder;
+            try { Directory.CreateDirectory(_logFolder); } catch { }
 
             _gameStartTime = Time.time;
             _writers.Clear();

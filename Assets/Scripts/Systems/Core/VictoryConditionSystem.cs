@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 
 namespace TheWaningBorder.UI.HUD
@@ -27,7 +28,7 @@ namespace TheWaningBorder.UI.HUD
         private EntityManager _em;
         private EntityQuery _buildingsQuery;
         private EntityQuery _buildersQuery;
-        private float _timer;
+        private float _lastCheckAt;
         private float _gameStartTime;
         private bool _initialized;
         private bool _gameOver;
@@ -66,7 +67,11 @@ namespace TheWaningBorder.UI.HUD
                 ComponentType.ReadOnly<CanBuild>(),
                 ComponentType.ReadOnly<FactionTag>());
 
-            _gameStartTime = Time.time;
+            // Simulated time, not wall-clock: victory timing is a game
+            // decision, and a decision made off the render clock happens at
+            // a different moment on every machine.
+            // docs/Multiplayer_LAN_Readiness.md
+            _gameStartTime = TheWaningBorder.Core.SimClock.Now;
 
             // Sandbox / Scenario mode: no victory conditions.
             // Scenarios are sandboxed combat fixtures — the player should never
@@ -101,12 +106,17 @@ namespace TheWaningBorder.UI.HUD
             if (GameStatsTracker.Instance != null && GameStatsTracker.Instance.GameEnded) return;
 
             // Grace period to avoid false eliminations at game start
-            if (Time.time - _gameStartTime < GracePeriod) return;
+            if (TheWaningBorder.Core.SimClock.Now - _gameStartTime < GracePeriod) return;
 
-            _timer += Time.deltaTime;
-            if (_timer >= CheckInterval)
+            // SIM clock, never Time.deltaTime: the poll decides WHICH TICK a
+            // faction's assets get zeroed on (SelfDestructFactionAssets writes
+            // Health), and a render-paced cadence lands that on different
+            // lockstep ticks per peer — a guaranteed MP desync. SimClock
+            // follows the fixed-step sim, so both peers poll on the same tick.
+            float simNow = TheWaningBorder.Core.SimClock.Now;
+            if (simNow - _lastCheckAt >= CheckInterval)
             {
-                _timer = 0f;
+                _lastCheckAt = simNow;
                 CheckVictoryConditions();
             }
         }
@@ -175,7 +185,7 @@ namespace TheWaningBorder.UI.HUD
             }
 
             // Detect newly eliminated factions
-            float gameTime = Time.time - _gameStartTime;
+            float gameTime = TheWaningBorder.Core.SimClock.Now - _gameStartTime;
             var newlyEliminated = new List<Faction>();
 
             foreach (var faction in _aliveFactions)
@@ -210,6 +220,19 @@ namespace TheWaningBorder.UI.HUD
                            "no Hall, no military building, no builders.");
             }
 
+            // Deterministic order: newlyEliminated is filled from a query
+            // sweep, and the SIM MUTATIONS below (Health zeroing) must land
+            // identically on every peer even when two factions die on the
+            // same check.
+            newlyEliminated.Sort();
+
+            // ALL sim mutations complete before any per-peer reaction: the
+            // old loop `return`ed early when the LOCAL player was among the
+            // newly eliminated, which skipped SelfDestructFactionAssets for
+            // the REMAINING factions in the list — and "local player" differs
+            // per peer, so a double elimination zeroed different entity sets
+            // on the two machines (MP desync, found in the 2026-08-16 sweep).
+            bool localEliminated = false;
             foreach (var faction in newlyEliminated)
             {
                 _aliveFactions.Remove(faction);
@@ -219,7 +242,8 @@ namespace TheWaningBorder.UI.HUD
                 // self-destruct every remaining asset of the retired faction
                 // — a defeated player's leftover huts and stragglers no
                 // longer litter the match.
-                PlayerNotificationSystem.Notify($"{faction} has been DEFEATED");
+                PlayerNotificationSystem.Notify(string.Format(
+                    Loc.T("{0} has been DEFEATED"), Loc.T(faction.ToString())));
                 SelfDestructFactionAssets(faction);
 
                 if (GameStatsTracker.Instance != null)
@@ -227,28 +251,77 @@ namespace TheWaningBorder.UI.HUD
                     GameStatsTracker.Instance.RecordElimination(faction, gameTime);
                 }
 
-
-                // If local player was eliminated, show defeat immediately.
-                // Not in observer mode — the observer has no stake; the
-                // match runs until one AI faction remains.
                 if (!GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
+                    localEliminated = true;
+            }
+
+            // If the local player was eliminated, show defeat — AFTER every
+            // faction's retirement has been applied. Not in observer mode —
+            // the observer has no stake; the match runs until one AI faction
+            // remains.
+            if (localEliminated)
+            {
+                Faction winner = OnlyRemainingSideWinner(out bool decided);
+                TriggerGameEnd(decided ? winner : GameSettings.LocalPlayerFaction, true);
+                return;
+            }
+
+            // The match ends when one SIDE remains — a team, or an unteamed
+            // faction counting as a team of one. Eliminating an ally no longer
+            // advances anyone toward victory. docs/Design/Teams.md
+            if (OnlyOneSideRemains())
+            {
+                Faction winner = OnlyRemainingSideWinner(out bool decided);
+                TriggerGameEnd(decided ? winner : GameSettings.LocalPlayerFaction);
+            }
+        }
+
+        /// <summary>
+        /// True when every surviving faction is on the same side. Unteamed
+        /// factions are teams of one, so a free-for-all reduces to the old
+        /// "one faction left" rule exactly.
+        /// </summary>
+        private bool OnlyOneSideRemains()
+        {
+            if (_aliveFactions.Count <= 1) return true;
+
+            Faction first = default;
+            bool haveFirst = false;
+            foreach (var f in _aliveFactions)
+            {
+                if (f == Faction.Border) continue;   // the curse never wins
+                if (!haveFirst) { first = f; haveFirst = true; continue; }
+                if (!Alliances.AreAllied(first, f)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// A representative of the winning side, preferring the local player
+        /// when they are on it so the end screen reads VICTORY rather than
+        /// naming an ally. <paramref name="decided"/> is false when no side
+        /// has actually won yet.
+        /// </summary>
+        private Faction OnlyRemainingSideWinner(out bool decided)
+        {
+            decided = false;
+            if (!OnlyOneSideRemains()) return default;
+
+            Faction any = default;
+            bool haveAny = false;
+            foreach (var f in _aliveFactions)
+            {
+                if (f == Faction.Border) continue;
+                if (!haveAny) { any = f; haveAny = true; }
+                if (f == GameSettings.LocalPlayerFaction)
                 {
-                    Faction winner = _aliveFactions.Count == 1
-                        ? GetSingleFaction(_aliveFactions)
-                        : faction; // No clear winner yet
-                    TriggerGameEnd(winner, true);
-                    return;
+                    decided = true;
+                    return f;
                 }
             }
 
-            // If only one faction remains, they win
-            if (_aliveFactions.Count <= 1)
-            {
-                Faction winner = _aliveFactions.Count == 1
-                    ? GetSingleFaction(_aliveFactions)
-                    : GameSettings.LocalPlayerFaction;
-                TriggerGameEnd(winner);
-            }
+            decided = haveAny;
+            return haveAny ? any : default;
         }
 
         private void TriggerGameEnd(Faction winner, bool localPlayerDefeated = false)
@@ -287,12 +360,29 @@ namespace TheWaningBorder.UI.HUD
                     $"GAME OVER: {result} (winner={winner})");
             TWBLog.Log($"[Victory] Game over: {result} (winner={winner})");
 
-            // End-of-match flow (2026-08-11): the old post-game UI was
-            // removed with the UI redesign and nothing replaced it, so
-            // matches "ended" invisibly and ran forever. Announce the
-            // outcome, then return to the main menu.
-            PlayerNotificationSystem.Notify($"GAME OVER — {result}");
-            StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
+            // Name the outcome in this match's log Summary.txt.
+            TheWaningBorder.Bootstrap.GameBootstrap.RecordMatchOutcome(
+                $"{result} (winner={winner})");
+
+            // End-of-match flow: full-screen victory/defeat panel with a
+            // Return to Main Menu button; the player leaves when they choose.
+            // Fallback (no HUD stack): the old toast + timed return.
+            // `result` stays English for the logs above; the on-screen copy
+            // is built from templates so it renders in the active language.
+            string displayResult = GameSettings.IsObserver
+                ? string.Format(Loc.T("{0} WINS"), Loc.T(winner.ToString()))
+                : Loc.T(result);
+            bool localWon = !localPlayerDefeated
+                && (GameSettings.IsObserver || winner == GameSettings.LocalPlayerFaction);
+            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(
+                    displayResult,
+                    string.Format(Loc.T("Winner: {0}"), Loc.T(winner.ToString())),
+                    localWon))
+            {
+                PlayerNotificationSystem.Notify(
+                    string.Format(Loc.T("GAME OVER — {0}"), displayResult));
+                StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
+            }
         }
 
         /// <summary>Seconds between the outcome banner and the return to
@@ -354,10 +444,14 @@ namespace TheWaningBorder.UI.HUD
             if (GameStatsTracker.Instance != null)
                 GameStatsTracker.Instance.EndGame();
 
+            // `result` stays English for the log below; `displayResult` is the
+            // same line built from templates for the on-screen toast.
             string result;
+            string displayResult;
             if (GameSettings.IsObserver)
             {
                 result = $"{cultureName} WINS (node victory)";
+                displayResult = string.Format(Loc.T("{0} WINS (node victory)"), cultureName);
             }
             else
             {
@@ -367,14 +461,30 @@ namespace TheWaningBorder.UI.HUD
                 result = localWins
                     ? $"VICTORY — {cultureName} node win"
                     : $"DEFEAT — {cultureName} node win";
+                displayResult = string.Format(
+                    Loc.T(localWins ? "VICTORY — {0} node win" : "DEFEAT — {0} node win"),
+                    cultureName);
             }
 
             TWBLog.Log($"[Victory] Node victory: {result} (winner={winner})");
 
-            // Same end-of-match flow as conquest (2026-08-11): visible
-            // banner, then back to the main menu.
-            PlayerNotificationSystem.Notify($"GAME OVER — {result}");
-            StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
+            // Same end-of-match flow as conquest: the victory screen, with
+            // the toast + timed return only as the no-HUD fallback.
+            bool localWonNode = !GameSettings.IsObserver
+                && winner == GameSettings.LocalPlayerFaction;
+            string nodeTitle = GameSettings.IsObserver
+                ? string.Format(Loc.T("{0} WINS"), cultureName)
+                : Loc.T(localWonNode ? "VICTORY" : "DEFEAT");
+            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(
+                    nodeTitle,
+                    string.Format(Loc.T("{0} node victory — winner: {1}"),
+                                  cultureName, Loc.T(winner.ToString())),
+                    localWonNode || GameSettings.IsObserver))
+            {
+                PlayerNotificationSystem.Notify(
+                    string.Format(Loc.T("GAME OVER — {0}"), displayResult));
+                StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
+            }
         }
 
         /// <summary>
@@ -384,7 +494,7 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_gameOver) return;
 
-            float gameTime = Time.time - _gameStartTime;
+            float gameTime = TheWaningBorder.Core.SimClock.Now - _gameStartTime;
             _aliveFactions.Remove(GameSettings.LocalPlayerFaction);
             _eliminatedFactions.Add(GameSettings.LocalPlayerFaction);
 

@@ -120,7 +120,11 @@ namespace TheWaningBorder.UI.HUD
 
         private void DetectAndShowTicks()
         {
-            var localFaction = GameSettings.LocalPlayerFaction;
+            // Observer perspective: income popups belong to the viewed
+            // player; with no view faction there is no economy to narrate.
+            var view = GameSettings.ViewFaction;
+            if (view == null) return;
+            var localFaction = view.Value;
 
             using var entities = _incomeQuery.ToEntityArray(Allocator.Temp);
             using var factions = _incomeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);

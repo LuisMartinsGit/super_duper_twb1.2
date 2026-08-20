@@ -61,6 +61,8 @@ namespace TheWaningBorder.Systems.Navigation
         private Entity _dirtyEntity;
         private Entity _genEntity;
         private byte _initialised;
+        /// <summary>Mirror of NavDirtyTiles' set, disposable after a wipe.</summary>
+        private NativeHashSet<int> _dirtySet;
         private NativeArray<byte> _shadowCost;
         private int _shadowWidth;
         private int _shadowHeight;
@@ -70,7 +72,7 @@ namespace TheWaningBorder.Systems.Navigation
         // full-field diff (and its Dependency.Complete sync) can be skipped.
         private int _lastDiffedGeneration;
 
-        // NOT [BurstCompile]: BC1028 -- CreateEntity is managed.
+        // NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]: BC1028 -- CreateEntity is managed.
         public void OnCreate(ref SystemState state)
         {
             _initialised = 0;
@@ -82,8 +84,20 @@ namespace TheWaningBorder.Systems.Navigation
         {
             var em = state.EntityManager;
 
-            if (_initialised == 0)
+            // Existence-gated. This one fails SILENTLY when broken — the reads
+            // further down are correctly HasSingleton-guarded — so a stale
+            // latch simply meant dirty-tile diffing and the generation counter
+            // never came back: IncrementalPortalRebuildSystem parked forever
+            // and buildings/walls placed from match 2 onward were invisible to
+            // pathing, with nothing in the log to say so.
+            if (_initialised == 0
+                || !em.Exists(_dirtyEntity) || !em.HasComponent<NavDirtyTiles>(_dirtyEntity)
+                || !em.Exists(_genEntity) || !em.HasComponent<NavGenerationCounter>(_genEntity))
             {
+                if (_dirtySet.IsCreated) _dirtySet.Dispose();
+                if (_shadowCost.IsCreated) _shadowCost.Dispose();
+                _shadowCost = default;
+
                 _initialised = 1;
                 var grid = SystemAPI.GetSingleton<NavGridSingleton>();
 
@@ -96,6 +110,7 @@ namespace TheWaningBorder.Systems.Navigation
                 int tileCap = math.max(64, tilesX * tilesZ);
 
                 var dirtySet = new NativeHashSet<int>(tileCap, Allocator.Persistent);
+                _dirtySet = dirtySet;   // mirror for disposal after a wipe
 
                 _dirtyEntity = em.CreateEntity(typeof(NavDirtyTiles));
                 em.SetComponentData(_dirtyEntity, new NavDirtyTiles
@@ -187,15 +202,8 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-
-            var em = state.EntityManager;
-            if (em.Exists(_dirtyEntity) && em.HasComponent<NavDirtyTiles>(_dirtyEntity))
-            {
-                var d = em.GetComponentData<NavDirtyTiles>(_dirtyEntity);
-                if (d.DirtyTileIndices.IsCreated) d.DirtyTileIndices.Dispose();
-            }
-
+            // Mirrors, not the component — the entity may already be wiped.
+            if (_dirtySet.IsCreated) _dirtySet.Dispose();
             if (_shadowCost.IsCreated) _shadowCost.Dispose();
         }
     }

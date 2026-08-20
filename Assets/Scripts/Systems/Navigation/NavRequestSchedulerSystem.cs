@@ -60,6 +60,10 @@ namespace TheWaningBorder.Systems.Navigation
     {
         private Entity _queueEntity;
         private byte _initialised;
+        /// <summary>System-side mirror of the singleton's pending list, so a
+        /// rebuild after the end-of-match entity wipe can dispose the orphaned
+        /// allocation instead of leaking it.</summary>
+        private NativeList<PendingNavRequest> _pending;
 
         // NOT [BurstCompile]: BC1028 -- CreateEntity is managed.
         public void OnCreate(ref SystemState state)
@@ -72,13 +76,29 @@ namespace TheWaningBorder.Systems.Navigation
         {
             var em = state.EntityManager;
 
-            if (_initialised == 0)
+            // Gate on the singleton ACTUALLY EXISTING, not on a one-shot latch.
+            // This entity is an ordinary gameplay entity, so GameBootstrap's
+            // end-of-match wipe destroys it — while this system survives, so
+            // OnCreate never runs again. With a `_initialised == 0` latch the
+            // singleton was therefore never rebuilt, and every match after the
+            // first threw "GetSingleton<NavRequestQueueSingleton>() ... but
+            // there are none" on the line below: the whole nav stack dead,
+            // workers frozen, nothing pathing.
+            if (_initialised == 0
+                || !em.Exists(_queueEntity)
+                || !em.HasComponent<NavRequestQueueSingleton>(_queueEntity))
             {
+                // The wipe took the component but NOT the native list it
+                // referenced. Dispose our own mirror of it first, or we leak
+                // one persistent list per match.
+                if (_pending.IsCreated) _pending.Dispose();
+                _pending = new NativeList<PendingNavRequest>(64, Allocator.Persistent);
+
                 _initialised = 1;
                 _queueEntity = em.CreateEntity(typeof(NavRequestQueueSingleton));
                 em.SetComponentData(_queueEntity, new NavRequestQueueSingleton
                 {
-                    Pending = new NativeList<PendingNavRequest>(64, Allocator.Persistent),
+                    Pending = _pending,
                     MaxRequestsPerTick = NavRequestQueueSingleton.DefaultMaxRequestsPerTick,
                     ReleasedThisTick = 0,
                     CurrentTick = 0,
@@ -203,13 +223,10 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-            var em = state.EntityManager;
-            if (em.Exists(_queueEntity) && em.HasComponent<NavRequestQueueSingleton>(_queueEntity))
-            {
-                var q = em.GetComponentData<NavRequestQueueSingleton>(_queueEntity);
-                if (q.Pending.IsCreated) q.Pending.Dispose();
-            }
+            // Dispose the system-side mirror, not the component's copy: after
+            // an end-of-match wipe the entity is already gone and reading the
+            // component would miss the allocation entirely.
+            if (_pending.IsCreated) _pending.Dispose();
         }
 
         /// <summary>

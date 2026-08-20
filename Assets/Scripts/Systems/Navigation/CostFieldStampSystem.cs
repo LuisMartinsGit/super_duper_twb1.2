@@ -49,7 +49,7 @@ namespace TheWaningBorder.Systems.Navigation
         private ulong _lastSignature;
         private byte _stampedOnce;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NavCostField>();
@@ -158,13 +158,25 @@ namespace TheWaningBorder.Systems.Navigation
                 clearRampHandle = clearRampJob.Schedule(rows, 8, clearHandle);
             }
 
+            // DETERMINISM: these passes write into the SHARED cost/flag arrays
+            // with [NativeDisableParallelForRestriction]. Where two footprints
+            // touch the same cell, which thread wins is a scheduling detail —
+            // fine for the footprint passes, whose writes are idempotent (always
+            // 255 / FlagBuildingFootprint), but not something to rest a
+            // deterministic simulation on: the wall passes below write DIFFERENT
+            // values per entity, so two overlapping wall pieces can land either
+            // way round.
+            //
+            // Under the fixed-step lockstep the same stamps must produce the
+            // same field on every peer, so run them single-threaded there. The
+            // nav stack already takes this shape of switch — GoalFlowFieldSystem
+            // has a synchronous path for the same reason.
+            // docs/Multiplayer_LAN_Readiness.md
+            bool serialStamps = TheWaningBorder.Core.Multiplayer.LockstepTiming.FixedStepActive;
+
             // Stamp building footprints. The two passes cover (a) the
             // default-3x3 footprint for buildings without BuildingSize and
-            // (b) the BuildingSize-aware footprint. Both run with the
-            // [NativeDisableParallelForRestriction] knob: writes to the same
-            // cell from overlapping footprints are idempotent (always 255 /
-            // FlagBuildingFootprint), so the race is harmless for M1. M4
-            // tightens this with Interlocked.Or per DR-6.
+            // (b) the BuildingSize-aware footprint.
             var defaultStamp = new StampBuildingFootprintJob
             {
                 Cost = field.Cost,
@@ -176,7 +188,9 @@ namespace TheWaningBorder.Systems.Navigation
                 Origin = SystemAPI.HasSingleton<NavGridSingleton>()
                     ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero,
             };
-            var defaultHandle = defaultStamp.ScheduleParallel(_buildingQuery, clearRampHandle);
+            var defaultHandle = serialStamps
+                ? defaultStamp.Schedule(_buildingQuery, clearRampHandle)
+                : defaultStamp.ScheduleParallel(_buildingQuery, clearRampHandle);
 
             var sizedStamp = new StampBuildingFootprintSizedJob
             {
@@ -189,7 +203,9 @@ namespace TheWaningBorder.Systems.Navigation
                 Origin = SystemAPI.HasSingleton<NavGridSingleton>()
                     ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero,
             };
-            var sizedHandle = sizedStamp.ScheduleParallel(_buildingSizedQuery, defaultHandle);
+            var sizedHandle = serialStamps
+                ? sizedStamp.Schedule(_buildingSizedQuery, defaultHandle)
+                : sizedStamp.ScheduleParallel(_buildingSizedQuery, defaultHandle);
 
             // Stamp ObstacleTag entities (iron deposits, veilstone nodes,
             // outcroppings, forest rocks) with the same impassable 3x3 the
@@ -207,7 +223,9 @@ namespace TheWaningBorder.Systems.Navigation
                 Origin = SystemAPI.HasSingleton<NavGridSingleton>()
                     ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero,
             };
-            JobHandle prevHandle = obstacleStamp.ScheduleParallel(_obstacleQuery, sizedHandle);
+            JobHandle prevHandle = serialStamps
+                ? obstacleStamp.Schedule(_obstacleQuery, sizedHandle)
+                : obstacleStamp.ScheduleParallel(_obstacleQuery, sizedHandle);
 
             // task-112 M5: stamp walls into both layers. Order matters --
             // the climb-access pass overwrites any wall-instance stamp at
@@ -235,7 +253,9 @@ namespace TheWaningBorder.Systems.Navigation
                     IsGate = 0,
                     IsClimbAccess = 0,
                 };
-                prevHandle = stampWall.ScheduleParallel(_wallQuery, prevHandle);
+                prevHandle = serialStamps
+                    ? stampWall.Schedule(_wallQuery, prevHandle)
+                    : stampWall.ScheduleParallel(_wallQuery, prevHandle);
 
                 // Pass 2: gates -- ground = 254 (conditional), rampart = 1.
                 var stampGate = new StampWallLayersJob
@@ -251,11 +271,17 @@ namespace TheWaningBorder.Systems.Navigation
                     IsGate = 1,
                     IsClimbAccess = 0,
                 };
-                prevHandle = stampGate.ScheduleParallel(_wallGateQuery, prevHandle);
+                prevHandle = serialStamps
+                    ? stampGate.Schedule(_wallGateQuery, prevHandle)
+                    : stampGate.ScheduleParallel(_wallGateQuery, prevHandle);
 
-                // Pass 3: climb access (hubs / stair cells) -- ground stays
-                // walkable (cost 1), rampart walkable, FlagClimbAccess set
-                // so WallPortalDetectionSystem can find them.
+                // Pass 3: climb access (hubs / stair cells) -- ground is
+                // IMPASSABLE (a hub is masonry, same as the curtain it
+                // joins), rampart walkable, FlagClimbAccess set so
+                // WallPortalDetectionSystem can find them. See the
+                // StampWallLayersJob comment: this pass used to re-open the
+                // hub footprint to cost 1 and was the hole every wall had at
+                // its bastions.
                 var stampClimb = new StampWallLayersJob
                 {
                     Cost = field.Cost,
@@ -269,7 +295,9 @@ namespace TheWaningBorder.Systems.Navigation
                     IsGate = 0,
                     IsClimbAccess = 1,
                 };
-                prevHandle = stampClimb.ScheduleParallel(_wallClimbQuery, prevHandle);
+                prevHandle = serialStamps
+                    ? stampClimb.Schedule(_wallClimbQuery, prevHandle)
+                    : stampClimb.ScheduleParallel(_wallClimbQuery, prevHandle);
 
                 // Pass 4: overpass bridges -- deck strip walkable on the
                 // rampart layer (ground beneath untouched: units walk UNDER

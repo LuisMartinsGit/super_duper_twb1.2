@@ -70,6 +70,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 FactionIdx = plan.FactionIdx,
                 Shape = shape,
                 State = FormationGroup.StateMoving,
+                BestLag = float.MaxValue,
             });
             var members = em.AddBuffer<FormationMember>(group);
             for (int i = 0; i < plan.Units.Count; i++)
@@ -236,11 +237,35 @@ namespace TheWaningBorder.Core.Commands.Types
             float slowest = float.MaxValue;
             byte factionIdx = 0xFF;
 
+            // Build cells already promised to a slot. The layout is authored
+            // geometry — it knows nothing about the terrain it lands on, so
+            // ordering a formation onto a shoreline or a wall put a share of
+            // its slots inside impassable ground. Those units could never
+            // arrive, and worse, every one of them was individually snapped to
+            // the SAME nearest walkable cell by MoveCommandHelper, so they
+            // piled onto one point and churned. Resolve each slot to distinct,
+            // standable ground here instead.
+            var claimedSlots = new HashSet<int2>();
+
             for (int i = 0; i < count; i++)
             {
                 float2 s = slotLocal[unitSlot[i]];
+                float3 want = destination + right * s.x + facing * s.y;
+                float3 resolved = ResolveSlot(want, claimedSlots);
+
+                // Re-derive the LEADER-LOCAL offset from where the slot
+                // actually ended up. FormationGroupSystem steers each member to
+                // LeaderPos + right*s.x + Facing*s.y, so leaving the old offset
+                // here would aim the moving spot at the impassable ground we
+                // just moved the destination off — the unit would be steered
+                // one way and ordered another.
+                float3 delta = resolved - destination;
+                s = new float2(
+                    delta.x * right.x + delta.z * right.z,
+                    delta.x * facing.x + delta.z * facing.z);
+
                 slotOfUnit.Add(s);
-                slotWorld.Add(destination + right * s.x + facing * s.y);
+                slotWorld.Add(resolved);
 
                 bool rampart = em.HasComponent<NavLayerIndex>(units[i])
                     && em.GetComponentData<NavLayerIndex>(units[i]).Layer == NavLayerIndex.LayerRampart;
@@ -282,6 +307,60 @@ namespace TheWaningBorder.Core.Commands.Types
                 FactionIdx = factionIdx,
             };
             return true;
+        }
+
+        /// <summary>How far out (in build cells) a displaced slot may look for
+        /// standable ground before giving up.</summary>
+        private const int SlotSearchRings = 6;
+
+        /// <summary>
+        /// Put a formation slot on ground a unit can actually stand on, and on
+        /// a build cell no other slot has taken.
+        ///
+        /// Walks outward ring by ring from the authored position, so a slot
+        /// pushed off a cliff lands as close to its intended place in the
+        /// formation as the terrain allows. Deterministic (fixed ring and
+        /// scan order, claims taken in unit-index order), so every lockstep
+        /// client resolves the identical layout.
+        ///
+        /// Falls back to the authored slot when nothing is free within the
+        /// search — better a crowded formation than a silently dropped unit;
+        /// the movement stack's own arrival and stuck rules handle it from
+        /// there.
+        /// </summary>
+        private static float3 ResolveSlot(float3 want, HashSet<int2> claimed)
+        {
+            int2 wantCell = BuildGrid.WorldToCell(want);
+            if (!claimed.Contains(wantCell) && NavGridQuery.IsWorldStandable(want))
+            {
+                claimed.Add(wantCell);
+                return want;
+            }
+
+            for (int r = 1; r <= SlotSearchRings; r++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                {
+                    for (int dx = -r; dx <= r; dx++)
+                    {
+                        // Ring only — the interior was covered by smaller r.
+                        if (math.max(math.abs(dx), math.abs(dz)) != r) continue;
+
+                        int2 cell = wantCell + new int2(dx, dz);
+                        if (claimed.Contains(cell)) continue;
+
+                        float2 c = BuildGrid.CellCentre(cell);
+                        var candidate = new float3(c.x, want.y, c.y);
+                        if (!NavGridQuery.IsWorldStandable(candidate)) continue;
+
+                        claimed.Add(cell);
+                        return candidate;
+                    }
+                }
+            }
+
+            claimed.Add(wantCell);
+            return want;
         }
 
         /// <summary>

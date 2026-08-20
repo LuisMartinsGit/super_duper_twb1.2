@@ -40,54 +40,6 @@ namespace TheWaningBorder.AI
     }
 
     /// <summary>
-    /// Represents an AI mission (attack, defend, scout, etc.)
-    /// </summary>
-    public struct AIMission : IComponentData
-    {
-        /// <summary>Unique identifier for this mission</summary>
-        public int MissionId;
-
-        /// <summary>Type of mission</summary>
-        public MissionType Type;
-
-        /// <summary>Current status of the mission</summary>
-        public MissionStatus Status;
-
-        /// <summary>Faction that owns this mission</summary>
-        public Faction OwnerFaction;
-
-        /// <summary>Target faction for attack/raid missions</summary>
-        public Faction TargetFaction;
-
-        /// <summary>Target position for the mission</summary>
-        public float3 TargetPosition;
-
-        /// <summary>Target entity (if applicable)</summary>
-        public Entity TargetEntity;
-
-        /// <summary>Primary army assigned to this mission</summary>
-        public Entity AssignedArmy;
-
-        /// <summary>Mission priority (higher = more important)</summary>
-        public int Priority;
-
-        /// <summary>Required combat strength to complete mission</summary>
-        public int RequiredStrength;
-
-        /// <summary>Currently assigned combat strength</summary>
-        public int AssignedStrength;
-
-        /// <summary>Time when mission was created</summary>
-        public double CreatedTime;
-
-        /// <summary>Time when mission was last updated</summary>
-        public double LastUpdateTime;
-
-        /// <summary>Time when mission was completed (if completed)</summary>
-        public float CompletedTime;
-    }
-
-    /// <summary>
     /// Buffer element for tracking armies assigned to a mission.
     /// </summary>
     public struct AssignedArmy : IBufferElementData
@@ -114,60 +66,6 @@ namespace TheWaningBorder.AI
         Defending = 3,
         Retreating = 4,
         Regrouping = 5
-    }
-
-    /// <summary>
-    /// Represents an AI-controlled army group.
-    /// </summary>
-    public struct AIArmy : IComponentData
-    {
-        /// <summary>Unique identifier for this army</summary>
-        public int ArmyId;
-
-        /// <summary>Faction that owns this army</summary>
-        public Faction Owner;
-
-        /// <summary>Current army status</summary>
-        public ArmyStatus Status;
-
-        /// <summary>Current center position of the army</summary>
-        public float3 Position;
-
-        /// <summary>Target position the army is moving towards</summary>
-        public float3 TargetPosition;
-
-        /// <summary>Currently assigned mission entity</summary>
-        public Entity MissionEntity;
-
-        /// <summary>Number of units in the army</summary>
-        public int UnitCount;
-
-        /// <summary>Total combat strength of all units</summary>
-        public int TotalStrength;
-
-        /// <summary>Last time army state was updated</summary>
-        public float LastUpdateTime;
-
-        /// <summary>Whether the army is currently engaging enemies (0 = no, 1 = yes)</summary>
-        public byte IsEngaging;
-
-        /// <summary>Whether the army is currently retreating (0 = no, 1 = yes)</summary>
-        public byte IsRetreating;
-    }
-
-    /// <summary>
-    /// Buffer element for tracking units in an army.
-    /// </summary>
-    public struct ArmyUnit : IBufferElementData
-    {
-        /// <summary>The unit entity</summary>
-        public Entity Unit;
-
-        /// <summary>Combat strength of this unit</summary>
-        public int Strength;
-
-        /// <summary>Type/class of the unit</summary>
-        public UnitClass UnitType;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -208,30 +106,10 @@ namespace TheWaningBorder.AI
     // MISSION MANAGER STATE
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// State tracking for AI mission management.
-    /// </summary>
-    public struct AIMissionState : IComponentData
-    {
-        public int ActiveMissions;
-        public int PendingMissions;
-        public float LastMissionUpdate;
-        public float MissionUpdateInterval;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // TACTICAL MANAGER STATE
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// State tracking for AI tactical decisions.
-    /// </summary>
-    public struct AITacticalState : IComponentData
-    {
-        public int ManagedArmies;
-        public float LastTacticalUpdate;
-        public float TacticalUpdateInterval;
-    }
     // ═══════════════════════════════════════════════════════════════════════
     // BUILDING STATE
     // ═══════════════════════════════════════════════════════════════════════

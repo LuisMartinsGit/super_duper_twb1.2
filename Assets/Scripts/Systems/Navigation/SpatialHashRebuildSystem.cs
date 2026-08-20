@@ -34,7 +34,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// <summary>
     /// Owns the <see cref="NavSpatialHash"/> singleton. Allocates the
     /// underlying <see cref="NativeParallelMultiHashMap{TKey, TValue}"/>
-    /// at <c>OnCreate</c> (NOT [BurstCompile]'d -- it does an
+    /// at <c>OnCreate</c> (NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]'d -- it does an
     /// <see cref="EntityManager.CreateEntity(System.Type[])"/> which trips
     /// BC1028). Disposes the map in <c>OnDestroy</c>.
     /// </summary>
@@ -51,8 +51,12 @@ namespace TheWaningBorder.Systems.Navigation
         private EntityQuery _unitQuery;
         private Entity _hashEntity;
         private byte _initialised;
+        /// <summary>System-side mirror of the singleton's map, so a rebuild
+        /// after the end-of-match entity wipe can dispose the orphaned
+        /// allocation instead of leaking it.</summary>
+        private NativeParallelMultiHashMap<int, Entity> _map;
 
-        // NOT [BurstCompile]: BC1028 (EntityManager.CreateEntity is managed).
+        // NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]: BC1028 (EntityManager.CreateEntity is managed).
         public void OnCreate(ref SystemState state)
         {
             _initialised = 0;
@@ -71,15 +75,26 @@ namespace TheWaningBorder.Systems.Navigation
             // We can't do this in OnCreate because CreateEntity is managed
             // (BC1028 again) and we want OnCreate Burst-friendly for any
             // future Burst-only init.
-            if (_initialised == 0)
+            // Existence-gated, not latch-gated — see NavRequestSchedulerSystem
+            // for the full reasoning. GameBootstrap's end-of-match wipe
+            // destroys this ordinary gameplay entity while the system lives
+            // on, so a one-shot latch left every match after the first with no
+            // NavSpatialHash and a dead nav stack.
+            if (_initialised == 0
+                || !em.Exists(_hashEntity)
+                || !em.HasComponent<NavSpatialHash>(_hashEntity))
             {
-                _initialised = 1;
-                var map = new NativeParallelMultiHashMap<int, Entity>(
+                // Dispose the orphaned map from the previous match rather than
+                // leaking one persistent hash map per match.
+                if (_map.IsCreated) _map.Dispose();
+                _map = new NativeParallelMultiHashMap<int, Entity>(
                     InitialCapacity, Allocator.Persistent);
+
+                _initialised = 1;
                 _hashEntity = em.CreateEntity(typeof(NavSpatialHash));
                 em.SetComponentData(_hashEntity, new NavSpatialHash
                 {
-                    Map = map,
+                    Map = _map,
                     CellSize = NavSpatialHash.DefaultCellSize,
                     BucketCount = InitialCapacity,
                     Generation = 0,
@@ -147,14 +162,10 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-
-            var em = state.EntityManager;
-            if (em.Exists(_hashEntity) && em.HasComponent<NavSpatialHash>(_hashEntity))
-            {
-                var hash = em.GetComponentData<NavSpatialHash>(_hashEntity);
-                if (hash.Map.IsCreated) hash.Map.Dispose();
-            }
+            // Dispose the system-side mirror: after an end-of-match wipe the
+            // entity is gone and reading the component would miss the
+            // allocation entirely.
+            if (_map.IsCreated) _map.Dispose();
         }
     }
 
@@ -163,7 +174,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// design (the multimap's Clear is O(buckets) and dirt-cheap relative
     /// to the rest of the tick).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct ClearHashJob : IJob
     {
         public NativeParallelMultiHashMap<int, Entity> Map;
@@ -180,7 +191,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// DR-2; bucket iteration order then equals insertion order, which is
     /// the contract <c>SteeringSystem</c>'s force-accumulation relies on.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct PopulateHashJob : IJob
     {
         [ReadOnly] public NativeArray<Entity> Entities;

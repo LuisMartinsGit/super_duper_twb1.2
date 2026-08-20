@@ -107,6 +107,16 @@ reads as **neutral**. Rules:
   visible trace fades within ~45 s. Sources continuously outpace decay to
   hold ground. The simulation ticks at 0.1 s with correspondingly small
   per-tick deposits, so growth and collapse read smoothly.
+- **Feraldis is the exception: its influence never decays** (2026-08-18).
+  Ground a Feraldis player has claimed stays claimed for the rest of the
+  match even with every source dead — it can only be **replaced**. A
+  Feraldis cell loses strength only while **another player's channel or the
+  curse** sits at or above it on that cell, and it then erodes at the
+  normal decay rate until it is gone (values saturate at the same ceiling,
+  so matching a saturated cell is enough to start taking it). Feraldis
+  claims by walking on you; what it has bled for, it keeps until someone
+  takes it off them. See
+  [Age_1_Feraldis.md § Feraldis influence never decays](Age_1_Feraldis.md#feraldis-influence-never-decays).
 - **The border is the 0.5 iso-contour** of a channel. Influence **outside a
   border is invisible** — only the ≥0.5 interior renders, outlined by a
   continuous border line that conforms to the territory shape.
@@ -267,7 +277,9 @@ These cross-faction loops are **retired.** In the design:
   distribution, patch regrowth, excess-spawned new clusters) is
   **stripped entirely**. Border unit/building deaths yield nothing but
   the usual Glow drops (and 1 RP for secondary border locations).
-- **Veilsteel is now also a map resource: the "Sharp Crystals" node.**
+- **Veilsteel is now also a map resource: the "Veilsteel Mine" node.**
+  (Renamed 2026-08-15; called "Sharp Crystals" in older docs and in the
+  internal `VeilsteelDeposit*` identifiers, which were left alone.)
   A **single node holding 1 500 Veilsteel** (not a patch), placed per
   map via a `VeilsteelDepositMarker`. Mining works exactly like iron
   (same worker flow — each gather tick credits the stockpile directly).

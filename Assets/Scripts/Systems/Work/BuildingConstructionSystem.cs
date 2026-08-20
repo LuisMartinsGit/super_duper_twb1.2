@@ -153,8 +153,16 @@ namespace TheWaningBorder.Systems.Work
                     if (em.HasComponent<AutoConstructTag>(site))
                         buildRate = BuildRatePerBuilder * 0.25f;
 
-                    // task-063 phase 1: sect BuildSpeed multiplier removed with the
-                    // FactionSectState bridge. Phase 2 reintroduces build-speed levers.
+                    // Mason's Charter (Renewal, all buildings) and Deep
+                    // Foundations (Fortitude, defensive structures only) both
+                    // speed construction, and stack on a wall or tower.
+                    if (em.HasComponent<FactionTag>(site))
+                    {
+                        var siteFaction = em.GetComponentData<FactionTag>(site).Value;
+                        buildRate *= TheWaningBorder.Economy.SectResearchEffects
+                            .ConstructionSpeedMultiplier(siteFaction,
+                                TheWaningBorder.Data.BuildCosts.IdFromEntity(em, site));
+                    }
 
                     uc.Progress += buildRate * dt;
 
@@ -214,7 +222,116 @@ namespace TheWaningBorder.Systems.Work
             builders.Dispose();
             builderPositions.Dispose();
             builderOrders.Dispose();
+
+            AdoptAbandonedSites(ref state, em);
         }
+
+        /// <summary>
+        /// Give idle builders a nearby unfinished structure to resume.
+        ///
+        /// CLAUDE.md documents "builders auto-chain to nearby unfinished
+        /// structures within LOS", but the chain only ever ran in the
+        /// completion branch above — at the instant a builder FINISHED
+        /// something. A builder the player walked away mid-job (a plain move
+        /// order strips BuildOrder, see CommandCleanup.ClearWorkOrders) was
+        /// therefore never offered the site again, and the foundation sat
+        /// half-built forever with no in-game way to resume it. That is the
+        /// reported bug: resources spent, nothing to show, no recourse.
+        ///
+        /// Deliberately does NOT touch builders under an explicit
+        /// UserMoveOrder — if the player is walking a builder somewhere, it
+        /// should walk there, not get captured by the first foundation it
+        /// passes. Idleness is judged by the absence of work orders, never by
+        /// DesiredDestination (movement consumes that flag, so reading it as
+        /// "idle" is wrong).
+        /// </summary>
+        private void AdoptAbandonedSites(ref SystemState state, EntityManager em)
+        {
+            // Throttled: this is an O(builders x sites) proximity scan and the
+            // answer cannot change meaningfully between frames.
+            _adoptTimer += SystemAPI.Time.DeltaTime;
+            if (_adoptTimer < AdoptScanInterval) return;
+            _adoptTimer = 0f;
+
+            // Collect first: issuing a build adds components, and structural
+            // changes invalidate an in-flight query iteration.
+            var idle = new NativeList<Entity>(Allocator.Temp);
+            var idlePos = new NativeList<float3>(Allocator.Temp);
+
+            // BuildCommand is in the exclusion list because a builder WALKING
+            // to its site has BuildCommand but not yet BuildOrder — without it
+            // this pass would treat a builder mid-journey as idle and hand it a
+            // different site every second.
+            foreach (var (transform, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>>()
+                .WithAll<CanBuild>()
+                .WithNone<BuildOrder, RepairOrder, UserMoveOrder>()
+                .WithEntityAccess())
+            {
+                // WithNone takes at most three types here, so the remaining
+                // exclusions are checked inline.
+                if (em.HasComponent<TheWaningBorder.Core.Commands.Types.BuildCommand>(entity))
+                    continue;
+
+                // A VILLAGER MID-JOB IS NOT IDLE. A worker that is mining
+                // carries none of the build-order components excluded above —
+                // its job lives in MinerState / GatherCommand — so this pass
+                // read every working miner as free labour and adopted it onto
+                // the nearest foundation. MiningSystem then sees the BuildOrder,
+                // drops the miner to Idle, and the gathering job is silently
+                // lost: the player watches their economy wander off to a
+                // building site they never sent anyone to.
+                //
+                // Command follow-through: a worker finishes what it was told to
+                // do. Only genuinely unoccupied workers get adopted.
+                if (IsGathering(em, entity)) continue;
+
+                idle.Add(entity);
+                idlePos.Add(transform.ValueRO.Position);
+            }
+
+            for (int i = 0; i < idle.Length; i++)
+            {
+                // The player's own queued plan comes first — those are sites
+                // they explicitly asked for, at any distance. Only once the
+                // queue is empty do we fall back to adopting whatever
+                // abandoned foundation happens to be in sight.
+                if (TheWaningBorder.Core.Commands.Types.BuildCommandHelper
+                        .TryStartNextQueued(em, idle[i]))
+                    continue;
+
+                if (_unfinishedBuildingQuery.IsEmptyIgnoreFilter) continue;
+
+                Entity site = FindNearbyUnfinishedBuilding(em, idle[i], idlePos[i]);
+                if (site == Entity.Null) continue;
+
+                em.AddComponentData(idle[i], new BuildOrder { Site = site });
+            }
+
+            idle.Dispose();
+            idlePos.Dispose();
+        }
+
+        /// <summary>
+        /// Is this worker busy gathering? Covers both the order that was issued
+        /// (GatherCommand / GatherVeilCommand, still pending) and the job it is
+        /// already running (MinerState past Idle — walking to a deposit counts,
+        /// or a worker would be poached during the walk out).
+        /// </summary>
+        private static bool IsGathering(EntityManager em, Entity worker)
+        {
+            if (em.HasComponent<TheWaningBorder.Core.Commands.Types.GatherCommand>(worker))
+                return true;
+            if (em.HasComponent<TheWaningBorder.Core.Commands.Types.GatherVeilCommand>(worker))
+                return true;
+            if (em.HasComponent<MinerState>(worker)
+                && em.GetComponentData<MinerState>(worker).State != MinerWorkState.Idle)
+                return true;
+            return false;
+        }
+
+        private float _adoptTimer;
+        private const float AdoptScanInterval = 1.0f;
 
         /// <summary>
         /// Finalizes building construction:
@@ -224,6 +341,13 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private void CompleteConstruction(EntityManager em, Entity building)
         {
+            // Read the progress-HP watermark BEFORE dropping the component —
+            // the health step below needs it to tell build progress apart from
+            // combat damage.
+            int lastProgressHp = em.HasComponent<UnderConstruction>(building)
+                ? em.GetComponentData<UnderConstruction>(building).LastProgressHp
+                : 0;
+
             // Remove construction marker
             em.RemoveComponent<UnderConstruction>(building);
 
@@ -243,12 +367,19 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<AutoConstructTag>(building))
                 em.RemoveComponent<AutoConstructTag>(building);
 
-            // Set health to max (sect BuildingHP multiplier removed in task-063
-            // phase 1; Phase 2's Fortitude/Oath-Stone levers reintroduce this).
+            // Finish the HP ramp WITHOUT healing combat damage.
+            //
+            // The per-tick loop applies build progress as a DELTA precisely so
+            // damage taken mid-build survives (task-062 Q-23) — and then this
+            // used to slam hp.Value to Max and undo all of it, so a site that
+            // was nearly razed during construction popped out pristine. Add
+            // only the progress still owed (Max - LastProgressHp): a building
+            // that took 50% damage completes at 50%.
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
-                hp.Value = hp.Max;
+                int remainingProgress = hp.Max - lastProgressHp;
+                hp.Value = math.clamp(hp.Value + math.max(0, remainingProgress), 1, hp.Max);
                 em.SetComponentData(building, hp);
             }
 

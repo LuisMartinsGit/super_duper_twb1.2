@@ -114,6 +114,19 @@ namespace TheWaningBorder.Systems.Buildings
             ups.Level = level;
             em.SetComponentData(building, ups);
 
+            // Debug.Log, not TWBLog, ON PURPOSE: this is the ONLY write point
+            // for a building's level, and a 2026-08-17 report claimed "all
+            // buildings of one type share their level" — a claim the per-
+            // entity code cannot explain. One tagged line per level write
+            // (a handful per match; the age-up auto-L1 wave legitimately
+            // prints one per building) survives into player-build console
+            // capture, so the next report shows exactly how many buildings
+            // wrote a level and from where. TWBLog compiles out of builds.
+            UnityEngine.Debug.Log(
+                $"[Upgrade] entity {building.Index} -> L{level}"
+                + (em.HasComponent<FactionTag>(building)
+                    ? $" ({em.GetComponentData<FactionTag>(building).Value})" : ""));
+
             // Health: scale Max from base, scale current proportionally so
             // the visual HP bar stays at the same percentage. (Mid-combat
             // upgrades don't suddenly heal or kill the building.)

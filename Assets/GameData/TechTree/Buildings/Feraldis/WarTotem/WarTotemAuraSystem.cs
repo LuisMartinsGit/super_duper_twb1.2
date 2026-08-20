@@ -25,6 +25,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Influence;
+using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.FeraldisConstants;
 
 namespace TheWaningBorder.Systems.World
@@ -65,13 +66,24 @@ namespace TheWaningBorder.Systems.World
             {
                 float3 p = xf.ValueRO.Position;
 
-                // Sustaining the aura costs blood. Consume returns the mean
-                // saturation it found, which doubles as the "is there anything
-                // left here" test.
-                float mean = BloodMap.Consume(p.x, p.z, TotemAuraRadius,
-                                              TotemAuraBloodPerSecond * dt);
+                // Sustaining the aura costs blood, drawn from the whole aura
+                // disc.
+                BloodMap.Consume(p.x, p.z, TotemAuraRadius,
+                                 TotemAuraBloodPerSecond * dt);
 
-                bool dry = mean <= TotemDryBloodThreshold;
+                // Dryness is measured THE WAY PLACEMENT MEASURES IT — a point
+                // sample under the totem — because that is what
+                // TotemDryBloodThreshold was tuned against (see the constant's
+                // own note: deliberately under the 0.15 placement threshold so
+                // a legally-sited totem does not instantly starve).
+                //
+                // It used to test Consume's disc MEAN over the 18 m aura. A
+                // real pool covers a handful of grid cells, so that mean sits
+                // far below 0.03 even standing in fresh blood: every totem
+                // read dry on its first frame and collapsed 60 s later, which
+                // is the exact opposite of the documented intent.
+                float atTotem = BloodMap.SampleWorld(p.x, p.z);
+                bool dry = atTotem <= TotemDryBloodThreshold;
                 bool wasStarving = em.HasComponent<TotemStarving>(entity);
 
                 if (dry)
@@ -120,7 +132,8 @@ namespace TheWaningBorder.Systems.World
                     bool inAura = false;
                     for (int i = 0; i < totemPos.Length; i++)
                     {
-                        if (totemFaction[i] != uf) continue;   // own army only
+                        // Own army and allies. docs/Design/Teams.md
+                        if (!Alliances.AreAllied(totemFaction[i], uf)) continue;
                         float dx = up.x - totemPos[i].x, dz = up.z - totemPos[i].z;
                         if (dx * dx + dz * dz > r2) continue;
                         inAura = true;
@@ -168,7 +181,7 @@ namespace TheWaningBorder.Systems.World
                     em.SetComponentData(t, h);
                 }
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    "A War Totem crumbles — its blood is spent.");
+                    Loc.T("A War Totem crumbles — its blood is spent."));
             }
 
             totemPos.Dispose();

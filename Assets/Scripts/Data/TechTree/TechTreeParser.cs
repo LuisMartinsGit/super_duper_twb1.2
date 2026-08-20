@@ -110,12 +110,27 @@ namespace TheWaningBorder.Data
                 ParseUnit(json, "Runai_Raider", result);
                 ParseUnit(json, "Runai_Catapult", result);
                 ParseUnit(json, "Runai_Caravan", result);
-                ParseUnit(json, "Runai_Escort", result);
+                // Runai_Escort delisted 2026-08-16: refinement #3 collapsed
+                // caravans + patrols into one combat-capable trader, so the
+                // escort has no entity, spawner or trainer. The JSON def
+                // stays as a design note only.
 
                 // Runai technologies
                 ParseTechnology(json, "Runai_LongHaulTariffs", result);
                 ParseTechnology(json, "Runai_PackBazaar", result);
                 ParseTechnology(json, "Runai_EscortedCaravans", result);
+
+                // Sect research — one tech per sect, bought at that sect's
+                // building (docs/Design/Sects.md section 1). Alanthor cluster
+                // only so far; the other eight land with their pass.
+                // NOTE: ParseAll is an explicit allowlist, not a scan — a tech
+                // in the JSON but missing from this list is silently never
+                // loaded, and its research button never appears.
+                ParseTechnology(json, "RoyalIndex", result);
+                ParseTechnology(json, "MasonsCharter", result);
+                ParseTechnology(json, "DeepFoundations", result);
+                ParseTechnology(json, "WardensLedger", result);
+                ParseTechnology(json, "EndlessMuster", result);
 
                 // Era 1 technologies (Age 0 sweep — design-aligned ids)
                 ParseTechnology(json, "Research_Era2", result);

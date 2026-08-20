@@ -239,6 +239,57 @@ namespace TheWaningBorder.UI.HUD
             GameEndTime = Time.time;
             GameEnded = true;
 
+            // The richest record of a match lives right here and used to die
+            // with the GameObject at teardown: a full per-faction economy
+            // timeline plus elimination times. Written out so a tester's logs
+            // answer "how did the game actually go" without a screen-share.
+            WriteTimelineCsv();
+        }
+
+        /// <summary>
+        /// Dump every faction's sampled economy to Timeline.csv in the current
+        /// match's log folder. One row per faction per sample; opens directly
+        /// in a spreadsheet. Never throws into the game.
+        /// </summary>
+        private void WriteTimelineCsv()
+        {
+            try
+            {
+                var sb = new System.Text.StringBuilder(4096);
+                sb.AppendLine("TimeSeconds,Faction,Supplies,Iron,Veilstone,Veilsteel,Glow,Population,PopulationMax");
+
+                foreach (var pair in FactionTimelines)
+                {
+                    var list = pair.Value;
+                    if (list == null) continue;
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        var s = list[i];
+                        sb.Append(s.Time.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))
+                          .Append(',').Append(pair.Key)
+                          .Append(',').Append(s.Supplies)
+                          .Append(',').Append(s.Iron)
+                          .Append(',').Append(s.Veilstone)
+                          .Append(',').Append(s.Veilsteel)
+                          .Append(',').Append(s.Glow)
+                          .Append(',').Append(s.Population)
+                          .Append(',').Append(s.PopulationMax)
+                          .AppendLine();
+                    }
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("Faction,EliminatedAtSeconds");
+                foreach (var pair in EliminationTimes)
+                    sb.Append(pair.Key).Append(',')
+                      .Append(pair.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))
+                      .AppendLine();
+
+                System.IO.File.WriteAllText(
+                    TheWaningBorder.Core.Diagnostics.MatchLogSession.File("Timeline.csv"),
+                    sb.ToString());
+            }
+            catch { /* diagnostics must never throw into the game */ }
         }
 
         void OnDestroy()

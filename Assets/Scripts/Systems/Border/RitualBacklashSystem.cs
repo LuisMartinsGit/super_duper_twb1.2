@@ -31,6 +31,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;      // Crystalling / Veilstinger / Godsplinter factories
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -122,7 +123,7 @@ namespace TheWaningBorder.Systems.Border
                 $"BACKLASH armed — the rite failed and the well answers with " +
                 $"{RitualBacklashTuning.WaveCount} waves");
             TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                "The rite collapses — the well erupts!");
+                Loc.T("The rite collapses — the well erupts!"));
         }
 
         protected override void OnUpdate()
@@ -175,7 +176,7 @@ namespace TheWaningBorder.Systems.Border
                     $"BACKLASH wave {wave}/{RitualBacklashTuning.WaveCount}: {total} erupt " +
                     $"({melee} Crystalling, {ranged} Veilstinger, {siege} Godsplinter)");
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    $"Backlash — wave {wave} of {RitualBacklashTuning.WaveCount}!");
+                    string.Format(Loc.T("Backlash — wave {0} of {1}!"), wave, RitualBacklashTuning.WaveCount));
 
                 if (wave >= RitualBacklashTuning.WaveCount) finished.Add(entity);
             }

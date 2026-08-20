@@ -16,6 +16,28 @@ public struct BuildOrder : IComponentData
 }
 
 /// <summary>
+/// A build the builder should start once it finishes its current one.
+///
+/// BuildCommand and BuildOrder are both SINGLE components, so every new build
+/// assignment overwrote the previous one: placing several buildings in a row
+/// left the builder with only the LAST, and every earlier foundation sat
+/// untouched forever. The LOS auto-chain hid this whenever the sites happened
+/// to be close together, which is why it read as "only far-apart builds are
+/// ignored" — proximity was doing the queueing by accident.
+///
+/// A buffer makes the plan explicit and order-preserving.
+/// </summary>
+[UnityEngine.Scripting.Preserve]
+public struct QueuedBuildSite : IBufferElementData
+{
+    public Unity.Collections.FixedString64Bytes BuildingId;
+    public Unity.Mathematics.float3 Position;
+    /// <summary>The already-created site entity, or Entity.Null if the
+    /// building has not been placed yet (multiplayer lockstep ordering).</summary>
+    public Entity TargetBuilding;
+}
+
+/// <summary>
 /// Repair order assigned to a builder unit.
 /// Builder walks to damaged building and repairs it, consuming resources.
 /// Cost = (missingHP / maxHP) * originalBuildCost * 1.2 penalty.

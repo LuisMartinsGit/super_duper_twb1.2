@@ -43,18 +43,54 @@ namespace TheWaningBorder.World.Terrain
         /// <summary>
         /// Get the active terrain reference, or null if not available.
         /// </summary>
+        // Resolved terrain, cached. GetHeight is one of the hottest calls in
+        // the game — PresentationSpawnSystem.SyncTransforms alone runs it once
+        // per visible entity per frame — and every one of those calls used to
+        // re-run the full resolve below: a Terrain.activeTerrain property hop,
+        // then (on a miss) Terrain.activeTerrains, which ALLOCATES a fresh
+        // array on every access, then GameObject.Find("ProcTerrain"), which is
+        // a full scene scan. The terrain object is created once per match and
+        // never swapped, so resolve it once and reuse. The `== null` test is
+        // Unity's overloaded one, so a destroyed terrain (scene change) reads
+        // null here and forces a clean re-resolve.
+        private static UnityEngine.Terrain _cachedTerrain;
+
+        /// <summary>
+        /// Bumped every time a DIFFERENT terrain object is resolved — i.e. the
+        /// terrain first appears, or a scene change swaps it. Callers that
+        /// cache a sampled height (rather than re-sampling every frame) watch
+        /// this so they re-sample once when the ground underneath them
+        /// actually changed. Without it, anything placed during the window
+        /// before MapMagic finishes generating would keep the height it got
+        /// from the missing terrain forever.
+        /// </summary>
+        public static int TerrainVersion { get; private set; }
+
+        private static UnityEngine.Terrain Adopt(UnityEngine.Terrain t)
+        {
+            if (!ReferenceEquals(_cachedTerrain, t))
+            {
+                _cachedTerrain = t;
+                TerrainVersion++;
+            }
+            return t;
+        }
+
         public static UnityEngine.Terrain GetActiveTerrain()
         {
+            if (_cachedTerrain != null && _cachedTerrain.terrainData != null)
+                return _cachedTerrain;
+
             // Primary: use Unity's active terrain
             var terrain = UnityEngine.Terrain.activeTerrain;
             if (terrain != null && terrain.terrainData != null)
-                return terrain;
+                return Adopt(terrain);
 
             // Fallback: search active terrains array
             foreach (var t in UnityEngine.Terrain.activeTerrains)
             {
                 if (t != null && t.terrainData != null)
-                    return t;
+                    return Adopt(t);
             }
 
             // Last resort: find by name
@@ -63,7 +99,7 @@ namespace TheWaningBorder.World.Terrain
             {
                 terrain = go.GetComponent<UnityEngine.Terrain>();
                 if (terrain != null && terrain.terrainData != null)
-                    return terrain;
+                    return Adopt(terrain);
             }
 
             return null;

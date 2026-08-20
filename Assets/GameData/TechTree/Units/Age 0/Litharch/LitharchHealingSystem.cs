@@ -105,7 +105,8 @@ namespace TheWaningBorder.Systems.Combat
                                  .WithEntityAccess())
                     {
                         if (tEntity == entity) continue;
-                        if (tFaction.ValueRO.Value != myFaction) continue;
+                        // Litharchs heal allies too. docs/Design/Teams.md
+                        if (!Alliances.AreAllied(myFaction, tFaction.ValueRO.Value)) continue;
                         if (em.HasComponent<UnhealableTag>(tEntity)) continue;
                         if (tHealth.ValueRO.Value >= tHealth.ValueRO.Max) continue;
                         if (tHealth.ValueRO.Value <= 0) continue;

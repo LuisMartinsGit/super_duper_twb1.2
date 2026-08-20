@@ -106,35 +106,13 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.RemoveComponent<UserMoveOrder>(unit);
         }
 
+        /// <summary>Cancel whatever this unit was doing before the new order.
+        /// Steps are shared via CommandCleanup — see that file for why the four
+        /// order helpers clear different sets.</summary>
         private static void ClearConflictingCommands(EntityManager em, Entity unit)
         {
-            // Clear attack
-            if (em.HasComponent<AttackCommand>(unit))
-                em.RemoveComponent<AttackCommand>(unit);
-
-            // Clear target
-            if (em.HasComponent<Target>(unit))
-                em.SetComponentData(unit, new Target { Value = Entity.Null });
-
-            // Clear gather
-            if (em.HasComponent<GatherCommand>(unit))
-                em.RemoveComponent<GatherCommand>(unit);
-
-            // Clear build
-            if (em.HasComponent<BuildCommand>(unit))
-                em.RemoveComponent<BuildCommand>(unit);
-            if (em.HasComponent<BuildOrder>(unit))
-                em.RemoveComponent<BuildOrder>(unit);
-
-            // Clear heal
-            if (em.HasComponent<HealCommand>(unit))
-                em.RemoveComponent<HealCommand>(unit);
-            // Clear Litharch healing state
-            if (em.HasComponent<LitharchState>(unit))
-            {
-                var ls = em.GetComponentData<LitharchState>(unit);
-                if (ls.IsHealing != 0) { ls.HealTarget = Entity.Null; ls.IsHealing = 0; em.SetComponentData(unit, ls); }
-            }
+            CommandCleanup.ClearCombat(em, unit);
+            CommandCleanup.ClearWorkOrders(em, unit);
         }
     }
 }

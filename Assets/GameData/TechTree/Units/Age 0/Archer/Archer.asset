@@ -27,9 +27,9 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.5
-  attackRange: 25
-  minAttackRange: 10
-  lineOfSight: 20
+  attackRange: 10
+  minAttackRange: 2
+  lineOfSight: 10
   trajectory: low
   projectileSpeed: 0
   cost:

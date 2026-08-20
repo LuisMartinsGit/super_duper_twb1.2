@@ -24,7 +24,14 @@ namespace TheWaningBorder.World.FogOfWar
         [Tooltip("Quad or plane that covers the playable area; its material will be set to FogMaterial.")]
         public MeshRenderer FogRenderer;
         [Range(0, 1)] public float ExploredAlpha = 0.65f; // explored-but-not-currently-visible
-        [Range(0, 1)] public float HiddenAlpha = 0.98f;   // never seen
+        /// <summary>
+        /// Never-seen ground is FULLY opaque. At the old 0.98 a two-percent
+        /// window let the terrain, and in particular the lit edge of the map,
+        /// show faintly through unexplored fog — so the shape and extent of the
+        /// map were readable before anyone had scouted it. The shader's _Tint
+        /// is already black, so 1.0 is pure black.
+        /// </summary>
+        [Range(0, 1)] public float HiddenAlpha = 1f;      // never seen
         [Tooltip("Seconds between overlay texture rebuilds. The visibility GRID still " +
                  "updates every frame (gameplay queries stay exact); this only paces the " +
                  "per-cell repaint + GPU upload of the human player's fog texture.")]
@@ -134,10 +141,94 @@ namespace TheWaningBorder.World.FogOfWar
         /// <summary>Update the human overlay texture after stamping (throttled).</summary>
         public void EndFrameAndBuild()
         {
+            // Shared line of sight. Merged BEFORE anything reads the grid, and
+            // merged INTO each member's own slice, so every existing consumer
+            // — IsVisible, IsRevealed, the overlay texture, the minimap, the
+            // AI's intel scans — becomes team-aware without touching any of
+            // them. docs/Design/Teams.md
+            //
+            // Deliberately NOT inside the texture throttle below: gameplay
+            // queries run every frame and must see the merged result, while
+            // the texture repaint is paced.
+            MergeTeamVision();
+
+            // Observer perspective: follow the viewed faction (the selected
+            // asset's owner); no view faction = full reveal, overlay off.
+            // Normal play resolves to LocalPlayerFaction and changes nothing.
+            var view = GameSettings.ViewFaction;
+            if (FogRenderer != null && FogRenderer.enabled != view.HasValue)
+                FogRenderer.enabled = view.HasValue;
+            if (view.HasValue && HumanFaction != view.Value)
+            {
+                HumanFaction = view.Value;
+                _nextTextureTime = 0f; // repaint NOW — stale fog is the old player's vision
+            }
+
             if (Time.unscaledTime < _nextTextureTime) return;
             _nextTextureTime = Time.unscaledTime + Mathf.Max(0f, TextureUpdateInterval);
             EnsureMaterialBound();
             PushHumanTexture();
+        }
+
+        // Scratch buffer for the team OR, kept alive between frames so the
+        // merge does not allocate per frame.
+        byte[] _teamVisible;
+        byte[] _teamRevealed;
+
+        /// <summary>
+        /// OR every team member's visibility into a shared result and write it
+        /// back to each member. Costs nothing in a free-for-all: if no team has
+        /// two or more members the whole pass is skipped, which is the default
+        /// lobby state.
+        /// </summary>
+        void MergeTeamVision()
+        {
+            if (_visible == null || _revealed == null) return;
+
+            int cells = _w * _h;
+            if (cells <= 0) return;
+
+            for (byte team = 1; team <= Alliances.MaxTeams; team++)
+            {
+                // Collect this team's slice offsets.
+                int memberCount = 0;
+                int firstOfs = 0;
+                Span<int> offsets = stackalloc int[MaxFactions];
+                for (int f = 0; f < MaxFactions; f++)
+                {
+                    if (Alliances.TeamOf((Faction)f) != team) continue;
+                    if (memberCount == 0) firstOfs = f * cells;
+                    offsets[memberCount++] = f * cells;
+                }
+                if (memberCount < 2) continue;   // solo team == no sharing to do
+
+                if (_teamVisible == null || _teamVisible.Length < cells)
+                {
+                    _teamVisible = new byte[cells];
+                    _teamRevealed = new byte[cells];
+                }
+
+                // Seed from the first member, then OR the rest in.
+                Array.Copy(_visible, firstOfs, _teamVisible, 0, cells);
+                Array.Copy(_revealed, firstOfs, _teamRevealed, 0, cells);
+
+                for (int m = 1; m < memberCount; m++)
+                {
+                    int ofs = offsets[m];
+                    for (int i = 0; i < cells; i++)
+                    {
+                        if (_visible[ofs + i] != 0) _teamVisible[i] = 1;
+                        if (_revealed[ofs + i] != 0) _teamRevealed[i] = 1;
+                    }
+                }
+
+                // Write the union back to every member.
+                for (int m = 0; m < memberCount; m++)
+                {
+                    Array.Copy(_teamVisible, 0, _visible, offsets[m], cells);
+                    Array.Copy(_teamRevealed, 0, _revealed, offsets[m], cells);
+                }
+            }
         }
 
         void PushHumanTexture()

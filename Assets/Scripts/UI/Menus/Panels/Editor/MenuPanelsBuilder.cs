@@ -8,8 +8,8 @@
 // from the CanvasScaler reference resolution (the Synty menu canvas is
 // 3840x2160, i.e. 2x a 1080p design).
 // Detail: Synty "Interface Fantasy Menus" sprites — gradient plates, corner
-// curlicues, the diamond map frame, arrow buttons, ornament lines under the
-// titles and on primary buttons — all tinted to the blue menu's palette.
+// curlicues, arrow buttons, ornament lines under the titles and on primary
+// buttons — all tinted to the blue menu's palette.
 //
 // Run: Tools ▸ Waning Border ▸ Menu ▸ Build Menu Panels (uGUI), then SAVE the
 // scene. The GameObjects are then yours — the builder refuses to overwrite an
@@ -33,6 +33,11 @@ namespace TheWaningBorder.EditorTools
         private const string MenuPath = "Tools/Waning Border/Menu/Build Menu Panels (uGUI)";
         private const string SpriteRoot = "Assets/Synty/InterfaceFantasyMenus/Sprites/";
 
+        /// <summary>Existence of this scene means the Skirmish screen has been
+        /// split out of MainMenu.unity and this builder must not run.</summary>
+        private const string SkirmishScenePath =
+            "Assets/GameData/Scenes/Menus/SkirmishMenu/SkirmishMenu.unity";
+
         // Palette — sampled from the scene's blue menu.
         private static readonly Color PlateBlue   = new Color(0.1302f, 0.2707f, 0.3679f, 0.85f);
         private static readonly Color OverlayDark = new Color(0.02f, 0.045f, 0.06f, 0.92f);
@@ -50,7 +55,7 @@ namespace TheWaningBorder.EditorTools
         private static float S = 1f;
 
         private static Sprite _gradient, _curlicue, _arrowLeft, _arrowRight;
-        private static Sprite _diamondFrame, _lineTop, _lineBottom, _rule;
+        private static Sprite _lineTop, _lineBottom, _rule;
         private static TMP_FontAsset _font;
         private static TMP_DefaultControls.Resources _tmpRes;
 
@@ -62,6 +67,19 @@ namespace TheWaningBorder.EditorTools
             {
                 EditorUtility.DisplayDialog("Build Menu Panels",
                     "No Canvas found in the open scene. Open the MainMenu scene first.", "OK");
+                return;
+            }
+
+            // Panel_Skirmish moved to SkirmishMenu.unity (SkirmishSceneSplit).
+            // Without this guard the builder no longer finds it under the
+            // MainMenu canvas and happily scaffolds a SECOND one there.
+            if (System.IO.File.Exists(SkirmishScenePath))
+            {
+                EditorUtility.DisplayDialog("Build Menu Panels",
+                    "The Skirmish screen lives in its own scene now " +
+                    "(" + SkirmishScenePath + "), so this builder would create a " +
+                    "duplicate under the MainMenu canvas. Delete that scene first " +
+                    "if you really want to rebuild the panels from scratch.", "OK");
                 return;
             }
 
@@ -80,12 +98,18 @@ namespace TheWaningBorder.EditorTools
             S = scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize
                 ? Mathf.Max(1f, scaler.referenceResolution.y / 1080f)
                 : Mathf.Max(1f, ((RectTransform)canvas.transform).rect.height / 1080f);
+            // The panels shipped once at S=1 under a 3840x2160 canvas, i.e.
+            // every pixel constant rendered at HALF its design size and the
+            // whole screen was unreadable. If the canvas grows after a build,
+            // re-run Tools > Waning Border > Menu > Rescale Menu Panels.
+            Debug.Log($"[MenuPanelsBuilder] Canvas '{canvas.name}' reference " +
+                      $"{(scaler != null ? scaler.referenceResolution.ToString() : "n/a")} " +
+                      $"-> building at {S:0.##}x.");
 
             _gradient     = LoadSprite("General/SPR_FantasyMenus_Gradient_Vertical_01");
             _curlicue     = LoadSprite("FantasyMenus/SPR_FantasyMenus_Greeble_Curlicue_10");
             _arrowLeft    = LoadSprite("FantasyMenus/SPR_FantasyMenus_Button_Arrow_01_Left");
             _arrowRight   = LoadSprite("FantasyMenus/SPR_FantasyMenus_Button_Arrow_01_Right");
-            _diamondFrame = LoadSprite("FantasyMenus/SPR_FantasyMenus_Frame_Diamond_01");
             _lineTop      = LoadSprite("FantasyMenus/SPR_FantasyMenus_Menu_Item_06_Top");
             _lineBottom   = LoadSprite("FantasyMenus/SPR_FantasyMenus_Menu_Item_06_Bottom");
             _rule         = LoadSprite("General/SPR_FantasyMenus_Line_Horizontal_01");
@@ -276,14 +300,10 @@ namespace TheWaningBorder.EditorTools
             panel.GameNameField = InputRow(setup, "GameNameRow", "GAME NAME");
             panel.PlayerNameField = InputRow(setup, "PlayerNameRow", "YOUR NAME");
             panel.PortField = InputRow(setup, "PortRow", "PORT");
-            var playersRow = HBox(setup, "PlayersRow", 44f);
-            var playersLbl = Label(playersRow, "PlayersLabel", "PLAYERS", 14f, TextMain, FontStyles.Bold);
-            AddLE(playersLbl.rectTransform, -1f, -1f, flexibleW: 1f);
-            panel.PlayersMinus = TextButton(playersRow, "PlayersMinus", "-", 20f, 40f, 48f);
-            panel.PlayersValue = Label(playersRow, "PlayersValue", "2", 18f, Color.white, FontStyles.Bold);
-            panel.PlayersValue.alignment = TextAlignmentOptions.Center;
-            AddLE(panel.PlayersValue.rectTransform, -1f, 48f);
-            panel.PlayersPlus = TextButton(playersRow, "PlayersPlus", "+", 20f, 40f, 48f);
+            // No PLAYERS spinner. The lobby roster is the size control — an
+            // eight-rung ladder whose top-most free rung adds a player, the
+            // same shape the skirmish roster uses. See
+            // MultiplayerPanel.RebuildSlots.
             panel.CreateButton = OrnateButton(setup, "CreateButton", "CREATE LOBBY", 18f, 56f);
 
             // BROWSE pane.
@@ -489,9 +509,12 @@ namespace TheWaningBorder.EditorTools
             return plate;
         }
 
-        // Diamond map preview plate + wired MapPreviewWidget. The thumbnail
-        // sits in a 45°-rotated square; the Synty diamond frame overlays it
-        // unrotated (its art is already diamond-oriented).
+        // Map preview plate + wired MapPreviewWidget. The thumbnail sits in an
+        // upright square: a map thumbnail is rendered north-up, and tilting it
+        // 45° made every landmark read at a diagonal for no gain. The node
+        // names ("DiamondStage" / "Diamond") are kept - the scenes bind
+        // MapPreviewWidget's fields to them by fileID, but MenuPanelTools and
+        // the panel builders still look several of them up by name.
         private static (RectTransform, MapPreviewWidget) MapPreviewBlock(
             RectTransform parent, TMP_Text mapName, TMP_Text mapTag)
         {
@@ -504,10 +527,12 @@ namespace TheWaningBorder.EditorTools
             var stage = GO(plate, "DiamondStage");
             AddLE(stage, 300f);
 
-            float side = 195f * S;
+            // Was 195 on a 45°-rotated square, i.e. 276 corner to corner. The
+            // upright square keeps that on-screen footprint rather than the
+            // old edge length, so un-tilting did not shrink the map.
+            float side = 276f * S;
             var diamond = GO(stage, "Diamond");
             Center(diamond, side, side);
-            diamond.localEulerAngles = new Vector3(0f, 0f, 45f);
             var diamondBg = diamond.gameObject.AddComponent<Image>();
             diamondBg.color = WellDark;
 
@@ -517,8 +542,13 @@ namespace TheWaningBorder.EditorTools
             Stretch(thumbRt);
             var thumb = thumbGo.GetComponent<RawImage>();
 
+            // Placeholder shown when a map has no baked thumbnail. It used to
+            // read as a gem for free, riding the 45° the whole preview carried;
+            // on the upright square it has to tilt itself or it is just a box.
             var gem = Img(diamond, "Gem", GoldDim);
-            Center((RectTransform)gem.transform, 20f, 20f);
+            var gemRt = (RectTransform)gem.transform;
+            Center(gemRt, 20f, 20f);
+            gemRt.localEulerAngles = new Vector3(0f, 0f, 45f);
 
             var markerLayer = GO(diamond, "MarkerLayer");
             Stretch(markerLayer);
@@ -527,18 +557,10 @@ namespace TheWaningBorder.EditorTools
             markerRt.sizeDelta = new Vector2(10f * S, 10f * S);
             marker.gameObject.SetActive(false);
 
-            // Ornate diamond frame over the rotated square (art is already
-            // diamond-shaped, so it stays unrotated and slightly oversized).
-            if (_diamondFrame != null)
-            {
-                var frame = GO(stage, "DiamondFrame");
-                float d = side * 1.55f;
-                Center(frame, d, d);
-                var fi = frame.gameObject.AddComponent<Image>();
-                fi.sprite = _diamondFrame;
-                fi.raycastTarget = false;
-                fi.preserveAspect = true;
-            }
+            // No frame ornament here: the Synty Frame_Diamond_01 art that used
+            // to ring the tilted thumbnail is diamond-shaped and cannot sit on
+            // a square. The MapPreview plate carries its own box frame
+            // (SkirmishPanelChrome), which is the border the preview needs.
 
             var desc = Label(plate, "MapDescription", "", 13f, TextDim, FontStyles.Italic);
             desc.textWrappingMode = TextWrappingModes.Normal;
@@ -942,6 +964,11 @@ namespace TheWaningBorder.EditorTools
             content.anchorMin = new Vector2(0f, 1f);
             content.anchorMax = new Vector2(1f, 1f);
             content.pivot = new Vector2(0.5f, 1f);
+            // A fresh RectTransform starts at 100x100. With the anchors
+            // stretched horizontally that leaves the content 100px WIDER than
+            // its viewport (rows overhang, the last control drifts off the
+            // right edge). The vertical fitter drives y; x must be flush.
+            content.sizeDelta = Vector2.zero;
 
             var v = contentGo.GetComponent<VerticalLayoutGroup>();
             v.childControlWidth = v.childForceExpandWidth = true;

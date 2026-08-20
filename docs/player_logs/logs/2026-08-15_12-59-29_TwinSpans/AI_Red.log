@@ -1,0 +1,337 @@
+=== AI Log for Red — Game started ===
+
+[00:00,0] STRATEGY: Initial strategy: Aggressive (difficulty: Normal)
+[00:00,0] BUILDORDER: step 0 SKIPPED (no trainer for Worker)
+[00:02,1] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[60s,22i,0v,0vs | 240s,90i,0v,0vs | 100s,37i,0v,0vs] emaS=0,0/s emaI=0,0/s
+[00:02,1] ECONOMY: GatherersHut started (total 1, inflight 1)
+[00:02,1] BUILDORDER: step 1 issued: TrainUnit:Worker at 50s
+[00:04,1] BUILDORDER: step 2 issued: TrainUnit:Worker at 52s
+[00:06,2] BUILDORDER: step 3 issued: TrainUnit:Scout at 54s
+[00:31,2] ECONOMY: GatherersHut started (total 2, inflight 1)
+[00:52,3] SNAPSHOT: supplies 82 iron 163 veilstone 15 veilsteel 0 military 5 influence 0,0% curse 9,4%
+[00:58,3] RESEARCH: ArmedScouts queued
+[01:02,4] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[21s,1i,5v,0vs | 311s,102i,7v,0vs | 122s,59i,13v,0vs] emaS=7,2/s emaI=1,0/s
+[01:17,0] ECONOMY: GatherersHut started (total 3, inflight 1)
+[01:39,9] ECONOMY: GatherersHut started (total 4, inflight 1)
+[01:52,4] SNAPSHOT: supplies 76 iron 179 veilstone 94 veilsteel 0 military 5 influence 0,0% curse 10,0%
+[02:00,8] ECONOMY: GatherersHut started (total 5, inflight 1)
+[02:00,8] RESEARCH: ladder blocked ~1 min at StoneTools (Advancement wallet short)
+[02:02,9] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[94s,16i,21v,0vs | 414s,123i,29v,0vs | 166s,84i,50v,0vs] emaS=6,9/s emaI=1,6/s
+[02:15,3] RESEARCH: IronSurveying1 queued
+[02:32,0] ECONOMY: GatherersHut started (total 6, inflight 1)
+[02:46,6] RESEARCH: ScoutingCelestarii queued
+[02:52,5] SNAPSHOT: supplies 24 iron 188 veilstone 144 veilsteel 0 military 5 influence 0,0% curse 9,9%
+[03:03,3] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[66s,13i,33v,0vs | 542s,162i,46v,0vs | 147s,80i,79v,0vs] emaS=8,5/s emaI=2,5/s
+[03:03,3] ECONOMY: GatherersHut started (total 7, inflight 1)
+[03:13,7] RECLAIM: 5 units vs curse node at (113,63)
+[03:17,9] BUILDORDER: step 5 issued: BuildBuilding:GatherersHut at 246s
+[03:28,3] BUILDORDER: step 7 issued: TrainUnit:Worker at 256s
+[03:30,4] BUILDORDER: step 8 issued: TrainUnit:Worker at 258s
+[03:36,6] BUILDORDER: step 9 issued: TrainUnit:Worker at 264s
+[03:38,7] BUILDORDER: step 10 issued: SetVeilstoneTarget: at 266s
+[03:47,1] ECONOMY: GatherersHut started (total 9, inflight 1)
+[03:49,2] RESEARCH: ladder blocked ~1 min at StoneTools (Advancement wallet short)
+[03:52,6] SNAPSHOT: supplies 31 iron 321 veilstone 252 veilsteel 0 military 2 influence 0,0% curse 10,3%
+[04:01,7] ECONOMY: GatherersHut started (total 10, inflight 1)
+[04:03,7] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[165s,46i,55v,0vs | 682s,207i,77v,0vs | 26s,128i,132v,0vs] emaS=10,3/s emaI=3,0/s
+[04:14,2] RESEARCH: StoneTools queued
+[04:18,3] BUILDORDER: step 11 issued: BuildBuilding:Hut at 306s
+[04:26,6] BUILDORDER: step 12 issued: BuildBuilding:Hut at 314s
+[04:37,1] ECONOMY: GatherersHut started (total 11, inflight 1)
+[04:52,7] SNAPSHOT: supplies 181 iron 482 veilstone 316 veilsteel 0 military 0 influence 0,0% curse 11,0%
+[04:53,8] RESEARCH: MasonGuild queued
+[05:04,2] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[40s,16i,73v,0vs | 871s,278i,102v,0vs | 219s,235i,173v,0vs] emaS=12,2/s emaI=4,2/s
+[05:04,2] ECONOMY: GatherersHut started (total 12, inflight 1)
+[05:12,6] WAVE: wave 1 BLOCKED at 360s (need 5 idle, posture Develop, desired 0)
+[05:20,9] ECONOMY: GatherersHut started (total 13, inflight 1)
+[05:43,9] ECONOMY: GatherersHut started (total 14, inflight 1)
+[05:52,9] SNAPSHOT: supplies 355 iron 687 veilstone 449 veilsteel 0 military 0 influence 0,0% curse 11,3%
+[05:56,4] RESEARCH: ladder blocked ~1 min at VeilstoneSurvey1 (EconomyExpansion wallet short)
+[06:00,6] RESEARCH: IronTools queued
+[06:04,7] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[67s,5i,101v,0vs | 1118s,374i,141v,0vs | 167s,325i,225v,0vs] emaS=13,7/s emaI=5,1/s
+[06:15,1] RESEARCH: VeilstoneSurvey1 queued
+[06:48,5] RESEARCH: IronSurveying2 queued
+[06:53,0] SNAPSHOT: supplies 603 iron 770 veilstone 540 veilsteel 0 military 0 influence 0,0% curse 11,6%
+[07:05,2] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[269s,100i,144v,0vs | 1400s,507i,202v,0vs | 90s,277i,234v,0vs] emaS=14,4/s emaI=6,6/s
+[07:17,7] WAVE: wave 1 BLOCKED at 485s (need 5 idle, posture Develop, desired 0)
+[07:17,7] RESEARCH: VeilstoneTools queued
+[07:40,7] BUILDORDER: step 15 SKIPPED (no trainer for Spearman)
+[07:42,8] BUILDORDER: step 16 SKIPPED (no trainer for Spearman)
+[07:47,0] RESEARCH: VeilstoneSurvey2 queued
+[07:53,2] SNAPSHOT: supplies 1121 iron 978 veilstone 596 veilsteel 0 military 0 influence 0,0% curse 11,5%
+[08:05,8] BUDGET: w(adv/mil/eco)=(0,60/0,25/0,15) S[590s,178i,156v,0vs | 1554s,655i,294v,0vs | 37s,297i,204v,0vs] emaS=14,5/s emaI=9,1/s
+[08:49,7] RESEARCH: ladder blocked ~1 min at Conscription (no ready Barracks host)
+[08:51,8] ECONOMY: floor Barracks started
+[08:53,3] SNAPSHOT: supplies 1705 iron 1535 veilstone 952 veilsteel 0 military 0 influence 0,0% curse 13,8%
+[09:06,4] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[981s,477i,343v,0vs | 1443s,816i,410v,0vs | 177s,402i,266v,0vs] emaS=13,6/s emaI=10,2/s
+[09:08,5] RESEARCH: Conscription queued
+[09:23,1] WAVE: wave 1 BLOCKED at 611s (need 5 idle, posture Rebuild, desired 7)
+[09:35,6] RECLAIM: 1 units vs curse node at (139,87)
+[09:46,1] RESEARCH: IronSurveying3 queued
+[09:48,2] STUCK: BuildBuilding:ShrineOfAhridan blocked 120s at 636s (afford=True, idleBuilders=10)
+[09:52,3] BUILDORDER: step 17 issued: BuildBuilding:ShrineOfAhridan at 640s
+[09:53,5] SNAPSHOT: supplies 1404 iron 1743 veilstone 1266 veilsteel 0 military 2 influence 0,0% curse 14,7%
+[09:58,6] RECLAIM: 1 units vs curse node at (139,87)
+[10:07,0] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[997s,525i,404v,0vs | 1345s,958i,652v,0vs | 69s,369i,367v,0vs] emaS=13,2/s emaI=9,3/s
+[10:17,5] RECLAIM: 1 units vs curse node at (139,87)
+[10:34,1] RECLAIM: 1 units vs curse node at (139,87)
+[10:48,7] RESEARCH: ladder blocked ~1 min at StoneWeapons (no ready Barracks host)
+[10:52,9] CULTURE: age-up culture = Alanthor (strategy Aggressive, difficulty Normal)
+[10:52,9] BUILDORDER: step 18 issued: AgeUp: at 701s
+[10:53,6] SNAPSHOT: supplies 1172 iron 2039 veilstone 1680 veilsteel 0 military 2 influence 0,0% curse 15,6%
+[10:55,0] RECLAIM: 1 units vs curse node at (139,87)
+[10:55,0] BUILDORDER: step 19 issued: TrainUnit:Worker at 703s
+[10:57,1] BUILDORDER: step 20 issued: TrainUnit:Worker at 705s
+[10:59,2] BUILDORDER: step 21 issued: TrainUnit:Worker at 707s
+[11:01,3] BUILDORDER: step 22 issued: TrainUnit:Worker at 709s
+[11:05,5] BUILDORDER: step 24 SKIPPED (no trainer for Spearman)
+[11:07,6] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[1034s,615i,483v,0vs | 1055s,1225i,967v,0vs | 231s,519i,498v,0vs] emaS=9,1/s emaI=11,4/s
+[11:07,6] BUILDORDER: step 25 SKIPPED (no trainer for Spearman)
+[11:28,5] WAVE: wave 1 BLOCKED at 736s (need 5 idle, posture Rebuild, desired 7)
+[11:45,1] ECONOMY: floor Barracks started
+[11:51,4] RESEARCH: ladder blocked ~1 min at StoneWeapons (no ready Barracks host)
+[11:53,8] SNAPSHOT: supplies 1537 iron 2793 veilstone 2181 veilsteel 0 military 0 influence 0,0% curse 15,6%
+[11:55,3] BUILDING: Upgrading Barracks to L2
+[11:55,6] RESEARCH: StoneWeapons queued
+[11:57,4] STRATEGY: Alanthor: aged up to era 2+ — endgame system engaged
+[11:57,4] BUILDING: Alanthor age-2 ladder: queued TempleOfRidan
+[11:57,4] BUILDING: Alanthor towers: 1/5 toward (85,131)
+[12:01,3] BUILDING: Upgrading ShrineOfRidan to L2
+[12:02,4] STRATEGY: adopting sect Sect_Renewal
+[12:02,4] BUILDING: Alanthor towers: 2/5 toward (85,131)
+[12:07,4] BUILDING: Alanthor towers: 3/5 toward (85,131)
+[12:08,2] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[881s,716i,542v,0vs | 848s,1047i,583v,0vs | 386s,688i,578v,0vs] emaS=7,3/s emaI=8,7/s
+[12:12,4] BUILDING: Alanthor towers: 4/5 toward (85,131)
+[12:17,4] BUILDING: Alanthor towers: 5/5 toward (85,131)
+[12:31,4] BUILDING: Upgrading Alanthor_Tower to L2
+[12:32,5] BUILDING: Alanthor age-2 ladder: queued Alanthor_Smelter
+[12:47,5] BUILDING: Alanthor age-2 ladder: queued Alanthor_RoyalStable
+[12:52,6] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[12:53,9] SNAPSHOT: supplies 204 iron 2701 veilstone 2466 veilsteel 21 military 1 influence 10,4% curse 18,7%
+[12:55,4] BUILDING: Upgrading Alanthor_Tower to L2
+[12:58,3] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[13:07,5] BUILDING: Upgrading Alanthor_Tower to L2
+[13:08,8] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[1077s,823i,623v,6vs | 1369s,1360i,906v,24vs | 626s,905i,741v,14vs] emaS=24,0/s emaI=12,1/s
+[13:13,0] WAVE: wave 1 BLOCKED at 841s (need 5 idle, posture Rebuild, desired 10)
+[13:13,5] BUILDING: Upgrading Alanthor_RoyalStable to L2
+[13:15,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[13:17,6] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[13:19,5] BUILDING: Upgrading Alanthor_Tower to L2
+[13:23,4] RECLAIM: 3 units vs curse node at (139,87)
+[13:25,5] RECLAIM: 1 units vs curse node at (139,87)
+[13:31,5] BUILDING: Upgrading GatherersHut to L2
+[13:32,6] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[13:37,5] BUILDING: Upgrading GatherersHut to L2
+[13:40,1] RECLAIM: 1 units vs curse node at (139,87)
+[13:46,4] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[13:49,6] BUILDING: Upgrading Alanthor_Tower to L2
+[13:52,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[13:54,2] SNAPSHOT: supplies 150 iron 3165 veilstone 3011 veilsteel 108 military 6 influence 13,1% curse 17,1%
+[13:54,7] RECLAIM: 1 units vs curse node at (139,87)
+[13:57,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:01,0] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[14:02,7] BUILDING: Alanthor age-2 ladder: queued Alanthor_SiegeYard
+[14:07,8] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:07,8] BUILDING: Alanthor walls: plan = perimeter around the base (16 hubs, 4 gates, 12 towers; open 54% of arc, 2 corridor(s), w=34, unsealable - too open)
+[14:09,4] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[1323s,982i,723v,23vs | 1615s,1548i,1009v,62vs | 1025s,1209i,942v,48vs] emaS=20,7/s emaI=14,2/s
+[14:12,8] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[14:12,8] BUILDING: Alanthor walls: slot at (174,174) unplaceable after nudges — marked dead (neighbours will span it)
+[14:12,8] BUILDING: Alanthor walls: hub 1/16 at (146,172)
+[14:12,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:17,8] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[14:17,8] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[14:17,8] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:17,8] BUILDING: Alanthor walls: hub 2/15 at (120,172)
+[14:22,8] BUILDING: Alanthor walls: hub 3/15 at (92,172)
+[14:22,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:27,8] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:27,8] BUILDING: Alanthor walls: hub 4/15 at (64,172)
+[14:32,9] BUILDING: Alanthor walls: hub 5/15 at (64,144)
+[14:37,7] BUILDING: Upgrading Alanthor_SiegeYard to L2
+[14:37,9] BUILDING: Alanthor walls: hub 6/15 at (64,116)
+[14:47,9] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:49,2] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[14:52,9] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[14:52,9] BUILDING: Alanthor walls: hub 7/15 at (66,88)
+[14:54,4] SNAPSHOT: supplies 166 iron 3768 veilstone 3560 veilsteel 205 military 12 influence 13,3% curse 14,8%
+[14:57,9] BUILDING: Alanthor age-2 ladder: queued Sect_MendingHall
+[14:57,9] STRATEGY: Alanthor: raising Sect_MendingHall for the Renewal sect
+[15:03,0] BUILDING: Alanthor walls: hub 8/15 at (64,64)
+[15:03,9] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[15:08,0] BUILDING: Alanthor age-2 ladder: queued Hut
+[15:08,0] BUILDING: Alanthor walls: hub 9/15 at (92,58)
+[15:10,1] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[1618s,1190i,861v,44vs | 1607s,1598i,1186v,92vs | 1608s,1640i,1212v,94vs] emaS=20,9/s emaI=16,7/s
+[15:13,0] BUILDING: Alanthor walls: hub 10/15 at (120,60)
+[15:18,1] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[15:18,1] BUILDING: Alanthor walls: slot at (147,58) unplaceable after nudges — marked dead (neighbours will span it)
+[15:18,1] BUILDING: Alanthor walls: slot at (174,58) unplaceable after nudges — marked dead (neighbours will span it)
+[15:18,1] BUILDING: Alanthor walls: hub 11/15 at (172,88)
+[15:18,5] WAVE: wave 1 BLOCKED at 966s (need 5 idle, posture Develop, desired 16)
+[15:20,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[15:23,1] BUILDING: Alanthor age-2 ladder: queued Hut
+[15:23,1] BUILDING: Alanthor walls: hub 12/13 at (172,116)
+[15:28,1] BUILDING: Alanthor walls: hub 13/13 at (172,144)
+[15:28,1] MILITARY: Alanthor: queued Alanthor_Outrider
+[15:33,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[15:33,2] BUILDING: Alanthor walls: closed a 59 m gap between (119,58) and (174,87)
+[15:38,2] BUILDING: Alanthor walls: closed a 38 m gap between (174,145) and (147,174)
+[15:38,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[15:43,2] BUILDING: Alanthor walls: gate conversion at (119,174)
+[15:43,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[15:48,3] BUILDING: Alanthor walls: gate conversion at (64,116)
+[15:52,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[15:53,3] BUILDING: Alanthor walls: tower conversion at (119,174)
+[15:54,5] SNAPSHOT: supplies 126 iron 4386 veilstone 4203 veilsteel 301 military 18 influence 13,9% curse 11,6%
+[15:58,4] BUILDING: Alanthor walls: gate conversion at (174,116)
+[15:58,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:03,4] BUILDING: Alanthor walls: tower conversion at (92,174)
+[16:06,7] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[16:08,4] BUILDING: Alanthor walls: gate conversion at (119,58)
+[16:10,9] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[1922s,1398i,994v,65vs | 1508s,1663i,1052v,122vs | 2204s,1797i,1052v,140vs] emaS=20,3/s emaI=16,6/s
+[16:13,4] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[16:13,4] BUILDING: Alanthor walls: tower conversion at (64,174)
+[16:13,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:18,4] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[16:18,4] BUILDING: Alanthor walls: tower conversion at (64,116)
+[16:18,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:23,4] BUILDING: Alanthor walls: tower conversion at (64,87)
+[16:23,5] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[16:28,4] BUILDING: Alanthor walls: tower conversion at (64,58)
+[16:33,5] BUILDING: Alanthor walls: tower conversion at (119,58)
+[16:33,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:38,5] BUILDING: Alanthor walls: tower conversion at (174,116)
+[16:43,5] BUILDING: Alanthor walls: tower conversion at (174,145)
+[16:43,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:48,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:51,9] SNAPSHOT: supplies 166 iron 4931 veilstone 4643 veilsteel 393 military 25 influence 14,1% curse 12,7%
+[16:53,5] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[16:53,5] MILITARY: Alanthor: queued Alanthor_Ballista
+[16:54,8] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[16:58,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:03,6] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:08,6] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:09,5] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[17:11,6] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2105s,1365i,880v,87vs | 1784s,1368i,881v,152vs | 2196s,1376i,884v,185vs] emaS=20,4/s emaI=12,1/s
+[17:13,7] MILITARY: Alanthor: queued Sect_ScarGuard at the Renewal building
+[17:18,7] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[17:18,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:23,7] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:24,3] WAVE: wave 1 BLOCKED at 1092s (need 5 idle, posture Pressure, desired 20)
+[17:26,4] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[17:32,4] BUILDING: Upgrading Alanthor_Tower to L3
+[17:33,7] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[17:38,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:43,8] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:48,8] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:52,3] SNAPSHOT: supplies 91 iron 5267 veilstone 4856 veilsteel 489 military 34 influence 14,1% curse 12,7%
+[17:53,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:57,9] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[17:58,9] MILITARY: Alanthor: queued Sect_ScarGuard at the Renewal building
+[18:03,9] MILITARY: Alanthor: queued Alanthor_Ballista
+[18:08,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:12,6] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2218s,1314i,650v,108vs | 2155s,1325i,655v,182vs | 2249s,1344i,665v,231vs] emaS=21,7/s emaI=12,3/s
+[18:12,6] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[18:14,0] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[18:16,8] RESEARCH: VeilsteelSurvey queued
+[18:19,0] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[18:26,6] BUILDING: Upgrading Alanthor_Tower to L3
+[18:29,5] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[18:34,1] BUILDING: Alanthor age-2 ladder: queued Sect_MendingHall
+[18:34,1] STRATEGY: Alanthor: raising Sect_MendingHall for the Renewal sect
+[18:44,1] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[18:49,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:52,7] SNAPSHOT: supplies 135 iron 5854 veilstone 4970 veilsteel 497 military 40 influence 14,5% curse 12,6%
+[18:54,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[18:54,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:01,0] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[19:02,8] BUILDING: Upgrading Hut to L2
+[19:09,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:13,7] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2543s,1515i,710v,118vs | 2557s,1566i,714v,196vs | 2564s,1569i,719v,190vs] emaS=24,0/s emaI=13,7/s
+[19:14,2] MILITARY: Alanthor: queued Alanthor_Ballista
+[19:19,3] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[19:19,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:19,9] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[19:24,3] MILITARY: Alanthor: queued Alanthor_Ballista
+[19:30,5] WAVE: wave 1 BLOCKED at 1218s (need 5 idle, posture Pressure, desired 20)
+[19:32,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[19:33,0] BUILDING: Upgrading Barracks to L3
+[19:34,3] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[19:39,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:44,4] MILITARY: Alanthor: queued Alanthor_Ballista
+[19:52,9] SNAPSHOT: supplies 293 iron 6351 veilstone 5209 veilsteel 562 military 45 influence 14,5% curse 12,4%
+[19:54,4] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[19:59,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:04,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[20:04,5] MILITARY: Alanthor: queued Alanthor_Ballista
+[20:14,5] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2434s,1341i,641v,140vs | 2478s,1360i,652v,227vs | 2469s,1382i,667v,232vs] emaS=26,0/s emaI=12,7/s
+[20:14,6] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[20:14,6] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[20:19,6] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[20:19,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:22,9] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[20:27,3] BUILDING: Upgrading Hut to L2
+[20:34,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:35,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[20:39,7] MILITARY: Alanthor: queued Alanthor_Ballista
+[20:45,4] BUILDING: Upgrading Alanthor_Tower to L3
+[20:53,2] SNAPSHOT: supplies 234 iron 6605 veilstone 5378 veilsteel 638 military 51 influence 14,6% curse 13,6%
+[20:54,8] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[20:54,8] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[21:03,5] BUILDING: Upgrading Alanthor_Tower to L3
+[21:07,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[21:09,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:14,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:15,4] WAVE: wave 1 BLOCKED at 1323s (need 5 idle, posture Pressure, desired 20)
+[21:15,4] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2497s,1273i,670v,159vs | 2506s,1273i,681v,253vs | 2506s,1273i,689v,269vs] emaS=20,9/s emaI=10,6/s
+[21:19,9] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[21:19,9] MILITARY: Alanthor: queued Alanthor_Ballista
+[21:24,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:26,0] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[21:29,9] MILITARY: Alanthor: queued Alanthor_Ballista
+[21:35,0] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[21:38,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[21:39,7] BUILDING: Upgrading Hut to L2
+[21:45,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:50,0] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[21:53,7] SNAPSHOT: supplies 132 iron 6819 veilstone 5638 veilsteel 729 military 56 influence 14,8% curse 11,1%
+[22:00,1] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[22:05,1] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:10,2] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[22:15,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[22:15,2] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[22:16,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2339s,1325i,771v,181vs | 2398s,1358i,780v,283vs | 2443s,1367i,780v,308vs] emaS=22,4/s emaI=11,4/s
+[22:20,3] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[22:20,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:25,3] MILITARY: Alanthor: queued Alanthor_Ballista
+[22:29,1] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[22:30,4] MILITARY: Alanthor: queued Alanthor_Ballista
+[22:35,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:41,7] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[22:45,5] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[22:50,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:54,0] SNAPSHOT: supplies 178 iron 7099 veilstone 5895 veilsteel 825 military 61 influence 15,0% curse 10,9%
+[22:55,5] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[22:58,0] BUILDING: Upgrading Hut to L2
+[23:04,0] BUILDING: Upgrading Hut to L2
+[23:13,4] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[23:15,6] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[23:17,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2442s,1257i,655v,201vs | 2539s,1271i,655v,313vs | 2551s,1294i,655v,350vs] emaS=24,6/s emaI=11,3/s
+[23:20,7] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[23:21,7] WAVE: wave 1 BLOCKED at 1449s (need 5 idle, posture Pressure, desired 20)
+[23:25,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:30,7] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[23:32,3] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[23:35,7] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[23:35,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:45,0] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[23:45,7] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[23:54,4] SNAPSHOT: supplies 281 iron 7503 veilstone 6149 veilsteel 911 military 66 influence 15,1% curse 11,2%
+[23:55,8] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[24:00,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[24:05,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[24:16,0] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[24:16,0] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[24:16,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[24:18,7] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2413s,1307i,726v,223vs | 2449s,1322i,728v,343vs | 2459s,1335i,728v,394vs] emaS=20,5/s emaI=11,5/s
+[24:21,0] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[24:21,0] MILITARY: Alanthor: queued Alanthor_Outrider

@@ -137,7 +137,22 @@ namespace TheWaningBorder.Abilities
     }
 
     // Fog reveal (Use Celestar) reuses the sect RevealCircle power via
-    // SectActivePowerHelper.SpawnReveal — no dedicated component needed.
+    // SectActivePowerHelper.SpawnReveal.
+
+    /// <summary>
+    /// Ground point an Area ability was aimed at, stamped on the CASTER when
+    /// the order is issued and consumed when the effects run.
+    ///
+    /// The ability pipeline's target is an Entity, which cannot express "that
+    /// patch of empty map" — so an aimed area ability had nowhere to put the
+    /// player's chosen point and Use Celestar simply revealed around the scout
+    /// itself. This carries the point through the cast (Celestar has a 5 s cast
+    /// time, so it has to survive until the effects fire).
+    /// </summary>
+    public struct AbilityAimPoint : IComponentData
+    {
+        public Unity.Mathematics.float3 Position;
+    }
 
     // ==================== Markers ====================
 

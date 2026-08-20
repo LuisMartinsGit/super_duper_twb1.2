@@ -18,6 +18,7 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.UI.Menus;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Bootstrap
@@ -871,62 +872,172 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void SpawnBuildingShowcase(EntityManager em)
         {
-            const float ColSpacing = 16f;
-            const float RowZSpacing = 24f;
+            // Review grid: every building in every upgrade state on a flat,
+            // empty map (victory conditions are already off in Scenario mode).
+            //
+            //   Age 0 column (Blue, no culture): each Age 0 building in its
+            //     TRUE Lv0 state — a cultured faction can never show Lv0 on a
+            //     completed building (the presentation clamps to culture L1),
+            //     which is why this section runs under a culture-less faction.
+            //     The Temple of Ridan sits at the bottom with all 6 chapel
+            //     statues docked in its heptagon ring, and a Worker stands
+            //     beside it for scale.
+            //   One section per culture (Alanthor / Runai / Feraldis): rows
+            //     are that culture's buildings, columns are L1 | L2 | L3 via
+            //     BuildingUpgradeState — the same path a real level-up takes,
+            //     so the variant switch and the footprint refit are exercised
+            //     exactly as in a match.
+            //
+            // A bright-green 2 m build-grid overlay (the Gatherer's Hut
+            // area-circle green) covers the whole layout so every footprint
+            // can be read against real cells.
+            const float Col = 22f;   // roomy for the largest footprints (12 m) + chapel ring
+            const float Row = 22f;
+            const float TopZ = 110f;
 
-            // Each row uses a distinct faction. Set the per-faction culture so
-            // procedural building generators render the correct culture treatment
-            // (FactionColors.GetFactionCulture is what feeds into culture overlays).
+            EnsureShowcaseTerrain(360f);
+
             FactionColors.SetFactionCulture(Faction.Blue,   Cultures.None);
-            FactionColors.SetFactionCulture(Faction.Teal,   Cultures.None);
+            FactionColors.SetFactionCulture(Faction.Red,    Cultures.Alanthor);
             FactionColors.SetFactionCulture(Faction.Green,  Cultures.Runai);
             FactionColors.SetFactionCulture(Faction.Yellow, Cultures.Feraldis);
-            FactionColors.SetFactionCulture(Faction.Red,    Cultures.Alanthor);
 
-            // Each culture row leads with the four culture-aware Era 1 buildings
-            // (Hall, Hut, GatherersHut, Barracks) so the four cultural variants
-            // line up vertically across rows for side-by-side comparison.
-            var rows = new (Faction faction, string[] buildings)[]
+            // ── Age 0 section (X = -150): true Lv0 states ────────────────
+            string[] age0 = { "Hall", "Hut", "GatherersHut", "Barracks",
+                              "ShrineOfRidan", "VaultOfAlmierra" };
+            for (int i = 0; i < age0.Length; i++)
+                PlaceShowcaseBuilding(em, age0[i], Faction.Blue,
+                    new float3(-150f, 0f, TopZ - i * Row), level: 0);
+
+            // Temple of Ridan + the 6 chapel statues docked in its ring.
+            // Spawned directly (the slot-driven path routes through the sect
+            // adoption economy and would destroy an uncredited chapel). Two
+            // sects per culture cluster so the statue variety reads.
+            float3 templePos = new float3(-150f, 0f, TopZ - 7.5f * Row);
+            templePos.y = TerrainUtility.GetHeight(templePos.x, templePos.z);
+            BuildingFactory.Create(em, "TempleOfRidan", templePos, Faction.Blue);
+
+            string[] statueSects = { SectConfig.Antiquity, SectConfig.Renewal,
+                                     SectConfig.Silence,   SectConfig.Justice,
+                                     SectConfig.War,       SectConfig.Ash };
+            for (int i = 0; i < statueSects.Length; i++)
             {
-                // Era 1 generic (no culture)
-                (Faction.Blue, new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
-                // Era 2 pre-culture choice buildings (no culture yet)
-                (Faction.Teal, new[] { "ShrineOfRidan", "TempleOfRidan", "VaultOfAlmierra" }),
-                // Runai
-                (Faction.Green, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
-                    "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
-                    "Runai_Vault", "Runai_VeilsteelFoundry", "Runai_SiegeWorkshop"
-                }),
-                // Feraldis
-                (Faction.Yellow, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
-                    "FiendstoneKeep", "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
-                    "Feraldis_Foundry", "Feraldis_Tower", "Feraldis_Longhouse", "Feraldis_SiegeYard"
-                }),
-                // Alanthor
-                (Faction.Red, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Wall", "Alanthor_Tower",
-                    "Alanthor_SiegeYard", "Alanthor_Smelter"
-                }),
-            };
+                float3 slotPos = templePos + TempleChapelRing.WorldOffset(i);
+                slotPos.y = TerrainUtility.GetHeight(slotPos.x, slotPos.z);
+                var chapel = BuildingFactory.Create(
+                    em, SectConfig.ChapelIdFor(statueSects[i]), slotPos, Faction.Blue);
 
-            float startZ = -((rows.Length - 1) * 0.5f) * RowZSpacing;
-
-            for (int r = 0; r < rows.Length; r++)
-            {
-                var (faction, buildings) = rows[r];
-                float rowZ = startZ + r * RowZSpacing;
-                float startX = -((buildings.Length - 1) * 0.5f) * ColSpacing;
-
-                for (int c = 0; c < buildings.Length; c++)
+                // BFME2 docking, same as TempleChapelBuildSystem: the statue's
+                // back sits flush against its temple face, door facing outward.
+                if (chapel != Entity.Null && em.HasComponent<LocalTransform>(chapel))
                 {
-                    float3 pos = new float3(startX + c * ColSpacing, 0f, rowZ);
-                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                    BuildingFactory.Create(em, buildings[c], pos, faction);
+                    float3 outward = slotPos - templePos;
+                    outward.y = 0f;
+                    var lt = em.GetComponentData<LocalTransform>(chapel);
+                    lt.Rotation = quaternion.LookRotationSafe(outward, math.up());
+                    em.SetComponentData(chapel, lt);
                 }
             }
+
+            // The size-reference Worker, beside the temple ring.
+            float3 workerPos = new float3(-134f, 0f, templePos.z + 10f);
+            workerPos.y = TerrainUtility.GetHeight(workerPos.x, workerPos.z);
+            UnitFactory.Create(em, "Worker", workerPos, Faction.Blue);
+
+            // ── Culture sections: rows x (L1 | L2 | L3) ──────────────────
+            // Alanthor_Wall is intentionally absent: it is a multi-entity hub
+            // set, not a single upgradeable building (same rule as the
+            // damage-test scenarios).
+            var sections = new (Faction faction, float startX, string[] buildings)[]
+            {
+                (Faction.Red, -100f, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "KingsCourt", "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_Smelter" }),
+                (Faction.Green, -22f, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
+                    "Runai_Vault", "Runai_VeilsteelFoundry", "Runai_SiegeWorkshop" }),
+                (Faction.Yellow, 56f, new[] {
+                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "FiendstoneKeep", "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
+                    "Feraldis_Foundry", "Feraldis_Tower", "Feraldis_Longhouse",
+                    "Feraldis_SiegeYard" }),
+            };
+
+            foreach (var (faction, startX, buildings) in sections)
+            {
+                for (int r = 0; r < buildings.Length; r++)
+                {
+                    for (byte level = 1; level <= 3; level++)
+                    {
+                        var pos = new float3(startX + (level - 1) * Col, 0f, TopZ - r * Row);
+                        var e = PlaceShowcaseBuilding(em, buildings[r], faction, pos, level);
+
+                        // The completed-culture read
+                        // (CultureConfig.GetCompletedCulture) resolves off the
+                        // faction's Hall, so the culture must be stamped on
+                        // the Hall entities as they appear — every later
+                        // visual in the section then renders its culture
+                        // branch.
+                        if (r == 0 && e != Entity.Null)
+                        {
+                            var culture = FactionColors.GetFactionCulture(faction);
+                            if (em.HasComponent<FactionProgress>(e))
+                                em.SetComponentData(e, new FactionProgress { Culture = culture });
+                            else
+                                em.AddComponentData(e, new FactionProgress { Culture = culture });
+                        }
+                    }
+                }
+            }
+
+            // ── The green build-grid over the whole layout ───────────────
+            ScenarioGridOverlay.Create(-170f, -140f, 120f, 130f);
+
+            _scenarioFocus = new float3(-30f, 0f, 20f);
+        }
+
+        /// <summary>
+        /// Spawn one showcase building and stamp its upgrade level. Level 1-3
+        /// drives the same BuildingUpgradeState the real upgrade flow uses, so
+        /// BuildingPrefabSwapSystem performs the authentic variant switch;
+        /// level 0 leaves the state unstamped (the culture-less faction shows
+        /// the true Lv0 model).
+        /// </summary>
+        private static Entity PlaceShowcaseBuilding(EntityManager em, string buildingId,
+            Faction faction, float3 pos, byte level)
+        {
+            pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+            var e = BuildingFactory.Create(em, buildingId, pos, faction);
+            if (e == Entity.Null || level == 0) return e;
+
+            var st = em.HasComponent<BuildingUpgradeState>(e)
+                ? em.GetComponentData<BuildingUpgradeState>(e)
+                : default;
+            st.Level = level;
+            if (st.BaseHpMax == 0 && em.HasComponent<Health>(e))
+                st.BaseHpMax = em.GetComponentData<Health>(e).Max;
+            if (em.HasComponent<BuildingUpgradeState>(e)) em.SetComponentData(e, st);
+            else em.AddComponentData(e, st);
+            return e;
+        }
+
+        /// <summary>
+        /// Grow the scenario's flat terrain to fit the showcase grid. The
+        /// authored Scenario_BuildingShowcase terrain is 100 x 100 m — smaller
+        /// than the layout — so widen it in place and re-centre it on the
+        /// origin. Heightmap is all zeros, so resizing keeps it flat.
+        /// </summary>
+        private static void EnsureShowcaseTerrain(float size)
+        {
+            var terrain = Terrain.activeTerrain;
+            if (terrain == null || terrain.terrainData == null) return;
+
+            var td = terrain.terrainData;
+            if (td.size.x < size)
+                td.size = new Vector3(size, Mathf.Max(1f, td.size.y), size);
+            terrain.transform.position = new Vector3(-size * 0.5f, 0f, -size * 0.5f);
+            terrain.Flush();
         }
 
         /// <summary>
@@ -1102,7 +1213,7 @@ namespace TheWaningBorder.Bootstrap
             // VeilstoneOutcroppingBootstrap's near patch. 3 rings yield 37 slots;
             // 4 rings yield 61; we walk slot-by-slot until we've placed 44.
             const int Rings = 4;
-            const float Spacing = 2.6f;     // hex-cell spacing; outermost ring at radius ~10.4 m, well under PatchClusterRadius = 12 so the whole grid stays one patch
+            const float Spacing = 2.6f;     // hex-cell spacing; 2.6 m node-to-node hops stay under PatchClusterRadius (3 m adjacency) so the whole grid floods as one patch
             const float SQRT3_OVER_2 = 0.8660254f;
 
             int placed = 0;

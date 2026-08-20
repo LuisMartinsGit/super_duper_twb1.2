@@ -34,7 +34,7 @@ namespace TheWaningBorder.Systems.Work
     [UpdateBefore(typeof(BuildingConstructionSystem))]
     public partial struct AutoConstructionSystem : ISystem
     {
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<AutoConstructTag>();
@@ -91,6 +91,13 @@ namespace TheWaningBorder.Systems.Work
 
         private static void Complete(EntityManager em, Entity site)
         {
+            // Progress-HP watermark, read before the component goes — the
+            // health step below needs it to tell build progress apart from
+            // combat damage. Mirrors BuildingConstructionSystem.
+            int lastProgressHp = em.HasComponent<UnderConstruction>(site)
+                ? em.GetComponentData<UnderConstruction>(site).LastProgressHp
+                : 0;
+
             em.RemoveComponent<UnderConstruction>(site);
             em.RemoveComponent<AutoConstructTag>(site);
 
@@ -115,10 +122,16 @@ namespace TheWaningBorder.Systems.Work
                 FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
             }
 
+            // Finish the HP ramp WITHOUT healing combat damage — add only the
+            // progress still owed. Slamming to Max here undid the per-tick
+            // delta the loop above keeps precisely so mid-build damage
+            // survives, so a site nearly razed while building popped out
+            // pristine. Mirrors BuildingConstructionSystem.CompleteConstruction.
             if (em.HasComponent<Health>(site))
             {
                 var hp = em.GetComponentData<Health>(site);
-                hp.Value = hp.Max;
+                int remainingProgress = hp.Max - lastProgressHp;
+                hp.Value = math.clamp(hp.Value + math.max(0, remainingProgress), 1, hp.Max);
                 em.SetComponentData(site, hp);
             }
 

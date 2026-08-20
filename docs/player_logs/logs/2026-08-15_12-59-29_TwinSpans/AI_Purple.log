@@ -1,0 +1,424 @@
+=== AI Log for Purple — Game started ===
+
+[00:00,0] STRATEGY: Initial strategy: Aggressive (difficulty: Normal)
+[00:00,0] BUILDORDER: step 0 SKIPPED (no trainer for Worker)
+[00:02,3] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[60s,22i,0v,0vs | 240s,90i,0v,0vs | 100s,37i,0v,0vs] emaS=0,0/s emaI=0,0/s
+[00:02,3] ECONOMY: GatherersHut started (total 1, inflight 1)
+[00:02,3] BUILDORDER: step 1 issued: TrainUnit:Worker at 50s
+[00:04,6] BUILDORDER: step 2 issued: TrainUnit:Worker at 52s
+[00:06,9] BUILDORDER: step 3 issued: TrainUnit:Scout at 55s
+[00:32,2] ECONOMY: GatherersHut started (total 2, inflight 1)
+[00:52,3] SNAPSHOT: supplies 82 iron 152 veilstone 28 veilsteel 0 military 5 influence 0,0% curse 9,4%
+[01:02,2] ECONOMY: GatherersHut started (total 3, inflight 1)
+[01:04,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[108s,29i,8v,0vs | 308s,99i,12v,0vs | 117s,53i,21v,0vs] emaS=7,5/s emaI=0,9/s
+[01:06,8] RESEARCH: ladder blocked ~1 min at StoneTools (Advancement wallet short)
+[01:16,0] RESEARCH: ArmedScouts queued
+[01:36,8] ECONOMY: GatherersHut started (total 4, inflight 1)
+[01:52,4] SNAPSHOT: supplies 80 iron 166 veilstone 112 veilsteel 0 military 5 influence 0,0% curse 10,0%
+[02:02,1] ECONOMY: GatherersHut started (total 5, inflight 1)
+[02:06,7] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[96s,14i,28v,0vs | 416s,120i,39v,0vs | 173s,79i,67v,0vs] emaS=7,6/s emaI=1,5/s
+[02:15,9] RESEARCH: IronSurveying1 queued
+[02:32,1] ECONOMY: GatherersHut started (total 6, inflight 1)
+[02:48,2] BUILDORDER: step 5 issued: BuildBuilding:GatherersHut at 216s
+[02:52,5] SNAPSHOT: supplies 22 iron 168 veilstone 201 veilsteel 0 military 5 influence 0,0% curse 9,9%
+[03:04,3] ECONOMY: GatherersHut started (total 8, inflight 1)
+[03:08,9] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[187s,35i,48v,0vs | 544s,149i,67v,0vs | 32s,48i,115v,0vs] emaS=8,6/s emaI=2,0/s
+[03:13,5] RECLAIM: 4 units vs curse node at (-111,63)
+[03:18,2] RESEARCH: ScoutingCelestarii queued
+[03:32,0] ECONOMY: GatherersHut started (total 9, inflight 1)
+[03:36,6] BUILDORDER: step 7 issued: TrainUnit:Worker at 264s
+[03:45,8] BUILDORDER: step 8 issued: TrainUnit:Worker at 273s
+[03:48,2] BUILDORDER: step 9 issued: TrainUnit:Worker at 276s
+[03:50,5] BUILDORDER: step 10 issued: SetVeilstoneTarget: at 278s
+[03:52,6] SNAPSHOT: supplies 36 iron 269 veilstone 318 veilsteel 0 military 5 influence 0,0% curse 10,3%
+[03:59,7] BUILDORDER: step 11 issued: BuildBuilding:Hut at 287s
+[04:04,3] BUILDORDER: step 12 issued: BuildBuilding:Hut at 292s
+[04:11,2] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[163s,40i,72v,0vs | 678s,199i,101v,0vs | 142s,123i,173v,0vs] emaS=7,6/s emaI=3,1/s
+[04:15,8] ECONOMY: GatherersHut started (total 10, inflight 1)
+[04:25,1] RESEARCH: StoneTools queued
+[04:36,6] ECONOMY: GatherersHut started (total 11, inflight 1)
+[04:52,7] SNAPSHOT: supplies 179 iron 410 veilstone 411 veilsteel 0 military 3 influence 0,0% curse 11,0%
+[04:57,3] ECONOMY: GatherersHut started (total 12, inflight 1)
+[05:04,2] RESEARCH: MasonGuild queued
+[05:13,5] WAVE: wave 1 BLOCKED at 361s (need 5 idle, posture Pressure, desired 0)
+[05:13,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[43s,14i,95v,0vs | 875s,274i,133v,0vs | 89s,209i,223v,0vs] emaS=11,0/s emaI=5,0/s
+[05:18,1] ECONOMY: GatherersHut started (total 13, inflight 1)
+[05:43,5] ECONOMY: GatherersHut started (total 14, inflight 1)
+[05:52,9] SNAPSHOT: supplies 367 iron 669 veilstone 488 veilsteel 0 military 3 influence 0,0% curse 11,3%
+[05:59,7] RESEARCH: IronTools queued
+[06:13,6] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[82s,24i,108v,0vs | 1139s,401i,151v,0vs | 162s,339i,244v,0vs] emaS=13,5/s emaI=7,3/s
+[06:20,5] RESEARCH: VeilstoneSurvey1 queued
+[06:53,0] SNAPSHOT: supplies 805 iron 902 veilstone 488 veilsteel 0 military 3 influence 0,0% curse 11,6%
+[06:59,7] RESEARCH: IronSurveying2 queued
+[07:13,6] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[279s,122i,135v,0vs | 1415s,538i,189v,0vs | 77s,296i,228v,0vs] emaS=13,9/s emaI=7,6/s
+[07:13,6] RESEARCH: VeilstoneTools queued
+[07:18,2] WAVE: wave 1 BLOCKED at 486s (need 5 idle, posture Pressure, desired 0)
+[07:39,0] BUILDORDER: step 15 SKIPPED (no trainer for Spearman)
+[07:41,3] BUILDORDER: step 16 SKIPPED (no trainer for Spearman)
+[07:53,2] SNAPSHOT: supplies 1393 iron 1081 veilstone 644 veilsteel 0 military 3 influence 0,0% curse 11,5%
+[08:13,7] BUDGET: w(adv/mil/eco)=(0,60/0,25/0,15) S[622s,216i,180v,0vs | 1649s,672i,280v,0vs | 288s,411i,306v,0vs] emaS=13,9/s emaI=9,4/s
+[08:18,3] RESEARCH: VeilstoneSurvey2 queued
+[08:53,3] SNAPSHOT: supplies 1875 iron 1494 veilstone 893 veilsteel 0 military 3 influence 0,0% curse 13,8%
+[09:13,7] BUDGET: w(adv/mil/eco)=(0,60/0,25/0,15) S[1088s,535i,411v,0vs | 1630s,805i,376v,0vs | 104s,371i,243v,0vs] emaS=13,6/s emaI=9,7/s
+[09:23,0] WAVE: wave 1 BLOCKED at 611s (need 5 idle, posture Pressure, desired 0)
+[09:27,6] RESEARCH: ladder blocked ~1 min at Conscription (no ready Barracks host)
+[09:53,5] SNAPSHOT: supplies 2645 iron 2006 veilstone 1380 veilsteel 0 military 3 influence 0,0% curse 14,7%
+[09:59,9] STUCK: BuildBuilding:ShrineOfAhridan blocked 120s at 648s (afford=True, idleBuilders=10)
+[10:02,3] ECONOMY: floor Barracks started
+[10:09,2] BUILDORDER: step 17 issued: BuildBuilding:ShrineOfAhridan at 657s
+[10:13,8] BUDGET: w(adv/mil/eco)=(0,60/0,25/0,15) S[1545s,846i,674v,0vs | 1491s,894i,485v,0vs | 219s,449i,309v,0vs] emaS=13,2/s emaI=9,8/s
+[10:18,5] RESEARCH: Conscription queued
+[10:41,5] RESEARCH: StoneWeapons queued
+[10:53,6] SNAPSHOT: supplies 2480 iron 2255 veilstone 1715 veilsteel 0 military 4 influence 0,0% curse 15,6%
+[10:55,3] RESEARCH: IronSurveying3 queued
+[11:11,5] CULTURE: age-up culture = Alanthor (strategy Aggressive, difficulty Normal)
+[11:11,5] BUILDORDER: step 18 issued: AgeUp: at 719s
+[11:13,8] BUILDORDER: step 19 issued: TrainUnit:Worker at 721s
+[11:16,1] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[1467s,903i,955v,0vs | 1286s,855i,609v,0vs | 41s,340i,388v,0vs] emaS=12,5/s emaI=8,1/s
+[11:16,1] BUILDORDER: step 20 issued: TrainUnit:Worker at 724s
+[11:18,5] BUILDORDER: step 21 issued: TrainUnit:Worker at 726s
+[11:20,8] BUILDORDER: step 22 issued: TrainUnit:Worker at 728s
+[11:23,1] BUILDORDER: step 23 issued: TrainUnit:Scout at 731s
+[11:25,4] BUILDORDER: step 24 issued: TrainUnit:Spearman at 733s
+[11:27,7] WAVE: wave 1 BLOCKED at 735s (need 5 idle, posture Develop, desired 8)
+[11:27,7] BUILDORDER: step 25 issued: TrainUnit:Spearman at 735s
+[11:39,3] RECLAIM: 1 units vs curse node at (-79,89)
+[11:53,8] SNAPSHOT: supplies 1583 iron 2325 veilstone 2116 veilsteel 0 military 4 influence 0,0% curse 15,6%
+[11:57,7] RECLAIM: 1 units vs curse node at (-79,89)
+[12:04,6] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[12:13,4] BUILDING: Upgrading ShrineOfRidan to L2
+[12:14,1] STRATEGY: Alanthor: aged up to era 2+ — endgame system engaged
+[12:14,1] BUILDING: Alanthor age-2 ladder: queued TempleOfRidan
+[12:14,1] BUILDING: Alanthor towers: 1/5 toward (-83,135)
+[12:16,2] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[918s,934i,997v,0vs | 725s,892i,778v,0vs | 231s,559i,581v,0vs] emaS=9,6/s emaI=10,3/s
+[12:19,1] STRATEGY: adopting sect Sect_Renewal
+[12:19,1] BUILDING: Alanthor age-2 ladder: queued Alanthor_Smelter
+[12:19,1] BUILDING: Alanthor towers: 2/5 toward (-83,135)
+[12:24,1] BUILDING: Alanthor age-2 ladder: queued Alanthor_RoyalStable
+[12:24,1] BUILDING: Alanthor towers: 3/5 toward (-83,135)
+[12:29,1] BUILDING: Alanthor age-2 ladder: queued Alanthor_SiegeYard
+[12:29,1] BUILDING: Alanthor towers: 4/5 toward (-83,135)
+[12:34,1] BUILDING: Alanthor age-2 ladder: queued Hut
+[12:34,1] BUILDING: Alanthor walls: plan = perimeter around the base (16 hubs, 4 gates, 12 towers; open 54% of arc, 2 corridor(s), w=34, unsealable - too open)
+[12:43,4] BUILDING: Upgrading Alanthor_Tower to L2
+[12:49,4] BUILDING: Upgrading Alanthor_RoyalStable to L2
+[12:53,9] SNAPSHOT: supplies 299 iron 2214 veilstone 2228 veilsteel 11 military 3 influence 7,3% curse 18,7%
+[12:55,4] BUILDING: Upgrading Alanthor_Tower to L2
+[13:01,5] BUILDING: Upgrading Alanthor_SiegeYard to L2
+[13:04,8] ECONOMY: floor Barracks started
+[13:09,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[13:13,5] BUILDING: Upgrading Alanthor_Tower to L3
+[13:14,0] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[13:16,3] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[1065s,1025i,681v,6vs | 1045s,1176i,713v,27vs | 491s,725i,668v,12vs] emaS=20,6/s emaI=11,9/s
+[13:34,3] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[13:48,7] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[13:49,4] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[13:49,6] BUILDING: Upgrading GatherersHut to L2
+[13:54,2] SNAPSHOT: supplies 195 iron 2611 veilstone 2647 veilsteel 103 military 5 influence 11,5% curse 17,1%
+[13:55,6] BUILDING: Upgrading Barracks to L2
+[14:01,6] BUILDING: Upgrading Alanthor_Tower to L2
+[14:02,6] ECONOMY: GatherersHut started (total 14, inflight 1)
+[14:09,5] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:09,5] BUILDING: Alanthor walls: hub 1/16 at (-64,172)
+[14:14,2] ECONOMY: GatherersHut started (total 14, inflight 1)
+[14:16,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[1333s,1183i,793v,24vs | 1000s,1255i,921v,62vs | 658s,1072i,923v,53vs] emaS=26,7/s emaI=15,1/s
+[14:19,5] BUILDING: Alanthor towers: 5/5 toward (-123,67)
+[14:19,5] BUILDING: Alanthor walls: hub 2/16 at (-92,172)
+[14:23,4] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[14:23,4] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[14:24,5] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:24,5] BUILDING: Alanthor walls: hub 3/16 at (-120,172)
+[14:28,1] RECLAIM: 2 units vs curse node at (-111,63)
+[14:29,5] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[14:29,5] BUILDING: Alanthor walls: hub 4/16 at (-146,172)
+[14:34,6] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[14:34,6] BUILDING: Alanthor walls: slot at (-174,174) unplaceable after nudges — marked dead (neighbours will span it)
+[14:34,6] BUILDING: Alanthor walls: hub 5/16 at (-172,144)
+[14:34,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:39,6] BUILDING: Alanthor walls: hub 6/15 at (-172,116)
+[14:39,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:42,0] RECLAIM: 1 units vs curse node at (-111,63)
+[14:44,6] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:44,6] BUILDING: Alanthor walls: hub 7/15 at (-172,88)
+[14:49,6] BUILDING: Alanthor walls: slot at (-174,58) unplaceable after nudges — marked dead (neighbours will span it)
+[14:49,6] BUILDING: Alanthor walls: slot at (-147,58) unplaceable after nudges — marked dead (neighbours will span it)
+[14:49,6] BUILDING: Alanthor walls: slot at (-119,58) unplaceable after nudges — marked dead (neighbours will span it)
+[14:49,6] BUILDING: Alanthor walls: hub 8/15 at (-92,58)
+[14:49,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[14:53,5] RECLAIM: 1 units vs curse node at (-111,63)
+[14:54,4] SNAPSHOT: supplies 133 iron 3162 veilstone 3149 veilsteel 200 military 7 influence 13,0% curse 14,8%
+[14:54,7] BUILDING: Alanthor age-2 ladder: queued Hut
+[14:54,7] BUILDING: Alanthor walls: slot at (-64,58) unplaceable after nudges — marked dead (neighbours will span it)
+[14:54,7] BUILDING: Alanthor walls: hub 9/12 at (-64,88)
+[14:58,1] RECLAIM: 1 units vs curse node at (-111,63)
+[14:58,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[14:59,7] BUILDING: Alanthor walls: hub 10/11 at (-64,116)
+[15:04,7] BUILDING: Alanthor walls: hub 11/11 at (-64,144)
+[15:04,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[15:09,7] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[15:09,7] BUILDING: Alanthor age-2 ladder: queued Hut
+[15:09,7] BUILDING: Alanthor walls: closed a 38 m gap between (-147,174) and (-174,145)
+[15:09,9] RECLAIM: 1 units vs curse node at (-111,63)
+[15:14,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:14,7] BUILDING: Alanthor walls: closed a 41 m gap between (-92,58) and (-64,87)
+[15:16,9] WAVE: wave 1 BLOCKED at 965s (need 5 idle, posture Pressure, desired 10)
+[15:16,9] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[1576s,1348i,914v,44vs | 1236s,1442i,1091v,90vs | 1053s,1421i,1186v,96vs] emaS=23,9/s emaI=16,1/s
+[15:19,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:19,7] BUILDING: Alanthor walls: gate conversion at (-119,174)
+[15:24,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:24,8] BUILDING: Alanthor walls: gate conversion at (-174,116)
+[15:29,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:33,1] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[15:33,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[15:34,8] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[15:34,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:34,8] BUILDING: Alanthor walls: gate conversion at (-64,116)
+[15:39,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:39,9] BUILDING: Alanthor walls: tower conversion at (-64,174)
+[15:43,9] BUILDING: Upgrading Alanthor_Tower to L2
+[15:44,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:44,9] BUILDING: Alanthor walls: tower conversion at (-119,174)
+[15:49,9] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[15:49,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:54,5] SNAPSHOT: supplies 101 iron 3710 veilstone 3672 veilsteel 283 military 14 influence 14,7% curse 11,6%
+[15:54,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:54,9] BUILDING: Alanthor walls: tower conversion at (-147,174)
+[15:59,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[15:59,9] BUILDING: Alanthor walls: tower conversion at (-174,116)
+[16:05,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:05,0] BUILDING: Alanthor walls: tower conversion at (-174,87)
+[16:07,9] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[16:10,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:10,0] BUILDING: Alanthor walls: tower conversion at (-92,58)
+[16:10,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:15,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:15,0] BUILDING: Alanthor walls: tower conversion at (-64,116)
+[16:15,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:17,2] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[1788s,1512i,1022v,63vs | 902s,1401i,1135v,117vs | 1480s,1552i,1163v,141vs] emaS=17,5/s emaI=12,9/s
+[16:20,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:25,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:25,1] BUILDING: Alanthor walls: tower conversion at (-64,116)
+[16:30,1] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[16:30,1] BUILDING: Alanthor age-2 ladder: queued Sect_MendingHall
+[16:30,1] STRATEGY: Alanthor: raising Sect_MendingHall for the Renewal sect
+[16:30,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:35,1] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[16:35,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:35,1] BUILDING: Alanthor walls: tower conversion at (-64,145)
+[16:40,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:42,7] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[16:42,7] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[16:44,2] BUILDING: Upgrading Alanthor_Tower to L2
+[16:45,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:45,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[16:50,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:51,9] SNAPSHOT: supplies 68 iron 4104 veilstone 4269 veilsteel 342 military 20 influence 14,7% curse 12,7%
+[16:55,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[16:55,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:00,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:00,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:05,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:05,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:10,3] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[17:10,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:15,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:15,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:17,5] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2022s,1621i,1159v,72vs | 810s,1459i,1327v,129vs | 1969s,1697i,1372v,158vs] emaS=20,8/s emaI=14,5/s
+[17:17,5] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[17:20,3] BUILDING: Upgrading Hut to L2
+[17:20,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:22,1] WAVE: wave 1 BLOCKED at 1090s (need 5 idle, posture Pressure, desired 20)
+[17:25,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:30,4] BUILDING: Alanthor age-2 ladder: queued Sect_MendingHall
+[17:30,4] STRATEGY: Alanthor: raising Sect_MendingHall for the Renewal sect
+[17:30,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:35,4] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[17:35,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:35,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:40,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:40,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:45,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:45,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[17:50,6] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[17:50,6] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[17:50,6] MILITARY: Alanthor: queued Alanthor_Ballista
+[17:52,2] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[17:52,2] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[17:52,3] SNAPSHOT: supplies 49 iron 4683 veilstone 4713 veilsteel 408 military 26 influence 15,1% curse 12,7%
+[17:55,6] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:00,6] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[18:00,6] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:05,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:05,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:10,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:15,7] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[18:15,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:17,7] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2284s,1665i,729v,93vs | 1176s,1705i,729v,158vs | 2430s,1731i,729v,201vs] emaS=22,2/s emaI=14,9/s
+[18:20,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:20,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:25,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:27,0] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[18:30,8] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[18:30,8] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[18:30,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:35,8] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[18:35,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:35,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:40,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:45,6] RESEARCH: VeilsteelSurvey queued
+[18:45,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:50,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[18:50,9] MILITARY: Alanthor: queued Alanthor_Outrider
+[18:52,7] SNAPSHOT: supplies 64 iron 5303 veilstone 4868 veilsteel 444 military 33 influence 15,2% curse 12,6%
+[18:55,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:01,0] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[19:01,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:01,9] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[19:06,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:11,0] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[19:11,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:11,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:16,0] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[19:16,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:18,1] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2589s,1717i,726v,114vs | 1603s,1717i,726v,188vs | 2713s,1717i,726v,185vs] emaS=24,4/s emaI=14,3/s
+[19:21,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:21,0] MILITARY: Alanthor: queued Sect_ScarGuard at the Renewal building
+[19:26,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:26,1] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:27,4] WAVE: wave 1 BLOCKED at 1215s (need 5 idle, posture Pressure, desired 20)
+[19:31,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:31,1] MILITARY: Alanthor: queued Sect_ScarGuard at the Renewal building
+[19:36,1] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[19:36,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:36,7] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[19:39,0] BUILDING: Upgrading Hut to L2
+[19:41,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:46,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:46,2] MILITARY: Alanthor: queued Alanthor_Outrider
+[19:51,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[19:51,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[19:51,2] MILITARY: Alanthor: queued Alanthor_Ballista
+[19:52,9] SNAPSHOT: supplies 72 iron 5721 veilstone 5075 veilsteel 535 military 36 influence 15,2% curse 12,4%
+[19:55,4] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[19:56,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:01,3] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[20:01,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:06,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:11,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:11,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:11,6] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[20:15,2] BUILDING: Upgrading Hut to L2
+[20:16,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:18,6] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2436s,1326i,664v,133vs | 1972s,1335i,676v,215vs | 2550s,1342i,688v,226vs] emaS=23,5/s emaI=11,5/s
+[20:21,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:21,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:26,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:31,4] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[20:31,4] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[20:31,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:36,4] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[20:36,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:36,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[20:41,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:45,4] BUILDING: Upgrading Hut to L2
+[20:46,5] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[20:46,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:51,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:51,5] MILITARY: Alanthor: queued Alanthor_Ballista
+[20:53,2] SNAPSHOT: supplies 70 iron 6031 veilstone 5289 veilsteel 620 military 38 influence 15,2% curse 13,6%
+[20:56,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[20:56,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:01,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:05,1] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[21:06,5] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[21:06,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:11,6] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[21:11,6] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:11,6] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:12,1] WAVE: wave 1 BLOCKED at 1320s (need 5 idle, posture Pressure, desired 20)
+[21:16,6] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:16,6] MILITARY: Alanthor: queued Alanthor_Ballista
+[21:19,1] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2221s,1153i,702v,154vs | 2225s,1157i,704v,244vs | 2237s,1166i,707v,269vs] emaS=19,3/s emaI=10,8/s
+[21:21,4] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[21:21,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:26,7] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[21:26,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:31,7] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:31,7] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:36,8] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[21:36,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:39,7] BUILDING: Upgrading Hut to L2
+[21:41,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:46,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:46,8] MILITARY: Alanthor: queued Alanthor_Outrider
+[21:51,8] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[21:51,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[21:53,7] SNAPSHOT: supplies 178 iron 6351 veilstone 5608 veilsteel 711 military 42 influence 15,2% curse 11,1%
+[21:56,3] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[21:56,8] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[21:56,8] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:01,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:06,9] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[22:06,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:11,9] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:14,8] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[22:15,8] BUILDING: Upgrading Hut to L2
+[22:17,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:19,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2272s,1271i,766v,174vs | 2327s,1276i,800v,271vs | 2404s,1282i,860v,311vs] emaS=22,1/s emaI=10,9/s
+[22:22,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:22,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:27,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:27,0] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:31,1] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[22:32,0] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[22:32,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:32,0] MILITARY: Alanthor: queued Alanthor_Ballista
+[22:37,0] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[22:37,0] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:42,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:42,1] MILITARY: Alanthor: queued Alanthor_Outrider
+[22:47,1] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[22:47,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:52,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:54,0] SNAPSHOT: supplies 154 iron 6604 veilstone 5912 veilsteel 802 military 44 influence 15,2% curse 10,9%
+[22:57,1] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[22:57,1] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:02,2] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[23:02,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:06,0] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[23:07,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:12,2] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[23:12,2] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:12,2] MILITARY: Alanthor: queued Alanthor_Ballista
+[23:17,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:17,3] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:17,6] WAVE: wave 1 BLOCKED at 1445s (need 5 idle, posture Pressure, desired 20)
+[23:19,9] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[2293s,1197i,742v,195vs | 2391s,1201i,747v,302vs | 2446s,1203i,749v,354vs] emaS=22,8/s emaI=11,0/s
+[23:22,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:22,3] MILITARY: Alanthor: queued Alanthor_Ballista
+[23:24,6] RESEARCH: ladder blocked ~1 min at Fletching (no ready ArcheryRange host)
+[23:27,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:32,3] STRATEGY: Alanthor: researching MasonsCharter at the Renewal building
+[23:32,3] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:37,4] BUILDING: Temple L2 blocked ~1 min (bank short: 500s 200i 150v)
+[23:37,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:37,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:40,8] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[23:42,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:46,2] BUILDING: Upgrading Alanthor_Tower to L3
+[23:47,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:52,4] STRATEGY: Alanthor: fired Renewal slot 1 at Lv 1
+[23:52,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:52,4] MILITARY: Alanthor: queued Alanthor_Outrider
+[23:54,4] SNAPSHOT: supplies 148 iron 6774 veilstone 6059 veilsteel 898 military 48 influence 15,2% curse 11,2%
+[23:57,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[23:57,4] MILITARY: Alanthor: queued Alanthor_Ballista
+[24:02,4] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[24:02,4] MILITARY: Alanthor: queued Alanthor_Ballista
+[24:07,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[24:07,5] MILITARY: Alanthor: queued Alanthor_Outrider
+[24:12,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[24:15,7] MILITARY: King's Court: King Lexor blocked ~1 min (bank short)
+[24:16,3] BUILDING: Upgrading Hut to L2
+[24:17,5] BUILDING: Alanthor walls: 85 m gap between (-174,87) and (-92,58) exceeds the single-span limit — enclosure still OPEN here
+[24:20,3] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[2226s,1144i,632v,216vs | 2253s,1155i,640v,330vs | 2288s,1172i,655v,395vs] emaS=22,4/s emaI=10,3/s

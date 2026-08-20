@@ -50,8 +50,10 @@ namespace TheWaningBorder.Systems.Navigation
     {
         private Entity _mirrorEntity;
         private byte _mirrorInitialised;
+        /// <summary>Mirror of PortalOwnerBitsMirror.Bits, disposable after a wipe.</summary>
+        private NativeArray<ushort> _bits;
 
-        // NOT [BurstCompile]: BlobBuilder + EntityManager.GetComponentData
+        // NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]: BlobBuilder + EntityManager.GetComponentData
         // are managed entry points.
         public void OnCreate(ref SystemState state)
         {
@@ -198,7 +200,10 @@ namespace TheWaningBorder.Systems.Navigation
             System.Array.Sort(managedEdges, (a, b) =>
             {
                 if (a.FromPortalId != b.FromPortalId) return a.FromPortalId - b.FromPortalId;
-                return a.ToPortalId - b.ToPortalId;
+                if (a.ToPortalId != b.ToPortalId) return a.ToPortalId - b.ToPortalId;
+                // Cost as final key makes the comparison TOTAL — same
+                // rationale as PortalGraphBuildSystem's full build.
+                return a.Cost.CompareTo(b.Cost);
             });
 
             var nodeFirstEdge = new NativeArray<int>(nodeCount + 1, Allocator.Temp,
@@ -285,13 +290,8 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_mirrorInitialised == 0) return;
-            var em = state.EntityManager;
-            if (em.Exists(_mirrorEntity) && em.HasComponent<PortalOwnerBitsMirror>(_mirrorEntity))
-            {
-                var m = em.GetComponentData<PortalOwnerBitsMirror>(_mirrorEntity);
-                if (m.Bits.IsCreated) m.Bits.Dispose();
-            }
+            // Mirror, not the component — the entity may already be wiped.
+            if (_bits.IsCreated) _bits.Dispose();
         }
 
         /// <summary>
@@ -309,15 +309,24 @@ namespace TheWaningBorder.Systems.Navigation
             EntityManager em, PortalGraphSingleton graphSingleton)
         {
             int nodeCount = graphSingleton.Graph.Value.Nodes.Length;
-            // Lazy-create the singleton on the first rebuild.
-            if (_mirrorInitialised == 0)
+            // Lazy-create the singleton on the first rebuild — and re-create it
+            // after the end-of-match wipe, which destroys it while this system
+            // survives. A stale latch left GetSingleton below throwing on the
+            // first rebuild, and functionally lost every gate's ownership /
+            // open-closed bits so GateStateSystem could not flip a gate.
+            if (_mirrorInitialised == 0
+                || !em.Exists(_mirrorEntity)
+                || !em.HasComponent<PortalOwnerBitsMirror>(_mirrorEntity))
             {
+                if (_bits.IsCreated) _bits.Dispose();
+                _bits = new NativeArray<ushort>(nodeCount, Allocator.Persistent,
+                    NativeArrayOptions.ClearMemory);
+
                 _mirrorInitialised = 1;
                 _mirrorEntity = em.CreateEntity(typeof(PortalOwnerBitsMirror));
                 em.SetComponentData(_mirrorEntity, new PortalOwnerBitsMirror
                 {
-                    Bits = new NativeArray<ushort>(nodeCount, Allocator.Persistent,
-                        NativeArrayOptions.ClearMemory),
+                    Bits = _bits,
                     Generation = graphSingleton.Generation,
                 });
             }
@@ -328,6 +337,7 @@ namespace TheWaningBorder.Systems.Navigation
                 mirror.Bits.Dispose();
                 mirror.Bits = new NativeArray<ushort>(nodeCount, Allocator.Persistent,
                     NativeArrayOptions.ClearMemory);
+                _bits = mirror.Bits;   // keep the mirror handle in step
             }
 
             ref var graph = ref graphSingleton.Graph.Value;

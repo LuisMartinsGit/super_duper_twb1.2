@@ -82,6 +82,9 @@ namespace TheWaningBorder.AI
         public float ThinkTimer;
         /// <summary>Whether the AgeUp step has already been issued (latches to prevent re-trigger).</summary>
         public byte AgeUpIssued;
+        /// <summary>The age-up director started a fallback choice building
+        /// (latches so it never places a second one).</summary>
+        public byte OpportunisticChoiceStarted;
         /// <summary>
         /// Veilstone-miner FLOOR. The runtime allocation is
         /// <c>max(this, totalMiners / 2)</c> whenever outcroppings are reachable —

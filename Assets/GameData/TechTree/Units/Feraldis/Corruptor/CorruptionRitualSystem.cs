@@ -27,6 +27,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.FeraldisConstants;
 
 namespace TheWaningBorder.Systems.Border
@@ -203,7 +204,7 @@ namespace TheWaningBorder.Systems.Border
                 CurseAwakeningHelper.Wake(em, node, faction, SystemAPI.Time.ElapsedTime);
 
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    "A Corruptor is defiling a well!");
+                    Loc.T("A Corruptor is defiling a well!"));
             }
 
             starting.Dispose();
@@ -322,7 +323,7 @@ namespace TheWaningBorder.Systems.Border
                     TheWaningBorder.UI.GameUI.MinimapPings.Curse,
                     CorruptionVulnerableSeconds, big: true);
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    $"A well lies open — {(int)CorruptionVulnerableSeconds}s to break it!");
+                    string.Format(Loc.T("A well lies open — {0}s to break it!"), (int)CorruptionVulnerableSeconds));
                 TWBLog.Log($"[Corruption] well corrupted by {doneFaction[i]} " +
                            $"at ({p.x:0},{p.z:0}); vulnerable {CorruptionVulnerableSeconds}s.");
             }
@@ -379,7 +380,7 @@ namespace TheWaningBorder.Systems.Border
                     em.AddComponent<NodeNoAutoAcquire>(node);
 
                 TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                    "The well seals itself — the corruption failed.");
+                    Loc.T("The well seals itself — the corruption failed."));
             }
             expired.Dispose();
         }

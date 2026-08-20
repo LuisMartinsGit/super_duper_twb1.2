@@ -62,9 +62,22 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             GetMapBounds(out Vector3 min, out Vector3 size);
 
             var starts = Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None);
+            // Bake in the SAME canonical order the runtime registry uses.
+            // PlayerSlot.StartIndex indexes into MapInfo.PlayerStarts in the
+            // lobby and into MapMarkerRegistry.PlayerStarts at spawn time; if
+            // these two orders disagreed, choosing a start position on the
+            // lobby minimap would drop you at a different marker.
+            // docs/Design/Lobby_Setup.md
+            System.Array.Sort(starts, MapMarkerRegistry.ComparePlayerStarts);
             if (starts.Length > 0)
                 info.PlayerCount = Mathf.Clamp(starts.Length, 2, 8);
             info.PlayerStarts = Normalize(starts, min, size);
+
+            // Parallel faction array so a chosen start resolves to a marker by
+            // identity, not by array position.
+            info.PlayerStartFactions = new Faction[starts.Length];
+            for (int i = 0; i < starts.Length; i++)
+                info.PlayerStartFactions[i] = starts[i] != null ? starts[i].Faction : default;
             info.IronDeposits = Normalize(
                 Object.FindObjectsByType<IronPatchMarker>(FindObjectsSortMode.None), min, size);
             info.VeilstoneNodes = Normalize(

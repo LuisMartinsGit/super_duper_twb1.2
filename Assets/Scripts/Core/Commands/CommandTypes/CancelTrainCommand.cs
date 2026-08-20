@@ -49,16 +49,26 @@ namespace TheWaningBorder.Core.Commands.Types
             if (slotIndex < 0 || slotIndex >= queue.Length) return false;
 
             string unitId = queue[slotIndex].UnitId.ToString();
+            float paidMult = queue[slotIndex].PaidCostMultiplier;
 
-            // Refund — read base cost from TechTreeDB via the existing
-            // helper so we don't duplicate the lookup logic. Matches the
-            // legacy CancelQueueItem behaviour (refund base, accept the
-            // Feraldis 1.75× tax as cost-of-doing-business).
+            // Refund — the EXACT formula CommandRouter.TrainCommandDirect
+            // charged (base TechTreeDB cost through War's military
+            // discount), so cancel never mints resources. Both the spend
+            // and this refund run inside per-peer executors (lockstep
+            // replays CancelTrain on every peer), so the banks — and the
+            // desync checksum built from them — stay aligned
+            // (docs/Multiplayer_LAN_Readiness.md).
             Faction faction = GameSettings.LocalPlayerFaction;
             if (em.HasComponent<FactionTag>(building))
                 faction = em.GetComponentData<FactionTag>(building).Value;
 
-            var cost = EntityActionExtractor.GetUnitCost(unitId);
+            var cost = WarSectCostHelper.MilitaryDiscount(
+                em, faction, unitId, EntityActionExtractor.GetUnitCost(unitId));
+            // Call to Arms multiplier as RECORDED at queue time, not as it
+            // stands now: the boon is a 15-30 s window, so recomputing it here
+            // would refund full price for a half-price unit the moment the
+            // window lapsed - a resource printer, one cancel at a time.
+            cost = WarSectCostHelper.ApplyPaidMultiplier(cost, paidMult);
             if (!cost.IsZero)
                 FactionEconomy.Add(em, faction, cost);
 

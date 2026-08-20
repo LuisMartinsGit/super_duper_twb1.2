@@ -28,6 +28,7 @@ using Unity.Mathematics;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Influence;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
 namespace TheWaningBorder.Systems.Border
@@ -206,8 +207,9 @@ namespace TheWaningBorder.Systems.Border
                 TheWaningBorder.UI.GameUI.MinimapPings.Curse,
                 BloodSpawnTelegraphSeconds, big: true);
             TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                $"Blood pool contaminating — {count} curse unit(s) will rise at " +
-                $"({bestX:0},{bestZ:0}) in {(int)BloodSpawnTelegraphSeconds}s!");
+                string.Format(
+                    Loc.T("Blood pool contaminating — {0} curse unit(s) will rise at ({1:0},{2:0}) in {3}s!"),
+                    count, bestX, bestZ, (int)BloodSpawnTelegraphSeconds));
             TWBLog.Log($"[BloodCurse] pool {bestPool:0.0} at ({bestX:0},{bestZ:0}) " +
                        $"contaminating: {crystallings}c/{veilstingers}v/{godsplinters}g in " +
                        $"{(int)BloodSpawnTelegraphSeconds}s.");

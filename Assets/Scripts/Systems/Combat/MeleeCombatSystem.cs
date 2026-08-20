@@ -41,6 +41,10 @@ namespace TheWaningBorder.Systems.Combat
 
         public void OnUpdate(ref SystemState state)
         {
+            // Instrumented (2026-08-16 perf sweep): main-thread managed loop
+            // over every melee unit, per frame, not Bursted.
+            double perfT0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
+
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var dt = SystemAPI.Time.DeltaTime;
@@ -124,6 +128,22 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<WallTag>(tgt.Value)
                     && (!em.HasComponent<DamageTypeData>(entity)
                         || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
+                {
+                    tgt.Value = Entity.Null;
+                    if (em.HasComponent<AttackCommand>(entity))
+                    {
+                        ecb.RemoveComponent<AttackCommand>(entity);
+                    }
+                    continue;
+                }
+
+                // An ALLY is never a valid melee target. Acquisition already
+                // filters teammates out (TargetingSystem.Acquire/Guard, the AI
+                // ladder), so reaching here means a Target that outlived the
+                // relationship that justified it — drop it with the same
+                // contract as the two rules above and let the next targeting
+                // pass re-pick. docs/Design/Teams.md
+                if (!CombatDamageHelper.CanDamage(em, entity, tgt.Value))
                 {
                     tgt.Value = Entity.Null;
                     if (em.HasComponent<AttackCommand>(entity))
@@ -276,6 +296,10 @@ namespace TheWaningBorder.Systems.Combat
                         // Fix #226: last-damager tracking routed through shared helper
                         CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
 
+                        // Match-long damage ledger — what Wrath's Spite pools
+                        // and pays back (docs/Design/Sects.md).
+                        CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
+
                         // Feraldis on-hit riders. Both no-op for units without
                         // the declaring component, so every other unit in the
                         // game pays two HasComponent checks.
@@ -305,6 +329,9 @@ namespace TheWaningBorder.Systems.Combat
                             cdMult = 1f / 1.30f;
                         // Feraldis blood frenzy also swings faster.
                         cdMult *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
+                        // Timed haste (Blood Rain and any future SpellBuff
+                        // attack-speed effect) swings faster too.
+                        cdMult *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
                         cd.Timer = cd.Cooldown * cdMult;
                     }
                 }
@@ -340,8 +367,17 @@ namespace TheWaningBorder.Systems.Combat
                     // Closest point on the target's surface, pulled back half a
                     // melee step so the destination is walkable ground squarely
                     // inside attack range — never a cell inside the footprint.
-                    float3 chaseTarget = extent.ApproachPoint(myPos, MeleeRange * 0.5f);
-                    chaseTarget.y = targetPos.y;
+                    //
+                    // LATCHED, not recomputed per frame. ApproachPoint is
+                    // relative to OUR position, so re-deriving it every frame
+                    // made the goal slide sideways with us: lateral movement
+                    // could never close the gap, and a unit that needed to walk
+                    // AROUND an obstacle pressed into it and span instead. We
+                    // still WRITE the destination every frame (TargetingSystem
+                    // clears Has on attackers) — we just write the same point
+                    // until the target actually moves. See ChaseAnchor.
+                    float3 chaseTarget = ResolveChaseAnchor(em, ecb, entity, tgt.Value,
+                        targetPos, myPos, in extent);
 
                     // No facing write here on purpose: while the unit is moving,
                     // UnitIntegratorSystem owns rotation (face where you walk).
@@ -366,6 +402,75 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
             }
+
+            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("MeleeCombat",
+                (UnityEngine.Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
+        }
+
+        /// <summary>
+        /// The point this chaser is walking to, latched until the target moves.
+        ///
+        /// Recomputed only when the anchor is missing, names a different target,
+        /// the target has drifted past <see cref="ChaseAnchor.RecomputeDistance"/>,
+        /// or the latched point is no longer standable (a building went up on
+        /// it, a wall closed). Otherwise the previous point is returned
+        /// unchanged, which is the whole point: a stable goal is what lets the
+        /// flow field route the unit AROUND an obstacle instead of grinding
+        /// into it.
+        ///
+        /// A fresh anchor that lands on impassable ground is pushed outward
+        /// along the approach direction until it clears — the destination must
+        /// be somewhere the unit can actually stand, or the field cannot reach
+        /// it and line-of-sight steering is defeated too.
+        /// </summary>
+        private static float3 ResolveChaseAnchor(EntityManager em, EntityCommandBuffer ecb,
+            Entity self, Entity target, float3 targetPos, float3 myPos,
+            in TargetExtent extent)
+        {
+            bool hasAnchor = em.HasComponent<ChaseAnchor>(self);
+            if (hasAnchor)
+            {
+                var a = em.GetComponentData<ChaseAnchor>(self);
+                bool sameTarget = a.Target == target;
+                float dx = a.TargetPos.x - targetPos.x;
+                float dz = a.TargetPos.z - targetPos.z;
+                bool targetHeld = dx * dx + dz * dz
+                    <= ChaseAnchor.RecomputeDistance * ChaseAnchor.RecomputeDistance;
+
+                if (sameTarget && targetHeld
+                    && TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(a.Point))
+                    return a.Point;
+            }
+
+            float3 point = extent.ApproachPoint(myPos, MeleeRange * 0.5f);
+            point.y = targetPos.y;
+
+            // Walk the point outward until it stands on legal ground. Bounded:
+            // past a couple of body-widths the target is unreachable anyway and
+            // the stuck/redirect systems take over.
+            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(point))
+            {
+                float3 outward = point - targetPos;
+                outward.y = 0f;
+                float len = math.length(outward);
+                if (len > 1e-4f)
+                {
+                    outward /= len;
+                    for (float extra = 0.75f; extra <= 3f; extra += 0.75f)
+                    {
+                        float3 probe = point + outward * extra;
+                        if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(probe))
+                            continue;
+                        point = probe;
+                        break;
+                    }
+                }
+            }
+
+            var anchor = new ChaseAnchor { Target = target, TargetPos = targetPos, Point = point };
+            if (hasAnchor) ecb.SetComponent(self, anchor);
+            else ecb.AddComponent(self, anchor);
+            return point;
         }
 
         /// <summary>

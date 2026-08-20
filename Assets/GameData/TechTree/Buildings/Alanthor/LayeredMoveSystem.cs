@@ -133,7 +133,10 @@ namespace TheWaningBorder.Systems.Buildings
                 {
                     // Gated access (owner >= 0) is friendly-only; breach ramps
                     // (owner == -1) are usable by anyone.
-                    if (_apOwner[i] >= 0 && _apOwner[i] != unitFaction) continue;
+                    // Owner OR ally — matches the gate rule: a wall that stops
+                    // your ally is worse than no wall. docs/Design/Teams.md
+                    if (_apOwner[i] >= 0
+                        && !Alliances.AreAllied((Faction)_apOwner[i], (Faction)unitFaction)) continue;
                     float dx = _apPos[i].x - xf.Position.x;
                     float dz = _apPos[i].z - xf.Position.z;
                     float d = dx * dx + dz * dz;

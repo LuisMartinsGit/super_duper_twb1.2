@@ -163,6 +163,29 @@ namespace TheWaningBorder.Systems.Navigation
         private byte _initialised;
         private EntityQuery _unitQuery;
 
+        // System-side mirrors of the cache's pools — the only way to free them
+        // once the end-of-match wipe has taken the component that held them.
+        private NativeHashMap<GoalFlowKey, int> _slotIndex;
+        private NativeArray<GoalFlowSlot> _slots;
+        private NativeArray<GoalFlowKey> _slotKeys;
+        private NativeArray<byte> _dirPool;
+        private NativeArray<uint> _integrationScratch;
+
+        /// <summary>Free the cache pools via the mirrors.</summary>
+        private void ReleaseCache()
+        {
+            if (_slotIndex.IsCreated) _slotIndex.Dispose();
+            if (_slots.IsCreated) _slots.Dispose();
+            if (_slotKeys.IsCreated) _slotKeys.Dispose();
+            if (_dirPool.IsCreated) _dirPool.Dispose();
+            if (_integrationScratch.IsCreated) _integrationScratch.Dispose();
+            _slotIndex = default;
+            _slots = default;
+            _slotKeys = default;
+            _dirPool = default;
+            _integrationScratch = default;
+        }
+
         // ── Detached (async) integration state ─────────────────────────
         // The old code scheduled the batch and Complete()d it in the same
         // update — a ~12 ms MAIN-THREAD stall on every mass move order
@@ -204,8 +227,18 @@ namespace TheWaningBorder.Systems.Navigation
             var cost = SystemAPI.GetSingleton<NavCostField>();
             if (!cost.Cost.IsCreated) return;
 
-            if (_initialised == 0)
+            // Existence-gated: the end-of-match wipe destroys this cache while
+            // the system survives, and the unguarded GetSingleton below would
+            // then throw every frame. Rebuilding also re-sizes the pools to the
+            // NEW grid, which a latch would have skipped on a different map.
+            if (_initialised == 0
+                || !em.Exists(_cacheEntity)
+                || !em.HasComponent<GoalFlowFieldCache>(_cacheEntity))
             {
+                // Detached integration jobs may still be reading the old pools.
+                _pendingHandle.Complete();
+                ReleaseCache();
+
                 _initialised = 1;
                 int cellCount = grid.Width * grid.Height;
                 var cache = new GoalFlowFieldCache
@@ -227,6 +260,12 @@ namespace TheWaningBorder.Systems.Navigation
                 };
                 _cacheEntity = em.CreateEntity(typeof(GoalFlowFieldCache));
                 em.SetComponentData(_cacheEntity, cache);
+                // Mirror the pools so a rebuild after a wipe can free them.
+                _slotIndex = cache.SlotIndex;
+                _slots = cache.Slots;
+                _slotKeys = cache.SlotKeys;
+                _dirPool = cache.DirPool;
+                _integrationScratch = cache.IntegrationScratch;
                 // Snapshot arrays are allocated lazily at the copy site —
                 // Cost/Flags are LAYERED (Width*Height*LayerCount), NOT the
                 // ground cellCount this cache works in; sizing them here at
@@ -535,17 +574,8 @@ namespace TheWaningBorder.Systems.Navigation
             if (_costSnapshot.IsCreated) _costSnapshot.Dispose();
             if (_flagsSnapshot.IsCreated) _flagsSnapshot.Dispose();
 
-            if (_initialised == 0) return;
-            var em = state.EntityManager;
-            if (em.Exists(_cacheEntity) && em.HasComponent<GoalFlowFieldCache>(_cacheEntity))
-            {
-                var c = em.GetComponentData<GoalFlowFieldCache>(_cacheEntity);
-                if (c.SlotIndex.IsCreated) c.SlotIndex.Dispose();
-                if (c.Slots.IsCreated) c.Slots.Dispose();
-                if (c.SlotKeys.IsCreated) c.SlotKeys.Dispose();
-                if (c.DirPool.IsCreated) c.DirPool.Dispose();
-                if (c.IntegrationScratch.IsCreated) c.IntegrationScratch.Dispose();
-            }
+            // Mirrors, not the component — the entity may already be wiped.
+            ReleaseCache();
         }
 
         // Free slot if any, else evict LRU (smallest LastUsedTick, ties by
@@ -588,7 +618,7 @@ namespace TheWaningBorder.Systems.Navigation
     /// penalty, no corner cutting, weighted-gradient direction quantized to
     /// the 256-bin angle byte the DirectionTableBlob expands.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal struct IntegrateGoalFieldJob : IJob
     {
         [ReadOnly] public NativeArray<byte> Cost;
@@ -756,7 +786,10 @@ namespace TheWaningBorder.Systems.Navigation
             if (c == NavCostField.CostConditional)
             {
                 byte ownerIdx = (byte)(Flags[idx] & NavCostField.FlagOwnerMask);
-                return ownerIdx == FactionIdx;
+                // A gate is passable to its owner AND to the owner's team —
+                // GateStateSystem opens for allies, so the flow field has to
+                // route them through it too. docs/Design/Teams.md
+                return Alliances.AreAlliedBurst(ownerIdx, FactionIdx);
             }
             // Ground variant: the deck-only strip does not exist for pure
             // ground routing.

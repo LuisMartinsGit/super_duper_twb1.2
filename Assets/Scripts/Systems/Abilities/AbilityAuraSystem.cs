@@ -101,7 +101,12 @@ namespace TheWaningBorder.Systems.Abilities
 
                 for (int i = 0; i < units.Length; i++)
                 {
-                    if (unitFac[i].Value != srcFac) continue; // same-faction (== same culture) allies
+                    // Own faction AND team allies. The per-field math.max
+                    // merge below is exactly what stops two allies running
+                    // the same aura from stacking: the stronger value wins and
+                    // the duration refreshes, rather than each source adding
+                    // its own contribution. docs/Design/Teams.md
+                    if (!Alliances.AreAllied(srcFac, unitFac[i].Value)) continue;
                     float2 d = new float2(unitXf[i].Position.x - srcPos.x, unitXf[i].Position.z - srcPos.z);
                     if (math.dot(d, d) > radSq) continue;
 
@@ -237,8 +242,14 @@ namespace TheWaningBorder.Systems.Abilities
                         if (dd.Has == 1 && math.distancesq(dd.Position, bestPos) < 1f) needMove = false;
                     }
                     if (needMove)
+                        // CommandSource.System, NOT AI: this system runs on
+                        // EVERY peer (no host gate) and the move is a
+                        // deterministic consequence of the tick. AI-source
+                        // would queue it on the host (+2 ticks) but execute it
+                        // immediately on the client — a tick-offset position
+                        // divergence under lockstep.
                         TheWaningBorder.Core.Commands.CommandRouter.IssueMove(
-                            em, led, bestPos, TheWaningBorder.Core.Commands.CommandSource.AI);
+                            em, led, bestPos, TheWaningBorder.Core.Commands.CommandSource.System);
                 }
             }
         }

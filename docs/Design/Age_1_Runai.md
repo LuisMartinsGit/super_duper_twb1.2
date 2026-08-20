@@ -28,10 +28,10 @@
 |--------|-------|
 | Focus | **Economy / movement** — lanes are economy + army + territory fused |
 | Style | Tents / Desert / nomadic traders |
-| Economy | **Mixed: Iron is still mined, Supplies + Crystal come from trade routes.** Workers mine iron normally. Supplies and Crystal are earned exclusively through **trade lanes** — plant a Trade Post → a lane forms between it and any other Trade Post or the Trader's Hall → caravans travel the lane and earn the trade-only resources (yield scales with route length). On top of that, lanes **auto-spawn trader-warriors** that patrol the lane generating Crystal + Supplies passively ([§ Trader-warriors](#trader-warriors-uncontrollable-lane-patrols)). Veilsteel produced at the Veilsteel Foundry (Iron + Crystal, same rate as Alanthor's Crucible). |
+| Economy | **Mixed: Iron is still mined, Supplies + Veilstone come from trade routes.** Workers mine iron normally. Supplies and Veilstone are earned exclusively through **trade lanes** — plant a Trade Post → a lane forms between it and any other Trade Post or the Trader's Hall → caravans travel the lane and earn the trade-only resources (yield scales with route length). On top of that, lanes **auto-spawn trader-warriors** that patrol the lane generating Veilstone + Supplies passively ([§ Trader-warriors](#trader-warriors-uncontrollable-lane-patrols)). Veilsteel produced at the Veilsteel Foundry (Iron + Veilstone, same rate as Alanthor's Crucible). |
 | **No walls** | **Identity-defining absence** ([Overview.md § Movement](Overview.md#north-star-the-movement-axis)) — Runai cannot build any static defensive wall. The lane network *is* their defense; trader-warriors patrolling lanes are what holds territory. Don't ever hand out "just a small palisade." |
 | **No Houses** | **Identity-defining absence.** No House building exists for Runai. Instead, **full population is unlocked at age-up** (one big swing, no gradual ramp). Possibly tech-gated trench upgrades expand pop further. *(spec gap — exact pop ceiling at age-up + any tech-gated bumps.)* |
-| Crystal-Curse relationship | Runai **grow increasingly neutral to the Crystal Curse over time.** Likely **earned through exposure**: the more trader-traffic walks through cursed land, the more resistant the civ becomes. This makes their lore consequential and gives Runai a positive reason to deliberately route through danger. *(spec gap — exact trigger model: tile-hours of traffic? caravan-passes? tech-gated?)* |
+| Border relationship | Runai **grow increasingly neutral to the The Border over time.** Likely **earned through exposure**: the more trader-traffic walks through border land, the more resistant the civ becomes. This makes their lore consequential and gives Runai a positive reason to deliberately route through danger. *(spec gap — exact trigger model: tile-hours of traffic? caravan-passes? tech-gated?)* |
 | Vault yield modifier | **−30 %** (worst of the three cultures — Runai is supposed to win by *flowing* supplies, not banking them) |
 | Shrine heal modifier | **+30 %** (best of the three) |
 | Fiendstone Keep HP/arrows | neutral (0 %) |
@@ -140,13 +140,13 @@ Guard / Arrowyard) and the new Grazing Grounds cavalry building.
 
 Runai gets a Tools ladder analogous to Alanthor's (Q#4 / Q#5 review:
 "similar tech, different names; some may be universal at Age 0"), plus the
-two Crystal-Curse-neutrality techs (Q#16).
+two Border-neutrality techs (Q#16).
 
 | Tech | Building lvl req. | Effect (unlock) | Status |
 |------|-------------------|------------------|--------|
 | **Stone tools** (T1) → **Iron tools** (T2) → **Veilstone tools** (T3) → **Veilsteel tools** (T4) | L1 / L2 / L3 / L3 | **Unlocks** per-Worker upgrade tier ([Overview.md § Per-battalion](Overview.md#per-battalion-military-upgrades-cross-faction-rule)) | *(new — same shape as Alanthor; names may end up Runai-flavoured)* |
 | **Wheel cart** / **Cranes** equivalents | L1 / L2 | Faction-wide worker buffs — names TBD; possibly identical to Alanthor's if universal | *(new, TBD)* |
-| **Veilstride** *(placeholder name — Q#16)* | L2 | −20 % chance of aggroing curse waves when Runai units traverse cursed tiles. Curse defences stay in place (the curse doesn't want to be *converted*, only *cleansed* / *destroyed*). | *(new — Q#16 resolved)* |
+| **Veilstride** *(placeholder name — Q#16)* | L2 | −20 % chance of aggroing border waves when Runai units traverse border tiles. Border defences stay in place (the border doesn't want to be *converted*, only *cleansed* / *destroyed*). | *(new — Q#16 resolved)* |
 | **Lane Caravan tech** | various | Runai-only — see [§ Thessara's Bazaar](#thessaras-bazaar--trade-lane-upgrade-house) | — |
 
 ---
@@ -373,7 +373,7 @@ Does not train any units.
 | LoS | 20 |
 | Defense | 1 / 1 / 0 / 0 |
 | Build cost | 450 S + 120 I + 100 C |
-| Craft inputs | Iron + Crystal |
+| Craft inputs | Iron + Veilstone |
 | Loss factor | 20 % |
 | Role | Produce Veilsteel. |
 
@@ -385,7 +385,7 @@ Does not train any units.
 | LoS | 20 |
 | Defense | 1 / 1 / 0 / 0 |
 | Build cost | 320 S + 140 I + 60 C |
-| Trains | Runai_SandBallista |
+| Trains | Runai_Catapult |
 | Role | Train siege engines. |
 
 ---
@@ -407,7 +407,7 @@ Behavior rules (per user design pass):
   and the trader-warriors patrolling that zone become **controllable**
   for the duration of the engagement. They auto-revert to autonomous
   patrolling **5 seconds after the zone is clear of enemies**.
-- **Generate Crystal + Supplies passively while patrolling.** This is
+- **Generate Veilstone + Supplies passively while patrolling.** This is
   additional income *on top of* caravan trade revenue, so a Runai player
   is rewarded for keeping lanes long and active.
 - **Do not consume population.** Outside the standard pop cap entirely.
@@ -478,7 +478,7 @@ Trains at Trader's Hall (today), possibly Route Guard (per design).
 | Defense (M/R/S/Mg) | 1 / 0 / 0 / 0 |
 | Attack range | 1.5 |
 | LoS | 18 |
-| Cost | 110 Supplies + 30 Iron + 25 Crystal |
+| Cost | 110 Supplies + 30 Iron + 25 Veilstone |
 | Pop | 1 |
 
 ### Runai Skirmisher — light ranged
@@ -497,7 +497,7 @@ Trains at Trader's Hall (today), possibly Arrowyard (per design).
 | Attack range | 11 |
 | Min attack range | 3.5 |
 | LoS | 22 |
-| Cost | 95 Supplies + 50 Iron + 25 Crystal |
+| Cost | 95 Supplies + 50 Iron + 25 Veilstone |
 | Pop | 1 |
 
 ### Runai Raider — fast cavalry
@@ -515,7 +515,7 @@ Trains at Trader's Hall.
 | Defense | 1 / 0 / 0 / 0 |
 | Attack range | 1.5 |
 | LoS | 20 |
-| Cost | 220 Supplies + 100 Iron + 50 Crystal |
+| Cost | 220 Supplies + 100 Iron + 50 Veilstone |
 | Pop | 1 |
 
 ### Runai Acolyte — religious / magic
@@ -535,14 +535,16 @@ old "L4" referenced a spec-refinement stage that has been retired).
 | Damage type | magic |
 | Defense | 0 / 0 / 0 / 1 |
 | LoS | 14 |
-| Cost | **~300 Supplies + 150 Iron + 100 Crystal + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
+| Cost | **~300 Supplies + 150 Iron + 100 Veilstone + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
 | Pop | 1 |
 | Single unit / battalion | **Single** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)) |
-| Role | Channels **Conversion** rituals on Active crystal nodes — Runai's Glow-generator. "The node fights enslavement harder than destruction, so escort is doubly required" ([TechTree.json:812](../../Assets/Resources/TechTree.json#L812)). |
+| Role | Channels **Conversion** rituals on Active veilstone nodes — Runai's Glow-generator. "The node fights enslavement harder than destruction, so escort is doubly required" ([TechTree.json:812](../../Assets/Resources/TechTree.json#L812)). |
 
-### Runai SandBallista — siege
+### Runai Catapult — siege
 
-Trains at Runai Siege Workshop.
+Trains at Runai Siege Workshop. Replaces the retired SandBallista:
+lower direct damage than other siege, but its shots hit every enemy in
+a radius on impact (AOE siege).
 
 | Field | Value |
 |------|-------|
@@ -555,7 +557,7 @@ Trains at Runai Siege Workshop.
 | Attack range | 20 |
 | Min attack range | 5.5 |
 | LoS | 26 |
-| Cost | 260 Supplies + 120 Iron + 80 Crystal |
+| Cost | 260 Supplies + 120 Iron + 80 Veilstone |
 | Pop | 1 |
 
 ### Runai Caravan — civilian trade *(uncontrollable)*
@@ -606,7 +608,7 @@ Cross-faction items are flagged.
 
 1. **Building list** — **resolved.** The Runai Age 1 roster is:
    - **Trader's Hall** (cultured Hall) — Worker + Scout only, plus
-     Tools + curse-neutrality techs.
+     Tools + border-neutrality techs.
    - **Route Guard** (cultured Barracks) — 3-tier infantry ladder.
    - **Arrowyard** (cultured Archery Range) — 3-tier foot-ranged ladder.
    - **Grazing Grounds** *(new)* — light cavalry + cavalry archers.
@@ -614,9 +616,9 @@ Cross-faction items are flagged.
      only, **does not train units**.
    - **Runai Outpost** — trade-route anchor / vision pylon.
    - **Runai Trade Hub** — caravan spawner + trader-warrior spawner.
-   - **Runai Veilsteel Foundry** — produces Veilsteel (Iron + Crystal,
+   - **Runai Veilsteel Foundry** — produces Veilsteel (Iron + Veilstone,
      same rate as Alanthor).
-   - **Runai Siege Workshop** — trains SandBallista.
+   - **Runai Siege Workshop** — trains the Catapult.
    - **Temple of Ridan** (Age 0 choice carryover) — Litharch + Acolyte.
    - **No House.** **No Walls.** Identity-defining absences.
 2. **`ThessarasBazaar` → `TradersHall` rename** — covered by Q#1. The
@@ -624,8 +626,8 @@ Cross-faction items are flagged.
    trade-lane-upgrade-house role; the cultured Hall is the Age 0 Hall
    reskinned (id remains `Hall`).
 3. **Runai economy** — **resolved.** Runai workers **mine iron normally**.
-   Supplies + Crystal come from trade routes only. Veilsteel produced at
-   the Veilsteel Foundry from Iron + Crystal (same rate as Alanthor).
+   Supplies + Veilstone come from trade routes only. Veilsteel produced at
+   the Veilsteel Foundry from Iron + Veilstone (same rate as Alanthor).
 4. **Worker tech ladder** — **resolved directionally.** Runai has a Tools
    ladder analogous to Alanthor's (Stone → Iron → Veilstone → Veilsteel
    tools). Some techs may be **universal at Age 0** (TBD which).
@@ -660,10 +662,10 @@ Cross-faction items are flagged.
     trigger audible cue + minimap ping when an enemy enters; warriors
     become controllable while the zone is hot; auto-revert 5 s after
     clear.
-16. **Crystal-Curse neutrality** — **resolved.** Tech-based, researched
-    at the Trader's Hall. Effect: −20 % chance of aggroing curse waves
-    when Runai units traverse cursed tiles. Curse defences themselves
-    remain in place (the curse resists *conversion* — Runai's interaction
+16. **Border neutrality** — **resolved.** Tech-based, researched
+    at the Trader's Hall. Effect: −20 % chance of aggroing border waves
+    when Runai units traverse border tiles. Border defences themselves
+    remain in place (the border resists *conversion* — Runai's interaction
     type — harder than the other two).
 17. **Acolyte training level** — **resolved.** Trains at **Temple of
     Ridan L3** (Temple caps at 3 levels — the old "L4" reference is a
@@ -691,7 +693,7 @@ Cross-faction items are flagged.
   numbers TBD).
 - **Runai-specific pop ceiling at age-up** — probably mirrors
   Feraldis's instant-200; confirm.
-- **Curse-neutrality tech naming and per-tier numbers** (Q#16 — only
+- **Border-neutrality tech naming and per-tier numbers** (Q#16 — only
   one example tech shape given).
 
 ## Cross-faction follow-ups triggered by this review

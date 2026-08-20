@@ -1,0 +1,5 @@
+Buildings:
+    Hall
+    Gatherer's Hut
+    Barracks
+    

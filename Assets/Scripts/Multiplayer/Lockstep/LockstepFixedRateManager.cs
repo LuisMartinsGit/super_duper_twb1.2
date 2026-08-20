@@ -45,6 +45,23 @@ namespace TheWaningBorder.Multiplayer
 
         public float Timestep { get => _timestep; set => _timestep = value; }
 
+        /// <summary>True while a time this manager pushed is still on the
+        /// world's time stack (popped on the NEXT ShouldGroupUpdate call).
+        /// Uninstall must pop it explicitly — tearing the manager down with a
+        /// push pending leaves a stale TimeData on the stack FOREVER, and the
+        /// next match's non-stepped code reads the previous match's final sim
+        /// time from it (seen 2026-08-16: 'tick 766/636' veil-init events).</summary>
+        public bool HasPendingPush => _didPushTime;
+
+        /// <summary>Pop the pending pushed time, if any. Called by
+        /// LockstepFixedStep.Uninstall with the world the push went to.</summary>
+        public void PopPendingPush(Unity.Entities.World world)
+        {
+            if (!_didPushTime || world == null || !world.IsCreated) return;
+            world.PopTime();
+            _didPushTime = false;
+        }
+
         public LockstepFixedRateManager(float timestep) { _timestep = timestep; }
 
         /// <summary>Unlock exactly one fixed step on the next group Update().</summary>
@@ -80,23 +97,62 @@ namespace TheWaningBorder.Multiplayer
         public static bool Active { get; private set; }
         public static LockstepFixedRateManager RateManager { get; private set; }
         public static ComponentSystemGroup SimGroup { get; private set; }
+        private static Unity.Entities.World _world;
+
+        /// <summary>
+        /// TRUE only when the driver is genuinely holding the sim group —
+        /// i.e. the group's RateManager IS our manager. `Active` alone lied
+        /// during desync #5: GameBootstrap's NetCode-defense sweep detached
+        /// the manager from the group while these statics stood, so the flag
+        /// said deterministic while the world ran frame-driven. Anything
+        /// asserting lockstep health must check THIS, not Active.
+        /// </summary>
+        public static bool IsAttached =>
+            Active && SimGroup != null && ReferenceEquals(SimGroup.RateManager, RateManager);
 
         public static void Install(Unity.Entities.World world, float timestep)
         {
-            if (world == null || !world.IsCreated) return;
+            // LOUD failures: a silent early-return here means the whole match
+            // runs frame-driven while believing it is deterministic — the
+            // worst possible failure mode, detectable only as a desync.
+            if (world == null || !world.IsCreated)
+            {
+                UnityEngine.Debug.LogError(
+                    "[LockstepFixedStep] Install FAILED: no ECS world. The match will run " +
+                    "frame-driven and desync.");
+                return;
+            }
             SimGroup = world.GetExistingSystemManaged<SimulationSystemGroup>();
-            if (SimGroup == null) return;
+            if (SimGroup == null)
+            {
+                UnityEngine.Debug.LogError(
+                    "[LockstepFixedStep] Install FAILED: no SimulationSystemGroup. The match " +
+                    "will run frame-driven and desync.");
+                return;
+            }
+            _world = world;
             RateManager = new LockstepFixedRateManager(timestep);
             SimGroup.RateManager = RateManager;
             Active = true;
+            // The presentation layer interpolates views only while this is on —
+            // a fixed-step world publishes transforms in discrete jumps.
+            Core.Multiplayer.LockstepTiming.FixedStepActive = true;
+            UnityEngine.Debug.Log(
+                $"[LockstepFixedStep] Installed on '{world.Name}' at {1f / timestep:0} Hz.");
         }
 
         public static void Uninstall()
         {
+            // Pop a pending pushed time BEFORE dropping the manager — a push
+            // left on the stack outlives the match and every later non-stepped
+            // read of World.Time returns this match's final sim time.
+            RateManager?.PopPendingPush(_world);
             if (SimGroup != null) SimGroup.RateManager = null;
             SimGroup = null;
             RateManager = null;
+            _world = null;
             Active = false;
+            Core.Multiplayer.LockstepTiming.FixedStepActive = false;
         }
 
         /// <summary>
@@ -107,6 +163,16 @@ namespace TheWaningBorder.Multiplayer
         public static void Step()
         {
             if (!Active || RateManager == null || SimGroup == null) return;
+            // A detached manager means Update() below would run the group
+            // UNGATED with wall dt — repair on the spot. This is the same
+            // defense as the world-ready assertion, one level deeper.
+            if (!ReferenceEquals(SimGroup.RateManager, RateManager))
+            {
+                UnityEngine.Debug.LogError(
+                    "[LockstepFixedStep] Driver was detached from the sim group mid-match — " +
+                    "re-attaching. Whatever cleared SimulationSystemGroup.RateManager is a bug.");
+                SimGroup.RateManager = RateManager;
+            }
             RateManager.RequestStep();
             SimGroup.Update();
         }

@@ -92,9 +92,21 @@ namespace TheWaningBorder.Data
             { "Alanthor_Smelter",        Cost.Of(supplies: 800, iron: 400, veilstone: 100) },
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
 
-            // Sect-unique buildings (Building lever). The Reliquary is built
-            // from the Antiquity chapel's panel (one per faction).
+            // Sect buildings — one per sect, unlocked by adopting that sect,
+            // capped at 5 per faction (SectBuilding.CapPerFaction). Priced as a
+            // mid-tier production building: cheap enough that a sect you commit
+            // to is worth building out, dear enough that five of them is a real
+            // investment rather than a formality.
             { "Sect_Reliquary",          Cost.Of(supplies: 300, iron: 120, veilstone: 40) },
+            { "Sect_MendingHall",        Cost.Of(supplies: 260, iron: 90,  veilstone: 30) },
+            // Stonehold is the tankiest non-Hall structure in the game, so it
+            // pays for that in iron rather than being the cheapest wall available.
+            { "Sect_Stonehold",          Cost.Of(supplies: 280, iron: 160, veilstone: 30) },
+            { "Sect_Veilworks",          Cost.Of(supplies: 300, iron: 110, veilstone: 60) },
+            // Muster Yard is a working yard rather than a hall: cheapest of
+            // the sect buildings in supplies, heaviest in iron, because what
+            // it sells is gear.
+            { "Sect_MusterYard",         Cost.Of(supplies: 250, iron: 150, veilstone: 30) },
 
             // task-063 phase 2a: chapel resource cost. Adoption RP cost is
             // separate — handled by SectAdoption.OnChapelCompleted, not here.
@@ -212,6 +224,10 @@ namespace TheWaningBorder.Data
             // Alanthor
             if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
+            if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
+            if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
+            if (em.HasComponent<VeilworksTag>(entity)) return "Sect_Veilworks";
+            if (em.HasComponent<MusterYardTag>(entity)) return "Sect_MusterYard";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
 

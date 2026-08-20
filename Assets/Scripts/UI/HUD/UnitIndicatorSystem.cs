@@ -1,5 +1,5 @@
 // UnitIndicatorSystem.cs
-// Shows per-unit direction arrows and state-colored circles
+// Per-unit world indicators: selection ring, ownership disc, healing cross.
 // Location: Assets/Scripts/UI/HUD/UnitIndicatorSystem.cs
 
 using System.Collections.Generic;
@@ -15,24 +15,38 @@ using EntityWorld = Unity.Entities.World;
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
-    /// Attaches a direction arrow and an ownership disc to every unit with a visual.
-    /// - Direction arrow: thin cone pointing along the unit's forward axis.
+    /// Per-unit world indicators.
     /// - Ownership disc: small disc on top of the unit, colored with its OWNER's
     ///   faction color (<see cref="FactionColors.Get"/>) — so the dot answers
-    ///   "whose unit is this?" at a glance. It previously encoded transient unit
-    ///   state (idle/moving/attacking), which duplicated information already
-    ///   readable from the unit's animation and gave no ownership cue at all.
-    /// - Healing cross: the green cross still overlays the disc while a Litharch
+    ///   "whose unit is this?" at a glance.
+    /// - Selection ring: a ground ring under each selected unit, the same
+    ///   LineRenderer treatment the Gatherer's Hut gather circle uses.
+    /// - Healing cross: the green cross overlays the disc while a Litharch
     ///   is actively healing; the disc stays visible underneath it.
+    ///
+    /// FOG: every indicator here is a STANDALONE GameObject, not a child of the
+    /// unit's presentation view — so FogVisibilitySyncSystem hiding the view
+    /// left the indicators floating in the dark, marking out units the player
+    /// could not see. They now follow the view's own visibility rather than
+    /// re-deriving a fog rule of their own, so the two can never disagree.
+    ///
+    /// The direction arrow was removed 2026-08-15 (user request): a unit's
+    /// facing is already readable from its model and animation.
     /// </summary>
     [DefaultExecutionOrder(920)] // After PresentationSpawnSystem (default)
     public class UnitIndicatorSystem : MonoBehaviour
     {
-        [Header("Direction Arrow")]
-        [SerializeField] private float arrowLength = 0.8f;
-        [SerializeField] private float arrowWidth = 0.15f;
-        [SerializeField] private float arrowYOffset = 0.06f;
-        [SerializeField] private Color arrowColor = new Color(1f, 1f, 1f, 0.7f);
+        [Header("Selection Ring")]
+        [SerializeField] private float ringWidth = 0.07f;
+        [SerializeField] private float ringYOffset = 0.08f;
+        /// <summary>Ring radius when the unit carries no Radius component.</summary>
+        [SerializeField] private float defaultRingRadius = 0.7f;
+        /// <summary>Ring radius as a multiple of the unit's sim Radius, so the
+        /// ring reads as "this unit's footprint" rather than a fixed blob.</summary>
+        [SerializeField] private float ringRadiusScale = 1.35f;
+        [SerializeField, Range(0f, 1f)] private float ringAlpha = 0.9f;
+
+        private const int RingSegments = 24;
 
         [Header("Ownership Disc")]
         [SerializeField] private float circleRadius = 0.15f;
@@ -63,7 +77,8 @@ namespace TheWaningBorder.UI.HUD
 
         private struct Indicators
         {
-            public GameObject Arrow;
+            public GameObject Ring;
+            public LineRenderer RingRenderer;
             public GameObject Circle;
             public MeshRenderer CircleRenderer;
             public GameObject CrossH;       // Horizontal bar of the cross
@@ -94,16 +109,21 @@ namespace TheWaningBorder.UI.HUD
             }
             if (EntityViewManager.Instance == null) return;
 
+            // Instrumented (2026-08-16 perf sweep): full entity sweep + up to
+            // four GameObjects per tracked unit, per frame, unthrottled.
+            double perfT0 = Time.realtimeSinceStartupAsDouble;
             CleanupDestroyed();
             SpawnIndicators();
             UpdateIndicators();
+            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("UnitIndicators",
+                (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
         }
 
         void OnDestroy()
         {
             foreach (var kv in _indicators)
             {
-                if (kv.Value.Arrow != null) Destroy(kv.Value.Arrow);
+                if (kv.Value.Ring != null) Destroy(kv.Value.Ring);
                 if (kv.Value.Circle != null) Destroy(kv.Value.Circle);
                 if (kv.Value.CrossH != null) Destroy(kv.Value.CrossH);
                 if (kv.Value.CrossV != null) Destroy(kv.Value.CrossV);
@@ -121,14 +141,14 @@ namespace TheWaningBorder.UI.HUD
             _toRemove.Clear();
             foreach (var kv in _indicators)
             {
-                if (!_em.Exists(kv.Key) || kv.Value.Arrow == null)
+                if (!_em.Exists(kv.Key) || kv.Value.Circle == null)
                     _toRemove.Add(kv.Key);
             }
             foreach (var e in _toRemove)
             {
                 if (_indicators.TryGetValue(e, out var ind))
                 {
-                    if (ind.Arrow != null) Destroy(ind.Arrow);
+                    if (ind.Ring != null) Destroy(ind.Ring);
                     if (ind.Circle != null) Destroy(ind.Circle);
                     if (ind.CrossH != null) Destroy(ind.CrossH);
                     if (ind.CrossV != null) Destroy(ind.CrossV);
@@ -161,7 +181,8 @@ namespace TheWaningBorder.UI.HUD
 
                 var ind = new Indicators
                 {
-                    Arrow = CreateArrow(),
+                    Ring = CreateSelectionRing(out var ringRenderer),
+                    RingRenderer = ringRenderer,
                     Circle = CreateCircle(out var circleRenderer),
                     CircleRenderer = circleRenderer,
                     CrossH = CreateCrossBar(out var crossHR),
@@ -186,6 +207,8 @@ namespace TheWaningBorder.UI.HUD
 
         private void UpdateIndicators()
         {
+            var selection = SelectionSystem.CurrentSelection;
+
             foreach (var kv in _indicators)
             {
                 var entity = kv.Key;
@@ -194,29 +217,40 @@ namespace TheWaningBorder.UI.HUD
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<LocalTransform>(entity)) continue;
 
+                // FOG GATE. Follow the unit view's own visibility rather than
+                // re-deriving a fog rule here: FogVisibilitySyncSystem already
+                // owns that decision (own units always shown, enemies only in
+                // line of sight), and a second rule would eventually disagree
+                // with it. Without this the indicators were standalone objects
+                // the fog never touched, so an enemy's ownership disc hung in
+                // the dark exactly where the unit was — free intel.
+                bool viewVisible = EntityViewManager.Instance != null
+                    && EntityViewManager.Instance.TryGetView(entity, out var view)
+                    && view != null && view.activeInHierarchy;
+
+                if (!viewVisible)
+                {
+                    if (ind.Ring != null) ind.Ring.SetActive(false);
+                    if (ind.Circle != null) ind.Circle.SetActive(false);
+                    if (ind.CrossH != null) ind.CrossH.SetActive(false);
+                    if (ind.CrossV != null) ind.CrossV.SetActive(false);
+                    continue;
+                }
+
                 var xf = _em.GetComponentData<LocalTransform>(entity);
                 float3 pos = xf.Position;
                 float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
 
-                // ── Direction Arrow ──
-                if (ind.Arrow != null)
+                // ── Selection ring ──
+                if (ind.Ring != null)
                 {
-                    // Position on ground in front of unit
-                    float3 forward = math.mul(xf.Rotation, new float3(0, 0, 1));
-                    forward.y = 0;
-                    forward = math.normalizesafe(forward, new float3(0, 0, 1));
-
-                    Vector3 arrowPos = new Vector3(pos.x, terrainY + arrowYOffset, pos.z);
-                    arrowPos += (Vector3)(forward * arrowLength * 0.5f);
-
-                    ind.Arrow.transform.position = arrowPos;
-                    // Arrow points along forward direction (quad is on XZ plane, default faces Y up)
-                    float angle = math.degrees(math.atan2(forward.x, forward.z));
-                    ind.Arrow.transform.rotation = Quaternion.Euler(90f, angle, 0f);
+                    bool selected = selection != null && selection.Contains(entity);
+                    ind.Ring.SetActive(selected);
+                    if (selected)
+                        UpdateSelectionRing(ind.RingRenderer, entity, pos, terrainY);
                 }
 
                 // ── Ownership disc ──
-                // Always visible, always the owner's faction color.
                 Vector3 indicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
 
                 if (ind.Circle != null)
@@ -284,25 +318,71 @@ namespace TheWaningBorder.UI.HUD
         // FACTORY HELPERS
         // ═══════════════════════════════════════════════════════════════
 
-        private GameObject CreateArrow()
+        /// <summary>
+        /// Ground ring under a selected unit — the same LineRenderer treatment
+        /// the Gatherer's Hut gather circle uses, so the two read as one visual
+        /// language.
+        /// </summary>
+        private GameObject CreateSelectionRing(out LineRenderer renderer)
         {
-            // Thin quad on the ground pointing forward
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            go.name = "DirectionArrow";
-            go.transform.localScale = new Vector3(arrowWidth, arrowLength, 1f);
+            var go = new GameObject("SelectionRing");
+            go.transform.SetParent(transform);
 
-            // Remove collider
-            var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            renderer = go.AddComponent<LineRenderer>();
+            renderer.material = new Material(_baseMat);
+            renderer.startWidth = ringWidth;
+            renderer.endWidth = ringWidth;
+            renderer.useWorldSpace = true;
+            renderer.loop = true;
+            renderer.positionCount = RingSegments;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            // Default (View) alignment, matching GathererHutAreaDisplay's circle
+            // — a camera-facing ribbon reads correctly under the RTS camera and
+            // keeps the two rings looking like the same thing.
 
-            var mr = go.GetComponent<MeshRenderer>();
-            var mat = new Material(_baseMat);
-            SetMaterialColor(mat, arrowColor);
-            mr.sharedMaterial = mat;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-
+            go.SetActive(false);
             return go;
+        }
+
+        /// <summary>
+        /// Lay the ring out around a unit at a single terrain height.
+        ///
+        /// Deliberately NOT terrain-hugging per segment, unlike the hut's 19.5 m
+        /// circle: a selection ring is about a metre across, terrain barely
+        /// moves over that, and per-segment TerrainUtility.GetHeight would be
+        /// RingSegments samples per selected unit per frame — terrain sampling
+        /// is one of this project's known hot costs.
+        /// </summary>
+        private void UpdateSelectionRing(LineRenderer lr, Entity entity, float3 pos, float terrainY)
+        {
+            if (lr == null) return;
+
+            float radius = defaultRingRadius;
+            if (_em.HasComponent<Radius>(entity))
+            {
+                float r = _em.GetComponentData<Radius>(entity).Value;
+                if (r > 0.01f) radius = r * ringRadiusScale;
+            }
+
+            var color = OwnerColor(entity);
+            color.a = ringAlpha;
+            // sharedMaterial, not material: the `.material` getter clones on
+            // access, which per selected unit per frame is a steady allocation
+            // leak. The instance was already created in CreateSelectionRing.
+            SetMaterialColor(lr.sharedMaterial, color);
+            lr.startColor = color;
+            lr.endColor = color;
+
+            float y = terrainY + ringYOffset;
+            for (int i = 0; i < RingSegments; i++)
+            {
+                float a = (i / (float)RingSegments) * Mathf.PI * 2f;
+                lr.SetPosition(i, new Vector3(
+                    pos.x + Mathf.Cos(a) * radius,
+                    y,
+                    pos.z + Mathf.Sin(a) * radius));
+            }
         }
 
         private GameObject CreateCircle(out MeshRenderer renderer)

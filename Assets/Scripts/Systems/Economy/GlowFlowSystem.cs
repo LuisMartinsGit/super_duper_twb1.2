@@ -21,6 +21,7 @@ using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Combat;
+using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
 namespace TheWaningBorder.Systems.Economy
@@ -180,7 +181,7 @@ namespace TheWaningBorder.Systems.Economy
                     {
                         em.AddComponent<ShardrootTag>(unit);
                         TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                            $"{f} carries the SHARDROOT!");
+                            string.Format(Loc.T("{0} carries the SHARDROOT!"), f));
                     }
                 }
                 if (em.Exists(claimedPickups[i]))
@@ -251,7 +252,7 @@ namespace TheWaningBorder.Systems.Economy
                             ecb.RemoveComponent<ShardrootTag>(unitEntity);
                             ecb.AddComponent<ShardrootTag>(templeEnts[i]);
                             TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                                $"{f} has ENSHRINED the Shardroot — their powers surge!");
+                                string.Format(Loc.T("{0} has ENSHRINED the Shardroot — their powers surge!"), f));
                         }
 
                         TWBLog.Log($"[Glow] {f} deposited {delivered} Glow at Temple of Ridan (stored: {stored.Amount})");
@@ -291,7 +292,7 @@ namespace TheWaningBorder.Systems.Economy
                     TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
                     em.RemoveComponent<ShardrootTag>(dropList[i]);
                     TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                        "The SHARDROOT has fallen — claim it!");
+                        Loc.T("The SHARDROOT has fallen — claim it!"));
                 }
                 if (em.HasComponent<GlowCarrier>(dropList[i]))
                     em.RemoveComponent<GlowCarrier>(dropList[i]);

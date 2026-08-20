@@ -129,13 +129,13 @@ public struct ExposureState : IComponentData
 public struct CurseKilledTag : IComponentData { }
 
 /// <summary>
-/// Marks a Sporeling — the small destructible crystal growth anchoring an
+/// Marks a SmallNode — the small destructible crystal growth anchoring an
 /// Age 0 blight pocket (§2.5b). Fed into the veil CA as an extra Active
-/// feeder while alive; starved (SporelingStarveDps) while its cell is
+/// feeder while alive; starved (SmallNodeStarveDps) while its cell is
 /// suppressed by hearth/ward/influence. Death (any cause) collapses its
 /// pocket: BlightPocketSystem stamps a field break and pays the residue.
 /// </summary>
-public struct SporelingTag : IComponentData { }
+public struct SmallNodeTag : IComponentData { }
 
 /// <summary>
 /// A veilstone node that rolled corruption and is now TELEGRAPHING it
@@ -147,19 +147,19 @@ public struct SporelingTag : IComponentData { }
 public struct PendingCorruption : IBufferElementData
 {
     public Unity.Mathematics.float3 Pos;
-    public double At; // sim time the Sporeling rises
+    public double At; // sim time the SmallNode rises
 }
 
 /// <summary>
 /// One blight pocket, tracked on the BlightPocketSystem singleton's buffer.
 /// Registered by BlightPocketBootstrap at spawn; the system seeds the haze
-/// disc once the VeilField exists, then watches the sporeling and fires the
+/// disc once the VeilField exists, then watches the small node and fires the
 /// collapse exactly once.
 /// </summary>
 [InternalBufferCapacity(8)]
 public struct BlightPocket : IBufferElementData
 {
-    public Entity Sporeling;
+    public Entity SmallNode;
     public float2 Center;
     public float Radius;
     /// <summary>0 = haze disc not yet stamped into the field.</summary>

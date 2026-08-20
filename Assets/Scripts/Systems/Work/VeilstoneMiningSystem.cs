@@ -8,6 +8,7 @@ using Unity.Transforms;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.Systems.Work
 {
@@ -22,14 +23,15 @@ namespace TheWaningBorder.Systems.Work
     ///
     /// State machine: MovingToDeposit -> Gathering -> (loop or Idle)
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(MiningSystem))]
     public partial struct VeilstoneMiningSystem : ISystem
     {
         private const float GatherInterval = 1.5f;    // Mine 1 veilstone every 1.5 seconds
         private const int VeilstonePerGather = 1;        // 1 veilstone per gather action
-        private const float GatherRange = 5f;
+        // Reach and the stand point both live in MiningReach — one definition
+        // shared with GatheringSystem and MiningSystem.
         private const float AutoFindRadius = 10f;       // Radius to auto-find next outcropping around a depleted node
 
         // Cached query — created once in OnCreate, reused every frame
@@ -70,6 +72,11 @@ namespace TheWaningBorder.Systems.Work
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
             _now = SystemAPI.Time.ElapsedTime; // for UnreachableMark expiry checks
+
+            // Read fresh each tick and pass down — never cache the struct.
+            // SpatialHashRebuildSystem reallocates the map when the unit count
+            // outgrows it, so a stale copy is a use-after-dispose.
+            SystemAPI.TryGetSingleton<NavSpatialHash>(out var hash);
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
@@ -120,11 +127,11 @@ namespace TheWaningBorder.Systems.Work
                 switch (miner.State)
                 {
                     case MinerWorkState.MovingToDeposit:
-                        ProcessMovingToVeilstoneOutcropping(ref miner, em, ref ecb, entity, pos, dt);
+                        ProcessMovingToVeilstoneOutcropping(ref miner, em, ref ecb, entity, pos, dt, in hash);
                         break;
 
                     case MinerWorkState.Gathering:
-                        ProcessGatheringVeilstone(ref miner, em, ref ecb, entity, fac, dt, ref corrupted);
+                        ProcessGatheringVeilstone(ref miner, em, ref ecb, entity, fac, dt, in hash, ref corrupted);
                         break;
 
                     case MinerWorkState.Idle:
@@ -137,7 +144,7 @@ namespace TheWaningBorder.Systems.Work
             }
 
             // §2.5b rev.3: transform corrupted depletions into curse nodes —
-            // the resistant Sporeling anchors haze over the whole patch,
+            // the resistant SmallNode anchors haze over the whole patch,
             // invalidating it until killed/starved (BlightPocketSystem owns
             // the collapse + residue payout). Structural spawns, so done
             // strictly after the query iteration.
@@ -163,8 +170,9 @@ namespace TheWaningBorder.Systems.Work
                         TheWaningBorder.UI.GameUI.MinimapPings.Post(corrupted[i],
                             TheWaningBorder.UI.GameUI.MinimapPings.Curse, 15f);
                         TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                            $"A veilstone node is corrupting — the curse rises in " +
-                            $"{(int)TheWaningBorder.Core.Config.VeilCrustConstants.CorruptionTelegraphSeconds}s!");
+                            string.Format(
+                                Loc.T("A veilstone node is corrupting — the curse rises in {0}s!"),
+                                (int)TheWaningBorder.Core.Config.VeilCrustConstants.CorruptionTelegraphSeconds));
                         TWBLog.Log($"[VeilstoneMining] node at {corrupted[i]} corrupting (telegraphed).");
                     }
                 }
@@ -247,7 +255,8 @@ namespace TheWaningBorder.Systems.Work
             return false;
         }
 
-        private void ProcessMovingToVeilstoneOutcropping(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 pos, float dt)
+        private void ProcessMovingToVeilstoneOutcropping(ref MinerState miner, EntityManager em,
+            ref EntityCommandBuffer ecb, Entity entity, float3 pos, float dt, in NavSpatialHash hash)
         {
             // Check if outcropping still exists or is depleted — auto-find next nearby
             bool needNewTarget = false;
@@ -275,7 +284,7 @@ namespace TheWaningBorder.Systems.Work
             {
                 // No outcropping in range — go idle as a veilstone miner. We keep
                 // GatheringResource=1 so the miner stays committed to veilstone.
-                if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, searchCenter))
+                if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, in hash,searchCenter))
                 {
                     miner.State = MinerWorkState.Idle;
                     miner.AssignedDeposit = Entity.Null;
@@ -287,7 +296,7 @@ namespace TheWaningBorder.Systems.Work
             // Reach measured to the outcropping's SURFACE, not its pivot.
             float dist = TargetGeometry.SurfaceDistXZ(em, pos, miner.AssignedDeposit);
 
-            if (dist <= GatherRange)
+            if (dist <= MiningReach.GatherRange)
             {
                 // Reached outcropping - start gathering
                 miner.State = MinerWorkState.Gathering;
@@ -307,12 +316,26 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<DesiredDestination>(entity)
                 && em.GetComponentData<DesiredDestination>(entity).Has == 0)
             {
+                // Usually another worker took the spot we aimed at: we pressed
+                // into its separation ring, walked on the spot, and the crowd
+                // rules called us arrived. Step AROUND it — re-pick a slot on
+                // another side of the node before dropping to Idle. Free slots
+                // only, so "nowhere left" terminates instead of looping.
+                if (MiningReach.TryGetFreeMiningStand(em, miner.AssignedDeposit, entity, pos,
+                        in hash, out float3 retry))
+                {
+                    em.SetComponentData(entity, new DesiredDestination { Position = retry, Has = 1 });
+                    return;
+                }
+
                 miner.State = MinerWorkState.Idle;
                 miner.AssignedDeposit = Entity.Null;
             }
         }
 
-        private void ProcessGatheringVeilstone(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, Faction fac, float dt, ref NativeList<float3> corrupted)
+        private void ProcessGatheringVeilstone(ref MinerState miner, EntityManager em,
+            ref EntityCommandBuffer ecb, Entity entity, Faction fac, float dt,
+            in NavSpatialHash hash, ref NativeList<float3> corrupted)
         {
             // Hold the facing for the whole channel, not just on arrival — a turn
             // spans several frames at DefaultTurnSpeed.
@@ -345,7 +368,7 @@ namespace TheWaningBorder.Systems.Work
                     miner.LastDepositPos = minerPos;
                     miner.AssignedDeposit = Entity.Null;
 
-                    if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, miner.LastDepositPos))
+                    if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, in hash,miner.LastDepositPos))
                     {
                         miner.State = MinerWorkState.Idle;
                     }
@@ -356,13 +379,18 @@ namespace TheWaningBorder.Systems.Work
 
                 // Extract veilstone from the node and credit the bank directly —
                 // the resource goes straight to the player's inventory.
+                // Warden's Ledger (Reclamation): veilstone yields +25%. The
+                // bonus is minted on CREDIT, not drawn from the node - the
+                // research makes the same rock go further, it does not deplete
+                // the map faster.
                 int toGather = math.min(VeilstonePerGather, outcroppingState.RemainingVeilstone);
                 outcroppingState.RemainingVeilstone -= toGather;
+                int toCredit = (int)(toGather * SectResearchEffects.VeilstoneYieldMultiplier(fac));
 
                 if (toGather > 0 && FactionEconomy.TryGetBank(em, fac, out var bank))
                 {
                     var resources = em.GetComponentData<FactionResources>(bank);
-                    resources.Veilstone += toGather;
+                    resources.Veilstone += toCredit;
                     resources.Clamp();
                     em.SetComponentData(bank, resources);
                 }
@@ -424,7 +452,7 @@ namespace TheWaningBorder.Systems.Work
 
                     // Look for another outcropping within AutoFindRadius of the
                     // depleted node.
-                    if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, miner.LastDepositPos))
+                    if (!TryAssignNearestVeilstoneOutcropping(ref miner, em, ref ecb, entity, in hash,miner.LastDepositPos))
                     {
                         miner.State = MinerWorkState.Idle;
                         miner.AssignedDeposit = Entity.Null;
@@ -440,7 +468,8 @@ namespace TheWaningBorder.Systems.Work
         /// position). If found, assign the miner to it and set the move
         /// destination. Returns true if a new outcropping was found.
         /// </summary>
-        private bool TryAssignNearestVeilstoneOutcropping(ref MinerState miner, EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 searchCenter)
+        private bool TryAssignNearestVeilstoneOutcropping(ref MinerState miner, EntityManager em,
+            ref EntityCommandBuffer ecb, Entity entity, in NavSpatialHash hash, float3 searchCenter)
         {
             using var outcroppings = _outcroppingQuery.ToEntityArray(Allocator.Temp);
             using var outcroppingStates = _outcroppingQuery.ToComponentDataArray<VeilstoneOutcroppingState>(Allocator.Temp);
@@ -470,6 +499,9 @@ namespace TheWaningBorder.Systems.Work
                 if (em.HasComponent<UnreachableMark>(outcroppings[i])
                     && em.GetComponentData<UnreachableMark>(outcroppings[i]).Until > _now)
                     continue; // provably blocked recently — don't orbit it again
+                // Walled in by its neighbours (patch interior) — nowhere to
+                // stand, so mining it is impossible however close we get.
+                if (!MiningReach.IsMinable(em, outcroppings[i], searchCenter)) continue;
 
                 float dist = DistXZ(searchCenter, outcroppingTransforms[i].Position);
                 if (dist <= AutoFindRadius && dist < bestDist)
@@ -487,10 +519,12 @@ namespace TheWaningBorder.Systems.Work
             miner.GatheringResource = 1;
             miner.State = MinerWorkState.MovingToDeposit;
 
+            // Beside the node, never inside its impassable cell.
+            MiningReach.TryGetMiningStand(em, bestVeilstoneOutcropping, entity, searchCenter, in hash, out float3 stand);
             if (em.HasComponent<DesiredDestination>(entity))
-                em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+                em.SetComponentData(entity, new DesiredDestination { Position = stand, Has = 1 });
             else
-                ecb.AddComponent(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+                ecb.AddComponent(entity, new DesiredDestination { Position = stand, Has = 1 });
 
             return true;
         }

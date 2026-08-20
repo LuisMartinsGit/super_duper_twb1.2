@@ -58,12 +58,37 @@ namespace TheWaningBorder.Systems.Navigation
         // do em.CreateEntityQuery(...) on EVERY call — a managed allocation
         // that produced hundreds of EntityQuery objects per frame and drove
         // periodic GC hitches. The NavGridSingleton values and the
-        // NavCostField array handles are allocated ONCE at bootstrap and
-        // never reallocated, so we resolve them once per world and reuse.
+        // NavCostField array handles are stable FOR THE LIFETIME OF A MATCH,
+        // so we resolve them once and reuse — but they ARE reallocated when a
+        // new match rebuilds the grid, and the cache must be dropped first via
+        // InvalidateCache(). See the remarks on that method.
         private static EntityWorld _cachedWorld;
         private static NavGridSingleton _cachedGrid;
         private static NavCostField _cachedCost;
         private static bool _cacheValid;
+
+        /// <summary>
+        /// Drop the cached singletons. MUST be called before the nav grid's
+        /// arrays are disposed and rebuilt (NavGridBootstrapSystem).
+        ///
+        /// The comment above used to promise the cost arrays were allocated
+        /// once and never reallocated, and that was true while the bootstrap
+        /// used a one-shot latch. It stopped being true when the grid learned
+        /// to rebuild itself after the end-of-match entity wipe, and nothing
+        /// here noticed: <c>_cachedCost</c> is a COPY of the component struct,
+        /// so its buffer pointer stays non-null after the real allocation is
+        /// freed. <c>Cost.IsCreated</c> therefore still reported true, the
+        /// cache was considered valid, and every read threw
+        /// "The NativeArray has been deallocated" — every frame, from the
+        /// second match onward.
+        /// </summary>
+        public static void InvalidateCache()
+        {
+            _cacheValid = false;
+            _cachedWorld = null;
+            _cachedGrid = default;
+            _cachedCost = default;
+        }
 
         /// <summary>
         /// Resolve + cache the grid / cost-field singletons for the current
@@ -264,6 +289,40 @@ namespace TheWaningBorder.Systems.Navigation
         /// Returns false for out-of-bounds cells or when the cost field
         /// singleton hasn't been bootstrapped yet.
         /// </summary>
+        /// <summary>
+        /// Can a unit actually stand at this WORLD position? Asks both
+        /// authorities UnitIntegratorSystem enforces — the nav cost field (its
+        /// primary gate) and the legacy PassabilityGrid (its terrain backstop)
+        /// — so a destination chosen through this can never be somewhere
+        /// movement will refuse to take the unit.
+        ///
+        /// Every "walk up to a thing and act on it" system needs this: aiming
+        /// at a point inside an impassable cell is unreachable by construction,
+        /// and it also defeats FlowFollowSystem's line-of-sight shortcut, so
+        /// the approach stops being a straight line as well.
+        /// </summary>
+        public static bool IsWorldStandable(float3 world)
+        {
+            int2 navCell = WorldToCellInt2(world);
+            if (navCell.x != int.MinValue && !IsCellPassable(navCell)) return false;
+
+            // PassabilityGrid contributes ONLY its terrain mask here, exactly as
+            // UnitIntegratorSystem's backstop does. Its building/obstacle bits
+            // are legacy — the cost field is the authority for those, and it is
+            // the one that carries a building's EDGE CLEARANCE. Rejecting
+            // BuildingBlocked here would refuse the very lane between two
+            // buildings that clearance exists to open.
+            var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+            if (pg != null)
+            {
+                var cell = pg.WorldToCell(world);
+                if (cell.x >= 0 && cell.x < pg.Width && cell.y >= 0 && cell.y < pg.Height
+                    && pg.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
+                    return false;
+            }
+            return true;
+        }
+
         public static bool IsCellPassable(int2 cell)
         {
             if (!EnsureCache()) return false;
@@ -288,6 +347,48 @@ namespace TheWaningBorder.Systems.Navigation
             int layerArea = _cachedCost.Width * _cachedCost.Height;
             int idx = layer * layerArea + cell.y * _cachedCost.Width + cell.x;
             return _cachedCost.Cost[idx] != NavCostField.CostImpassable;
+        }
+
+        /// <summary>
+        /// Layer-aware passability for a unit of a KNOWN faction.
+        ///
+        /// Same as <see cref="IsCellPassable(int2, byte)"/> except it also
+        /// honours gate ownership. A gate cell stamps
+        /// <see cref="NavCostField.CostConditional"/> (254) on the ground
+        /// layer, and 254 != 255, so the plain overload reports it passable
+        /// to EVERYONE — which let enemy armies walk straight through a
+        /// closed Alanthor gate as if the wall had a doorway in it. The owner
+        /// faction is encoded in the low 3 bits of the cell's flag byte
+        /// exactly for this check (see NavCostField.FlagOwnerMask), so a
+        /// conditional cell is passable only to its owner.
+        ///
+        /// <paramref name="faction"/> is the Faction enum index. Only the
+        /// eight player slots (Blue=0 .. White=7) fit the 3-bit owner field,
+        /// so anything above that — Faction.Border (8), or the 0xFF "no
+        /// FactionTag" sentinel — can never own a gate and is refused. That
+        /// matters: 8 &amp; 0x07 == 0, so without the range check every curse
+        /// creature would have walked through Blue's gates. Non-gate cells
+        /// behave identically to the plain overload.
+        /// </summary>
+        public static bool IsCellPassableFor(int2 cell, byte layer, byte faction)
+        {
+            if (!EnsureCache()) return false;
+            if (layer >= _cachedCost.LayerCount) return false;
+            if (cell.x < 0 || cell.x >= _cachedGrid.Width
+                || cell.y < 0 || cell.y >= _cachedGrid.Height) return false;
+
+            int layerArea = _cachedCost.Width * _cachedCost.Height;
+            int idx = layer * layerArea + cell.y * _cachedCost.Width + cell.x;
+
+            byte c = _cachedCost.Cost[idx];
+            if (c == NavCostField.CostImpassable) return false;
+            if (c != NavCostField.CostConditional) return true;
+
+            // Conditional cell: only the owning faction may cross.
+            if (faction > NavCostField.FlagOwnerMask) return false; // not a player slot
+            if (!_cachedCost.Flags.IsCreated) return false;
+            byte flags = _cachedCost.Flags[idx];
+            return (flags & NavCostField.FlagOwnerMask) == faction;
         }
 
         /// <summary>

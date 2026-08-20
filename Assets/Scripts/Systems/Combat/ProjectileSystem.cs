@@ -23,7 +23,6 @@ namespace TheWaningBorder.Systems.Combat
     {
         // Flight parameters
         private const float FlightDuration = 0.8f;     // How long arrows take to reach target
-        private const float ArrowSpeed = 30f;            // Projectile speed (matches RangedCombatSystem)
         private const float BoltSpeed = 55f;             // Siege bolt speed (matches RangedCombatSystem)
         private const float ArcHeight = 3f;            // Height of arc above midpoint
         private const float HitRadius = 0.8f;          // Distance to register a hit
@@ -193,7 +192,9 @@ namespace TheWaningBorder.Systems.Combat
                             var pierce = em.GetComponentData<PiercingProjectile>(entity);
                             for (int pi = 0; pi < pierceEntities.Length; pi++)
                             {
-                                if (pierceFactions[pi].Value == proj.Faction) continue;
+                                // Pierce splash passes through allies unharmed.
+                                // docs/Design/Teams.md
+                                if (!Alliances.AreHostile(proj.Faction, pierceFactions[pi].Value)) continue;
                                 if (pierceHealth[pi].Value <= 0) continue; // skip dead
                                 // Use XZ distance — bolts fly with upward pitch and no gravity,
                                 // so 3D distance would cause them to fly over targets
@@ -301,7 +302,24 @@ namespace TheWaningBorder.Systems.Combat
             Entity targetEntity, bool targetIsAlive, Entity shooter = default, double elapsed = 0,
             Entity projectileEntity = default)
         {
-            if (!targetIsAlive || targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
+            if (targetEntity == Entity.Null || !em.Exists(targetEntity)) return;
+
+            // The GROUND riders fire even when the shot lands on something
+            // already dying. Bailing on !targetIsAlive before this block meant
+            // the Firethrower could never ignite with a killing blow — the one
+            // shot most likely to be standing over fresh blood (docs/Design/
+            // Fire.md, docs/Design/Age_1_Feraldis.md). Damage below is still
+            // skipped for a dead target.
+            if (projectileEntity != Entity.Null && em.Exists(projectileEntity)
+                && em.HasComponent<IgnitesBlood>(projectileEntity)
+                && em.HasComponent<LocalTransform>(targetEntity))
+            {
+                FeraldisIgnition.TryIgnite(em, ecb,
+                    em.GetComponentData<IgnitesBlood>(projectileEntity),
+                    em.GetComponentData<LocalTransform>(targetEntity).Position);
+            }
+
+            if (!targetIsAlive) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
 
             // Feraldis on-hit riders carried by the shot (Axe Thrower bleed,
@@ -314,13 +332,9 @@ namespace TheWaningBorder.Systems.Combat
                     FeraldisBleed.Apply(em, ecb, targetEntity,
                         spec.DamagePerSecond, spec.Duration, proj.Faction);
                 }
-                if (em.HasComponent<IgnitesBlood>(projectileEntity)
-                    && em.HasComponent<LocalTransform>(targetEntity))
-                {
-                    FeraldisIgnition.TryIgnite(em, ecb,
-                        em.GetComponentData<IgnitesBlood>(projectileEntity),
-                        em.GetComponentData<LocalTransform>(targetEntity).Position);
-                }
+                // Ignition already fired above — it must run even when this
+                // shot is the killing blow, so it lives before the liveness
+                // gate rather than here.
             }
 
             // Fix #211: skip damage application if the target is Invulnerable.
@@ -378,7 +392,12 @@ namespace TheWaningBorder.Systems.Combat
             if (dmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(targetEntity))
             {
                 int chip = (int)(impactDamage * RangedVsBuildingDamage);
-                impactDamage = chip < 1 ? 1 : chip;
+                // The "always chip for at least 1" floor is for REAL hits only.
+                // ApplyBonusDamageOnHit above returns 0 when shooter and target
+                // are allied, and an unconditional floor turned that 0 straight
+                // back into 1 — arrows quietly demolished a teammate's
+                // buildings. Zero stays zero. docs/Design/Teams.md
+                impactDamage = (impactDamage > 0 && chip < 1) ? 1 : chip;
             }
 
             // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
@@ -387,6 +406,10 @@ namespace TheWaningBorder.Systems.Combat
             targetHealth.Value -= appliedDamage;
             if (targetHealth.Value <= 0) targetHealth.Value = 0;
             em.SetComponentData(targetEntity, targetHealth);
+
+            // Match-long damage ledger — Wrath's Spite pools this and pays it
+            // back (docs/Design/Sects.md).
+            CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, appliedDamage);
 
             // DamageReflect: target's SpellBuff bounces a fraction of the dealt
             // damage back at the attacker. Moved here from RangedCombatSystem
@@ -439,8 +462,9 @@ namespace TheWaningBorder.Systems.Combat
 
             for (int i = 0; i < entities.Length; i++)
             {
-                // Skip same faction
-                if (factions[i].Value == proj.Faction) continue;
+                // Skip own faction AND allies — impact AoE never hurts a
+                // teammate. docs/Design/Teams.md
+                if (!Alliances.AreHostile(proj.Faction, factions[i].Value)) continue;
                 // Skip primary target (already hit)
                 if (entities[i] == proj.Target) continue;
 
@@ -493,6 +517,10 @@ namespace TheWaningBorder.Systems.Combat
 
                 hp.Value = math.max(0, hp.Value - splashDmg);
                 em.SetComponentData(entities[i], hp);
+
+                // Match-long damage ledger — Wrath's Spite pools this and pays
+                // it back (docs/Design/Sects.md).
+                CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, splashDmg);
 
                 // Track last damager for kill credit
                 if (em.HasComponent<LastDamagedByFaction>(entities[i]))

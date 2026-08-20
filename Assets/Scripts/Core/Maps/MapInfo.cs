@@ -38,6 +38,67 @@ namespace TheWaningBorder.Core.Maps
         // Normalized map coordinates (0..1 across the terrain;
         // x = west -> east, y = south -> north). Baked from scene markers.
         public Vector2[] PlayerStarts = new Vector2[0];
+
+        /// <summary>
+        /// The <c>Faction</c> field of each authored start marker, parallel to
+        /// <see cref="PlayerStarts"/>. Baked so the lobby's start-position
+        /// picker can resolve a chosen start to a REAL marker by identity
+        /// rather than by array position — array order is fragile, and the
+        /// baked order and the runtime registry order disagreed before both
+        /// were pointed at MapMarkerRegistry.ComparePlayerStarts.
+        ///
+        /// Empty on MapInfo assets baked before this field existed; callers
+        /// must fall back to positional indexing when it is.
+        /// docs/Design/Lobby_Setup.md
+        /// </summary>
+        public Faction[] PlayerStartFactions = new Faction[0];
+
+        /// <summary>
+        /// Default team for each authored start, parallel to
+        /// <see cref="PlayerStarts"/>. 0 is <c>Alliances.NoTeam</c> — a
+        /// free-for-all, and the value every map had before this field existed.
+        ///
+        /// This belongs to the START, not to the lobby slot: the skirmish lobby
+        /// hands out starts RANDOMLY (AssignMissingStarts), so a slot-indexed
+        /// default would have put teammates on opposite shores. Keying it to
+        /// the start means the preset follows a player when they are moved to a
+        /// different position on the map preview.
+        ///
+        /// Twin Spans is drawn as 3v3 — three warbands to a shore, two bridges
+        /// between them — but shipped with every slot on NoTeam, so a stock
+        /// lobby played it as a six-way free-for-all and the three players
+        /// sharing a shore fought each other. Nothing was wrong with the
+        /// hostility rules; the map simply never said who was on whose side.
+        /// docs/Design/Teams.md, docs/Design/Lobby_Setup.md
+        ///
+        /// Empty on assets baked before this field existed; callers must treat
+        /// a missing or short array as "no preset".
+        /// </summary>
+        public int[] PlayerStartTeams = new int[0];
+
+        /// <summary>
+        /// The authored team for a start, or <c>0</c> (no team) when this map
+        /// has no preset or the index is out of range.
+        /// </summary>
+        public byte TeamForStart(int startIndex)
+        {
+            if (PlayerStartTeams == null) return 0;
+            if (startIndex < 0 || startIndex >= PlayerStartTeams.Length) return 0;
+            int team = PlayerStartTeams[startIndex];
+            return team < 0 ? (byte)0 : (byte)team;
+        }
+
+        /// <summary>True when this map ships a team layout worth applying.</summary>
+        public bool HasTeamPreset
+        {
+            get
+            {
+                if (PlayerStartTeams == null) return false;
+                for (int i = 0; i < PlayerStartTeams.Length; i++)
+                    if (PlayerStartTeams[i] != 0) return true;
+                return false;
+            }
+        }
         public Vector2[] IronDeposits = new Vector2[0];
         public Vector2[] VeilstoneNodes = new Vector2[0];
         public Vector2[] VeilsteelNodes = new Vector2[0];

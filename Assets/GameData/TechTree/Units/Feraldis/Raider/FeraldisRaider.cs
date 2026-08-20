@@ -81,7 +81,13 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = DefaultRadius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            // House-spawned waves are FREE (docs/Design/Age_1_Feraldis.md:
+            // "uncontrollable, do not consume population", Pop: 0). Only a
+            // raider you actually trained costs a slot. The shared creation
+            // path used to stamp 1 for both, so every House wave quietly taxed
+            // the population budget — and, because those raiders counted
+            // toward the AI's army floor, made the AI think it had recruited.
+            creator.AddComponent(entity, new PopulationCost { Amount = controllable ? 1 : 0 });
             creator.AddComponent<CavalryTag>(entity);
 
             // The signature: enemy structures it strikes keep burning.

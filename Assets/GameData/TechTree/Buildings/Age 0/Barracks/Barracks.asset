@@ -51,7 +51,7 @@ MonoBehaviour:
   cost:
     Supplies: 220
     Iron: 40
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
@@ -78,7 +78,8 @@ MonoBehaviour:
       cooldown: 1.5
       maxTargets: 1
   unitUpgrades: []
+  prefab: {fileID: 5787567608289956776, guid: 4d772238e3975234fa54124f03f14f47, type: 3}
+  presentationId: 510
   prefabPath: 
   canUpgradeTo:
   - Alanthor_Garrison
-  presentationId: 510

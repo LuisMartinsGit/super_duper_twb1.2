@@ -422,7 +422,7 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 > veilstone (the miner supply chain was removed). It **passively generates
 > Veilsteel** — 1 Veilsteel / 10 s, no inputs — is **much more expensive**,
 > and is **build-limited to 1 per faction**. It is the slow, infinite
-> complement to mining the Sharp Crystals map node.
+> complement to mining the Veilsteel Mine map node.
 
 | Stat | Value |
 |------|-------|

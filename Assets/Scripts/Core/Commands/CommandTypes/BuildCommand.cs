@@ -43,6 +43,35 @@ namespace TheWaningBorder.Core.Commands.Types
             // Verify builder can build
             if (!em.HasComponent<CanBuild>(builder)) return;
 
+            // A BUSY builder gets the new site QUEUED, not substituted.
+            //
+            // BuildCommand and BuildOrder are single components, so this method
+            // used to overwrite whatever the builder was already doing. Placing
+            // several buildings in a row therefore kept only the LAST one and
+            // silently dropped the rest — resources spent, foundations never
+            // touched. It only looked intermittent because the LOS auto-chain
+            // rescued sites that happened to be near each other; far-apart ones
+            // were lost.
+            //
+            // Queuing (rather than replacing) is right for this game because
+            // placement is not "order this builder somewhere" — the player
+            // places a BUILDING and the system picks a builder. Cancelling the
+            // builder's current job was never the intent of that click.
+            if (IsBusy(em, builder))
+            {
+                var queue = em.HasBuffer<QueuedBuildSite>(builder)
+                    ? em.GetBuffer<QueuedBuildSite>(builder)
+                    : em.AddBuffer<QueuedBuildSite>(builder);
+
+                queue.Add(new QueuedBuildSite
+                {
+                    BuildingId = new FixedString64Bytes(buildingId),
+                    Position = position,
+                    TargetBuilding = targetBuilding,
+                });
+                return;
+            }
+
             // Clear conflicting commands
             CommandHelper.ClearAllCommands(em, builder);
 
@@ -99,6 +128,71 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Checks building overlap, obstacle overlap, terrain passability, and grid footprint.
         /// </summary>
         public static bool IsValidBuildPosition(EntityManager em, float3 position, int2 buildingSize)
+            => IsValidBuildPosition(em, position, buildingSize, null);
+
+        /// <summary>
+        /// Footprint-vs-footprint overlap against the buildings that already
+        /// exist — and NOTHING else. No terrain, slope, water, veil-crust or
+        /// passability rules.
+        ///
+        /// This is the executor's last-line invariant: two buildings may never
+        /// occupy the same ground. It is deliberately narrower than
+        /// <see cref="IsValidBuildPosition"/>, which an issue site runs against
+        /// a CANDIDATE position that may be fractional, may be stale by the
+        /// time a queued command executes, and in the lockstep case was
+        /// evaluated on another machine entirely. Only geometry is re-tested
+        /// here, so this can never refuse a placement for a reason the player's
+        /// own placement preview did not already show them.
+        ///
+        /// Reads only replicated simulation state, so every peer reaches the
+        /// same verdict from the same command stream.
+        /// </summary>
+        public static bool OverlapsExistingBuilding(EntityManager em, float3 position, int2 buildingSize)
+        {
+            float halfW = buildingSize.x / 2f;
+            float halfH = buildingSize.y / 2f;
+            float2 newMin = new float2(position.x - halfW, position.z - halfH);
+            float2 newMax = new float2(position.x + halfW, position.z + halfH);
+
+            var buildingQuery = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var xfs = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var ents = buildingQuery.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                var bPos = xfs[i].Position;
+                float2 otherMin, otherMax;
+
+                if (em.HasComponent<BuildingSize>(ents[i]))
+                {
+                    var bSize = em.GetComponentData<BuildingSize>(ents[i]);
+                    otherMin = new float2(bPos.x - bSize.Width / 2f, bPos.z - bSize.Height / 2f);
+                    otherMax = new float2(bPos.x + bSize.Width / 2f, bPos.z + bSize.Height / 2f);
+                }
+                else
+                {
+                    float r = em.HasComponent<Radius>(ents[i])
+                        ? em.GetComponentData<Radius>(ents[i]).Value : 1.5f;
+                    otherMin = new float2(bPos.x - r, bPos.z - r);
+                    otherMax = new float2(bPos.x + r, bPos.z + r);
+                }
+
+                if (newMin.x < otherMax.x && newMax.x > otherMin.x &&
+                    newMin.y < otherMax.y && newMax.y > otherMin.y)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Placement test, with the building id so the crust rule can make its
+        /// one exception. Callers that do not know the id pass null and get the
+        /// strict rule.
+        /// </summary>
+        public static bool IsValidBuildPosition(EntityManager em, float3 position, int2 buildingSize,
+            string buildingId)
         {
             // THE VEIL (Curse & Shardroot canon §2.3): veilstone crust is
             // unbuildable ground — humanity is being pushed back. Reclaim it
@@ -107,8 +201,14 @@ namespace TheWaningBorder.Core.Commands.Types
             var veilQuery = em.CreateEntityQuery(ComponentType.ReadOnly<VeilField>());
             if (!veilQuery.IsEmptyIgnoreFilter)
             {
+                // Veilworks (Sect of Reclamation) is the ONE exception: a
+                // smelter for cursed matter, explicitly raised on cursed ground
+                // (docs/Design/Sects.md section 4). Everything else obeys the
+                // crust rule.
+                bool ignoresCrust = buildingId == "Sect_Veilworks";
                 var veil = veilQuery.GetSingleton<VeilField>();
-                if (veil.Initialised != 0
+                if (!ignoresCrust
+                    && veil.Initialised != 0
                     && veil.SaturationAt(position) >= VeilField.CrustThreshold)
                     return false;
             }
@@ -257,6 +357,41 @@ namespace TheWaningBorder.Core.Commands.Types
 
         // GetBuildingRadius removed in task-062 Q-41 — zero callers. Building
         // collision is footprint-based (BuildingSizeConfig), not circle-radius.
+
+        /// <summary>
+        /// True while the builder is already walking to a site (BuildCommand)
+        /// or actively constructing one (BuildOrder).
+        /// </summary>
+        private static bool IsBusy(EntityManager em, Entity builder)
+            => em.HasComponent<BuildCommand>(builder)
+            || em.HasComponent<BuildOrder>(builder);
+
+        /// <summary>
+        /// Start the next queued site, if any. Returns true when one was
+        /// issued. Called when a builder finishes or loses its current job so
+        /// the queued plan continues on its own.
+        /// </summary>
+        public static bool TryStartNextQueued(EntityManager em, Entity builder)
+        {
+            if (!em.Exists(builder) || !em.HasBuffer<QueuedBuildSite>(builder)) return false;
+
+            var queue = em.GetBuffer<QueuedBuildSite>(builder);
+            while (queue.Length > 0)
+            {
+                var next = queue[0];
+                queue.RemoveAt(0);
+
+                // Skip entries whose site died before we got to it (razed,
+                // cancelled, or never placed).
+                if (next.TargetBuilding != Entity.Null && !em.Exists(next.TargetBuilding))
+                    continue;
+
+                SetupBuild(em, builder, next.TargetBuilding,
+                           next.BuildingId.ToString(), next.Position);
+                return true;
+            }
+            return false;
+        }
 
         private static void SetupBuild(EntityManager em, Entity builder, Entity targetBuilding,
             string buildingId, float3 position)

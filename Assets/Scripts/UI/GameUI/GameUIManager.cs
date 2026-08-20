@@ -49,9 +49,14 @@
 //   Keep, until one is started), plus the authored CultureSelection
 //   prefabs — the "SELECT CULTURE" pill and the culture selection menu
 //   it opens (TopChoiceBar).
-// - SELECTION HEADER UPGRADE BUTTON: "Upgrade to Lv N" on the selection
-//   header while a single owned upgradeable building is selected; routes
-//   UpgradeBuildingCommandHelper.Execute.
+// - SELECTION HEADER UPGRADE BUTTON: bound only when the SelectionHeader
+//   prefab AUTHORS a node named "…upgrade…". The building level-up itself is
+//   a normal action in whichever actions panel is up (BuildingUpgradeAction);
+//   the code-built pill that used to float off the header's right edge is
+//   gone.
+// - PAUSE MENU: code-built PauseMenuPanel (Esc) — resume / restart / main
+//   menu / quit, and the owner of the Escape cascade for the whole HUD.
+// - TOOLTIPS: every button in this stack hovers through the shared UITooltip.
 // Location: Assets/Scripts/UI/GameUI/GameUIManager.cs
 
 using System.Collections.Generic;
@@ -99,6 +104,7 @@ namespace TheWaningBorder.UI.GameUI
         private Image _upgradeButtonBg;
         private TMP_Text _upgradeButtonLabel;
         private Entity _upgradeTarget;
+        private string _upgradeTooltip;
 
         private GameObject _unitDetailsPanel;
 
@@ -168,6 +174,21 @@ namespace TheWaningBorder.UI.GameUI
             // the host canvas and self-hide when the selection is irrelevant.
             _hostCanvasRect.gameObject.AddComponent<FormationsPanelBinder>();
             _hostCanvasRect.gameObject.AddComponent<SpellsPanelBinder>();
+
+            // Pause menu (Esc). Spawned on its own full-canvas host and last
+            // in sibling order so its scrim covers every other panel; it also
+            // owns the Escape cascade for the whole HUD.
+            SpawnCodeBuilt<PauseMenuPanel>("GameUI_PauseMenu");
+
+            // End-of-match screen — spawned after the pause menu so its scrim
+            // covers it. Hidden until VictoryConditionSystem calls TryShow.
+            SpawnCodeBuilt<VictoryPanel>("GameUI_VictoryScreen");
+
+            // Tutorial coach — only for a match launched from the TUTORIAL
+            // menu entry. It needs a canvas parent, so it is spawned here
+            // rather than alongside the other managers in GameBootstrap.
+            if (GameSettings.TutorialActive)
+                SpawnCodeBuilt<TutorialDirector>("GameUI_TutorialCoach");
 
             if (catalog.entitySymbols != null)
             {
@@ -393,6 +414,11 @@ namespace TheWaningBorder.UI.GameUI
             var panel = Instantiate(prefab, parent != null ? parent : _hostCanvasRect, false);
             panel.name = name;
 
+            // Authored prefab labels render through the localization table;
+            // binder-driven labels are translated at their own call sites and
+            // the component goes dormant on them (see LocAuthoredLabel).
+            TheWaningBorder.Core.Localization.LocAuthored.Localize(panel);
+
             foreach (var stray in panel.GetComponentsInChildren<Canvas>(true))
             {
                 // A negative override sort order marks a node authored to
@@ -507,7 +533,21 @@ namespace TheWaningBorder.UI.GameUI
         {
             if (_supplies == null && _iron == null && _housing == null) return;
 
-            var faction = GameSettings.LocalPlayerFaction;
+            // Observer perspective: the bar shows the VIEWED player's bank;
+            // with nothing selected there is no perspective to show, so the
+            // readouts blank rather than lying with some fixed faction's
+            // numbers.
+            var view = GameSettings.ViewFaction;
+            if (view == null)
+            {
+                if (_supplies != null)  _supplies.text  = "-";
+                if (_iron != null)      _iron.text      = "-";
+                if (_veilstone != null) _veilstone.text = "-";
+                if (_veilsteel != null) _veilsteel.text = "-";
+                if (_housing != null)   _housing.text   = "-";
+                return;
+            }
+            var faction = view.Value;
             var query = _bankQuery.Get(em, BankQueryTypes);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
@@ -533,9 +573,15 @@ namespace TheWaningBorder.UI.GameUI
         }
 
         /// <summary>
-        /// Builds the header's upgrade button. Prefers a Button authored in
-        /// the SelectionHeader prefab (node name containing "upgrade");
-        /// otherwise builds a themed pill flush right of the header frame.
+        /// Binds an upgrade Button AUTHORED into the SelectionHeader prefab
+        /// (node name containing "upgrade"), if there is one.
+        ///
+        /// There is deliberately no code-built fallback any more: the old one
+        /// was a pill hanging off the right edge of the header, outside every
+        /// panel and without a tooltip. The building level-up now renders as a
+        /// normal action inside whichever actions panel is up
+        /// (BuildingUpgradeAction), so when the prefab ships no upgrade node
+        /// the feature is still there — just in the grid where it belongs.
         /// </summary>
         private void BuildUpgradeButton()
         {
@@ -546,105 +592,51 @@ namespace TheWaningBorder.UI.GameUI
                 _upgradeButtonBg = authored.GetComponent<Image>();
                 _upgradeButtonLabel = authored.GetComponentInChildren<TMP_Text>(true);
                 authored.onClick.AddListener(ClickUpgrade);
+                UITooltip.Bind(_upgradeButton, () => _upgradeTooltip);
                 _upgradeButton.SetActive(false);
                 return;
             }
-
-            // Code-built fallback pill (GameUIKit theme). Sizes are in the
-            // header's local units — the authored root carries a 2x scale.
-            var rt = GameUIKit.Rect(_selectionHeader.transform, "UpgradeButton");
-            rt.anchorMin = new Vector2(1f, 0.5f);
-            rt.anchorMax = new Vector2(1f, 0.5f);
-            rt.pivot = new Vector2(0f, 0.5f);
-            rt.anchoredPosition = new Vector2(10f, 0f);
-            rt.sizeDelta = new Vector2(160f, 44f);
-            _upgradeButtonBg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(_upgradeButtonBg.rectTransform);
-            _upgradeButtonLabel = GameUIKit.Text(rt, "label", "Upgrade", 20f, GameUIKit.Gold,
-                TextAlignmentOptions.Center, wrap: false);
-            GameUIKit.Stretch(_upgradeButtonLabel.rectTransform);
-            _upgradeButtonBg.gameObject.AddComponent<UiClickRelay>().OnLeftClick = ClickUpgrade;
-            _upgradeButton = rt.gameObject;
-            _upgradeButton.SetActive(false);
         }
 
         private void ClickUpgrade()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
-            var em = world.EntityManager;
-            if (_upgradeTarget == Entity.Null || !em.Exists(_upgradeTarget)) return;
-
-            var result = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
-                .Execute(em, _upgradeTarget);
-            switch (result)
-            {
-                case UpgradeBuildingResult.CannotAfford:
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.NotifyError(
-                        "Not enough resources to upgrade");
-                    break;
-                case UpgradeBuildingResult.NoCulture:
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.NotifyError(
-                        "Choose a culture before upgrading buildings");
-                    break;
-                case UpgradeBuildingResult.AlreadyMaxLevel:
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.NotifyError(
-                        "Building is already at max level");
-                    break;
-            }
+            if (_upgradeTarget == Entity.Null) return;
+            BuildingUpgradeAction.Execute(world.EntityManager, _upgradeTarget);
             RefreshNow();
         }
 
         /// <summary>
-        /// Shown for a single owned building carrying BuildingUpgradeable,
-        /// once the faction has aged up (upgrades are culture-gated by
-        /// UpgradeBuildingCommandHelper). Greyed while unaffordable; a
-        /// running upgrade shows its progress instead.
+        /// Drives the AUTHORED header upgrade button when the prefab has one.
+        /// All of the gating lives in BuildingUpgradeAction, shared with the
+        /// two action panels, so header and grid can never disagree.
         /// </summary>
         private void RefreshUpgradeButton(EntityManager em, int count, Entity first)
         {
             if (_upgradeButton == null) return;
 
             _upgradeTarget = Entity.Null;
-            bool show = false;
-            bool enabled = false;
-            string label = null;
+            var upgrade = count == 1
+                ? BuildingUpgradeAction.Describe(em, first)
+                : default;
 
-            if (count == 1 && first != Entity.Null && em.Exists(first)
-                && em.HasComponent<BuildingUpgradeable>(first)
-                && !em.HasComponent<UnderConstruction>(first)
-                && em.HasComponent<FactionTag>(first)
-                && em.GetComponentData<FactionTag>(first).Value == GameSettings.LocalPlayerFaction)
-            {
-                var faction = GameSettings.LocalPlayerFaction;
-                if (em.HasComponent<BuildingUpgrading>(first))
-                {
-                    var up = em.GetComponentData<BuildingUpgrading>(first);
-                    float pct = up.Total > 0f ? Mathf.Clamp01(up.Progress / up.Total) : 0f;
-                    show = true;
-                    label = $"Upgrading {(int)(pct * 100f)}%";
-                }
-                else if (TheWaningBorder.UI.Panels.BuildingActionLayouts.FactionAge(em, faction) >= 1
-                    && TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
-                        .TryGetNextCost(em, first, out var cost, out byte nextLevel))
-                {
-                    show = true;
-                    _upgradeTarget = first;
-                    enabled = TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, cost);
-                    label = $"Upgrade to Lv {nextLevel}";
-                }
-            }
+            if (_upgradeButton.activeSelf != upgrade.Show)
+                _upgradeButton.SetActive(upgrade.Show);
+            if (!upgrade.Show) { _upgradeTooltip = null; return; }
 
-            if (_upgradeButton.activeSelf != show) _upgradeButton.SetActive(show);
-            if (!show) return;
+            if (upgrade.Enabled) _upgradeTarget = first;
+            _upgradeTooltip = upgrade.Tooltip;
 
             if (_upgradeButtonLabel != null)
             {
+                string label = upgrade.Label.Replace('\n', ' ');
                 if (_upgradeButtonLabel.text != label) _upgradeButtonLabel.text = label;
-                _upgradeButtonLabel.color = enabled ? GameUIKit.Gold : GameUIKit.TextDim;
+                _upgradeButtonLabel.color = upgrade.Enabled ? GameUIKit.Gold : GameUIKit.TextDim;
             }
             if (_upgradeButtonBg != null)
-                _upgradeButtonBg.color = enabled ? GameUIKit.ButtonBg : GameUIKit.ButtonBgLocked;
+                _upgradeButtonBg.color = upgrade.Enabled
+                    ? GameUIKit.ButtonBg : GameUIKit.ButtonBgLocked;
         }
 
         private void RefreshSelection(EntityManager em)
@@ -684,16 +676,21 @@ namespace TheWaningBorder.UI.GameUI
             }
             if (!_selectionHeader.activeSelf) _selectionHeader.SetActive(true);
 
+            // symbolKey stays the ENGLISH display name on purpose: the
+            // GameUICatalog sprite table is keyed by it, so the icon lookup
+            // must happen before translation. Only labelText is localized.
             string labelText;
             string symbolKey;
             if (uniform)
             {
-                labelText = count == 1 ? firstName : firstName + " x " + count;
+                string shownName = TheWaningBorder.Core.Localization.Loc.T(firstName);
+                labelText = count == 1 ? shownName : shownName + " x " + count;
                 symbolKey = firstName;
             }
             else
             {
-                labelText = count + " units";
+                labelText = string.Format(
+                    TheWaningBorder.Core.Localization.Loc.T("{0} units"), count);
                 symbolKey = "Mixed";
             }
 

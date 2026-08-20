@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using Unity.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
@@ -73,7 +74,7 @@ namespace TheWaningBorder.UI
             actions.Add(new ActionButton
             {
                 Id = "ConvertToWallHub",
-                Label = "Convert to Wall Hub",
+                Label = Loc.T("Convert to Wall Hub"),
                 Tooltip = BuildTooltip(
                     "Convert to Wall Hub",
                     "Replaces the hut with a Wall Hub. Adjacent hubs auto-link into wall segments.",
@@ -90,7 +91,7 @@ namespace TheWaningBorder.UI
             actions.Add(new ActionButton
             {
                 Id = "ConvertToWatchTower",
-                Label = "Convert to Watch Tower",
+                Label = Loc.T("Convert to Watch Tower"),
                 Tooltip = BuildTooltip(
                     "Convert to Watch Tower",
                     "Replaces the hut with a stand-alone Alanthor Watch Tower (ranged defense).",
@@ -151,10 +152,10 @@ namespace TheWaningBorder.UI
                 bool canAffordGate = !em.Equals(default(EntityManager))
                     ? FactionEconomy.CanAfford(em, faction, gateCost)
                     : true;
-                string gateLabel = $"Convert to Gate ({gateWidth}x)";
+                string gateLabel = string.Format(Loc.T("Convert to Gate ({0}x)"), gateWidth);
                 string gateSubtitle = shortSegment
-                    ? $"Short segment — gate will span {gateWidth} instances. Groups wider than {gateWidth} may not fit."
-                    : "3-instance opening. Units can path through.";
+                    ? string.Format(Loc.T("Short segment — gate will span {0} instances. Groups wider than {0} may not fit."), gateWidth)
+                    : Loc.T("3-instance opening. Units can path through.");
 
                 actions.Add(new ActionButton
                 {
@@ -185,7 +186,7 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = "WallInstanceToTower",
-                    Label = "Convert to Tower",
+                    Label = Loc.T("Convert to Tower"),
                     Tooltip = BuildTooltip(
                         "Convert to Tower",
                         "Reinforces this wall section into a watchtower (ranged defense).",
@@ -235,8 +236,43 @@ namespace TheWaningBorder.UI
             // were CUT (2026-08-05 rev.4) — Feraldis huts became Raider
             // Camps, so the gathering-upgrade pair had nothing left to do.
             "Feraldis_Longhouse",
-            "Feraldis_Tower", "Feraldis_SiegeYard", "Feraldis_WarTotem", "Feraldis_Pasture"
+            "Feraldis_Tower", "Feraldis_SiegeYard", "Feraldis_WarTotem", "Feraldis_Pasture",
+            // Sect buildings — one per sect, each capped at 5 per faction and
+            // only offered once that sect is adopted. Both gates are enforced
+            // in GetBuildingActions; CommandRouter.IssuePlaceBuilding is the
+            // authoritative cap. docs/Design/Sects.md section 1.
+            "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold", "Sect_Veilworks",
+            "Sect_MusterYard"
         };
+
+        /// <summary>
+        /// Sect building id -> the sect that unlocks it. A sect building is
+        /// offered only to a faction that has adopted its sect, and never more
+        /// than SectBuilding.CapPerFaction times.
+        /// </summary>
+        private static readonly Dictionary<string, string> SectBuildingOwner = new()
+        {
+            { "Sect_Reliquary",   SectConfig.Antiquity },
+            { "Sect_MendingHall", SectConfig.Renewal },
+            { "Sect_Stonehold",   SectConfig.Fortitude },
+            { "Sect_Veilworks",   SectConfig.Reclamation },
+            { "Sect_MusterYard",  SectConfig.War },
+        };
+
+        /// <summary>Current count of a faction's sect buildings, by id.</summary>
+        private static int SectBuildingCount(EntityManager em, string buildingId, Faction faction)
+        {
+            if (em.Equals(default(EntityManager))) return 0;
+            switch (buildingId)
+            {
+                case "Sect_Reliquary":   return BuildingFactory.GetFactionBuildingCount<ReliquaryTag>(em, faction);
+                case "Sect_MendingHall": return BuildingFactory.GetFactionBuildingCount<MendingHallTag>(em, faction);
+                case "Sect_Stonehold":   return BuildingFactory.GetFactionBuildingCount<StoneholdTag>(em, faction);
+                case "Sect_Veilworks":   return BuildingFactory.GetFactionBuildingCount<VeilworksTag>(em, faction);
+                case "Sect_MusterYard":  return BuildingFactory.GetFactionBuildingCount<MusterYardTag>(em, faction);
+                default: return 0;
+            }
+        }
 
         // task-109: defensive boot-time guard. If a future PR accidentally adds
         // "Alanthor_WallTower" or "Alanthor_WallGate" to BuildableBuildings, this
@@ -335,6 +371,15 @@ namespace TheWaningBorder.UI
                     // Forge: capped at 5 per faction (passive veilsteel generator).
                     if (building.id == "Alanthor_Smelter" && smelterCount >= SmelterCap) continue;
 
+                    // Sect buildings: adopt the sect to unlock it, then 5 max.
+                    if (SectBuildingOwner.TryGetValue(building.id, out var owningSect))
+                    {
+                        if (em.Equals(default(EntityManager))) continue;
+                        if (!SectQuery.IsAdopted(em, faction, owningSect)) continue;
+                        if (SectBuildingCount(em, building.id, faction)
+                            >= TheWaningBorder.Entities.SectBuilding.CapPerFaction) continue;
+                    }
+
                     // Data-driven culture gating: buildings with culture prefix require that culture
                     byte requiredCulture = GetRequiredCulture(building.id);
                     if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
@@ -361,7 +406,8 @@ namespace TheWaningBorder.UI
 
                     // Era gating: show button disabled with requirement text instead of hiding
                     bool eraLocked = building.minEra > 0 && building.minEra > factionEra;
-                    string requirement = eraLocked ? $"Requires: Era {building.minEra}" : null;
+                    string requirement = eraLocked
+                        ? string.Format(Loc.T("Requires: Era {0}"), building.minEra) : null;
 
                     string tooltip = BuildTooltip(
                         building.name,
@@ -374,7 +420,7 @@ namespace TheWaningBorder.UI
                     actions.Add(new ActionButton
                     {
                         Id = building.id,
-                        Label = building.name,
+                        Label = Loc.T(building.name),
                         Tooltip = tooltip,
                         Cost = cost,
                         Enabled = !eraLocked,
@@ -401,6 +447,15 @@ namespace TheWaningBorder.UI
             if (buildingId == "FiendstoneKeep") return Cultures.None;
             // ThessarasBazaar is a Runai building (doesn't use Runai_ prefix)
             if (buildingId == "ThessarasBazaar") return Cultures.Runai;
+            // The Mine is Feraldis-only and Age 1 (2026-08-13; it was briefly
+            // specced universal + Age 0). The id has no culture prefix and is
+            // NOT going to get one — renaming it would ripple through the
+            // factory recipe table, BuildingSizeConfig, BuildCosts,
+            // CommandRouter build times, BuildCommandPannel's BuildType map,
+            // the name resolver and the Feraldis AI. The era half of the gate
+            // is data: Mine.asset minEra = 1.
+            // Canon: docs/Design/Age_1_Feraldis.md § Mine.
+            if (buildingId == "Mine") return Cultures.Feraldis;
             return Cultures.None; // universal
         }
     }

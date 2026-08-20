@@ -21,6 +21,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
 using TheWaningBorder.UI.HUD;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -156,7 +157,7 @@ namespace TheWaningBorder.Systems.Border
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
                         MakePersistent(em, pickup);
-                        PlayerNotificationSystem.Notify("The SHARDROOT has been unearthed!");
+                        PlayerNotificationSystem.Notify(Loc.T("The SHARDROOT has been unearthed!"));
                         TWBLog.Log("[Shardroot] artifact surfaced by fallback " +
                             "(host lost or claimed without award)");
                     }
@@ -254,7 +255,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponent<ShardrootTag>(pickup);
             MakePersistent(em, pickup);
 
-            PlayerNotificationSystem.Notify("The SHARDROOT has been unearthed!");
+            PlayerNotificationSystem.Notify(Loc.T("The SHARDROOT has been unearthed!"));
             TWBLog.Log("[Shardroot] artifact dropped at the host well");
         }
 
@@ -329,7 +330,7 @@ namespace TheWaningBorder.Systems.Border
             if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
             if (em.HasComponent<GlowCarrier>(courier)) em.RemoveComponent<GlowCarrier>(courier);
 
-            PlayerNotificationSystem.Notify($"{faction} has awakened the SHARDBOUND HERO!");
+            PlayerNotificationSystem.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
             TWBLog.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");
         }
     }

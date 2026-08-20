@@ -22,7 +22,7 @@ namespace TheWaningBorder.Systems.Combat
     /// 
     /// Respects UserMoveOrder tag to prevent interrupting player movement commands.
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TheWaningBorder.Systems.Navigation.UnitIntegratorSystem))]
     public partial struct TargetingSystem : ISystem
@@ -32,8 +32,34 @@ namespace TheWaningBorder.Systems.Combat
         // ground and wait to be massed into an army instead of wandering off to
         // hunt enemies one by one. Global (player + AI).
         private const float MaxGuardDistance = 10f;
-        private const float GuardReturnThreshold = 2f;
-        private const float DefaultMeleeRange = 1.5f;
+
+        /// <summary>
+        /// How far a unit may CHASE an auto-acquired target from its guard
+        /// point before breaking off and going home.
+        ///
+        /// Deliberately much looser than <see cref="MaxGuardDistance"/> (which
+        /// only governs standing still): a defender must be able to fight a
+        /// real skirmish at the edge of its base without being yanked out of
+        /// it mid-swing. It must NOT be able to follow a fleeing scout across
+        /// the map into the enemy's garrison, which is exactly what happened
+        /// with no pursuit limit at all.
+        /// </summary>
+        private const float MaxPursuitDistance = 30f;
+
+        // How far off its guard point an idle unit must be before the leash
+        // walks it home.
+        //
+        // Derived from StuckRedirectSystem.ArrivalSkip, not hand-picked: that
+        // system declares a unit ARRIVED anywhere inside ArrivalSkip once it
+        // provably cannot get closer (a neighbour is parked on the exact
+        // point). A leash that fires inside that same band means the two
+        // systems disagree about what "arrived" means, and the unit is walked
+        // back in, shoved out, re-declared arrived, walked back in... forever.
+        // The old flat 2 m sat well inside the band — and below the 2.0 m
+        // formation slot pitch — so ordinary crowd jostle was enough to trip
+        // it. Must stay strictly greater than ArrivalSkip.
+        private const float GuardReturnThreshold =
+            TheWaningBorder.Systems.Navigation.StuckRedirectSystem.ArrivalSkip + 1f;
         /// <summary>Max height difference melee can strike across (a bridge
         /// deck is ~3-5m above the underpass — unreachable). Shared meaning
         /// with MeleeCombatSystem's gate.</summary>
@@ -45,13 +71,13 @@ namespace TheWaningBorder.Systems.Combat
         // Keeps per-unit inner-loop work bounded regardless of total enemy count.
         private const float TargetingCellSize = 20f;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnUpdate(ref SystemState state)
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -84,6 +110,11 @@ namespace TheWaningBorder.Systems.Combat
                 // wells stay un-auto-attackable as before but a corrupted
                 // well can be swarmed by an army attack-moving onto it.
                 .WithNone<NodeUntargetable, NodeNoAutoAcquire>()
+                // Stoneveil (Fortitude): a veiled unit cannot be targeted at
+                // all. Excluded from the enemy set rather than filtered later,
+                // so it also drops out of the spatial hash and the
+                // return-to-guard scan built from it.
+                .WithNone<SectVeiled>()
                 .Build();
 
             using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
@@ -177,135 +208,6 @@ namespace TheWaningBorder.Systems.Combat
             CleanupLastAttacker(ref state, ref ecb);
         }
 
-        [BurstCompile]
-        private void InitializeCombatComponents(ref SystemState state, ref EntityCommandBuffer ecb)
-        {
-            // Initialize GuardPoint for units that don't have one
-            // Skip border units — long-range hunters driven by BorderAISystem wave dispatch;
-            // the 20m guard leash below would yank them home mid-march.
-            foreach (var (transform, entity) in SystemAPI.Query<RefRO<LocalTransform>>()
-                .WithAll<UnitTag>()
-                .WithNone<GuardPoint>()
-                .WithNone<BorderUnitTag>()
-                .WithEntityAccess())
-            {
-                ecb.AddComponent(entity, new GuardPoint
-                {
-                    Position = transform.ValueRO.Position,
-                    Has = 1
-                });
-            }
-
-            // Initialize AttackCooldown for units that don't have one
-            foreach (var (tag, entity) in SystemAPI.Query<RefRO<UnitTag>>()
-                .WithNone<AttackCooldown>()
-                .WithEntityAccess())
-            {
-                ecb.AddComponent(entity, new AttackCooldown
-                {
-                    Cooldown = 1.5f,
-                    Timer = 0f
-                });
-            }
-        }
-
-        [BurstCompile]
-        private void ProcessAttackCommands(ref SystemState state, ref EntityCommandBuffer ecb)
-        {
-            var em = state.EntityManager;
-
-            foreach (var (attackCmd, transform, entity) in SystemAPI
-                .Query<RefRO<AttackCommand>, RefRO<LocalTransform>>()
-                .WithAll<UnitTag>()
-                .WithEntityAccess())
-            {
-                // Check if unit is actively moving by player command
-                if (em.HasComponent<DesiredDestination>(entity))
-                {
-                    var dd = em.GetComponentData<DesiredDestination>(entity);
-                    if (dd.Has != 0)
-                    {
-                        bool isReturningToGuard = false;
-                        if (em.HasComponent<GuardPoint>(entity))
-                        {
-                            var gp = em.GetComponentData<GuardPoint>(entity);
-                            if (gp.Has != 0)
-                            {
-                                var distToGuard = DistXZ(dd.Position, gp.Position);
-                                isReturningToGuard = distToGuard < 1f;
-                            }
-                        }
-
-                        if (!isReturningToGuard)
-                        {
-                            // Only strip AttackCommand if BOTH Target component and
-                            // the AttackCommand's own target are null — prevents race
-                            // where Target hasn't been set from AttackCommand yet.
-                            var currentTarget = em.GetComponentData<Target>(entity);
-                            if (currentTarget.Value == Entity.Null
-                                && attackCmd.ValueRO.Target == Entity.Null)
-                            {
-                                ecb.RemoveComponent<AttackCommand>(entity);
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                var target = attackCmd.ValueRO.Target;
-
-                // Validate target exists
-                if (target == Entity.Null || !em.Exists(target))
-                {
-                    ecb.RemoveComponent<AttackCommand>(entity);
-                    continue;
-                }
-
-                // Validate target is alive
-                if (em.HasComponent<Health>(target))
-                {
-                    var targetHealth = em.GetComponentData<Health>(target);
-                    if (targetHealth.Value <= 0)
-                    {
-                        ecb.RemoveComponent<AttackCommand>(entity);
-                        continue;
-                    }
-                }
-
-                // Set guard point if not already set
-                if (em.HasComponent<GuardPoint>(entity))
-                {
-                    var gp = em.GetComponentData<GuardPoint>(entity);
-                    if (gp.Has == 0)
-                    {
-                        gp.Position = transform.ValueRO.Position;
-                        gp.Has = 1;
-                        ecb.SetComponent(entity, gp);
-                    }
-                }
-                else
-                {
-                    ecb.AddComponent(entity, new GuardPoint
-                    {
-                        Position = transform.ValueRO.Position,
-                        Has = 1
-                    });
-                }
-
-                // Set target component (Target always present on combat units)
-                ecb.SetComponent(entity, new Target { Value = target });
-
-                // Clear destination when attacking — but NOT for Veilstingers
-                // (they fire while moving — handled inside VeilstingerCombatSystem,
-                // which keeps their movement intact and only writes a destination
-                // on retreat/chase branches).
-                if (em.HasComponent<DesiredDestination>(entity)
-                    && !em.HasComponent<VeilstingerState>(entity))
-                {
-                    ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
-                }
-            }
-        }
 
         // Cap how many MELEE attackers can target the same enemy at once.
         // Once the cap is hit, overflow melee attackers pick a different
@@ -330,630 +232,9 @@ namespace TheWaningBorder.Systems.Combat
         /// ratio` test degenerates to `x <= 0` there. See the use sites.</summary>
         private const float NearDistFloor = 1.5f;
 
-        [BurstCompile]
-        private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
-            NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
-            NativeArray<byte> allEnemyPriority,
-            NativeParallelMultiHashMap<int2, int> spatialMap,
-            ref NativeHashMap<Entity, int> attackerCount)
-        {
-            var em = state.EntityManager;
 
-            // Single unified loop for all target-seeking units:
-            // idle units, attack-move units, and patrol units.
-            // Builders and miners are excluded.
-            foreach (var (transform, faction, lineOfSight, target, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
-                .WithAll<UnitTag>()
-                .WithNone<AttackCommand>()
-                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
-                                                //   ...except Feraldis Workers, which are
-                                                //   light infantry that also build. The tag
-                                                //   (not CanBuild) is what marks a worker as
-                                                //   non-combatant; FeraldisCultureRetrofitSystem
-                                                //   strips it.
-                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
-                                                //   Workers fight, so dropping PassiveWorkerTag
-                                                //   let this pass (and return-to-guard below)
-                                                //   grab them mid-build and fight the build
-                                                //   order for their DesiredDestination every
-                                                //   frame — the visible worker "glitching"
-                                                //   reported 2026-08-06. Command follow-through:
-                                                //   a worker with a build order finishes it.
-                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
-                .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
-                                                //   rule as the committed builder above, added
-                                                //   for the same failure.
-                                                //
-                                                //   The killer is the return-to-guard branch
-                                                //   below, not target acquisition. A ritualist
-                                                //   clears DesiredDestination to channel, which
-                                                //   makes it IDLE; its GuardPoint is still where
-                                                //   it spawned, tens of metres away; so the very
-                                                //   next tick walks it home at full speed. It
-                                                //   `continue`s before the damage check, so even
-                                                //   a 0-damage caster like the Iconoclast is
-                                                //   dragged off.
-                                                //
-                                                //   Measured 2026-08-07: 6 m -> 14 m in ~3 s
-                                                //   (2.7 m/s against a 3.2 move speed), breaking
-                                                //   the 40 s channel every single time. With
-                                                //   MaxGuardDistance at 10 m this hit EVERY
-                                                //   ritual on every map — no well is within
-                                                //   10 m of a spawn.
-                .WithEntityAccess())
-            {
-                // Skip units that already have an active target
-                if (target.ValueRO.Value != Entity.Null) continue;
 
-                // Scouts are vision-only by design. Even if a future tech /
-                // TechTreeDB entry ever bumps their Damage above 0, they
-                // must NEVER auto-engage — they are the AI's and player's
-                // sole map-vision tool and the AI patrol loop relies on
-                // them staying alive. Explicit class check guarantees this
-                // regardless of the damage value below.
-                if (em.HasComponent<UnitTag>(entity) &&
-                    em.GetComponentData<UnitTag>(entity).Class == UnitClass.Scout)
-                    continue;
 
-                // Economy units (workers / miners) NEVER auto-engage. A worker
-                // standing on a deposit is mining, so its DesiredDestination.Has
-                // is 0 — which means the "skip units with a destination" gate
-                // below does NOT protect it, and it would auto-acquire a nearby
-                // enemy and wander off to chase it while still assigned to the
-                // deposit (walking toward the enemy base). Keep them on task,
-                // same as the Scout rule above.
-                if (em.HasComponent<UnitTag>(entity))
-                {
-                    var cls = em.GetComponentData<UnitTag>(entity).Class;
-                    if (cls == UnitClass.Economy || cls == UnitClass.Miner) continue;
-                }
-
-                // Damage gate — only units that actually deal damage
-                // engage enemies. Litharchs (and any future zero-damage
-                // support tier) sit idle in their formation slot until a
-                // tech upgrades their damage above 0. Without this, a
-                // Litharch with Damage=0 and a cooldown timer would still
-                // pursue every enemy in LOS and stand in melee range
-                // doing nothing — design rule per the spec sweep.
-                if (!em.HasComponent<Damage>(entity)) continue;
-                if (em.GetComponentData<Damage>(entity).Value <= 0) continue;
-
-                // Cache HasComponent results to avoid repeated lookups
-                bool hasAttackMove = em.HasComponent<AttackMoveTag>(entity);
-                bool hasPatrol = em.HasComponent<PatrolTag>(entity);
-                bool hasUserMoveOrder = em.HasComponent<UserMoveOrder>(entity);
-                bool isActiveScanner = hasAttackMove || hasPatrol;
-
-                // Idle units (no AttackMove/Patrol) with UserMoveOrder skip targeting
-                if (!isActiveScanner && hasUserMoveOrder) continue;
-
-                // Idle units skip if currently moving to a destination
-                if (!isActiveScanner && em.HasComponent<DesiredDestination>(entity))
-                {
-                    var dd = em.GetComponentData<DesiredDestination>(entity);
-                    if (dd.Has != 0)
-                    {
-                        continue;
-                    }
-                }
-
-                var myPos = transform.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                var los = lineOfSight.ValueRO.Radius;
-
-                // ── LOS boost: every unit auto-acquires aggressively (+50%
-                // LOS). This preserves the long-standing single-unit
-                // behaviour after the battalion / stance system was removed.
-                los *= 1.5f;
-
-                // ── Idle-only guard distance constraint ──
-                // An idle unit that has wandered beyond MaxGuardDistance from
-                // its guard point is sent back instead of acquiring a target.
-                // Attack-move / patrol scanners are exempt (they advance).
-                if (!isActiveScanner)
-                {
-                    if (em.HasComponent<GuardPoint>(entity))
-                    {
-                        var guardPoint = em.GetComponentData<GuardPoint>(entity);
-                        if (guardPoint.Has != 0)
-                        {
-                            var distFromGuard = DistXZ(myPos, guardPoint.Position);
-                            if (distFromGuard > MaxGuardDistance)
-                            {
-                                if (!em.HasComponent<DesiredDestination>(entity))
-                                {
-                                    ecb.AddComponent(entity, new DesiredDestination
-                                    {
-                                        Position = guardPoint.Position,
-                                        Has = 1
-                                    });
-                                }
-                                else
-                                {
-                                    ecb.SetComponent(entity, new DesiredDestination
-                                    {
-                                        Position = guardPoint.Position,
-                                        Has = 1
-                                    });
-                                }
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                // Two-pass scan throughout: track both absolute-nearest enemy
-                // ("anyBest") and nearest under-cap enemy ("underBest"). Pick
-                // under-cap only when (a) the attacker is melee (ranged/siege
-                // don't physically clump, so they always pick nearest), AND
-                // (b) the under-cap candidate is within SpreadDistRatio of
-                // anyBest (so we don't march 50m to attack a far-away target
-                // when a saturated one is right in front of us). Otherwise
-                // fall back to anyBest — overflow attackers will dogpile.
-                bool isMelee = !em.HasComponent<UnitTag>(entity)
-                    || em.GetComponentData<UnitTag>(entity).Class == UnitClass.Melee;
-
-                // Buildings-only siege (Battering Ram): never auto-acquire a
-                // non-building target for holders — they exist to crack walls,
-                // not to swing at soldiers (the melee fire path refuses those
-                // anyway; see MeleeCombatSystem).
-                bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
-
-                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
-                // damages wall pieces, so non-siege never auto-acquires one.
-                bool nonSiegeAttacker = !em.HasComponent<DamageTypeData>(entity)
-                    || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege;
-
-                Entity bestTarget = Entity.Null;
-                Entity underBest = Entity.Null;
-                float underBestDist = float.MaxValue;
-                Entity anyBest = Entity.Null;
-                float anyBestDist = float.MaxValue;
-                byte anyBestPrio = 0;
-                Entity prioBest = Entity.Null;
-                float prioBestDist = float.MaxValue;
-                byte prioBestPrio = 0;
-
-                // ── Spatial-hash enemy scan (Fix #207) ──
-                // Visit only cells within LOS instead of iterating all enemies.
-                {
-                    int radius = (int)math.ceil(los / TargetingCellSize);
-                    var myCell = new int2(
-                        (int)math.floor(myPos.x / TargetingCellSize),
-                        (int)math.floor(myPos.z / TargetingCellSize));
-
-                    for (int dx = -radius; dx <= radius; dx++)
-                    {
-                        for (int dy = -radius; dy <= radius; dy++)
-                        {
-                            var cell = new int2(myCell.x + dx, myCell.y + dy);
-                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
-                            do
-                            {
-                                if (allEnemyFactions[i].Value == myFaction) continue;
-                                if (allEnemyHealth[i].Value <= 0) continue;
-
-                                // Buildings-only siege: units are invisible to
-                                // the ram's target scan.
-                                if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
-
-                                // The Wall Rule: wall pieces are invisible to
-                                // non-siege target scans.
-                                if (nonSiegeAttacker && em.HasComponent<WallTag>(allEnemies[i])) continue;
-
-                                var enemyPos = allEnemyTransforms[i].Position;
-                                // SURFACE distance, so a big building is judged by
-                                // where its walls are, not where its pivot is. A
-                                // 7x7 temple's pivot sits 3.5 m inside itself; on
-                                // centre distance it read as further away than a
-                                // hut standing right beside it, and the "nearest
-                                // enemy" pick skipped the thing the unit was
-                                // literally touching.
-                                var dist = TargetGeometry.SurfaceDistXZ(em, myPos, enemyPos, allEnemies[i]);
-                                if (dist > los) continue;
-
-                                // Curse & Shardroot canon §2.1: BORDER units
-                                // GUARD their wells — they don't hunt
-                                // harvesters. Worker-class targets (miners /
-                                // builders) are ignored unless they stray
-                                // right into the horde; military targets are
-                                // engaged normally. Makes sneak-mining the
-                                // crystal fields survivable.
-                                if (myFaction == Faction.Border && dist > 9f
-                                    && (em.HasComponent<MinerTag>(allEnemies[i])
-                                        || em.HasComponent<CanBuild>(allEnemies[i])))
-                                    continue;
-
-                                // Melee can't reach a vertically separated
-                                // enemy (bridge deck above / valley floor
-                                // below) — don't acquire it, pick someone
-                                // reachable instead. Ranged units keep the
-                                // target (they shoot up/down with the
-                                // high-ground rules).
-                                if (isMelee && math.abs(enemyPos.y - myPos.y) > MeleeMaxHeightDelta)
-                                    continue;
-
-                                // Skip stealthed enemies unless within proximity
-                                // reveal range (3u) or exposed by a Lorekeeper
-                                // (Antiquity detection stamp).
-                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f
-                                    && !em.HasComponent<StealthRevealed>(allEnemies[i]))
-                                    continue;
-
-                                byte prio = allEnemyPriority[i];
-                                if (dist < anyBestDist) { anyBest = allEnemies[i]; anyBestDist = dist; anyBestPrio = prio; }
-                                if (prio > prioBestPrio || (prio == prioBestPrio && dist < prioBestDist))
-                                {
-                                    prioBest = allEnemies[i];
-                                    prioBestDist = dist;
-                                    prioBestPrio = prio;
-                                }
-                                if (isMelee)
-                                {
-                                    int curCount = attackerCount.TryGetValue(allEnemies[i], out int cv) ? cv : 0;
-                                    if (curCount < MaxAttackersPerEnemy && dist < underBestDist)
-                                    {
-                                        underBest = allEnemies[i];
-                                        underBestDist = dist;
-                                    }
-                                }
-                            } while (spatialMap.TryGetNextValue(out i, ref it));
-                        }
-                    }
-
-                    // M2 bounded value tie-break: a higher-priority candidate
-                    // (healer/siege/caster) replaces the nearest pick only when
-                    // it sits within ValuePickDistRatio of it.
-                    // NearDistFloor: distances are now measured to the target's
-                    // SURFACE, so a unit pressed against a building reads 0.0 —
-                    // and a pure ratio against 0 is 0, which would let a wall
-                    // permanently out-rank the soldier standing next to it.
-                    // Floor the comparison basis so "within 25% of nearest" also
-                    // means "or within a metre or so, absolute".
-                    if (prioBest != Entity.Null && prioBestPrio > anyBestPrio
-                        && prioBestDist <= math.max(anyBestDist, NearDistFloor) * ValuePickDistRatio)
-                    {
-                        anyBest = prioBest;
-                        anyBestDist = prioBestDist;
-                    }
-
-                    bestTarget = PickSpreadOrNearest(underBest, underBestDist, anyBest, anyBestDist);
-                }
-
-                // Record the assignment so the next iteration in this same
-                // AutoAcquireTargets pass sees the updated count (prevents two
-                // simultaneously-assigned attackers from both picking the same
-                // enemy because both saw count=0).
-                if (bestTarget != Entity.Null)
-                {
-                    int prev = attackerCount.TryGetValue(bestTarget, out int pv) ? pv : 0;
-                    attackerCount[bestTarget] = prev + 1;
-                }
-
-                if (bestTarget != Entity.Null && em.Exists(bestTarget))
-                {
-                    ecb.SetComponent(entity, new Target { Value = bestTarget });
-
-                    // Attack-move and patrol units also issue an AttackCommand so combat systems chase
-                    // Do NOT clear DesiredDestination - unit resumes movement after combat
-                    if (isActiveScanner)
-                    {
-                        if (!em.HasComponent<AttackCommand>(entity))
-                            ecb.AddComponent(entity, new AttackCommand { Target = bestTarget });
-                            else
-                                ecb.SetComponent(entity, new AttackCommand { Target = bestTarget });
-                    }
-                }
-            }
-        }
-
-        [BurstCompile]
-        private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
-            NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
-            NativeParallelMultiHashMap<int2, int> spatialMap)
-        {
-            var em = state.EntityManager;
-
-            foreach (var (transform, guardPoint, faction, lineOfSight, rtgTarget, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
-                .WithAll<UnitTag>()
-                .WithNone<AttackCommand>()
-                .WithNone<UserMoveOrder>()
-                .WithNone<HealCommand>()        // Healers actively healing should not snap back
-                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
-                                                //   ...except Feraldis Workers, which are
-                                                //   light infantry that also build. The tag
-                                                //   (not CanBuild) is what marks a worker as
-                                                //   non-combatant; FeraldisCultureRetrofitSystem
-                                                //   strips it.
-                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
-                                                //   Workers fight, so dropping PassiveWorkerTag
-                                                //   let this pass (and return-to-guard below)
-                                                //   grab them mid-build and fight the build
-                                                //   order for their DesiredDestination every
-                                                //   frame — the visible worker "glitching"
-                                                //   reported 2026-08-06. Command follow-through:
-                                                //   a worker with a build order finishes it.
-                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
-                .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
-                                                //   rule as the committed builder above, added
-                                                //   for the same failure.
-                                                //
-                                                //   The killer is the return-to-guard branch
-                                                //   below, not target acquisition. A ritualist
-                                                //   clears DesiredDestination to channel, which
-                                                //   makes it IDLE; its GuardPoint is still where
-                                                //   it spawned, tens of metres away; so the very
-                                                //   next tick walks it home at full speed. It
-                                                //   `continue`s before the damage check, so even
-                                                //   a 0-damage caster like the Iconoclast is
-                                                //   dragged off.
-                                                //
-                                                //   Measured 2026-08-07: 6 m -> 14 m in ~3 s
-                                                //   (2.7 m/s against a 3.2 move speed), breaking
-                                                //   the 40 s channel every single time. With
-                                                //   MaxGuardDistance at 10 m this hit EVERY
-                                                //   ritual on every map — no well is within
-                                                //   10 m of a spawn.
-                .WithEntityAccess())
-            {
-                // Skip units that have an active target
-                if (rtgTarget.ValueRO.Value != Entity.Null) continue;
-                if (guardPoint.ValueRO.Has == 0) continue;
-
-                // Scouts are vision-only roamers steered by the ScoutDirector
-                // (AI) or the player — they must NEVER snap back to a guard
-                // point on their own. Without this exemption (mirror of the
-                // AutoAcquireTargets scout gate above), return-to-guard
-                // overrode every far scouting assignment with a recall to the
-                // spawn Hall on the next frame.
-                if (em.GetComponentData<UnitTag>(entity).Class == UnitClass.Scout)
-                    continue;
-
-                // Skip healers actively healing (HealCommand is consumed immediately
-                // by LitharchHealingSystem, so check LitharchState.IsHealing instead)
-                if (em.HasComponent<LitharchState>(entity))
-                {
-                    var ls = em.GetComponentData<LitharchState>(entity);
-                    if (ls.IsHealing != 0 && ls.HealTarget != Entity.Null && em.Exists(ls.HealTarget))
-                        continue;
-                }
-
-                var myPos = transform.ValueRO.Position;
-                var gpPos = guardPoint.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                var los = lineOfSight.ValueRO.Radius;
-                var distToGuard = DistXZ(myPos, gpPos);
-
-                // Hold position units: do NOT return to guard point or chase
-                // They stay exactly where they are
-                if (em.HasComponent<HoldPositionTag>(entity))
-                    continue;
-
-                // Attack-move units: resume advancing toward destination after combat
-                // instead of returning to guard point (guard point IS the destination)
-                if (em.HasComponent<AttackMoveTag>(entity))
-                {
-                    if (distToGuard > GuardReturnThreshold)
-                    {
-                        // Re-set DesiredDestination to resume movement toward attack-move destination
-                        if (!em.HasComponent<DesiredDestination>(entity))
-                        {
-                            ecb.AddComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                    }
-                    continue; // Skip normal return-to-guard logic
-                }
-
-                // Patrol units: resume patrol toward current waypoint after combat
-                // GuardPoint is set to the current patrol waypoint by PatrolSystem
-                if (em.HasComponent<PatrolTag>(entity))
-                {
-                    if (distToGuard > GuardReturnThreshold)
-                    {
-                        // Re-set DesiredDestination to resume patrol toward current waypoint
-                        if (!em.HasComponent<DesiredDestination>(entity))
-                        {
-                            ecb.AddComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                    }
-                    continue; // Skip normal return-to-guard logic
-                }
-
-                // Only consider returning if we're far from guard point
-                if (distToGuard > GuardReturnThreshold)
-                {
-                    // Check if there are any enemies in line of sight (Fix #207: spatial hash).
-                    Entity nearestEnemy = Entity.Null;
-                    float nearestDist = float.MaxValue;
-
-                    // Buildings-only siege (Battering Ram): this engage branch
-                    // is auto-acquisition too — same building-only filter as
-                    // AutoAcquireTargets above.
-                    bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
-
-                    // The Wall Rule: same non-siege wall filter as above.
-                    bool nonSiegeAttacker = !em.HasComponent<DamageTypeData>(entity)
-                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege;
-
-                    int radius = (int)math.ceil(los / TargetingCellSize);
-                    var myCell = new int2(
-                        (int)math.floor(myPos.x / TargetingCellSize),
-                        (int)math.floor(myPos.z / TargetingCellSize));
-
-                    for (int dx = -radius; dx <= radius; dx++)
-                    {
-                        for (int dy = -radius; dy <= radius; dy++)
-                        {
-                            var cell = new int2(myCell.x + dx, myCell.y + dy);
-                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
-                            do
-                            {
-                                if (allEnemyFactions[i].Value == myFaction) continue;
-                                if (allEnemyHealth[i].Value <= 0) continue;
-
-                                // Buildings-only siege: units are invisible to
-                                // the ram's target scan.
-                                if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
-
-                                // The Wall Rule: wall pieces are invisible to
-                                // non-siege target scans.
-                                if (nonSiegeAttacker && em.HasComponent<WallTag>(allEnemies[i])) continue;
-
-                                var enemyPos = allEnemyTransforms[i].Position;
-                                var dist = DistXZ(myPos, enemyPos);
-
-                                // Skip stealthed enemies unless within proximity
-                                // reveal range (3u) or exposed by a Lorekeeper
-                                // (Antiquity detection stamp).
-                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f
-                                    && !em.HasComponent<StealthRevealed>(allEnemies[i]))
-                                    continue;
-
-                                if (dist <= los && dist < nearestDist)
-                                {
-                                    nearestEnemy = allEnemies[i];
-                                    nearestDist = dist;
-                                }
-                            } while (spatialMap.TryGetNextValue(out i, ref it));
-                        }
-                    }
-
-                    // If we found an enemy and it still exists, engage it instead of returning
-                    if (nearestEnemy != Entity.Null && em.Exists(nearestEnemy))
-                    {
-                        ecb.SetComponent(entity, new Target { Value = nearestEnemy });
-
-                        if (!em.HasComponent<AttackCommand>(entity))
-                        {
-                            ecb.AddComponent(entity, new AttackCommand { Target = nearestEnemy });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new AttackCommand { Target = nearestEnemy });
-                        }
-
-                        continue; // Don't return to guard point
-                    }
-
-                    // No enemies found: Return to guard point
-                    bool isMovingToGuard = false;
-                    if (em.HasComponent<DesiredDestination>(entity))
-                    {
-                        var dest = em.GetComponentData<DesiredDestination>(entity);
-                        if (dest.Has != 0)
-                        {
-                            var distToDest = DistXZ(dest.Position, gpPos);
-                            isMovingToGuard = distToDest < 1f;
-                        }
-                    }
-
-                    if (!isMovingToGuard)
-                    {
-                        if (!em.HasComponent<DesiredDestination>(entity))
-                        {
-                            ecb.AddComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new DesiredDestination
-                            {
-                                Position = gpPos,
-                                Has = 1
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        [BurstCompile]
-        private void CleanupStaleCommands(ref SystemState state, ref EntityCommandBuffer ecb)
-        {
-            var em = state.EntityManager;
-
-            foreach (var (dd, staleTarget, entity) in SystemAPI
-                .Query<RefRO<DesiredDestination>, RefRO<Target>>()
-                .WithAll<AttackCommand>()
-                .WithEntityAccess())
-            {
-                // Only clean up if unit has no active target
-                if (staleTarget.ValueRO.Value != Entity.Null) continue;
-
-                if (dd.ValueRO.Has == 0 && em.HasComponent<AttackCommand>(entity))
-                {
-                    ecb.RemoveComponent<AttackCommand>(entity);
-                }
-            }
-        }
-
-        [BurstCompile]
-        private void CleanupLastAttacker(ref SystemState state, ref EntityCommandBuffer ecb)
-        {
-            // Remove LastAttackerEntity ONLY when the attacker no longer exists,
-            // not unconditionally. Earlier this stripped the component from every
-            // entity each frame so combat systems had to re-add it on every hit
-            // (4 archetype mutations per attacker per attack — measurable on a
-            // 200-unit fight). Now the component sticks around as long as the
-            // attacker entity is alive; combat systems still overwrite the value
-            // when a new hit lands. (task-062 Q-12)
-            var em = state.EntityManager;
-            foreach (var (lastAttacker, entity) in SystemAPI.Query<RefRO<LastAttackerEntity>>()
-                .WithEntityAccess())
-            {
-                if (!em.Exists(lastAttacker.ValueRO.Value))
-                    ecb.RemoveComponent<LastAttackerEntity>(entity);
-            }
-        }
-
-        /// <summary>
-        /// Returns underBest if it's a valid candidate within SpreadDistRatio of
-        /// anyBest's distance, otherwise falls back to anyBest. Keeps overflow
-        /// attackers from trekking far across the map just to honour the cap —
-        /// they'll dogpile a nearby capped enemy if no reasonable alternative
-        /// is in range.
-        /// </summary>
-        private static Entity PickSpreadOrNearest(Entity underBest, float underBestDist,
-            Entity anyBest, float anyBestDist)
-        {
-            if (underBest == Entity.Null) return anyBest;
-            if (anyBest == Entity.Null) return underBest;
-            // underBest is by definition >= anyBest. Only accept it if the
-            // detour cost is within SpreadDistRatio of nearest.
-            if (underBestDist <= math.max(anyBestDist, NearDistFloor) * SpreadDistRatio) return underBest;
-            return anyBest;
-        }
 
     }
 }

@@ -105,7 +105,8 @@ namespace TheWaningBorder.Systems.Economy
                 var pos = bXf[b].Position;
                 for (int i = 0; i < units.Length; i++)
                 {
-                    if (unitFactions[i].Value != faction) continue;
+                    // Shrines heal allies too. docs/Design/Teams.md
+                    if (!Alliances.AreAllied(faction, unitFactions[i].Value)) continue;
 
                     var hp = em.GetComponentData<Health>(units[i]);
                     if (hp.Value <= 0 || hp.Value >= hp.Max) continue;

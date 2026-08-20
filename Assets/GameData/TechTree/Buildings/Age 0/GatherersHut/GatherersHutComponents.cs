@@ -9,6 +9,23 @@ using Unity.Mathematics;
 /// <summary>Resource collection building.</summary>
 public struct GathererHutTag : IComponentData { }
 
+/// <summary>
+/// The hut's open-ground coverage, 0..1 — the "yield %" the placement
+/// preview shows, kept after the hut is built.
+///
+/// GathererHutIncomeSystem computes this every tick and folds it straight
+/// into SuppliesIncome.PerTick, where it is then compounded with the guild
+/// level bonus and the influence doubling. That makes it impossible to read
+/// the placement quality back off the income, so the system stores it here
+/// as well: the tutorial checks it, and any UI wanting to show "this hut is
+/// only earning 40% of what it could" can read it too.
+/// </summary>
+public struct GathererHutYield : IComponentData
+{
+    /// <summary>0..1 fraction of the gather circle that is productive.</summary>
+    public float Ratio;
+}
+
 /// <summary>Tracks farm placement order for priority-based income (first-come-first-served).</summary>
 public struct FarmBuildOrder : IComponentData { public int Value; }
 

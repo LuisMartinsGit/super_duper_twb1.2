@@ -50,35 +50,6 @@ namespace TheWaningBorder.AI
     // COMBAT POWER
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Represents the combat strength of a unit or army.
-    /// Used for AI tactical decisions and army composition.
-    /// </summary>
-    public struct CombatPower : IComponentData
-    {
-        /// <summary>Base combat power value</summary>
-        public int Value;
-
-        /// <summary>Offensive strength (attack capability)</summary>
-        public int OffensivePower;
-
-        /// <summary>Defensive strength (survivability)</summary>
-        public int DefensivePower;
-
-        /// <summary>Threat level this unit poses (for targeting priority)</summary>
-        public float ThreatLevel;
-    }
-
-    /// <summary>
-    /// Buffer element for tracking combat power of units in an army.
-    /// </summary>
-    public struct CombatPowerEntry : IBufferElementData
-    {
-        public Entity Unit;
-        public int Power;
-        public UnitClass UnitType;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // SCOUTING STATE
     // ═══════════════════════════════════════════════════════════════════════

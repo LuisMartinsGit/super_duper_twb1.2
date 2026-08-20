@@ -124,6 +124,23 @@ public static class CultureConfig
     // Anything gated on "age-up is done" (UI palette, building influence)
     // must read these helpers, not FactionColors.
 
+    // These helpers run per-frame from managed code (placement checks, the
+    // prefab swap scan), so the queries must be cached — CreateEntityQuery
+    // per call is the query-registry leak behind the old FPS decay.
+    //
+    // LAZY on purpose: ComponentType.ReadOnly<T>() asks the ECS TypeManager
+    // for a type index. As a static FIELD initializer it ran inside this
+    // class's cctor at whatever moment the class was first touched — in the
+    // player that was the skirmish lobby (SkirmishPanel's own cctor), before
+    // the TypeManager was ready, and the TypeInitializationException killed
+    // the lobby. Built on first use instead: every caller passes a live
+    // EntityManager, which guarantees the TypeManager is up by then.
+    private static Unity.Entities.ComponentType[] _completedCultureTypes;
+    private static TheWaningBorder.Core.CachedEntityQuery _completedCultureQuery;
+
+    private static Unity.Entities.ComponentType[] _ageUpProgressTypes;
+    private static TheWaningBorder.Core.CachedEntityQuery _ageUpProgressQuery;
+
     /// <summary>
     /// The faction's culture as committed by a COMPLETED age-up
     /// (Hall FactionProgress). Cultures.None while Age 0 or mid-research.
@@ -131,10 +148,11 @@ public static class CultureConfig
     public static byte GetCompletedCulture(Unity.Entities.EntityManager em, Faction faction)
     {
         if (em.Equals(default(Unity.Entities.EntityManager))) return Cultures.None;
-        var q = em.CreateEntityQuery(
+        _completedCultureTypes ??= new[] {
             Unity.Entities.ComponentType.ReadOnly<HallTag>(),
             Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
-            Unity.Entities.ComponentType.ReadOnly<FactionProgress>());
+            Unity.Entities.ComponentType.ReadOnly<FactionProgress>() };
+        var q = _completedCultureQuery.Get(em, _completedCultureTypes);
         using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
         using var prog = q.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
         for (int i = 0; i < tags.Length; i++)
@@ -152,10 +170,11 @@ public static class CultureConfig
         progress01 = 0f;
         culture = Cultures.None;
         if (em.Equals(default(Unity.Entities.EntityManager))) return false;
-        var q = em.CreateEntityQuery(
+        _ageUpProgressTypes ??= new[] {
             Unity.Entities.ComponentType.ReadOnly<HallTag>(),
             Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
-            Unity.Entities.ComponentType.ReadOnly<AgeUpState>());
+            Unity.Entities.ComponentType.ReadOnly<AgeUpState>() };
+        var q = _ageUpProgressQuery.Get(em, _ageUpProgressTypes);
         using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
         using var states = q.ToComponentDataArray<AgeUpState>(Unity.Collections.Allocator.Temp);
         for (int i = 0; i < tags.Length; i++)
@@ -212,14 +231,21 @@ public static class CultureConfig
     /// gate and cannot be adopted by the player. Single source of truth
     /// for the IMGUI popup, the web HUD overlay, and the age-up guards.
     ///
-    /// Ship gate (2026-08-09): the first build ships ONE culture, so Runai
-    /// and Feraldis are both locked and Alanthor is the only choice. That
-    /// matches the AI, which only ever drives Alanthor (SimpleAISystem's
-    /// CultureFor is hard-coded to it), so a locked culture cannot reach
-    /// the field from either side. Drop a culture from this test to ship it.
+    /// Ship gate (2026-08-09): the first build shipped ONE culture, so Runai
+    /// and Feraldis were both locked and Alanthor was the only choice.
+    ///
+    /// FERALDIS RE-ENABLED (2026-08-18) after its mechanic audit: the culture
+    /// is wired end to end — frenzy-on-blood, the BloodMap, bleeding, warpath,
+    /// raider camps and the plunder ladder, batch training, the pop override,
+    /// the Mine and the Corruptor ritual all run (see
+    /// docs/Design/Age_1_Feraldis.md). Both the player's age-up choice and the
+    /// AI's pick read this test, so dropping it here opens the culture on both
+    /// sides at once. Runai stays locked — its trade-lane core is still stubbed.
+    ///
+    /// Drop a culture from this test to ship it.
     /// </summary>
     public static bool IsComingSoon(byte culture)
-        => culture == Cultures.Runai || culture == Cultures.Feraldis;
+        => culture == Cultures.Runai;
 
     /// <summary>
     /// Coerces a desired culture to one this build actually ships.

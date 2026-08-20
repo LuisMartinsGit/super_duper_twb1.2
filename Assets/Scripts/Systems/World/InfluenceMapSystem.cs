@@ -44,7 +44,6 @@ namespace TheWaningBorder.Systems.World
         // near rate·falloff/0.05, so the 0.5 border sits where
         // falloff ≥ 2.5/rate — higher rate → the border reaches further out.)
         private const float CurseMainRate = 6f;   private const float CurseMainRadius = 30f;
-        private const float CurseSubRate  = 4.5f; private const float CurseSubRadius  = 16f;
         private const float CurseUnitRate = 2.5f; private const float CurseUnitRadius = 8f;
 
         // Alanthor fortifications — claim distinctly faster than the curse creeps.
@@ -93,7 +92,6 @@ namespace TheWaningBorder.Systems.World
         private double _lastTick;
 
         private EntityQuery _curseMainQ;
-        private EntityQuery _curseSubQ;
         private EntityQuery _curseUnitQ;
         private EntityQuery _hubQ;
         private EntityQuery _instanceQ;
@@ -121,9 +119,6 @@ namespace TheWaningBorder.Systems.World
 
             _curseMainQ = state.GetEntityQuery(
                 ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            _curseSubQ = state.GetEntityQuery(
-                ComponentType.ReadOnly<BorderSubNodeTag>(),
                 ComponentType.ReadOnly<LocalTransform>());
             _curseUnitQ = state.GetEntityQuery(
                 ComponentType.ReadOnly<BorderUnitTag>(),
@@ -195,15 +190,28 @@ namespace TheWaningBorder.Systems.World
             // Fixed timestep: accumulation is tick-count based, not frame based.
             const float dt = TickInterval;
 
-            PlayerInfluenceMap.Decay(DecayFractionPerSecond * dt, DecayLinearPerSecond * dt);
+            // Culture snapshot FIRST — the decay pass below needs to know
+            // which channels belong to Feraldis factions.
+            RefreshCompletedCultures();
+
+            // Feraldis territory never decays (docs/Design/Age_1_Feraldis.md
+            // § Feraldis influence never decays): its channels sit out the
+            // uniform decay entirely and instead erode only on cells where
+            // another player or the curse matches or beats them. Same rates,
+            // so contested ground still flips on the usual ~15 s / ~45 s
+            // clock — it just never fades on its own.
+            int feraldisMask = FeraldisChannelMask();
+            PlayerInfluenceMap.Decay(DecayFractionPerSecond * dt,
+                DecayLinearPerSecond * dt, feraldisMask);
+            PlayerInfluenceMap.DecayOutranked(feraldisMask,
+                DecayFractionPerSecond * dt, DecayLinearPerSecond * dt);
+
             // §2.5b rev.3: blood only fades on TENDED ground (inside any
             // player influence). Outside influence it is eternal — old
             // battlefields stay stained until a blood-curse spawn consumes
             // them (BloodCurseSpawnSystem).
             BloodMap.DecayInsideInfluence(BloodDecayFractionPerSecond * dt,
                 BloodDecayLinearPerSecond * dt, BloodCleanInfluenceThreshold);
-
-            RefreshCompletedCultures();
 
             // Curse — Border nodes + creatures spread the curse channel.
             // §2.5b escalation (2026-08-04): deposits strengthen very slowly
@@ -213,7 +221,6 @@ namespace TheWaningBorder.Systems.World
             float curseGrowth = 1f + TheWaningBorder.Core.Config.VeilCrustConstants
                 .CurseInfluenceGrowthPerMinute * (float)(now / 60.0);
             DepositCurseNodes(em, _curseMainQ, CurseMainRadius, CurseMainRate * dt * curseGrowth);
-            DepositCurseNodes(em, _curseSubQ,  CurseSubRadius,  CurseSubRate * dt * curseGrowth);
             // Creatures die and drop out of the query — no state to filter.
             DepositAll(_curseUnitQ, PlayerInfluenceMap.CurseChannel, CurseUnitRadius, CurseUnitRate * dt * curseGrowth);
 
@@ -385,6 +392,19 @@ namespace TheWaningBorder.Systems.World
                     xfs[i].Position.x, xfs[i].Position.z,
                     radius * dm, (int)faction, amount * rm);
             }
+        }
+
+        /// <summary>Bitmask of the influence channels owned by factions that
+        /// have COMPLETED the Feraldis age-up — the channels exempt from
+        /// decay. Mid-research factions still read as Cultures.None and
+        /// decay normally; a faction that finishes the age-up freezes
+        /// whatever it holds at that moment.</summary>
+        private static int FeraldisChannelMask()
+        {
+            int mask = 0;
+            for (int f = 0; f < _completedCulture.Length; f++)
+                if (_completedCulture[f] == Cultures.Feraldis) mask |= 1 << f;
+            return mask;
         }
 
         private static byte CultureOf(Faction faction)

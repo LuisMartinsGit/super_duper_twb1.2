@@ -17,6 +17,23 @@ namespace TheWaningBorder.UI.HUD
         private const float UpdateInterval = 0.25f;
         private const int CanvasSortingOrder = 60; // above bars (50), below web HUD (100)
 
+        /// <summary>Gap from the top screen edge to the clock label.</summary>
+        private const float TopGapPx = 6f;
+        /// <summary>Clock label height.</summary>
+        private const float LabelHeightPx = 26f;
+
+        /// <summary>
+        /// SCREEN PIXELS the clock reserves at top-centre, top edge down.
+        ///
+        /// Raw pixels, not canvas units: the clock lives on its own
+        /// constant-pixel canvas, so it is the same size on screen at every
+        /// resolution. Anything else that pins top-centre — TopChoiceBar's
+        /// "SELECT CULTURE" pill — must clear this, and if that widget's canvas
+        /// scales with screen size it has to convert through its own
+        /// scaleFactor rather than assume the two agree.
+        /// </summary>
+        public const float ReservedScreenHeight = TopGapPx + LabelHeightPx;
+
         private Text _label;
         private float _nextUpdate;
 
@@ -46,8 +63,8 @@ namespace TheWaningBorder.UI.HUD
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -6f);
-            rt.sizeDelta = new Vector2(160f, 26f);
+            rt.anchoredPosition = new Vector2(0f, -TopGapPx);
+            rt.sizeDelta = new Vector2(160f, LabelHeightPx);
         }
 
         private void Update()

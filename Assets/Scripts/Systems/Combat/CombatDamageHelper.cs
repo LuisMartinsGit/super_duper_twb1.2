@@ -82,6 +82,25 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         /// <summary>
+        /// Attack-cooldown multiplier from timed haste (SectHaste, i.e. Blood
+        /// Rain). Returns 1 when the unit is not hasted, so callers can multiply
+        /// it in unconditionally.
+        ///
+        /// SectHaste.Multiplier is a SPEED multiplier, so the cooldown is
+        /// DIVIDED by it: +15% attack speed means the unit swings on 1/1.15 of
+        /// its normal cooldown. A zero multiplier means the component was
+        /// stamped without one — that is "no effect", not "infinite cooldown",
+        /// hence the &lt;= 0 guard.
+        /// </summary>
+        public static float GetHasteCooldownMult(EntityManager em, Entity attacker)
+        {
+            if (!em.HasComponent<SectHaste>(attacker)) return 1f;
+            var haste = em.GetComponentData<SectHaste>(attacker);
+            if (haste.TimeRemaining <= 0f) return 1f;
+            return haste.Multiplier <= 0f ? 1f : 1f / haste.Multiplier;
+        }
+
+        /// <summary>
         /// Merge a new SpellBuff onto an entity. If the entity already has one,
         /// the per-field max wins (so a shorter Safeguard doesn't wipe a longer
         /// Aura's reflect). Without this merge, `ecb.AddComponent` overwrites
@@ -119,9 +138,49 @@ namespace TheWaningBorder.Systems.Combat
         /// buffs scale with base damage, not with one-shot proc damage.
         /// (task-062 C-1)
         /// </summary>
+        /// <summary>
+        /// True when <paramref name="attacker"/> may actually take HP off
+        /// <paramref name="target"/> — the same rule
+        /// <see cref="ApplyBonusDamageOnHit"/> enforces by returning 0, exposed
+        /// so a caller can skip the hit ENTIRELY.
+        ///
+        /// Callers need this because every damage site ends with a
+        /// minimum-damage floor (`math.max(1, finalDamage)`, or the ranged
+        /// building-chip clamp). A floor applied AFTER the ally gate turns the
+        /// gate's 0 straight back into 1, and teammates chipped each other for
+        /// a point a swing — the "allies are attacking each other" report of
+        /// 2026-08-15. The gate and the floor have to agree, so the floor asks
+        /// this first. docs/Design/Teams.md
+        ///
+        /// Entities without a FactionTag (neutral props, unowned wreckage) are
+        /// damageable as before — this only speaks about faction relations.
+        /// </summary>
+        public static bool CanDamage(EntityManager em, Entity attacker, Entity target)
+        {
+            if (!em.HasComponent<FactionTag>(attacker) || !em.HasComponent<FactionTag>(target))
+                return true;
+
+            return Alliances.AreHostile(
+                em.GetComponentData<FactionTag>(attacker).Value,
+                em.GetComponentData<FactionTag>(target).Value);
+        }
+
         public static int ApplyBonusDamageOnHit(EntityManager em, EntityCommandBuffer ecb,
             Entity attacker, Entity target, int baseDamage)
         {
+            // Last line of defence for the no-allied-damage rule. Hostility is
+            // decided upstream (target acquisition, attack orders, AoE filters)
+            // and MeleeCombatSystem / RangedCombatSystem deliberately do no
+            // faction check of their own — they damage whatever is in Target.
+            // A zero here means any path that slips through, now or later,
+            // still cannot hurt a teammate. docs/Design/Teams.md
+            if (em.HasComponent<FactionTag>(attacker) && em.HasComponent<FactionTag>(target))
+            {
+                var af = em.GetComponentData<FactionTag>(attacker).Value;
+                var tf = em.GetComponentData<FactionTag>(target).Value;
+                if (!Alliances.AreHostile(af, tf)) return 0;
+            }
+
             int final = baseDamage;
 
             // SpellBuff.DamageMultiplier on attacker (Empower-style timed buff)
@@ -425,6 +484,37 @@ namespace TheWaningBorder.Systems.Combat
         /// gate repair ticks on a quiet-window threshold. Pass 0 from callers
         /// that don't have the time handy. (task-063 phase 2c)
         /// </summary>
+        /// <summary>
+        /// Add <paramref name="damage"/> to the attacker's match-long damage
+        /// ledger (<see cref="DamageDealtTotal"/>), which the Wrath sect's
+        /// Spite pools and pays back. Call this wherever damage is actually
+        /// subtracted from a target's Health, with the FINAL amount that
+        /// landed — Spite's whole premise is that a unit answers for what it
+        /// really did, not what it rolled before mitigation.
+        ///
+        /// Silently ignores non-positive amounts and dead references, so it is
+        /// safe to call unconditionally from a combat hot path.
+        /// </summary>
+        public static void RecordDamageDealt(EntityManager em, EntityCommandBuffer ecb,
+            Entity attacker, int damage)
+        {
+            if (damage <= 0) return;
+            if (attacker == Entity.Null || !em.Exists(attacker)) return;
+
+            if (em.HasComponent<DamageDealtTotal>(attacker))
+            {
+                var led = em.GetComponentData<DamageDealtTotal>(attacker);
+                led.Value += damage;
+                em.SetComponentData(attacker, led);
+            }
+            else
+            {
+                // Structural add during query iteration — must go through the
+                // command buffer.
+                ecb.AddComponent(attacker, new DamageDealtTotal { Value = damage });
+            }
+        }
+
         public static void TrackLastDamager(EntityManager em, EntityCommandBuffer ecb,
             Entity attacker, Entity target, double elapsedTime = 0)
         {
@@ -457,9 +547,5 @@ namespace TheWaningBorder.Systems.Combat
                     ecb.AddComponent(target, stamp);
             }
         }
-
-        // task-063 phase 1: ApplySectOnHitDebuffs deleted with the old
-        // FactionSectState multiplier bridge. Panic / control chance are sect
-        // levers that Phase 2 will reintroduce per-sect, per-lever.
     }
 }

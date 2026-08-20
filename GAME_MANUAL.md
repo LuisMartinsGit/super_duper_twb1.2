@@ -1,7 +1,7 @@
 # The Waning Border — Player Manual
 
 A real-time strategy game of culture, conquest, and the slow tide of the
-Crystal Curse.
+The Border.
 
 > **For game-design content** (resources, buildings, units, techs, factions,
 > sects, era progression), see **[docs/Design/](docs/Design/Overview.md)** —
@@ -28,16 +28,16 @@ Crystal Curse.
 ## 1. Overview
 
 The Waning Border is an RTS in which you take command of one of three
-rising cultures on a continent slowly being consumed by the Crystal Curse.
+rising cultures on a continent slowly being consumed by the The Border.
 You start in a **neutral, pre-culture age (Age 0)**, gather supplies and
 iron, and at the right moment commit your people to a culture — **Runai**
 (nomadic traders), **Alanthor** (defensive forgemasters), or **Feraldis**
 (fierce warbands). Each culture rewrites your economy, your buildings, and
 your military doctrine.
 
-Beyond the rival player factions, every map is haunted by **Crystal Main
-Nodes** — alien growths that spawn hostile crystal creatures and slowly
-spread cursed ground. Defeating, cleansing, or converting these nodes is
+Beyond the rival player factions, every map is haunted by **Veilstone Main
+Nodes** — alien growths that spawn hostile veilstone creatures and slowly
+spread border ground. Defeating, cleansing, or converting these nodes is
 at the heart of every match — and it's the only source of **Glow**, the
 late-game super-resource.
 
@@ -59,7 +59,7 @@ MonoBehaviour UI on top.
 | Mode | Description |
 |---|---|
 | **Free-For-All** | Standard skirmish, 2+ player factions, no shared teams. |
-| **Solo vs. Curse** | A single player against the Crystal Curse AI. |
+| **Solo vs. Border** | A single player against the The Border AI. |
 | **Scenario** | Pre-built maps such as *LargeMelee*, *FourWayCultures*, *WallSiege*. |
 | **Sandbox** | Unrestricted building and testing — no victory conditions. |
 | **Battalion Test** | Minimal bootstrap for testing formations. |
@@ -71,7 +71,7 @@ Every faction begins identically, regardless of mode:
 
 - **Supplies:** 400
 - **Iron:** 150
-- **Crystal:** 0
+- **Veilstone:** 0
 - **Veilsteel:** 0
 - **Glow:** 0
 - **Age:** 0 (pre-culture / neutral aesthetic)
@@ -79,8 +79,8 @@ Every faction begins identically, regardless of mode:
 - **Starting structures:** One Hall, placed at your spawn position.
 - **Population cap:** 20 (from your starting Hall).
 
-The map will also have one or more **Crystal Main Nodes** pre-placed and a
-scatter of **Cadavers** (crystal corpses) to mine.
+The map will also have one or more **Veilstone Main Nodes** pre-placed and a
+scatter of **Cadavers** (veilstone corpses) to mine.
 
 For the full breakdown of what you can build / train / research in Age 0,
 see [docs/Design/Age_0.md](docs/Design/Age_0.md).
@@ -107,15 +107,16 @@ military units over economy units when both are inside the box.
 
 | Action | Control |
 |---|---|
-| Pan | W / A / S / D, edge-scroll, or hold Middle Mouse + drag |
+| Pan | Arrow keys, edge-scroll, or hold Middle Mouse + drag |
 | Zoom | Mouse wheel (range ~15–80 units) |
-| Rotate left / right | Q / E |
-| Tilt up / down | R / F (tilt keys; see note below) |
 | Center on group | Double-tap a control group key |
 | Click-pan via minimap | Left-click on the minimap |
 
-> **Note on F:** F doubles as a tilt key and as the **Default stance** key.
-> Context (whether you have battalions selected) determines which.
+> **The camera is deliberately locked to a fixed angle and tilt** — it only
+> pans and zooms. Rotation (Q / E), tilt (R / F) and WASD panning are
+> intentionally disabled (`CameraController.Update`), so **A is unambiguously
+> attack-move and F is unambiguously Default stance**. Panning is on the arrow
+> keys, not WASD.
 
 ### Keyboard Hotkeys
 
@@ -126,6 +127,7 @@ military units over economy units when both are inside the box.
 | **S** | Stop — clear all commands on selected units. |
 | **H** | Hold Position — stay in place but defend in range. |
 | **D / F / G** | Stance: Aggressive / Default / Defensive. |
+| **X** | Cycle formation shape: Box → Line → Wedge → Staggered. Re-slots the current selection immediately (AoE4-style). |
 | **B** | Cycle through idle Builders and center the camera. |
 | **Z** | Enter / exit Planning Mode (queue commands visually, execute on confirm). |
 | **Esc** | Cascading: close menu → exit mode → clear selection → open menu. |
@@ -140,16 +142,16 @@ Right-click does whatever makes sense for the target:
 
 | Target | Result |
 |---|---|
-| Ground | Move (in formation). |
+| Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). |
+| Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
 | Friendly damaged building | Repair (with builders). |
 | Friendly under-construction building | Resume building (with builders). |
 | Friendly unit (Litharch selected) | Heal. |
-| Resource node / Cadaver (Worker selected) | Gather. |
-| Hall or GathererHut (Worker selected) | Return cargo and deposit. |
-| Smelter (Worker selected) | Supply the Smelter with iron and crystal. |
-| Crystal Main Node, active (Scholar selected) | Begin Purification ritual (Alanthor). |
-| Crystal Main Node, active (Acolyte selected) | Begin Conversion ritual (Runai). |
+| Resource node / Cadaver (Worker selected) | Gather (resources go straight to your stockpile). |
+| Smelter (Worker selected) | Supply the Smelter with iron and veilstone. |
+| Veilstone Main Node, active (Scholar selected) | Begin Purification ritual (Alanthor). |
+| Veilstone Main Node, active (Acolyte selected) | Begin Conversion ritual (Runai). |
 | Ground or unit, with a building selected | Set Rally Point. |
 
 **Shift + Right-Click** — Queue a waypoint instead of replacing the current
@@ -165,7 +167,7 @@ the camera.
 
 | Panel | Location | Contents |
 |---|---|---|
-| **Resource HUD** | Top / Bottom-right | Supplies, Iron, Crystal, Veilsteel, Glow — live values. |
+| **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Veilsteel, Glow — live values. |
 | **Game Stats** | Bottom-center | Population, unit count, building count, focus count. |
 | **Entity Info Panel** | Left | Portrait, HP, stats; or multi-selection grid for big groups. |
 | **Entity Action Panel** | Left | Build buttons, train queue, research, stance buttons. |
@@ -240,7 +242,7 @@ damage on hit.
 - **Summons** — Spawned units expire on timer or when the summoner dies.
 - **Burning Ground** — Damage-over-time zones; persistent until destroyed.
 - **Shield Bars** — Some units carry shield HP that absorbs damage and regenerates out of combat.
-- **Iconoclast aura** — Strips `NodeUntargetable` from crystal nodes in a 12u radius, allowing other Feraldis units to damage them. The Iconoclast itself does not attack.
+- **Iconoclast aura** — Strips `NodeUntargetable` from veilstone nodes in a 12u radius, allowing other Feraldis units to damage them. The Iconoclast itself does not attack.
 
 ### Death
 
@@ -265,13 +267,13 @@ player faction remains, that player wins.
 
 ### Path 2 — Node Victory (Culture-Specific)
 
-Each culture has its own win path against the Crystal Curse:
+Each culture has its own win path against the The Border:
 
 | Culture | Condition |
 |---|---|
-| **Alanthor** | All Crystal Main Nodes must be **Cleansed by Alanthor** and held for **5 minutes**. |
-| **Runai** | All Crystal Main Nodes must be **Converted by Runai** and held for **5 minutes**. |
-| **Feraldis** | **Destroy all** Crystal Main Nodes — instant win, no hold time. |
+| **Alanthor** | All Veilstone Main Nodes must be **Cleansed by Alanthor** and held for **5 minutes**. |
+| **Runai** | All Veilstone Main Nodes must be **Converted by Runai** and held for **5 minutes**. |
+| **Feraldis** | **Destroy all** Veilstone Main Nodes — instant win, no hold time. |
 
 When the condition is met the **Node Victory** banner fires and the match
 ends.
@@ -301,9 +303,58 @@ Computer-controlled factions run on the **AIBrain** with two axes:
 
 ### Difficulty
 
-- **Easy / Normal / Hard / Expert.**
-- Difficulty controls **think-tick interval** (Expert ticks every 0.2s;
-  Easy is much slower) and decision quality.
+**Easy / Normal / Hard / Expert.** Modeled on Age of Empires IV: difficulty
+is pure behavior quality — **no AI tier ever cheats resources or vision**.
+Each tier is a data profile:
+
+| Knob | Easy | Normal | Hard | Expert |
+|---|---|---|---|---|
+| Think tick (s) | 5.0 | 2.0 | 0.5 | 0.25 |
+| Worker target (Age 0 → 1) | 8 → 12 | 12 → 18 | 16 → 24 | 20 → 30 |
+| Earliest attack | 10:00 | 7:00 | 5:00 | 4:00 |
+| Economy raids | — | ✓ | ✓ | ✓ |
+| Counter-composition | — | — | ✓ | ✓ |
+| Forward staging before attacks | — | — | ✓ | ✓ |
+| Sustained army cap | 10 | 16 | 24 | 32 |
+
+### The Curse, the Wells & the Shardroot
+
+The map's **wells** (Border nodes) are the game's only veilstone source —
+each is ringed by a guarded crystal field. Every culture has one **verb**:
+**Feraldis destroys** (the well shatters into a lootable shard field),
+**Runai pacifies** (a converted well trickles veilstone to its owner),
+**Alanthor purifies** (a cleansed well generates veilstone). Every hold
+lasts **10 minutes** — but applying your verb to another well **refreshes
+all your holds** (stay active or the curse returns). Claimed wells can be
+attacked to break the hold; destroyed wells are untouchable until they
+respawn. **Hold every well on the map at once and you WIN** — reaching
+all-but-one triggers a map-wide warning, so expect company.
+
+One well secretly holds the **SHARDROOT**. The first player to claim that
+well unearths it: a persistent artifact any unit can carry (visible to
+everyone on the minimap). Deliver it to your **Hall** to awaken the
+**Shardbound Hero**, or to your **Temple** to enshrine it (all god/sect
+powers surge — but the Temple detonates catastrophically if it falls, and
+the Shardroot drops in the crater). The choice is locked until the vessel
+dies. And beware: while you hold it, **the Border hunts you**.
+
+### Scout Vision (perch-and-bloom)
+
+Scouts see only **18 m** while moving. Stand one still for a moment and
+its line of sight **blooms outward to 55 m** over ~10 seconds (Age of
+Mythology Oracle-style). Move again and it snaps back instantly. Scout by
+hopping between vantage points and letting the circle grow — but a
+perched scout is a sitting duck.
+
+### Observer Mode (AI vs AI)
+
+Toggle **OBSERVER** in the Skirmish match options to spectate an AI-only
+match: every slot — including yours — becomes an AI warband with its own
+strategy and difficulty dropdowns (at least 2 AI required). As an observer
+you have **full map vision**, free camera, and can select any unit or
+building to inspect it (the resource bar follows whatever faction you have
+selected), but you cannot issue commands. The match runs until one AI
+faction remains and ends with a "&lt;faction&gt; WINS" banner.
 
 ### AI Strategies
 
@@ -313,16 +364,19 @@ Age 0 build order:
 | Strategy | Plan |
 |---|---|
 | **Rush** | Fast Barracks, early harassment, minimal economy. |
-| **EcoBoom** | Heavy gathering, crystal farming, late military. |
+| **EcoBoom** | Heavy gathering, veilstone farming, late military. |
 | **TechRush** | Race to Age 1 with infantry tech. |
 | **Aggressive** | Balanced military + Shrine + Age-up. |
 | **Defensive** | Standing army, Iron Armor research, Vault. |
 | **Turtle** | Heavy economy + healers, stockpile for walls. |
 
-The AI maintains its desired army size by re-queueing replacements for
-lost units, allocates Workers between iron and crystal based on the chosen
-strategy, and remembers scouted enemy positions in
-`EnemyLastKnownPosition`.
+After its opening build order, the AI runs an AoE4-style maintenance brain:
+it grows workers toward its difficulty's target curve, trains a mixed army
+toward a melee/ranged composition vector (counter-picking your composition
+on Hard+), and launches **missions** — armies that march in formation, stage
+near the target before committing (Hard+), raid your economy with fast
+parties, retreat when locally outmatched, and regroup at home. All of it is
+fog-of-war honest: the AI only acts on what its own units have scouted.
 
 ---
 
@@ -351,13 +405,12 @@ match starts.
 
 | Need to… | Do this |
 |---|---|
-| Mine iron | Right-click an iron deposit with a Worker selected. |
-| Drop off resources | Right-click any Hall or Gatherers' Hut with a loaded Worker. |
+| Mine iron | Right-click an iron deposit with a Worker selected — mined resources go straight to your stockpile. |
 | Build a wall (Alanthor) | Place Hubs; segments and instances spawn automatically. |
 | Upgrade a wall piece | Select the instance and choose Tower or Gate from the action panel. |
 | Heal a friendly unit | Right-click it with a Litharch selected. |
-| Convert a Crystal Main Node | Channel **Acolyte** (Runai) or **Scholar** (Alanthor) on an active node. |
-| Destroy a Crystal Main Node | You need **Iconoclasts** (Feraldis) to bypass node invulnerability. |
+| Convert a Veilstone Main Node | Channel **Acolyte** (Runai) or **Scholar** (Alanthor) on an active node. |
+| Destroy a Veilstone Main Node | You need **Iconoclasts** (Feraldis) to bypass node invulnerability. |
 | Save a control group | Select your units, press Ctrl+1 through Ctrl+9. |
 | Repeat-place buildings | Hold Shift while placing — stay in placement mode. |
 | Queue waypoints | Hold Shift and right-click along the path. |

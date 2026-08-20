@@ -20,7 +20,7 @@
 > the **per-battalion upgrade pattern** ([Overview.md § Per-battalion upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule))
 > — researching the hex unlocks an upgrade button on each existing battalion;
 > upgrades are paid for **per-battalion** when applied. Glow-tier techs
-> additionally require Glow from curse-node interactions ([Overview.md § Glow economy](Overview.md#the-glow-economy-cross-faction)).
+> additionally require Glow from border-node interactions ([Overview.md § Glow economy](Overview.md#the-glow-economy-cross-faction)).
 >
 > Open in VSCode (built-in Mermaid preview ⌃⇧V on the file), GitHub, or any
 > Mermaid-aware viewer.
@@ -95,7 +95,6 @@ flowchart TB
         h_w(["Worker"])
         h_s(["Scout"])
         h_t1{{"Stone tools"}}
-        h_t2{{"Wheel cart"}}
         h_t3{{"Research Era II"}}
     end
 
@@ -252,7 +251,7 @@ flowchart TB
 
     subgraph Cruc_A["Crucible"]
         direction TB
-        a_cr_note["(forges Veilsteel<br/>from Iron + Crystal)"]
+        a_cr_note["(forges Veilsteel<br/>from Iron + Veilstone)"]
     end
 
     subgraph SY_A["Siege Yard (A)"]
@@ -287,7 +286,7 @@ flowchart TB
         r_t4{{"Veilsteel tools ⚠"}}
         r_t5{{"Wheel cart equiv ⚠"}}
         r_t6{{"Cranes equiv ⚠"}}
-        r_tcn{{"Curse-neutrality ⚠<br/>(-20% wave aggro)"}}
+        r_tcn{{"Border-neutrality ⚠<br/>(-20% wave aggro)"}}
         r_t1 --> r_t2 --> r_t3 --> r_t4
     end
 
@@ -354,7 +353,7 @@ flowchart TB
 
     subgraph VF_R["Veilsteel Foundry (R)"]
         direction TB
-        r_vf_note["(forges Veilsteel<br/>from Iron + Crystal —<br/>same rate as Alanthor)"]
+        r_vf_note["(forges Veilsteel<br/>from Iron + Veilstone —<br/>same rate as Alanthor)"]
     end
 
     subgraph SW_R["Siege Workshop (R)"]
@@ -381,7 +380,7 @@ flowchart TB
 
 ## 5 — Feraldis (Age 1)
 
-Military culture. Damage-as-income with the Crystal-Curse floor; persistent
+Military culture. Damage-as-income with the Border floor; persistent
 gather buildings; **no Houses**. *(Plus Choice buildings: Vault neutral,
 Shrine −30 %, Keep +50 % HP & arrows — Feraldis has the natural Keep
 fortress identity.)*

@@ -357,8 +357,15 @@ namespace TheWaningBorder.Systems.Border
                 .Query<RefRO<ActiveRitualOnNode>>()
                 .WithEntityAccess())
             {
+                // Only our own verb's claims — conversion/corruption sweep
+                // theirs (they both filter on Kind; this one didn't, so a
+                // Conversion or ViolentExtraction claim could be cleared by
+                // the purify sweep the moment its ritualist blinked).
+                if (active.ValueRO.Kind != RitualKind.Purification) continue;
+
                 Entity ritualist = active.ValueRO.Ritualist;
                 bool orphaned =
+                    ritualist == Entity.Null ||
                     !em.Exists(ritualist) ||
                     !em.HasComponent<RitualState>(ritualist) ||
                     (em.HasComponent<Health>(ritualist) && em.GetComponentData<Health>(ritualist).Value <= 0);

@@ -9,6 +9,7 @@
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Localization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -84,7 +85,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     var row = Instantiate(ListRowTemplate, ListContent);
                     row.SetActive(true);
                     var label = row.GetComponentInChildren<TMP_Text>(true);
-                    if (label != null) label.text = _entries[i].Name;
+                    if (label != null) label.text = Loc.T(_entries[i].Name);
                     _rowBackgrounds.Add(row.GetComponent<Image>());
                     var btn = row.GetComponent<Button>();
                     if (btn != null) btn.onClick.AddListener(() => Select(idx));
@@ -95,10 +96,10 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (_entries.Count > 0) Select(0);
             else
             {
-                if (NameText != null) NameText.text = "NO SCENARIOS";
+                if (NameText != null) NameText.text = Loc.T("NO SCENARIOS");
                 if (DescriptionText != null)
-                    DescriptionText.text = "No scenario definitions found. Rebuild the scenario " +
-                                           "library via Tools ▸ TWB ▸ Scenarios.";
+                    DescriptionText.text = Loc.T("No scenario definitions found. Rebuild the scenario " +
+                                                 "library via Tools ▸ TWB ▸ Scenarios.");
             }
         }
 
@@ -112,8 +113,10 @@ namespace TheWaningBorder.UI.Menus.Panels
                 _rowBackgrounds[_selected].color = RowSelected;
 
             var e = _entries[_selected];
-            if (NameText != null) NameText.text = e.Name.ToUpperInvariant();
-            if (DescriptionText != null) DescriptionText.text = e.Description;
+            // Entries keep their English name/description (they are the
+            // translation keys); render translated here.
+            if (NameText != null) NameText.text = Loc.T(e.Name).ToUpperInvariant();
+            if (DescriptionText != null) DescriptionText.text = Loc.T(e.Description);
 
             bool hasThumb = e.Thumbnail != null;
             if (ThumbImage != null)
@@ -127,6 +130,32 @@ namespace TheWaningBorder.UI.Menus.Panels
         private void CollectEntries()
         {
             _entries.Clear();
+
+            // The tutorial heads the list: it is also a top-level main-menu
+            // entry (TutorialMenuItem), but the Training Grounds is where a
+            // new player looks for it, and this path survives even if the
+            // main-menu clone cannot find its template.
+            _entries.Add(new Entry
+            {
+                Name = "Tutorial — The Whole Campaign",
+                Description =
+                    "A guided match on the standard map against one relaxed opponent, from "
+                    + "the opening to the victory condition.\n\n"
+                    + "1. Camera controls\n"
+                    + "2. Workers, mining and the Gatherer's Hut\n"
+                    + "3. Barracks, Spearmen and taking a fight\n"
+                    + "4. The special building, the age-up and the Temple\n"
+                    + "5. Religion Points, sects and their powers\n"
+                    + "6. The curse — why it wakes, what it costs, how to break it\n"
+                    + "7. The wells — the verb, and how the match is won\n\n"
+                    + "Each step tops your bank up so the lesson does not wait on the "
+                    + "economy, and the Temple upgrade carries straight to level 4. "
+                    + "Steps can be done in ANY ORDER and tick themselves off as you play; "
+                    + "skip any of them, or dismiss the coach and keep going as a normal "
+                    + "skirmish.",
+                Thumbnail = null,
+                Launch = TutorialMenuItem.Launch,
+            });
 
             // Rich, data-driven scenarios (thumbnail + description).
             var library = Resources.Load<ScenarioLibrary>(ScenarioLibrary.ResourcePath);
@@ -180,6 +209,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             GameSettings.TotalPlayers = 2;
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
+            GameSettings.TutorialActive = false;   // sticky static; see TutorialMenuItem
 
             LoadingScreen.Show(def.SceneName);
         }

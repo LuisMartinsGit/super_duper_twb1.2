@@ -84,47 +84,14 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.RemoveComponent<AttackMoveTag>(unit);
         }
 
+        /// <summary>Cancel whatever this unit was doing before the new order.
+        /// Steps are shared via CommandCleanup — see that file for why the four
+        /// order helpers clear different sets.</summary>
         private static void ClearConflictingCommands(EntityManager em, Entity unit)
         {
-            // Clear attack
-            if (em.HasComponent<AttackCommand>(unit))
-                em.RemoveComponent<AttackCommand>(unit);
-
-            // Clear target
-            if (em.HasComponent<Target>(unit))
-                em.SetComponentData(unit, new Target { Value = Entity.Null });
-
-            // Clear gather
-            if (em.HasComponent<GatherCommand>(unit))
-                em.RemoveComponent<GatherCommand>(unit);
-
-            // Clear build
-            if (em.HasComponent<BuildCommand>(unit))
-                em.RemoveComponent<BuildCommand>(unit);
-            if (em.HasComponent<BuildOrder>(unit))
-                em.RemoveComponent<BuildOrder>(unit);
-
-            // Clear heal
-            if (em.HasComponent<HealCommand>(unit))
-                em.RemoveComponent<HealCommand>(unit);
-            // Clear Litharch healing state
-            if (em.HasComponent<LitharchState>(unit))
-            {
-                var ls = em.GetComponentData<LitharchState>(unit);
-                if (ls.IsHealing != 0) { ls.HealTarget = Entity.Null; ls.IsHealing = 0; em.SetComponentData(unit, ls); }
-            }
-
-            // Clear attack-move
-            if (em.HasComponent<AttackMoveCommand>(unit))
-                em.RemoveComponent<AttackMoveCommand>(unit);
-            if (em.HasComponent<AttackMoveTag>(unit))
-                em.RemoveComponent<AttackMoveTag>(unit);
-
-            // Clear move
-            if (em.HasComponent<MoveCommand>(unit))
-                em.RemoveComponent<MoveCommand>(unit);
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
+            CommandCleanup.ClearCombat(em, unit);
+            CommandCleanup.ClearWorkOrders(em, unit);
+            CommandCleanup.ClearMovement(em, unit);
         }
     }
 }

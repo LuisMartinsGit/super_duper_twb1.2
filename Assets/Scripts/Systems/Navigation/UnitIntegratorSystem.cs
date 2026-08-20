@@ -61,6 +61,31 @@ namespace TheWaningBorder.Systems.Navigation
         private const float StopDistance = 0.5f;
         private const float DefaultMoveSpeed = 3.5f;
         private const float TurnSpeed = 8f;             // rad/s (~460 deg/s)
+
+        // Mirror of SteeringSystem.SeparationRadius. Two units cannot stand
+        // closer than this, which is the whole reason for the crowded-arrival
+        // rule below: with a 0.5 m StopDistance and a 1.5 m separation ring,
+        // two units sent to the SAME point can never both satisfy arrival.
+        private const float SeparationClearance = 1.5f;
+        /// <summary>Arrival window when the ordered point is already occupied
+        /// by someone who got there first.</summary>
+        private const float CrowdStopDistance = StopDistance + SeparationClearance;
+
+        /// <summary>How near the goal another unit must be before it genuinely
+        /// blocks arrival. A unit `d` from the goal keeps us at least
+        /// (SeparationClearance - d) away, which only beats StopDistance while
+        /// d &lt; SeparationClearance - StopDistance. Past that we can walk
+        /// around it, and declaring arrival would be giving up early.</summary>
+        private const float GoalBlockedRadius = SeparationClearance - StopDistance;
+
+        // Arrival braking. SteeringSystem normalises its force vector, so a
+        // unit one metre from its goal, with flow and separation very nearly
+        // cancelling, still moved at FULL speed along whatever tiny residual
+        // survived — the literal circling motion at a destination. Taper the
+        // step over the last few metres so units decelerate into the goal
+        // instead of skating around it.
+        private const float ArriveSlowRadius = 2.5f;
+        private const float MinArriveSpeedScale = 0.2f;
         // Per-step terrain backstop: the PassabilityGrid cell mask is the
         // single authority (see the TERRAIN CHECK in the step loop) — no
         // independent slope constants here any more.
@@ -70,7 +95,7 @@ namespace TheWaningBorder.Systems.Navigation
         // slopes never trip this; only ledges (bridge deck edges) do.
         private const float MaxLedgeDrop = 2f;
 
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -83,6 +108,11 @@ namespace TheWaningBorder.Systems.Navigation
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
+
+            // Neighbour lookup for the crowded-arrival test. Optional: the hash
+            // is allocated lazily by SpatialHashRebuildSystem, so early ticks
+            // simply fall back to the plain StopDistance arrival.
+            bool hasHash = SystemAPI.TryGetSingleton<NavSpatialHash>(out var navHash);
 
             // ── PHASE 1: MoveCommand -> DesiredDestination ──────────────
             foreach (var (mc, entity) in SystemAPI.Query<RefRO<MoveCommand>>().WithEntityAccess())
@@ -233,8 +263,18 @@ namespace TheWaningBorder.Systems.Navigation
                 // scaled max range, measured to the target's edge) so the two
                 // systems can never disagree about "in range" and flip-flop
                 // across a halt/chase band on slopes or against buildings.
+                // ...but an EXPLICIT player move order outranks the firing
+                // band. Without this, any ranged unit that auto-acquires a
+                // target mid-march declares itself arrived and drops the order.
+                // On a catapult (min 5.5-10 m, max 20-30 m) that means it
+                // freezes the moment anything enters a very wide band and
+                // refuses to continue — reported as "siege engines cannot
+                // move". Auto-acquire deliberately does NOT exclude
+                // UserMoveOrder (TargetingSystem.Acquire), so the exemption
+                // has to live here.
                 if (em.HasComponent<ArcherTag>(entity)
-                    && em.HasComponent<Target>(entity))
+                    && em.HasComponent<Target>(entity)
+                    && !em.HasComponent<UserMoveOrder>(entity))
                 {
                     var tgt = em.GetComponentData<Target>(entity);
                     if (tgt.Value != Entity.Null && em.Exists(tgt.Value)
@@ -277,8 +317,35 @@ namespace TheWaningBorder.Systems.Navigation
                 to.y = 0f;
                 float distSqr = math.lengthsq(to);
 
-                // Arrived.
-                if (distSqr <= (StopDistance * StopDistance))
+                float dist = math.sqrt(distSqr);
+
+                // A unit with a live Target is CHASING: its destination is
+                // re-issued every frame at a point that moves with the target.
+                // Neither the crowd-arrival rule nor the arrival brake below
+                // applies to that — settling early would stop a chase short of
+                // contact, and braking near a fleeing target of equal speed
+                // would mean melee could never close. Combat approach keeps the
+                // behaviour it already had (see GoalWallSlideSuppressRadius in
+                // SteeringSystem, which owns the orbit-a-building case).
+                bool chasing = em.HasComponent<Target>(entity)
+                    && em.GetComponentData<Target>(entity).Value != Entity.Null;
+
+                // Arrived — either inside the ordinary stop window, or as close
+                // as the crowd physically permits. The second case matters
+                // because StopDistance (0.5 m) is smaller than the separation
+                // ring (1.5 m): whenever two or more units are sent to the same
+                // point — a rally flag, a formation slot that snapped onto an
+                // already-taken cell, an AI staging position — everyone but the
+                // first arrival is FORBIDDEN by steering from ever satisfying
+                // the plain test. They used to mill around the point instead,
+                // until StuckRedirectSystem noticed seconds later. Settle them
+                // immediately.
+                bool arrived = distSqr <= (StopDistance * StopDistance);
+                if (!arrived && !chasing && hasHash
+                    && distSqr <= CrowdStopDistance * CrowdStopDistance)
+                    arrived = GoalTakenByCloserNeighbour(em, in navHash, goal, pos, entity, dist);
+
+                if (arrived)
                 {
                     dd.ValueRW.Has = 0;
                     if (em.HasComponent<UserMoveOrder>(entity)) ecb.RemoveComponent<UserMoveOrder>(entity);
@@ -287,7 +354,6 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
-                float dist = math.sqrt(distSqr);
                 float3 dir = to / math.max(1e-5f, dist);
 
                 // Which nav layer is this unit on (0 = Ground, 1 = Rampart)?
@@ -342,19 +408,37 @@ namespace TheWaningBorder.Systems.Navigation
                 }
 
                 // === Step ===
-                float step = math.min(speed * dt, dist);
+                // Arrival braking: taper speed over the last ArriveSlowRadius
+                // metres. Without it the unit ran at full speed right up to the
+                // arrival test, and since the steering vector is NORMALISED,
+                // near-cancelling forces at the goal still produced full-speed
+                // motion in an arbitrary direction — a circle, not a stop.
+                float arriveScale = (!chasing && dist < ArriveSlowRadius)
+                    ? math.max(MinArriveSpeedScale, dist / ArriveSlowRadius)
+                    : 1f;
+                float step = math.min(speed * arriveScale * dt, dist);
                 float3 nextPos = pos + smoothedDir * step;
 
                 // === COST-FIELD PASSABILITY (replaces PassabilityGrid + NavMesh sample gate) ===
                 bool blocked = false;
+                // Faction-aware: gate cells stamp CostConditional (254), which
+                // the plain IsCellPassable reports walkable for EVERYONE. That
+                // made every gate a permanent hole in the wall for the enemy.
+                // The owner faction is in the cell's flag bits, so ask the
+                // faction-aware overload instead.
+                byte navFaction = em.HasComponent<FactionTag>(entity)
+                    ? (byte)em.GetComponentData<FactionTag>(entity).Value
+                    : (byte)0xFF; // no faction -> never matches an owner
                 int2 nextCell = NavGridQuery.WorldToCellInt2(nextPos);
-                if (nextCell.x != int.MinValue && !NavGridQuery.IsCellPassable(nextCell, unitLayer))
+                if (nextCell.x != int.MinValue
+                    && !NavGridQuery.IsCellPassableFor(nextCell, unitLayer, navFaction))
                 {
                     // Only enforce the cost-field block if the unit's current
                     // cell IS passable -- units that spawn inside a building
                     // need to walk OUT through their own footprint.
                     int2 currentCell = NavGridQuery.WorldToCellInt2(pos);
-                    if (currentCell.x != int.MinValue && NavGridQuery.IsCellPassable(currentCell, unitLayer))
+                    if (currentCell.x != int.MinValue
+                        && NavGridQuery.IsCellPassableFor(currentCell, unitLayer, navFaction))
                         blocked = true;
                 }
 
@@ -371,7 +455,11 @@ namespace TheWaningBorder.Systems.Navigation
                 if (!blocked && !onRampart)
                 {
                     var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
-                    if (pg != null)
+                    // IsMaskReady, not just non-null: an unbuilt mask is all
+                    // zeros, i.e. "everything walkable", and this backstop
+                    // would wave units into water and off cliffs while
+                    // reporting agreement with the plan.
+                    if (pg != null && pg.IsMaskReady)
                     {
                         var cell = pg.WorldToCell(nextPos);
                         if (pg.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
@@ -455,6 +543,23 @@ namespace TheWaningBorder.Systems.Navigation
                                 if (em.HasComponent<AttackMoveTag>(entity)) ecb.RemoveComponent<AttackMoveTag>(entity);
                                 if (em.HasComponent<FormationSpeedOverride>(entity)) ecb.RemoveComponent<FormationSpeedOverride>(entity);
                                 ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+
+                                // Tell the leash the order is abandoned, or
+                                // TargetingSystem's return-to-guard re-issues
+                                // this exact destination next tick and the unit
+                                // grinds back into the same blocker forever.
+                                if (em.HasComponent<GuardPoint>(entity))
+                                {
+                                    var gp = em.GetComponentData<GuardPoint>(entity);
+                                    if (gp.Has != 0)
+                                    {
+                                        var mark = new GuardSuppressed { Point = gp.Position };
+                                        if (em.HasComponent<GuardSuppressed>(entity))
+                                            ecb.SetComponent(entity, mark);
+                                        else
+                                            ecb.AddComponent(entity, mark);
+                                    }
+                                }
                             }
                         }
                         else if (stuck.Counter > 5)
@@ -526,11 +631,71 @@ namespace TheWaningBorder.Systems.Navigation
         }
 
         /// <summary>
+        /// True when another unit already holds the ordered point and is
+        /// wedged between us and it — i.e. it sits CLOSER to the goal than we
+        /// are, and is inside our separation ring, so steering can never let us
+        /// past it. That makes our current stand-off the closest approach
+        /// physically available, and the order complete.
+        ///
+        /// Existential over the 3x3 spatial-hash ring around the goal, so the
+        /// result does not depend on bucket iteration order (determinism: the
+        /// hash is populated in chunk-walk order, and this reads it read-only).
+        /// </summary>
+        private static bool GoalTakenByCloserNeighbour(EntityManager em, in NavSpatialHash hash,
+            float3 goal, float3 pos, Entity self, float myDist)
+        {
+            if (!hash.Map.IsCreated) return false;
+
+            NavSpatialHash.WorldToCell(in goal, hash.CellSize, out int cx, out int cz);
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int key = NavSpatialHash.PackKey(cx + dx, cz + dz);
+                    if (!hash.Map.TryGetFirstValue(key, out Entity other, out var it)) continue;
+                    do
+                    {
+                        if (other == self) continue;
+                        if (!em.HasComponent<LocalTransform>(other)) continue;
+                        // A corpse mid-death-animation is about to stop
+                        // occupying the point; don't settle behind it.
+                        if (em.HasComponent<DeathAnimationState>(other)) continue;
+
+                        float3 op = em.GetComponentData<LocalTransform>(other).Position;
+
+                        float gx = op.x - goal.x, gz = op.z - goal.z;
+                        float otherToGoal = math.sqrt(gx * gx + gz * gz);
+
+                        // The blocker must actually be SITTING ON the goal, not
+                        // merely somewhere between us and it. "Closer than me"
+                        // alone was far too weak: a worker walking past, or one
+                        // parked at a different stand slot 2.8 m away, counted
+                        // as proof the destination was unreachable — so units
+                        // stopped metres short of ground they could plainly have
+                        // walked to, which is the "they give up too soon".
+                        //
+                        // A unit `d` from the goal forces us no nearer than
+                        // (SeparationClearance - d), so it only genuinely
+                        // prevents arrival while that exceeds StopDistance.
+                        // Anything further out we can simply walk around.
+                        if (otherToGoal >= GoalBlockedRadius) continue;
+                        if (otherToGoal >= myDist) continue; // not ahead of us
+
+                        float sx = op.x - pos.x, sz = op.z - pos.z;
+                        float otherToMe = math.sqrt(sx * sx + sz * sz);
+                        if (otherToMe <= SeparationClearance) return true;
+                    } while (hash.Map.TryGetNextValue(out other, ref it));
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Slerp from current to target rotation, clamped to maxAngle radians.
-        /// Pure math; safe to mark [BurstCompile] for any future Burst-job
+        /// Pure math; safe to mark [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)] for any future Burst-job
         /// port of the integrator.
         /// </summary>
-        [BurstCompile]
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         private static void SmoothSlerp(in quaternion from, in quaternion to, float maxAngle, out quaternion result)
         {
             float4 toVal = to.value;

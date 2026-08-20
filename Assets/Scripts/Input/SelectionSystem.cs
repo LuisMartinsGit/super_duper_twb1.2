@@ -88,6 +88,24 @@ namespace TheWaningBorder.Input
         
         private EntityWorld _world;
         private EntityManager _em;
+
+        // Cached queries — CreateEntityQuery here leaked one query into the
+        // world's registry on EVERY double-click (SelectAllOfType) and EVERY
+        // box-select drag, which is the decay pattern Core/CachedEntityQuery
+        // was written to kill.
+        private static readonly ComponentType[] UnitSelectQueryTypes =
+        {
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<UnitTag>(),
+        };
+        private static readonly ComponentType[] AnySelectQueryTypes =
+        {
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private TheWaningBorder.Core.CachedEntityQuery _unitSelectQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _anySelectQuery;
         private readonly List<Entity> _selection = new();
         
         // Drag-select state (screen space, origin = bottom-left)
@@ -140,6 +158,12 @@ namespace TheWaningBorder.Input
             // Refresh EntityManager if needed
             if (_em.Equals(default(EntityManager)))
                 _em = _world.EntityManager;
+
+            // Observer perspective: the view faction follows the selection's
+            // owner every frame (null with nothing selected = see everything).
+            // Runs even while selection input is UI-blocked so the view never
+            // lapses while mousing over the HUD.
+            UpdateObserverViewFaction();
 
             // Block selection during UI interactions
             if (ShouldBlockSelection())
@@ -283,7 +307,7 @@ namespace TheWaningBorder.Input
 
             _selection.Clear();
 
-            var query = _em.CreateEntityQuery(typeof(LocalTransform), typeof(FactionTag), typeof(UnitTag));
+            var query = _unitSelectQuery.Get(_em, UnitSelectQueryTypes);
             var ents = query.ToEntityArray(Allocator.Temp);
 
             float screenW = Screen.width;
@@ -325,7 +349,7 @@ namespace TheWaningBorder.Input
 
             _selection.Clear();
 
-            var query = _em.CreateEntityQuery(typeof(LocalTransform), typeof(FactionTag));
+            var query = _anySelectQuery.Get(_em, AnySelectQueryTypes);
             var ents = query.ToEntityArray(Allocator.Temp);
 
             for (int i = 0; i < ents.Length; i++)
@@ -385,7 +409,20 @@ namespace TheWaningBorder.Input
             // Among units, prioritize military over economic — gated on the
             // SmartMilitaryDrag toggle. When OFF, mixed-unit drags keep
             // every entity the rectangle covered.
-            if (units.Count > 1 && GameSettings.SmartMilitaryDrag)
+            // Ctrl (or Alt) held = "select literally everything in the box",
+            // the genre convention. The military-wins rule is right by default
+            // — you drag over your base to grab the army, not the miners — but
+            // it had NO override, so a player who wanted the workers simply
+            // could not get them whenever a single soldier stood in the
+            // rectangle. That is the reported bug: the rule itself is fine,
+            // the absence of an escape hatch was not.
+            bool selectEverything =
+                UnityEngine.Input.GetKey(KeyCode.LeftControl)
+                || UnityEngine.Input.GetKey(KeyCode.RightControl)
+                || UnityEngine.Input.GetKey(KeyCode.LeftAlt)
+                || UnityEngine.Input.GetKey(KeyCode.RightAlt);
+
+            if (units.Count > 1 && GameSettings.SmartMilitaryDrag && !selectEverything)
             {
                 var military = new List<Entity>();
                 var economic = new List<Entity>();
@@ -451,11 +488,34 @@ namespace TheWaningBorder.Input
         {
             if (!_em.HasComponent<FactionTag>(e))
                 return false;
-            if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
+            // ViewFactionOrLocal == LocalPlayerFaction in normal play. For an
+            // observer it is the faction being viewed, so box-select and
+            // select-all-of-type operate on that player's units.
+            if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.ViewFactionOrLocal)
                 return false;
             if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
                 return false;
             return true;
+        }
+
+        /// <summary>
+        /// Observer mode only: publish the owner of the current selection as
+        /// the faction whose perspective the fog, minimap and HUD render.
+        /// Null (nothing owned selected) = the observer sees everything.
+        /// </summary>
+        private void UpdateObserverViewFaction()
+        {
+            if (!GameSettings.IsObserver) return;
+            Faction? view = null;
+            for (int i = 0; i < _selection.Count; i++)
+            {
+                var e = _selection[i];
+                if (!_em.Exists(e) || !_em.HasComponent<FactionTag>(e)) continue;
+                if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e)) continue;
+                view = _em.GetComponentData<FactionTag>(e).Value;
+                break;
+            }
+            GameSettings.ObserverViewFaction = view;
         }
 
         private void CleanSelectionInternal()

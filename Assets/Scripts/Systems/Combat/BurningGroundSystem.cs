@@ -90,8 +90,9 @@ public partial struct BurningGroundSystem : ISystem
 
                     for (int i = 0; i < groundPositions.Length; i++)
                     {
-                        // Don't damage friendly units
-                        if (unitFaction.ValueRO.Value == groundFactions[i]) continue;
+                        // Don't damage friendly OR allied units.
+                        // docs/Design/Teams.md
+                        if (!Alliances.AreHostile(groundFactions[i], unitFaction.ValueRO.Value)) continue;
 
                         float dist = math.distance(
                             new float2(unitPos.x, unitPos.z),

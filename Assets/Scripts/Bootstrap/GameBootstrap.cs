@@ -29,7 +29,16 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class GameBootstrap
     {
-        private static bool _didSetupThisScene;
+        /// <summary>True between a gameplay scene's bootstrap and its
+        /// teardown — i.e. "a match's managers and entities are live".</summary>
+        private static bool _matchLive;
+
+        /// <summary>Frame the current match was bootstrapped on. sceneLoaded
+        /// can reach this handler twice for a single load (the subscription
+        /// plus Init's manual call); both land on the same frame, which is
+        /// what distinguishes a duplicate callback from a genuine reload of
+        /// the same scene (Restart Match).</summary>
+        private static int _setupFrame = -1;
 
         // ═══════════════════════════════════════════════════════════════
         // INITIALIZATION
@@ -39,7 +48,8 @@ namespace TheWaningBorder.Bootstrap
         private static void Init()
         {
             // Reset static state — required when domain reload is disabled
-            _didSetupThisScene = false;
+            _matchLive = false;
+            _setupFrame = -1;
 
             SceneManager.sceneLoaded -= OnSceneLoadedHandler;
             SceneManager.sceneLoaded += OnSceneLoadedHandler;
@@ -50,9 +60,48 @@ namespace TheWaningBorder.Bootstrap
         {
             // Only bootstrap registered gameplay scenes (the procedural
             // "Game" scene + any hand-authored maps in MapRegistry).
-            if (!TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name)) return;
-            if (_didSetupThisScene) return;
-            _didSetupThisScene = true;
+            if (!TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name))
+            {
+                // Left a match. RuntimeManagers is DontDestroyOnLoad, so
+                // without this the whole in-game HUD survives into the main
+                // menu — and the "already bootstrapped" latch would still be
+                // set, so the NEXT match never bootstraps and inherits the
+                // dead one's panels, selection and entities.
+                TeardownAfterMatch();
+                return;
+            }
+            if (_setupFrame == Time.frameCount) return;   // duplicate callback, one load
+
+            // Entering gameplay FROM gameplay (Restart Match, or a map change
+            // that skips the menu) still has the previous match live.
+            TeardownAfterMatch();
+            _setupFrame = Time.frameCount;
+            _matchLive = true;
+
+            // Open this match's log folder BEFORE any bootstrap phase runs, so
+            // AILogger, PerfSpikeLog and the console capture all land in it —
+            // including anything that fails during loading.
+            // The SEED is the field that makes a tester's report reproducible —
+            // it belongs in the header and the summary, not just in memory.
+            TheWaningBorder.Core.Diagnostics.MatchLogSession.Begin(
+                GameSettings.SelectedMapScene,
+                $"Map: {GameSettings.SelectedMapScene}  Mode: {GameSettings.Mode}  "
+                + $"Seed: {GameSettings.SpawnSeed}\n"
+                + $"Players: {GameSettings.TotalPlayers}  Local: {GameSettings.LocalPlayerFaction}  "
+                + $"Culture: {GameSettings.StartCulture}  Age: {GameSettings.StartAge}  "
+                + $"Fog: {GameSettings.FogOfWarEnabled}  Curse: {GameSettings.BorderEnabled}"
+                // Multiplayer identity in the header, so a log sent back on its
+                // own still says which peer wrote it and whether the two agreed
+                // about the match before a single tick ran. The fingerprint is
+                // the first thing to compare when two logs disagree.
+                + (GameSettings.IsMultiplayer
+                    ? $"\nRole: {GameSettings.NetworkRole}  Instance: {LogPaths.InstanceSlot}  "
+                      + $"Deterministic: {GameSettings.DeterministicLockstep}  "
+                      + $"Tick: {TheWaningBorder.Core.Multiplayer.LockstepTiming.TicksPerSecond} Hz  "
+                      + $"Cell: {GameSettings.PathfindingCellSize}\n"
+                      + $"Build fingerprint: {TheWaningBorder.Core.Multiplayer.MatchSettingsSync.Fingerprint} "
+                      + $"({TheWaningBorder.Core.Multiplayer.MatchSettingsSync.BuildLabel})"
+                    : ""));
 
             // ABSOLUTE MINIMUM synchronous work: just kick a coroutine. The
             // rest of the bootstrap (TechTreeDB, RuntimeManagers, terrain,
@@ -64,6 +113,158 @@ namespace TheWaningBorder.Bootstrap
             var driver = new GameObject("BootstrapDriver");
             UnityEngine.Object.DontDestroyOnLoad(driver);
             driver.AddComponent<BootstrapDriver>().StartCoroutine(BootstrapCoroutine(driver));
+        }
+
+        /// <summary>
+        /// Undo everything a match left behind that outlives its scene.
+        ///
+        /// The match's managers are deliberately DontDestroyOnLoad (the
+        /// bootstrap runs across an async load), which means NOTHING removed
+        /// them when the player went back to the menu: the HUD kept rendering
+        /// over the main menu, and because the "already bootstrapped" latch
+        /// was only reset once per play session, the next match skipped its
+        /// bootstrap entirely and ran on the dead match's UI and entities —
+        /// selection and orders included, which is why units could not be
+        /// commanded in a second match.
+        ///
+        /// Called on every scene load that leaves or restarts a match, so it
+        /// covers the pause menu's "Quit to Main Menu" and "Restart Match",
+        /// the victory flow's automatic return, and anything added later.
+        /// </summary>
+        /// <summary>
+        /// Result of the match being torn down, recorded by
+        /// <see cref="RecordMatchOutcome"/> so the log summary can name it.
+        /// </summary>
+        private static string _lastMatchOutcome;
+
+        /// <summary>Called by VictoryConditionSystem when a match resolves.</summary>
+        public static void RecordMatchOutcome(string outcome) => _lastMatchOutcome = outcome;
+
+        private static void TeardownAfterMatch()
+        {
+            if (!_matchLive) return;   // nothing to clean up
+            _matchLive = false;
+
+            // The pause menu freezes the clock; leaving while paused must not
+            // strand the menu at timeScale 0.
+            Time.timeScale = 1f;
+
+            TheWaningBorder.Input.SelectionSystem.ClearSelection();
+            TheWaningBorder.UI.HUD.GroundTargeting.Cancel();
+            GameCamera.Cleanup();
+
+            DestroyPersistent<RuntimeManagers>();   // HUD + presentation stack
+            DestroyPersistent<BootstrapDriver>();
+
+            // Entities outlive the scene too. Without this the next match
+            // spawns its bases on top of the previous one's survivors.
+            //
+            // MUST be UniversalQuery, never DestroyAndResetAllEntities():
+            // that API destroys UniversalQueryWithSystems, i.e. it also kills
+            // every SYSTEM entity. Systems keep updating afterwards but the
+            // components they parked on their own SystemHandle in OnCreate are
+            // gone for good (OnCreate never runs again), so the world is
+            // permanently broken from the first teardown onward:
+            //   - Unity.Physics BuildPhysicsWorldData / SimulationSingleton →
+            //     "The entity does not exist" + "GetSingleton<SimulationSingleton>()
+            //     ... but there are none" thrown from Burst every frame, forever
+            //   - every EntityCommandBufferSystem.Singleton (Begin/EndSimulation,
+            //     BeginPresentation, …) — the ECBs the whole gameplay stack writes
+            //     through (DeathSystem, ProjectileSystem, mining, …)
+            // UniversalQuery is the same set MINUS system and meta-chunk entities:
+            // gameplay is wiped, engine plumbing survives. The world's WorldTime
+            // singleton is re-created lazily by World.TimeSingleton, so losing it
+            // here is harmless.
+            // ...BUT UniversalQuery is not enough on its own. Unity.Physics
+            // does NOT park its singletons on a SystemHandle: BuildPhysicsWorld
+            // .OnCreate calls EntityManager.CreateSingleton(PhysicsWorldSingleton)
+            // and UnityPhysicsSimulationSystems.OnCreate does CreateEntity() +
+            // AddComponentData(SimulationSingleton). Those are ORDINARY
+            // entities, so UniversalQuery destroys them too — and since the
+            // systems survive, their OnCreate never runs again and physics is
+            // dead for the rest of the play session, exactly like the
+            // DestroyAndResetAllEntities case above:
+            //   "GetSingleton<PhysicsWorldSingleton>() ... but there are none"
+            //   from BuildPhysicsWorld / Broadphase / Narrowphase /
+            //   CreateJacobians / SolveAndIntegrate, every frame, forever.
+            // Spare them explicitly. Our OWN singletons self-heal instead (see
+            // NavRequestSchedulerSystem / SpatialHashRebuildSystem), because we
+            // control those systems and third-party ones we do not.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world != null && world.IsCreated)
+            {
+                var em = world.EntityManager;
+                em.CompleteAllTrackedJobs();
+
+                // The portal graph blob is owned by the SINGLETON, not by any
+                // one system — PortalGraphBuildSystem and
+                // IncrementalPortalRebuildSystem both publish into it and
+                // dispose the blob they replaced. Neither can safely cache a
+                // handle to free later (that stale handle threw "The
+                // BlobAssetReference is not valid"), so ownership transfers
+                // here: dispose it at the exact moment the entity holding it
+                // is about to be destroyed.
+                DisposePortalGraphBlob(em);
+
+                // Same set as UniversalQuery (all entities incl. disabled and
+                // prefabs, minus system / meta-chunk entities) minus the
+                // engine singletons that can never be rebuilt.
+                var wipe = new Unity.Entities.EntityQueryBuilder(Unity.Collections.Allocator.Temp)
+                    .WithOptions(Unity.Entities.EntityQueryOptions.IncludePrefab
+                               | Unity.Entities.EntityQueryOptions.IncludeDisabledEntities)
+                    .WithNone<Unity.Physics.PhysicsWorldSingleton, Unity.Physics.SimulationSingleton>()
+                    .Build(em);
+                em.DestroyEntity(wipe);
+            }
+
+            // Close the per-faction AI / player log writers. They used to stay
+            // open until the NEXT match re-initialised them, which left file
+            // handles on the previous match's folder for as long as the player
+            // sat in the menu — exactly when a tester is trying to zip it.
+            TheWaningBorder.AI.AILogger.Cleanup();
+
+            // Close the match's log folder and write its summary. Outcome is
+            // whatever VictoryConditionSystem recorded; a quit mid-match
+            // reports "unfinished", which is itself useful to see.
+            TheWaningBorder.Core.Diagnostics.MatchLogSession.End(_lastMatchOutcome);
+            _lastMatchOutcome = null;
+
+            TWBLog.Log("[GameBootstrap] Match torn down — managers destroyed, "
+                + "entities reset, ready to bootstrap again.");
+        }
+
+        /// <summary>
+        /// Free the portal-graph blob before the wipe destroys the singleton
+        /// that owns it. Queried live rather than through any cached handle,
+        /// because the blob has two publishers and only the singleton knows
+        /// which one is current. Safe when no graph has been built yet.
+        /// </summary>
+        private static void DisposePortalGraphBlob(Unity.Entities.EntityManager em)
+        {
+            var q = em.CreateEntityQuery(
+                Unity.Entities.ComponentType.ReadWrite<PortalGraphSingleton>());
+            if (q.IsEmptyIgnoreFilter) return;
+
+            var s = q.GetSingleton<PortalGraphSingleton>();
+            if (s.Graph.IsCreated) s.Graph.Dispose();
+
+            // Clear the reference so nothing can dispose it a second time in
+            // the window before the entity is destroyed.
+            s.Graph = default;
+            s.Built = 0;
+            q.SetSingleton(s);
+        }
+
+        /// <summary>Destroy every GameObject hosting a <typeparamref name="T"/>
+        /// — by component, not by name, so a scene object that happens to
+        /// share the name is never caught.</summary>
+        private static void DestroyPersistent<T>() where T : MonoBehaviour
+        {
+            foreach (var found in Object.FindObjectsByType<T>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (found != null) Object.Destroy(found.gameObject);
+            }
         }
 
         // Staged bootstrap. Each phase ends with a yield so the loading
@@ -80,6 +281,14 @@ namespace TheWaningBorder.Bootstrap
             // TEMP DIAGNOSTIC: trace each bootstrap phase so a stalled MP launch
             // shows its exact stall point as the last "[BootTrace]" line.
             Trace("coroutine start");
+
+            // Statics survive scene loads: a second match would otherwise
+            // inherit the previous match's "populated" latch and let the
+            // lockstep clock start on an empty world. The epoch bump tells
+            // every stateful sim system to reset its per-match fields.
+            SpawnDelayHelper.MapPopulated = false;
+            SpawnDelayHelper.MatchEpoch++;
+
             EnsureECSWorld();
             Trace("after EnsureECSWorld");
 
@@ -96,6 +305,19 @@ namespace TheWaningBorder.Bootstrap
                 LockstepBootstrap.Instance.InitializeLockstepNow();
                 Trace("after InitializeLockstepNow");
                 yield return null;
+            }
+            else if (GameSettings.IsMultiplayer)
+            {
+                // A multiplayer match with no lockstep bootstrap must never
+                // boot QUIETLY: nothing replicates, and every remote human's
+                // faction silently falls to the AI — both players report "the
+                // game ran but nothing propagated" (2026-08-17, the
+                // second-match self-destructing bootstrap). If this fires,
+                // the lobby start flow failed to create or keep the
+                // bootstrap alive.
+                Debug.LogError("[GameBootstrap] MULTIPLAYER match booting WITHOUT " +
+                    "a LockstepBootstrap instance — no networking will run and " +
+                    "remote players' factions fall to the AI. This boot is broken.");
             }
 
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Loading tech tree…");
@@ -136,6 +358,9 @@ namespace TheWaningBorder.Bootstrap
             if (isScenario)
             {
                 ScenarioSetup.SpawnScenarioEntities();
+                // Scenario spawning is synchronous — the invariant "flag set
+                // means the world is fully populated" holds here too.
+                SpawnDelayHelper.MapPopulated = true;
             }
             else
             {
@@ -434,8 +659,18 @@ namespace TheWaningBorder.Bootstrap
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world != null && world.IsCreated)
             {
+                // NEVER clear OUR OWN fixed-step driver. InitializeLockstepNow
+                // installs it a few bootstrap phases BEFORE this method runs,
+                // and this NetCode-defense sweep was silently wiping it —
+                // every deterministic MP match then ran frame-driven from this
+                // line onward while LockstepFixedStep.Active still read true
+                // (the 2026-08-16 desync #5; upstream of #3/#4's veil-timing
+                // symptoms). Only a FOREIGN rate manager (NetCode's) is a
+                // hijack; ours is the match.
                 var simGroup = world.GetExistingSystemManaged<Unity.Entities.SimulationSystemGroup>();
-                if (simGroup != null) simGroup.RateManager = null;
+                if (simGroup != null
+                    && !(simGroup.RateManager is TheWaningBorder.Multiplayer.LockstepFixedRateManager))
+                    simGroup.RateManager = null;
 
                 var initGroup = world.GetExistingSystemManaged<Unity.Entities.InitializationSystemGroup>();
                 if (initGroup != null) initGroup.RateManager = null;
@@ -530,18 +765,13 @@ namespace TheWaningBorder.Bootstrap
             // the manager: without it every AI fog check degrades to
             // "everything visible" and the AIs play with map-wide intel from
             // second zero (no scouting needed — a silent map hack). The
-            // observer's own VIEW stays unfogged: the overlay renderer is
-            // hidden here, and FogVisibilitySyncSystem / MinimapRenderer
-            // show everything when GameSettings.IsObserver.
+            // observer's VIEW follows GameSettings.ViewFaction: the manager
+            // toggles its own overlay renderer per frame (full reveal while
+            // nothing is selected, the selected asset's owner otherwise),
+            // and FogVisibilitySyncSystem / the minimap read the same value.
             if (GameSettings.FogOfWarEnabled)
             {
                 FogOfWarManager.SetupFogOfWar();
-                if (GameSettings.IsObserver
-                    && FogOfWarManager.Instance != null
-                    && FogOfWarManager.Instance.FogRenderer != null)
-                {
-                    FogOfWarManager.Instance.FogRenderer.enabled = false;
-                }
             }
         }
 
@@ -596,13 +826,12 @@ namespace TheWaningBorder.Bootstrap
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Reset bootstrap state (call when returning to main menu)
+        /// Reset bootstrap state. The scene-load hook now does this by itself
+        /// on every exit from a gameplay scene (TeardownAfterMatch); this stays
+        /// as the manual entry point for callers that tear a match down without
+        /// a scene change.
         /// </summary>
-        public static void Reset()
-        {
-            _didSetupThisScene = false;
-            GameCamera.Cleanup();
-        }
+        public static void Reset() => TeardownAfterMatch();
     }
 
     /// <summary>

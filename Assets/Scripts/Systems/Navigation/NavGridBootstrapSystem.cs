@@ -51,6 +51,30 @@ namespace TheWaningBorder.Systems.Navigation
         private Entity _dirTableEntity;
         private byte _initialised;
 
+        // System-side mirrors of everything the singletons own. GameBootstrap's
+        // end-of-match wipe destroys those ordinary entities, taking the
+        // components — but NOT the persistent allocations they referenced —
+        // with them. Holding our own handles is the only way to free them.
+        private NativeArray<byte> _cost;
+        private NativeArray<byte> _flags;
+        private NativeArray<byte> _terrainCost;
+        private BlobAssetReference<DirectionTableBlob> _table;
+
+        /// <summary>
+        /// True when the three nav-foundation singletons are all still alive.
+        /// The wipe kills them while this system survives (OnCreate never runs
+        /// again), so a one-shot latch left them permanently missing: every
+        /// downstream nav system RequireForUpdate's them and simply parked, so
+        /// from match 2 onward there was no cost field, no portal graph, no
+        /// flow fields and no pathing at all — units frozen, workers idle.
+        /// That is the root cause the other nav singleton bugs hid behind.
+        /// </summary>
+        private bool SingletonsAlive(EntityManager em)
+            => _initialised != 0
+            && em.Exists(_gridEntity) && em.HasComponent<NavGridSingleton>(_gridEntity)
+            && em.Exists(_costEntity) && em.HasComponent<NavCostField>(_costEntity)
+            && em.Exists(_dirTableEntity) && em.HasComponent<DirectionTableSingleton>(_dirTableEntity);
+
         // NOT [BurstCompile]: BC1028 — CreateEntity(typeof(...)) is a managed
         // call. The math we hand off to BuildDirectionTableJob is Burst-safe
         // on its own.
@@ -64,7 +88,21 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnUpdate(ref SystemState state)
         {
-            if (_initialised != 0) return;
+            // Existence-gated, not latch-gated — see SingletonsAlive. Rebuilding
+            // also re-reads the terrain bounds, which is required for
+            // correctness on its own: the latch meant a DIFFERENT map loaded in
+            // match 2 would have reused match 1's grid bounds and cell size.
+            if (SingletonsAlive(state.EntityManager)) return;
+
+            // Drop every cached handle to the OLD arrays before freeing them.
+            // NavGridQuery caches the cost field in a static, and its cached
+            // copy of the component keeps a dangling buffer pointer that still
+            // reports IsCreated == true — so without this it reads freed memory
+            // and throws "The NativeArray has been deallocated" every frame.
+            NavGridQuery.InvalidateCache();
+
+            // Free the previous match's allocations before making new ones.
+            ReleaseAllocations();
 
             // ── Size + position the grid to the ACTUAL scene Terrain ──────
             // The old hardcoded 512x512-centred-on-origin box only matched the
@@ -180,27 +218,36 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 Table = tableRef,
             });
+
+            // Mirror everything so a later rebuild (or OnDestroy) can free it
+            // even once the owning entities are gone.
+            _cost = cost;
+            _flags = flags;
+            _terrainCost = terrainCost;
+            _table = tableRef;
+        }
+
+        /// <summary>
+        /// Free the persistent allocations owned by the nav singletons. Reads
+        /// the system-side mirrors rather than the components, because after an
+        /// end-of-match wipe those components no longer exist and the
+        /// allocations would leak — three arrays plus a blob, every match.
+        /// </summary>
+        private void ReleaseAllocations()
+        {
+            if (_cost.IsCreated) _cost.Dispose();
+            if (_flags.IsCreated) _flags.Dispose();
+            if (_terrainCost.IsCreated) _terrainCost.Dispose();
+            if (_table.IsCreated) _table.Dispose();
+            _cost = default;
+            _flags = default;
+            _terrainCost = default;
+            _table = default;
         }
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_initialised == 0) return;
-
-            var em = state.EntityManager;
-
-            if (em.Exists(_costEntity) && em.HasComponent<NavCostField>(_costEntity))
-            {
-                var field = em.GetComponentData<NavCostField>(_costEntity);
-                if (field.Cost.IsCreated) field.Cost.Dispose();
-                if (field.Flags.IsCreated) field.Flags.Dispose();
-                if (field.TerrainCost.IsCreated) field.TerrainCost.Dispose();
-            }
-
-            if (em.Exists(_dirTableEntity) && em.HasComponent<DirectionTableSingleton>(_dirTableEntity))
-            {
-                var table = em.GetComponentData<DirectionTableSingleton>(_dirTableEntity);
-                if (table.Table.IsCreated) table.Table.Dispose();
-            }
+            ReleaseAllocations();
         }
     }
 }

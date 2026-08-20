@@ -150,7 +150,9 @@ namespace TheWaningBorder.Systems.Combat
 
                 for (int i = 0; i < allyEnts.Length; i++)
                 {
-                    if (allyFactions[i].Value != myFac) continue;
+                    // Team allies count as allies. The best-wins map below is
+                    // what keeps two sources from stacking. docs/Design/Teams.md
+                    if (!Alliances.AreAllied(myFac, allyFactions[i].Value)) continue;
                     if (allyHealths[i].Value <= 0) continue;
 
                     float dxz = math.distance(

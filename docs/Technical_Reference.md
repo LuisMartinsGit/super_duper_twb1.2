@@ -26,7 +26,7 @@
 6. [Combat Systems](#6-combat-systems)
 7. [Movement & Pathfinding](#7-movement--pathfinding)
 8. [AI Systems](#8-ai-systems)
-9. [Crystal Curse Faction](#9-crystal-curse-faction)
+9. [The Border Faction](#9-veilstone-border-faction)
 10. [Visibility & Fog of War](#10-visibility--fog-of-war)
 11. [Training & Population](#11-training--population)
 12. [Construction](#12-construction)
@@ -103,7 +103,7 @@ Input Systems
 |--------|-------|
 | Commands | `Core/Commands/CommandRouter.cs`, `Core/Commands/CommandTypes/*.cs` |
 | Economy | `Economy/FactionEconomy.cs`, `Economy/FactionResources.cs`, `Economy/ResourceTickSystem.cs` |
-| Mining | `Systems/Work/MiningSystem.cs`, `Systems/Work/CrystalMiningSystem.cs` |
+| Mining | `Systems/Work/MiningSystem.cs`, `Systems/Work/VeilstoneMiningSystem.cs` |
 | Construction | `Systems/Work/BuildingConstructionSystem.cs` |
 | Combat | `Systems/Combat/TargetingSystem.cs`, `MeleeCombatSystem.cs`, `RangedCombatSystem.cs` |
 | AI | `AI/Core/AIBrain.cs`, `AI/Managers/AIEconomyManager.cs`, `AI/Managers/AIBuildingManager.cs` |
@@ -112,7 +112,7 @@ Input Systems
 | Input | `Input/RTSInputManager.cs`, `Input/SelectionSystem.cs`, `Input/CameraController.cs` |
 | UI | `UI/Panels/EntityInfoPanel.cs`, `UI/Panels/EntityActionPanel.cs`, `UI/Panels/BuildCommandPannel.cs` |
 | Training | `Systems/Training/TrainingSystem.cs` |
-| Crystal | `Systems/Crystal/CrystalSpreadSystem.cs`, `CrystalAISystem.cs` |
+| Veilstone | `Systems/Border/CrystalSpreadSystem.cs`, `BorderAISystem.cs` |
 | Multiplayer | `Multiplayer/LockstepManager.cs`, `LockstepTypes.cs`, `LockstepBootstrap.cs` |
 | Tech Tree | `Data/TechTree/TechTreeDB.cs`, `Resources/TechTree.json` |
 
@@ -126,8 +126,8 @@ Input Systems
 |----------|--------|-----|-----------------|
 | **Supplies** | 1x | 100,000 | Hall (50/15s), Gatherer Hut (area-based ~60/min), trade caravans, wall compartments (Alanthor) |
 | **Iron** | 2x | 100,000 | Iron deposits (mined by miners), passive building income |
-| **Crystal** | 3x | 100,000 | Creature cadavers (mined), Crystal Shrine income |
-| **Veilsteel** | 5x | 100,000 | Smelter conversion (5 Iron + 3 Crystal = 1 Veilsteel / 5s) |
+| **Veilstone** | 3x | 100,000 | Creature cadavers (mined), Veilstone Shrine income |
+| **Veilsteel** | 5x | 100,000 | Smelter conversion (5 Iron + 3 Veilstone = 1 Veilsteel / 5s) |
 | **Glow** | 4x | 100,000 | Ley Line Nexus, special buildings |
 
 ### Iron Mining
@@ -137,35 +137,32 @@ Input Systems
 | Iron per deposit | 500 |
 | Deposits per map | 12-20 |
 | Gather interval | 2.0s per unit |
-| Iron per gather | 1 |
-| Max carry | 10 (+ CarryCapacityBonus from tech) |
+| Iron per gather | 1 (credited straight to the faction bank) |
 | Gather range | 5.0 units |
-| Dropoff range | 6.0 units |
-| Auto-find radius (AI) | 50 units |
+| Auto-find radius | 10 units |
 
-**Miner State Machine**: Idle -> MovingToDeposit -> Gathering -> ReturningToBase -> (loop)
+**Miner State Machine**: Idle -> MovingToDeposit -> Gathering -> (loop)
 
-Deposits persist when depleted. Miners auto-find new deposits within LineOfSight on depletion. Player miners require explicit GatherCommand; AI miners auto-find.
+Mined resources are credited directly to the faction bank on each gather tick — miners never carry resources and there are no dropoff buildings. Miners auto-find new deposits near the depleted node. Player miners require explicit GatherCommand; AI miners auto-find.
 
-### Crystal Mining (Cadavers)
+### Veilstone Mining (Cadavers)
 
 | Parameter | Value |
 |-----------|-------|
-| Crystal per cadaver | 300 (default) |
-| Gather interval | 1.5s per unit |
-| Max carry | 10 |
+| Veilstone per cadaver | 300 (default) |
+| Gather interval | 1.5s per unit (credited straight to the faction bank) |
 | Cadaver radius | 0.8 units |
 
-Cadavers spawn when Crystal Curse creatures die. **Cadavers are destroyed when depleted** (unlike iron deposits).
+Cadavers spawn when The Border creatures die. **Cadavers are destroyed when depleted** (unlike iron deposits).
 
 ### Smelter Conversion
 
 | Parameter | Value |
 |-----------|-------|
-| Input | 5 Iron + 3 Crystal |
+| Input | 5 Iron + 3 Veilstone |
 | Output | 1 Veilsteel |
 | Conversion time | 5 seconds |
-| Local storage | 100 Iron, 50 Crystal max |
+| Local storage | 100 Iron, 50 Veilstone max |
 | Loss factor | 20% (Foundry/Crucible buildings) |
 
 Miners with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver to the Smelter's ForgeStorage.
@@ -213,16 +210,16 @@ Miners with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver t
 | 4 | Purple | (0.80, 0.40, 1.00) | Player |
 | 5 | Orange | (1.00, 0.55, 0.15) | Player |
 | 6 | Teal | (0.20, 1.00, 0.95) | Player |
-| 7 | White | (1.00, 1.00, 1.00) | Crystal Curse AI (always) |
+| 7 | White | (1.00, 1.00, 1.00) | The Border AI (always) |
 
 Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ### Cultures (chosen at Era 2)
 
-**Age-up cost**: 800 Supplies + 200 Iron + 150 Crystal (at Hall, requires one religious building).
+**Age-up cost**: 800 Supplies + 200 Iron + 150 Veilstone (at Hall, requires one religious building).
 
 #### Runai - "The Veil Scholars"
-- **Philosophy**: Preserve the Curse, learn from it, pacify it
+- **Philosophy**: Preserve the Border, learn from it, pacify it
 - **Playstyle**: Trade / Guerrilla / Tech
 - **Aesthetic**: Arabic-influenced tents, sandstone, cyan-blue magic
 - **Economy**: Trade routes between outposts; caravans auto-generate Supplies; distance bonus
@@ -230,7 +227,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 - **Colors**: Cyan (0.25, 0.75, 0.80) / Sandstone (0.76, 0.65, 0.45)
 
 #### Alanthor - "The Iron Covenant"
-- **Philosophy**: Exploit the Curse for profit
+- **Philosophy**: Exploit the Border for profit
 - **Playstyle**: Economy / Defense
 - **Aesthetic**: Medieval European stone, thick walls, forges
 - **Economy**: Walled compartments generate income by enclosed area; income pauses if walls fall
@@ -238,7 +235,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 - **Colors**: Sage Green (0.55, 0.65, 0.50) / Warm Grey (0.45, 0.45, 0.42)
 
 #### Feraldis - "The Ashborn"
-- **Philosophy**: Destroy the Curse through blood and fire
+- **Philosophy**: Destroy the Border through blood and fire
 - **Playstyle**: Aggression / Magic Denial
 - **Aesthetic**: Celtic/Viking, dark wood, totems, blood-red war paint
 - **Economy**: Gatherer Huts persist into Era 2 (unique); Pillage mechanic (+15 Supplies + 1 Iron per non-military kill)
@@ -267,7 +264,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
 |------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
 | Builder | 60 | 4.0 | 2 | Melee | 12 | 50S | 1 | - | Infantry Light | CanBuild |
-| Miner | 50 | 3.5 | 2 | Melee | 10 | 50S | 1 | - | Infantry Light | Gathers Iron/Crystal |
+| Miner | 50 | 3.5 | 2 | Melee | 10 | 50S | 1 | - | Infantry Light | Gathers Iron/Veilstone |
 | Scout | 40 | 6.0 | 3 | Melee | 20 | 55S | 1 | - | Infantry Light | Extended LoS |
 | Swordsman | 120 | 3.5 | 12 | Melee | 10 | 140S | 1 | 1.2s | Infantry Heavy | Melee Def +1 |
 | Archer | 60 | 4.0 | 8 | 10-25 | 25 | 75S | 1 | 1.5s | Ranged | Retreats at min range, Ranged Def +1 |
@@ -301,9 +298,9 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Warboar Rider | 200 | 5.8 | 20 | 1.0 | 10 | 210S+80I+40C | 1 | 1.0s | Cavalry | Melee +1 |
 | Siege Ram | 300 | 3.0 | 34 | 1.0 | 10 | 280S+140I+70C | 2 | 3.0s | Infantry Heavy | Melee +4, Ranged +2, Siege +6 |
 
-### Crystal Curse Units (Faction White, no population cost)
+### The Border Units (Faction White, no population cost)
 
-| Unit | HP | Speed | Damage | Range | LoS | Crystal Cost | Armor | Def (M/R/S/Mag) | Special |
+| Unit | HP | Speed | Damage | Range | LoS | Veilstone Cost | Armor | Def (M/R/S/Mag) | Special |
 |------|----|-------|--------|-------|-----|-------------|-------|------------------|---------|
 | Crystalling | 60 | 5.5 | 8 | 1.0 | 10 | 50C | Infantry Light | +2/+1/0/+1 | Fast melee swarm. 0.8s cooldown |
 | Veilstinger | 65 | 4.0 | 18 | 8-24 | 28 | 150C | Ranged | +3/+2/+1/+2 | Dual-laser (2 targets). 1.5s cooldown. Retreats at min range |
@@ -324,7 +321,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Ember Ash | Ashblade | 155 | 5.0 | 14 | Melee | 1.0s | Infantry Light | Very fast raider |
 | Hollow Brand | Brandbreaker | 150 | 4.0 | 12 (Siege) | Melee | 1.5s | Infantry Heavy | Anti-structure (SiegeTag) |
 | Flamewrought Chains | Chaincaster | 105 | 3.5 | 10 | 0-14 | 1.8s | Ranged | ChainBind (short root), Magic +1 |
-| Unmaker's Grasp | Nullblade | 150 | 4.2 | 14 | Melee | 1.1s | Infantry Light | Anti-Crystal (+6 vs magic), Magic +1 |
+| Unmaker's Grasp | Nullblade | 150 | 4.2 | 14 | Melee | 1.1s | Infantry Light | Anti-Veilstone (+6 vs magic), Magic +1 |
 
 ### Special Units
 
@@ -376,7 +373,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Garrison | 1500 | 220S+90I | 22 | Sentinel, Crossbowman | 6 garrison slots. +8 pop |
 | Royal Stable | 1300 | 260S+120I+40C | 20 | Cataphract | Heavy cavalry training |
 | Siege Yard | 1300 | 260S+140I+60C | 20 | Ballista | Siege engine training |
-| Smelter | 1000 | 220S+100I | 14 | - | 5 Iron + 3 Crystal = 1 Veilsteel / 5s. Local storage: 100I, 50C |
+| Smelter | 1000 | 220S+100I | 14 | - | 5 Iron + 3 Veilstone = 1 Veilsteel / 5s. Local storage: 100I, 50C |
 | Crucible | 1200 | 200S+60I+40C | 18 | - | Advanced veilsteel (20% loss factor) |
 
 ### Feraldis Culture Buildings
@@ -390,16 +387,16 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | Longhouse | 1400 | 260S+100I | 20 | Berserker, Warboar Rider | Batch training (5/10 units, -5% cost, -10% time). +10 pop |
 | Siege Yard | 1200 | 260S+120I+40C | 20 | Siege Ram | Siege training |
 
-### Crystal Curse Buildings
+### The Border Buildings
 
 | Building | HP | Radius | Defense (M/R/S/Mag) | Special |
 |----------|----|---------|--------------------|---------|
-| Crystal Main Node | 5000 | 1.5 | +15/+15/+10/+10 | Central hive. Spreads cursed ground. Self-defense turret (30 dmg, range 20, 3 targets) |
-| Crystal Resource Node | 1500 | 1.0 | - | Spreads cursed ground. Generates crystal income |
-| Crystal Enforcement Node | 1200 | 0.8 | - | Buff aura (12u): +3 Def, +2 Att, +15% Speed to crystal entities |
-| Crystal Suppression Node | 1200 | 0.8 | - | Debuff aura (12u): -2 Def, -2 Att, -20% Speed to enemies |
-| Crystal Restoration Node | 1200 | 0.8 | - | Heal aura (12u): 5 HP/s to crystal entities |
-| Crystal Turret Node | 1500 | 1.0 | - | Ranged turret: 25 magic dmg, range 18, 3 max targets, 2.0s cd |
+| Veilstone Main Node | 5000 | 1.5 | +15/+15/+10/+10 | Central hive. Spreads border ground. Self-defense turret (30 dmg, range 20, 3 targets) |
+| Veilstone Resource Node | 1500 | 1.0 | - | Spreads border ground. Generates veilstone income |
+| Veilstone Enforcement Node | 1200 | 0.8 | - | Buff aura (12u): +3 Def, +2 Att, +15% Speed to veilstone entities |
+| Veilstone Suppression Node | 1200 | 0.8 | - | Debuff aura (12u): -2 Def, -2 Att, -20% Speed to enemies |
+| Veilstone Restoration Node | 1200 | 0.8 | - | Heal aura (12u): 5 HP/s to veilstone entities |
+| Veilstone Turret Node | 1500 | 1.0 | - | Ranged turret: 25 magic dmg, range 18, 3 max targets, 2.0s cd |
 
 ---
 
@@ -437,9 +434,9 @@ Defense uses diminishing returns. The relevant defense stat is matched by damage
 | MaxHeightBonus | +0.20 (+20% cap) |
 | MaxHeightPenalty | -0.20 (-20% cap) |
 
-### Crystal Buff/Debuff Modifiers
+### Veilstone Buff/Debuff Modifiers
 
-Applied by Crystal Enforcement and Suppression Nodes:
+Applied by Veilstone Enforcement and Suppression Nodes:
 ```
 crystalMod = (1 + attacker_buff.AttBonus) * (1 + target_debuff.AttPenalty)
 finalDamage = max(1, baseDamage * armorMod * defenseMod * heightMod * crystalMod)
@@ -469,7 +466,7 @@ Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown
 
 **Arrows**: Quadratic Bezier curve, FlightDuration 0.8s, ArcHeight 3 units, HitRadius 0.8. Guaranteed hit if target alive. Siege projectiles (Ballista/Catapult) render at 2.5x scale for visual distinction.
 
-**Lasers**: Straight line at constant velocity. Terrain collision check. Used by Crystal buildings and Veilstingers.
+**Lasers**: Straight line at constant velocity. Terrain collision check. Used by Veilstone buildings and Veilstingers.
 
 **AOE**: Splash damage within radius at impact point (Catapults, Godsplinters).
 
@@ -481,7 +478,7 @@ Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown
 | LaserSpeed | 55 |
 | SpawnYOffset | Radius + 0.5 (taller buildings shoot higher) |
 
-Buildings auto-target nearest enemies within range. Sorts by distance, fires at up to MaxTargets. Crystal buildings fire lasers (Magic damage); others fire arrows (Ranged damage).
+Buildings auto-target nearest enemies within range. Sorts by distance, fires at up to MaxTargets. Veilstone buildings fire lasers (Magic damage); others fire arrows (Ranged damage).
 
 ### Targeting System
 
@@ -621,7 +618,7 @@ Extracted to `AITuning` class for per-difficulty adjustment. Controls build prio
 
 ---
 
-## 9. Crystal Curse Faction
+## 9. The Border Faction
 
 ### Spread System
 
@@ -636,9 +633,9 @@ Extracted to `AITuning` class for per-difficulty adjustment. Controls build prio
 | TileRadius | 2 units per tile |
 | MaxTilesPerNode | 200 |
 
-Ring expansion model: cursed ground spreads in expanding rings from main node. Level calculated from CurrentRingRadius (1: 0-5, 2: 5-10, 3: 10+).
+Ring expansion model: border ground spreads in expanding rings from main node. Level calculated from CurrentRingRadius (1: 0-5, 2: 5-10, 3: 10+).
 
-### Cursed Ground Damage
+### Border Ground Damage
 
 | Parameter | Value |
 |-----------|-------|
@@ -646,19 +643,19 @@ Ring expansion model: cursed ground spreads in expanding rings from main node. L
 | BaseDPS | 2 per second |
 | Effect radius | 2 units per tile |
 
-Crystal-tagged entities are immune. Damage = max(1, DPS * interval).
+Veilstone-tagged entities are immune. Damage = max(1, DPS * interval).
 
-### Crystal Income
+### Veilstone Income
 
 | Parameter | Value |
 |-----------|-------|
 | TickInterval | 1 second |
-| IncomePerAreaUnit | 0.03 crystal |
+| IncomePerAreaUnit | 0.03 veilstone |
 | TileRadius | 2 (area = pi * 4) |
 
 `income = ceil(tileCount * pi * 4 * 0.03)` credited to Faction.White.
 
-### Crystal AI
+### Veilstone AI
 
 | Parameter | Value |
 |-----------|-------|
@@ -668,15 +665,15 @@ Crystal-tagged entities are immune. Damage = max(1, DPS * interval).
 | ExpansionSlowdownRate | 20 |
 | MaxExpansionInterval | 300s (5 min) |
 
-**Behaviors**: Node building (sub-nodes in cursed areas), unit spawning (from crystal bank), harassment (attack waves at player bases), expansion (new main nodes).
+**Behaviors**: Node building (sub-nodes in border areas), unit spawning (from veilstone bank), harassment (attack waves at player bases), expansion (new main nodes).
 
 ### Sub-Node Types
 
 | Type | Role |
 |------|------|
-| Resource | Crystal generation |
+| Resource | Veilstone generation |
 | Turret | Ranged defense |
-| Restoration | Heal crystal entities (5 HP/s) |
+| Restoration | Heal veilstone entities (5 HP/s) |
 | Enforcement | Buff aura (+3 Def, +2 Att, +15% Speed) |
 | Suppression | Debuff aura (-2 Def, -2 Att, -20% Speed) |
 
@@ -697,7 +694,7 @@ Crystal-tagged entities are immune. Damage = max(1, DPS * interval).
 - FogOfWarManager (MonoBehaviour singleton)
 - Per-frame: clear visibility -> stamp circles for all units with LineOfSight -> mark revealed permanently -> generate texture
 - Static queries: `IsVisibleToFaction()`, `IsRevealedToFaction()`
-- Crystal entities excluded from revealing fog
+- Veilstone entities excluded from revealing fog
 
 ---
 
@@ -783,9 +780,9 @@ Multiple builders can work simultaneously. On completion: remove UnderConstructi
 | Sect | Passive | Tech | Spell (Cooldown) |
 |------|---------|------|------------------|
 | **Renewal** | +20% income if all walls full HP | DietaryMandate: out-of-combat regen | RepairLevies (40s): rapid building repair |
-| **Antiquity** | +20% research speed | ClockworkArchives: -15% research, -5% cooldown | CrystalSurvey (50s): reveal nodes + 30 Crystal |
+| **Antiquity** | +20% research speed | ClockworkArchives: -15% research, -5% cooldown | CrystalSurvey (50s): reveal nodes + 30 Veilstone |
 | **Living Stone** | +20% wall income, +10% build speed | TerracePlanning: +20% compartment Supplies | BulwarkRise (60s): +3 armor to buildings |
-| **Veiled Memory** | +15% fog vision, -10% spell cooldown | HiddenRecords: -25% Crystal retaliation | Shroud (55s): 12u mist (blocks vision, -20% speed) |
+| **Veiled Memory** | +15% fog vision, -10% spell cooldown | HiddenRecords: -25% Veilstone retaliation | Shroud (55s): 12u mist (blocks vision, -20% speed) |
 
 **Synergy pairs**: Renewal + Living Stone = "The Fortress" | Antiquity + Veiled Memory = "The Archive"
 
@@ -806,8 +803,8 @@ Multiple builders can work simultaneously. On completion: remove UnderConstructi
 |------|---------|------|------------------|
 | **Ember Ash** | +12% melee damage, +10% train speed | WarTithe: +5S per enemy civilian kill | BattleFervor (55s): +25% attack & speed in 10u for 10s |
 | **Hollow Brand** | 5% panic on hit | DesecrateStandards: -20% enemy morale auras | ProfaneRally (60s): pull enemies 2u + 30% slow 5s |
-| **Flamewrought Chains** | 3% control stack per hit | VeilsteelLinks: +1% DR per iron ingot | BindTheCore (90s): pacify Crystal sub-node 15s |
-| **Unmaker's Grasp** | +20% vs Crystal entities | ErasureRites: +20% Crystal drop yield | Unravel (80s): heavy true damage to Crystal unit |
+| **Flamewrought Chains** | 3% control stack per hit | VeilsteelLinks: +1% DR per iron ingot | BindTheCore (90s): pacify Veilstone sub-node 15s |
+| **Unmaker's Grasp** | +20% vs Veilstone entities | ErasureRites: +20% Veilstone drop yield | Unravel (80s): heavy true damage to Veilstone unit |
 
 **Synergy pairs**: Ember Ash + Hollow Brand = "The Warband" | Flamewrought Chains + Unmaker's Grasp = "The Purifier"
 
@@ -885,13 +882,17 @@ Destroying a temple destroys all attached chapels (TempleCascadeDestroySystem).
 
 | Parameter | Value |
 |-----------|-------|
-| Keyboard speed | 25 u/s (WASD) |
+| Keyboard speed | 25 u/s (**arrow keys** — WASD is disabled so `A` is unambiguously attack-move) |
 | Edge scroll speed | 30 u/s (border: 15px) |
 | Zoom range | 15-80 |
-| Rotation speed | 100 deg/s (Q/E) |
-| Tilt range | 30-75 degrees (R/F) |
+| Rotation speed | *(disabled)* — `HandleRotation` (Q/E) exists but is never called |
+| Tilt range | *(disabled)* — `HandleTilt` (R/F) exists but is never called |
 | Move damping | 0.15 |
 | Height damping | 0.1 |
+
+> The camera is deliberately locked to a fixed angle and tilt; it only pans and
+> zooms (`CameraController.Update`). Do not surface Q/E/R/F to the player as
+> working controls — the tutorial did, and taught keys that do nothing.
 
 ---
 
@@ -944,7 +945,7 @@ Each entity has NetworkId (unique int, assigned at spawn) + SpawnTick. Thread-sa
 
 | Panel | Position | Size | Content |
 |-------|----------|------|---------|
-| ResourceHUD | Bottom-left | 200x256 | Population, RP, Supplies, Iron, Crystal, Veilsteel, Glow |
+| ResourceHUD | Bottom-left | 200x256 | Population, RP, Supplies, Iron, Veilstone, Veilsteel, Glow |
 | EntityInfoPanel | Left of ResourceHUD | 320xDynamic | Single: portrait + stats. Multi: army breakdown grid |
 | EntityActionPanel | Right side | 370xDynamic | Actions: build, train, research, vault, temple, stance |
 | BuildCommandPannel | Overlay | - | Building placement preview with validation |
@@ -1045,13 +1046,13 @@ Buildings emerge from ground (rising animation) during construction phase.
                           +-----+-----+
                                 |
               +-----------------+-----------------+
-              |                 |                 |
-    +---------v-------+  +-----v------+  +-------v--------+
-    | Improved Tools  |  | Storage    |  | Research_Era2  |
-    | 80S + 40I       |  | Carts      |  | 1000S+200I+150C|
-    | +15% gather     |  | 90S        |  | -> Choose      |
-    | speed           |  | +10 carry  |  |    Culture     |
-    +-----------------+  +------------+  +--------+-------+
+              |                                   |
+    +---------v-------+                  +-------v--------+
+    | Improved Tools  |                  | Research_Era2  |
+    | 80S + 40I       |                  | 1000S+200I+150C|
+    | +15% gather     |                  | -> Choose      |
+    | speed           |                  |    Culture     |
+    +-----------------+                  +--------+-------+
                                                   |
                                          Requires one of:
                                     Shrine / Vault / Keep
@@ -1320,7 +1321,7 @@ G
 
 ```
     IRON DEPOSITS                    CRYSTAL CADAVERS
-    (500 iron each)                  (300 crystal each)
+    (500 iron each)                  (300 veilstone each)
     12-20 per map                    Spawn on creature death
          |                                |
          | Miners (1/2s)                  | Miners (1/1.5s)
@@ -1394,7 +1395,7 @@ Active --> UserMoveOrder issued --> Idle (interrupt healing)
 | Spell | Sect | Cooldown | Range | Radius | Duration | Effect | Value |
 |-------|------|----------|-------|--------|----------|--------|-------|
 | Repair Levies | Renewal | 40s | 30 | 15 | instant | Heal | 200 HP to buildings |
-| Crystal Survey | Antiquity | 50s | Global | 0 | 30s | Vision | Reveal crystal nodes |
+| Veilstone Survey | Antiquity | 50s | Global | 0 | 30s | Vision | Reveal veilstone nodes |
 | Bulwark Rise | Living Stone | 60s | 30 | 15 | 20s | Buff | +3 Armor to buildings |
 | Shroud | Veiled Memory | 55s | 30 | 12 | 15s | Vision | Blocks enemy vision, -20% speed |
 | Embargo | Still Flame | 60s | 30 | 20 | 20s | Disable | Disable enemy trade |
@@ -1403,7 +1404,7 @@ Active --> UserMoveOrder issued --> Idle (interrupt healing)
 | Edict of Seizure | Shard Judgment | 65s | 30 | 15 | 10s | Debuff | Drain 50 Supplies over 10s |
 | Battle Fervor | Ember Ash | 55s | 25 | 10 | 10s | Buff | 1.25x damage + 1.25x speed |
 | Profane Rally | Hollow Brand | 60s | 25 | 10 | 5s | Debuff | 30% slow |
-| Bind the Core | Flamewrought Chains | 90s | 30 | 0 | 15s | Disable | Pacify Crystal sub-node |
+| Bind the Core | Flamewrought Chains | 90s | 30 | 0 | 15s | Disable | Pacify Veilstone sub-node |
 | Unravel | Unmaker's Grasp | 80s | 25 | 0 | instant | Damage | 300 true damage |
 
 ### Casting Flow
@@ -1465,7 +1466,6 @@ MonoBehaviour singleton, event-driven. Subscribes to `FactionResearchState.OnTec
 | Effect | Target | Formula |
 |--------|--------|---------|
 | gatherSpeedMult | Miners (MinerTag) | MinerState.GatherSpeedMultiplier *= value |
-| carryCapacityBonus | Miners (MinerTag) | MinerState.CarryCapacityBonus += value |
 | meleeAttackSpeedMult | Melee units | AttackCooldown.Cooldown /= value (shorter = faster) |
 | meleeDefenseAdd | Units with Defense | Defense.Melee += value |
 
@@ -1617,7 +1617,7 @@ GPU-driven per-faction territory visualization on terrain.
 ### Architecture
 
 - **InfluenceManager**: Owns 512x512 ARGB32 RenderTexture (InfluenceMap) + RFloat BloodMap
-- **Channel mapping**: R=Alanthor, G=Runai, B=Feraldis, A=Crystal
+- **Channel mapping**: R=Alanthor, G=Runai, B=Feraldis, A=Veilstone
 - **InfluenceBridge**: Polls ECS state every 2s, pushes to faction painters
 
 ### Alanthor Influence (R Channel)
@@ -1643,7 +1643,7 @@ Two-stage system:
 
 ## 31. AI Behaviors
 
-### Crystal Hunt Behavior
+### Veilstone Hunt Behavior
 
 | Parameter | Value |
 |-----------|-------|
@@ -1651,7 +1651,7 @@ Two-stage system:
 | Hunt range | 80 units from base |
 | Max hunters per target | 3 |
 
-Finds crystal entities (units + buildings) within range. Round-robin assigns idle military units. Defers AttackCommand via AICommandAdapter.
+Finds veilstone entities (units + buildings) within range. Round-robin assigns idle military units. Defers AttackCommand via AICommandAdapter.
 
 ### Defense Behavior
 
@@ -1715,7 +1715,7 @@ Routing layer converting AI decisions to CommandRouter calls. Enforces multiplay
 
 ### Terrain Layers
 
-Sand, Grass, Dirt, Rock, Snow, Curse. 512x512 textures, tiling 15.
+Sand, Grass, Dirt, Rock, Snow, Border. 512x512 textures, tiling 15.
 
 ---
 
@@ -1759,7 +1759,7 @@ All sizes in grid cells (1m each).
 | Feraldis HuntingLodge | 3x3 | Feraldis LoggingStation | 3x3 |
 | Feraldis Longhouse | 4x3 | Feraldis Tower | 2x2 |
 | Feraldis SiegeYard | 3x3 | Chapel (all) | 2x2 |
-| Crystal MainNode | 5x5 | Crystal SubNodes | 2x2 |
+| Veilstone MainNode | 5x5 | Veilstone SubNodes | 2x2 |
 | Default | 3x3 | | |
 
 ### Build Times
@@ -1799,16 +1799,16 @@ Only displays when building selected AND RallyPoint.Has == 1. Marker rotates. Li
 
 ---
 
-## Appendix A: Crystal Subsystem Details
+## Appendix A: Veilstone Subsystem Details
 
-### Crystal Death Drop System
+### Veilstone Death Drop System
 
-- Intercepts curse entity deaths BEFORE DeathSystem
-- Cadaver loot amount = entity's BuildCost in crystal
+- Intercepts border entity deaths BEFORE DeathSystem
+- Cadaver loot amount = entity's BuildCost in veilstone
 - Main node cadavers: radius 2.0. Regular cadavers: radius 0.8
 - **Hard cap: 32 cadaver nodes alive simultaneously**. Excess deaths don't spawn cadavers.
 
-### Crystal Extinction & Respawn
+### Veilstone Extinction & Respawn
 
 | Parameter | Value |
 |-----------|-------|
@@ -1817,9 +1817,9 @@ Only displays when building selected AND RallyPoint.Has == 1. Marker rotates. Li
 | Spawn attempts | 30 per frame |
 | SpawnRadius | MapHalfSize * 0.7 |
 
-When all CrystalMainNodes destroyed: sets IsExtinct=1, starts timer. On timer expiry: find valid position (passable, 60u+ from all player halls, within map bounds). Spawns new main node + 100 crystal to White faction. Deterministic random seed for multiplayer.
+When all BorderMainNodes destroyed: sets IsExtinct=1, starts timer. On timer expiry: find valid position (passable, 60u+ from all player halls, within map bounds). Spawns new main node + 100 veilstone to White faction. Deterministic random seed for multiplayer.
 
-### Cursed Ground Recession
+### Border Ground Recession
 
 | Parameter | Value |
 |-----------|-------|
@@ -1827,13 +1827,13 @@ When all CrystalMainNodes destroyed: sets IsExtinct=1, starts timer. On timer ex
 
 **Phase 1**: On node death, orphaned tiles (OwnerNode destroyed) tagged as CursedGroundReceding with staggered timer (0-60s, deterministic hash per entity index).
 
-**Phase 2**: Each frame decrements TimeRemaining. On expiry: unpaint cursed ground visual, destroy tile entity. Creates gradual dissolve effect over 60-second window.
+**Phase 2**: Each frame decrements TimeRemaining. On expiry: unpaint border ground visual, destroy tile entity. Creates gradual dissolve effect over 60-second window.
 
 ### Godsplinter Dual-Mode Combat
 
 | Mode | Range | Cooldown | Targets | Behavior |
 |------|-------|----------|---------|----------|
-| Siege | <= SiegeRange (4u) | 3.0s | 1 | Direct melee damage with crystal buff/debuff |
+| Siege | <= SiegeRange (4u) | 3.0s | 1 | Direct melee damage with veilstone buff/debuff |
 | Laser | <= LaserRange (22u) | 2.0s | up to 4 | Spawns laser projectiles at nearest enemies |
 | Chase | > LaserRange | - | - | Move toward target (unless HoldPosition) |
 
@@ -1918,7 +1918,7 @@ Passives are computed by `FactionSectState` (MonoBehaviour singleton) and consum
 | Ember Ash | Feraldis | +12% melee damage | MeleeDamage += 0.12 |
 | Hollow Brand | Feraldis | 5% panic on melee hit | PanicChance = 0.05 |
 | Flamewrought Chains | Feraldis | 3% root on melee hit | ControlChance = 0.03 |
-| Unmaker's Grasp | Feraldis | +20% damage vs Crystal | DamageVsCrystal += 0.20 |
+| Unmaker's Grasp | Feraldis | +20% damage vs Veilstone | DamageVsCrystal += 0.20 |
 
 #### Synergy Pairs (adopting both sects in a pair grants bonus)
 
@@ -1929,7 +1929,7 @@ Passives are computed by `FactionSectState` (MonoBehaviour singleton) and consum
 | The Merchant | Still Flame + Quiet Vault | +10% all income |
 | The Inquisitor | Mirror Rite + Shard Judgment | +15% ranged damage |
 | The Warband | Ember Ash + Hollow Brand | +10% attack speed |
-| The Purifier | Flamewrought Chains + Unmaker's Grasp | +30% damage vs Crystal |
+| The Purifier | Flamewrought Chains + Unmaker's Grasp | +30% damage vs Veilstone |
 
 ---
 
@@ -1950,7 +1950,7 @@ Each sect unlocks a unique building (beyond the chapel) with an aura or special 
 | Ember Ash | War Pyre | 800 | 200S+60I+30C | 418 | Passive only (attack speed via multiplier) |
 | Hollow Brand | Dread Totem | 700 | 180S+50I+30C | 419 | SpellDebuff(SpeedReduction=0.10) to enemy units in 15u |
 | Flamewrought Chains | Binding Pillar | 800 | 200S+60I+50C | 420 | 5 damage/tick to CrystalTag entities in 12u |
-| Unmaker's Grasp | Purge Altar | 900 | 250S+80I+60C | 421 | Passive only (vs Crystal via multiplier) |
+| Unmaker's Grasp | Purge Altar | 900 | 250S+80I+60C | 421 | Passive only (vs Veilstone via multiplier) |
 
 ---
 
@@ -1985,7 +1985,7 @@ Each sect unit has a manually-activated skill. Managed by `UnitAbilitySystem` (3
 | Ember Ash | Ashblade | Ignite | 12s | Self | Next 3 attacks deal +8 fire damage |
 | Hollow Brand | Brandbreaker | War Cry | 18s | Self (8u AOE) | -30% speed to enemies for 4s |
 | Flamewrought Chains | Chaincaster | Chain Bind | 14s | 12u | Root target 3s (SpellDebuff speed=1.0) |
-| Unmaker's Grasp | Nullblade | Void Strike | 20s | Self | Next attack +40 damage (+80 vs Crystal) |
+| Unmaker's Grasp | Nullblade | Void Strike | 20s | Self | Next attack +40 damage (+80 vs Veilstone) |
 
 #### Combat Integration
 
@@ -2032,13 +2032,13 @@ Dramatic, game-changing faction abilities. Each castable multiple times (cooldow
 | **Living Stone** | Earthquake | 150s | Destruction | 300 siege damage to enemy buildings in 25u (600 to walls). 2s stun on ground units |
 | **Veiled Memory** | Veil of Shadows | 100s | Stealth | ALL friendly units globally gain StealthTag for 15s. Invisible to targeting beyond 3u |
 | **Still Flame** | Summon Caravan Guard | 80s | Summon | 5 temporary FlameWarden units at target. Despawn after 60s |
-| **Quiet Vault** | Golden Tribute | 70s | Economy | Instantly gain +500 Supplies, +200 Iron, +100 Crystal. 30s production boost marker |
+| **Quiet Vault** | Golden Tribute | 70s | Economy | Instantly gain +500 Supplies, +200 Iron, +100 Veilstone. 30s production boost marker |
 | **Mirror Rite** | Arcane Storm | 130s | Lightning | 16 lightning bolts over 8s (every 0.5s) in 20u radius. 30 magic + 10 splash per bolt |
 | **Shard Judgment** | Dominate | 110s | Mind Control | Control nearest enemy unit for 30s. Faction swapped. Reverts on expiry or death |
 | **Ember Ash** | Firestorm | 100s | Area Denial | 15u radius burning ground for 10s. 10 DPS to enemies inside. Grid of BurningGround tiles |
 | **Hollow Brand** | Summon War Host | 120s | Summon | 3 Brandbreakers + 2 Ashblades at target. Temporary (60s despawn) |
 | **Flamewrought Chains** | Chain Lightning | 90s | Chain Damage | 80 damage to primary target, chains to 5 enemies within 10u for 40 damage each |
-| **Unmaker's Grasp** | Annihilation | 180s | Ultimate | Crystal sub-node: instant kill. Crystal main node / anything else: 500 true damage |
+| **Unmaker's Grasp** | Annihilation | 180s | Ultimate | Veilstone sub-node: instant kill. Veilstone main node / anything else: 500 true damage |
 
 #### Spell Implementation Details
 
@@ -2119,7 +2119,7 @@ Where `SpellCooldownReduction` comes from sect passives (e.g., Veiled Memory -10
       Spell: Earthquake             Spell: Arcane Storm           Spell: Chain Lightning
 
     Veiled Memory                  Shard Judgment                Unmaker's Grasp
-      Passive: +15% fog vision      Passive: +10% all income      Passive: +20% vs Crystal
+      Passive: +15% fog vision      Passive: +10% all income      Passive: +20% vs Veilstone
       Building: Veil Spire (fog)    Building: Tribunal (slow)     Building: Purge Altar
       Unit: Adept / Dispel          Unit: Judicator / Condemn     Unit: Nullblade / VoidStrike
       Spell: Veil of Shadows        Spell: Dominate               Spell: Annihilation

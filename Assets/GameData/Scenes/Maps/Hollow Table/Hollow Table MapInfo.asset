@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Hollow Table MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: HollowTable
+  DisplayName: Hollow Table
+  PlayerCount: 2
+  SizeTag: SMALL / OPEN
+  Description: "A duel across 128 m of open ground. Home holds barely enough to open
+    with; the north and south wings hold everything else, and sit exactly as far
+    from you as from your enemy. One well stands on the mesa in the middle \u2014
+    the map's only objective."
+  Thumbnail: {fileID: 2800000, guid: 2a70ebfdea7f75f44a34d0eb43b1d49f, type: 3}
+  PlayerStarts:
+  - {x: 0.16666667, y: 0.5}
+  - {x: 0.8333333, y: 0.5}
+  PlayerStartFactions: 0001
+  PlayerStartTeams: 
+  IronDeposits:
+  - {x: 0.32291666, y: 0.25}
+  - {x: 0.6770833, y: 0.25}
+  - {x: 0.90625, y: 0.625}
+  - {x: 0.09375, y: 0.625}
+  - {x: 0.6770833, y: 0.75}
+  - {x: 0.32291666, y: 0.75}
+  - {x: 0.09375, y: 0.375}
+  - {x: 0.90625, y: 0.375}
+  VeilstoneNodes:
+  - {x: 0.59375, y: 0.20833333}
+  - {x: 0.34375, y: 0.34375}
+  - {x: 0.40625, y: 0.20833333}
+  - {x: 0.40625, y: 0.7916667}
+  - {x: 0.23958333, y: 0.6354167}
+  - {x: 0.34375, y: 0.65625}
+  - {x: 0.65625, y: 0.65625}
+  - {x: 0.59375, y: 0.7916667}
+  - {x: 0.7604167, y: 0.6354167}
+  - {x: 0.23958333, y: 0.36458334}
+  - {x: 0.65625, y: 0.34375}
+  - {x: 0.7604167, y: 0.36458334}
+  VeilsteelNodes:
+  - {x: 0.5, y: 0.13541667}
+  - {x: 0.5, y: 0.8645833}
+  CurseNodes:
+  - {x: 0.5, y: 0.5}

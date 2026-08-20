@@ -444,9 +444,11 @@ namespace TheWaningBorder.UI.GameUI
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
 
-            var faction = GameSettings.LocalPlayerFaction;
+            // Observer perspective: render the viewed player's minimap
+            // (fog, influence tint, blips); LocalPlayerFaction otherwise.
+            var faction = GameSettings.ViewFactionOrLocal;
             RefreshFog(faction);
-            DrawInfluenceTint();
+            DrawInfluenceTint(faction);
             DrawBlips(world.EntityManager, faction);
             DrawPings();
             _overlayTex.SetPixels32(_overlayPixels);
@@ -491,10 +493,18 @@ namespace TheWaningBorder.UI.GameUI
         /// blended between the fog pass and the blips: players in their
         /// banner colour, the curse in purple. Influence-grid resolution
         /// (128²), so the pass is 16k samples at 10 Hz, not per-pixel.</summary>
-        private void DrawInfluenceTint()
+        private void DrawInfluenceTint(Faction faction)
         {
             if (!TheWaningBorder.Influence.PlayerInfluenceMap.Ready) return;
             const float threshold = 0.5f;
+
+            // Influence is painted OVER the fog layer (RefreshFog runs first),
+            // so without a visibility test it drew straight through unexplored
+            // black — handing the player the shape of every faction's territory
+            // and the curse's spread across ground nobody had scouted. Territory
+            // you have EXPLORED still shows once revealed, like a remembered
+            // building; territory you have never seen shows nothing.
+            bool unfogged = !GameSettings.FogOfWarEnabled || GameSettings.ViewFaction == null;
             int res = TheWaningBorder.Influence.PlayerInfluenceMap.Resolution;
             int channels = TheWaningBorder.Influence.PlayerInfluenceMap.ChannelCount;
 
@@ -529,6 +539,16 @@ namespace TheWaningBorder.UI.GameUI
                     float wz0 = wMin.y + cy / (float)res * wSize.y;
                     float wx1 = wx0 + wSize.x / res;
                     float wz1 = wz0 + wSize.y / res;
+
+                    // Skip cells never explored. Tested at the cell CENTRE:
+                    // one lookup per influence cell rather than per overlay
+                    // pixel, and the influence grid is coarse enough that the
+                    // centre is representative.
+                    if (!unfogged)
+                    {
+                        var cellMid = new float3((wx0 + wx1) * 0.5f, 0f, (wz0 + wz1) * 0.5f);
+                        if (!FogOfWarSystem.IsRevealedToFaction(faction, cellMid)) continue;
+                    }
                     int px0 = Mathf.Clamp(Mathf.FloorToInt((wx0 - _boundsMin.x) * invBw * _ovW), 0, _ovW - 1);
                     int px1 = Mathf.Clamp(Mathf.CeilToInt((wx1 - _boundsMin.x) * invBw * _ovW), 0, _ovW);
                     int py0 = Mathf.Clamp(Mathf.FloorToInt((wz0 - _boundsMin.y) * invBh * _ovH), 0, _ovH - 1);
@@ -568,8 +588,8 @@ namespace TheWaningBorder.UI.GameUI
         /// </summary>
         private void RefreshFog(Faction faction)
         {
-            // Observers watch unfogged (mirrors FogVisibilitySyncSystem).
-            if (!GameSettings.FogOfWarEnabled || GameSettings.IsObserver)
+            // No view faction = unfogged (mirrors FogVisibilitySyncSystem).
+            if (!GameSettings.FogOfWarEnabled || GameSettings.ViewFaction == null)
             {
                 for (int i = 0; i < _overlayPixels.Length; i++)
                     _overlayPixels[i] = ClearPixel;
@@ -651,8 +671,8 @@ namespace TheWaningBorder.UI.GameUI
 
         private void DrawBlips(EntityManager em, Faction faction)
         {
-            // Observers (and FoW-off matches) see every blip.
-            bool unfogged = !GameSettings.FogOfWarEnabled || GameSettings.IsObserver;
+            // No view faction (and FoW-off matches) = every blip drawn.
+            bool unfogged = !GameSettings.FogOfWarEnabled || GameSettings.ViewFaction == null;
 
             // Units: own always, others only while FoW-visible.
             var unitsQ = _unitsQ.Get(em, UnitQueryTypes);

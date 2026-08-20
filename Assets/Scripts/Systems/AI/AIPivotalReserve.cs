@@ -85,7 +85,9 @@ namespace TheWaningBorder.AI
                 || res.Veilsteel < vs;
             if (!shortfall) { _holdSince.Remove(faction); return false; }
 
-            float now = UnityEngine.Time.time;
+            // Simulated time — this gates an AI spending decision, so it
+            // must tick with the simulation, not the render loop.
+            float now = TheWaningBorder.Core.SimClock.Now;
             if (!_holdSince.TryGetValue(faction, out float since))
             {
                 _holdSince[faction] = now;

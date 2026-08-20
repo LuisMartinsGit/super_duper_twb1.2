@@ -69,16 +69,24 @@ namespace TheWaningBorder.Core.Commands.Types
                 else
                     em.SetComponentData(miner, cmd);
 
-            // Set destination to resource node position
-            if (em.HasComponent<Unity.Transforms.LocalTransform>(resourceNode))
+            // Destination = a spot BESIDE the node, not the node itself. A
+            // resource node stamps its own build cell impassable, so a
+            // destination at its transform can never be arrived at: the worker
+            // grinds against it, and FlowFollowSystem's line-of-sight test
+            // fails on an impassable goal cell so the approach is not even a
+            // straight line. See MiningReach.
+            if (em.HasComponent<Unity.Transforms.LocalTransform>(resourceNode)
+                && em.HasComponent<Unity.Transforms.LocalTransform>(miner))
             {
-                var nodePos = em.GetComponentData<Unity.Transforms.LocalTransform>(resourceNode).Position;
+                var minerPos = em.GetComponentData<Unity.Transforms.LocalTransform>(miner).Position;
+                TheWaningBorder.Systems.Work.MiningReach.TryGetMiningStand(
+                    em, resourceNode, minerPos, out var stand);
 
                 if (em.HasComponent<DesiredDestination>(miner))
                 {
                     em.SetComponentData(miner, new DesiredDestination
                     {
-                        Position = nodePos,
+                        Position = stand,
                         Has = 1
                     });
                 }
@@ -86,7 +94,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 {
                     em.AddComponentData(miner, new DesiredDestination
                     {
-                        Position = nodePos,
+                        Position = stand,
                         Has = 1
                     });
                 }

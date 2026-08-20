@@ -215,8 +215,40 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         internal static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
-            // Phase 2/3 will dispatch culture-specific transform systems here.
-            // For Phase 1 the huts remain unchanged across age-up.
+            // FERALDIS: every House standing at age-up pays out its L1 raider
+            // wave now (docs/Design/Age_1_Feraldis.md).
+            //
+            // Only the two LATER paths were ever wired — a House built after
+            // age-up (BuildingConstructionSystem) and a House upgraded to L2/L3
+            // (BuildingUpgradeSystem). The houses a player actually owns at the
+            // moment of age-up — i.e. the entire Age 0 build — fell through
+            // this stub and spawned nothing, ever. Fires once per faction,
+            // because age-up completes once.
+            if (culture != Cultures.Feraldis) return;
+
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HutTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var huts = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            int spawned = 0;
+            for (int i = 0; i < huts.Length; i++)
+            {
+                var hut = huts[i];
+                if (em.GetComponentData<FactionTag>(hut).Value != faction) continue;
+                // A half-built house has not paid for its wave yet — the
+                // construction path will hand it over when it completes.
+                if (em.HasComponent<UnderConstruction>(hut)) continue;
+
+                var housePos = em.GetComponentData<LocalTransform>(hut).Position;
+                TheWaningBorder.Entities.FeraldisRaider.CreateUncontrolled(
+                    em, housePos + new Unity.Mathematics.float3(1.5f, 0f, 0f), faction);
+                spawned++;
+            }
+
+            if (spawned > 0)
+                TWBLog.Log($"[AgeUp] {faction} Feraldis age-up: {spawned} House(s) paid out their L1 raider.");
         }
     }
 }

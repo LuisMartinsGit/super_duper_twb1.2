@@ -59,18 +59,20 @@ namespace TheWaningBorder.World.MapMarkers
             // assignment, see PlayerSpawnSystem) the winner used to vary per
             // run, which read as "random spawn positions". Sort by faction,
             // then name, then position for a deterministic marker order.
-            _players.Sort((a, b) =>
-            {
-                if (a == null || b == null) return (a == null).CompareTo(b == null);
-                int byFaction = ((int)a.Faction).CompareTo((int)b.Faction);
-                if (byFaction != 0) return byFaction;
-                int byName = string.CompareOrdinal(a.gameObject.name, b.gameObject.name);
-                if (byName != 0) return byName;
-                var pa = a.transform.position;
-                var pb = b.transform.position;
-                int byX = pa.x.CompareTo(pb.x);
-                return byX != 0 ? byX : pa.z.CompareTo(pb.z);
-            });
+            _players.Sort(ComparePlayerStarts);
+
+            // EVERY other list gets the same treatment, and in multiplayer it
+            // is not cosmetic: the spawn bootstraps consume these lists in
+            // order while NetworkIds are handed out sequentially, so two peers
+            // that enumerate markers differently pair the same IDs with
+            // different deposits. Same entity count, different id-position
+            // pairing, checksum fork at tick 0 (found 2026-08-16, the second
+            // instant-desync of the first two-editor test day).
+            _iron.Sort(CompareMarkers);
+            _crystal.Sort(CompareMarkers);
+            _veilsteel.Sort(CompareMarkers);
+            _border.Sort(CompareMarkers);
+            _blight.Sort(CompareMarkers);
 
             TWBLog.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
                       $"iron={_iron.Count} veilstone={_crystal.Count} veilsteel={_veilsteel.Count} " +
@@ -87,6 +89,53 @@ namespace TheWaningBorder.World.MapMarkers
             _veilsteel.Clear();
             _border.Clear();
             _blight.Clear();
+        }
+
+        /// <summary>
+        /// THE canonical ordering of a map's player-start markers.
+        ///
+        /// FindObjectsByType with SortMode.None is UNORDERED — with two markers
+        /// claiming the same faction (or leftover-marker assignment, see
+        /// PlayerSpawnSystem) the winner used to vary per run, which read as
+        /// "random spawn positions". Sort by faction, then name, then position.
+        ///
+        /// This is public and shared because the lobby's start-position picker
+        /// depends on it: MapInfoBaker bakes MapInfo.PlayerStarts in THIS order,
+        /// and PlayerSlot.StartIndex indexes into it. If the baker and the
+        /// runtime registry ordered differently, picking start #2 in the lobby
+        /// would spawn you at a different marker. Both must call this.
+        /// docs/Design/Lobby_Setup.md
+        /// </summary>
+        public static int ComparePlayerStarts(PlayerStartMarker a, PlayerStartMarker b)
+        {
+            if (a == null || b == null) return (a == null).CompareTo(b == null);
+            int byFaction = ((int)a.Faction).CompareTo((int)b.Faction);
+            if (byFaction != 0) return byFaction;
+            int byName = string.CompareOrdinal(a.gameObject.name, b.gameObject.name);
+            if (byName != 0) return byName;
+            var pa = a.transform.position;
+            var pb = b.transform.position;
+            int byX = pa.x.CompareTo(pb.x);
+            return byX != 0 ? byX : pa.z.CompareTo(pb.z);
+        }
+
+        /// <summary>
+        /// Deterministic ordering for the non-player marker lists: name, then
+        /// X, then Z, then Y. Scene names can repeat ("IronPatchMarker (3)" can
+        /// be duplicated by hand), so position is the tie-breaker; two markers
+        /// at the SAME name and position are genuinely interchangeable.
+        /// </summary>
+        private static int CompareMarkers<T>(T a, T b) where T : Component
+        {
+            if (a == null || b == null) return (a == null).CompareTo(b == null);
+            int byName = string.CompareOrdinal(a.gameObject.name, b.gameObject.name);
+            if (byName != 0) return byName;
+            var pa = a.transform.position;
+            var pb = b.transform.position;
+            int byX = pa.x.CompareTo(pb.x);
+            if (byX != 0) return byX;
+            int byZ = pa.z.CompareTo(pb.z);
+            return byZ != 0 ? byZ : pa.y.CompareTo(pb.y);
         }
 
         /// <summary>Find the marker for a given faction (or null if none).</summary>

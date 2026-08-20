@@ -42,6 +42,8 @@ namespace TheWaningBorder.Systems.Research
             foreach (var (rs, entity) in SystemAPI
                          .Query<RefRW<ResearchState>>()
                          .WithNone<UnderConstruction>()
+                         // Heavy Bureaucracy (Antiquity) halts research too.
+                         .WithNone<SectShutdown>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<ResearchQueueItem>(entity);
@@ -77,8 +79,8 @@ namespace TheWaningBorder.Systems.Research
                     if (ChoiceUpgradeQuery.FactionHasWing(em, faction, KeepWingType.Librarians))
                         researchTime /= TheWaningBorder.Core.Settings.KeepWingConfig.LibrariansResearchSpeed;
 
-                    // task-063 phase 1: sect ResearchSpeed multiplier removed with the
-                    // FactionSectState bridge. Phase 2 reintroduces tech-speed levers.
+                    // Royal Index (Antiquity): all research 30% faster.
+                    researchTime *= SectResearchEffects.ResearchTimeMultiplier(faction);
 
                     rs.ValueRW.Busy = 1;
                     rs.ValueRW.Remaining = researchTime;

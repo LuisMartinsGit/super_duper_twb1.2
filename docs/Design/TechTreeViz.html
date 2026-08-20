@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Waning Border — Age 0 Tech Tree</title>
+<style>
+  :root{
+    --bg:#12141c; --panel:#1b1e2b; --panelAlt:#222637; --line:#333a52;
+    --text:#e6e9f2; --dim:#8a93ad; --gold:#d9b45a; --blue:#6c8ebf;
+    --red:#c76b66; --green:#8bbf6a; --purple:#a98bd0; --doc:#e0913a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;padding:24px 28px}
+  code{color:var(--blue)}
+  h1{margin:0;font-size:24px;letter-spacing:.5px}
+  h2{font-size:15px;margin:22px 0 12px;padding-left:8px}
+  .sub{color:var(--dim);margin:6px 0 0;font-size:13px;max-width:820px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 20px}
+  button{background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;
+    text-transform:capitalize}
+  button.active{background:var(--gold);color:var(--bg)}
+  input{background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:6px;padding:6px 12px;font-size:13px;min-width:160px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin-left:auto}
+  .legend span{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim)}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+  .bcard{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);
+    border-radius:10px;padding:14px;width:320px}
+  .bcard.choice{border-left-color:var(--purple)}
+  .ucard{background:var(--panelAlt);border:1px solid var(--line);border-top:3px solid var(--red);
+    border-radius:8px;padding:12px;width:250px}
+  .chead{display:flex;justify-content:space-between;align-items:baseline}
+  .title{font-size:16px;font-weight:700}
+  .utitle{font-size:14px;font-weight:700}
+  .meta{color:var(--dim);font-size:10px}
+  .role{color:var(--dim);font-size:12px;margin:4px 0 10px}
+  .cls{color:var(--dim);font-size:11px;margin:2px 0 8px}
+  .stat{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--line)}
+  .stat .k{color:var(--dim);font-size:12px}
+  .stat .v{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .doc{color:var(--doc);font-weight:400;margin-left:6px;font-size:11px}
+  .def{display:flex;gap:6px;margin-top:6px}
+  .def div{flex:1;text-align:center;font-size:11px;padding:3px 0;border-radius:4px;
+    background:rgba(255,255,255,.03);border:1px solid var(--line)}
+  .def div.pos{background:rgba(139,191,106,.15);border-color:var(--green)}
+  .def .dl{color:var(--dim);font-size:9px}
+  .sec{margin-top:10px}
+  .sec .h{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px}
+  .chip{display:inline-block;font-size:11px;line-height:1.4;padding:2px 7px;margin:2px 4px 2px 0;
+    border-radius:5px;background:rgba(108,142,191,.12);border:1px solid var(--blue);white-space:nowrap}
+  .aura{margin-top:8px;font-size:11px;color:var(--green)}
+  .special{margin-top:8px;font-size:11px;color:var(--text)}
+  .extra{color:var(--text);font-size:11px;margin-top:8px}
+  .notes{color:var(--dim);font-size:11px;margin-top:6px;font-style:italic}
+  .badge{font-size:9px;padding:1px 5px;border-radius:4px}
+  .trainedat{color:var(--dim);font-size:12px;margin:10px 0 6px}
+  footer{color:var(--dim);font-size:11px;margin-top:30px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>The Waning Border — <span style="color:var(--gold)">Age 0</span> Tech Tree</h1>
+  <p class="sub">Stats read from the live ScriptableObjects in
+    <code>Assets/GameData/TechTree/</code>. Names follow the design doc where they
+    conflict; a <span style="color:var(--doc)">(doc: X)</span> marker flags any stat where
+    <code>docs/Design/Age_0.md</code> disagrees. Fully offline — no dependencies.</p>
+</header>
+
+<div class="controls">
+  <button data-tab="all" class="active">all</button>
+  <button data-tab="buildings">buildings</button>
+  <button data-tab="units">units</button>
+  <input id="q" placeholder="filter…" />
+  <div class="legend" id="legend"></div>
+</div>
+
+<div id="app"></div>
+
+<footer>
+  Damage model: <code>finalDamage = baseDamage × dmgTypeVsArmor × (1 − defense / (defense + 100))</code>.
+  &nbsp;Crossbowman / Longbowman are design-doc PLAYTEST PLACEHOLDER values (no ScriptableObject yet).
+</footer>
+
+<script>
+/* ------------------------------------------------------------------ config */
+const C = { gold:"var(--gold)", blue:"var(--blue)", red:"var(--red)",
+  green:"var(--green)", purple:"var(--purple)", doc:"var(--doc)" };
+const RES = { Supplies:"🌾", Iron:"⛓️", Crystal:"💎", Veilstone:"🔮", Veilsteel:"⚙️" };
+const UNIT_COLOR = { economy:C.green, combat:C.red, support:C.purple };
+const DEF_LABELS = ["Melee","Ranged","Siege","Magic"];
+
+const cost = c => Object.entries(c||{}).filter(([,v])=>v>0)
+  .map(([k,v])=>`${RES[k]||""} ${v} ${k}`).join("   ") || "— free —";
+
+/* ==================================================================== DATA */
+const BUILDINGS = [
+  { id:"Hall", name:"Hall", kind:"core", pid:100,
+    role:"HQ · trains economy · banks resources · researches age-up",
+    hp:1000, docHp:2400, los:24, def:[2,8,0,4], radius:1.6, cost:{Supplies:0}, pop:20,
+    trains:["Worker","Scout"], research:["Advance to Era II","Stone Tools","Wheel Cart"],
+    upgradesTo:["Town Hall","Trader's Hall","War Hall"] },
+  { id:"GatherersHut", name:"Gatherer's Hut", kind:"core", pid:101,
+    role:"Area supply aura · Age 0 only · transforms at age-up",
+    hp:300, docHp:800, los:16, def:[2,2,0,0], radius:0.5, cost:{Supplies:120,Iron:10},
+    aura:"+60 Supplies / min · radius 12",
+    research:["Iron Surveying I-III","Veilstone Survey I-II","Veilsteel Survey"] },
+  { id:"Hut", name:"House (Hut)", kind:"core", pid:102, role:"Population housing",
+    hp:650, docHp:600, los:6, docLos:14, def:[2,6,0,2], radius:1.6, cost:{Supplies:80}, pop:10 },
+  { id:"Barracks", name:"Barracks", kind:"core", pid:510, role:"Trains & upgrades melee infantry",
+    hp:500, docHp:800, los:18, def:[1,1,0,0], radius:1.6, cost:{Supplies:220,Iron:40},
+    trains:["Spearman"], research:["Conscription","Stone Weapons"], upgradesTo:["Garrison"] },
+  { id:"ArcheryRange", name:"Archery Range", kind:"core", pid:511,
+    role:"Ranged ladder — L1 Archer · L2 Crossbowman · L3 Longbowman",
+    hp:500, docHp:600, los:18, def:[1,1,0,0], radius:1.6, cost:{Supplies:180,Iron:50},
+    trains:["Archer","Crossbowman","Longbowman"],
+    research:["Choreographed Volleys","Stone-tipped Arrows","Fletching"], upgradesTo:["Practice Range"] },
+  { id:"VaultOfAlmierra", name:"Vault of Almiérra", kind:"choice", pid:530,
+    role:"Resource bank — compound interest per minute",
+    hp:600, docHp:1200, los:14, def:[0,8,0,0], radius:2, cost:{Supplies:300,Crystal:100},
+    special:"Interest 25 %/min · Alanthor +30 % · Runai −30 %",
+    research:["Coffers","Merchant Charters","Sovereign Bonds","Iron Subsidies","Veilstone Monetization","Veilsteel Bonds"] },
+  { id:"ShrineOfRidan", name:"Shrine of Ridan", kind:"choice", pid:0,
+    role:"Religious · trains Litharch healers · heal aura",
+    hp:600, docHp:800, los:16, def:[0,6,0,0], radius:1.8, cost:{Supplies:300,Crystal:100},
+    special:"Heal aura 1 %/s (r 10) · Runai +30 % · Feraldis −30 % · +1 RP",
+    trains:["Litharch"], research:["Heightened Masses","Warrior Priests","Pious Masses","Fervored Masses"] },
+  { id:"FiendstoneKeep", name:"Fiendstone Keep", kind:"choice", pid:540,
+    role:"Fortified trainer · supply · arrow volleys",
+    hp:1000, docHp:2000, los:18, def:[2,2,0,0], radius:2.4, cost:{Supplies:300,Crystal:100}, pop:20,
+    special:"Auto-fire 20 dmg / 2 s · range 30 · 4 targets · Feraldis +50 % HP / Alanthor −50 %",
+    trains:["Spearman","Archer"],
+    research:["Ballista Emplacement","Trebuchet Emplacement","Additional Towers","Reinforced Walls"] },
+];
+
+const UNITS = [
+  { id:"Worker", name:"Worker", cls:"human_support", type:"economy", source:"SO", trainer:"Hall",
+    hp:70, speed:6, train:25, docTrain:5, dmg:2, dmgType:"melee", def:[0,0,0,0], cd:0, range:1, los:14,
+    cost:{Supplies:50}, pop:1, extra:"Build 1.0 · Gather 1.0 · Carry 1 (+5 Wheel Cart)",
+    notes:"Unified Builder + Miner." },
+  { id:"Scout", name:"Scout", cls:"human_scout", type:"economy", source:"SO", trainer:"Hall",
+    hp:60, speed:6, train:26, docTrain:4, dmg:10, docDmg:2, dmgType:"melee", def:[0,0,0,0], cd:0, range:1, los:40,
+    cost:{Supplies:55}, pop:1, notes:"Extreme vision (LoS 40) is the role." },
+  { id:"Spearman", name:"Spearman", cls:"human_melee", type:"combat", source:"SO", trainer:"Barracks",
+    hp:120, speed:5.5, train:22, docTrain:7, dmg:10, dmgType:"melee", def:[1,0,0,0], cd:1.5, range:1.5, los:16,
+    cost:{Supplies:80,Iron:30}, pop:1, extra:"Bonus vs Cavalry +15",
+    notes:"Replaces the drawio 'Swordsman'. Ladder → Seasoned → Veteran → Elite." },
+  { id:"Archer", name:"Archer", cls:"human_ranged", type:"combat", source:"SO", trainer:"ArcheryRange", tier:"L1",
+    hp:90, speed:5.2, train:20, docTrain:15, dmg:17, dmgType:"ranged", def:[0,1,0,0], cd:0, docCd:2.0,
+    range:25, minRange:1, docMinRange:10, los:30, cost:{Supplies:50,Iron:25}, pop:1,
+    notes:"Baseline ranged. Active skill after Choreographed Volleys." },
+  { id:"Crossbowman", name:"Crossbowman", cls:"human_ranged", type:"combat", source:"DOC", trainer:"ArcheryRange", tier:"L2",
+    hp:70, speed:3.5, train:18, dmg:18, dmgType:"ranged", def:[0,1,0,0], cd:3.0, range:18, minRange:6, los:22,
+    cost:{Supplies:40,Iron:35}, pop:1, notes:"Doc-only (no SO yet). Slow heavy-hitter. PLAYTEST PLACEHOLDER." },
+  { id:"Longbowman", name:"Longbowman", cls:"human_ranged", type:"combat", source:"DOC", trainer:"ArcheryRange", tier:"L3",
+    hp:55, speed:4, train:25, dmg:25, dmgType:"ranged", def:[0,1,0,0], cd:3.5, range:40, minRange:12, los:35,
+    cost:{Supplies:50,Iron:40}, pop:1, notes:"Doc-only (no SO yet). Long-range sniper. PLAYTEST PLACEHOLDER." },
+  { id:"Litharch", name:"Litharch", cls:"human_support", type:"support", source:"SO", trainer:"ShrineOfRidan",
+    hp:120, speed:5.5, train:24, docTrain:7, dmg:10, docDmg:0, dmgType:"magic", def:[0,0,0,2], cd:0, range:10, los:20,
+    cost:{Supplies:100,Iron:25,Crystal:10}, pop:1, heal:6,
+    notes:"Doc: pure healer (0 dmg) until Warrior Priests tech." },
+];
+
+/* ================================================================= render */
+const el = (tag, cls, html) => { const n=document.createElement(tag);
+  if(cls)n.className=cls; if(html!=null)n.innerHTML=html; return n; };
+const esc = s => String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function statRow(k, v, doc){
+  if(v===undefined||v===null||v==="") return "";
+  const showDoc = doc!==undefined && doc!==null && String(doc)!==String(v);
+  return `<div class="stat"><span class="k">${k}</span><span class="v">${esc(v)}`+
+    (showDoc?`<span class="doc" title="Design doc differs from ScriptableObject">(doc: ${esc(doc)})</span>`:"")+
+    `</span></div>`;
+}
+function defRow(def){
+  if(!def) return "";
+  return `<div class="def">`+def.map((v,i)=>
+    `<div class="${v>0?'pos':''}" title="${DEF_LABELS[i]} armor"><div class="dl">${DEF_LABELS[i][0]}</div><div>${v}</div></div>`
+  ).join("")+`</div>`;
+}
+function chips(arr, color){
+  return arr.map(x=>`<span class="chip" style="border-color:${color}">${esc(x)}</span>`).join("");
+}
+function section(title, inner){ return inner?`<div class="sec"><div class="h">${title}</div><div>${inner}</div></div>`:""; }
+
+function buildingCard(b){
+  const trained = (b.trains||[]).map(t=>UNITS.find(u=>u.id===t)).filter(Boolean);
+  const card = el("div", "bcard"+(b.kind==="choice"?" choice":""));
+  card.innerHTML =
+    `<div class="chead"><span class="title">${esc(b.name)}</span>`+
+      `<span class="meta">#${b.pid} · ${b.kind==="choice"?"choice L1":"L0"}</span></div>`+
+    `<div class="role">${esc(b.role)}</div>`+
+    statRow("HP", b.hp, b.docHp)+
+    statRow("Line of Sight", b.los, b.docLos)+
+    statRow("Radius", b.radius)+
+    statRow("Provides pop", b.pop)+
+    statRow("Build cost", cost(b.cost))+
+    defRow(b.def)+
+    (b.aura?`<div class="aura">🌾 ${esc(b.aura)}</div>`:"")+
+    (b.special?`<div class="special">✦ ${esc(b.special)}</div>`:"")+
+    (trained.length?section("Trains", trained.map(u=>
+        `<span class="chip" style="border-color:${UNIT_COLOR[u.type]}">${esc(u.name)}${u.tier?" · "+u.tier:""}</span>`).join("")):"")+
+    (b.research&&b.research.length?section("Research", chips(b.research, C.blue)):"")+
+    (b.upgradesTo&&b.upgradesTo.length?section("Age-up →", chips(b.upgradesTo, C.gold)):"");
+  return card;
+}
+
+function unitCard(u){
+  const card = el("div", "ucard");
+  card.style.borderTopColor = UNIT_COLOR[u.type];
+  const badge = u.source==="SO"
+    ? `<span class="badge" style="color:var(--green);border:1px solid var(--green)" title="Stats from ScriptableObject">SO</span>`
+    : `<span class="badge" style="color:var(--doc);border:1px solid var(--doc)" title="Stats from design doc (no SO yet)">DOC</span>`;
+  card.innerHTML =
+    `<div class="chead"><span class="utitle">${esc(u.name)}</span>`+
+      `<span style="display:flex;gap:6px;align-items:center">`+
+      (u.tier?`<span class="chip" style="border-color:${C.blue};margin:0">${u.tier}</span>`:"")+badge+`</span></div>`+
+    `<div class="cls">${esc(u.cls)}</div>`+
+    statRow("HP", u.hp)+
+    statRow("Damage", `${u.dmg} ${u.dmgType}`, u.docDmg!==undefined?`${u.docDmg} ${u.dmgType}`:undefined)+
+    statRow("Cooldown", u.cd?`${u.cd}s`:"—", u.docCd?`${u.docCd}s`:undefined)+
+    statRow("Range", u.minRange?`${u.minRange}–${u.range}`:u.range, u.docMinRange?`${u.docMinRange}–${u.range}`:undefined)+
+    statRow("Speed", u.speed)+
+    statRow("Line of Sight", u.los)+
+    statRow("Train time", `${u.train}s`, u.docTrain!==undefined?`${u.docTrain}s`:undefined)+
+    statRow("Heal / s", u.heal)+
+    statRow("Pop", u.pop)+
+    statRow("Cost", cost(u.cost))+
+    defRow(u.def)+
+    (u.extra?`<div class="extra">${esc(u.extra)}</div>`:"")+
+    (u.notes?`<div class="notes">${esc(u.notes)}</div>`:"");
+  return card;
+}
+
+let tab="all", q="";
+function draw(){
+  const app = document.getElementById("app"); app.innerHTML="";
+  const ql = q.toLowerCase();
+  const bs = BUILDINGS.filter(b=>!ql || (b.name+b.role).toLowerCase().includes(ql));
+  const us = UNITS.filter(u=>!ql || (u.name+u.cls+(u.notes||"")).toLowerCase().includes(ql));
+
+  if(tab!=="units"){
+    const core = bs.filter(b=>b.kind==="core"), choice = bs.filter(b=>b.kind==="choice");
+    app.appendChild(el("h2", null, `<span style="color:var(--gold);border-left:3px solid var(--gold);padding-left:8px">Core Buildings <em style="color:var(--dim);font-weight:400;font-size:13px">(pre-culture L0)</em></span>`));
+    const r1 = el("div","row"); core.forEach(b=>r1.appendChild(buildingCard(b))); app.appendChild(r1);
+    app.appendChild(el("h2", null, `<span style="color:var(--purple);border-left:3px solid var(--purple);padding-left:8px">Choice Buildings <em style="color:var(--dim);font-weight:400;font-size:13px">(pick one · start L1 · unlock age-up)</em></span>`));
+    const r2 = el("div","row"); choice.forEach(b=>r2.appendChild(buildingCard(b))); app.appendChild(r2);
+  }
+  if(tab!=="buildings"){
+    app.appendChild(el("h2", null, `<span style="color:var(--red);border-left:3px solid var(--red);padding-left:8px">Units</span>`));
+    ["Hall","Barracks","ArcheryRange","ShrineOfRidan"].forEach(tr=>{
+      const g = us.filter(u=>u.trainer===tr); if(!g.length) return;
+      const bname = (BUILDINGS.find(b=>b.id===tr)||{}).name || tr;
+      app.appendChild(el("div","trainedat",`trained at <strong style="color:var(--gold)">${esc(bname)}</strong>`));
+      const r = el("div","row"); g.forEach(u=>r.appendChild(unitCard(u))); app.appendChild(r);
+    });
+  }
+}
+
+/* legend + controls */
+[["Economy unit",C.green],["Combat unit",C.red],["Support unit",C.purple],
+ ["Building / tech",C.gold],["doc conflict",C.doc]].forEach(pair=>{
+  const s=el("span",null,`<span class="dot" style="background:${pair[1]}"></span>${pair[0]}`);
+  document.getElementById("legend").appendChild(s);
+});
+document.querySelectorAll("button[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{
+  tab=btn.dataset.tab;
+  document.querySelectorAll("button[data-tab]").forEach(b=>b.classList.toggle("active",b===btn));
+  draw();
+}));
+document.getElementById("q").addEventListener("input", e=>{ q=e.target.value; draw(); });
+draw();
+</script>
+</body>
+</html>

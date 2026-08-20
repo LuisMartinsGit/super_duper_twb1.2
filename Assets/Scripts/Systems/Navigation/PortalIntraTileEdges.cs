@@ -59,7 +59,14 @@ namespace TheWaningBorder.Systems.Navigation
                 order[i] = i;
                 tileOf[i] = nodes[i].TileIndex;
             }
-            System.Array.Sort(order, (a, b) => tileOf[a] - tileOf[b]);
+            // TOTAL order — the comment below PROMISES (TileIndex, CellIndex)
+            // ordering, but a tile-only comparer leaves same-tile portals in
+            // introsort-arbitrary order (Array.Sort is unstable). The
+            // partition survives it today; the promised invariant should not
+            // rest on luck.
+            System.Array.Sort(order, (a, b) =>
+                tileOf[a] != tileOf[b] ? tileOf[a] - tileOf[b]
+                                       : nodes[a].CellIndex - nodes[b].CellIndex);
 
             int start = 0;
             while (start < n)

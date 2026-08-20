@@ -87,7 +87,8 @@ namespace TheWaningBorder.Systems.Buildings
 
                 for (int i = 0; i < units.Length; i++)
                 {
-                    if (unitFac[i].Value != fac) continue;
+                    // Field hospitals treat allies too. docs/Design/Teams.md
+                    if (!Alliances.AreAllied(fac, unitFac[i].Value)) continue;
 
                     float2 d = new float2(unitXf[i].Position.x - pos.x, unitXf[i].Position.z - pos.z);
                     if (math.dot(d, d) > radSq) continue;

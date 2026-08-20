@@ -40,6 +40,12 @@ namespace TheWaningBorder.Systems.Abilities
                                             ComponentType.ReadOnly<UnitAbilities>());
             using (var acts = actQ.ToEntityArray(Allocator.Temp))
             {
+                // Blood Rain (War) silences every caster on the map, both
+                // sides, for its duration - docs/Design/Sects.md section 6.
+                // Read once per frame rather than per activation.
+                bool silenced = TheWaningBorder.Systems.Sect.SectActivePowerHelper
+                    .IsGloballySilenced(em);
+
                 foreach (var e in acts)
                 {
                     var target = em.GetComponentData<AbilityActivated>(e).Target;
@@ -47,6 +53,12 @@ namespace TheWaningBorder.Systems.Abilities
                     int slot = FirstActiveSlot(slots, em, e);
                     em.RemoveComponent<AbilityActivated>(e);
                     if (slot < 0) continue;
+                    // Drop the activation BEFORE the cooldown is charged, so a
+                    // silenced cast costs the player nothing but the click.
+                    // Anything already winding up in AbilityCastState below
+                    // still resolves: silence stops new casts, it does not
+                    // un-cast what is already in flight.
+                    if (silenced) continue;
 
                     int idx = slots.Get(slot);
                     var card = AbilityCatalog.Get(idx);

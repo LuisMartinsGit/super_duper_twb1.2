@@ -53,7 +53,10 @@ namespace TheWaningBorder.AI
             int sum = 0;
             for (int i = 0; i < ents.Length; i++)
             {
-                bool same = facs[i].Value == faction;
+                // "same" now means "on my side" — own faction or an ally — so
+                // ally scans find teammates and enemy scans skip them.
+                // docs/Design/Teams.md
+                bool same = Alliances.AreAllied(faction, facs[i].Value);
                 if (matchFaction != same) continue;
                 if (hps[i].Value <= 0) continue;
                 // Feraldis Plunderers are economy, not army — see

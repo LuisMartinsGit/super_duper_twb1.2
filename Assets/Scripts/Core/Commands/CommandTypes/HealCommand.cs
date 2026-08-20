@@ -58,7 +58,10 @@ namespace TheWaningBorder.Core.Commands.Types
         }
 
         /// <summary>
-        /// Check if target is on the same faction as healer
+        /// Check if the target is on the healer's side — own faction OR an
+        /// ally. Healing across a team is allowed; the no-stacking rule is
+        /// enforced where the effect is applied, not here.
+        /// docs/Design/Teams.md
         /// </summary>
         public static bool IsFriendly(EntityManager em, Entity healer, Entity target)
         {
@@ -68,7 +71,7 @@ namespace TheWaningBorder.Core.Commands.Types
             var healerFaction = em.GetComponentData<FactionTag>(healer).Value;
             var targetFaction = em.GetComponentData<FactionTag>(target).Value;
 
-            return healerFaction == targetFaction;
+            return Alliances.AreAllied(healerFaction, targetFaction);
         }
 
         /// <summary>

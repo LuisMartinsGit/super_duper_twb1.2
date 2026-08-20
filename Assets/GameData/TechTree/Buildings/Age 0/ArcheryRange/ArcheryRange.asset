@@ -52,7 +52,7 @@ MonoBehaviour:
   cost:
     Supplies: 180
     Iron: 50
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
@@ -79,6 +79,7 @@ MonoBehaviour:
       cooldown: 1.5
       maxTargets: 1
   unitUpgrades: []
+  prefab: {fileID: 2877800568521987754, guid: 2d4fa58a826abc544a16f951f38428a2, type: 3}
+  presentationId: 511
   prefabPath: 
   canUpgradeTo: []
-  presentationId: 511

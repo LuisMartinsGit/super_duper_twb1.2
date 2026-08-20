@@ -347,10 +347,25 @@ namespace TheWaningBorder.Systems.Combat
 
                         // Siege bolt-throwers volley 3 bolts; catapults lob ONE AOE stone.
                         int shotCount = isSiege && !isCatapult ? 3 : 1;
-                        // Siege aimed at targetPos too — the separate
-                        // siegeAimPos local was always just a copy of it.
-                        float3 aimPos = targetPos;
-                        float aimDist = isSiege ? math.distance(myPos, targetPos) : dist;
+                        // Aim at the target's SURFACE, not its pivot.
+                        //
+                        // Range is measured edge-to-edge (edgeDist above), but
+                        // the shot was always sent at the centre — so against a
+                        // building the arrow flew past the wall it was ranged
+                        // against and landed in the middle of the footprint.
+                        // Doubling the footprints made that gap impossible to
+                        // miss: a Hall's pivot is now 4 m behind its wall and a
+                        // Temple's is 8 m, so arrows visibly sailed over the
+                        // near wall. Aiming at the surface point facing the
+                        // shooter puts the arc back in agreement with the
+                        // ranging that authorised the shot.
+                        //
+                        // Units are unaffected: a non-box target's surface
+                        // point is its centre offset by its own small radius.
+                        float3 aimPos = extent.IsBox
+                            ? extent.ApproachPoint(myPos, 0f)
+                            : targetPos;
+                        float aimDist = isSiege ? math.distance(myPos, aimPos) : dist;
 
                         // Feraldis on-hit riders travel WITH the shot, so a
                         // volley that lands after its shooter dies still
@@ -382,6 +397,9 @@ namespace TheWaningBorder.Systems.Combat
                             && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
                             cooldownValue *= (1f / 1.30f);
                         cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
+                        // Timed haste (Blood Rain and any future SpellBuff
+                        // attack-speed effect) fires faster too.
+                        cooldownValue *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
                         // Choreographed Volleys: faction-wide archer fire-rate burst.
                         if (em.HasComponent<TheWaningBorder.Abilities.VolleyBuff>(entity))
                         {
@@ -558,7 +576,10 @@ namespace TheWaningBorder.Systems.Combat
 
             // Catapult stones render as the Synty FX_Catapult effect
             // (ProjectileVisualSystem picks the template off this tag).
-            if (catapultShot)
+            // Flat-trajectory siege (the Ballista) is exempt: its bolt is
+            // rendered per-entity by ProjectileVisualSystem, so the visual IS
+            // the damage carrier and impact timing can never drift.
+            if (catapultShot && trajectory != ShotTrajectory.Flat)
                 ecb.AddComponent<CatapultShotTag>(arrow);
 
             // Feraldis riders carried by the shot itself (see call site).

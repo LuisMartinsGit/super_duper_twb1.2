@@ -1,5 +1,5 @@
 // TrebuchetComponents.cs
-// Location: Assets/GameData/TechTree/Units/Alanthor/Trebuchet/
+// Location: Assets/GameData/TechTree/Units/Alanthor/Trebuchet/TrebuchetComponents.cs
 // All types are in the global namespace (single assembly), so location is
 // organizational only — co-located with the unit that introduced them.
 

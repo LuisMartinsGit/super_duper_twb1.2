@@ -48,6 +48,39 @@ public struct StuckTracker : IComponentData
     public float BestDist;       // closest we have ever been to it (XZ)
     public float NoProgressTime; // seconds since BestDist last improved
     public byte SoftKicks;       // detours already spent on this destination
+    /// <summary>1 when the NEXT destination change is one this system caused
+    /// (a detour leg), so the change must not be mistaken for a fresh order
+    /// and refund the detour budget. Without it MaxSoftKicks was unreachable:
+    /// a detour sets BestDist = MaxValue, the very next evaluation therefore
+    /// registered "progress", and progress zeroed SoftKicks — so the cancel
+    /// branch was dead code and a unit could detour forever.</summary>
+    public byte DetourPending;
+}
+
+/// <summary>
+/// Stamped on a unit whose movement order was given up on — resolved as
+/// CROWDED ARRIVAL, or cancelled outright after its detour budget ran out.
+/// It records the guard point that was abandoned.
+///
+/// <see cref="TheWaningBorder.Systems.Combat.TargetingSystem"/>'s
+/// return-to-guard pass skips a unit while its GuardPoint still names this
+/// position. Without that, the two systems formed a closed loop with no exit:
+/// stuck recovery ends an orbit by clearing DesiredDestination and stripping
+/// UserMoveOrder / AttackMoveTag, which is EXACTLY the state return-to-guard
+/// reads as "idle unit away from its post" — so the leash re-issued the very
+/// destination the recovery had just proven unreachable, roughly every 2.5 s,
+/// forever. That was the reported "units circle at the target location".
+///
+/// Position-keyed rather than timed on purpose: any new order moves the guard
+/// point, which re-arms the leash automatically with no expiry to tune and no
+/// slow oscillation once the timer lapses.
+/// </summary>
+public struct GuardSuppressed : IComponentData
+{
+    public float3 Point;
+
+    /// <summary>How far the guard point must move before the leash re-arms.</summary>
+    public const float Epsilon = 0.5f;
 }
 
 /// <summary>Stamped on a DEPOSIT entity when a miner provably could not
@@ -78,8 +111,13 @@ namespace TheWaningBorder.Systems.Navigation
         private const float StuckSeconds = 5f;
         /// <summary>Within this range no-progress is judged on the short
         /// fuse and resolves as CROWDED ARRIVAL for plain movers (the
-        /// destination is occupied; physics forbids the 0.5 m arrival).</summary>
-        private const float ArrivalSkip = 3f;
+        /// destination is occupied; physics forbids the 0.5 m arrival).
+        ///
+        /// Public because TargetingSystem's GuardReturnThreshold is derived
+        /// from it: the leash MUST NOT fire inside the band this system calls
+        /// "arrived", or the two systems disagree about what arrival means and
+        /// fight each other over the unit forever.</summary>
+        public const float ArrivalSkip = 3f;
         /// <summary>No-progress fuse when already near the goal.</summary>
         private const float NearGoalStuckSeconds = 2.5f;
         /// <summary>Length of a perpendicular detour leg.</summary>
@@ -150,9 +188,11 @@ namespace TheWaningBorder.Systems.Navigation
                 float3 dest = dd.ValueRO.Position;
 
                 // New destination (issued order, chase update, detour) —
-                // restart the measurement. Keep SoftKicks: a detour is part
-                // of the SAME rescue attempt, and command systems that
-                // re-issue the same site each tick must not reset the count.
+                // restart the measurement. A detour is part of the SAME rescue
+                // attempt and must KEEP its SoftKicks; only a destination
+                // change we did not cause is a fresh order deserving a fresh
+                // detour budget. (Command systems that re-issue the same site
+                // every tick don't trip this at all — the position matches.)
                 float ddx = dest.x - t.TrackedDest.x;
                 float ddz = dest.z - t.TrackedDest.z;
                 if (ddx * ddx + ddz * ddz > 1f)
@@ -160,6 +200,8 @@ namespace TheWaningBorder.Systems.Navigation
                     t.TrackedDest = dest;
                     t.BestDist = float.MaxValue;
                     t.NoProgressTime = 0f;
+                    if (t.DetourPending != 0) t.DetourPending = 0;
+                    else t.SoftKicks = 0;
                 }
 
                 float dx = dest.x - xf.ValueRO.Position.x;
@@ -169,9 +211,14 @@ namespace TheWaningBorder.Systems.Navigation
                 if (dist < t.BestDist - MinProgress)
                 {
                     // Genuine progress — closer than we have ever been.
+                    // SoftKicks is deliberately NOT refunded here: the reset
+                    // above owns that, keyed on where the destination change
+                    // came from. Refunding on progress made the budget
+                    // unspendable, because the first evaluation after any
+                    // destination change always looks like progress (BestDist
+                    // was just reset to MaxValue).
                     t.BestDist = dist;
                     t.NoProgressTime = 0f;
-                    t.SoftKicks = 0;
                     continue;
                 }
 
@@ -214,12 +261,29 @@ namespace TheWaningBorder.Systems.Navigation
                 Entity e = nearStuck[i];
                 if (!em.Exists(e)) continue;
 
+                // A MINER that stalled within arm's reach of its deposit is
+                // almost always just contending for a stand slot with another
+                // worker — not facing an unreachable node. The full miner
+                // redirect is far too heavy for that: it unassigns the worker
+                // AND marks the deposit unreachable for 45 s, so the worker
+                // visibly gives up a step from the ore.
+                //
+                // Clear only the DESTINATION and keep the assignment. The
+                // mining systems' own re-pick then puts it on a free slot on
+                // another side of the node (see MiningReach). If that fails
+                // too, the worker goes Idle by its own route and the next fuse
+                // — the far-from-goal one — still has the harsh path.
+                if (em.HasComponent<MinerState>(e)
+                    && em.GetComponentData<MinerState>(e).State == MinerWorkState.MovingToDeposit)
+                {
+                    ClearDest(em, e);
+                    continue;
+                }
+
                 bool hasWork = em.HasComponent<GatherVeilCommand>(e)
                     || em.HasComponent<BuildCommand>(e)
                     || em.HasComponent<BuildOrder>(e)
                     || em.HasComponent<RepairOrder>(e)
-                    || (em.HasComponent<MinerState>(e)
-                        && em.GetComponentData<MinerState>(e).State == MinerWorkState.MovingToDeposit)
                     || (em.HasComponent<Target>(e)
                         && em.GetComponentData<Target>(e).Value != Entity.Null);
 
@@ -233,6 +297,10 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<UserMoveOrder>(e)) em.RemoveComponent<UserMoveOrder>(e);
                 if (em.HasComponent<AttackMoveTag>(e)) em.RemoveComponent<AttackMoveTag>(e);
                 ClearDest(em, e);
+                // ...and tell the leash so, or return-to-guard reads the state
+                // we just produced as "idle unit off its post" and marches the
+                // unit straight back into the pile-up. See GuardSuppressed.
+                SuppressGuard(em, e);
                 var t2 = em.GetComponentData<StuckTracker>(e);
                 t2.SoftKicks = 0;
                 em.SetComponentData(e, t2);
@@ -325,6 +393,9 @@ namespace TheWaningBorder.Systems.Navigation
             if (tracker.SoftKicks < MaxSoftKicks)
             {
                 tracker.SoftKicks++;
+                // Mark the destination change below as OURS so pass 1 keeps
+                // the budget we just spent instead of refunding it.
+                tracker.DetourPending = 1;
                 em.SetComponentData(entity, tracker);
 
                 // Perpendicular leg — deterministic side from entity index.
@@ -356,10 +427,32 @@ namespace TheWaningBorder.Systems.Navigation
             if (em.HasComponent<UserMoveOrder>(entity)) em.RemoveComponent<UserMoveOrder>(entity);
             if (em.HasComponent<AttackMoveTag>(entity)) em.RemoveComponent<AttackMoveTag>(entity);
             ClearDest(em, entity);
+            // The order is abandoned for good — the leash must not resurrect
+            // it on the next tick (that is what made the cancel pointless even
+            // once it became reachable).
+            SuppressGuard(em, entity);
 
             var reset = em.GetComponentData<StuckTracker>(entity);
             reset.SoftKicks = 0;
+            reset.DetourPending = 0;
             em.SetComponentData(entity, reset);
+        }
+
+        /// <summary>Record the guard point this unit has given up reaching, so
+        /// TargetingSystem's return-to-guard leaves it alone until it gets a
+        /// genuinely new order (which moves the guard point). See
+        /// <see cref="GuardSuppressed"/>.</summary>
+        private static void SuppressGuard(EntityManager em, Entity entity)
+        {
+            if (!em.HasComponent<GuardPoint>(entity)) return;
+            var gp = em.GetComponentData<GuardPoint>(entity);
+            if (gp.Has == 0) return;
+
+            var mark = new GuardSuppressed { Point = gp.Position };
+            if (em.HasComponent<GuardSuppressed>(entity))
+                em.SetComponentData(entity, mark);
+            else
+                em.AddComponentData(entity, mark);
         }
 
         private static void ClearMiner(EntityManager em, Entity entity)

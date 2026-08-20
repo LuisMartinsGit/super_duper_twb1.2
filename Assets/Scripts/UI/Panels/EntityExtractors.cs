@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Collections;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
@@ -191,13 +192,16 @@ namespace TheWaningBorder.UI
 
             // ArmorType defaults: InfantryLight for units, Structure for
             // buildings (mirrors CombatModifiers' absent-component default).
+            // ArmorTypeName is a pure display field (rendered verbatim by the
+            // stat chips) so it localizes HERE; DamageTypeName above must stay
+            // ENGLISH — it is a GameUICatalog symbol key ("AttackType_" + name).
             if (em.HasComponent<ArmorTypeData>(entity))
-                info.ArmorTypeName = ArmorTypeDisplayName(
-                    em.GetComponentData<ArmorTypeData>(entity).Value);
+                info.ArmorTypeName = Loc.T(ArmorTypeDisplayName(
+                    em.GetComponentData<ArmorTypeData>(entity).Value));
             else if (isBuilding)
-                info.ArmorTypeName = "Structure";
+                info.ArmorTypeName = Loc.T("Structure");
             else if (info.HasCombatStats)
-                info.ArmorTypeName = ArmorTypeDisplayName(ArmorType.InfantryLight);
+                info.ArmorTypeName = Loc.T(ArmorTypeDisplayName(ArmorType.InfantryLight));
 
             if (em.HasComponent<BonusVsTags>(entity))
             {
@@ -295,7 +299,7 @@ namespace TheWaningBorder.UI
             else if (em.HasComponent<VeilsteelDepositTag>(entity))
             {
                 info.Type = "Resource";
-                info.Name = "Sharp Crystals";
+                info.Name = VeilsteelNodeName;
                 info.HasResourceInfo = true;
                 // Veilsteel nodes share IronDepositState (identical mining model).
                 if (em.HasComponent<IronDepositState>(entity))
@@ -615,8 +619,8 @@ namespace TheWaningBorder.UI
                     new ActionButton
                     {
                         Id = "BuildWall",
-                        Label = "Build Wall",
-                        Tooltip = "Place a connected wall hub. Auto-builds in 30s with no builder.",
+                        Label = Loc.T("Build Wall"),
+                        Tooltip = Loc.T("Place a connected wall hub. Auto-builds in 30s with no builder."),
                         Enabled = true,
                         Cost = hubCost,
                         CanAfford = canAfford,
@@ -671,8 +675,8 @@ namespace TheWaningBorder.UI
                     new ActionButton
                     {
                         Id = "BazaarUnpack",
-                        Label = "Unpack",
-                        Tooltip = "Unpack wagon back into Thessara's Bazaar",
+                        Label = Loc.T("Unpack"),
+                        Tooltip = Loc.T("Unpack wagon back into Thessara's Bazaar"),
                         Enabled = true,
                         CanAfford = true
                     }
@@ -738,8 +742,8 @@ namespace TheWaningBorder.UI
                     trainingActions.Add(new ActionButton
                     {
                         Id = "BazaarPack",
-                        Label = "Pack",
-                        Tooltip = "Pack Bazaar into a mobile wagon",
+                        Label = Loc.T("Pack"),
+                        Tooltip = Loc.T("Pack Bazaar into a mobile wagon"),
                         Enabled = true,
                         CanAfford = true
                     });
@@ -795,17 +799,19 @@ namespace TheWaningBorder.UI
         private static string BuildTooltip(string name, string subtitle, Cost cost, Cost available, float trainingTime = 0f, string requirement = null)
         {
             var sb = new System.Text.StringBuilder(128);
-            sb.Append($"<b>{name}</b>");
+            sb.Append($"<b>{Loc.T(name)}</b>");
             if (!string.IsNullOrEmpty(subtitle))
-                sb.Append($"  <color=#b0a890>({subtitle})</color>");
+                sb.Append($"  <color=#b0a890>({Loc.T(subtitle)})</color>");
 
-            // Cost line
-            sb.Append("\nCost: ");
+            // Cost line. The "\n" + Loc.T("Cost: ") composition is a CONTRACT:
+            // ActionsPanelPrefabBinder.ExpandTooltip splits on the exact same
+            // expression to splice the cost icons in. Keep them in lockstep.
+            sb.Append("\n" + Loc.T("Cost: "));
             sb.Append(UIHelpers.FormatCostRich(cost, available));
 
             // Training/build time
             if (trainingTime > 0f)
-                sb.Append($"\nTime: {trainingTime:F0}s");
+                sb.Append("\n").Append(string.Format(Loc.T("Time: {0}s"), trainingTime.ToString("F0")));
 
             // Requirement (shown in red)
             if (!string.IsNullOrEmpty(requirement))

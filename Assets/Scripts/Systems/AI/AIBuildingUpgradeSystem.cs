@@ -95,7 +95,7 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
-            if (GameSettings.IsMultiplayer && !GameSettings.IsHost()) return;
+            if (!GameSettings.ShouldRunAIBrains()) return;
             float time = (float)SystemAPI.Time.ElapsedTime;
             var em = state.EntityManager;
 
@@ -138,10 +138,21 @@ namespace TheWaningBorder.AI
                 if (!HasCulture(em, faction)) continue;
 
                 // Reserve check — keep some resources for non-upgrade use.
+                //
+                // The ECONOMY ENGINE IS EXEMPT (2026-08-18, log-proven): a
+                // Guild level is what RAISES supply income (+5/+10/+20 a
+                // tick), so gating it behind a supply floor is a death
+                // spiral — the 40-minute log ends with every faction under
+                // 40 supplies, thousands of banked iron and veilstone, four
+                // Guild upgrades across the whole match, and the research
+                // ladder and sect adoption both stalled on empty wallets.
+                // Below the floor the pass still runs, but only for the
+                // engine that ends the shortage; affordability is still
+                // enforced by UpgradeBuildingCommandHelper.
                 if (!FactionEconomy.TryGetResources(em, faction, out var res)) continue;
-                if (res.Supplies < ReserveSupplies) continue;
-                if (res.Iron     < ReserveIron)     continue;
-                if (res.Veilstone  < ReserveVeilstone)  continue;
+                bool reservesOk = res.Supplies  >= ReserveSupplies
+                               && res.Iron      >= ReserveIron
+                               && res.Veilstone >= ReserveVeilstone;
 
                 // Walk the priority order from a rotating start so no single
                 // building line (log-proven: the hut line) monopolizes the loop.
@@ -150,7 +161,7 @@ namespace TheWaningBorder.AI
                 tickState.Rotation = (byte)((rotation + 1) % PriorityOrder.Length);
                 em.SetComponentData(brainEntity, tickState);
 
-                TryUpgradeOne(em, faction, rotation);
+                TryUpgradeOne(em, faction, rotation, reservesOk);
             }
         }
 
@@ -158,25 +169,37 @@ namespace TheWaningBorder.AI
         // HELPERS
         // ──────────────────────────────────────────────────────────────────
 
-        /// <summary>True while the faction owns ANY Smelter that has not
-        /// reached max level yet (no Smelter at all = false: nothing to
-        /// reserve for). Checks every Smelter — the cap is 5 now, and the
-        /// reserve must hold until the whole fleet is levelled, not just
-        /// whichever one the query returns first.</summary>
+        /// <summary>
+        /// True while the faction owns at least one Smelter and NONE of them
+        /// has reached max level — i.e. the veilsteel engine is not running
+        /// at full rate yet, so the reserve that protects its levels applies.
+        ///
+        /// Was "ANY Smelter below max" (2026-08-18): with a cap of five
+        /// Smelters, and a new one dropping the fleet back below max every
+        /// time it is built, that condition effectively never cleared. The
+        /// reserve then blocked every veilsteel-costing upgrade for the whole
+        /// match — the Guild ladder (L2 costs 5 veilsteel, L3 costs 20) needed
+        /// 65 banked to spend 5, so the supply economy never grew while
+        /// veilsteel-free tower upgrades sailed past it 61 to 4. One maxed
+        /// Smelter is the engine this was protecting; after that the drip is
+        /// at full rate and the rest of the estate may spend.
+        /// </summary>
         private static bool SmelterBelowMax(EntityManager em, Faction faction)
         {
             var query = em.CreateEntityQuery(
                 ComponentType.ReadOnly<SmelterTag>(),
                 ComponentType.ReadOnly<FactionTag>());
             using var ents = query.ToEntityArray(Allocator.Temp);
+            bool ownsAny = false;
             for (int i = 0; i < ents.Length; i++)
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                ownsAny = true;
                 byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
                     ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
-                if (lvl < BuildingUpgradeConfig.MaxLevel) return true;
+                if (lvl >= BuildingUpgradeConfig.MaxLevel) return false;   // engine is running
             }
-            return false;
+            return ownsAny;
         }
 
         private static bool HasCulture(EntityManager em, Faction faction)
@@ -194,8 +217,17 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        private static void TryUpgradeOne(EntityManager em, Faction faction, int rotation)
+        private static void TryUpgradeOne(EntityManager em, Faction faction, int rotation,
+            bool reservesOk)
         {
+            // Below the reserve floor only the supply engine is eligible —
+            // see the exemption note at the call site.
+            if (!reservesOk)
+            {
+                TryUpgradeBuildingType(em, faction, "GatherersHut");
+                return;
+            }
+
             // The Smelter jumps the queue: its levels multiply the veilsteel
             // drip that every OTHER upgrade past L1 wants to spend.
             if (TryUpgradeBuildingType(em, faction, "Alanthor_Smelter")) return;

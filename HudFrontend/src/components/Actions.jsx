@@ -1018,8 +1018,16 @@ function ActionsGrid({ theme, selectionKey, builderStage, onAction, resources, c
     );
   }
   if (selectionKey === 'military') {
+    // Server-supplied ACTIVE abilities (King Lexor's Liquid Courage, the
+    // Scout's Use Celestar, …) render first, then the generic move commands.
+    const abilityCells = (Array.isArray(actions) && actions.length > 0)
+      ? actions.map((a) => ({ ...mapServerAction(a, 'special', resources), tone: 'ability' }))
+      : [];
     return (
       <div className="act-grid act-grid-3x2">
+        {abilityCells.map((it) => (
+          <ActionCell key={it.key} theme={theme} item={it} kind="ability" onClick={onAction} size="lg" />
+        ))}
         {MILITARY_CMDS.map((it) => (
           <ActionCell key={it.key} theme={theme} item={it} kind="ability" onClick={onAction} size="lg" />
         ))}
@@ -1027,8 +1035,14 @@ function ActionsGrid({ theme, selectionKey, builderStage, onAction, resources, c
     );
   }
   if (selectionKey === 'multi') {
+    const abilityCells = (Array.isArray(actions) && actions.length > 0)
+      ? actions.map((a) => ({ ...mapServerAction(a, 'special', resources), tone: 'ability' }))
+      : [];
     return (
       <div className="act-grid act-grid-3x2">
+        {abilityCells.map((it) => (
+          <ActionCell key={it.key} theme={theme} item={it} kind="ability" onClick={onAction} size="lg" />
+        ))}
         {MULTI_CMDS.map((it) => (
           <ActionCell key={it.key} theme={theme} item={it} kind="ability" onClick={onAction} size="lg" />
         ))}

@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Unity.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
@@ -14,57 +15,6 @@ namespace TheWaningBorder.UI
 {
     public static partial class EntityActionExtractor
     {
-        /// <summary>
-        /// Get research action buttons for a building.
-        /// Returns buttons for techs this building can research, with affordability and prerequisite checks.
-        /// </summary>
-        /// <summary>
-        /// Techs that belong to exactly one culture. Data-driven first: techs
-        /// carrying a "culture" field in TechTree.json (the Wave 2 Alanthor
-        /// military tree) gate on it directly. Legacy techs fall through to
-        /// the hardcoded id switch: the Gatherer's Hut carries both the
-        /// Alanthor Surveys and the Feraldis Raiding line, and each is inert
-        /// for the other culture — a Feraldis hut is a Raider Camp that
-        /// gathers nothing, and nobody but Feraldis fields Plunderers.
-        /// Returns true when the tech is universal.
-        /// </summary>
-        private static bool TechAvailableToCulture(TechnologyDef tech, byte culture)
-        {
-            if (!string.IsNullOrEmpty(tech.culture))
-            {
-                switch (tech.culture)
-                {
-                    case "Runai":    return culture == Cultures.Runai;
-                    case "Alanthor": return culture == Cultures.Alanthor;
-                    case "Feraldis": return culture == Cultures.Feraldis;
-                    // Unknown culture name: fall through to the id switch.
-                }
-            }
-
-            switch (tech.id)
-            {
-                // Feraldis Raider Camp ladder.
-                case "Raiding1":
-                case "Raiding2":
-                case "Raiding3":
-                case "IronPlunder":
-                case "VeilstonePlunder":
-                case "VeilsteelPlunder":
-                    return culture == Cultures.Feraldis;
-
-                // Alanthor Guild gather drips — dead weight on a Raider Camp.
-                case "IronSurveying1":
-                case "IronSurveying2":
-                case "IronSurveying3":
-                case "VeilstoneSurvey1":
-                case "VeilstoneSurvey2":
-                case "VeilsteelSurvey":
-                    return culture != Cultures.Feraldis;
-
-                default:
-                    return true;
-            }
-        }
 
         public static List<ActionButton> GetResearchActions(Entity entity, EntityManager em)
         {
@@ -146,7 +96,7 @@ namespace TheWaningBorder.UI
                 // "Raiding" line (what Plunderers steal). A Feraldis hut is a
                 // Raider Camp and gathers nothing, so showing it Surveys
                 // would sell a tech that does nothing.
-                if (!TechAvailableToCulture(tech, factionCulture)) continue;
+                if (!TechCatalog.CultureAllows(tech, factionCulture)) continue;
 
                 // Technologies are one-shot: drop any tech the faction has
                 // already researched, OR that is currently queued / in
@@ -175,10 +125,12 @@ namespace TheWaningBorder.UI
 
                 string requirement = null;
                 if (!meetsPrereqs && tech.prerequisites != null)
-                    requirement = $"Requires: {string.Join(", ", tech.prerequisites)}";
+                    requirement = string.Format(Loc.T("Requires: {0}"),
+                        string.Join(", ", tech.prerequisites));
                 if (levelLocked)
                 {
-                    string levelReq = $"Requires Lv {minLv} {buildingDef.name ?? buildingId}";
+                    string levelReq = string.Format(Loc.T("Requires Lv {0} {1}"),
+                        minLv, Loc.T(buildingDef.name ?? buildingId));
                     requirement = requirement == null ? levelReq : levelReq + "\n" + requirement;
                 }
 
@@ -194,7 +146,9 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = tech.id,
-                    Label = levelLocked ? $"{tech.name}  (Lv {minLv})" : tech.name,
+                    Label = levelLocked
+                        ? string.Format(Loc.T("{0}  (Lv {1})"), Loc.T(tech.name), minLv)
+                        : Loc.T(tech.name),
                     Tooltip = tooltip,
                     Cost = cost,
                     Enabled = meetsPrereqs && !levelLocked,
@@ -229,8 +183,8 @@ namespace TheWaningBorder.UI
                 bool enabled = !slotsFull && !building;
 
                 string requirement = null;
-                if (slotsFull) requirement = "All three wing slots are used";
-                else if (building) requirement = "A wing is already under construction";
+                if (slotsFull) requirement = Loc.T("All three wing slots are used");
+                else if (building) requirement = Loc.T("A wing is already under construction");
 
                 string tooltip = BuildTooltip(
                     name,
@@ -243,7 +197,7 @@ namespace TheWaningBorder.UI
                 actions.Add(new ActionButton
                 {
                     Id = "KeepWing_" + wing,
-                    Label = "Build " + name,
+                    Label = string.Format(Loc.T("Build {0}"), Loc.T(name)),
                     Tooltip = tooltip,
                     Cost = cost,
                     Enabled = enabled,
@@ -269,14 +223,17 @@ namespace TheWaningBorder.UI
                 || !FactionResearchState.Instance.HasResearched(faction, techId)) return;
 
             bool ready = cooldownRemaining <= 0f;
+            string locLabel = Loc.T(label);
+            string locDesc = Loc.T(desc);
             string tooltip = ready
-                ? label + "\n" + desc
-                : label + "\n" + desc + "\nRecharging: " + ((int)cooldownRemaining) + "s";
+                ? locLabel + "\n" + locDesc
+                : locLabel + "\n" + locDesc + "\n"
+                    + string.Format(Loc.T("Recharging: {0}s"), (int)cooldownRemaining);
 
             actions.Add(new ActionButton
             {
                 Id = actionId,
-                Label = ready ? label : label + " (" + ((int)cooldownRemaining) + "s)",
+                Label = ready ? locLabel : locLabel + " (" + ((int)cooldownRemaining) + "s)",
                 Tooltip = tooltip,
                 Cost = default,
                 Enabled = ready,

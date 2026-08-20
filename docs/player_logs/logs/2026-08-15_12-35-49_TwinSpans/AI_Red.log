@@ -1,0 +1,60 @@
+=== AI Log for Red — Game started ===
+
+[00:00,0] STRATEGY: Initial strategy: Rush (difficulty: Normal)
+[00:00,0] BUILDORDER: step 0 SKIPPED (no trainer for Worker)
+[00:02,2] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[60s,22i,0v,0vs | 240s,90i,0v,0vs | 100s,37i,0v,0vs] emaS=0,0/s emaI=0,0/s
+[00:02,2] ECONOMY: GatherersHut started (total 1, inflight 1)
+[00:02,2] BUILDORDER: step 1 issued: TrainUnit:Worker at 116s
+[00:04,3] BUILDORDER: step 2 issued: TrainUnit:Scout at 118s
+[00:16,7] ECONOMY: GatherersHut started (total 2, inflight 1)
+[00:45,9] ECONOMY: GatherersHut started (total 3, inflight 1)
+[00:51,9] SNAPSHOT: supplies 28 iron 155 veilstone 7 veilsteel 0 military 5 influence 0,0% curse 9,3%
+[01:00,5] RESEARCH: ArmedScouts queued
+[01:02,5] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[24s,1i,1v,0vs | 315s,102i,2v,0vs | 130s,59i,3v,0vs] emaS=7,7/s emaI=0,9/s
+[01:27,5] ECONOMY: GatherersHut started (total 4, inflight 1)
+[01:42,1] BUILDORDER: step 4 issued: BuildBuilding:Hut at 216s
+[01:44,2] BUILDORDER: step 5 SKIPPED (no trainer for Spearman)
+[01:51,9] SNAPSHOT: supplies 80 iron 212 veilstone 24 veilsteel 0 military 5 influence 0,0% curse 10,0%
+[02:00,8] ECONOMY: GatherersHut started (total 5, inflight 1)
+[02:02,9] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[99s,22i,6v,0vs | 420s,131i,8v,0vs | 178s,98i,14v,0vs] emaS=6,8/s emaI=1,5/s
+[02:02,9] RESEARCH: ladder blocked ~1 min at StoneTools (Advancement wallet short)
+[02:07,1] RECLAIM: 5 units vs curse node at (-111,-61)
+[02:15,4] ECONOMY: GatherersHut started (total 6, inflight 1)
+[02:32,1] ECONOMY: GatherersHut started (total 7, inflight 1)
+[02:46,7] RESEARCH: ScoutingCelestarii queued
+[02:52,1] SNAPSHOT: supplies 35 iron 240 veilstone 50 veilsteel 0 military 1 influence 0,0% curse 10,1%
+[03:01,2] ECONOMY: GatherersHut started (total 8, inflight 1)
+[03:03,3] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[75s,11i,11v,0vs | 556s,159i,16v,0vs | 50s,115i,27v,0vs] emaS=9,2/s emaI=1,7/s
+[03:22,1] BUILDORDER: step 7 issued: BuildBuilding:Hut at 316s
+[03:26,3] ECONOMY: GatherersHut started (total 9, inflight 1)
+[03:38,8] BUILDORDER: step 8 issued: BuildBuilding:GatherersHut at 332s
+[03:45,0] BUILDORDER: step 9 issued: TrainUnit:Worker at 339s
+[03:47,1] BUILDORDER: step 10 issued: TrainUnit:Worker at 341s
+[03:49,2] RESEARCH: ladder blocked ~1 min at StoneTools (Advancement wallet short)
+[03:52,2] SNAPSHOT: supplies 48 iron 287 veilstone 74 veilsteel 0 military 0 influence 0,0% curse 10,3%
+[04:01,7] ECONOMY: GatherersHut started (total 11, inflight 1)
+[04:03,8] BUDGET: w(adv/mil/eco)=(0,21/0,29/0,50) S[191s,28i,16v,0vs | 717s,182i,23v,0vs | 51s,131i,39v,0vs] emaS=10,3/s emaI=1,4/s
+[04:08,0] WAVE: wave 1 BLOCKED at 361s (need 5 idle, posture Develop, desired 0)
+[04:18,4] RESEARCH: IronSurveying1 queued
+[04:28,8] RESEARCH: StoneTools queued
+[04:45,5] ECONOMY: GatherersHut started (total 12, inflight 1)
+[04:52,3] SNAPSHOT: supplies 272 iron 305 veilstone 95 veilsteel 0 military 0 influence 0,0% curse 11,0%
+[05:04,3] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[275s,29i,22v,0vs | 947s,240i,31v,0vs | 97s,133i,49v,0vs] emaS=12,4/s emaI=3,6/s
+[05:12,6] ECONOMY: GatherersHut started (total 13, inflight 1)
+[05:14,7] RESEARCH: MasonGuild queued
+[05:25,2] BUILDORDER: step 12 SKIPPED (no trainer for Spearman)
+[05:27,2] BUILDORDER: step 13 SKIPPED (no trainer for Spearman)
+[05:52,4] SNAPSHOT: supplies 692 iron 577 veilstone 110 veilsteel 0 military 0 influence 0,0% curse 11,1%
+[06:04,8] BUDGET: w(adv/mil/eco)=(0,15/0,60/0,25) S[220s,49i,24v,0vs | 1348s,441i,33v,0vs | 184s,222i,51v,0vs] emaS=13,2/s emaI=6,7/s
+[06:09,0] ECONOMY: GatherersHut started (total 13, inflight 1)
+[06:13,1] WAVE: wave 1 BLOCKED at 487s (need 5 idle, posture Defend, desired 0)
+[06:17,3] RESEARCH: ladder blocked ~1 min at VeilstoneSurvey1 (EconomyExpansion wallet short)
+[06:31,9] RESEARCH: IronTools queued
+[06:36,1] RESEARCH: IronSurveying2 queued
+[06:52,6] SNAPSHOT: supplies 977 iron 738 veilstone 143 veilsteel 0 military 0 influence 0,0% curse 11,2%
+[07:05,3] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[248s,52i,37v,0vs | 1433s,582i,52v,0vs | 151s,226i,72v,0vs] emaS=14,4/s emaI=6,2/s
+[07:15,7] RESEARCH: VeilstoneSurvey1 queued
+[07:52,7] SNAPSHOT: supplies 1541 iron 1141 veilstone 181 veilsteel 0 military 0 influence 0,0% curse 11,2%
+[08:05,7] BUDGET: w(adv/mil/eco)=(0,25/0,35/0,40) S[442s,181i,62v,0vs | 1417s,762i,87v,0vs | 260s,351i,53v,0vs] emaS=14,7/s emaI=9,2/s
+[08:16,2] RESEARCH: IronSurveying3 queued
+[08:18,3] WAVE: wave 1 BLOCKED at 612s (need 5 idle, posture Develop, desired 0)

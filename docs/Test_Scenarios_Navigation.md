@@ -1,6 +1,6 @@
 # Navigation Test Scenarios — Tester Guide
 
-Seven scenarios cover the seven milestones of the Crystal Curse Navigation
+Seven scenarios cover the seven milestones of the The Border Navigation
 Stack (task-112). Each one isolates the systems added in its milestone
 so a single visible failure points to a single subsystem. Launch from the
 Main Menu → Scenarios list.

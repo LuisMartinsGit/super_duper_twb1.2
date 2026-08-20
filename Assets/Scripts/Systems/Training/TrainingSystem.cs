@@ -23,7 +23,7 @@ namespace TheWaningBorder.Systems.Training
     ///
     /// Works with: Hall, Barracks, and any building with TrainingState + TrainQueueItem buffer
     /// </summary>
-    // NOTE: No [BurstCompile] — this system uses managed types
+    // NOTE: No [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)] — this system uses managed types
     // (TechTreeDB, String, Debug.Log) that are incompatible with Burst.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct TrainingSystem : ISystem
@@ -64,6 +64,10 @@ namespace TheWaningBorder.Systems.Training
                          .Query<RefRW<TrainingState>>()
                          .WithNone<UnderConstruction, BatchTrainingTag, AgeUpState>()
                          .WithNone<BuildingUpgrading>()
+                         // Heavy Bureaucracy (Antiquity): a shut-down building
+                         // produces nothing at all -- no training, no research,
+                         // no resource output. docs/Design/Sects.md section 4.
+                         .WithNone<SectShutdown>()
                          .WithEntityAccess())
             {
                 var queue = state.EntityManager.GetBuffer<TrainQueueItem>(entity);
@@ -101,6 +105,14 @@ namespace TheWaningBorder.Systems.Training
                         if (warLevel > 0)
                             trainingTime *= WarSectCostHelper.TrainTimeMultiplierFor(warLevel);
                     }
+
+                    // Call to Arms (War, Lv III): this building trains at
+                    // double speed while the boon stands. Applies to every unit
+                    // it makes, not just military - the power buffs the
+                    // BUILDING, not the unit class.
+                    float boonSpeed = WarSectCostHelper.TrainingBoonSpeedMultiplier(
+                        state.EntityManager, entity);
+                    if (boonSpeed > 1f) trainingTime /= boonSpeed;
 
                     // Building upgrade: cultured Hall/Barracks train faster.
                     // Multiplier is 1.0 at lvl 0 and shrinks per level.
@@ -149,14 +161,37 @@ namespace TheWaningBorder.Systems.Training
                         int spawnCount = (factionCulture == Cultures.Feraldis && !isSectUnit) ? 2 : 1;
                         requiredPop *= spawnCount;
 
+                        // Endless Muster (War): this building runs TWO production
+                        // lines, so a completed cycle releases the next queue
+                        // entry alongside the first. Queue DEPTH is unchanged by
+                        // design - the research buys throughput, not a longer
+                        // queue - so the second unit must already be queued.
+                        int lines = SectResearchEffects.ConcurrentTrainingSlots(faction);
+                        int released = 1;
+                        var secondId = default(FixedString64Bytes);
+                        int secondSpawnCount = 0;
+                        if (lines > 1 && queue.Length > 1)
+                        {
+                            var nextId = queue[1].UnitId.ToString();
+                            bool nextIsSect = nextId.StartsWith("Sect_");
+                            secondSpawnCount = (factionCulture == Cultures.Feraldis && !nextIsSect) ? 2 : 1;
+                            // Both units have to fit, or neither is released -
+                            // a half-satisfied cycle would leave the second one
+                            // paid for and gone.
+                            requiredPop += PopulationHelper.GetUnitPopulationCost(nextId) * secondSpawnCount;
+                            secondId = new FixedString64Bytes(nextId);
+                            released = 2;
+                        }
+
                         // Include units already spawned this frame in the capacity check
                         int facKey = (int)faction;
                         spawnedPopThisFrame.TryGetValue(facKey, out int extraSpawned);
 
                         if (HasPopulationCapacityWithExtra(ref state, faction, requiredPop, extraSpawned))
                         {
-                            // Remove queue item and reset state (no structural changes here)
+                            // Remove queue item(s) and reset state (no structural changes here)
                             queue.RemoveAt(0);
+                            if (released > 1) queue.RemoveAt(0);
                             ts.ValueRW.Busy = 0;
                             ts.ValueRW.Remaining = 0f;
                             ts.ValueRW.Total = 0f;
@@ -168,6 +203,15 @@ namespace TheWaningBorder.Systems.Training
                                 UnitId = new FixedString64Bytes(unitId),
                                 SpawnCount = spawnCount
                             });
+                            if (released > 1)
+                            {
+                                deferredSpawns.Add(new DeferredSpawn
+                                {
+                                    Building = entity,
+                                    UnitId = secondId,
+                                    SpawnCount = secondSpawnCount
+                                });
+                            }
 
                             // Track the pop consumed this frame
                             spawnedPopThisFrame[facKey] = extraSpawned + requiredPop;
@@ -226,29 +270,20 @@ namespace TheWaningBorder.Systems.Training
 
             // Always spawn near the building, then move to rally point
             // Spawn outside the building's inflated blocked footprint (BuildingSize cells +
-            // 1 cell padding from PassabilityBuildingSync) with extra clearance for the unit.
+            // 1 cell padding from PassabilityBuildingSync) with clearance for the unit.
             float buildingHalf = 2f;
             if (em.HasComponent<BuildingSize>(building))
             {
                 var bs = em.GetComponentData<BuildingSize>(building);
                 buildingHalf = math.max(bs.Width, bs.Height) * 0.5f;
             }
-            float exitOffset = buildingHalf + 4f;
-            float3 spawnPos = transform.Position + new float3(exitOffset, 0, exitOffset);
 
-            // Find empty position near the building to avoid overlap
-            float spawnRadius = 0.5f;
-            float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
-                spawnPos,
-                spawnRadius,
-                em,
-                maxAttempts: 16
-            );
-
-            // Check if building has a rally point to move to after spawning.
+            // Rally read FIRST so the exit point can face it.
             // RallyPoint.TargetEntity is an optional follow-up target — when
             // it's a resource node and the freshly-spawned unit is a miner,
             // we'll issue a Gather command instead of a plain move.
+            // RallyPoint is lockstep-replicated, so steering the spawn by it
+            // is deterministic across peers.
             float3 rallyTarget = float3.zero;
             bool hasRally = false;
             Entity rallyTargetEntity = Entity.Null;
@@ -262,6 +297,31 @@ namespace TheWaningBorder.Systems.Training
                     rallyTargetEntity = rally.TargetEntity;
                 }
             }
+
+            // Footprint half + the 1-cell passability pad + unit clearance.
+            // Was half + 4 on BOTH axes — sqrt(2) x (half + 4) metres out on
+            // a fixed NE diagonal, which after the footprint doubling put
+            // fresh units 11-17 m from their building. Exit faces the rally
+            // point when one is set, +X otherwise.
+            float exitOffset = buildingHalf + 2.5f;
+            float3 exitDir = new float3(1f, 0f, 0f);
+            if (hasRally)
+            {
+                float3 toRally = rallyTarget - transform.Position;
+                toRally.y = 0f;
+                if (math.lengthsq(toRally) > 0.01f)
+                    exitDir = math.normalize(toRally);
+            }
+            float3 spawnPos = transform.Position + exitDir * exitOffset;
+
+            // Find empty position near the building to avoid overlap
+            float spawnRadius = 0.5f;
+            float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
+                spawnPos,
+                spawnRadius,
+                em,
+                maxAttempts: 16
+            );
 
             // All units spawn as individual entities via the centralized
             // UnitFactory. (Battalions removed — every trained unit is a
@@ -282,11 +342,8 @@ namespace TheWaningBorder.Systems.Training
                 // Resource rally — point miners straight at the deposit so
                 // they auto-gather without any further player input.
                 bool issuedGather = false;
-                if (rallyTargetEntity != Entity.Null && em.Exists(rallyTargetEntity)
-                    && em.HasComponent<MinerTag>(unit)
-                    && (em.HasComponent<IronMineTag>(rallyTargetEntity)
-                        || em.HasComponent<VeilstoneOutcroppingTag>(rallyTargetEntity)
-                        || em.HasComponent<VeilsteelDepositTag>(rallyTargetEntity)))
+                if (em.HasComponent<MinerTag>(unit)
+                    && ResourceNodeQuery.IsGatherable(em, rallyTargetEntity))
                 {
                     TheWaningBorder.Core.Commands.CommandRouter.IssueGather(
                         em, unit, rallyTargetEntity,
@@ -296,6 +353,18 @@ namespace TheWaningBorder.Systems.Training
 
                 if (!issuedGather)
                 {
+                    // Rallied at a resource but this unit can't gather (a
+                    // soldier out of a Hall that also trains workers). Its
+                    // rally point is the node's CELL CENTRE, which the node
+                    // stamps impassable — walking a unit into it is the orbit
+                    // bug all over again. Aim beside the node instead.
+                    if (ResourceNodeQuery.IsGatherable(em, rallyTargetEntity)
+                        && TheWaningBorder.Systems.Work.MiningReach.TryGetMiningStand(
+                            em, rallyTargetEntity, finalPos, out float3 beside))
+                    {
+                        rallyTarget = beside;
+                    }
+
                     // RALLY SCATTER (jitter fix, 2026-07-12): every trainee
                     // used to get the SAME exact rally point. Arrival needs
                     // 0.5 m of that exact point, separation holds later

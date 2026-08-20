@@ -32,7 +32,7 @@ transit and auto-spawn patrolling trader-warriors), or **Feraldis**
 (wood-and-bone Norse-coded warbands whose damage *is* their income —
 every kill drips supplies, every house spawns autonomous raiders). Every
 faction's identity is built around its relationship to the movement axis,
-and a **Crystal Curse** PvE layer threatens all three. Twelve religious
+and a **The Border** PvE layer threatens all three. Twelve religious
 sects (pick six) layer further depth on top of the cultural choice. No
 imperial age, no fourth tech tier — the depth lives in **culture × sect
 × per-battalion upgrades** rather than in further ages.
@@ -50,7 +50,7 @@ imperial age, no fourth tech tier — the depth lives in **culture × sect
    six-sect combinations, layered on top of three cultures. Each
    battalion upgrade is paid per-battalion, so an army's tier ladder is a
    resource sink, not a free power-spike.
-3. **A PvE layer that gates the late game.** The Crystal Curse spreads
+3. **A PvE layer that gates the late game.** The The Border spreads
    across every map and is the *only* source of **Glow** (the T4 super-
    resource). Each culture interacts with it differently: Alanthor
    cleanses, Runai converts, Feraldis destroys — and the Glow drop is
@@ -70,9 +70,9 @@ imperial age, no fourth tech tier — the depth lives in **culture × sect
 | **Palette** | Sage green + warm grey limestone | Cyan + sandstone, copper domes | Crimson + dark grey, obsidian |
 | **Magic** | Arcane-machine | Light-blue, flowing | Dark blood magic |
 | **Movement relationship** | Denies (walls, towers) | Embodies (caravans, lanes) | Preys on (raiders, pillage) |
-| **Income floor** | Closed wall compartments | Caravans-in-transit + trader-warrior patrols | Damage on enemies *or* Crystal Curse |
+| **Income floor** | Closed wall compartments | Caravans-in-transit + trader-warrior patrols | Damage on enemies *or* The Border |
 | **Population** | Standard house ladder | Instant 200 at age-up (no houses) | Instant 200 at age-up (houses spawn raiders) |
-| **Religious unit** | Scholar (cleanses curse → Glow) | Acolyte (converts → Glow) | Iconoclast (unblocks → Glow) |
+| **Religious unit** | Scholar (cleanses border → Glow) | Acolyte (converts → Glow) | Iconoclast (unblocks → Glow) |
 | **Wall system** | BFME2 hub-and-segment, gates by conversion | None — lanes are defense | None — pressure is defense |
 
 ## Standout mechanics
@@ -92,8 +92,8 @@ imperial age, no fourth tech tier — the depth lives in **culture × sect
 - **Caravan kills feed Feraldis** *(cross-faction synergy)* — a Runai
   caravan killed by Feraldis drops 50% of its cargo as Feraldis supplies;
   Alanthor or Runai killers destroy the cargo. Asymmetry has teeth.
-- **Glow as one-shot finite resource** *(cross-faction)* — each Crystal
-  Curse node yields exactly one Glow pickup, ever. Late-game T4 upgrades
+- **Glow as one-shot finite resource** *(cross-faction)* — each Veilstone
+  Border node yields exactly one Glow pickup, ever. Late-game T4 upgrades
   are bottlenecked by a fixed map budget.
 
 ## Current build state (honest snapshot)
@@ -115,7 +115,7 @@ What is **placeholder** today (and what the art search is for):
 - UI / HUD — IMGUI panels (functional, not pretty)
 - Logo, capsule art, key art, Shardroot studio identity — none yet
 - Religious-unit (Scholar / Acolyte / Iconoclast) visuals
-- Crystal-Curse / Glow visual identity
+- Border / Glow visual identity
 - Battalion size finalization for per-battalion upgrades
 - Petriarchy 12-sect art and balance
 

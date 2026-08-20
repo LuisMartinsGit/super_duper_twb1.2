@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.UI.Common;
 
 /// <summary>
@@ -78,23 +79,16 @@ public class PlanningModeOverlay : MonoBehaviour
             // Issue first command directly
             IssueCommand(em, unit, cmds[0]);
 
-            // Queue the rest
-            if (cmds.Count > 1)
+            // Queue the rest THROUGH THE ROUTER: a raw buffer append exists
+            // only on this machine, so a committed plan's orders 2..N never
+            // reached the other peer — its copy of the unit stopped after the
+            // first order (2026-08-16 sweep, B7). IssueQueuedWaypoint
+            // replicates each entry and activates the queue on every peer.
+            for (int i = 1; i < cmds.Count; i++)
             {
-                if (!em.HasBuffer<QueuedCommand>(unit))
-                    em.AddBuffer<QueuedCommand>(unit);
-                var buffer = em.GetBuffer<QueuedCommand>(unit);
-                for (int i = 1; i < cmds.Count; i++)
-                {
-                    buffer.Add(new QueuedCommand
-                    {
-                        Type = cmds[i].Type,
-                        TargetPosition = cmds[i].Position,
-                        TargetEntity = Entity.Null
-                    });
-                }
-                if (!em.HasComponent<CommandQueueActive>(unit))
-                    em.AddComponent<CommandQueueActive>(unit);
+                TheWaningBorder.Core.Commands.CommandRouter.IssueQueuedWaypoint(
+                    em, unit, cmds[i].Type, cmds[i].Position, Entity.Null,
+                    TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
             }
         }
 
@@ -131,7 +125,8 @@ public class PlanningModeOverlay : MonoBehaviour
         };
         labelStyle.normal.textColor = WorldOverlayPalette.Accent;
 
-        GUI.Label(new Rect(0, 40, Screen.width, 40), "PLANNING MODE (Z to execute, ESC to cancel)", labelStyle);
+        GUI.Label(new Rect(0, 40, Screen.width, 40),
+            Loc.T("PLANNING MODE (Z to execute, ESC to cancel)"), labelStyle);
 
         // Draw planned waypoint count
         var countStyle = new GUIStyle(GUI.skin.label)
@@ -140,7 +135,8 @@ public class PlanningModeOverlay : MonoBehaviour
             alignment = TextAnchor.UpperCenter
         };
         countStyle.normal.textColor = Color.white;
-        GUI.Label(new Rect(0, 70, Screen.width, 30), $"{_plans.Count} command(s) queued", countStyle);
+        GUI.Label(new Rect(0, 70, Screen.width, 30),
+            string.Format(Loc.T("{0} command(s) queued"), _plans.Count), countStyle);
 
         // Draw waypoint markers in world space
         var cam = Camera.main;

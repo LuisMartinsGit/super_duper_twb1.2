@@ -19,6 +19,7 @@ using TMPro;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Panels;
 
@@ -34,7 +35,6 @@ namespace TheWaningBorder.UI.GameUI
         private RectTransform _root;
         private TMP_Text _title;
         private RectTransform _grid;
-        private TMP_Text _tooltip;
 
         private sealed class BuildWidget
         {
@@ -73,7 +73,7 @@ namespace TheWaningBorder.UI.GameUI
             rootStack.childForceExpandWidth = true;
             rootStack.childForceExpandHeight = false;
 
-            _title = GameUIKit.Text(content, "title", "Build Structure", 40f, GameUIKit.Gold);
+            _title = GameUIKit.Text(content, "title", Loc.T("Build Structure"), 40f, GameUIKit.Gold);
             _title.fontStyle = FontStyles.Bold;
 
             _grid = GameUIKit.Rect(content, "grid");
@@ -82,9 +82,6 @@ namespace TheWaningBorder.UI.GameUI
             gl.spacing = new Vector2(10f, 10f);
             gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gl.constraintCount = GridCols;
-
-            _tooltip = GameUIKit.Text(content, "tooltip", "", 24f, GameUIKit.TextMain);
-            _tooltip.gameObject.SetActive(false);
 
             _root.gameObject.SetActive(false);
         }
@@ -113,8 +110,8 @@ namespace TheWaningBorder.UI.GameUI
 
             bool placing = BuilderCommandPanel.IsPlacingBuilding;
             _title.text = placing
-                ? "Left-click to place, Right/Esc to cancel"
-                : "Build Structure";
+                ? Loc.T("Left-click to place, Right/Esc to cancel")
+                : Loc.T("Build Structure");
 
             int used = 0;
             foreach (var b in info.Actions)
@@ -189,10 +186,9 @@ namespace TheWaningBorder.UI.GameUI
             cost.rectTransform.offsetMin = new Vector2(4f, 2f);
             cost.rectTransform.offsetMax = new Vector2(-4f, 0f);
 
-            var relay = bg.gameObject.AddComponent<UiClickRelay>();
+            var relay = UITooltip.Relay(bg.gameObject);
             relay.OnLeftClick = () => w.Click?.Invoke();
-            relay.OnEnter = () => ShowTooltip(w.Tooltip);
-            relay.OnExit = HideTooltip;
+            UITooltip.Bind(bg.gameObject, () => w.Tooltip);
 
             w.Root = rt.gameObject;
             w.Bg = bg;
@@ -203,16 +199,9 @@ namespace TheWaningBorder.UI.GameUI
             return w;
         }
 
-        private void ShowTooltip(string text)
-        {
-            if (string.IsNullOrEmpty(text)) { HideTooltip(); return; }
-            _tooltip.text = text;
-            if (!_tooltip.gameObject.activeSelf) _tooltip.gameObject.SetActive(true);
-        }
-
-        private void HideTooltip()
-        {
-            if (_tooltip.gameObject.activeSelf) _tooltip.gameObject.SetActive(false);
-        }
+        // The inline tooltip label is GONE — see ActionsPanelBinder for the
+        // full story. Short version: it sat inside this panel's own
+        // ContentSizeFitter layout, so showing it moved the very buttons it
+        // described and the hover flickered. UITooltip reflows nothing.
     }
 }

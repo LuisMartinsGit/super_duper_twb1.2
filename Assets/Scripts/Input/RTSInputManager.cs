@@ -48,6 +48,16 @@ namespace TheWaningBorder.Input
         private static readonly Unity.Entities.ComponentType[] VeilFieldQueryTypes =
             { Unity.Entities.ComponentType.ReadOnly<VeilField>() };
         private TheWaningBorder.Core.CachedEntityQuery _veilFieldQuery;
+        // Cached — CycleIdleBuilders created an undisposed query on every
+        // 'b' press (UnfreezeAllQueues disposes its own, so it is fine).
+        private static readonly Unity.Entities.ComponentType[] IdleBuilderQueryTypes =
+        {
+            Unity.Entities.ComponentType.ReadOnly<UnitTag>(),
+            Unity.Entities.ComponentType.ReadOnly<CanBuild>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+            Unity.Entities.ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private TheWaningBorder.Core.CachedEntityQuery _idleBuilderQuery;
 
         private EntityWorld _world;
         private EntityManager _em;
@@ -85,8 +95,13 @@ namespace TheWaningBorder.Input
         // LIFECYCLE
         // ═══════════════════════════════════════════════════════════════════════
         
+        /// <summary>Set in Awake so the pause menu can drive the Esc cascade
+        /// (see <see cref="CancelModesOrSelection"/>).</summary>
+        private static RTSInputManager _instance;
+
         void Awake()
         {
+            _instance = this;
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated)
                 _em = _world.EntityManager;
@@ -94,6 +109,40 @@ namespace TheWaningBorder.Input
             // Ensure ControlGroupSystem exists
             if (FindFirstObjectByType<ControlGroupSystem>() == null)
                 gameObject.AddComponent<ControlGroupSystem>();
+        }
+
+        void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
+
+        /// <summary>
+        /// One step of the Esc cascade: cancel attack-move / patrol aiming,
+        /// else drop the selection. Returns true when something was cancelled.
+        ///
+        /// Esc used to be handled here directly, but this manager stops
+        /// processing hotkeys the moment the pointer is over any uGUI element
+        /// (ShouldBlockInput) — which is most of the screen once the HUD is
+        /// up, and ALL of it once the pause menu is open. PauseMenuPanel owns
+        /// the key now and calls down into this; there is exactly one Esc
+        /// cascade and it works wherever the cursor happens to be.
+        /// </summary>
+        public static bool CancelModesOrSelection()
+        {
+            var self = _instance;
+            if (self != null && (self._attackMoveMode || self._patrolMode))
+            {
+                self._attackMoveMode = false;
+                self._patrolMode = false;
+                return true;
+            }
+            if (SelectionSystem.CurrentSelection != null
+                && SelectionSystem.CurrentSelection.Count > 0)
+            {
+                SelectionSystem.ClearSelection();
+                return true;
+            }
+            return false;
         }
 
         void Update()
@@ -180,25 +229,11 @@ namespace TheWaningBorder.Input
         
         private void HandleHotkeys()
         {
-            // ESC - cascading: cancel modes > clear selection.
-            // InGameMenuPanel open/close branches removed with the old UI
-            // (2026-07-17); the final uGUI owns the pause menu.
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
-            {
-                if (PlanningModeOverlay.IsActive)
-                {
-                    PlanningModeOverlay.Cancel();
-                }
-                else if (_attackMoveMode || _patrolMode)
-                {
-                    _attackMoveMode = false;
-                    _patrolMode = false;
-                }
-                else if (SelectionSystem.CurrentSelection != null && SelectionSystem.CurrentSelection.Count > 0)
-                {
-                    SelectionSystem.ClearSelection();
-                }
-            }
+            // ESC is owned by PauseMenuPanel, which runs the whole cascade
+            // (placement / targeting / planning / culture menu / this
+            // manager's modes and selection, then the pause menu) from a
+            // component that is never gated by pointer-over-UI. See
+            // CancelModesOrSelection above.
 
             // A - Enter attack-move mode
             if (UnityEngine.Input.GetKeyDown(KeyCode.A))
@@ -910,18 +945,21 @@ namespace TheWaningBorder.Input
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
 
-                if (!_em.HasBuffer<QueuedCommand>(e))
-                    _em.AddBuffer<QueuedCommand>(e);
-                _em.GetBuffer<QueuedCommand>(e).Add(new QueuedCommand
-                {
-                    Type = QueuedCommandType.Move,
-                    TargetPosition = clickWorld,
-                    TargetEntity = Entity.Null
-                });
+                // Through the router. Ordinary moves have replicated for a
+                // long time; the SHIFT-queued variant never did, so a queued
+                // march existed only on the machine that drew it and the other
+                // peer's copy of those units simply stood there.
+                // docs/Multiplayer_LAN_Readiness.md
+                CommandRouter.IssueQueuedWaypoint(_em, e, QueuedCommandType.Move,
+                    clickWorld, Entity.Null, CommandSource.LocalPlayer);
 
-                if (!_em.HasComponent<CommandQueueActive>(e))
-                    _em.AddComponent<CommandQueueActive>(e);
-                if (!_em.HasComponent<CommandQueueFrozen>(e))
+                // CommandQueueActive now rides QueuedWaypointDirect itself, so
+                // every peer that applies the waypoint also activates the
+                // queue. The FREEZE stays local-input-only and is therefore
+                // single-player only: a frozen queue on one peer and a
+                // draining queue on the other is a position fork. In MP the
+                // queue simply starts draining immediately on all peers.
+                if (!GameSettings.IsMultiplayer && !_em.HasComponent<CommandQueueFrozen>(e))
                     _em.AddComponent<CommandQueueFrozen>(e);
             }
         }
@@ -973,7 +1011,10 @@ namespace TheWaningBorder.Input
 
             var targetFaction = _em.GetComponentData<FactionTag>(target).Value;
 
-            if (targetFaction != GameSettings.LocalPlayerFaction)
+            // Allies read as FRIENDLY, not enemy: right-clicking a teammate
+            // must offer heal / support intent, never an attack order.
+            // docs/Design/Teams.md
+            if (Alliances.AreHostile(GameSettings.LocalPlayerFaction, targetFaction))
                 return TargetType.Enemy;
 
             if (_em.HasComponent<UnitTag>(target))
@@ -1001,11 +1042,7 @@ namespace TheWaningBorder.Input
         /// </summary>
         private void CycleIdleBuilders()
         {
-            var query = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<CanBuild>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var query = _idleBuilderQuery.Get(_em, IdleBuilderQueryTypes);
             using var entities = query.ToEntityArray(Allocator.Temp);
 
             var idle = new List<Entity>();

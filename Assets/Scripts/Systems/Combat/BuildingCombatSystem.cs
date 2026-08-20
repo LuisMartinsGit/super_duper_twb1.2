@@ -77,7 +77,8 @@ namespace TheWaningBorder.Systems.Combat
 
                 for (int i = 0; i < tgtEntities.Length; i++)
                 {
-                    if (tgtFactions[i].Value == myFaction) continue;
+                    // Towers hold fire on allies. docs/Design/Teams.md
+                    if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
                     if (tgtHealth[i].Value <= 0) continue;
 
                     float dist = math.distance(myPos, tgtTransforms[i].Position);

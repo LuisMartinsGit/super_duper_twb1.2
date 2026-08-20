@@ -24,6 +24,17 @@ namespace TheWaningBorder.Audio
         private AudioClip _menuClip;
         private AudioClip _gameClip;
 
+        /// <summary>
+        /// PlayerPrefs key for the persisted music volume (0-100, matching
+        /// the options menu's percent sliders). OptionsMenuUI writes it;
+        /// Awake reads it so the saved level applies from the first note
+        /// regardless of initialization order.
+        /// </summary>
+        /// <summary>Legacy PlayerPrefs key. Kept only because
+        /// PlayerProfile migrates from it on the run that creates
+        /// settings.json; nothing reads or writes it any more.</summary>
+        public const string VolumePrefKey = "music_volume";
+
         private float _masterVolume = 0.5f;
         private const float FadeDuration = 1.5f;
 
@@ -57,6 +68,13 @@ namespace TheWaningBorder.Audio
             }
             _instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // Saved music volume, before anything plays.
+            // Settings live in settings.json beside the exe now, not the
+            // registry. PlayerProfile creates it with defaults, so there is
+            // no has-key case to handle.
+            _masterVolume = Mathf.Clamp01(
+                TheWaningBorder.Core.Config.PlayerProfile.MusicVolume / 100f);
 
             // Create two AudioSources for crossfading
             _sourceA = gameObject.AddComponent<AudioSource>();

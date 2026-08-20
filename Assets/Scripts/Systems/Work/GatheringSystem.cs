@@ -28,11 +28,19 @@ namespace TheWaningBorder.Systems.Work
     /// VeilstoneOutcropping.PatchClusterRadius — the map-wide patch
     /// definition).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct GatheringSystem : ISystem
     {
-        private const float GatherRange = 5f;
+        // Range lives in MiningReach — see that file for why this system may
+        // not carry its own.
+
+        /// <summary>How far the iron / veilsteel divert looks for a minable
+        /// replacement when the clicked node is walled in. Unlike the veilstone
+        /// path (a BFS flood that walks a patch of any size one adjacency hop
+        /// at a time) this is a flat radius scan, so it must span a whole patch
+        /// on its own to reach the perimeter from a buried interior node.</summary>
+        private const float DivertSearchRadius = 12f;
 
         private EntityQuery _outcroppingQuery;
 
@@ -56,6 +64,12 @@ namespace TheWaningBorder.Systems.Work
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var em = state.EntityManager;
+
+            // Read fresh each tick — never cache the struct. SpatialHashRebuildSystem
+            // reallocates the map when the unit count outgrows it, so a stale
+            // copy is a use-after-dispose. Lets the stand picker step around a
+            // slot another worker already occupies.
+            SystemAPI.TryGetSingleton<NavSpatialHash>(out var hash);
 
             foreach (var (transform, gatherCmd, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<GatherCommand>>()
@@ -90,14 +104,43 @@ namespace TheWaningBorder.Systems.Work
                 if (minerState.State == MinerWorkState.Idle ||
                     minerState.State == MinerWorkState.MovingToDeposit)
                 {
-                    // Veilstone patch: retarget to the closest discovered node of
-                    // the clicked node's patch relative to THIS worker. Gated on
-                    // AssignedDeposit != resourceNode so the scan runs once per
-                    // command, not every frame while walking (the command is
-                    // rewritten below to point at the chosen node).
-                    if (isBorderNode && minerState.AssignedDeposit != resourceNode)
+                    // Is this the tick the walk is SET UP, or one of the many
+                    // ticks during it? The GatherCommand is not always consumed
+                    // after one tick — VeilstoneMiningSystem never removes it —
+                    // so on veilstone this block ran every frame of the walk.
+                    //
+                    // That matters because the stand point is derived from the
+                    // worker's CURRENT position: recomputing it each tick made
+                    // the goal slide sideways as the worker did, so lateral
+                    // movement could never close the gap and the worker
+                    // "stepped aside, then stopped". It also clobbered the
+                    // mining systems' own re-pick, because this writes through
+                    // the end-of-frame ECB and therefore lands last.
+                    //
+                    // The stand is LATCHED on assignment; during the walk the
+                    // mining systems own the destination.
+                    bool freshAssignment = minerState.State == MinerWorkState.Idle
+                        || minerState.AssignedDeposit != resourceNode;
+                    // YOU GET THE NODE YOU CLICKED. This used to retarget
+                    // unconditionally to the closest node of the clicked node's
+                    // patch relative to THIS worker — a spread heuristic that
+                    // read as the game ignoring the click, because the patch is
+                    // a BFS flood over PatchClusterRadius (12 m) hops, so it
+                    // could hand the worker a node in a visibly different patch
+                    // than the one whose resource bar the player was hovering.
+                    //
+                    // Now it diverts ONLY when the clicked node genuinely cannot
+                    // be mined — walled in by other nodes, a building, or
+                    // unwalkable ground — which is the one case where honouring
+                    // the click would mean sending the worker to orbit forever.
+                    // Gated on AssignedDeposit != resourceNode so the scan runs
+                    // once per command, not every frame while walking.
+                    if (minerState.AssignedDeposit != resourceNode
+                        && !MiningReach.IsMinable(em, resourceNode, myPos))
                     {
-                        var best = FindClosestDiscoveredPatchNode(em, resourceNode, myPos, entity);
+                        var best = isBorderNode
+                            ? FindClosestMinablePatchNode(em, resourceNode, myPos, entity)
+                            : FindClosestMinableNeighbourNode(em, resourceNode, myPos);
                         if (best != Entity.Null && best != resourceNode)
                         {
                             resourceNode = best;
@@ -116,33 +159,62 @@ namespace TheWaningBorder.Systems.Work
                         }
                     }
 
-                    // Move to resource node
+                    // Move to resource node. Distance is measured to the node's
+                    // SURFACE against the shared MiningReach.GatherRange — this
+                    // used to be its own 5 m CENTRE-to-centre test, which is
+                    // 2.5 build cells and, because this system runs before
+                    // MiningSystem and flips the miner straight to Gathering,
+                    // overrode the mining systems' tighter 2.5 m surface rule.
+                    // A worker that happened to be within 5 m never took a step.
                     var nodePos = em.GetComponentData<LocalTransform>(resourceNode).Position;
-                    var dist = DistXZ(myPos, nodePos);
+                    float dist = TheWaningBorder.Core.TargetGeometry
+                        .SurfaceDistXZ(em, myPos, resourceNode);
 
-                    if (dist > GatherRange)
+                    if (dist > MiningReach.GatherRange)
                     {
-                        // Update state and set destination
-                        minerState.State = MinerWorkState.MovingToDeposit;
-                        minerState.AssignedDeposit = resourceNode;
-                        minerState.GatheringResource = resourceType;
-                        ecb.SetComponent(entity, minerState);
-
-                        if (!em.HasComponent<DesiredDestination>(entity))
+                        // Update state — only on the setup tick. Re-writing this
+                        // every frame of the walk pushed a STALE snapshot of
+                        // MinerState (captured before the mining systems ran)
+                        // back over their work through the end-of-frame ECB,
+                        // which lands last. GatherTimer progress and any state
+                        // they had advanced went with it.
+                        if (freshAssignment)
                         {
-                            ecb.AddComponent(entity, new DesiredDestination
-                            {
-                                Position = nodePos,
-                                Has = 1
-                            });
+                            minerState.State = MinerWorkState.MovingToDeposit;
+                            minerState.AssignedDeposit = resourceNode;
+                            minerState.GatheringResource = resourceType;
+                            ecb.SetComponent(entity, minerState);
                         }
-                        else
+
+                        // Walk to a spot BESIDE the node, never the node's own
+                        // cell — that cell is impassable, so a destination
+                        // inside it can never be arrived at and defeats
+                        // FlowFollowSystem's straight-line check.
+                        //
+                        // Only on the tick the assignment is made: see
+                        // freshAssignment above for why re-deriving this mid-walk
+                        // makes the goal run away from the worker.
+                        if (freshAssignment)
                         {
-                            ecb.SetComponent(entity, new DesiredDestination
+                            MiningReach.TryGetMiningStand(em, resourceNode, entity, myPos, in hash,
+                                out float3 stand);
+
+                            if (!em.HasComponent<DesiredDestination>(entity))
                             {
-                                Position = nodePos,
-                                Has = 1
-                            });
+                                ecb.AddComponent(entity, new DesiredDestination
+                                {
+                                    Position = stand,
+                                    Has = 1
+                                });
+                            }
+                            else
+                            {
+                                ecb.SetComponent(entity, new DesiredDestination
+                                {
+                                    Position = stand,
+                                    Has = 1
+                                });
+                            }
                         }
                     }
                     else
@@ -171,14 +243,62 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Among the veilstone nodes of <paramref name="clickedNode"/>'s patch,
-        /// return the one closest to <paramref name="workerPos"/> that still
-        /// holds veilstone and has been discovered by the worker's faction.
+        /// Divert fallback for iron and veilsteel, which have no patch graph:
+        /// the nearest node of the SAME kind, within one patch-cluster radius
+        /// of the clicked one, that can actually be mined. Iron patches are
+        /// solid blocks of build cells too, so an interior node is walled in by
+        /// its neighbours exactly as a veilstone one is — without this, an iron
+        /// click on the middle of a patch had no rescue at all and the worker
+        /// orbited until stuck recovery unassigned it seconds later.
+        /// </summary>
+        private Entity FindClosestMinableNeighbourNode(
+            EntityManager em, Entity clickedNode, float3 workerPos)
+        {
+            if (!em.HasComponent<LocalTransform>(clickedNode)) return Entity.Null;
+            float3 clickedPos = em.GetComponentData<LocalTransform>(clickedNode).Position;
+
+            bool wantVeilsteel = em.HasComponent<VeilsteelDepositTag>(clickedNode);
+            var query = wantVeilsteel
+                ? em.CreateEntityQuery(
+                    ComponentType.ReadOnly<VeilsteelDepositTag>(),
+                    ComponentType.ReadOnly<IronDepositState>(),
+                    ComponentType.ReadOnly<LocalTransform>())
+                : em.CreateEntityQuery(
+                    ComponentType.ReadOnly<IronMineTag>(),
+                    ComponentType.ReadOnly<IronDepositState>(),
+                    ComponentType.ReadOnly<LocalTransform>());
+
+            using var nodes = query.ToEntityArray(Allocator.Temp);
+            using var states = query.ToComponentDataArray<IronDepositState>(Allocator.Temp);
+            using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            query.Dispose();
+
+            const float reach = DivertSearchRadius;
+            Entity best = Entity.Null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (nodes[i] == clickedNode) continue;
+                if (states[i].Depleted == 1 || states[i].RemainingIron <= 0) continue;
+                if (DistXZ(clickedPos, transforms[i].Position) > reach) continue;
+                if (!MiningReach.IsMinable(em, nodes[i], workerPos)) continue;
+
+                float dist = DistXZ(workerPos, transforms[i].Position);
+                if (dist < bestDist) { bestDist = dist; best = nodes[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Fallback for a clicked node that cannot be mined: among the
+        /// veilstone nodes of its patch, the one closest to
+        /// <paramref name="workerPos"/> that still holds veilstone, has been
+        /// discovered by the worker's faction, AND has somewhere legal to stand.
         /// Patch membership = BFS flood from the clicked node with hops of at
         /// most VeilstoneOutcropping.PatchClusterRadius. Returns Entity.Null
         /// when no node qualifies — the caller then keeps the clicked node.
         /// </summary>
-        private Entity FindClosestDiscoveredPatchNode(
+        private Entity FindClosestMinablePatchNode(
             EntityManager em, Entity clickedNode, float3 workerPos, Entity worker)
         {
             using var nodes = _outcroppingQuery.ToEntityArray(Allocator.Temp);
@@ -234,6 +354,9 @@ namespace TheWaningBorder.Systems.Work
                 if (states[i].Depleted == 1 || states[i].RemainingVeilstone <= 0) continue;
                 if (hasFaction && !Visibility.FogOfWarSystem.IsRevealedToFaction(
                         workerFaction, transforms[i].Position)) continue;
+                // Only offer somewhere the worker can actually work from —
+                // diverting one unreachable node onto another is no rescue.
+                if (!MiningReach.IsMinable(em, nodes[i], workerPos)) continue;
 
                 float dist = DistXZ(workerPos, transforms[i].Position);
                 if (dist < bestDist)

@@ -28,53 +28,6 @@ namespace TheWaningBorder.Core.Config
         /// <summary>LOS radius for the main node — small so the node "sees" its immediate area without revealing the whole map.</summary>
         public const float MainNodeLineOfSight = 8f;
 
-        // ==================== Resource Node ====================
-        public const int ResourceNodeHP = 200;
-        public const float ResourceNodeRadius = 1.5f;
-        public const float ResourceNodeSpreadRadius = 12f;  // bumped from 8
-        public const float ResourceNodeSpreadPerTick = 1f;
-        public const float ResourceNodeTickInterval = 30f;
-        public const int ResourceNodeBuildCost = 150;
-        public const int ResourceNodePresentationID = 312;
-
-        // ==================== Enforcement Node ====================
-        public const int EnforcementNodeHP = 600;
-        public const float EnforcementNodeRadius = 1.5f;
-        public const int EnforcementNodeBuildCost = 600;
-        public const int EnforcementNodePresentationID = 313;
-        public const float EnforcementAuraRadius = 20f;
-        public const float EnforcementAuraDefBonus = 0.15f;
-        public const float EnforcementAuraAttBonus = 0.15f;
-        public const float EnforcementAuraSpeedBonus = 0.1f;
-
-        // ==================== Suppression Node ====================
-        public const int SuppressionNodeHP = 600;
-        public const float SuppressionNodeRadius = 1.5f;
-        public const int SuppressionNodeBuildCost = 600;
-        public const int SuppressionNodePresentationID = 314;
-        public const float SuppressionAuraRadius = 20f;
-        public const float SuppressionAuraDefPenalty = 0.15f;
-        public const float SuppressionAuraAttPenalty = 0.15f;
-        public const float SuppressionAuraSpeedPenalty = 0.1f;
-
-        // ==================== Restoration Node ====================
-        public const int RestorationNodeHP = 400;
-        public const float RestorationNodeRadius = 1.5f;
-        public const int RestorationNodeBuildCost = 360;
-        public const int RestorationNodePresentationID = 315;
-        public const float RestorationAuraRadius = 15f;
-        public const float RestorationAuraHealPerSecond = 5f;
-
-        // ==================== Turret Node ====================
-        public const int TurretNodeHP = 500;
-        public const float TurretNodeRadius = 1.5f;
-        public const int TurretNodeBuildCost = 300;
-        public const int TurretNodePresentationID = 316;
-        public const float TurretRange = 25f;
-        public const int TurretDamage = 15;
-        public const float TurretCooldown = 1.5f;
-        public const int TurretMaxTargets = 2;
-
         // ==================== Crystalling (Unit) ====================
         public const float CrystallingHP = 72f;     // +20% from 60
         public const float CrystallingSpeed = 5.5f;
@@ -118,28 +71,14 @@ namespace TheWaningBorder.Core.Config
         public const int GodsplinterPresentationID = 322;
 
         // ==================== AI Costs (BorderAISystem) ====================
-        public const int AIResourceNodeCost = 360;
-        public const int AITurretNodeCost = 600;
-        public const int AIRestorationNodeCost = 750;
-        public const int AIEnforcementNodeCost = 1200;
-        public const int AISuppressionNodeCost = 1200;
         public const int AICrystallingCost = 50;
         public const int AIVeilstingerCost = 150;
         public const int AIGodsplinterCost = 500;
-        public const int AIExpansionCost = 9000;
 
         // ==================== AI Train Times (seconds) ====================
         public const float CrystallingTrainTime = 8f;
         public const float VeilstingerTrainTime = 15f;
         public const float GodsplinterTrainTime = 30f;
-
-        // ==================== AI Sub-Node Limits (per main node) ====================
-        public const int MaxResourceNodesPerMain = 3;
-        public const int MaxTurretNodesPerMain = 2;
-        public const int MaxRestorationNodesPerMain = 1;
-        public const int MaxEnforcementNodesPerMain = 1;
-        public const int MaxSuppressionNodesPerMain = 1;
-        public const int MaxSubNodesPerMain = 6;
 
         // ==================== Node State Machine (Spec §9, §11) ====================
         // Tunable timers — exposed early per spec §11. "The map wants to be Active":
@@ -160,13 +99,6 @@ namespace TheWaningBorder.Core.Config
 
         /// <summary>Pacified (Converted) hold before reverting to Active.</summary>
         public const float NodeConvertedRevertTime = WellHoldTime;
-
-        /// <summary>
-        /// LEGACY single-phase regrow time. Superseded by the two-phase
-        /// destruction cycle (NodeRubbleTime rubble → NodeRebuildTime build).
-        /// Retained so any external reference still compiles.
-        /// </summary>
-        public const float NodeDestroyedRegrowTime = 540f;
 
         /// <summary>
         /// Destruction rework (2026-07): a destroyed main node leaves rubble

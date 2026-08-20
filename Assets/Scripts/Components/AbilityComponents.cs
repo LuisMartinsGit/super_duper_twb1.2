@@ -137,14 +137,6 @@ public struct HealOverTime : IComponentData
 // ==================== Spell Effect Components ====================
 
 /// <summary>
-/// Marks a summoned unit that despawns after a timer expires.
-/// </summary>
-public struct SummonedUnit : IComponentData
-{
-    public float DespawnTimer;
-}
-
-/// <summary>
 /// Area-of-effect burning ground damage over time.
 /// </summary>
 public struct BurningGround : IComponentData
@@ -152,15 +144,6 @@ public struct BurningGround : IComponentData
     public float DPS;
     public float TimeRemaining;
     public float Radius;
-}
-
-/// <summary>
-/// Mind-controlled entity - temporarily fights for a different faction.
-/// </summary>
-public struct MindControlled : IComponentData
-{
-    public Faction OriginalFaction;
-    public float TimeRemaining;
 }
 
 /// <summary>

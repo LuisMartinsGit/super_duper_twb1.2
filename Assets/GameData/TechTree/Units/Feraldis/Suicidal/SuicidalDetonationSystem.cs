@@ -77,7 +77,11 @@ namespace TheWaningBorder.Systems.Combat
 
                 for (int i = 0; i < xfs.Length; i++)
                 {
-                    if (facs[i].Value == owner) continue;
+                    // Allies must not trip the charge. A faction-EQUALITY test
+                    // spares only the owner, so in a team game a teammate's
+                    // unit walked in and set it off (docs/Design/Teams.md:
+                    // AreHostile is the only valid hostility test).
+                    if (!Alliances.AreHostile(owner, facs[i].Value)) continue;
                     if (healths[i].Value <= 0) continue;
                     float dx = xfs[i].Position.x - pos.x;
                     float dz = xfs[i].Position.z - pos.z;
@@ -126,7 +130,9 @@ namespace TheWaningBorder.Systems.Combat
             {
                 var e = entities[i];
                 if (e == suicidal) continue;
-                if (em.GetComponentData<FactionTag>(e).Value == owner) continue;
+                // Blast respects alliance, not just ownership — allies were
+                // eating the full 45 (docs/Design/Teams.md).
+                if (!Alliances.AreHostile(owner, em.GetComponentData<FactionTag>(e).Value)) continue;
                 if (em.HasComponent<Invulnerable>(e)) continue;
 
                 var hp = em.GetComponentData<Health>(e);

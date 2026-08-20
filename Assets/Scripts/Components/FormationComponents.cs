@@ -61,9 +61,36 @@ public struct FormationGroup : IComponentData
     /// to Arrived so members finish on their own flow instead of hovering
     /// around a stuck leader.</summary>
     public byte StallTicks;
+    /// <summary>Consecutive ticks the leader has been held at a standstill by
+    /// the tether (see <see cref="LeaderTetherDistance"/>) WITHOUT the group
+    /// closing up. At <see cref="TetherReleaseTicks"/> the worst laggard is
+    /// detached so one wedged unit can't freeze the whole formation.</summary>
+    public byte TetherTicks;
+    /// <summary>Smallest worst-member lag seen so far this leg. Any genuine
+    /// improvement resets <see cref="TetherTicks"/>, so a group that is still
+    /// forming up (legitimately large lag, steadily shrinking) is never
+    /// mistaken for a wedged one. Initialised to float.MaxValue.</summary>
+    public float BestLag;
 
     /// <summary>Leader-stall release threshold (ticks).</summary>
     public const byte StallReleaseTicks = 120;
+
+    /// <summary>
+    /// How far the worst-placed member may fall behind its spot before the
+    /// virtual leader starts slowing down for it. The leader is a point mass:
+    /// it pays no separation, no obstacle slide, no turn-rate clamp and no
+    /// terrain / BorderDebuff speed penalty, so at equal nominal speed it
+    /// ALWAYS outruns the units it is supposed to lead — most visibly through
+    /// veil crust and during form-up, where members start up to
+    /// <see cref="CohesionRadius"/> away from their spots. Scaling the
+    /// leader's step by the group's lag is what actually holds the shape.
+    /// </summary>
+    public const float LeaderTetherDistance = 3f;
+    /// <summary>Ticks the leader may sit fully tethered with NO improvement
+    /// in the worst lag before the laggard is dropped from the group.</summary>
+    public const byte TetherReleaseTicks = 120;
+    /// <summary>Lag improvement that counts as the group closing up.</summary>
+    public const float TetherProgressEpsilon = 0.25f;
 
     public const byte StateMoving = 0;
     public const byte StateArrived = 1;
@@ -93,6 +120,14 @@ public struct FormationMember : IBufferElementData
 {
     public Entity Unit;
     public float2 Slot;
+    /// <summary>1 while this member is running the +40% catch-up speed.
+    /// Latched, because catch-up needs HYSTERESIS: with a single threshold a
+    /// member sitting exactly at <see cref="FormationGroup.CatchUpTriggerDistance"/>
+    /// dropped back to group speed — the same speed its spot travels at — so
+    /// its closing velocity was zero and it rode a permanent 1.5 m lag. It now
+    /// engages above the trigger distance and releases only once actually back
+    /// in place.</summary>
+    public byte CatchingUp;
 }
 
 /// <summary>

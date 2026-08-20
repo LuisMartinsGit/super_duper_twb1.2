@@ -16,25 +16,7 @@ public struct CaravanTag : IComponentData { }
 
 // ==================== Trade Upgrades (stub for future) ====================
 
-/// <summary>
-/// Faction-wide trade upgrades. Stub component for future implementation.
-/// </summary>
-public struct TradeUpgrades : IComponentData
-{
-    /// <summary>0-3, each level +15% trade income</summary>
-    public byte IncomeBoost;
-
-    /// <summary>0-3, each level +30 HP and +0.5 speed to traders</summary>
-    public byte TraderToughness;
-
-    /// <summary>0 or 1, enables arrows on trading posts and armed traders</summary>
-    public byte ArmedTrade;
-}
-
 // ==================== Caravan Follower ====================
-
-/// <summary>Marker tag for patrol units that follow caravans instead of fixed waypoints.</summary>
-public struct CaravanFollowerTag : IComponentData { }
 
 // ==================== Not Controllable ====================
 
@@ -45,19 +27,6 @@ public struct CaravanFollowerTag : IComponentData { }
 public struct NotControllableTag : IComponentData { }
 
 // ==================== Trade Patrol Unit ====================
-
-/// <summary>
-/// Links a patrol unit to its lane's two endpoints.
-/// Patrol units are uncontrollable and walk between trade network nodes.
-/// </summary>
-public struct TradePatrolData : IComponentData
-{
-    /// <summary>First trade node endpoint.</summary>
-    public Entity PostA;
-
-    /// <summary>Second trade node endpoint.</summary>
-    public Entity PostB;
-}
 
 // ==================== Kill Credit Tracking ====================
 
@@ -81,4 +50,19 @@ public struct LastDamagedByFaction : IComponentData
 public struct LastAttackerEntity : IComponentData
 {
     public Entity Value;
+}
+
+/// <summary>
+/// Running total of the damage this entity has DEALT over the whole match.
+/// Added lazily on an entity's first landed hit, never reset, never decayed —
+/// it is a life ledger, not a combat timer.
+///
+/// The Wrath sect's "Spite" is the only reader: it pools this value across
+/// every enemy in the cast area and splits the total back over them
+/// (docs/Design/Sects.md). Stored as an int and only ever incremented by
+/// integer amounts, so two lockstep peers accumulate bit-identical ledgers.
+/// </summary>
+public struct DamageDealtTotal : IComponentData
+{
+    public int Value;
 }

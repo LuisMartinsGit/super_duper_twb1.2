@@ -33,6 +33,11 @@ namespace TheWaningBorder.Bootstrap
             // Reset network ID generator so all clients assign IDs in the same deterministic order
             NetworkIdGenerator.Reset();
 
+            // …and the simulated clock, which victory timing and AI budgeting
+            // read instead of Time.time. Both peers must start it at the same
+            // logical moment. docs/Multiplayer_LAN_Readiness.md
+            TheWaningBorder.Core.SimClock.Reset();
+
             // Fix #200: clear the FactionEconomy static bank cache so any stale
             // Entity handles from a previous world (e.g., returning to the main
             // menu and starting a new game) don't leak into the fresh world.
@@ -67,6 +72,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             // Marker assignment is EXACT and exhaustive: pass 1 gives every
+            // (see ResolveChosenStart below for the lobby-choice pass)
             // faction its faction-matched marker; pass 2 hands the remaining
             // (unused) markers to factions without a match, in the registry's
             // deterministic order. The procedural layout only ever applies to
@@ -75,6 +81,35 @@ namespace TheWaningBorder.Bootstrap
             // positions, every run, even when the marker Faction fields don't
             // line up with the active lobby slots.
             var usedMarkers = new System.Collections.Generic.HashSet<PlayerStartMarker>();
+
+            // Pass 0 (reservation): every start position explicitly chosen on
+            // the lobby minimap is claimed BEFORE anyone is auto-assigned.
+            // Done up front because the per-slot loop below runs in slot order:
+            // without this, slot 0 falling through to the "first unused marker"
+            // rule could take the very marker slot 3 had picked, and the
+            // player's explicit choice would silently lose.
+            // docs/Design/Lobby_Setup.md
+            var reservedStarts = new System.Collections.Generic.Dictionary<int, PlayerStartMarker>();
+            if (useMarkers)
+            {
+                for (int i = 0; i < playerCount; i++)
+                {
+                    var s = LobbyConfig.Slots[i];
+                    if (s == null || s.Type == SlotType.Empty) continue;
+                    if (s.StartIndex < 0) continue;
+
+                    var m = ResolveChosenStart(s.StartIndex);
+                    if (m == null || !usedMarkers.Add(m))
+                    {
+                        Debug.LogWarning(
+                            $"[PlayerSpawnSystem] slot {i} ({s.Faction}) asked for start " +
+                            $"#{s.StartIndex} but it is missing or already claimed — " +
+                            "falling back to automatic assignment.");
+                        continue;
+                    }
+                    reservedStarts[i] = m;
+                }
+            }
 
             for (int i = 0; i < playerCount; i++)
             {
@@ -95,12 +130,27 @@ namespace TheWaningBorder.Bootstrap
 
                 if (useMarkers)
                 {
+                    PlayerStartMarker marker = null;
+
+                    // Pass 0: the lobby's explicit choice, already claimed by
+                    // the reservation pass above. It MUST be read from
+                    // reservedStarts rather than re-resolved here: the
+                    // reservation put the marker into usedMarkers, so a
+                    // re-check of "is it free?" fails for the very slot that
+                    // reserved it, and every chosen start ends up claimed by
+                    // nobody — which dropped the whole roster onto the
+                    // procedural circle. docs/Design/Lobby_Setup.md
+                    if (reservedStarts.TryGetValue(i, out var reserved))
+                        marker = reserved;
+
                     // Pass 1: exact faction match (unused markers only, so a
                     // duplicated Faction field can't double-assign).
-                    PlayerStartMarker marker = null;
-                    var exact = MapMarkerRegistry.FindPlayerMarker(faction);
-                    if (exact != null && !usedMarkers.Contains(exact))
-                        marker = exact;
+                    if (marker == null)
+                    {
+                        var exact = MapMarkerRegistry.FindPlayerMarker(faction);
+                        if (exact != null && !usedMarkers.Contains(exact))
+                            marker = exact;
+                    }
 
                     // Pass 2: first unused marker in deterministic registry
                     // order — an authored start position always beats the
@@ -180,9 +230,13 @@ namespace TheWaningBorder.Bootstrap
             // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
             BuildingFactory.Create(em, "Hall", spawnPos, faction);
 
-            // Spawn starting Builders just outside the Hall's inflated footprint
-            // (Hall is 4x4 cells + 1 cell padding = blocked at +/-3 m, so 6 m of clearance).
-            float offset = 6f;
+            // Spawn starting Builders just outside the Hall's inflated
+            // footprint. The Hall is 8 x 8 m (4 x 4 build cells) + 1 cell of
+            // padding, so it blocks out to +/-5 m — the old 6 m offset left
+            // one metre of clearance and dropped workers and the whole
+            // starting army on top of their own Hall's blocked cells.
+            // Doubled with the footprints (2026-08-13).
+            float offset = 12f;
             float3 builderPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
             float3 builderPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
             float3 builderPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
@@ -195,7 +249,7 @@ namespace TheWaningBorder.Bootstrap
             // row of three Swordsmen, two Archers behind, and a Scout on the
             // eastern flank. No Catapult (§2.5b rev.3): siege in the opening
             // seconds trivialised every early curse anchor.
-            const float spacing = 2.5f;
+            const float spacing = 3.5f;
             float3 frontRow = spawnPos + new float3(0, 0, -offset);
             float3 backRow = spawnPos + new float3(0, 0, -offset - spacing);
 
@@ -225,6 +279,36 @@ namespace TheWaningBorder.Bootstrap
             // Snap to terrain height.
             float y = TerrainUtility.GetHeight(position.x, position.z);
             return new float3(position.x, y, position.z);
+        }
+
+        /// <summary>
+        /// Turn a lobby start choice into an actual scene marker.
+        ///
+        /// The lobby minimap indexes <c>MapInfo.PlayerStarts</c> (baked,
+        /// normalized dots on a thumbnail); the spawn needs a live
+        /// <see cref="PlayerStartMarker"/>. Preferred route is by IDENTITY —
+        /// the baked <c>PlayerStartFactions</c> entry names the marker, and
+        /// that survives any disagreement in array ordering. Positional
+        /// indexing into the registry is the fallback for MapInfo assets baked
+        /// before that array existed (they also need a re-bake to be correct).
+        /// docs/Design/Lobby_Setup.md
+        /// </summary>
+        private static PlayerStartMarker ResolveChosenStart(int startIndex)
+        {
+            if (startIndex < 0) return null;
+
+            var info = TheWaningBorder.Core.Maps.MapInfoIndex.For(GameSettings.SelectedMapScene);
+            if (info != null && info.PlayerStartFactions != null
+                && startIndex < info.PlayerStartFactions.Length)
+            {
+                var byIdentity = MapMarkerRegistry.FindPlayerMarker(
+                    info.PlayerStartFactions[startIndex]);
+                if (byIdentity != null) return byIdentity;
+            }
+
+            return startIndex < MapMarkerRegistry.PlayerStarts.Count
+                ? MapMarkerRegistry.PlayerStarts[startIndex]
+                : null;
         }
 
         private static float3[] CalculateSpawnPositions(int playerCount)

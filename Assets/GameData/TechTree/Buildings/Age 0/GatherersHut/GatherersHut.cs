@@ -63,6 +63,8 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             creator.AddComponent(entity, new SuppliesIncome { PerTick = 10f, Interval = 10f });
+            // Coverage readout, refreshed every tick by GathererHutIncomeSystem.
+            creator.AddComponent(entity, new GathererHutYield { Ratio = 1f });
 
             // Research host: the hut offers the Guild Survey techs
             // (GatherersHut.asset research list) — the research UI only

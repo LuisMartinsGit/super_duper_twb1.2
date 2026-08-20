@@ -49,22 +49,70 @@ namespace TheWaningBorder.Systems.Navigation
     {
         private byte _baked;
 
+        /// <summary>
+        /// Which NavCostField entity the current bake belongs to.
+        ///
+        /// A one-shot `_baked` latch alone is WRONG now that the nav grid
+        /// rebuilds itself per match: NavGridBootstrapSystem allocates a fresh
+        /// TerrainCost array with ClearMemory — i.e. every cell walkable — and
+        /// with the latch still set this system never refilled it. Mountains
+        /// and water stopped blocking from the second match onward, so units
+        /// walked (and shot) straight over terrain that should have stopped
+        /// them. The file header above predicted exactly this failure.
+        ///
+        /// Comparing the singleton ENTITY is the reliable test: a rebuild
+        /// creates a brand-new entity, and Entity equality is by index+version,
+        /// so it stays valid to compare even after the old one is destroyed.
+        /// (Comparing the array handle instead would risk a false match if the
+        /// allocator handed back the same address and length.)
+        /// </summary>
+        private Entity _bakedFor;
+
+        /// <summary>
+        /// Which <see cref="PassabilityGrid.MaskGeneration"/> the current bake
+        /// was taken from. The mask is rebuilt on its own schedule (terrain
+        /// ready, map reload); a bake taken from an older generation describes
+        /// terrain that no longer exists.
+        /// </summary>
+        private int _bakedMaskGeneration;
+
+        /// <summary>
+        /// How many times we have refused to latch a bake that found no blocked
+        /// cells at all while the mask insists it has some. Bounded so a
+        /// genuinely mismatched pair of grids reports and moves on instead of
+        /// screaming every frame for the whole match.
+        /// </summary>
+        private int _mismatchRetries;
+        private const int MaxMismatchRetries = 3;
+
         public void OnCreate(ref SystemState state)
         {
             _baked = 0;
+            _bakedFor = Entity.Null;
+            _bakedMaskGeneration = -1;
+            _mismatchRetries = 0;
             state.RequireForUpdate<NavCostField>();
             state.RequireForUpdate<NavGridSingleton>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            if (_baked != 0) return;
+            var costEntity = SystemAPI.GetSingletonEntity<NavCostField>();
 
             // PassabilityGrid is a managed MonoBehaviour built from the terrain
-            // on an async coroutine; wait until it has produced its mask. Its
-            // Cells handle becomes valid only after GenerateFromTerrain runs.
+            // on an async coroutine.
+            //
+            // IsMaskReady, NOT Cells.IsCreated: the array is allocated one
+            // statement before it is filled, and it is zero-initialised — zero
+            // being Passable. Gating on IsCreated let this system bake a
+            // terrain layer from a blank mask, latch it, and never look again;
+            // water, cliffs and every bridge crossing were disabled for the
+            // rest of the match. See the readiness note in PassabilityGrid.
             var pg = PassabilityGrid.Instance;
-            if (pg == null || !pg.Cells.IsCreated) return;
+            if (pg == null || !pg.IsMaskReady) return;
+
+            if (_baked != 0 && costEntity == _bakedFor
+                && pg.MaskGeneration == _bakedMaskGeneration) return;
 
             var field = SystemAPI.GetSingleton<NavCostField>();
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
@@ -79,7 +127,17 @@ namespace TheWaningBorder.Systems.Navigation
             float cs = grid.CellSize;
             float3 origin = grid.Origin;
 
-            int blocked = 0;
+            // Split the tally. A nav grid is deliberately one cell larger than
+            // the map on each side, so its outer ring projects OUTSIDE the
+            // passability grid and reads blocked-by-being-off-map. Counting
+            // that ring together with real terrain hid the Twin Spans failure
+            // completely: the shipped log read "1412/125316 impassable", and
+            // 1412 is exactly 354x354 - 352x352 — the ring, and nothing else.
+            int blocked = 0;        // in-bounds cells the terrain mask rejects
+            int outside = 0;        // nav cells with no passability cell at all
+            int deckOnly = 0;
+            int mount = 0;
+
             for (int z = 0; z < h; z++)
             {
                 int rowStart = z * w;
@@ -93,6 +151,8 @@ namespace TheWaningBorder.Systems.Navigation
                     // space). GetCell returns TerrainBlocked for off-map
                     // cells, so terrain past the map edge is impassable too.
                     int2 pgCell = pg.WorldToCell(new float3(worldX, 0f, worldZ));
+                    bool inside = pgCell.x >= 0 && pgCell.x < pg.Width
+                               && pgCell.y >= 0 && pgCell.y < pg.Height;
                     byte v = pg.GetCell(pgCell);
 
                     // ONLY terrain blocks the baked mask — buildings, walls,
@@ -101,7 +161,7 @@ namespace TheWaningBorder.Systems.Navigation
                     if (v == PassabilityGrid.TerrainBlocked)
                     {
                         field.TerrainCost[rowStart + x] = NavCostField.CostImpassable;
-                        blocked++;
+                        if (inside) blocked++; else outside++;
                     }
                     else if (pg.IsBridgeDeckOnly(pgCell))
                     {
@@ -109,12 +169,14 @@ namespace TheWaningBorder.Systems.Navigation
                         // ground beneath): expensive, so planning crosses
                         // it only for genuine bridge routes.
                         field.TerrainCost[rowStart + x] = NavCostField.CostBridgeDeckOnly;
+                        deckOnly++;
                     }
                     else if (pg.IsBridgeMount(pgCell))
                     {
                         // Deck touchdown (ramp toe): the legal entrance of a
                         // deck-only strip for the flow-field integration.
                         field.TerrainCost[rowStart + x] = NavCostField.CostBridgeMount;
+                        mount++;
                     }
                     else
                     {
@@ -123,15 +185,40 @@ namespace TheWaningBorder.Systems.Navigation
                 }
             }
 
+            // The mask says it blocked cells; the projection onto the nav grid
+            // found none of them. The two grids do not line up, or the mask was
+            // read before it was written. Latching that costs the whole match —
+            // no water, no cliffs, no bridges — so refuse to latch and try
+            // again, up to a bound.
+            if (blocked == 0 && pg.BlockedCellCount > 0
+                && _mismatchRetries < MaxMismatchRetries)
+            {
+                _mismatchRetries++;
+                UnityEngine.Debug.LogError(
+                    $"[TerrainCostBake] the passability mask blocks {pg.BlockedCellCount} cells but the " +
+                    $"projection onto the nav grid found NONE of them in bounds ({outside} nav cells fell " +
+                    "outside the mask entirely). Terrain blocking and every bridge crossing would be " +
+                    $"disabled. nav grid {w}x{h} cell={cs:0.##} origin=({origin.x:0.0},{origin.z:0.0}); " +
+                    $"passability grid {pg.Width}x{pg.Height} cell={pg.CellSize:0.##} " +
+                    $"origin=({pg.Origin.x:0.0},{pg.Origin.z:0.0}). " +
+                    $"Not latching — retry {_mismatchRetries}/{MaxMismatchRetries} next frame.");
+                return;
+            }
+            _mismatchRetries = 0;
+
             // Latch TerrainBaked so the change-gated CostFieldStampSystem
             // re-stamps once and seeds the freshly-baked terrain into layer-0.
             field.TerrainBaked = 1;
             SystemAPI.SetSingleton(field);
 
             _baked = 1;
+            _bakedFor = costEntity;                     // re-bake when the grid is rebuilt
+            _bakedMaskGeneration = pg.MaskGeneration;   // …and when the mask is
             UnityEngine.Debug.Log(
                 $"[TerrainCostBake] baked terrain into cost field: {blocked}/{w * h} cells " +
-                $"impassable (water + slope > {PassabilityGrid.MaxWalkableSlope:0.##} budget).");
+                $"impassable (water + slope > {PassabilityGrid.MaxWalkableSlope:0.##} budget), " +
+                $"plus {outside} outside the passability grid; " +
+                $"bridges: {deckOnly} deck-only, {mount} mount.");
 
             // Tripwire: an (almost) fully-blocked bake means the terrain mask
             // is wrong (e.g. a water level above the whole terrain). Pathing

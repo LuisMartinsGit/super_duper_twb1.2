@@ -92,8 +92,22 @@ namespace TheWaningBorder.Core.Maps
         /// <summary>False → no scenario scene reaches Build Settings.</summary>
         public static readonly bool ShipScenarios = false;
 
-        /// <summary>Scene file names (no path, no .unity) of the maps that ship.</summary>
-        public static readonly string[] ShippingMapScenes = { "SunderedCrown" };
+        /// <summary>
+        /// Scene file names (no path, no .unity) of the maps that ship.
+        ///
+        /// This list is also the only thing that makes a map SELECTABLE AT
+        /// ALL — the lobby dropdown reads Build Settings, and MapSceneSync
+        /// drops any managed scene the gate excludes on every domain reload.
+        /// A new map therefore has to be listed here or it cannot be played,
+        /// editor included. To cut a map from the first public build without
+        /// deleting it, take its name back out of this array.
+        /// </summary>
+        public static readonly string[] ShippingMapScenes =
+        {
+            "SunderedCrown",   // 4P free-for-all
+            "HollowTable",     // 1v1 duel, one central well
+            "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
+        };
 
         /// <summary>
         /// True if a scene belongs in Build Settings under the current ship

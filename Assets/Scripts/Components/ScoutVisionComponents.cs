@@ -20,28 +20,3 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-/// <summary>
-/// Oracle-style vision bloom state for scouts. Added lazily by
-/// ScoutVisionSystem to every UnitClass.Scout unit.
-/// </summary>
-public struct ExpandingVision : IComponentData
-{
-    /// <summary>LOS radius while moving (small — the trade-off).</summary>
-    public float MovingRadius;
-    /// <summary>Fully bloomed stationary LOS ceiling.</summary>
-    public float MaxRadius;
-    /// <summary>Radius growth per second once settled.</summary>
-    public float GrowthPerSecond;
-    /// <summary>Seconds of standing still before growth starts.</summary>
-    public float SettleDelay;
-
-    /// <summary>Accumulated stationary time (reset on movement).</summary>
-    public float StationarySeconds;
-    /// <summary>Position last tick — movement detector.</summary>
-    public float3 LastPosition;
-
-    public const float DefaultMovingRadius = 18f;
-    public const float DefaultMaxRadius = 55f;
-    public const float DefaultGrowth = 4.5f;
-    public const float DefaultSettleDelay = 1.5f;
-}

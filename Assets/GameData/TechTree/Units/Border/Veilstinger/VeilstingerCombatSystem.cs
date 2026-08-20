@@ -113,7 +113,9 @@ namespace TheWaningBorder.Systems.Border
 
                     for (int i = 0; i < tgtEntities.Length; i++)
                     {
-                        if (tgtFactions[i].Value == selfFaction) continue;
+                        // docs/Design/Teams.md — Border is allied only with
+                        // itself, so this stays a self-only skip in practice.
+                        if (!Alliances.AreHostile(selfFaction, tgtFactions[i].Value)) continue;
                         if (tgtHealth[i].Value <= 0) continue;
                         var ep = tgtTransforms[i].Position;
                         float dx = ep.x - selfPos.x;
@@ -256,7 +258,8 @@ namespace TheWaningBorder.Systems.Border
                         float bestDist = float.MaxValue;
                         for (int i = 0; i < tgtEntities.Length; i++)
                         {
-                            if (tgtFactions[i].Value == myFaction) continue;
+                            // docs/Design/Teams.md
+                            if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
                             if (tgtHealth[i].Value <= 0) continue;
                             if (tgtEntities[i] == tgt.Value) continue;
                             float d = DistXZ(myPos, tgtTransforms[i].Position);

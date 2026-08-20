@@ -137,6 +137,50 @@ namespace TheWaningBorder.World.Terrain
         public NativeArray<byte> Cells => _cells;
 
         // ═══════════════════════════════════════════════════════════════════════
+        // MASK READINESS
+        // ═══════════════════════════════════════════════════════════════════════
+        //
+        // `Cells.IsCreated` is NOT a readiness test. The array is allocated one
+        // statement BEFORE GenerateFromTerrain fills it, and a NativeArray is
+        // zero-initialised — zero being Passable. Anything that gates on
+        // IsCreated can therefore read a completely walkable grid and, if it
+        // caches the result, keep it for the whole match.
+        //
+        // That is the Twin Spans failure of 2026-08-15: TerrainCostBakeSystem
+        // baked a terrain layer with zero blocked cells, latched, and never
+        // re-baked. The river and the crags stopped blocking — and the bridges
+        // went with them, because the deck-only and mount masks are ONLY
+        // written for ground the normal rules REJECT (see FillCellsFromTerrain).
+        // No blocked ground under the spans meant no deck-only strip, no mount
+        // cells, and nothing for GoalFlowFieldSystem's bridge variant to route
+        // through, so units waded the channel instead of using the crossings.
+        //
+        // Gate on IsMaskReady, and re-derive when MaskGeneration moves.
+
+        private bool _maskReady;
+        private int _maskGeneration;
+        private int _blockedCellCount;
+
+        /// <summary>
+        /// True once <see cref="GenerateFromTerrain"/> has finished WRITING the
+        /// terrain mask. Read this — never <c>Cells.IsCreated</c> — before
+        /// consuming <see cref="GetCell"/>, <see cref="IsBridgeDeckOnly"/> or
+        /// <see cref="IsBridgeMount"/>.
+        /// </summary>
+        public bool IsMaskReady => _maskReady;
+
+        /// <summary>Bumped every time the mask is (re)built. Consumers that
+        /// CACHE something derived from the mask compare this and rebuild when
+        /// it moves.</summary>
+        public int MaskGeneration => _maskGeneration;
+
+        /// <summary>How many cells the finished mask marks
+        /// <see cref="TerrainBlocked"/>. A consumer that derives ZERO blocked
+        /// cells from a non-zero mask has a projection bug and should say so
+        /// loudly rather than latch a broken world.</summary>
+        public int BlockedCellCount => _blockedCellCount;
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALIZATION
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -480,6 +524,10 @@ namespace TheWaningBorder.World.Terrain
         /// </summary>
         private void GenerateFromTerrain()
         {
+            // Anything reading the mask while it is being rebuilt would read a
+            // half-written grid, so close the gate for the duration.
+            _maskReady = false;
+
             LoadNoWalkMask();
 
             _paintOnly = PaintOnlyPassability.Active;
@@ -511,7 +559,7 @@ namespace TheWaningBorder.World.Terrain
             else
                 waterLevel = float.MinValue;
 
-            int waterBlocked = FillCellsFromTerrain(waterLevel);
+            var counts = FillCellsFromTerrain(waterLevel);
 
             // Sanity check: a water line that swallows (nearly) the whole map
             // does not describe this terrain. A flat hand-authored terrain at
@@ -523,23 +571,82 @@ namespace TheWaningBorder.World.Terrain
             // playable map is >80% water: drop the water rule and regenerate
             // from slope alone.
             int total = _width * _height;
-            if (waterBlocked > (total * 8) / 10)
+            if (counts.Water > (total * 8) / 10)
             {
                 Debug.LogWarning(
-                    $"[PassabilityGrid] water level {waterLevel:0.##} blocks {waterBlocked}/{total} cells — " +
+                    $"[PassabilityGrid] water level {waterLevel:0.##} blocks {counts.Water}/{total} cells — " +
                     "the terrain sits below the assumed water line, so the water rule is IGNORED for " +
                     "this map. If the map has real water, add a WaterPlane whose waterLevel matches " +
                     "the terrain's actual sea level.");
-                FillCellsFromTerrain(float.MinValue);
+                counts = FillCellsFromTerrain(float.MinValue);
+            }
+
+            _blockedCellCount = counts.Blocked;
+            _maskGeneration++;
+            _maskReady = true;
+
+            // Per-RULE tally, not one aggregate. The whole Twin Spans bridge
+            // failure hid inside a single "N cells impassable" number that
+            // nobody could sanity-check against the map.
+            Debug.Log(
+                $"[PassabilityGrid] terrain mask built: {counts.Blocked}/{total} cells blocked " +
+                $"(water {counts.Water}, NoWalk paint {counts.Painted}, slope {counts.Slope}) — " +
+                $"bridges: {counts.DeckOnly} deck-only, {counts.Mount} mount.");
+
+            // ── Tripwires ───────────────────────────────────────────────
+            // A mask that blocks nothing is indistinguishable at every call
+            // site from a map that is genuinely open ground. Say so here,
+            // where the map's own evidence (a WaterPlane, a painted NoWalk
+            // layer, a bridge) is still in hand.
+            if (counts.Blocked == 0 && (WaterPlane.Instance != null || _noWalkMask != null))
+            {
+                Debug.LogError(
+                    "[PassabilityGrid] the terrain mask blocks NOTHING, yet this map ships " +
+                    (WaterPlane.Instance != null
+                        ? $"a WaterPlane at y={waterLevel:0.##}"
+                        : "a painted NoWalk layer") +
+                    ". Units will walk through water and over cliffs, and any bridge becomes " +
+                    "decorative. Check that TerrainUtility.GetHeight is sampling THIS map's terrain.");
+            }
+
+            if (BridgeSurface.HasAny && counts.DeckOnly == 0)
+            {
+                Debug.LogError(
+                    "[PassabilityGrid] this map has bridges but NOT ONE cell is deck-only. A bridge " +
+                    "only becomes a crossing when the ground it spans is impassable — deck-only and " +
+                    "mount cells are derived from blocked ground. With walkable ground underneath, " +
+                    "the flow field ignores the deck and units path straight across the gap. Check " +
+                    "the water level and the slope budget against the terrain under the spans.");
             }
         }
 
         /// <summary>
-        /// Sample terrain at every cell centre and write the passability
-        /// mask. Returns how many cells the water rule blocked so the caller
-        /// can sanity-check the water level against the terrain.
+        /// Per-rule tally from one mask fill. Kept so a mask that silently
+        /// loses a rule names the rule in the log instead of disappearing into
+        /// a single aggregate count.
         /// </summary>
-        private int FillCellsFromTerrain(float waterLevel)
+        private struct MaskCounts
+        {
+            /// <summary>Blocked because the ground sits at or below the water line.</summary>
+            public int Water;
+            /// <summary>Blocked by the hand-painted NoWalk terrain layer.</summary>
+            public int Painted;
+            /// <summary>Blocked by the incline budget.</summary>
+            public int Slope;
+            /// <summary>Total cells written as <see cref="TerrainBlocked"/>.</summary>
+            public int Blocked;
+            /// <summary>Blocked ground rescued by a bridge deck above it.</summary>
+            public int DeckOnly;
+            /// <summary>Walkable ground under a deck — a deck-only strip's only entrance.</summary>
+            public int Mount;
+        }
+
+        /// <summary>
+        /// Sample terrain at every cell centre and write the passability mask.
+        /// Returns the per-rule tally so the caller can sanity-check the water
+        /// level against the terrain and log which rule produced what.
+        /// </summary>
+        private MaskCounts FillCellsFromTerrain(float waterLevel)
         {
             // Deck-only / mount masks travel with the cells: recomputed on
             // every fill (including the water-fallback second pass).
@@ -548,7 +655,7 @@ namespace TheWaningBorder.World.Terrain
             if (_bridgeMount == null || _bridgeMount.Length != _width * _height)
                 _bridgeMount = new bool[_width * _height];
 
-            int waterBlocked = 0;
+            var counts = new MaskCounts();
             for (int y = 0; y < _height; y++)
             {
                 for (int x = 0; x < _width; x++)
@@ -557,18 +664,23 @@ namespace TheWaningBorder.World.Terrain
                     _bridgeDeckOnly[idx] = false;
                     _bridgeMount[idx] = false;
 
-                    float3 worldPos = CellToWorld(new int2(x, y));
+                    // XZ only — this is a whole-grid bake, so the discarded
+                    // height sample was one Terrain.SampleHeight per cell.
+                    float2 worldPos = CellToWorldXZ(new int2(x, y));
                     float wx = worldPos.x;
-                    float wz = worldPos.z;
+                    float wz = worldPos.y;
 
                     // ── 1. Is the GROUND itself walkable, by the normal rules? ──
                     bool groundBlocked;
                     bool waterCause = false;
+                    bool paintCause = false;
+                    bool slopeCause = false;
 
                     if (_paintOnly)
                     {
                         // Paint-only mode: the NoWalk paint decides everything.
                         groundBlocked = IsNoWalkPainted(wx, wz);
+                        paintCause = groundBlocked;
                     }
                     else
                     {
@@ -583,6 +695,7 @@ namespace TheWaningBorder.World.Terrain
                         {
                             // Hand-painted NoWalk layer: blocked regardless of slope.
                             groundBlocked = true;
+                            paintCause = true;
                         }
                         else
                         {
@@ -597,6 +710,7 @@ namespace TheWaningBorder.World.Terrain
                             float dZ = (hU - hD) / (SlopeCheckStep * 2f);
                             float slope = math.sqrt(dX * dX + dZ * dZ);
                             groundBlocked = slope > MaxWalkableSlope;
+                            slopeCause = groundBlocked;
                         }
                     }
 
@@ -630,7 +744,10 @@ namespace TheWaningBorder.World.Terrain
                         {
                             float groundY = TerrainUtility.GetHeight(wx, wz);
                             if (deckY > groundY)
+                            {
                                 _bridgeMount[idx] = true;
+                                counts.Mount++;
+                            }
                         }
                     }
                     else if (BridgeSurface.HasAny
@@ -638,15 +755,19 @@ namespace TheWaningBorder.World.Terrain
                     {
                         _cells[idx] = Passable;
                         _bridgeDeckOnly[idx] = true;
+                        counts.DeckOnly++;
                     }
                     else
                     {
                         _cells[idx] = TerrainBlocked;
-                        if (waterCause) waterBlocked++;
+                        counts.Blocked++;
+                        if (waterCause) counts.Water++;
+                        else if (paintCause) counts.Painted++;
+                        else if (slopeCause) counts.Slope++;
                     }
                 }
             }
-            return waterBlocked;
+            return counts;
         }
 
         // ── Bridge deck-only mask ───────────────────────────────────────────
@@ -699,6 +820,22 @@ namespace TheWaningBorder.World.Terrain
             float wz = _origin.z + (cell.y + 0.5f) * _cellSize;
             float wy = TerrainUtility.GetHeight(wx, wz);
             return new float3(wx, wy, wz);
+        }
+
+        /// <summary>
+        /// Cell centre on the XZ plane, WITHOUT the terrain height sample.
+        /// <see cref="CellToWorld"/> pays a Terrain.SampleHeight per call, and
+        /// callers that scan a cell RANGE and only read .x / .z were paying it
+        /// per cell for nothing: GathererHutIncomeSystem alone ran ~125k of
+        /// them every 2 s (~40 ms of main thread, the HutIncome spike in
+        /// logs/Perf.log). Use this for area scans; use CellToWorld only when
+        /// you genuinely need the ground height.
+        /// </summary>
+        public float2 CellToWorldXZ(int2 cell)
+        {
+            return new float2(
+                _origin.x + (cell.x + 0.5f) * _cellSize,
+                _origin.z + (cell.y + 0.5f) * _cellSize);
         }
 
         /// <summary>
@@ -1066,9 +1203,11 @@ namespace TheWaningBorder.World.Terrain
             {
                 for (int x = minCell.x; x <= maxCell.x; x++)
                 {
-                    float3 cellWorld = CellToWorld(new int2(x, y));
+                    // XZ only — the height sample CellToWorld does is unused
+                    // here and this runs over a whole disc of cells.
+                    float2 cellWorld = CellToWorldXZ(new int2(x, y));
                     float dx = cellWorld.x - center.x;
-                    float dz = cellWorld.z - center.z;
+                    float dz = cellWorld.y - center.z;
 
                     if (dx * dx + dz * dz <= radiusSq)
                     {

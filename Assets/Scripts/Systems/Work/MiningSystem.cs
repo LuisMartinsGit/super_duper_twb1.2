@@ -39,14 +39,16 @@ namespace TheWaningBorder.Systems.Work
     // AFTER guarantees that when ProcessIdleState fires on a still-Idle miner,
     // the command has either been consumed (race-free) or the destination is
     // already set (no double-write to MinerState). (task-062 Q-2)
-    [BurstCompile]
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(GatheringSystem))]
     public partial struct MiningSystem : ISystem
     {
         private const float GatherInterval = 2f;       // Seconds to gather one unit
         private const int IronPerGather = 1;            // Iron per gather action
-        private const float GatherRange = 5f;           // How close miner needs to be to mine
+        // Reach and the stand point both live in MiningReach — one definition
+        // shared with GatheringSystem and VeilstoneMiningSystem. The three used
+        // to disagree, and the loosest won.
         private const float AutoFindRadius = 10f;       // Radius to auto-find next same-type deposit around a depleted node
 
         // Cached queries — created once in OnCreate, reused every frame
@@ -74,6 +76,11 @@ namespace TheWaningBorder.Systems.Work
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+
+            // Read fresh each tick and pass down — never cache the struct.
+            // SpatialHashRebuildSystem reallocates the map when the unit count
+            // outgrows it, so a stale copy is a use-after-dispose.
+            SystemAPI.TryGetSingleton<NavSpatialHash>(out var hash);
 
             // Temp ECB for structural changes (RemoveComponent) during iteration
             var ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -116,15 +123,15 @@ namespace TheWaningBorder.Systems.Work
                 switch (miner.State)
                 {
                     case MinerWorkState.Idle:
-                        ProcessIdleState(ref miner, em, ecb, entity, pos, fac);
+                        ProcessIdleState(ref miner, em, ecb, entity, pos, fac, in hash);
                         break;
 
                     case MinerWorkState.MovingToDeposit:
-                        ProcessMovingState(ref miner, em, entity, pos, dt);
+                        ProcessMovingState(ref miner, em, entity, pos, dt, in hash);
                         break;
 
                     case MinerWorkState.Gathering:
-                        ProcessGatheringState(ref miner, em, ecb, entity, pos, fac, dt);
+                        ProcessGatheringState(ref miner, em, ecb, entity, pos, fac, dt, in hash);
                         break;
                 }
             }
@@ -133,7 +140,8 @@ namespace TheWaningBorder.Systems.Work
             ecb.Dispose();
         }
 
-        private void ProcessIdleState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac)
+        private void ProcessIdleState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb,
+            Entity entity, float3 pos, Faction fac, in NavSpatialHash hash)
         {
             // Check for explicit GatherCommand (from player right-click or AI)
             if (em.HasComponent<GatherCommand>(entity))
@@ -154,14 +162,16 @@ namespace TheWaningBorder.Systems.Work
                 miner.State = MinerWorkState.MovingToDeposit;
                 miner.GatheringResource = newResourceType;
 
-                // Move to the deposit. Miners always have DesiredDestination from the
-                // factory, so SetComponentData is the only path; ecb.AddComponent is a
+                // Walk to a spot BESIDE the deposit — its own cell is
+                // impassable, so a destination inside it can never be reached.
+                // Miners always have DesiredDestination from the factory, so
+                // SetComponentData is the only path; ecb.AddComponent is a
                 // safety net for any external creator that forgot to add it.
-                var depositPos = em.GetComponentData<LocalTransform>(gatherCmd.ResourceNode).Position;
+                MiningReach.TryGetMiningStand(em, gatherCmd.ResourceNode, entity, pos, in hash, out float3 stand);
                 if (em.HasComponent<DesiredDestination>(entity))
-                    em.SetComponentData(entity, new DesiredDestination { Position = depositPos, Has = 1 });
+                    em.SetComponentData(entity, new DesiredDestination { Position = stand, Has = 1 });
                 else
-                    ecb.AddComponent(entity, new DesiredDestination { Position = depositPos, Has = 1 });
+                    ecb.AddComponent(entity, new DesiredDestination { Position = stand, Has = 1 });
                 return;
             }
 
@@ -171,7 +181,8 @@ namespace TheWaningBorder.Systems.Work
             // those commands; the player issues them via right-click.
         }
 
-        private void ProcessMovingState(ref MinerState miner, EntityManager em, Entity entity, float3 pos, float dt)
+        private void ProcessMovingState(ref MinerState miner, EntityManager em, Entity entity,
+            float3 pos, float dt, in NavSpatialHash hash)
         {
             // Check if deposit still exists
             if (miner.AssignedDeposit == Entity.Null || !em.Exists(miner.AssignedDeposit))
@@ -194,7 +205,7 @@ namespace TheWaningBorder.Systems.Work
 
                     // Look for another same-type deposit within AutoFindRadius
                     // of where the depleted node was.
-                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
+                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos, in hash);
                     return;
                 }
             }
@@ -204,7 +215,7 @@ namespace TheWaningBorder.Systems.Work
             // deposit isn't harder to mine than a small one.
             float dist = TargetGeometry.SurfaceDistXZ(em, pos, miner.AssignedDeposit);
 
-            if (dist <= GatherRange)
+            if (dist <= MiningReach.GatherRange)
             {
                 // Reached deposit - start gathering
                 miner.State = MinerWorkState.Gathering;
@@ -228,12 +239,29 @@ namespace TheWaningBorder.Systems.Work
             if (em.HasComponent<DesiredDestination>(entity)
                 && em.GetComponentData<DesiredDestination>(entity).Has == 0)
             {
+                // The walk ended and we are still out of gather range. Nearly
+                // always that means another worker got to our slot first: we
+                // pressed into its separation ring, walked on the spot, and the
+                // crowd-arrival rule then declared us done. Step AROUND it —
+                // re-pick a slot on another side of the node before giving up.
+                //
+                // TryGetFreeMiningStand, not TryGetMiningStand: retrying onto
+                // another occupied slot would end exactly the same way, so
+                // "nothing free" has to terminate rather than loop.
+                if (MiningReach.TryGetFreeMiningStand(em, miner.AssignedDeposit, entity, pos,
+                        in hash, out float3 retry))
+                {
+                    em.SetComponentData(entity, new DesiredDestination { Position = retry, Has = 1 });
+                    return;
+                }
+
                 miner.State = MinerWorkState.Idle;
                 miner.AssignedDeposit = Entity.Null;
             }
         }
 
-        private void ProcessGatheringState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb, Entity entity, float3 pos, Faction fac, float dt)
+        private void ProcessGatheringState(ref MinerState miner, EntityManager em, EntityCommandBuffer ecb,
+            Entity entity, float3 pos, Faction fac, float dt, in NavSpatialHash hash)
         {
             // Keep facing the node for the whole gather, not just on arrival:
             // a turn takes several frames at DefaultTurnSpeed, and the miner may
@@ -264,7 +292,7 @@ namespace TheWaningBorder.Systems.Work
                 {
                     miner.LastDepositPos = pos;
                     miner.AssignedDeposit = Entity.Null;
-                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
+                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos, in hash);
                     return;
                 }
 
@@ -316,7 +344,7 @@ namespace TheWaningBorder.Systems.Work
 
                     // Look for another same-type deposit within AutoFindRadius
                     // of the depleted node.
-                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos);
+                    TryAssignNearestIronDeposit(ref miner, em, entity, miner.LastDepositPos, in hash);
                 }
                 // else: keep gathering (stay in Gathering state)
             }
@@ -329,7 +357,8 @@ namespace TheWaningBorder.Systems.Work
         /// position). If found, assign the miner to it, set the move destination,
         /// and transition to MovingToDeposit. Otherwise transition to Idle.
         /// </summary>
-        private void TryAssignNearestIronDeposit(ref MinerState miner, EntityManager em, Entity entity, float3 searchCenter)
+        private void TryAssignNearestIronDeposit(ref MinerState miner, EntityManager em, Entity entity,
+            float3 searchCenter, in NavSpatialHash hash)
         {
             var depositQuery = miner.GatheringResource == 2 ? _veilsteelDepositQuery : _ironDepositQuery;
             using var deposits = depositQuery.ToEntityArray(Allocator.Temp);
@@ -343,6 +372,9 @@ namespace TheWaningBorder.Systems.Work
             for (int i = 0; i < deposits.Length; i++)
             {
                 if (states[i].Depleted == 1) continue;
+                // Never hand the worker a node it cannot stand next to — inside
+                // a solid patch that is an order to orbit forever.
+                if (!MiningReach.IsMinable(em, deposits[i], searchCenter)) continue;
 
                 float dist = DistXZ(searchCenter, transforms[i].Position);
                 if (dist <= AutoFindRadius && dist < bestDist)
@@ -362,7 +394,8 @@ namespace TheWaningBorder.Systems.Work
 
             miner.AssignedDeposit = bestDeposit;
             miner.State = MinerWorkState.MovingToDeposit;
-            em.SetComponentData(entity, new DesiredDestination { Position = bestPos, Has = 1 });
+            MiningReach.TryGetMiningStand(em, bestDeposit, entity, searchCenter, in hash, out float3 stand);
+            em.SetComponentData(entity, new DesiredDestination { Position = stand, Has = 1 });
         }
     }
 }

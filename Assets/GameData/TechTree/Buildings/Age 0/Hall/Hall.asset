@@ -39,7 +39,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 0
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
@@ -52,9 +52,10 @@ MonoBehaviour:
     maxTargets: 1
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 6881134281615849549, guid: 13c6c1405280cf648bd319c731489c3c, type: 3}
+  presentationId: 100
   prefabPath: 
   canUpgradeTo:
   - Town Hall
   - Trader's Hall
   - War Hall
-  presentationId: 100

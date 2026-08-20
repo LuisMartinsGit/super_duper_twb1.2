@@ -30,6 +30,7 @@ using UnityEngine.UI;
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
@@ -53,7 +54,6 @@ namespace TheWaningBorder.UI.GameUI
         private ProgressBar _trainBar, _researchBar;
         private QueueSlot[] _queue;
         private WideButton[] _wide;               // temple upgrade / vault rows
-        private TMP_Text _tooltip;
 
         private readonly List<ActionWidget> _widgets = new List<ActionWidget>();
 
@@ -136,7 +136,7 @@ namespace TheWaningBorder.UI.GameUI
             rootStack.childForceExpandWidth = true;
             rootStack.childForceExpandHeight = false;
 
-            _title = GameUIKit.Text(content, "title", "Actions", 40f, GameUIKit.Gold);
+            _title = GameUIKit.Text(content, "title", Loc.T("Actions"), 40f, GameUIKit.Gold);
             _title.fontStyle = FontStyles.Bold;
 
             _grid = GameUIKit.Rect(content, "grid");
@@ -167,9 +167,6 @@ namespace TheWaningBorder.UI.GameUI
             _wide = new WideButton[4];
             for (int i = 0; i < _wide.Length; i++)
                 _wide[i] = MakeWideButton(content, "wide" + i);
-
-            _tooltip = GameUIKit.Text(content, "tooltip", "", 24f, GameUIKit.TextMain);
-            _tooltip.gameObject.SetActive(false);
 
             _root.gameObject.SetActive(false);
         }
@@ -208,11 +205,10 @@ namespace TheWaningBorder.UI.GameUI
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(label.rectTransform);
 
-            var relay = bg.gameObject.AddComponent<UiClickRelay>();
+            var relay = UITooltip.Relay(bg.gameObject);
             relay.OnRightClick = () => CancelQueueSlot(slot);
-            relay.OnEnter = () => ShowTooltip(slot.Cancellable
-                ? "Queued (right-click to cancel)" : null);
-            relay.OnExit = HideTooltip;
+            UITooltip.Bind(bg.gameObject, () => slot.Cancellable
+                ? Loc.T("Queued — right-click to cancel and refund") : null);
 
             slot.Root = rt.gameObject;
             slot.Bg = bg;
@@ -232,10 +228,9 @@ namespace TheWaningBorder.UI.GameUI
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(label.rectTransform);
 
-            var relay = bg.gameObject.AddComponent<UiClickRelay>();
+            var relay = UITooltip.Relay(bg.gameObject);
             relay.OnLeftClick = () => wide.Click?.Invoke();
-            relay.OnEnter = () => ShowTooltip(wide.Tooltip);
-            relay.OnExit = HideTooltip;
+            UITooltip.Bind(bg.gameObject, () => wide.Tooltip);
 
             wide.Root = rt.gameObject;
             wide.Bg = bg;
@@ -276,10 +271,9 @@ namespace TheWaningBorder.UI.GameUI
             cost.rectTransform.offsetMin = new Vector2(4f, 4f);
             cost.rectTransform.offsetMax = new Vector2(-4f, 0f);
 
-            var relay = bg.gameObject.AddComponent<UiClickRelay>();
+            var relay = UITooltip.Relay(bg.gameObject);
             relay.OnLeftClick = () => w.Click?.Invoke();
-            relay.OnEnter = () => ShowTooltip(w.Tooltip);
-            relay.OnExit = HideTooltip;
+            UITooltip.Bind(bg.gameObject, () => w.Tooltip);
 
             w.Root = rt.gameObject;
             w.Bg = bg;
@@ -339,7 +333,7 @@ namespace TheWaningBorder.UI.GameUI
 
             if (hasLayout)
             {
-                _title.text = "Actions";
+                _title.text = Loc.T("Actions");
                 RenderLayoutGrid(em, layoutSlots);
             }
             else
@@ -349,12 +343,12 @@ namespace TheWaningBorder.UI.GameUI
                     case ActionType.UnitTraining:
                     case ActionType.UnitTrainingAndResearch:
                         _title.text = info.Actions != null && info.Actions.Count > 0
-                            ? "Train Units" : "Research";
+                            ? Loc.T("Train Units") : Loc.T("Research");
                         RenderClassicActions(em, info.Actions, treatAsTraining: true);
                         break;
 
                     case ActionType.TempleUpgrade:
-                        _title.text = "Temple of Ridan";
+                        _title.text = Loc.T("Temple of Ridan");
                         // Training row lives on the authored panel when active;
                         // the upgrade lever stays here (it must not sit in the
                         // authored unit/research grid).
@@ -364,31 +358,32 @@ namespace TheWaningBorder.UI.GameUI
                         break;
 
                     case ActionType.GathererHutAgeUpChoice:
-                        _title.text = "Age-Up Choice";
+                        _title.text = Loc.T("Age-Up Choice");
                         if (info.Actions == null || info.Actions.Count == 0)
-                            _statusA.text = "Converting...";
+                            _statusA.text = Loc.T("Converting...");
                         else
                             RenderClassicActions(em, info.Actions, treatAsTraining: false);
                         break;
 
                     case ActionType.WallInstanceUpgrade:
-                        _title.text = "Upgrade Wall";
+                        _title.text = Loc.T("Upgrade Wall");
                         RenderClassicActions(em, info.Actions, treatAsTraining: false);
                         break;
 
                     case ActionType.BazaarWagonUnpack:
-                        _title.text = "Bazaar Wagon";
+                        _title.text = Loc.T("Bazaar Wagon");
                         RenderClassicActions(em, info.Actions, treatAsTraining: false);
                         break;
 
                     case ActionType.HubBuildWall:
                         _title.text = BuilderCommandPanel.IsPlacingBuilding
-                            ? "Left-click to place hub, Right/Esc to cancel" : "Extend Wall";
+                            ? Loc.T("Left-click to place hub, Right/Esc to cancel")
+                            : Loc.T("Extend Wall");
                         RenderClassicActions(em, info.Actions, treatAsTraining: false);
                         break;
 
                     case ActionType.VaultManagement:
-                        _title.text = "Vault of Almiérra";
+                        _title.text = Loc.T("Vault of Almiérra");
                         RenderVault(em);
                         break;
                 }
@@ -409,6 +404,11 @@ namespace TheWaningBorder.UI.GameUI
                     AddGridButton(button, isTrain: false, em);
                 }
             }
+
+            // Building level-up, as a wide row rather than the pill that used
+            // to float off the selection header. The authored grid renders its
+            // own copy in a free cell; only one of the two panels is ever up.
+            RenderUpgradeRow(em);
 
             // Queue + progress bars for anything that trains or researches.
             RenderQueueAndBars(em, info);
@@ -506,10 +506,14 @@ namespace TheWaningBorder.UI.GameUI
         private string ExpandTooltip(in ActionButton b, EntityManager em)
         {
             string tip = b.Tooltip ?? b.Label;
-            int idx = tip.IndexOf("\nCost: ", System.StringComparison.Ordinal);
+            // The marker must be the SAME expression the tooltip composer
+            // uses ("\n" + Loc.T("Cost: ")) so splitter and composer agree
+            // in every language.
+            string marker = "\n" + Loc.T("Cost: ");
+            int idx = tip.IndexOf(marker, System.StringComparison.Ordinal);
             if (idx >= 0)
             {
-                int after = idx + "\nCost: ".Length;
+                int after = idx + marker.Length;
                 bool bare = after >= tip.Length || tip[after] == '\n';
                 if (bare && !b.Cost.IsZero)
                 {
@@ -531,12 +535,12 @@ namespace TheWaningBorder.UI.GameUI
             switch (b.Id)
             {
                 case "BazaarPack":
-                    if (!em.HasComponent<BazaarPackCommand>(entity))
-                        em.AddComponent<BazaarPackCommand>(entity);
+                    // Routed: BazaarPackSystem destroys the building + spawns
+                    // the wagon, so the trigger must land on every peer.
+                    CommandRouter.IssueBazaarPack(em, entity, pack: true);
                     return;
                 case "BazaarUnpack":
-                    if (!em.HasComponent<BazaarUnpackCommand>(entity))
-                        em.AddComponent<BazaarUnpackCommand>(entity);
+                    CommandRouter.IssueBazaarPack(em, entity, pack: false);
                     return;
                 case "ConvertToWallHub":
                     CommandRouter.IssueConvertHut(em, entity, HutConversionTarget.WallHub);
@@ -556,15 +560,17 @@ namespace TheWaningBorder.UI.GameUI
                 case "WallInstanceToTower":
                 {
                     var faction = OwnFaction(em);
-                    if (!FactionEconomy.Spend(em, faction, b.Cost))
+                    // Affordability CHECK only — the SPEND lives in the
+                    // charged executor (WallUpgradeChargedDirect) so single-
+                    // player and every lockstep peer debit the same bank at
+                    // the same tick (docs/Multiplayer_LAN_Readiness.md).
+                    if (!FactionEconomy.CanAfford(em, faction, b.Cost))
                     {
-                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                         return;
                     }
-                    em.AddComponentData(entity, new WallUpgradeState
-                    {
-                        UpgradeType = 1, Duration = 10f, Remaining = 10f,
-                    });
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueWallUpgradeCharged(
+                        em, entity, 1, 10f);
                     return;
                 }
                 case "BuildWall":
@@ -575,16 +581,28 @@ namespace TheWaningBorder.UI.GameUI
                     // Antiquity chapel lever: spend and spawn the Reliquary
                     // under construction beside the chapel.
                     var faction = OwnFaction(em);
-                    if (!FactionEconomy.Spend(em, faction, b.Cost))
+                    // The Reliquary is a normal placeable building now, capped
+                    // at 5 per faction (docs/Design/Sects.md section 1). Check
+                    // the cap BEFORE spending, then route through the command
+                    // path so the build replicates in multiplayer.
+                    if (!TheWaningBorder.Core.Commands.CommandRouter.CanPlaceBuilding(
+                            em, "Sect_Reliquary", faction))
                     {
-                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        PlayerNotificationSystem.NotifyError(Loc.T("Maximum 5 Reliquaries"));
+                        return;
+                    }
+                    // Affordability CHECK only — PlaceBuildingDirect spends
+                    // on every peer (docs/Multiplayer_LAN_Readiness.md).
+                    if (!FactionEconomy.CanAfford(em, faction, b.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                         return;
                     }
                     var pos = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
                     var site = new float3(pos.x + 8f, 0f, pos.z);
                     site.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(site.x, site.z);
-                    TheWaningBorder.Entities.BuildingFactory
-                        .CreateReliquaryUnderConstruction(em, site, faction);
+                    TheWaningBorder.Core.Commands.CommandRouter.IssuePlaceBuilding(
+                        em, "Sect_Reliquary", site, faction);
                     return;
                 }
                 case "Reliquary_Scry":
@@ -596,7 +614,7 @@ namespace TheWaningBorder.UI.GameUI
                         TheWaningBorder.Systems.Sect.ReliquaryHelper.LockoutRadius);
                     return;
                 case "Reliquary_Vision":
-                    TheWaningBorder.Systems.Sect.ReliquaryHelper.Fire(em, entity, 2, default);
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueReliquaryAbility(em, entity, 2, default);
                     return;
             }
 
@@ -610,7 +628,7 @@ namespace TheWaningBorder.UI.GameUI
             {
                 var em = EM(out bool ok);
                 if (ok && em.Exists(reliquary))
-                    TheWaningBorder.Systems.Sect.ReliquaryHelper.Fire(em, reliquary, ability, target);
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueReliquaryAbility(em, reliquary, ability, target);
             });
         }
 
@@ -620,19 +638,21 @@ namespace TheWaningBorder.UI.GameUI
 
             if (CommandRouter.IsProductionQueueFull(em, entity))
             {
-                PlayerNotificationSystem.Notify("Training queue full");
+                PlayerNotificationSystem.Notify(Loc.T("Training queue full"));
                 return;
             }
             int popCost = PopulationHelper.GetUnitPopulationCost(b.Id);
             if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
             {
-                PlayerNotificationSystem.Notify("Population cap reached");
+                PlayerNotificationSystem.Notify(Loc.T("Population cap reached"));
                 return;
             }
+            // Affordability CHECK only — TrainCommandDirect spends on every
+            // peer with this same formula (docs/Multiplayer_LAN_Readiness.md).
             var cost = WarSectCostHelper.MilitaryDiscount(em, faction, b.Id, b.Cost);
-            if (!FactionEconomy.Spend(em, faction, cost))
+            if (!FactionEconomy.CanAfford(em, faction, cost))
             {
-                PlayerNotificationSystem.NotifyError("Not enough resources");
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return;
             }
             CommandRouter.IssueTrain(em, entity, b.Id);
@@ -644,15 +664,44 @@ namespace TheWaningBorder.UI.GameUI
 
             if (CommandRouter.IsProductionQueueFull(em, entity))
             {
-                PlayerNotificationSystem.NotifyError("Production queue full");
+                PlayerNotificationSystem.NotifyError(Loc.T("Production queue full"));
                 return;
             }
-            if (!FactionEconomy.Spend(em, faction, b.Cost))
+            // Affordability CHECK only — ResearchCommandDirect spends on
+            // every peer (docs/Multiplayer_LAN_Readiness.md).
+            if (!FactionEconomy.CanAfford(em, faction, b.Cost))
             {
-                PlayerNotificationSystem.NotifyError("Not enough resources");
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return;
             }
             CommandRouter.IssueResearch(em, entity, b.Id);
+        }
+
+        // ── Building level-up ──────────────────────────────────────────────
+
+        private void RenderUpgradeRow(EntityManager em)
+        {
+            var upgrade = BuildingUpgradeAction.Describe(em, _entity);
+            if (!upgrade.Show) return;
+
+            if (upgrade.Progress >= 0f)
+            {
+                _researchBar.Set(true,
+                    string.Format(Loc.T("Upgrading building  {0}%"),
+                        (int)(upgrade.Progress * 100f)),
+                    upgrade.Progress, GameUIKit.BarGold);
+                return;
+            }
+
+            Entity entity = _entity;
+            AddWideButton(upgrade.Label.Replace('\n', ' '), upgrade.Enabled, upgrade.Tooltip,
+                () =>
+                {
+                    var em2 = EM(out bool ok);
+                    if (!ok) return;
+                    BuildingUpgradeAction.Execute(em2, entity);
+                    _timer = RefreshInterval;
+                });
         }
 
         // ── Temple upgrade section ─────────────────────────────────────────
@@ -664,7 +713,8 @@ namespace TheWaningBorder.UI.GameUI
 
             if (level.Level >= TempleLevelConfig.MaxLevel)
             {
-                _statusA.text = $"Temple Level {level.Level} (Maximum) — all eras unlocked";
+                _statusA.text = string.Format(
+                    Loc.T("Temple Level {0} (Maximum) — all eras unlocked"), level.Level);
                 return;
             }
             if (em.HasComponent<TempleUpgradeState>(_entity))
@@ -672,7 +722,8 @@ namespace TheWaningBorder.UI.GameUI
                 var up = em.GetComponentData<TempleUpgradeState>(_entity);
                 float pct = 1f - up.Remaining / up.Duration;
                 _researchBar.Set(true,
-                    $"Upgrading to Level {up.TargetLevel}  {(int)(pct * 100)}%", pct,
+                    string.Format(Loc.T("Upgrading to Level {0}  {1}%"),
+                        up.TargetLevel, (int)(pct * 100)), pct,
                     GameUIKit.BarGold);
                 return;
             }
@@ -680,7 +731,7 @@ namespace TheWaningBorder.UI.GameUI
             var faction = OwnFaction(em);
             if (EntityInfoExtractor.GetFactionEra(em, faction) < 2)
             {
-                _statusB.text = "Advance to Era 2 first (culture choice)";
+                _statusB.text = Loc.T("Advance to Era 2 first (culture choice)");
                 return;
             }
 
@@ -693,23 +744,27 @@ namespace TheWaningBorder.UI.GameUI
 
             Entity temple = _entity;
             AddWideButton(
-                $"Upgrade to Level {nextLevel} (Era {nextEra}) — {(int)duration}s",
+                string.Format(Loc.T("Upgrade to Level {0} (Era {1}) — {2}s"),
+                    nextLevel, nextEra, (int)duration),
                 enabled: canAfford,
-                tooltip: $"<b>Temple upgrade</b>\nCost: "
+                tooltip: "<b>" + Loc.T("Temple upgrade") + "</b>\n" + Loc.T("Cost: ")
                     + UIHelpers.FormatCostRich(cost,
                         EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction))
-                    + $"\nGrants +{rp} Religion Points",
+                    + "\n" + string.Format(Loc.T("Grants +{0} Religion Points"), rp),
                 onClick: () =>
                 {
                     var em2 = EM(out bool ok2);
                     if (!ok2 || !em2.Exists(temple)) return;
-                    if (!FactionEconomy.Spend(em2, OwnFaction(em2), cost))
+                    // Affordability CHECK only — TempleUpgradeCommandDirect
+                    // spends on every peer (docs/Multiplayer_LAN_Readiness.md).
+                    if (!FactionEconomy.CanAfford(em2, OwnFaction(em2), cost))
                     {
-                        PlayerNotificationSystem.NotifyError("Not enough resources");
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                         return;
                     }
                     CommandRouter.IssueTempleUpgrade(em2, temple);
-                    PlayerNotificationSystem.Notify($"Temple upgrade started ({(int)duration}s)");
+                    PlayerNotificationSystem.Notify(string.Format(
+                        Loc.T("Temple upgrade started ({0}s)"), (int)duration));
                 });
         }
 
@@ -726,21 +781,26 @@ namespace TheWaningBorder.UI.GameUI
             var faction = OwnFaction(em);
 
             string stored = vault.ResourceType > 0 && vault.ResourceType < VaultResourceNames.Length
-                ? $"{(int)vault.StoredAmount} {VaultResourceNames[vault.ResourceType]}"
-                : "Empty";
-            _statusA.text = $"Interest: {vault.InterestRate * 100f:F0}%/min (compound)   Stored: {stored}";
+                ? $"{(int)vault.StoredAmount} {Loc.T(VaultResourceNames[vault.ResourceType])}"
+                : Loc.T("Empty");
+            _statusA.text = string.Format(
+                Loc.T("Interest: {0:F0}%/min (compound)   Stored: {1}"),
+                vault.InterestRate * 100f, stored);
 
             bool locked = vault.LockTimer > 0f;
             if (locked)
-                _statusB.text = $"LOCKED — {(int)(vault.LockTimer / 60f)}:{(int)(vault.LockTimer % 60f):D2} remaining";
+                _statusB.text = string.Format(Loc.T("LOCKED — {0}:{1:D2} remaining"),
+                    (int)(vault.LockTimer / 60f), (int)(vault.LockTimer % 60f));
 
             if (vault.ResourceType > 0) _vaultSelectedResource = vault.ResourceType;
             int sel = _vaultSelectedResource;
             Entity entity = _entity;
 
-            AddWideButton($"Resource: {VaultResourceNames[sel]}  (click to cycle)",
+            AddWideButton(
+                string.Format(Loc.T("Resource: {0}  (click to cycle)"),
+                    Loc.T(VaultResourceNames[sel])),
                 enabled: vault.ResourceType == 0,
-                tooltip: "Pick which resource this vault stores. Locked to the stored type once a deposit is made.",
+                tooltip: Loc.T("Pick which resource this vault stores. Locked to the stored type once a deposit is made."),
                 onClick: () =>
                 {
                     _vaultSelectedResource = _vaultSelectedResource >= 5 ? 1 : _vaultSelectedResource + 1;
@@ -753,14 +813,15 @@ namespace TheWaningBorder.UI.GameUI
                 bool canDeposit = !locked
                     && (vault.ResourceType == 0 || vault.ResourceType == sel)
                     && FactionEconomy.CanAfford(em, faction, VaultCost(sel, amt));
-                AddWideButton($"Deposit {amt}", canDeposit,
-                    "Deposits lock the vault for a while; interest compounds per minute.",
+                AddWideButton(string.Format(Loc.T("Deposit {0}"), amt), canDeposit,
+                    Loc.T("Deposits lock the vault for a while; interest compounds per minute."),
                     () => VaultAction(entity, sel, amt, deposit: true));
             }
 
             bool canWithdraw = !locked && vault.ResourceType > 0 && vault.StoredAmount > 0f;
-            AddWideButton($"Withdraw All ({(int)vault.StoredAmount})", canWithdraw,
-                "Returns the stored amount (plus accrued interest) to the bank.",
+            AddWideButton(
+                string.Format(Loc.T("Withdraw All ({0})"), (int)vault.StoredAmount), canWithdraw,
+                Loc.T("Returns the stored amount (plus accrued interest) to the bank."),
                 () => VaultAction(entity, 0, 0, deposit: false));
         }
 
@@ -778,25 +839,18 @@ namespace TheWaningBorder.UI.GameUI
         {
             var em = EM(out bool ok);
             if (!ok || !em.Exists(entity) || !em.HasComponent<VaultStorage>(entity)) return;
-            var vault = em.GetComponentData<VaultStorage>(entity);
             var faction = OwnFaction(em);
 
-            if (deposit)
-            {
-                if (!FactionEconomy.Spend(em, faction, VaultCost(resourceType, amount))) return;
-                vault.ResourceType = resourceType;
-                vault.StoredAmount += amount;
-            }
-            else
-            {
-                int withdraw = (int)vault.StoredAmount;
-                if (withdraw <= 0) return;
-                FactionEconomy.Add(em, faction, VaultCost(vault.ResourceType, withdraw));
-                vault.StoredAmount = 0f;
-                vault.ResourceType = 0;
-            }
-            vault.LockTimer = vault.LockDuration;
-            em.SetComponentData(entity, vault);
+            // Affordability CHECK only — the bank/VaultStorage move lives in
+            // CommandRouter.VaultTransferDirect, which every peer executes
+            // (the old body moved resources on the clicking peer alone, and
+            // the bank is in the desync checksum).
+            // docs/Multiplayer_Desync_Sweep_2026-08-16.md
+            if (deposit && !FactionEconomy.CanAfford(em, faction, VaultCost(resourceType, amount)))
+                return;
+
+            TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
+                em, entity, resourceType, amount, deposit);
         }
 
         private void AddWideButton(string label, bool enabled, string tooltip, System.Action onClick)
@@ -819,7 +873,9 @@ namespace TheWaningBorder.UI.GameUI
             {
                 var t = info.TrainingState.Value;
                 if (t.IsTraining)
-                    _trainBar.Set(true, $"Training {t.CurrentUnitId}  {t.TimeRemaining:F1}s",
+                    _trainBar.Set(true,
+                        string.Format(Loc.T("Training {0}  {1:F1}s"),
+                            t.CurrentUnitId, t.TimeRemaining),
                         t.Progress, GameUIKit.BarGold);
 
                 var queueRow = _queue[0].Root.transform.parent.gameObject;
@@ -855,10 +911,12 @@ namespace TheWaningBorder.UI.GameUI
             {
                 var r = info.ResearchState.Value;
                 if (r.IsResearching)
-                    _researchBar.Set(true, $"Researching {r.CurrentTechName}  {r.TimeRemaining:F1}s",
+                    _researchBar.Set(true,
+                        string.Format(Loc.T("Researching {0}  {1:F1}s"),
+                            r.CurrentTechName, r.TimeRemaining),
                         r.Progress, GameUIKit.BarBlue);
                 if (r.Queue != null && r.Queue.Length > 0)
-                    _statusB.text = "Research queue: " + string.Join(", ", r.Queue);
+                    _statusB.text = Loc.T("Research queue: ") + string.Join(", ", r.Queue);
             }
         }
 
@@ -867,7 +925,12 @@ namespace TheWaningBorder.UI.GameUI
             if (!slot.Cancellable) return;
             var em = EM(out bool ok);
             if (!ok || !em.Exists(_entity)) return;
-            CancelTrainCommandHelper.Execute(em, _entity, slot.Index);
+            // Through the router, not the helper: the refund must land on
+            // every peer via the CancelTrain lockstep opcode, mirroring the
+            // spend that now lives in the train executor
+            // (docs/Multiplayer_LAN_Readiness.md).
+            CommandRouter.IssueCancelTrain(em, _entity, slot.Index,
+                TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
             _timer = RefreshInterval;
         }
 
@@ -896,16 +959,12 @@ namespace TheWaningBorder.UI.GameUI
             return Entity.Null;
         }
 
-        private void ShowTooltip(string text)
-        {
-            if (string.IsNullOrEmpty(text)) { HideTooltip(); return; }
-            _tooltip.text = text;
-            if (!_tooltip.gameObject.activeSelf) _tooltip.gameObject.SetActive(true);
-        }
-
-        private void HideTooltip()
-        {
-            if (_tooltip.gameObject.activeSelf) _tooltip.gameObject.SetActive(false);
-        }
+        // The inline tooltip label this panel used to draw is GONE. It lived
+        // inside the content VerticalLayoutGroup under a ContentSizeFitter
+        // root pivoted at its bottom edge, so showing it grew the panel upward
+        // and shifted every grid button — the button under the cursor moved
+        // away, pointer-exit fired, the label hid, the panel shrank, the button
+        // came back. That loop is what made the buttons flicker. Hovers go to
+        // UITooltip, which is on its own canvas and reflows nothing.
     }
 }

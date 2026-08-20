@@ -426,6 +426,115 @@ namespace TheWaningBorder.Data.EditorTools
             }
         }
 
+        // ── Siege visual split (2026-08-16) ──────────────────────────────────
+        // The Alanthor Ballista shipped wearing the Synty CATAPULT model as a
+        // placeholder, and the Runai Catapult had no visual at all (its SO
+        // carried presentationId 0 and no prefab — capsule fallback in game).
+        const string BallistaSource = "Assets/Synty/PolygonFantasyKingdom/Prefabs/SiegeEngines/SM_Wep_Ballista_Mobile_01.prefab";
+
+        /// <summary>
+        /// Give the Ballista its own art (SM_Wep_Ballista_Mobile_01, saved
+        /// over Ballista.prefab so the SO/guid references hold; no arm driver
+        /// — the bolt is entity-rendered and impact-synced), and build the
+        /// Runai Catapult's engine prefab (Synty catapult + CatapultVisual +
+        /// nested shot FX) with presentationId 333 wired on its SO.
+        /// </summary>
+        [MenuItem("Waning Border/Game Data/Wire Siege Visuals (Ballista + Runai Catapult)")]
+        public static void WireSiegeVisuals()
+        {
+            try
+            {
+                var sos = ResolveUnitSOs();
+
+                // 1) Alanthor Ballista — real ballista art.
+                if (!sos.TryGetValue("Alanthor_Ballista", out var ballistaSo))
+                {
+                    Debug.LogWarning("[GameDataMaintenance] No UnitDefSO with id 'Alanthor_Ballista' found.");
+                }
+                else
+                {
+                    var src = AssetDatabase.LoadAssetAtPath<GameObject>(BallistaSource);
+                    if (src == null)
+                    {
+                        Debug.LogError($"[GameDataMaintenance] Synty ballista prefab missing: {BallistaSource}");
+                    }
+                    else
+                    {
+                        string folder = System.IO.Path.GetDirectoryName(
+                            AssetDatabase.GetAssetPath(ballistaSo)).Replace('\\', '/');
+                        var inst = (GameObject)PrefabUtility.InstantiatePrefab(src);
+                        // Match the siege authoring scale convention (the Synty
+                        // engines read oversized in-game at scale 1).
+                        inst.transform.localScale = Vector3.one * 0.7f;
+                        var prefab = PrefabUtility.SaveAsPrefabAsset(inst, $"{folder}/Ballista.prefab");
+                        Object.DestroyImmediate(inst);
+                        ballistaSo.prefab = prefab;
+                        EditorUtility.SetDirty(ballistaSo);
+                        Debug.Log($"[GameDataMaintenance] Ballista now wears its own art — {folder}/Ballista.prefab");
+                    }
+                }
+
+                // 2) Runai Catapult — the engine the Alanthor wire builds, on
+                //    the Runai SO, with the presentation id the recipe table
+                //    registers for Runai_Catapult (333).
+                if (!sos.TryGetValue("Runai_Catapult", out var catSo))
+                {
+                    Debug.LogWarning("[GameDataMaintenance] No UnitDefSO with id 'Runai_Catapult' found.");
+                }
+                else
+                {
+                    if (AssetDatabase.LoadAssetAtPath<GameObject>(CatapultFxDest) == null)
+                    {
+                        EnsureFolder("Assets/Resources/Prefabs/Effects");
+                        if (!AssetDatabase.CopyAsset(CatapultFxSource, CatapultFxDest))
+                            Debug.LogError($"[GameDataMaintenance] Could not copy {CatapultFxSource} -> {CatapultFxDest}");
+                    }
+
+                    var source = AssetDatabase.LoadAssetAtPath<GameObject>(CatapultSource);
+                    if (source == null)
+                    {
+                        Debug.LogError($"[GameDataMaintenance] Synty catapult prefab missing: {CatapultSource}");
+                    }
+                    else
+                    {
+                        string folder = System.IO.Path.GetDirectoryName(
+                            AssetDatabase.GetAssetPath(catSo)).Replace('\\', '/');
+                        var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
+                        var vis = instance.GetComponent<TheWaningBorder.Presentation.CatapultVisual>();
+                        if (vis == null)
+                            vis = instance.AddComponent<TheWaningBorder.Presentation.CatapultVisual>();
+
+                        var fxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CatapultFxDest);
+                        if (fxPrefab != null && vis.ShotFxTemplate == null)
+                        {
+                            var fxChild = (GameObject)PrefabUtility.InstantiatePrefab(fxPrefab);
+                            fxChild.name = "ShotFxTemplate";
+                            fxChild.transform.SetParent(instance.transform, false);
+                            fxChild.transform.localPosition = new Vector3(0f, 2.4f, 1.2f);
+                            fxChild.SetActive(false);
+                            vis.ShotFxTemplate = fxChild;
+                        }
+
+                        instance.transform.localScale = Vector3.one * 0.7f;
+                        var prefab = PrefabUtility.SaveAsPrefabAsset(instance, $"{folder}/Catapult.prefab");
+                        Object.DestroyImmediate(instance);
+
+                        catSo.prefab = prefab;
+                        catSo.presentationId = 333;
+                        EditorUtility.SetDirty(catSo);
+                        Debug.Log($"[GameDataMaintenance] Runai Catapult wired — {folder}/Catapult.prefab, presentationId 333");
+                    }
+                }
+
+                AssetDatabase.SaveAssets();
+                Debug.Log("[GameDataMaintenance] WireSiegeVisuals done.");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[GameDataMaintenance] WireSiegeVisuals threw: {ex}");
+            }
+        }
+
         // ── Ledger automaton (visual identity 2026-08-02) ────────────────────
         // Floating legless automaton: open-frame torso exposing a central
         // crystal (tinted the player's color at runtime by LedgerVisual),
@@ -1114,8 +1223,32 @@ namespace TheWaningBorder.Data.EditorTools
                 curse.diffuseRemapMax = new Color(0.55f, 0.38f, 1.0f, 1f);
                 EditorUtility.SetDirty(curse);
 
+                // Veilstone patch layer: ore-bearing GROUND under a veilstone
+                // patch. Deliberately a DIFFERENT source texture from the curse
+                // (gravel, not the curse's smooth rock) and a cold mineral grey
+                // rather than the curse purple — a resource patch must never
+                // read as cursed ground. Painted by InfluenceTerrainPainter
+                // from VeilstonePatchGround.
+                string patchPath = "Assets/Resources/TerrainLayers/VeilstonePatch.terrainlayer";
+                var patch = AssetDatabase.LoadAssetAtPath<TerrainLayer>(patchPath);
+                if (patch == null)
+                {
+                    patch = new TerrainLayer();
+                    AssetDatabase.CreateAsset(patch, patchPath);
+                }
+                patch.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    "Assets/GameData/Scenes/Maps/Shared/GravelSubstance002_COMPILED_graph_0/GravelSubstance002_COMPILED_basecolor.tga");
+                patch.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    "Assets/GameData/Scenes/Maps/Shared/GravelSubstance002_COMPILED_graph_0/GravelSubstance002_COMPILED_normal.tga");
+                patch.tileSize = new Vector2(4f, 4f);
+                patch.diffuseRemapMin = new Color(0.16f, 0.17f, 0.20f, 1f);
+                patch.diffuseRemapMax = new Color(0.62f, 0.66f, 0.74f, 1f);
+                patch.smoothness = 0.15f;
+                EditorUtility.SetDirty(patch);
+
                 AssetDatabase.SaveAssets();
-                Debug.Log("[GameDataMaintenance] WireInfluenceLayers done — Blood, AlanthorInfluence, CurseInfluence in Resources/TerrainLayers.");
+                Debug.Log("[GameDataMaintenance] WireInfluenceLayers done — Blood, AlanthorInfluence, "
+                          + "CurseInfluence, VeilstonePatch in Resources/TerrainLayers.");
             }
             catch (System.Exception ex)
             {

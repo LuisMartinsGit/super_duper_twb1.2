@@ -11,6 +11,7 @@
 // Location: Assets/Scripts/Systems/Border/
 
 using Unity.Entities;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -35,7 +36,7 @@ namespace TheWaningBorder.Systems.Border
             em.RemoveComponent<WellDormant>(well);
 
             TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
-                $"A well stirs — {waker} has disturbed it!");
+                string.Format(Loc.T("A well stirs — {0} has disturbed it!"), waker));
 
             if (em.HasComponent<Unity.Transforms.LocalTransform>(well))
             {

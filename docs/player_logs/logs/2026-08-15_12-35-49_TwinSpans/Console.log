@@ -1,0 +1,20 @@
+=== Match started 2026-08-15 12:35:49 on TwinSpans ===
+Map: TwinSpans  Mode: FreeForAll  Seed: 76352
+Players: 6  Local: Blue  Culture: 0  Age: Age0  Fog: True  Curse: True
+[122,2s] LOG: [NavGrid] initialised 354x354 cell=1 origin=(-177,0,-177,0) covering world X[-176..176] Z[-176..176]
+[122,2s] LOG: [BootTrace] coroutine start
+[122,2s] LOG: [BootTrace] after EnsureECSWorld
+[122,4s] WARNING: [TechTreeValidator] unit 'Runai_Caravan' has a def but no UnitFactory recipe — trainable in UI, broken at spawn
+[122,4s] WARNING: [TechTreeValidator] unit 'Runai_Escort' has a def but no UnitFactory recipe — trainable in UI, broken at spawn
+[122,4s] WARNING: [TechTreeValidator] 2 issue(s) found — every one is a silent stall or dead button at runtime
+[122,4s] LOG: [BootTrace] after InitializeDataSystems
+[122,4s] LOG: [BootTrace] after GameCamera.Ensure
+[122,5s] LOG: [BootTrace] after CreateManagersObject
+[122,8s] LOG: [BootTrace] after InitializeWorld
+[122,8s] LOG: [BootTrace] waiting for terrain generation…
+[122,8s] LOG: [BootTrace] terrain generation complete
+[122,9s] LOG: [BootTrace] after factions/AI
+[122,9s] LOG: [PassabilityGrid] NoWalk layer 'NoWalk' found — 2840/123904 alphamap texels painted above 0,5.
+[123,4s] LOG: [TerrainCostBake] baked terrain into cost field: 1412/125316 cells impassable (water + slope > 1 budget).
+[123,5s] LOG: [BootTrace] done — bootstrap complete
+=== Match ended (quit) ===

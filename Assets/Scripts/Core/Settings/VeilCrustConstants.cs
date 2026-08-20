@@ -329,22 +329,6 @@ namespace TheWaningBorder.Core.Config
         /// impossibility.</summary>
         public const float HallHearthRadius = 34f;
 
-        // Blight pockets / mining corruption — the Age 0 curse (rev.3):
-        // mining out a veilstone node can wake the curse in it. The corrupted
-        // node (Sporeling) hazes the whole patch; kill it (tough — a real
-        // military investment), starve it under suppression, or abandon the
-        // patch. Kill/starve → collapse → residue payout reclaims it.
-        /// <summary>
-        /// SUPERSEDED 2026-08-07 — mining corruption is no longer a roll. The
-        /// last live bud of a patch corrupts with certainty (canon §2.7, see
-        /// VeilstoneMiningSystem.IsLastBudOfPatch); every other node mines out
-        /// clean. Same expected pockets per patch, but telegraphed by the patch
-        /// thinning instead of landing at random.
-        ///
-        /// Kept so external references still compile. Unused at runtime.
-        /// </summary>
-        public const float CorruptionChance = 0.15f;
-
         /// <summary>
         /// Radius (m) within which another live outcropping means "this patch
         /// still has buds". Patches spawn at a 5 m spread (procedural
@@ -363,10 +347,10 @@ namespace TheWaningBorder.Core.Config
         public const byte PocketCoreSaturation = 150;
         /// <summary>RESISTANT by design (playtest 2026-08-03: 300 HP died to
         /// the starting army in seconds) — clearing one is an investment.</summary>
-        public const float SporelingHealth = 1800f;
-        /// <summary>Damage/s to a Sporeling whose cell is suppressed (hearth /
+        public const float SmallNodeHealth = 1800f;
+        /// <summary>Damage/s to a SmallNode whose cell is suppressed (hearth /
         /// ward / influence) — starving one out takes ~90 s of coverage.</summary>
-        public const float SporelingStarveDps = 20f;
+        public const float SmallNodeStarveDps = 20f;
         public const int PocketResidueNodes = 5;
         public const int PocketResiduePerNode = 40;
 

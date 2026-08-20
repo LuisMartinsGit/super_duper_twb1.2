@@ -47,6 +47,25 @@ namespace TheWaningBorder.AI
         /// loop (DesiredMilitary grows to this while affordable).</summary>
         public int SustainArmyCap;
 
+        /// <summary>
+        /// Game time (seconds) at which this AI STOPS expanding and starts
+        /// banking for Age 1: the wallet tilts to Advancement, the age-up
+        /// director buys its choice building, and new Gatherer's Huts pause
+        /// until the age-up is issued.
+        ///
+        /// This is the whole age-up clock. Before it existed, every AI
+        /// expanded flat-out until a single hard-coded 300 s gate, and since
+        /// founding a hut costs ~120 supplies it spent its income as fast as
+        /// it arrived — logged matches ended minute 6 with 10-12 huts and 62
+        /// supplies banked against a 700-supply age-up. Nothing was saving,
+        /// so nothing aged up.
+        ///
+        /// Budget backwards from the target age-up time: push, then ~90 s to
+        /// raise the 210-supply Shrine, then bank 700 while it builds.
+        /// Targets: Expert 4-5 min, Hard 5-7, Normal 6-8, Easy 8-10.
+        /// </summary>
+        public float AgeUpPushSeconds;
+
         // ── Attack-wave cadence (2026-08-04: spectated AIs built one army
         // and attacked once at ~20 min; waves make pressure a RHYTHM) ──
         /// <summary>Seconds between wave launches once the first-attack gate
@@ -101,6 +120,7 @@ namespace TheWaningBorder.AI
                 WaveBaseUnits = 4,
                 WaveGrowthUnits = 1,
                 GathererHutTarget = 8,   // a modest home cluster
+                AgeUpPushSeconds = 200f,  // target age-up 8-10 min
                 ProductionBuildingTarget = 2,
             },
             AIDifficulty.Hard => new AIDifficultyProfile
@@ -118,6 +138,7 @@ namespace TheWaningBorder.AI
                 WaveBaseUnits = 6,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 22,  // pushes well past the home ring
+                AgeUpPushSeconds = 110f,  // target age-up 5-7 min
                 ProductionBuildingTarget = 4,
             },
             AIDifficulty.Expert => new AIDifficultyProfile
@@ -135,6 +156,7 @@ namespace TheWaningBorder.AI
                 WaveBaseUnits = 6,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 30,  // aims to blanket the map
+                AgeUpPushSeconds = 90f,   // target age-up 4-5 min
                 ProductionBuildingTarget = 5,
             },
             _ => new AIDifficultyProfile // Normal
@@ -155,6 +177,7 @@ namespace TheWaningBorder.AI
                 WaveBaseUnits = 5,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 14,  // a real economic footprint
+                AgeUpPushSeconds = 150f,  // target age-up 6-8 min
                 ProductionBuildingTarget = 3,
             },
         };

@@ -75,9 +75,22 @@ namespace TheWaningBorder.AI
         /// <summary>The wall instance nearest this slot converts to a
         /// Wall Tower once built.</summary>
         public const byte FlagTower = 2;
+        /// <summary>The gap between this slot and the NEXT live slot of the
+        /// same chain is closed by impassable TERRAIN — a mountain shoulder
+        /// the wall does not need to span. Set by the planner when it drops a
+        /// slot it could not rescue onto open ground, and read by the
+        /// executor's gap-closing pass so it bridges real holes but leaves
+        /// terrain-sealed stretches alone.</summary>
+        public const byte FlagTerrainSealed = 4;
         /// <summary>Slot proved unplaceable at execution time — skip it
-        /// forever (the terrain-blocked slots never enter the buffer).</summary>
+        /// forever.</summary>
         public const byte FlagDead = 128;
+
+        /// <summary>How far a perimeter slot may slide (along the side, then
+        /// inward) looking for open ground before the planner concedes the
+        /// stretch to terrain. Half the hub spacing, so a rescued slot never
+        /// crosses past its neighbour.</summary>
+        private const float SlotRescueReach = HubSpacing * 0.5f;
 
         // ── Shelter scan tuning ───────────────────────────────────────────
         private const int Bearings = 48;          // 7.5 degree resolution
@@ -487,12 +500,43 @@ namespace TheWaningBorder.AI
                 int segs = math.max(1, (int)math.ceil(len / HubSpacing));
                 int gateFrom = segs / 2;   // segment nearest the side midpoint
 
+                // Along-side unit vector and the inward normal (toward the
+                // rectangle centre) — the two axes a blocked slot slides on.
+                float2 along = math.normalizesafe(b - a, new float2(1f, 0f));
+                float2 inward = math.normalizesafe(center - (a + b) * 0.5f,
+                    new float2(-along.y, along.x));
+
                 // Slot at each fraction j/segs; the next side contributes
                 // the shared corner, so stop short of t = 1.
                 for (int j = 0; j < segs; j++)
                 {
                     float2 xz = math.lerp(a, b, j / (float)segs);
-                    if (TerrainBlockedAt(xz.x, xz.y)) continue;
+
+                    // A slot on terrain-blocked ground used to be dropped
+                    // outright, on the theory that the mountain IS the wall
+                    // there and the 2x-spacing hole would sit beyond the
+                    // link radius. But TerrainBlockedAt is a SINGLE-POINT
+                    // sample: one boulder, one steep metre, or the corner of
+                    // a cliff under the slot deleted a hub and left a 60 m
+                    // walkable gap in a wall the AI still reported as
+                    // planned. That is the "AI never finishes its wall"
+                    // report. Now we RESCUE the slot first — slide it along
+                    // the side and inward until it finds open ground — and
+                    // only concede the stretch to terrain when nothing
+                    // within reach is open, in which case the PREVIOUS slot
+                    // is marked terrain-sealed so the executor knows the gap
+                    // is deliberate rather than a hole to bridge.
+                    if (TerrainBlockedAt(xz.x, xz.y)
+                        && !TryRescueSlot(xz, along, inward, out xz))
+                    {
+                        if (slots.Length > 0)
+                        {
+                            var prev = slots[slots.Length - 1];
+                            prev.Flags |= FlagTerrainSealed;
+                            slots[slots.Length - 1] = prev;
+                        }
+                        continue;
+                    }
 
                     byte flags = 0;
                     if (j == 0) flags |= FlagTower;                      // corner
@@ -507,6 +551,44 @@ namespace TheWaningBorder.AI
                     });
                 }
             }
+        }
+
+        /// <summary>
+        /// Slide a terrain-blocked perimeter slot onto open ground. Probes an
+        /// expanding set of offsets: along the wall line first (keeps the ring
+        /// shape), then inward (tucks the wall behind the obstacle), then the
+        /// two diagonals. Returns false when everything within
+        /// <see cref="SlotRescueReach"/> is blocked — that is a real mountain,
+        /// not a boulder, and the stretch is genuinely sealed.
+        ///
+        /// Outward is deliberately NOT probed: pushing the wall out past the
+        /// obstacle would enlarge the enclosure around ground the AI is not
+        /// defending, and the outward side is where the attacker stands.
+        /// </summary>
+        private static bool TryRescueSlot(float2 blocked, float2 along, float2 inward,
+            out float2 rescued)
+        {
+            for (float d = 2f; d <= SlotRescueReach; d += 2f)
+            {
+                // Fixed probe order — every lockstep peer walks the same
+                // sequence and picks the same first hit.
+                for (int p = 0; p < 5; p++)
+                {
+                    float2 probe = p switch
+                    {
+                        0 => blocked + along * d,
+                        1 => blocked - along * d,
+                        2 => blocked + inward * d,
+                        3 => blocked + inward * d + along * d,
+                        _ => blocked + inward * d - along * d,
+                    };
+                    if (TerrainBlockedAt(probe.x, probe.y)) continue;
+                    rescued = probe;
+                    return true;
+                }
+            }
+            rescued = blocked;
+            return false;
         }
 
         // ──────────────────────────────────────────────────────────────────
