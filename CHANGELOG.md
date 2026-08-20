@@ -15,6 +15,22 @@ Nothing yet.
 
 ---
 
+## [0.0.11] — 2026-08-20
+
+A one-fix patch on 0.0.10.
+
+### Fixed
+
+- **The name prompt asked again every time you returned to the main menu.** It
+  was gated on "this process created the settings file", which is true for the
+  whole run — so backing out of skirmish or multiplayer asked again. It is
+  gated on a saved answer now, which flips when you actually answer rather than
+  when you are asked: closing the game on the prompt asks once more next
+  launch, and answering it never asks again. Players who have already named
+  themselves are not re-asked.
+
+---
+
 ## [0.0.10] — 2026-08-20
 
 The menus build. Multiplayer gets its own screen, laid out like the skirmish
