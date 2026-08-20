@@ -33,7 +33,7 @@ the files that changed.
 - **The game keeps the launcher up to date.** The launcher sits outside the
   folder an update replaces, so until now a fix to it could only reach you by
   asking you to download one by hand. Installing this version updates it for
-  you, in the background, with nothing to click. **This is why 0.0.12 is still a
+  you, in the background, with nothing to click. **This is why 0.0.13 is still a
   full download** — it is the one carrying the new launcher.
 
 ---
