@@ -211,21 +211,28 @@ if ($sizeBytes -ge 2GB) {
 $sha = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
 
 $manifestPath = Join-Path $StagingDir 'manifest.json'
-[ordered]@{
+
+# Written with .NET, NOT Set-Content, on every PowerShell.
+#
+# 5.1's -Encoding utf8 writes a BOM (the Worker survives one only because the
+# fetch spec strips a leading BOM before parsing - luck, not design), and
+# -Encoding utf8NoBOM is PowerShell 7 only. This machine has 5.1 and no pwsh.
+#
+# Trying utf8NoBOM first and falling back on failure DOES NOT WORK, which is
+# how v0.0.10 failed its first release: an unknown -Encoding value is a
+# PARAMETER BINDING error, thrown before the cmdlet ever runs, so it is
+# terminating and -ErrorAction SilentlyContinue does not touch it. The script
+# died with the zip already built and the fallback never reached.
+#
+# UTF8Encoding.GetBytes emits no preamble, so this is UTF-8 without a BOM on
+# both editions with nothing to detect or fall back to.
+$json = [ordered]@{
     version   = $Version
     sha256    = $sha
     sizeBytes = $sizeBytes
     notes     = $Notes
-} | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding utf8NoBOM -ErrorAction SilentlyContinue
-
-# PS 5.1 has no utf8NoBOM, and its -Encoding utf8 writes a BOM. The Worker
-# survives one only because the fetch spec strips a leading BOM before
-# parsing - luck, not design. Write the bytes ourselves instead.
-if (-not (Test-Path $manifestPath)) {
-    $json = [ordered]@{ version = $Version; sha256 = $sha; sizeBytes = $sizeBytes; notes = $Notes } |
-        ConvertTo-Json
-    [System.IO.File]::WriteAllBytes($manifestPath, [System.Text.Encoding]::UTF8.GetBytes($json))
-}
+} | ConvertTo-Json
+[System.IO.File]::WriteAllBytes($manifestPath, [System.Text.Encoding]::UTF8.GetBytes($json))
 
 Write-Host "  $zipName  $([math]::Round($sizeBytes/1MB,1)) MB"
 Write-Host "  sha256    $sha"

@@ -91,6 +91,13 @@ text that ignored its own colour — turned out to share three causes.
   Those are the delimiters the lobby protocol packs names into, so one of
   either shifted every field after it — a colour index read as a team, or the
   slot list dropped entirely. Names are sanitised at the source now.
+- **The release script could not write its manifest at all.** The BOM fix from
+  v0.0.9 reached for `Set-Content -Encoding utf8NoBOM`, which exists only in
+  PowerShell 7; this machine has 5.1. The guarded fallback beside it never ran,
+  because an unknown `-Encoding` value fails at parameter binding — terminating,
+  and so untouched by the `-ErrorAction SilentlyContinue` it was relying on. The
+  manifest is written with .NET on both editions now, which emits no BOM and has
+  nothing to fall back to.
 - **Release notes reached testers as mojibake.** Three separate encoding
   faults in the release script, each invisible while the notes were a
   hand-typed ASCII sentence and each fatal the moment they came from this
