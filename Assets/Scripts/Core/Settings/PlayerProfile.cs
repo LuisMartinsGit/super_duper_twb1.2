@@ -44,14 +44,42 @@ namespace TheWaningBorder.Core.Config
             public int Fullscreen = -1;           // -1 = leave whatever the player has
             public float MasterVolume = 100f;
             public float MusicVolume = 50f;
+
+            /// <summary>The player has been asked for a name and answered.
+            /// Persisted, because "have we asked yet" has to survive the
+            /// process that asked — see PlayerProfile.NameConfirmed.</summary>
+            public bool NameConfirmed;
         }
 
         private static Data _data;
         private static string _path;
 
-        /// <summary>True when this session created the settings file, i.e. the
-        /// game has never been run here before.</summary>
+        /// <summary>
+        /// True when this session created the settings file. Useful for logs;
+        /// NOT the thing to gate the name prompt on. It stays true for the
+        /// whole process, and every return to the main menu re-runs the scene
+        /// hooks — which is exactly how that prompt ended up reappearing on
+        /// every visit. Use <see cref="NameConfirmed"/>.
+        /// </summary>
         public static bool IsFirstRun { get; private set; }
+
+        /// <summary>
+        /// Whether the player has actually given a name. Persisted rather than
+        /// held in a static, so it survives the process, and false until they
+        /// answer rather than until they are asked — a game closed on the
+        /// prompt has not really been through first run, and should ask again.
+        /// </summary>
+        public static bool NameConfirmed => Load().NameConfirmed;
+
+        /// <summary>Record the player's answer: name and the fact that it was
+        /// given, in one write.</summary>
+        public static void ConfirmName(string name)
+        {
+            var d = Load();
+            if (!string.IsNullOrWhiteSpace(name)) d.PlayerName = Sanitize(name);
+            d.NameConfirmed = true;
+            Save();
+        }
 
         /// <summary>Absolute path to the settings file, for logs and for
         /// telling a tester what to send back.</summary>
@@ -135,7 +163,16 @@ namespace TheWaningBorder.Core.Config
             {
                 try
                 {
-                    _data = JsonUtility.FromJson<Data>(File.ReadAllText(path)) ?? new Data();
+                    string raw = File.ReadAllText(path);
+                    _data = JsonUtility.FromJson<Data>(raw) ?? new Data();
+
+                    // A file written before NameConfirmed existed has no such
+                    // key, and JsonUtility cannot tell absent from false. Its
+                    // owner has already been through the prompt, so treat the
+                    // missing key as "answered" rather than asking them again
+                    // on the strength of a field they never had.
+                    if (raw.IndexOf("NameConfirmed", StringComparison.Ordinal) < 0)
+                        _data.NameConfirmed = true;
                 }
                 catch (Exception e)
                 {

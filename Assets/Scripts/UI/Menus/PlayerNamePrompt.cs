@@ -22,9 +22,10 @@ namespace TheWaningBorder.UI.Menus
     /// than the menu's, so it does not depend on that scene's hierarchy and
     /// draws over everything regardless of what is on screen.
     ///
-    /// Shown only when <see cref="PlayerProfile.IsFirstRun"/> — the session
-    /// that created settings.json. Delete that file and the game asks again,
-    /// which is also the manual way to test this.
+    /// Shown until the player has answered (PlayerProfile.NameConfirmed),
+    /// which is persisted — so closing the game on the prompt asks again next
+    /// launch, and answering it never asks again. Delete settings.json, or set
+    /// its NameConfirmed to false, to test it.
     /// </summary>
     public sealed class PlayerNamePrompt : MonoBehaviour
     {
@@ -45,10 +46,13 @@ namespace TheWaningBorder.UI.Menus
             // Only at the menu: asking a player their name over a loading
             // screen or mid-match would be worse than not asking.
             if (scene.name != MainMenuBootstrap.MenuSceneName) return;
-            if (!PlayerProfile.IsFirstRun) return;
 
-            // Once per run, not once per return to the menu.
-            PlayerProfile.Save();
+            // NOT IsFirstRun. That means "this process created the settings
+            // file" and stays true for the whole run, so every return to the
+            // main menu re-ran this hook and asked again. NameConfirmed is
+            // persisted and flips only when the player answers.
+            if (PlayerProfile.NameConfirmed) return;
+
             Show();
         }
 
@@ -117,12 +121,10 @@ namespace TheWaningBorder.UI.Menus
 
         private void Confirm()
         {
-            string typed = _field != null ? _field.text : null;
             // An empty box keeps the suggested name rather than leaving the
-            // player nameless — PlayerProfile falls back on its own, but being
-            // explicit here means the value written is the value shown.
-            if (!string.IsNullOrWhiteSpace(typed)) PlayerProfile.PlayerName = typed;
-            else PlayerProfile.Save();
+            // player nameless, and the answer is recorded either way — one
+            // write, so the name and "they have been asked" cannot disagree.
+            PlayerProfile.ConfirmName(_field != null ? _field.text : null);
 
             Debug.Log($"[PlayerNamePrompt] Player name set to '{PlayerProfile.PlayerName}' " +
                       $"and saved to {PlayerProfile.Path}");
