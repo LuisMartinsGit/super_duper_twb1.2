@@ -115,15 +115,32 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         private static void FilterScenesForBuild(BuildPlayerOptions options)
         {
-            if (!MapRegistry.ShipScenarios && options.scenes != null)
-            {
-                var kept = options.scenes.Where(s => !IsScenario(Normalize(s))).ToArray();
-                if (kept.Length != options.scenes.Length)
-                    Debug.Log($"[MapSceneSync] Player build: {options.scenes.Length - kept.Length} " +
-                              "scenario scene(s) filtered out (ship gate).");
-                options.scenes = kept;
-            }
+            options.scenes = ScenesForPlayerBuild(options.scenes);
             BuildPlayerWindow.DefaultBuildMethods.BuildPlayer(options);
+        }
+
+        /// <summary>
+        /// The scene list a PLAYER build should actually contain: everything
+        /// handed in, minus the scenario scenes when the ship gate excludes
+        /// them.
+        ///
+        /// Split out of <see cref="FilterScenesForBuild"/> so a command-line
+        /// build can apply the same rule. That handler is registered through
+        /// BuildPlayerWindow, which only covers builds started from the Build
+        /// Settings WINDOW — a -executeMethod build calls BuildPipeline
+        /// directly and never reaches it, so without this the two routes would
+        /// quietly ship different scene lists and the batch one would carry
+        /// two dozen scenario scenes to testers.
+        /// </summary>
+        internal static string[] ScenesForPlayerBuild(string[] scenes)
+        {
+            if (scenes == null || MapRegistry.ShipScenarios) return scenes;
+
+            var kept = scenes.Where(s => !IsScenario(Normalize(s))).ToArray();
+            if (kept.Length != scenes.Length)
+                Debug.Log($"[MapSceneSync] Player build: {scenes.Length - kept.Length} " +
+                          "scenario scene(s) filtered out (ship gate).");
+            return kept;
         }
 
         private static void Sync()
