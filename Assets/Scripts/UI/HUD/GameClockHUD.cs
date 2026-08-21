@@ -75,7 +75,18 @@ namespace TheWaningBorder.UI.HUD
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) { _label.text = string.Empty; return; }
 
-            double t = world.Time.ElapsedTime;
+            // SimClock, NOT world.Time.ElapsedTime. The ECS world is created
+            // at process start and keeps running through the whole main menu,
+            // so its elapsed time is "how long the game has been open" — a
+            // player who browsed the menus for six minutes started their match
+            // at 06:00 on the clock.
+            //
+            // SimClock is reset when the match spawns and only advances inside
+            // SimulationSystemGroup, which is held until the loading screen is
+            // gone (timeScale in single-player, the world-ready gate under
+            // lockstep). So it counts exactly the time the player has been
+            // playing, and reads identically on every peer.
+            double t = TheWaningBorder.Core.SimClock.Elapsed;
             int hours = (int)(t / 3600.0);
             int minutes = (int)(t / 60.0) % 60;
             int seconds = (int)t % 60;

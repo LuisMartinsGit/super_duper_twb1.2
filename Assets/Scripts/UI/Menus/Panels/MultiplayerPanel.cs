@@ -2324,7 +2324,11 @@ namespace TheWaningBorder.UI.Menus.Panels
                       $"lockstep port {lockstepPort}.");
 
             Cleanup();
-            SceneManager.LoadScene(sceneName);
+            // Through the loading screen, exactly as skirmish does. A bare
+            // LoadScene left the player staring at the lobby until the map
+            // popped in — no overlay, no progress, and the freeze that the
+            // overlay applies never happened either.
+            TheWaningBorder.UI.Menus.LoadingScreen.Show(sceneName);
         }
 
         private void StartAsClient(string hostIp, ushort port, int seed, int lockstepPort)
@@ -2375,7 +2379,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             string clientScene = !string.IsNullOrEmpty(GameSettings.SelectedMapScene)
                 ? GameSettings.SelectedMapScene
                 : MapRegistry.Default.SceneName;
-            SceneManager.LoadScene(clientScene);
+            TheWaningBorder.UI.Menus.LoadingScreen.Show(clientScene);
         }
 
         private void Cleanup()

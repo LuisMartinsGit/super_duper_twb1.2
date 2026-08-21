@@ -455,6 +455,15 @@ namespace TheWaningBorder.Multiplayer
             // first checksum (the instant tick-30 desync, 2026-08-16).
             if (!TheWaningBorder.Bootstrap.SpawnDelayHelper.MapPopulated) return NotYet();
 
+            // The loading screen must be COMPLETELY gone — fade included —
+            // before the match clock starts. timeScale holds single-player,
+            // but the fixed-step driver pushes its own delta and never reads
+            // timeScale, so without this a lockstep match ticks away behind
+            // the overlay: the AI acts, income accrues and the curse spreads
+            // in seconds the player never sees, and the game time they are
+            // shown does not match the game they played.
+            if (TheWaningBorder.UI.Menus.LoadingScreen.IsVisible) return NotYet();
+
             // LAST-LINE ASSERTION before the clock starts: in deterministic
             // mode the fixed-step driver MUST be holding the sim group. If it
             // is not — a failed Install, a stray Uninstall, any lifecycle bug
