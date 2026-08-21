@@ -50,6 +50,18 @@ namespace TheWaningBorder.Systems.Border
 
         private float _acc;
         private Unity.Mathematics.Random _rng;
+
+        /// <summary>
+        /// The RNG's current state, for the lockstep checksum.
+        ///
+        /// A seeded stream is only deterministic while both peers CONSUME the
+        /// same number of values from it. Consume one extra on one peer -- a
+        /// rejected placement, a branch taken once -- and every later roll
+        /// differs, with nothing observable at the moment it happens. That is a
+        /// fork that hides until it produces a visibly different spawn, which
+        /// may be many seconds later and will look like a different bug.
+        /// </summary>
+        public uint RngState => _rng.state;
         private EntityQuery _borderUnitQuery;
 
         protected override void OnCreate()

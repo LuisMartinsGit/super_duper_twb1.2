@@ -43,6 +43,11 @@ namespace TheWaningBorder.Systems.Work
         private EntityQuery _veilFieldQuery;
         private EntityQuery _hallQuery; // hearth check for corruption immunity
         private Unity.Mathematics.Random _corruptRng;
+
+        /// <summary>The corruption RNG's current state, for the lockstep
+        /// checksum. See BloodCurseSpawnSystem.RngState for why a seeded
+        /// stream still needs hashing.</summary>
+        public uint RngState => _corruptRng.state;
         private double _now; // sim time, refreshed each OnUpdate
 
         public void OnCreate(ref SystemState state)

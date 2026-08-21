@@ -93,10 +93,36 @@ namespace TheWaningBorder.Multiplayer
             WriteRaw($"# sim        {LockstepTiming.TicksPerSecond} Hz  cell={GameSettings.PathfindingCellSize}  " +
                      $"deterministic={GameSettings.DeterministicLockstep}");
             WriteRaw("#");
+
+            // The machine, and who plays whom. Both are SUPPOSED to differ
+            // between peers, which is why they live up here in the header and
+            // never in the diffable body -- and both are the first thing an
+            // investigation asks for once the command streams are proven
+            // identical. See LockstepEnvironment for why each field is here.
+            WriteRaw("# ---- this machine ----");
+            WriteRawBlock(LockstepEnvironment.Describe("# "));
+            WriteRaw("# ---- faction control (as THIS peer sees it) ----");
+            WriteRawBlock(LockstepEnvironment.DescribeFactionControl("# "));
+
+            WriteRaw("#");
             WriteRaw("# Everything below this line must be IDENTICAL on both peers.");
             WriteRaw("# Diff two of these files; the first differing line is the fork.");
             WriteRaw("#   cmds differ first      -> a command did not replicate");
             WriteRaw("#   checksums differ first -> the simulation is not deterministic");
+            WriteRaw("#");
+            WriteRaw("# The sum line breaks the checksum down, so the first differing line");
+            WriteRaw("# already says WHAT forked and WHOSE it is:");
+            WriteRaw("#   pos rot        transforms");
+            WriteRaw("#   nav            destination / flow / steering / stuck / speed");
+            WriteRaw("#   cbt wrk        combat target+cooldown / construction+training+mining");
+            WriteRaw("#   hp bank        health / faction resources");
+            WriteRaw("#   tech           research state + QUEUES, sect adoption");
+            WriteRaw("#   rng            seeded RNG stream states — the quietest fork there is");
+            WriteRaw("#   veil cost      the veil grid and the nav cost field under everything");
+            WriteRaw("#   f0..f7         per-faction roll-up — names the guilty side");
+            WriteRaw("#");
+            WriteRaw("# nav differing while pos still matches = they were told different things.");
+            WriteRaw("# pos differing while nav matches       = same orders, different arithmetic.");
             WriteRaw("#");
             Flush();
         }
@@ -166,6 +192,53 @@ namespace TheWaningBorder.Multiplayer
             Flush();
         }
 
+        /// <summary>
+        /// The state the tick produced, broken down by subsystem and faction.
+        ///
+        /// The aggregate is printed first and in the same position as the old
+        /// one-number form, so older logs and newer logs still line up by eye.
+        /// Everything after it narrows the search: with three matched log pairs
+        /// in the 2026-08-21 investigation the fork tick was known within
+        /// minutes and the guilty SUBSYSTEM was still a guess a day later.
+        /// </summary>
+        public static void Checksum(int tick, in SimStateHash h)
+        {
+            if (!_opened) return;
+
+            _line.Clear();
+            _line.Append("sum  tick=").Append(tick.ToString("D6", CultureInfo.InvariantCulture))
+                 .Append(" = 0x").Append(h.Total.ToString("X8", CultureInfo.InvariantCulture))
+                 .Append("  entities=").Append(h.Entities.ToString(CultureInfo.InvariantCulture))
+                 .Append("  pos=").Append(Hex(h.Pos))
+                 .Append(" rot=").Append(Hex(h.Rot))
+                 .Append(" hp=").Append(Hex(h.Health))
+                 .Append(" nav=").Append(Hex(h.Nav))
+                 .Append(" cbt=").Append(Hex(h.Combat))
+                 .Append(" wrk=").Append(Hex(h.Work))
+                 .Append(" bank=").Append(Hex(h.Bank))
+                 .Append(" tech=").Append(Hex(h.Tech))
+                 .Append(" rng=").Append(Hex(h.Rng))
+                 .Append(" veil=").Append(Hex(h.Veil))
+                 .Append(" cost=").Append(Hex(h.Cost));
+
+            // Only factions that actually have entities. A faction wiped out
+            // stops appearing on BOTH peers at the same tick if they agree --
+            // and if they do not, that line differing IS the finding.
+            const uint EmptyFaction = 2166136261u;
+            for (int f = 0; f < 8; f++)
+            {
+                uint fh = h.FactionAt(f);
+                if (fh == EmptyFaction) continue;
+                _line.Append(" f").Append(f.ToString(CultureInfo.InvariantCulture))
+                     .Append('=').Append(Hex(fh));
+            }
+
+            WriteRaw(_line.ToString());
+            Flush();
+        }
+
+        private static string Hex(uint v) => "0x" + v.ToString("X8", CultureInfo.InvariantCulture);
+
         // ═══════════════════════════════════════════════════════════════
         // MILESTONES
         // ═══════════════════════════════════════════════════════════════
@@ -192,6 +265,18 @@ namespace TheWaningBorder.Multiplayer
         {
             if (_writer == null) return;
             try { _writer.WriteLine(line); } catch { _opened = false; }
+        }
+
+        /// <summary>Write an already-prefixed multi-line block, one line at a
+        /// time, so the writer's own newline convention is used throughout.</summary>
+        private static void WriteRawBlock(string block)
+        {
+            if (_writer == null || string.IsNullOrEmpty(block)) return;
+            foreach (var line in block.Split('\n'))
+            {
+                string trimmed = line.TrimEnd('\r');
+                if (trimmed.Length > 0) WriteRaw(trimmed);
+            }
         }
 
         private static void Flush()

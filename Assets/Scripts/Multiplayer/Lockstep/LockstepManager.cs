@@ -347,6 +347,7 @@ namespace TheWaningBorder.Multiplayer
             LockstepFixedStep.Uninstall();
             LockstepTiming.Reset();
             LockstepLog.Close();
+            LockstepTrace.Close();
 
             // Release the cached query; guard against the world being torn
             // down first (disposing a query of a dead world throws).
@@ -684,6 +685,7 @@ namespace TheWaningBorder.Multiplayer
             // The diffable per-tick record. Opened here so it covers the whole
             // match including the pre-tick-0 wait.
             LockstepLog.Begin(_localPlayerIndex, _isHost);
+            LockstepTrace.Begin();
 
             // Initialize confirmed ticks — start at INPUT_DELAY_TICKS so the first
             // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
@@ -707,6 +709,7 @@ namespace TheWaningBorder.Multiplayer
 
             LockstepLog.Event(_currentTick, "simulation stopped");
             LockstepLog.Close();
+            LockstepTrace.Close();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -835,42 +838,49 @@ namespace TheWaningBorder.Multiplayer
             // Cleanup old tick data
             _remoteCommands.Remove(tick - MAX_TICK_BUFFER);
 
-            // Periodic sync check
-            if (tick % SYNC_CHECK_INTERVAL == 0)
+            // Deterministic mode hashes EVERY tick into the log while still
+            // broadcasting only on the interval. Costs no network traffic, and
+            // it is the difference between "the fork is somewhere in the last
+            // 30 ticks, here are nine suspect entities" and "the fork is this
+            // tick" when the two logs are diffed.
+            //
+            // Desync 2026-08-18 was localised only to ticks 3421-3450 for
+            // exactly this reason: positions were bit-identical at 3420 and
+            // wrong at 3450, with no way to narrow it further.
+            bool syncTick = tick % SYNC_CHECK_INTERVAL == 0;
+            if (syncTick || GameSettings.DeterministicLockstep)
             {
-                uint checksum = ComputeGameStateChecksum();
-                _checksums[tick] = checksum;
-                BroadcastSync(tick, checksum);
-                LockstepLog.Checksum(tick, checksum, _lastChecksumEntityCount);
+                var hash = ComputeSimStateHash();
 
-                // A peer ahead of us may have sent this tick's SYNC before we
-                // computed ours — compare against the stash now, so the
-                // mismatch is detected on BOTH sides and both write dumps.
-                if (_pendingRemoteChecksums.TryGetValue(tick, out uint earlyRemote))
+                // The rolling trace, so the ticks BEFORE the fork survive. A
+                // desync is always detected later than it happens (the sync
+                // interval guarantees it), and until this existed the only
+                // per-entity evidence was a snapshot taken at detection time —
+                // twenty ticks of consequence after the cause.
+                LockstepTrace.Record(tick, hash, LockstepTrace.CaptureBuffer);
+                LockstepLog.Checksum(tick, hash);
+
+                if (syncTick)
                 {
-                    _pendingRemoteChecksums.Remove(tick);
-                    if (earlyRemote != checksum)
-                        OnChecksumMismatch(tick, checksum, earlyRemote, "stashed early SYNC");
-                }
+                    _checksums[tick] = hash.Total;
+                    BroadcastSync(tick, hash.Total);
 
-                // The checksum history was never pruned — one entry every sync
-                // tick, kept for the life of the match. Only recent ones can
-                // still be compared against an arriving SYNC.
-                _checksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
-                _pendingRemoteChecksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
-            }
-            else if (GameSettings.DeterministicLockstep)
-            {
-                // Deterministic mode hashes EVERY tick into the log while still
-                // broadcasting only on the interval. Costs no network traffic,
-                // and it is the difference between "the fork is somewhere in
-                // the last 30 ticks, here are nine suspect entities" and "the
-                // fork is this tick" when the two logs are diffed.
-                //
-                // Desync 2026-08-18 was localised only to ticks 3421-3450 for
-                // exactly this reason: positions were bit-identical at 3420 and
-                // wrong at 3450, with no way to narrow it further.
-                LockstepLog.Checksum(tick, ComputeGameStateChecksum(), _lastChecksumEntityCount);
+                    // A peer ahead of us may have sent this tick's SYNC before
+                    // we computed ours — compare against the stash now, so the
+                    // mismatch is detected on BOTH sides and both write dumps.
+                    if (_pendingRemoteChecksums.TryGetValue(tick, out uint earlyRemote))
+                    {
+                        _pendingRemoteChecksums.Remove(tick);
+                        if (earlyRemote != hash.Total)
+                            OnChecksumMismatch(tick, hash.Total, earlyRemote, "stashed early SYNC");
+                    }
+
+                    // The checksum history was never pruned — one entry every
+                    // sync tick, kept for the life of the match. Only recent
+                    // ones can still be compared against an arriving SYNC.
+                    _checksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
+                    _pendingRemoteChecksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
+                }
             }
         }
 
@@ -1524,10 +1534,21 @@ namespace TheWaningBorder.Multiplayer
         {
             if (peerDelayTicks <= LockstepTiming.InputDelayTicks) return;
             if (peerDelayTicks > 30) return;   // corrupt-datagram guard: >1s of delay is never right
+            int previous = LockstepTiming.InputDelayTicks;
             LockstepTiming.InputDelayTicks = peerDelayTicks;
             UnityEngine.Debug.Log(
                 $"[Lockstep] input delay raised to {peerDelayTicks} ticks "
                 + $"({LockstepTiming.InputDelayMs:0} ms) to match a peer.");
+
+            // Into the DIFFABLE log, with the tick it happened on. Input delay
+            // decides which tick a command executes on, so if the two peers
+            // adopt a new delay at different ticks a command issued in that
+            // window can land on different ticks -- a replication fork with a
+            // perfectly healthy network. In two of the three 2026-08-21
+            // matches the host raised its delay AFTER tick 0 had begun and
+            // nothing recorded it here.
+            LockstepLog.Event(_currentTick,
+                $"input delay {previous} -> {peerDelayTicks} ticks (adopted from a peer)");
         }
 
         private void SendPing(float now)
@@ -1700,46 +1721,56 @@ namespace TheWaningBorder.Multiplayer
                 if (world == null || !world.IsCreated) return;
                 var em = world.EntityManager;
 
-                var sb = new StringBuilder(64 * 1024);
+                var sb = new StringBuilder(256 * 1024);
                 sb.AppendLine($"=== DESYNC tick {tick} ===");
                 sb.AppendLine($"player       : {_localPlayerIndex} ({(_isHost ? "host" : "client")})");
                 sb.AppendLine($"local  cksum : 0x{localChecksum:X8}");
                 sb.AppendLine($"remote cksum : 0x{remoteChecksum:X8}");
                 sb.AppendLine($"build        : {MatchSettingsSync.BuildLabel} fp={MatchSettingsSync.Fingerprint}");
                 sb.AppendLine($"tick rate    : {TICKS_PER_SECOND} Hz, input delay {INPUT_DELAY_TICKS} ticks");
+                sb.AppendLine($"sync every   : {SYNC_CHECK_INTERVAL} ticks (so the FORK is up to that many ticks earlier)");
                 sb.AppendLine();
 
-                var query = GetNetworkedQuery(em);
-                using var entities = query.ToEntityArray(Allocator.Temp);
-                using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
+                // The two things a dump could never answer before: what is
+                // this machine, and who does this peer think plays whom. Both
+                // legitimately differ between peers, so neither can live in the
+                // diffable body -- but "their CPU has a different core count"
+                // and "we each spawned an AI for the other's faction" are both
+                // whole-investigation answers, and neither was recoverable
+                // from the 2026-08-21 logs.
+                sb.AppendLine("---- this machine ----");
+                sb.Append(LockstepEnvironment.Describe());
+                sb.AppendLine();
+                sb.AppendLine("---- faction control (as THIS peer sees it) ----");
+                sb.Append(LockstepEnvironment.DescribeFactionControl());
+                sb.AppendLine();
 
-                // Sorted by NetworkId so the two peers' dumps line up in a plain
-                // text diff even when their chunk layouts differ.
-                var rows = new List<(int Id, string Line)>(entities.Length);
-                for (int i = 0; i < entities.Length; i++)
+                // Full per-entity state in the SAME row format as the rolling
+                // trace, sorted by network id so two peers' dumps line up in a
+                // plain text diff even when their chunk layouts differ.
+                var snapshots = new List<EntitySnapshot>(1024);
+                var hash = LockstepStateHash.Compute(
+                    em, GetNetworkedQuery(em), detailed: true, snapshots: snapshots);
+
+                sb.AppendLine("---- state now (tick " + tick + ") ----");
+                sb.AppendLine($"entities     : {hash.Entities}");
+                sb.AppendLine($"pos=0x{hash.Pos:X8} rot=0x{hash.Rot:X8} hp=0x{hash.Health:X8} " +
+                              $"nav=0x{hash.Nav:X8} cbt=0x{hash.Combat:X8} wrk=0x{hash.Work:X8}");
+                sb.AppendLine($"bank=0x{hash.Bank:X8} tech=0x{hash.Tech:X8} rng=0x{hash.Rng:X8} " +
+                              $"veil=0x{hash.Veil:X8} cost=0x{hash.Cost:X8}");
+                for (int f = 0; f < 8; f++)
                 {
-                    var e = entities[i];
-                    int hpv = -1, hpm = -1;
-                    if (em.HasComponent<Health>(e))
-                    {
-                        var hp = em.GetComponentData<Health>(e);
-                        hpv = hp.Value; hpm = hp.Max;
-                    }
-                    string fac = em.HasComponent<FactionTag>(e)
-                        ? em.GetComponentData<FactionTag>(e).Value.ToString() : "-";
-                    float3 p = em.HasComponent<Unity.Transforms.LocalTransform>(e)
-                        ? em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position
-                        : default;
-
-                    // Invariant on purpose: desync #6's dumps came off a
-                    // Portuguese Windows with decimal COMMAS — diffed against
-                    // a dot-locale peer, every line is a false difference in
-                    // the one file that exists to be diffed.
-                    rows.Add((ids[i].NetworkId, FormattableString.Invariant(
-                        $"id={ids[i].NetworkId,-10} spawn={ids[i].SpawnTick,-6} fac={fac,-7} hp={hpv}/{hpm,-6} pos=({p.x:F3},{p.y:F3},{p.z:F3})")));
+                    uint fh = hash.FactionAt(f);
+                    if (fh == 2166136261u) continue;
+                    sb.AppendLine($"faction {(Faction)f,-7} = 0x{fh:X8}");
                 }
-                rows.Sort((a, b) => a.Id.CompareTo(b.Id));
-                foreach (var r in rows) sb.AppendLine(r.Line);
+                sb.AppendLine();
+
+                for (int i = 0; i < snapshots.Count; i++)
+                {
+                    var snap = snapshots[i];
+                    LockstepTrace.AppendEntityLine(sb, tick, ref snap);
+                }
 
                 sb.AppendLine();
                 for (int f = 0; f < 8; f++)
@@ -1754,9 +1785,18 @@ namespace TheWaningBorder.Multiplayer
                 System.IO.File.WriteAllText(
                     TheWaningBorder.Core.Diagnostics.MatchLogSession.File(fileName), sb.ToString());
 
+                // The rolling trace: every tick in the window, not just this
+                // one. This is the file that contains the fork itself, because
+                // the fork is always earlier than the detection.
+                string traceName = $"Desync_tick{tick}_p{_localPlayerIndex}_trace.log";
+                int traceTicks = LockstepTrace.Flush(
+                    TheWaningBorder.Core.Diagnostics.MatchLogSession.File(traceName),
+                    tick, _localPlayerIndex, _isHost);
+
                 UnityEngine.Debug.LogError(
-                    $"[Lockstep] Desync state written to the match log folder ({fileName}). " +
-                    "Diff it against the other player's copy — the first differing line is the fork.");
+                    $"[Lockstep] Desync state written to the match log folder ({fileName}" +
+                    (traceTicks > 0 ? $", plus {traceTicks} ticks of per-entity history in {traceName}" : "") +
+                    "). Diff each against the other player's copy — the first differing line is the fork.");
             }
             catch (Exception e)
             {
@@ -1784,7 +1824,9 @@ namespace TheWaningBorder.Multiplayer
         // ═══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Hash of everything the two peers must agree on.
+        /// Hash of everything the two peers must agree on, plus the
+        /// per-subsystem and per-faction breakdown that makes a fork
+        /// attributable.
         ///
         /// The old version XORed per-entity terms of NetworkId and health.
         /// XOR is order-independent, which was the right instinct — entity
@@ -1801,103 +1843,25 @@ namespace TheWaningBorder.Multiplayer
         /// per-entity hashes, so it changes the total. Positions are included
         /// because under the fixed-step simulation they are deterministic; if
         /// they ever drift again, that is the bug, and this is what reports it.
+        ///
+        /// The arithmetic itself lives in <see cref="LockstepStateHash"/>, in
+        /// ONE place: the total goes over the wire, so a second copy that could
+        /// drift from this one would take the whole match down with it.
         /// </summary>
-        private uint ComputeGameStateChecksum()
+        private SimStateHash ComputeSimStateHash()
         {
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return 0u;
+            if (world == null || !world.IsCreated) return default;
 
             var em = world.EntityManager;
-            var query = GetNetworkedQuery(em);
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var ids = query.ToComponentDataArray<NetworkedEntity>(Allocator.Temp);
+            var hash = LockstepStateHash.Compute(
+                em, GetNetworkedQuery(em),
+                detailed: GameSettings.DeterministicLockstep,
+                snapshots: LockstepTrace.CaptureBuffer);
 
-            _lastChecksumEntityCount = entities.Length;
-
-            unchecked
-            {
-                uint total = (uint)entities.Length * 2654435761u;
-
-                for (int i = 0; i < entities.Length; i++)
-                {
-                    uint h = 2166136261u;
-                    Mix(ref h, (uint)ids[i].NetworkId);
-
-                    var e = entities[i];
-
-                    if (em.HasComponent<Health>(e))
-                    {
-                        var hp = em.GetComponentData<Health>(e);
-                        Mix(ref h, (uint)hp.Value);
-                        Mix(ref h, (uint)hp.Max);
-                    }
-
-                    if (em.HasComponent<FactionTag>(e))
-                        Mix(ref h, (uint)(int)em.GetComponentData<FactionTag>(e).Value);
-
-                    // Positions, quantised to a millimetre. Raw float bits would
-                    // make the checksum fire on differences far below anything
-                    // that can affect gameplay; a millimetre is well under any
-                    // decision threshold in the simulation and still catches a
-                    // genuine divergence within a tick or two of it starting.
-                    if (em.HasComponent<Unity.Transforms.LocalTransform>(e))
-                    {
-                        var p = em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
-                        Mix(ref h, (uint)(int)math.round(p.x * 1000f));
-                        Mix(ref h, (uint)(int)math.round(p.y * 1000f));
-                        Mix(ref h, (uint)(int)math.round(p.z * 1000f));
-
-                        // Deterministic mode promises a BIT-EXACT simulation, so
-                        // hash the exact bits. Desync #6 proved the quantised
-                        // mixes alone are not enough: sub-millimetre drift hid
-                        // below them for 13 clean checks and only surfaced once
-                        // it crossed a decision threshold (a build-range test),
-                        // reporting tick 420 for a divergence born around tick
-                        // 31. With the raw bits in, the fork is caught at the
-                        // first sync check after it exists, and the fork tick
-                        // points at the guilty window instead of a symptom.
-                        if (GameSettings.DeterministicLockstep)
-                        {
-                            Mix(ref h, math.asuint(p.x));
-                            Mix(ref h, math.asuint(p.y));
-                            Mix(ref h, math.asuint(p.z));
-                        }
-                    }
-
-                    total += h;
-                }
-
-                // Faction banks sit on bank entities that carry no
-                // NetworkedEntity, so the scan above never saw them — and an
-                // economy that has quietly diverged is exactly the desync that
-                // only surfaces much later as "how can they afford that".
-                for (int f = 0; f < 8; f++)
-                {
-                    if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(
-                            em, (Faction)f, out var bank)) continue;
-                    uint bh = 2166136261u;
-                    Mix(ref bh, (uint)f);
-                    Mix(ref bh, (uint)bank.Supplies);
-                    Mix(ref bh, (uint)bank.Iron);
-                    Mix(ref bh, (uint)bank.Veilstone);
-                    Mix(ref bh, (uint)bank.Veilsteel);
-                    total += bh;
-                }
-
-                return total;
-            }
+            _lastChecksumEntityCount = hash.Entities;
+            return hash;
         }
 
-        /// <summary>FNV-1a round over a 32-bit word.</summary>
-        private static void Mix(ref uint h, uint value)
-        {
-            unchecked
-            {
-                h ^= value & 0xFF; h *= 16777619u;
-                h ^= (value >> 8) & 0xFF; h *= 16777619u;
-                h ^= (value >> 16) & 0xFF; h *= 16777619u;
-                h ^= (value >> 24) & 0xFF; h *= 16777619u;
-            }
-        }
     }
 }
