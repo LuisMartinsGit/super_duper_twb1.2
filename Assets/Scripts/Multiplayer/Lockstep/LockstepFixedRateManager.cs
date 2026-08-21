@@ -112,6 +112,22 @@ namespace TheWaningBorder.Multiplayer
 
         public static void Install(Unity.Entities.World world, float timestep)
         {
+            // Re-phase every periodic system before the first tick.
+            //
+            // SimulationSystemGroup has been running per-frame, with real
+            // delta time, since the world was created — so every
+            // `_acc += SystemAPI.Time.DeltaTime` scheduler in the sim carries
+            // an arbitrary, machine-dependent phase by the time we get here.
+            // From this point both peers advance in perfect lockstep, which
+            // preserves that difference forever instead of correcting it.
+            //
+            // Desync 2026-08-21: StuckRedirectSystem fired its detour on tick
+            // 3492 on one peer and 3495 on the other; the detour target is
+            // computed from the unit's current position, so the two peers sent
+            // a 6 m/s scout to points 0.6 m apart and the worlds forked. See
+            // SimCadence.
+            SimCadence.BeginMatch();
+
             // LOUD failures: a silent early-return here means the whole match
             // runs frame-driven while believing it is deterministic — the
             // worst possible failure mode, detectable only as a desync.
@@ -120,6 +136,7 @@ namespace TheWaningBorder.Multiplayer
                 UnityEngine.Debug.LogError(
                     "[LockstepFixedStep] Install FAILED: no ECS world. The match will run " +
                     "frame-driven and desync.");
+                LockstepLog.NoteFixedStep(false, timestep);
                 return;
             }
             SimGroup = world.GetExistingSystemManaged<SimulationSystemGroup>();
@@ -128,6 +145,7 @@ namespace TheWaningBorder.Multiplayer
                 UnityEngine.Debug.LogError(
                     "[LockstepFixedStep] Install FAILED: no SimulationSystemGroup. The match " +
                     "will run frame-driven and desync.");
+                LockstepLog.NoteFixedStep(false, timestep);
                 return;
             }
             _world = world;
@@ -137,6 +155,7 @@ namespace TheWaningBorder.Multiplayer
             // The presentation layer interpolates views only while this is on —
             // a fixed-step world publishes transforms in discrete jumps.
             Core.Multiplayer.LockstepTiming.FixedStepActive = true;
+            LockstepLog.NoteFixedStep(true, timestep);
             UnityEngine.Debug.Log(
                 $"[LockstepFixedStep] Installed on '{world.Name}' at {1f / timestep:0} Hz.");
         }

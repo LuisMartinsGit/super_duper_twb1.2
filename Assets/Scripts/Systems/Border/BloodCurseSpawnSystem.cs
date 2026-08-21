@@ -48,8 +48,9 @@ namespace TheWaningBorder.Systems.Border
 
         public static readonly System.Collections.Generic.List<PendingBloodSpawn> Pending = new();
 
-        private float _acc;
+        private SimCadence.Periodic _acc;
         private Unity.Mathematics.Random _rng;
+        private int _rngEpoch;
 
         /// <summary>
         /// The RNG's current state, for the lockstep checksum.
@@ -108,9 +109,17 @@ namespace TheWaningBorder.Systems.Border
         {
             ProcessPending(SystemAPI.Time.ElapsedTime);
 
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < BloodSpawnInterval) return;
-            _acc -= BloodSpawnInterval;
+            // Re-seed per match. The system object survives scene loads, so
+            // without this the second match in a session starts from wherever
+            // the first left the stream -- a different position on each peer,
+            // and a silent fork the moment it is next drawn from.
+            if (_rngEpoch != SimCadence.Epoch)
+            {
+                _rngEpoch = SimCadence.Epoch;
+                _rng = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xB100D) | 1u);
+            }
+
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, BloodSpawnInterval)) return;
 
             // One announced contamination at a time — its countdown must
             // resolve before the next pool can quicken.

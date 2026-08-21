@@ -63,9 +63,16 @@ namespace TheWaningBorder.Multiplayer
             var ci = CultureInfo.CurrentCulture;
             Line(sb, prefix, "culture", $"{ci.Name} decimal='{ci.NumberFormat.NumberDecimalSeparator}'");
 
-            Line(sb, prefix, "fixedstep", LockstepFixedStep.Active
-                ? $"ACTIVE timestep={Fmt(LockstepFixedStep.RateManager?.Timestep ?? 0f)}"
-                : "NOT INSTALLED — the sim is running per-frame, not per-tick");
+            // NOT LockstepFixedStep.Active. This block is written from
+            // LockstepLog.Begin, which runs inside StartSimulation() — and
+            // LockstepBootstrap installs the fixed step AFTER that call, so
+            // Active is always false here and the line always read "NOT
+            // INSTALLED" even on a perfectly healthy match. Report the
+            // intent; LockstepLog.NoteFixedStep records the outcome once it
+            // is actually known.
+            Line(sb, prefix, "fixedstep", GameSettings.DeterministicLockstep
+                ? "requested (installed later in bootstrap — see the fixedstep line below)"
+                : "OFF — the sim runs per-frame, not per-tick");
 
             Line(sb, prefix, "frame", $"targetFrameRate={Application.targetFrameRate} " +
                                       $"vSync={QualitySettings.vSyncCount}");
@@ -97,12 +104,16 @@ namespace TheWaningBorder.Multiplayer
                 bool mapped = GameSettings.FactionToPlayerMapping.TryGetValue(f, out ulong clientId);
                 bool human = GameSettings.IsFactionHumanControlled(f);
                 bool local = GameSettings.IsFactionLocallyControlled(f);
-                if (!mapped && !human && !local) continue;
 
+                // Every faction, unconditionally. The first version skipped
+                // any faction that was neither mapped nor human — which is
+                // precisely the AI factions, the ones whose brains are the
+                // asymmetry worth seeing. Eight fixed lines also means the two
+                // peers' headers diff cleanly against each other.
                 Line(sb, prefix, $"faction {f}",
                      $"human={human} local={local} mapped={mapped}" +
                      (mapped ? $" client={clientId}" : "") +
-                     (human ? "" : "  <- AI BRAIN RUNS HERE"));
+                     (human ? "" : "  <- AI, brain runs only where ShouldRunAIBrains()"));
             }
             return sb.ToString();
         }

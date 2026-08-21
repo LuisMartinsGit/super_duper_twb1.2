@@ -29,7 +29,7 @@ namespace TheWaningBorder.Systems.Sect
         /// frame is pure waste when the effect is measured in HP per second.</summary>
         private const float TickInterval = 0.5f;
 
-        private float _accum;
+        private SimCadence.Periodic _accum;
 
         public void OnCreate(ref SystemState state)
         {
@@ -38,10 +38,8 @@ namespace TheWaningBorder.Systems.Sect
 
         public void OnUpdate(ref SystemState state)
         {
-            _accum += SystemAPI.Time.DeltaTime;
-            if (_accum < TickInterval) return;
-            float elapsed = _accum;
-            _accum = 0f;
+            float elapsed = _accum.DueStep(SystemAPI.Time.DeltaTime, TickInterval);
+            if (elapsed <= 0f) return;
 
             var em = state.EntityManager;
 

@@ -37,7 +37,7 @@ namespace TheWaningBorder.Systems.Buildings
     public partial struct BuildingCultureAutoLevelSystem : ISystem
     {
         private const float ScanInterval = 0.5f;
-        private float _scanTimer;
+        private SimCadence.Periodic _scanTimer;
 
         public void OnCreate(ref SystemState state)
         {
@@ -46,9 +46,7 @@ namespace TheWaningBorder.Systems.Buildings
 
         public void OnUpdate(ref SystemState state)
         {
-            _scanTimer += SystemAPI.Time.DeltaTime;
-            if (_scanTimer < ScanInterval) return;
-            _scanTimer = 0f;
+            if (_scanTimer.DueStep(SystemAPI.Time.DeltaTime, ScanInterval) <= 0f) return;
 
             var em = state.EntityManager;
 

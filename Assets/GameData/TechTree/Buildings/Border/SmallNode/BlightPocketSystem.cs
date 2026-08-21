@@ -36,7 +36,7 @@ namespace TheWaningBorder.Systems.Border
     {
         private const float TickInterval = 1f;
 
-        private float _acc;
+        private SimCadence.Periodic _acc;
         private Unity.Mathematics.Random _rng;
         private EntityQuery _hallQuery;
         private int _epoch = -1;
@@ -60,13 +60,16 @@ namespace TheWaningBorder.Systems.Border
             if (_epoch != TheWaningBorder.Bootstrap.SpawnDelayHelper.MatchEpoch)
             {
                 _epoch = TheWaningBorder.Bootstrap.SpawnDelayHelper.MatchEpoch;
-                _acc = 0f;
+                // _acc re-phases itself — SimCadence.Periodic resets on the
+                // first update after SimCadence.BeginMatch(), which fires when
+                // the fixed-step clock starts rather than here at bootstrap.
+                // That distinction is the whole bug: this epoch is bumped
+                // BEFORE the sim stops running per-frame, so a reset here is
+                // followed by more machine-dependent accumulation.
                 _rng = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0x51073) | 1u);
             }
 
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var em = EntityManager;
             bool hasField = SystemAPI.HasSingleton<VeilField>();

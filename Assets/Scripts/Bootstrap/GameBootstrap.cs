@@ -289,6 +289,13 @@ namespace TheWaningBorder.Bootstrap
             SpawnDelayHelper.MapPopulated = false;
             SpawnDelayHelper.MatchEpoch++;
 
+            // Same idea for periodic-system phase. In multiplayer this is only
+            // the first of two bumps: the sim keeps running per-frame after
+            // this point, so LockstepFixedStep.Install re-phases again at the
+            // moment the deterministic clock actually starts. Here it covers
+            // single-player and non-deterministic matches.
+            SimCadence.BeginMatch();
+
             EnsureECSWorld();
             Trace("after EnsureECSWorld");
 

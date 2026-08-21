@@ -132,7 +132,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// receded).</summary>
         private const float UnreachableMarkSeconds = 45f;
 
-        private float _acc;
+        private SimCadence.Periodic _acc;
         private EntityQuery _needQuery;
 
         protected override void OnCreate()
@@ -157,10 +157,8 @@ namespace TheWaningBorder.Systems.Navigation
                     bootEcb.AddComponent(ents[i], new StuckTracker { BestDist = float.MaxValue });
             }
 
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < EvalInterval) return;
-            float step = _acc;
-            _acc = 0f;
+            float step = _acc.DueStep(SystemAPI.Time.DeltaTime, EvalInterval);
+            if (step <= 0f) return;
 
             var em = EntityManager;
 

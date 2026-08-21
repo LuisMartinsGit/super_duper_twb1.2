@@ -43,6 +43,7 @@ namespace TheWaningBorder.Systems.Work
         private EntityQuery _veilFieldQuery;
         private EntityQuery _hallQuery; // hearth check for corruption immunity
         private Unity.Mathematics.Random _corruptRng;
+        private int _rngEpoch;
 
         /// <summary>The corruption RNG's current state, for the lockstep
         /// checksum. See BloodCurseSpawnSystem.RngState for why a seeded
@@ -74,6 +75,16 @@ namespace TheWaningBorder.Systems.Work
 
         public void OnUpdate(ref SystemState state)
         {
+            // Re-seed per match -- see BloodCurseSpawnSystem for why. Systems
+            // outlive a match, so a stream left mid-position by the previous
+            // one differs per peer and forks the next.
+            if (_rngEpoch != SimCadence.Epoch)
+            {
+                _rngEpoch = SimCadence.Epoch;
+                _corruptRng = new Unity.Mathematics.Random(
+                    (uint)(GameSettings.SpawnSeed ^ 0xC0221) | 1u);
+            }
+
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
             _now = SystemAPI.Time.ElapsedTime; // for UnreachableMark expiry checks

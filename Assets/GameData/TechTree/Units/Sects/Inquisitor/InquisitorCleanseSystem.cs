@@ -22,7 +22,7 @@ namespace TheWaningBorder.Systems.Sect
         private const float CleanseRange = 10f;
         private const float CleansePeriod = 10f;
 
-        private float _accum;
+        private SimCadence.Periodic _accum;
 
         protected override void OnCreate()
         {
@@ -31,10 +31,8 @@ namespace TheWaningBorder.Systems.Sect
 
         protected override void OnUpdate()
         {
-            _accum += SystemAPI.Time.DeltaTime;
-            if (_accum < TickInterval) return;
-            float elapsed = _accum;
-            _accum = 0f;
+            float elapsed = _accum.DueStep(SystemAPI.Time.DeltaTime, TickInterval);
+            if (elapsed <= 0f) return;
 
             var em = EntityManager;
 

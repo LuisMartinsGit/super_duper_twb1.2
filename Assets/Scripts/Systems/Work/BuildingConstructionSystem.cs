@@ -249,9 +249,7 @@ namespace TheWaningBorder.Systems.Work
         {
             // Throttled: this is an O(builders x sites) proximity scan and the
             // answer cannot change meaningfully between frames.
-            _adoptTimer += SystemAPI.Time.DeltaTime;
-            if (_adoptTimer < AdoptScanInterval) return;
-            _adoptTimer = 0f;
+            if (_adoptTimer.DueStep(SystemAPI.Time.DeltaTime, AdoptScanInterval) <= 0f) return;
 
             // Collect first: issuing a build adds components, and structural
             // changes invalidate an in-flight query iteration.
@@ -330,7 +328,7 @@ namespace TheWaningBorder.Systems.Work
             return false;
         }
 
-        private float _adoptTimer;
+        private SimCadence.Periodic _adoptTimer;
         private const float AdoptScanInterval = 1.0f;
 
         /// <summary>

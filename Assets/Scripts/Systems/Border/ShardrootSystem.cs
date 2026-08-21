@@ -210,10 +210,8 @@ namespace TheWaningBorder.Systems.Border
             // predated the UI redesign and had no surviving consumer.)
             if (state.Found != 0)
             {
-                _beaconAcc += SystemAPI.Time.DeltaTime;
-                if (_beaconAcc >= BeaconInterval)
+                if (_beaconAcc.Due(SystemAPI.Time.DeltaTime, BeaconInterval))
                 {
-                    _beaconAcc = 0f;
                     foreach (var xf in SystemAPI
                         .Query<RefRO<LocalTransform>>()
                         .WithAll<ShardrootTag>())
@@ -230,7 +228,7 @@ namespace TheWaningBorder.Systems.Border
             em.SetComponentData(stateEntity, state);
         }
 
-        private float _beaconAcc;
+        private SimCadence.Periodic _beaconAcc;
         private const float BeaconInterval = 4f;
 
         /// <summary>

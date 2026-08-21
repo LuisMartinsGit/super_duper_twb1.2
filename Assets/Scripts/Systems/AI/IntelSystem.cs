@@ -29,7 +29,7 @@ namespace TheWaningBorder.AI
     public partial class IntelSystem : SystemBase
     {
         private const float TickInterval = 1f;
-        private float _acc;
+        private SimCadence.Periodic _acc;
 
         // Damage signal stamped per damaged own-unit per tick.
         private const int DamageThreatStamp = 40;
@@ -46,9 +46,7 @@ namespace TheWaningBorder.AI
             // run on the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
             if (!GameSettings.ShouldRunAIBrains()) return;
 
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var em = EntityManager;
             float now = (float)SystemAPI.Time.ElapsedTime;

@@ -48,7 +48,7 @@ namespace TheWaningBorder.Systems.Border
         private static readonly BorderDebuff DeepDebuff =
             new BorderDebuff { DefPenalty = 0.3f, AttPenalty = 0.3f, SpeedPenalty = 0.35f };
 
-        private float _acc;
+        private SimCadence.Periodic _acc;
         private EntityQuery _unitQuery;
         private EntityQuery _buildingQuery;
         private EntityQuery _hallQuery; // flee targets for exposed workers
@@ -76,9 +76,7 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var field = SystemAPI.GetSingleton<VeilField>();
             if (field.Initialised == 0 || !field.Saturation.IsCreated) return;

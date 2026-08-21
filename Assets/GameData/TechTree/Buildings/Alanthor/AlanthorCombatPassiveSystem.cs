@@ -25,15 +25,13 @@ namespace TheWaningBorder.Systems.Abilities
     public partial struct AlanthorCombatPassiveSystem : ISystem
     {
         private const float Interval = 0.2f;
-        private float _timer;
+        private SimCadence.Periodic _timer;
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnUpdate(ref SystemState state)
         {
-            _timer += SystemAPI.Time.DeltaTime;
-            if (_timer < Interval) return;
-            float dt = _timer;
-            _timer = 0f;
+            float dt = _timer.DueStep(SystemAPI.Time.DeltaTime, Interval);
+            if (dt <= 0f) return;
 
             float eps = AlanthorPassiveTuning.StillEpsilonSq;
 

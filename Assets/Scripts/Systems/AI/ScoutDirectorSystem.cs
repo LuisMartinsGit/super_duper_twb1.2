@@ -40,7 +40,7 @@ namespace TheWaningBorder.AI
         private const float ThreatPenaltyFactor = 0.2f;
         private const float AssignmentHoldSeconds = 12f; // don't re-assign a zone someone is heading to
 
-        private float _acc;
+        private SimCadence.Periodic _acc;
 
         private class ZoneState
         {
@@ -96,9 +96,7 @@ namespace TheWaningBorder.AI
             // the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
             if (!GameSettings.ShouldRunAIBrains()) return;
 
-            _acc += SystemAPI.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var em = EntityManager;
             float now = (float)SystemAPI.Time.ElapsedTime;

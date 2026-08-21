@@ -127,6 +127,26 @@ namespace TheWaningBorder.Multiplayer
             Flush();
         }
 
+        /// <summary>
+        /// Record whether the fixed-step driver actually installed.
+        ///
+        /// Separate from the header block because the header is written by
+        /// StartSimulation() and the driver is installed after it returns — so
+        /// anything asking LockstepFixedStep.Active at header time gets
+        /// "false" on a perfectly healthy match. Called from Install, so this
+        /// lands immediately below the header and says what really happened.
+        /// </summary>
+        public static void NoteFixedStep(bool active, float timestep)
+        {
+            if (!_opened) return;
+            WriteRaw(active
+                ? $"# fixedstep      INSTALLED timestep={timestep.ToString("F6", CultureInfo.InvariantCulture)} " +
+                  $"({(timestep > 0f ? (1f / timestep) : 0f).ToString("F1", CultureInfo.InvariantCulture)} Hz)"
+                : "# fixedstep      FAILED TO INSTALL — the sim is running per-frame; expect drift");
+            WriteRaw("#");
+            Flush();
+        }
+
         public static void Close()
         {
             if (_writer == null) { _opened = false; return; }
