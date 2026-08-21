@@ -46,13 +46,31 @@
 public static class SimCadence
 {
     /// <summary>
+    /// The epoch, in a SharedStatic rather than a plain static field.
+    ///
+    /// Burst refuses to compile a load from a mutable static (BC1040), and
+    /// several of the systems using <see cref="Periodic"/> are Bursted
+    /// ISystems — so a plain `static int` compiles fine under dotnet and then
+    /// fails the actual player build. SharedStatic is the supported way to
+    /// share a mutable value between managed code and Burst-compiled jobs.
+    /// </summary>
+    private static readonly Unity.Burst.SharedStatic<int> EpochRef =
+        Unity.Burst.SharedStatic<int>.GetOrCreate<EpochContext, EpochKey>();
+
+    // Two marker types purely to key the shared slot. They cannot be the
+    // enclosing class: SharedStatic takes them as type arguments and a static
+    // class is not a legal type argument (CS0718).
+    private class EpochContext { }
+    private class EpochKey { }
+
+    /// <summary>
     /// Bumped once per match, before the first tick. Starts at 0 so that a
     /// default-initialised <see cref="Periodic"/> (whose _epoch is also 0)
     /// resets on its first update of the first match — and so that a build
     /// which never calls <see cref="BeginMatch"/> behaves exactly as it did
     /// before this type existed.
     /// </summary>
-    public static int Epoch { get; private set; }
+    public static int Epoch => EpochRef.Data;
 
     /// <summary>
     /// Start a new match epoch. Call once, after the systems exist and before
@@ -60,7 +78,7 @@ public static class SimCadence
     /// multiplayer. Every <see cref="Periodic"/> re-phases to zero on its next
     /// update, so all peers share a phase from tick 0.
     /// </summary>
-    public static void BeginMatch() => Epoch++;
+    public static void BeginMatch() => EpochRef.Data++;
 
     /// <summary>
     /// A periodic timer that cannot carry a phase across matches.
