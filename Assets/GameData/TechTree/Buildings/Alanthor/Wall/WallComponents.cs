@@ -82,17 +82,6 @@ public struct WallUpgradeState : IComponentData
 }
 
 /// <summary>
-/// Presentation-only marker added during a UI hover-preview of the
-/// candidate instances (AlanthorWall.GateRegionSpan = 3) the player is
-/// about to convert to a gate.
-/// Cleared on pointer-leave. PresentationSpawnSystem rims tagged
-/// instances with the accent colour. No simulation behaviour.
-/// (task-109 phase 5, lives here so the segment-level conversion
-/// path in Phase 6 can already query it.)
-/// </summary>
-public struct WallInstancePreviewTag : IComponentData { }
-
-/// <summary>
 /// Optional segment-level pointer to the last-clicked instance — stored
 /// on the SEGMENT entity, references the wall INSTANCE the player
 /// right-clicked. Used by the gate-conversion command (Phase 6) to pick

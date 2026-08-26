@@ -26,47 +26,9 @@ namespace TheWaningBorder.AI
         Expand = 6
     }
 
-    /// <summary>
-    /// Mission status enumeration.
-    /// </summary>
-    public enum MissionStatus : byte
-    {
-        Pending = 0,
-        Active = 1,
-        InProgress = 2,
-        Completed = 3,
-        Failed = 4,
-        Cancelled = 5
-    }
-
-    /// <summary>
-    /// Buffer element for tracking armies assigned to a mission.
-    /// </summary>
-    public struct AssignedArmy : IBufferElementData
-    {
-        /// <summary>The army entity assigned to this mission</summary>
-        public Entity ArmyEntity;
-
-        /// <summary>Combat strength contributed by this army</summary>
-        public int Strength;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // ARMY SYSTEM
     // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Army status enumeration.
-    /// </summary>
-    public enum ArmyStatus : byte
-    {
-        Idle = 0,
-        Moving = 1,
-        Attacking = 2,
-        Defending = 3,
-        Retreating = 4,
-        Regrouping = 5
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // MILITARY STATE

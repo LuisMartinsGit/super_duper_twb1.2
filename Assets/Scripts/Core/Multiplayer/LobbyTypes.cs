@@ -45,18 +45,6 @@ namespace TheWaningBorder.Core.Config
     }
 
     /// <summary>
-    /// Alias for SlotType - used by some Multiplayer code.
-    /// Values match SlotType for easy conversion.
-    /// </summary>
-    public enum LobbySlotType
-    {
-        Empty = 0,
-        Human = 1,
-        AI = 2,
-        Observer = 3
-    }
-
-    /// <summary>
     /// A player slot in the lobby.
     /// </summary>
     public class PlayerSlot

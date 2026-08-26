@@ -135,16 +135,6 @@ public struct PassiveWorkerTag : IComponentData { }
 /// </summary>
 public struct UnhealableTag : IComponentData { }
 
-/// <summary>
-/// Tags a unit as belonging to an army group.
-/// ArmyId of -1 indicates a scout (unassigned).
-/// </summary>
-public struct ArmyTag : IComponentData
-{
-    public int ArmyId;
-    public Entity ArmyEntity;  // Add this field
-}
-
 // ===================================================================
 // PARKED — Runai / Feraldis / Sect / Era-2-shared content not yet
 // broken into per-culture/per-entity files (mirrors the parked SOs).

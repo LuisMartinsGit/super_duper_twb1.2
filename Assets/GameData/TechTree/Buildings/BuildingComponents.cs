@@ -236,9 +236,6 @@ public struct FerSiegeYardTag : IComponentData { }
 /// <summary>Small religious building for sects.</summary>
 public struct ChapelSmallTag : IComponentData { }
 
-/// <summary>Large religious building for sects.</summary>
-public struct ChapelLargeTag : IComponentData { }
-
 /// <summary>
 /// Buffer element on Temple entities tracking each of its 6 chapel build
 /// slots (SectConfig.MaxAdoptedSects). Slots sit on the six non-door faces
