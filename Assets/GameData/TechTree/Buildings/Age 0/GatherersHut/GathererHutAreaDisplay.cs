@@ -125,7 +125,7 @@ namespace TheWaningBorder.UI.HUD
             // ============================================================
             // Show circle during GathererHut placement preview
             // ============================================================
-            if (BuilderCommandPanel.IsPlacingBuilding && IsPlacingGathererHutType)
+            if (TheWaningBorder.Core.PresentationState.PlacingBuilding && IsPlacingGathererHutType)
             {
                 // Cache lookup — see _cachedPreview field comment.
                 if (_cachedPreview == null)

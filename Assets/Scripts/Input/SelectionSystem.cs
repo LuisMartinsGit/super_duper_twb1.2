@@ -14,6 +14,7 @@ using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.World.Terrain;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Input
 {
     /// <summary>

@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Core;
 using TheWaningBorder.Input;          // EntityReference
 using TheWaningBorder.Presentation;   // EntityViewManager
 

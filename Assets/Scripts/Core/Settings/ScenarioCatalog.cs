@@ -9,8 +9,6 @@
 //
 // Place in: Assets/Scripts/Core/Settings/ScenarioCatalog.cs
 
-using TheWaningBorder.UI.Menus;
-
 /// <summary>
 /// The canonical, ordered list of test scenarios shown in the menus, plus the
 /// single method that starts one.
@@ -52,10 +50,15 @@ public static class ScenarioCatalog
     public static string SceneFor(ScenarioType scenario) => "Scenario_" + scenario;
 
     /// <summary>
-    /// Configure GameSettings for a single-player scenario match and load that
-    /// scenario's own scene.
+    /// Configure GameSettings for a single-player scenario match and return the
+    /// scene to load.
+    ///
+    /// It used to call LoadingScreen.Show itself, which put a UI type in Core's
+    /// dependencies for the sake of one line. Navigation is the caller's job --
+    /// and the only caller is a menu panel, which is where the loading screen
+    /// belongs anyway.
     /// </summary>
-    public static void Launch(ScenarioType scenario)
+    public static string Prepare(ScenarioType scenario)
     {
         GameSettings.Mode = GameMode.Scenario;
         GameSettings.ActiveScenario = scenario;
@@ -66,6 +69,6 @@ public static class ScenarioCatalog
         GameSettings.FogOfWarEnabled = false;
         GameSettings.TutorialActive = false;   // sticky static; see TutorialMenuItem
 
-        LoadingScreen.Show(SceneFor(scenario));
+        return SceneFor(scenario);
     }
 }

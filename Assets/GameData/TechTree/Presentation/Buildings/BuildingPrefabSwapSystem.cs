@@ -356,8 +356,8 @@ namespace TheWaningBorder.Presentation
             // not be selected by clicking again, only by drag-select. Both are
             // required for SelectionSystem's raycast → EntityReference walk.
             PresentationSpawnSystem.FitSelectionCollider(newGo, e, _em);
-            var swapRef = newGo.GetComponent<TheWaningBorder.Input.EntityReference>()
-                       ?? newGo.AddComponent<TheWaningBorder.Input.EntityReference>();
+            var swapRef = newGo.GetComponent<TheWaningBorder.Core.EntityReference>()
+                       ?? newGo.AddComponent<TheWaningBorder.Core.EntityReference>();
             swapRef.Entity = e;
 
             var current = EntityViewManager.Instance != null

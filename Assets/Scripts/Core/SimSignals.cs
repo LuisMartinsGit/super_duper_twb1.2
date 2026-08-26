@@ -43,7 +43,17 @@ namespace TheWaningBorder.Core
     public readonly struct SimNotice
     {
         public readonly string Text;
-        public SimNotice(string text) { Text = text; }
+
+        /// <summary>Error-flavoured: the HUD renders these differently (it has
+        /// always had a separate NotifyError path). Carried through the seam
+        /// so routing a message no longer loses which kind it was.</summary>
+        public readonly bool IsError;
+
+        public SimNotice(string text, bool isError)
+        {
+            Text = text;
+            IsError = isError;
+        }
     }
 
     /// <summary>A point on the map worth the player's attention.</summary>
@@ -97,11 +107,16 @@ namespace TheWaningBorder.Core
         private static readonly Queue<SimMatchEnd> _matchEnd = new Queue<SimMatchEnd>();
 
         /// <summary>Tell the player something. Text is already localised.</summary>
-        public static void Notify(string text)
+        public static void Notify(string text) => Post(text, isError: false);
+
+        /// <summary>Something the player asked for could not happen.</summary>
+        public static void NotifyError(string text) => Post(text, isError: true);
+
+        private static void Post(string text, bool isError)
         {
             if (string.IsNullOrEmpty(text)) return;
             if (_notices.Count >= MaxQueued) _notices.Dequeue();
-            _notices.Enqueue(new SimNotice(text));
+            _notices.Enqueue(new SimNotice(text, isError));
         }
 
         /// <summary>Mark a spot on the minimap.</summary>

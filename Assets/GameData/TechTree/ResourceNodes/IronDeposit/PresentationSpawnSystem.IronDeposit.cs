@@ -10,6 +10,7 @@ using TheWaningBorder.Input;
 using TheWaningBorder.Presentation;
 using TheWaningBorder.World.Terrain;
 
+using TheWaningBorder.Core;
 public partial class PresentationSpawnSystem
 {
     // NV3D Shatter Stone (Metal Ores) wrapper prefabs — same pattern as the

@@ -522,7 +522,7 @@ namespace TheWaningBorder.Presentation
         {
             if (GetComponent<BoxCollider>() == null) return;
 
-            var link = GetComponent<TheWaningBorder.Input.EntityReference>();
+            var link = GetComponent<TheWaningBorder.Core.EntityReference>();
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
 
             if (link != null && world != null && world.IsCreated)

@@ -32,7 +32,7 @@ namespace TheWaningBorder.Core.Diagnostics
             int g1 = System.GC.CollectionCount(1);
             int g2 = System.GC.CollectionCount(2);
 
-            if (ms >= FrameThresholdMs && !TheWaningBorder.UI.Menus.LoadingScreen.IsVisible)
+            if (ms >= FrameThresholdMs && !TheWaningBorder.Core.PresentationState.LoadingOverlayVisible)
                 PerfSpikeLog.Report("FRAME", ms,
                     $"gc0+{g0 - _gc0} gc1+{g1 - _gc1} gc2+{g2 - _gc2}", 0.0);
 

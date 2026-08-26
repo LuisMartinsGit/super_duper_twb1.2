@@ -9,6 +9,7 @@ using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.Core.Localization;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Core.Commands
 {
     /// <summary>
@@ -112,7 +113,7 @@ namespace TheWaningBorder.Core.Commands
                 if (FactionColors.GetFactionCulture(attackerFaction) != Cultures.Feraldis)
                 {
                     if (source == CommandSource.LocalPlayer)
-                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                        SimSignals.Notify(
                             Loc.T("The well resists all arms — only Feraldis may break it"));
                     return;
                 }
@@ -849,7 +850,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 if (source == CommandSource.LocalPlayer)
                 {
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                    SimSignals.Notify(
                         string.Format(Loc.T("Requires Lv {0} {1}"), requiredLevel, buildingDisplay));
                 }
                 return;
@@ -1463,7 +1464,7 @@ namespace TheWaningBorder.Core.Commands
                 TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, em.GetComponentData<FactionTag>(building).Value))
             {
                 if (notifyLocal)
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("King Lexor already serves your realm"));
+                    SimSignals.Notify(Loc.T("King Lexor already serves your realm"));
                 return;
             }
             // Same gate for the Ledger: one automaton per player.
@@ -1472,14 +1473,14 @@ namespace TheWaningBorder.Core.Commands
                 TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, em.GetComponentData<FactionTag>(building).Value))
             {
                 if (notifyLocal)
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("Your court already employs a Ledger"));
+                    SimSignals.Notify(Loc.T("Your court already employs a Ledger"));
                 return;
             }
             // Reject when combined production queue would exceed the cap.
             if (IsProductionQueueFull(em, building))
             {
                 if (notifyLocal)
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(Loc.T("Production queue full"));
+                    SimSignals.Notify(Loc.T("Production queue full"));
                 return;
             }
 
@@ -1505,7 +1506,7 @@ namespace TheWaningBorder.Core.Commands
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, trainFaction, cost))
                 {
                     if (notifyLocal)
-                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                        SimSignals.NotifyError(Loc.T("Not enough resources"));
                     return;
                 }
             }

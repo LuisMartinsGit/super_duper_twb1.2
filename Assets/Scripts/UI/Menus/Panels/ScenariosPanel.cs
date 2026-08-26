@@ -185,7 +185,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     Description = "Code-driven test scenario. Spawns its setup on load; " +
                                   "no briefing available.",
                     Thumbnail = null,
-                    Launch = () => ScenarioCatalog.Launch(t),
+                    Launch = () => LoadingScreen.Show(ScenarioCatalog.Prepare(t)),
                 });
             }
         }

@@ -460,6 +460,7 @@ namespace TheWaningBorder.UI.Panels
             _placementYaw = 0f;
 
             IsPlacingBuilding = true;
+            TheWaningBorder.Core.PresentationState.PlacingBuilding = true;
             GathererHutAreaDisplay.IsPlacingGathererHutType = (_currentBuild == BuildType.GatherersHut);
         }
 
@@ -489,6 +490,7 @@ namespace TheWaningBorder.UI.Panels
             if (_placingInstance != null) Destroy(_placingInstance);
             _placingInstance = null;
             IsPlacingBuilding = false;
+            TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
@@ -502,6 +504,7 @@ namespace TheWaningBorder.UI.Panels
             if (_placingInstance != null) Destroy(_placingInstance);
             _placingInstance = null;
             IsPlacingBuilding = false;
+            TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             GathererHutAreaDisplay.IsPlacingGathererHutType = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();

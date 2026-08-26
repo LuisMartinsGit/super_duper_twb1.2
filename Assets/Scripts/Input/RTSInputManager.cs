@@ -15,6 +15,7 @@ using TheWaningBorder.UI.Panels;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Entities;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Input
 {
     /// <summary>
@@ -1378,14 +1379,4 @@ namespace TheWaningBorder.Input
     
     // ═══════════════════════════════════════════════════════════════════════
     // HELPER COMPONENT
-    // ═══════════════════════════════════════════════════════════════════════
-    
-    /// <summary>
-    /// Links a GameObject to an ECS Entity.
-    /// Attach to visual representations of entities.
-    /// </summary>
-    public class EntityReference : MonoBehaviour
-    {
-        public Entity Entity;
-    }
 }

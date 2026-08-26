@@ -13,6 +13,7 @@ using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Entities;
 
+using TheWaningBorder.Core;
 public partial class PresentationSpawnSystem
 {
     // ─── Shatter Stone wrapper prefabs (P_VeilstoneOutcropping_GemA/B/C) ──────────────

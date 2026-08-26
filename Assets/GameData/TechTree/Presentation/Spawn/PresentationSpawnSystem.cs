@@ -15,6 +15,7 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Entities;
 
+using TheWaningBorder.Core;
 // Fix #204: marked partial. The obstacle and wall procedural generators
 // have been extracted to PresentationSpawnSystem.Obstacles.cs and
 // PresentationSpawnSystem.Walls.cs to reduce this file's line count.

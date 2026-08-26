@@ -523,7 +523,7 @@ namespace TheWaningBorder.Multiplayer
             // the overlay: the AI acts, income accrues and the curse spreads
             // in seconds the player never sees, and the game time they are
             // shown does not match the game they played.
-            if (TheWaningBorder.UI.Menus.LoadingScreen.IsVisible) return NotYet();
+            if (TheWaningBorder.Core.PresentationState.LoadingOverlayVisible) return NotYet();
 
             // LAST-LINE ASSERTION before the clock starts: in deterministic
             // mode the fixed-step driver MUST be holding the sim group. If it
@@ -765,15 +765,11 @@ namespace TheWaningBorder.Multiplayer
             string subtitle = string.Format(
                 TheWaningBorder.Core.Localization.Loc.T("{0} disconnected"), who);
 
-            // Same panel the victory/defeat flow uses, so there is one
-            // end-of-match screen with one Return to Main Menu button. If the
-            // HUD stack is not up, fall back to the toast + timed return that
-            // VictoryConditionSystem uses for the same reason.
-            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(title, subtitle, victory: false))
-            {
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify($"{title} — {subtitle}");
-                StartCoroutine(ReturnToMenuAfterDisconnect());
-            }
+            // Through the same seam the victory flow uses, so there is one
+            // end-of-match screen with one Return to Main Menu button -- and so
+            // the multiplayer layer does not need to know that either the panel
+            // or its toast fallback exists.
+            TheWaningBorder.Core.SimSignals.MatchEnded(title, subtitle, localWon: false);
         }
 
         /// <summary>Lobby name for a player index, falling back to the index
@@ -795,14 +791,6 @@ namespace TheWaningBorder.Multiplayer
                 TheWaningBorder.Core.Localization.Loc.T("Player {0}"), playerIndex);
         }
 
-        private System.Collections.IEnumerator ReturnToMenuAfterDisconnect()
-        {
-            // Unscaled: this must run whatever the timeScale ends up being.
-            float t = 0f;
-            while (t < 6f) { t += Time.unscaledDeltaTime; yield return null; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(
-                TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
-        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // PUBLIC API

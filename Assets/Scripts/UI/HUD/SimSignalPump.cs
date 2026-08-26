@@ -40,7 +40,10 @@ namespace TheWaningBorder.UI.HUD
             const int MaxPerFrame = 16;
 
             for (int i = 0; i < MaxPerFrame && SimSignals.TryDrainNotice(out var n); i++)
-                PlayerNotificationSystem.Notify(n.Text);
+            {
+                if (n.IsError) PlayerNotificationSystem.NotifyError(n.Text);
+                else           PlayerNotificationSystem.Notify(n.Text);
+            }
 
             for (int i = 0; i < MaxPerFrame && SimSignals.TryDrainPing(out var p); i++)
                 MinimapPings.Post(p.Position, ColourOf(p.Kind), p.Seconds, p.Big);

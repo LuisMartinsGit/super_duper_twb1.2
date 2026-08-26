@@ -107,6 +107,11 @@ namespace TheWaningBorder.UI.Menus
             _instance = go.AddComponent<LoadingScreen>();
             DontDestroyOnLoad(go);
 
+            // Publish downward: lockstep's world-ready gate reads this rather
+            // than reaching up into the UI for IsVisible. See
+            // Core/PresentationState.
+            TheWaningBorder.Core.PresentationState.LoadingOverlayVisible = true;
+
             _instance.StartCoroutine(_instance.LoadSceneRoutine(sceneName));
         }
 
@@ -419,6 +424,7 @@ namespace TheWaningBorder.UI.Menus
                 if (_alpha <= 0f)
                 {
                     _instance = null;
+                    TheWaningBorder.Core.PresentationState.LoadingOverlayVisible = false;
                     Destroy(gameObject);
                     return;
                 }
@@ -487,6 +493,7 @@ namespace TheWaningBorder.UI.Menus
             // and on ANY destruction path, so a scene teardown can never
             // strand the game frozen.
             if (_instance == this) _instance = null;
+            TheWaningBorder.Core.PresentationState.LoadingOverlayVisible = false;
             Time.timeScale = 1f;
         }
 

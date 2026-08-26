@@ -164,7 +164,7 @@ namespace TheWaningBorder.Bootstrap
                 // link the cube to its wall entity so right-clicking it
                 // resolves to the wall (the AoE4 "click the wall" garrison
                 // path in RTSInputManager).
-                cube.AddComponent<TheWaningBorder.Input.EntityReference>().Entity = e;
+                cube.AddComponent<TheWaningBorder.Core.EntityReference>().Entity = e;
             }
 
             wallEntities.Dispose();
