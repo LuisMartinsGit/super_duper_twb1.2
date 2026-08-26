@@ -188,6 +188,21 @@ namespace TheWaningBorder.Multiplayer
         // payloads alongside every broadcast; the 2-tick input delay gives
         // the resends time to land before the tick executes.
         private const int RESEND_HISTORY = 2;
+
+        /// <summary>
+        /// How many ticks of sent payloads are kept for retransmission. Must
+        /// comfortably exceed the input delay: a peer blocked on tick T needs
+        /// us to still be holding T, and T is up to InputDelayTicks behind the
+        /// tick we last sent. 45 ticks is 1.5 s at 30 Hz.
+        /// </summary>
+        private const int RetainTicks = 45;
+
+        /// <summary>Seconds between stall retransmissions. Fast enough to
+        /// repair a lost datagram long before the disconnect timeout, slow
+        /// enough that it is not a flood.</summary>
+        private const float StallResendInterval = 0.15f;
+
+        private float _nextStallResendAt;
         private readonly List<(int Tick, byte[] Data)> _recentTickPayloads = new List<(int, byte[])>();
 
         private List<LockstepCommand> _localCommandBuffer = new List<LockstepCommand>();
@@ -618,6 +633,24 @@ namespace TheWaningBorder.Multiplayer
             {
                 float was = BlockedSeconds;
                 BlockedSeconds += Time.unscaledDeltaTime;
+
+                // THE RECOVERY PATH. A blocked peer used to transmit nothing
+                // at all: the advance loop breaks before BroadcastTick, so the
+                // only retransmission there is rides along with a tick we are
+                // no longer able to send. Both peers stall, both go silent,
+                // and the lost datagram can never be repaired — which is
+                // exactly how the 2026-08-26 match ended, two players waiting
+                // 39 s and 47 s on each other before quitting by hand.
+                //
+                // So while we are blocked, keep pushing our recent ticks at
+                // them. Whatever they are missing is in that window, and the
+                // peer blocking us is very likely blocked on US for the same
+                // reason — one repaired datagram unblocks both.
+                if (now >= _nextStallResendAt)
+                {
+                    _nextStallResendAt = now + StallResendInterval;
+                    ResendRecentTicks();
+                }
 
                 // One line each time a stall crosses a whole second, so a long
                 // hang leaves a trail rather than a single ambiguous entry.
@@ -1555,11 +1588,18 @@ namespace TheWaningBorder.Multiplayer
             {
                 try
                 {
-                    // Resend recent non-empty ticks FIRST so a receiver that
+                    // Resend the most recent ticks FIRST so a receiver that
                     // lost an earlier datagram has those commands before this
                     // tick's confirmation lets it advance past them.
+                    //
+                    // Only the newest RESEND_HISTORY ride along here: the
+                    // retained window is much longer, but shipping all of it
+                    // every tick would be pure waste on a healthy link. The
+                    // rest is what ResendRecentTicks sends when a peer is
+                    // actually stalled.
                     for (int i = 0; i < _recentTickPayloads.Count; i++)
                     {
+                        if (_recentTickPayloads[i].Tick <= tick - RESEND_HISTORY) continue;
                         var payload = _recentTickPayloads[i].Data;
                         _udpClient?.Send(payload, payload.Length, player.EndPoint);
                     }
@@ -1571,12 +1611,56 @@ namespace TheWaningBorder.Multiplayer
                 }
             }
 
-            if (commands.Count > 0)
-                for (int i = 0; i < payloads.Count; i++)
-                    _recentTickPayloads.Add((tick, payloads[i]));
+            // EVERY tick is retained, including the empty ones. The old
+            // `if (commands.Count > 0)` meant a tick that carried no commands
+            // was sent exactly once, over UDP, and could never be resent — and
+            // an empty tick is still a CONFIRMATION, the thing the other peer
+            // needs to advance.
+            //
+            // That single line is the 2026-08-26 hang. The last command in
+            // that match was at tick 3815; every tick after it was empty. The
+            // client's bare "TICK|1|3883|0" went missing, nothing could resend
+            // it, and both peers waited on each other until the players quit.
+            // An empty payload is about twenty bytes; keeping a second of them
+            // costs nothing worth counting.
+            for (int i = 0; i < payloads.Count; i++)
+                _recentTickPayloads.Add((tick, payloads[i]));
 
-            while (_recentTickPayloads.Count > 0 && _recentTickPayloads[0].Tick <= tick - RESEND_HISTORY)
+            while (_recentTickPayloads.Count > 0 && _recentTickPayloads[0].Tick <= tick - RetainTicks)
                 _recentTickPayloads.RemoveAt(0);
+        }
+
+        /// <summary>
+        /// Push every retained tick payload at every peer, out of band.
+        ///
+        /// Called only while stalled, so on a healthy link this never runs.
+        /// Deliberately unconditional about WHAT it sends: we cannot tell
+        /// which datagram was lost, the whole retained window is a kilobyte or
+        /// so of empty confirmations, and a duplicate TICK is harmless — the
+        /// receiver keys them by tick and player, so applying one twice is a
+        /// no-op.
+        /// </summary>
+        private void ResendRecentTicks()
+        {
+            if (_recentTickPayloads.Count == 0) return;
+
+            foreach (var player in _remotePlayers)
+            {
+                try
+                {
+                    for (int i = 0; i < _recentTickPayloads.Count; i++)
+                    {
+                        var payload = _recentTickPayloads[i].Data;
+                        _udpClient?.Send(payload, payload.Length, player.EndPoint);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Same as BroadcastTick: a send failure here is not worth
+                    // taking the match down for. The next stall resend tries
+                    // again, and the disconnect timeout is the backstop.
+                }
+            }
         }
 
         private void BroadcastSync(int tick, uint checksum)
