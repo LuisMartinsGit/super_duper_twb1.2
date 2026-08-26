@@ -30,14 +30,6 @@ using static TheWaningBorder.Core.Config.FeraldisConstants;
 
 namespace TheWaningBorder.Systems.World
 {
-    /// <summary>
-    /// Seconds a totem has been standing on dry ground. Present only while it
-    /// is starving; removed the moment it finds blood again.
-    /// </summary>
-    public struct TotemStarving : IComponentData
-    {
-        public float DrySeconds;
-    }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class WarTotemAuraSystem : SystemBase

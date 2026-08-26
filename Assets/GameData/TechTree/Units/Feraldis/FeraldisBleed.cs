@@ -14,17 +14,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-/// <summary>
-/// Declares that this unit's landed hits inflict <see cref="Bleeding"/>.
-/// Copied onto projectiles at fire time so a shot that lands after its
-/// shooter dies still bleeds the target.
-/// </summary>
-public struct InflictsBleed : IComponentData
-{
-    public float DamagePerSecond;
-    public float Duration;
-}
-
 namespace TheWaningBorder.Systems.Combat
 {
     public static class FeraldisBleed

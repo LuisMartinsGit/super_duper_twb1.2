@@ -5,9 +5,6 @@ using Unity.Transforms;
 using TheWaningBorder.Economy;
 using static TheWaningBorder.Core.Config.FeraldisConstants;
 
-/// <summary>Marker for Feraldis Raider light cavalry.</summary>
-public struct FeraldisRaiderTag : IComponentData { }
-
 namespace TheWaningBorder.Entities
 {
     /// <summary>

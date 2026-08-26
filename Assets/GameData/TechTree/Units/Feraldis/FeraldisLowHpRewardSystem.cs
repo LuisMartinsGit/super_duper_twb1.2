@@ -24,15 +24,6 @@ using Cost = TheWaningBorder.Core.Cost;
 
 namespace TheWaningBorder.Systems.Economy
 {
-    /// <summary>
-    /// Per-building snapshot for the Feraldis low-HP-damage reward. Added
-    /// lazily on first observation, never removed (cheap stale-but-correct
-    /// behavior across destroys; entity destruction takes the snapshot with it).
-    /// </summary>
-    public struct BuildingHpSnapshot : IComponentData
-    {
-        public int LastObservedHealth;
-    }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class FeraldisLowHpRewardSystem : SystemBase

@@ -13,13 +13,6 @@ using Unity.Collections;
 using System.Collections.Generic;
 using TheWaningBorder.World.Terrain;
 
-/// <summary>Marks a unit currently garrisoning a wall deck; holds its assigned
-/// outer-edge slot so it holds position there.</summary>
-public struct WallGarrisonState : IComponentData
-{
-    public float3 Slot;
-}
-
 namespace TheWaningBorder.Systems.Buildings
 {
     /// <summary>
