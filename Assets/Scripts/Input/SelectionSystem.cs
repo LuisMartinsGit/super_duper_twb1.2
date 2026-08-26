@@ -130,6 +130,13 @@ namespace TheWaningBorder.Input
         
         void Awake()
         {
+            // Publish the selection list DOWNWARD once. _selection is a
+            // readonly List mutated in place, so the reference stays valid
+            // for the life of the instance -- in-world displays can read it
+            // without naming the input layer. Publishing from the property
+            // getter instead would only work while something else happened
+            // to be calling it.
+            TheWaningBorder.Core.PresentationState.Selection = _selection;
             _instance = this;
             
             _world = EntityWorld.DefaultGameObjectInjectionWorld;

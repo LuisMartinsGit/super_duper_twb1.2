@@ -70,7 +70,7 @@ namespace TheWaningBorder.Presentation
         // the frame (the RTS elevation looks down too steeply for review).
         private const float OrbitDegreesPerSecond = 9f;
         private const float OrbitElevationDegrees = 18f;
-        private TheWaningBorder.Input.CameraController _suspendedController;
+        private bool _cameraSuspendedByUs;
         private Camera _camera;
         private bool _orbitReady;
         private float _orbitAngle;
@@ -213,7 +213,7 @@ namespace TheWaningBorder.Presentation
 
             if (!_orbitReady)
             {
-                _camera = TheWaningBorder.Input.GameCamera.MainCamera;
+                _camera = TheWaningBorder.Core.PresentationState.MainCamera;
                 if (_camera == null) return;
 
                 Vector3 toCam = _camera.transform.position - hutPos;
@@ -226,8 +226,12 @@ namespace TheWaningBorder.Presentation
                 _orbitHeight = orbitDistance * Mathf.Sin(elevation);
                 _orbitAngle = Mathf.Atan2(toCam.z, toCam.x) * Mathf.Rad2Deg;
 
-                _suspendedController = TheWaningBorder.Input.GameCamera.Controller;
-                if (_suspendedController != null) _suspendedController.enabled = false;
+                // Ask for control rather than taking it: CameraController
+                // watches this flag. Holding its MonoBehaviour and flipping
+                // .enabled meant a building's visual could strand the player
+                // with a dead camera if it failed to switch it back on.
+                TheWaningBorder.Core.PresentationState.CameraControlSuspended = true;
+                _cameraSuspendedByUs = true;
                 _savedFarClip = _camera.farClipPlane;
                 _camera.farClipPlane = Mathf.Min(_savedFarClip, OrbitFarClip);
                 _orbitReady = true;
@@ -261,7 +265,11 @@ namespace TheWaningBorder.Presentation
 
         private void RestoreCamera()
         {
-            if (_suspendedController != null) _suspendedController.enabled = true;
+            if (_cameraSuspendedByUs)
+            {
+                TheWaningBorder.Core.PresentationState.CameraControlSuspended = false;
+                _cameraSuspendedByUs = false;
+            }
             if (_orbitReady && _camera != null && _savedFarClip > 0f)
                 _camera.farClipPlane = _savedFarClip;
         }

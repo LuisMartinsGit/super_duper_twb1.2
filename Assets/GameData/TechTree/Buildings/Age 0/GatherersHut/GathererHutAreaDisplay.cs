@@ -106,7 +106,7 @@ namespace TheWaningBorder.UI.HUD
             // ============================================================
             // Show circles for selected GathererHuts
             // ============================================================
-            var selection = SelectionSystem.CurrentSelection;
+            var selection = TheWaningBorder.Core.PresentationState.Selection;
             if (selection != null)
             {
                 foreach (var entity in selection)

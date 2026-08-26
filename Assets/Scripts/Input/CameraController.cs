@@ -184,6 +184,13 @@ namespace TheWaningBorder.Input
         // Player still pans via arrow keys / edge-scroll / middle-mouse-drag.
         void Update()
         {
+            // A cinematic (or anything else) can take control away via
+            // Core.PresentationState.CameraControlSuspended. Honoured here
+            // rather than by letting the caller disable this component:
+            // a caller that forgets to re-enable it leaves the player
+            // unable to move the camera for the rest of the match.
+            if (TheWaningBorder.Core.PresentationState.CameraControlSuspended) return;
+
             HandleArrowKeyMovement();
             HandleEdgeScrolling();
             HandleMousePan();

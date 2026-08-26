@@ -49,5 +49,32 @@ namespace TheWaningBorder.Core
         /// this the content layer would name a UI panel directly.
         /// </summary>
         public static bool PlacingBuilding;
+
+        /// <summary>
+        /// The gameplay camera. Published by GameCamera; read by the few
+        /// in-world visuals that need to frame themselves against it (the Hut
+        /// evolution cinematic orbits it).
+        /// </summary>
+        public static UnityEngine.Camera MainCamera;
+
+        /// <summary>
+        /// Set true to take player camera control away for a cinematic, false
+        /// to hand it back. CameraController watches this and stops reading
+        /// input while it is set.
+        ///
+        /// A REQUEST, not a handle. The Hut cinematic used to fetch
+        /// GameCamera.Controller and flip .enabled on it directly, which meant
+        /// a building's visual held the input layer's MonoBehaviour and had to
+        /// remember to switch it back on. Now it states what it wants and the
+        /// camera layer decides how to honour it.
+        /// </summary>
+        public static bool CameraControlSuspended;
+
+        /// <summary>
+        /// What the local player has selected. Published by SelectionSystem;
+        /// read by in-world displays that only draw for a selected building
+        /// (the GathererHut coverage ring). Null before the first selection.
+        /// </summary>
+        public static System.Collections.Generic.IReadOnlyList<Unity.Entities.Entity> Selection;
     }
 }

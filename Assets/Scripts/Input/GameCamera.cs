@@ -57,6 +57,13 @@ namespace TheWaningBorder.Input
             // Make it persist through scene loads if needed
             // Object.DontDestroyOnLoad(rigGO); // Uncomment if camera should persist
 
+        
+            // Publish downward: in-world visuals frame themselves against
+            // the gameplay camera and must not have to name the input
+            // layer to find it. Done HERE rather than in the property,
+            // because the property has exactly one caller left.
+            TheWaningBorder.Core.PresentationState.MainCamera =
+                _controller != null ? _controller.mainCamera : Camera.main;
         }
 
         /// <summary>
