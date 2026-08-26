@@ -111,6 +111,17 @@ namespace TheWaningBorder.Multiplayer
                                 "They may have quit or lost their connection.");
                 tint = new Color(1f, 0.75f, 0.45f);
             }
+            else if (ls.BlockedOnPlayer >= 0 && ls.DisconnectCountdown > 0f)
+            {
+                // Past the point of "they are just slow" — say what is about
+                // to happen, and count it down. A player watching a frozen
+                // game deserves to know it is going to end and when, rather
+                // than discovering it when the screen changes.
+                message = string.Format(
+                    Loc.T("Lost contact with player {0}.\nEnding the match in {1:0}s…"),
+                    ls.BlockedOnPlayer + 1, ls.DisconnectCountdown);
+                tint = new Color(1f, 0.6f, 0.45f);
+            }
             else if (ls.BlockedOnPlayer >= 0 && ls.BlockedSeconds > LockstepManager.StallWarnSeconds)
             {
                 message = string.Format(Loc.T("Waiting for player {0}…  ({1:0}s)"),

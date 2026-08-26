@@ -245,6 +245,27 @@ namespace TheWaningBorder.Multiplayer
         public const float StallDropSeconds = 15f;
 
         /// <summary>
+        /// Seconds a match may be stuck on one peer before it is ended.
+        ///
+        /// Two DIFFERENT conditions both count against this, because either
+        /// one means the match can never continue:
+        ///   * silence  — nothing at all from that peer, the plain disconnect;
+        ///   * deadlock — packets still arriving (pings, pongs) but their tick
+        ///                never advances, so lockstep waits forever.
+        ///
+        /// The second is the one that actually happens. In the 2026-08-26
+        /// match both peers sat in the deadlock for 39 s and 47 s, a warning
+        /// per second, until each player alt-tabbed out and quit by hand:
+        /// PeerLost never fired, because the pings kept the silence timer
+        /// fresh the whole time.
+        /// </summary>
+        public const float DisconnectEndSeconds = 10f;
+
+        /// <summary>Set once the match has been ended by a disconnect, so the
+        /// teardown runs exactly once however many peers time out.</summary>
+        private bool _endedOnDisconnect;
+
+        /// <summary>
         /// The player index this peer is currently blocked on, or -1 when the
         /// simulation is advancing normally. Read by the network HUD.
         /// </summary>
@@ -252,6 +273,31 @@ namespace TheWaningBorder.Multiplayer
 
         /// <summary>How long we have been blocked on <see cref="BlockedOnPlayer"/>.</summary>
         public float BlockedSeconds { get; private set; }
+
+        /// <summary>
+        /// Seconds left before the match is ended for a disconnect, or 0 when
+        /// no countdown is running. Non-zero only once the stall has been
+        /// going long enough to be a disconnect rather than a hitch, and only
+        /// against a peer that was genuinely ticking with us — the same
+        /// conditions EndMatchOnDisconnect uses, so the banner never promises
+        /// an end that will not come.
+        /// </summary>
+        public float DisconnectCountdown
+        {
+            get
+            {
+                if (_endedOnDisconnect || !_worldReady || BlockedOnPlayer < 0) return 0f;
+                if (_confirmedTicks.GetValueOrDefault(BlockedOnPlayer, -1) < 0) return 0f;
+                // Silent for the first couple of seconds: a brief hitch is
+                // normal and a countdown that appears on every stutter would
+                // be noise.
+                if (BlockedSeconds < DisconnectWarnAfterSeconds) return 0f;
+                return Mathf.Max(0f, DisconnectEndSeconds - BlockedSeconds);
+            }
+        }
+
+        /// <summary>Stall length after which the countdown becomes visible.</summary>
+        private const float DisconnectWarnAfterSeconds = 3f;
 
         /// <summary>True once a peer has been silent past <see cref="StallDropSeconds"/>.</summary>
         public bool PeerLost { get; private set; }
@@ -484,6 +530,14 @@ namespace TheWaningBorder.Multiplayer
             }
 
             _worldReady = true;
+
+            // The whole world build counted as "blocked on peer" (nobody has
+            // confirmed a tick yet), so BlockedSeconds is now however long the
+            // slowest of terrain, bake and spawn took. Zero it, or the
+            // disconnect timer would fire on the first frame of the match.
+            BlockedOnPlayer = -1;
+            BlockedSeconds = 0f;
+
             if (_worldWaitStarted > 0f)
             {
                 UnityEngine.Debug.Log($"[Lockstep] World ready after " +
@@ -574,6 +628,32 @@ namespace TheWaningBorder.Multiplayer
                         $"({BlockedSeconds:0}s). Their last confirmed tick is " +
                         $"{_confirmedTicks.GetValueOrDefault(blocking, -1)}.");
                 }
+
+                // Stuck on this peer for the full count — end it. This is the
+                // deadlock arm: their packets may still be arriving, so the
+                // silence check below will never fire.
+                //
+                // Both extra conditions matter, and dropping either turns this
+                // into a match-killer:
+                //   _worldReady        — before tick 0 every peer is "blocking"
+                //                        by definition (confirmed tick -1 < 0),
+                //                        and a world can legitimately take 120 s
+                //                        to build;
+                //   confirmed >= 0     — a peer who has never confirmed a tick
+                //                        is still LOADING, not gone. Their
+                //                        terrain may simply be slower than ours.
+                // Together they mean: this peer was ticking with us, and has
+                // now stopped. That is a disconnect.
+                if (_worldReady
+                    && _confirmedTicks.GetValueOrDefault(blocking, -1) >= 0
+                    && BlockedSeconds >= DisconnectEndSeconds)
+                {
+                    EndMatchOnDisconnect(blocking,
+                        $"their simulation stopped advancing {BlockedSeconds:0}s ago " +
+                        $"(last confirmed tick {_confirmedTicks.GetValueOrDefault(blocking, -1)}, " +
+                        $"we are on {_currentTick})");
+                    return;
+                }
             }
 
             // ── Has anyone gone for good? ──────────────────────────────
@@ -582,6 +662,21 @@ namespace TheWaningBorder.Multiplayer
                 foreach (int playerIndex in _expectedPlayers)
                 {
                     float last = _lastHeardFrom.GetValueOrDefault(playerIndex, now);
+
+                    // Silence arm of the same rule: nothing at all from them
+                    // for the count, so the match is over whether or not we
+                    // happen to be blocked on their tick right now. Same two
+                    // guards as the deadlock arm above — see the note there.
+                    if (_worldReady
+                        && _confirmedTicks.GetValueOrDefault(playerIndex, -1) >= 0
+                        && now - last > DisconnectEndSeconds)
+                    {
+                        PeerLost = true;
+                        EndMatchOnDisconnect(playerIndex,
+                            $"nothing received from them for {now - last:0}s");
+                        return;
+                    }
+
                     if (now - last > StallDropSeconds)
                     {
                         PeerLost = true;
@@ -592,6 +687,88 @@ namespace TheWaningBorder.Multiplayer
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// End the match because a peer is gone, and say so plainly.
+        ///
+        /// Before this existed, a lost peer left the survivor in a permanent
+        /// stall: the sim frozen mid-tick, a warning a second in the console,
+        /// and no way out but Alt-F4 or the pause menu. The 2026-08-26 logs
+        /// are two players doing exactly that, 39 s and 47 s apart.
+        ///
+        /// Deliberately NOT a victory. With AI factions still alive, "the
+        /// human opposite me dropped" is not the same as winning the match,
+        /// and awarding a win here would put a false result in the stats and
+        /// in Summary.txt. The match simply ends and says why.
+        /// </summary>
+        private void EndMatchOnDisconnect(int playerIndex, string detail)
+        {
+            if (_endedOnDisconnect) return;
+            _endedOnDisconnect = true;
+
+            string who = NameOfPlayer(playerIndex);
+
+            UnityEngine.Debug.LogError(
+                $"[Lockstep] Ending the match: {who} disconnected — {detail}. " +
+                $"Waited {DisconnectEndSeconds:0}s.");
+
+            // Into Summary.txt, so a log sent in afterwards says how it ended
+            // instead of reading as another unexplained "quit".
+            TheWaningBorder.Bootstrap.GameBootstrap.RecordMatchOutcome(
+                $"ENDED — {who} disconnected ({detail})");
+
+            // Stop ticking first: the sim must not lurch forward if a late
+            // packet arrives while the end-of-match panel is coming up.
+            StopSimulation();
+
+            // The world is frozen behind the fixed-step driver, which only
+            // steps on a requested tick — and no more are coming. Hand it back
+            // so the menu and the panel animate normally.
+            TheWaningBorder.Multiplayer.LockstepFixedStep.Uninstall();
+            Time.timeScale = 1f;
+
+            string title = TheWaningBorder.Core.Localization.Loc.T("MATCH ENDED");
+            string subtitle = string.Format(
+                TheWaningBorder.Core.Localization.Loc.T("{0} disconnected"), who);
+
+            // Same panel the victory/defeat flow uses, so there is one
+            // end-of-match screen with one Return to Main Menu button. If the
+            // HUD stack is not up, fall back to the toast + timed return that
+            // VictoryConditionSystem uses for the same reason.
+            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(title, subtitle, victory: false))
+            {
+                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify($"{title} — {subtitle}");
+                StartCoroutine(ReturnToMenuAfterDisconnect());
+            }
+        }
+
+        /// <summary>Lobby name for a player index, falling back to the index
+        /// when the slot table is not available (a client that never saw the
+        /// full lobby, or a slot that was reassigned).</summary>
+        private static string NameOfPlayer(int playerIndex)
+        {
+            try
+            {
+                var slots = TheWaningBorder.Core.Config.LobbyConfig.Slots;
+                if (slots != null && playerIndex >= 0 && playerIndex < slots.Length)
+                {
+                    string n = slots[playerIndex].PlayerName;
+                    if (!string.IsNullOrWhiteSpace(n)) return n;
+                }
+            }
+            catch { /* naming is a nicety; never let it stop the teardown */ }
+            return string.Format(
+                TheWaningBorder.Core.Localization.Loc.T("Player {0}"), playerIndex);
+        }
+
+        private System.Collections.IEnumerator ReturnToMenuAfterDisconnect()
+        {
+            // Unscaled: this must run whatever the timeScale ends up being.
+            float t = 0f;
+            while (t < 6f) { t += Time.unscaledDeltaTime; yield return null; }
+            UnityEngine.SceneManagement.SceneManager.LoadScene(
+                TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -682,6 +859,7 @@ namespace TheWaningBorder.Multiplayer
             DesyncDetected = false;
             DesyncTick = 0;
             PeerLost = false;
+            _endedOnDisconnect = false;
             BlockedOnPlayer = -1;
             BlockedSeconds = 0f;
             _nextPingAt = 0f;
