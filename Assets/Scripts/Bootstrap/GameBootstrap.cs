@@ -21,6 +21,7 @@ using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Systems.Research;
 using TheWaningBorder.Multiplayer;
 
+using TheWaningBorder.Core.Diagnostics;
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>

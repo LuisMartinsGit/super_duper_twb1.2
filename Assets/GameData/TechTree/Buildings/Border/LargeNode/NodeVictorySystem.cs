@@ -19,6 +19,7 @@ using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     /// <summary>
@@ -142,7 +143,7 @@ namespace TheWaningBorder.Systems.Border
                 if (victory.MatchPointFaction != matchPoint)
                 {
                     victory.MatchPointFaction = matchPoint;
-                    PlayerNotificationSystem.Notify(
+                    SimSignals.Notify(
                         string.Format(Loc.T("{0} holds all but ONE well — stop them!"), matchPoint));
                 }
             }

@@ -13,6 +13,7 @@
 using Unity.Entities;
 using TheWaningBorder.Core.Localization;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     public static class CurseAwakeningHelper
@@ -35,14 +36,14 @@ namespace TheWaningBorder.Systems.Border
 
             em.RemoveComponent<WellDormant>(well);
 
-            TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+            SimSignals.Notify(
                 string.Format(Loc.T("A well stirs — {0} has disturbed it!"), waker));
 
             if (em.HasComponent<Unity.Transforms.LocalTransform>(well))
             {
                 var p = em.GetComponentData<Unity.Transforms.LocalTransform>(well).Position;
-                TheWaningBorder.UI.GameUI.MinimapPings.Post(p,
-                    TheWaningBorder.UI.GameUI.MinimapPings.Curse, 8f, big: true);
+                SimSignals.Ping(p,
+                    SimPingKind.Curse, 8f, big: true);
                 TWBLog.Log($"[CurseAwakening] well at ({p.x:0},{p.z:0}) woken by {waker} " +
                            $"at {now:0}s — it now feeds the veil.");
             }

@@ -30,6 +30,7 @@ using Unity.Transforms;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.FeraldisConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -203,7 +204,7 @@ namespace TheWaningBorder.Systems.Border
                 // still armed the region: no safe probe, no take-backs.
                 CurseAwakeningHelper.Wake(em, node, faction, SystemAPI.Time.ElapsedTime);
 
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     Loc.T("A Corruptor is defiling a well!"));
             }
 
@@ -319,10 +320,10 @@ namespace TheWaningBorder.Systems.Border
                     em.RemoveComponent<NodeUntargetable>(node);
 
                 var p = em.GetComponentData<LocalTransform>(node).Position;
-                TheWaningBorder.UI.GameUI.MinimapPings.Post(p,
-                    TheWaningBorder.UI.GameUI.MinimapPings.Curse,
+                SimSignals.Ping(p,
+                    SimPingKind.Curse,
                     CorruptionVulnerableSeconds, big: true);
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     string.Format(Loc.T("A well lies open — {0}s to break it!"), (int)CorruptionVulnerableSeconds));
                 TWBLog.Log($"[Corruption] well corrupted by {doneFaction[i]} " +
                            $"at ({p.x:0},{p.z:0}); vulnerable {CorruptionVulnerableSeconds}s.");
@@ -379,7 +380,7 @@ namespace TheWaningBorder.Systems.Border
                     && em.HasComponent<BorderMainNodeTag>(node))
                     em.AddComponent<NodeNoAutoAcquire>(node);
 
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     Loc.T("The well seals itself — the corruption failed."));
             }
             expired.Dispose();

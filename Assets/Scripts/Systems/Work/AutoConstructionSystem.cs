@@ -104,9 +104,9 @@ namespace TheWaningBorder.Systems.Work
             // Post-game chart milestone: choice building completed via the
             // self-build path (mirrors BuildingConstructionSystem).
             if (em.HasComponent<ChoiceBuildingTag>(site) && em.HasComponent<FactionTag>(site))
-                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
+                TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
                     em.GetComponentData<FactionTag>(site).Value,
-                    TheWaningBorder.UI.HUD.GameEventKind.SpecialBuilding);
+                    TheWaningBorder.Core.Diagnostics.GameEventKind.SpecialBuilding);
             if (em.HasComponent<Buildable>(site))
                 em.RemoveComponent<Buildable>(site);
 

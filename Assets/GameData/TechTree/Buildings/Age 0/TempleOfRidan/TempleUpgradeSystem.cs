@@ -9,6 +9,7 @@ using Unity.Entities;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Core.Localization;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Work
 {
     /// <summary>
@@ -90,13 +91,13 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<TempleUpgradeState>(templeEntity);
 
                 // Post-game chart milestone: temple reached a new level.
-                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
-                    faction, TheWaningBorder.UI.HUD.GameEventKind.TempleLevelUp, nextLevel);
+                TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
+                    faction, TheWaningBorder.Core.Diagnostics.GameEventKind.TempleLevelUp, nextLevel);
 
                 // Notify player. Look up the RP delta after the award so the
                 // toast shows the actual gain (which may be augmented by carryover).
                 int rpGain = SectConfig.RpAwardForAge(nextEra);
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     string.Format(
                         Loc.T("Era {0} reached! +{1} Religion Points — adopted sects advanced to Lv {2}"),
                         nextEra, rpGain, nextLevel > 3 ? 3 : nextLevel));

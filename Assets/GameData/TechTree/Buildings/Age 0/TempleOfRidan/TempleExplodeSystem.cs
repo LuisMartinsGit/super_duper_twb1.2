@@ -22,6 +22,7 @@ using TheWaningBorder.Systems.Combat;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Economy
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -129,7 +130,7 @@ namespace TheWaningBorder.Systems.Economy
                     ShardrootState.ShardrootPower);
                 em.AddComponent<ShardrootTag>(dropped);
                 TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     Loc.T("The Temple falls — the SHARDROOT lies in the crater!"));
             }
 

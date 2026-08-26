@@ -134,8 +134,8 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<AgeUpState>(hallEntity);
 
                 // Post-game chart milestone: culture chosen (Era 2).
-                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
-                    faction, TheWaningBorder.UI.HUD.GameEventKind.CultureChosen, culture);
+                TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
+                    faction, TheWaningBorder.Core.Diagnostics.GameEventKind.CultureChosen, culture);
 
             }
 

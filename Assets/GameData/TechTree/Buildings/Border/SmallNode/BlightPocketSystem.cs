@@ -29,6 +29,7 @@ using TheWaningBorder.Influence;
 using TheWaningBorder.World.Terrain;
 using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -103,8 +104,8 @@ namespace TheWaningBorder.Systems.Border
                             Seeded = 0,
                             Collapsed = 0,
                         });
-                        TheWaningBorder.UI.GameUI.MinimapPings.Post(due[i],
-                            TheWaningBorder.UI.GameUI.MinimapPings.Curse, 6f, big: true);
+                        SimSignals.Ping(due[i],
+                            SimPingKind.Curse, 6f, big: true);
                         TWBLog.Log($"[BlightPocket] telegraphed corruption rose at {due[i]}.");
                     }
                     due.Dispose();

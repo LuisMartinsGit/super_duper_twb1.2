@@ -33,6 +33,7 @@ using TheWaningBorder.Entities;      // Crystalling / Veilstinger / Godsplinter 
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Core.Localization;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     /// <summary>
@@ -122,7 +123,7 @@ namespace TheWaningBorder.Systems.Border
             TheWaningBorder.AI.AILogger.Log(provoker, "RITUAL",
                 $"BACKLASH armed — the rite failed and the well answers with " +
                 $"{RitualBacklashTuning.WaveCount} waves");
-            TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+            SimSignals.Notify(
                 Loc.T("The rite collapses — the well erupts!"));
         }
 
@@ -175,7 +176,7 @@ namespace TheWaningBorder.Systems.Border
                 TheWaningBorder.AI.AILogger.Log(b.Provoker, "RITUAL",
                     $"BACKLASH wave {wave}/{RitualBacklashTuning.WaveCount}: {total} erupt " +
                     $"({melee} Crystalling, {ranged} Veilstinger, {siege} Godsplinter)");
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     string.Format(Loc.T("Backlash — wave {0} of {1}!"), wave, RitualBacklashTuning.WaveCount));
 
                 if (wave >= RitualBacklashTuning.WaveCount) finished.Add(entity);

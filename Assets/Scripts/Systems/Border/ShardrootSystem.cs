@@ -23,6 +23,7 @@ using TheWaningBorder.Entities;
 using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Localization;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -157,7 +158,7 @@ namespace TheWaningBorder.Systems.Border
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
                         MakePersistent(em, pickup);
-                        PlayerNotificationSystem.Notify(Loc.T("The SHARDROOT has been unearthed!"));
+                        SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
                         TWBLog.Log("[Shardroot] artifact surfaced by fallback " +
                             "(host lost or claimed without award)");
                     }
@@ -216,9 +217,9 @@ namespace TheWaningBorder.Systems.Border
                         .Query<RefRO<LocalTransform>>()
                         .WithAll<ShardrootTag>())
                     {
-                        TheWaningBorder.UI.GameUI.MinimapPings.Post(
+                        SimSignals.Ping(
                             xf.ValueRO.Position,
-                            TheWaningBorder.UI.GameUI.MinimapPings.Power,
+                            SimPingKind.Discovery,
                             BeaconInterval + 0.5f, big: true);
                         break; // there is only ever one Shardroot
                     }
@@ -253,7 +254,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponent<ShardrootTag>(pickup);
             MakePersistent(em, pickup);
 
-            PlayerNotificationSystem.Notify(Loc.T("The SHARDROOT has been unearthed!"));
+            SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
             TWBLog.Log("[Shardroot] artifact dropped at the host well");
         }
 
@@ -328,7 +329,7 @@ namespace TheWaningBorder.Systems.Border
             if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
             if (em.HasComponent<GlowCarrier>(courier)) em.RemoveComponent<GlowCarrier>(courier);
 
-            PlayerNotificationSystem.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
+            SimSignals.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
             TWBLog.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");
         }
     }

@@ -161,8 +161,8 @@ namespace TheWaningBorder.Systems.Combat
                     center.z + math.sin(a) * SuicideBloodRingRadius), charge.BloodAmount);
             }
 
-            TheWaningBorder.UI.GameUI.MinimapPings.Post(center,
-                TheWaningBorder.UI.GameUI.MinimapPings.Damage, 3f, big: true);
+            SimSignals.Ping(center,
+                SimPingKind.Combat, 3f, big: true);
         }
     }
 }

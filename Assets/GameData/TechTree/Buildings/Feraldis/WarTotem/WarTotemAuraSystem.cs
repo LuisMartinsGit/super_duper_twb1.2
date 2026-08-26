@@ -28,6 +28,7 @@ using TheWaningBorder.Influence;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.FeraldisConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.World
 {
 
@@ -172,7 +173,7 @@ namespace TheWaningBorder.Systems.World
                     h.Value = 0;
                     em.SetComponentData(t, h);
                 }
-                TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                SimSignals.Notify(
                     Loc.T("A War Totem crumbles — its blood is spent."));
             }
 

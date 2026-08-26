@@ -353,9 +353,9 @@ namespace TheWaningBorder.Systems.Work
             // completed. Only one completion path can fire per site — the
             // UnderConstruction removal above gates the other path out.
             if (em.HasComponent<ChoiceBuildingTag>(building) && em.HasComponent<FactionTag>(building))
-                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
+                TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
                     em.GetComponentData<FactionTag>(building).Value,
-                    TheWaningBorder.UI.HUD.GameEventKind.SpecialBuilding);
+                    TheWaningBorder.Core.Diagnostics.GameEventKind.SpecialBuilding);
             // Also remove Buildable if present (leftover from CreateUnderConstruction)
             if (em.HasComponent<Buildable>(building))
                 em.RemoveComponent<Buildable>(building);

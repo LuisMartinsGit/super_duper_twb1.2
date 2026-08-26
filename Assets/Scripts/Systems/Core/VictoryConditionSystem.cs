@@ -9,6 +9,8 @@ using UnityEngine;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 
+using TheWaningBorder.Core.Diagnostics;
+using TheWaningBorder.Core;
 namespace TheWaningBorder.UI.HUD
 {
     /// <summary>
@@ -242,7 +244,7 @@ namespace TheWaningBorder.UI.HUD
                 // self-destruct every remaining asset of the retired faction
                 // — a defeated player's leftover huts and stragglers no
                 // longer litter the match.
-                PlayerNotificationSystem.Notify(string.Format(
+                SimSignals.Notify(string.Format(
                     Loc.T("{0} has been DEFEATED"), Loc.T(faction.ToString())));
                 SelfDestructFactionAssets(faction);
 
@@ -374,26 +376,10 @@ namespace TheWaningBorder.UI.HUD
                 : Loc.T(result);
             bool localWon = !localPlayerDefeated
                 && (GameSettings.IsObserver || winner == GameSettings.LocalPlayerFaction);
-            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(
-                    displayResult,
-                    string.Format(Loc.T("Winner: {0}"), Loc.T(winner.ToString())),
-                    localWon))
-            {
-                PlayerNotificationSystem.Notify(
-                    string.Format(Loc.T("GAME OVER — {0}"), displayResult));
-                StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
-            }
-        }
-
-        /// <summary>Seconds between the outcome banner and the return to
-        /// the main menu — long enough to read how it ended.</summary>
-        private const float ReturnToMenuDelay = 10f;
-
-        private System.Collections.IEnumerator ReturnToMenuAfter(float seconds)
-        {
-            yield return new WaitForSeconds(seconds);
-            UnityEngine.SceneManagement.SceneManager.LoadScene(
-                TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+            SimSignals.MatchEnded(
+                displayResult,
+                string.Format(Loc.T("Winner: {0}"), Loc.T(winner.ToString())),
+                localWon);
         }
 
         /// <summary>Retirement is TOTAL: every remaining unit and building
@@ -475,16 +461,11 @@ namespace TheWaningBorder.UI.HUD
             string nodeTitle = GameSettings.IsObserver
                 ? string.Format(Loc.T("{0} WINS"), cultureName)
                 : Loc.T(localWonNode ? "VICTORY" : "DEFEAT");
-            if (!TheWaningBorder.UI.GameUI.VictoryPanel.TryShow(
-                    nodeTitle,
-                    string.Format(Loc.T("{0} node victory — winner: {1}"),
-                                  cultureName, Loc.T(winner.ToString())),
-                    localWonNode || GameSettings.IsObserver))
-            {
-                PlayerNotificationSystem.Notify(
-                    string.Format(Loc.T("GAME OVER — {0}"), displayResult));
-                StartCoroutine(ReturnToMenuAfter(ReturnToMenuDelay));
-            }
+            SimSignals.MatchEnded(
+                nodeTitle,
+                string.Format(Loc.T("{0} node victory — winner: {1}"),
+                              cultureName, Loc.T(winner.ToString())),
+                localWonNode || GameSettings.IsObserver);
         }
 
         /// <summary>

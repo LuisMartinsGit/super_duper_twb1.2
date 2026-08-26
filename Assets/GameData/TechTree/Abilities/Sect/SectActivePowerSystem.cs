@@ -23,6 +23,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Sect
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -326,8 +327,8 @@ namespace TheWaningBorder.Systems.Sect
                 targetPos, radius, windup);
 
             // Presentation: golden minimap ping at the cast site.
-            TheWaningBorder.UI.GameUI.MinimapPings.Post(targetPos,
-                TheWaningBorder.UI.GameUI.MinimapPings.Power, 4f, big: true);
+            SimSignals.Ping(targetPos,
+                SimPingKind.Discovery, 4f, big: true);
 
             // Stamp cooldown — per (sect, tier); each tier cools independently.
             int sectIdx = SectConfig.IndexOf(sectId);

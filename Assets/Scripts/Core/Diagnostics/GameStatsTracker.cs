@@ -1,4 +1,13 @@
 // GameStatsTracker.cs
+// Match statistics: per-faction snapshots, the event timeline and the
+// end-of-match record.
+//
+// Lives in Core/Diagnostics, NOT UI. It records what the simulation did
+// -- eliminations, culture picks, building milestones -- and the
+// simulation is what calls it. Sitting under UI/HUD made every system
+// that records a stat depend on the presentation layer, which is the one
+// dependency a deterministic simulation must not have. Nothing in UI/
+// referenced it at all.
 // Records periodic snapshots of faction resources and population for post-game timeline
 // Location: Assets/Scripts/UI/HUD/GameStatsTracker.cs
 
@@ -9,7 +18,7 @@ using UnityEngine;
 using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.Core.Diagnostics
 {
     /// <summary>
     /// Snapshot of a faction's state at a point in time.

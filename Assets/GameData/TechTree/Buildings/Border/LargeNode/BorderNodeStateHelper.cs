@@ -48,8 +48,8 @@ namespace TheWaningBorder.Entities
             if (prev.State != newState
                 && (newState == NodeState.Cleansed || newState == NodeState.Converted))
             {
-                TheWaningBorder.UI.HUD.GameStatsTracker.RecordEvent(
-                    ownerFaction, TheWaningBorder.UI.HUD.GameEventKind.NodeConverted);
+                TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
+                    ownerFaction, TheWaningBorder.Core.Diagnostics.GameEventKind.NodeConverted);
             }
 
             // ── TEMPO RULE (Curse & Shardroot canon §2.2) ────────────────

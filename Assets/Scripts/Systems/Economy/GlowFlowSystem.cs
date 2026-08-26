@@ -24,6 +24,7 @@ using TheWaningBorder.Systems.Combat;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Economy
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -180,7 +181,7 @@ namespace TheWaningBorder.Systems.Economy
                         && !em.HasComponent<ShardrootTag>(unit))
                     {
                         em.AddComponent<ShardrootTag>(unit);
-                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                        SimSignals.Notify(
                             string.Format(Loc.T("{0} carries the SHARDROOT!"), f));
                     }
                 }
@@ -251,7 +252,7 @@ namespace TheWaningBorder.Systems.Economy
                         {
                             ecb.RemoveComponent<ShardrootTag>(unitEntity);
                             ecb.AddComponent<ShardrootTag>(templeEnts[i]);
-                            TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                            SimSignals.Notify(
                                 string.Format(Loc.T("{0} has ENSHRINED the Shardroot — their powers surge!"), f));
                         }
 
@@ -291,7 +292,7 @@ namespace TheWaningBorder.Systems.Economy
                     em.AddComponent<ShardrootTag>(dropped);
                     TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
                     em.RemoveComponent<ShardrootTag>(dropList[i]);
-                    TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                    SimSignals.Notify(
                         Loc.T("The SHARDROOT has fallen — claim it!"));
                 }
                 if (em.HasComponent<GlowCarrier>(dropList[i]))

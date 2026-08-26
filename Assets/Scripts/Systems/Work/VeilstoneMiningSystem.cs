@@ -183,9 +183,9 @@ namespace TheWaningBorder.Systems.Work
                             At = _now + TheWaningBorder.Core.Config.VeilCrustConstants
                                 .CorruptionTelegraphSeconds,
                         });
-                        TheWaningBorder.UI.GameUI.MinimapPings.Post(corrupted[i],
-                            TheWaningBorder.UI.GameUI.MinimapPings.Curse, 15f);
-                        TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+                        SimSignals.Ping(corrupted[i],
+                            SimPingKind.Curse, 15f);
+                        SimSignals.Notify(
                             string.Format(
                                 Loc.T("A veilstone node is corrupting — the curse rises in {0}s!"),
                                 (int)TheWaningBorder.Core.Config.VeilCrustConstants.CorruptionTelegraphSeconds));

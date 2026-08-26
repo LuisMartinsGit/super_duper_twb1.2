@@ -31,6 +31,7 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
+using TheWaningBorder.Core;
 namespace TheWaningBorder.Systems.Border
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -98,8 +99,8 @@ namespace TheWaningBorder.Systems.Border
                     else Crystalling.Create(EntityManager, pos, Faction.Border);
                 }
                 BloodMap.Drain(p.Pos.x, p.Pos.z, BloodPoolRadius);
-                TheWaningBorder.UI.GameUI.MinimapPings.Post(p.Pos,
-                    TheWaningBorder.UI.GameUI.MinimapPings.Curse, 6f, big: true);
+                SimSignals.Ping(p.Pos,
+                    SimPingKind.Curse, 6f, big: true);
                 TWBLog.Log($"[BloodCurse] telegraphed pool at ({p.Pos.x:0},{p.Pos.z:0}) " +
                            $"birthed {total} creature(s).");
             }
@@ -224,10 +225,10 @@ namespace TheWaningBorder.Systems.Border
                 Godsplinters = godsplinters,
                 At = at,
             });
-            TheWaningBorder.UI.GameUI.MinimapPings.Post(new float3(bestX, siteY, bestZ),
-                TheWaningBorder.UI.GameUI.MinimapPings.Curse,
+            SimSignals.Ping(new float3(bestX, siteY, bestZ),
+                SimPingKind.Curse,
                 BloodSpawnTelegraphSeconds, big: true);
-            TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(
+            SimSignals.Notify(
                 string.Format(
                     Loc.T("Blood pool contaminating — {0} curse unit(s) will rise at ({1:0},{2:0}) in {3}s!"),
                     count, bestX, bestZ, (int)BloodSpawnTelegraphSeconds));
