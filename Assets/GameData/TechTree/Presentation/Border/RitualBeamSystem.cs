@@ -14,8 +14,6 @@
 // Audio cue and minimap marker (also called out in §5.1) are follow-ups —
 // they tie into existing systems (audio mixer + MinimapRenderer) that
 // need their own integration.
-//
-// Location: Assets/Scripts/Presentation/
 
 using System.Collections.Generic;
 using Unity.Collections;

@@ -4,8 +4,6 @@
 // TileIndex equals the dirty tile are evicted, that touched slabs
 // survive, and that the slot iteration walks in slot-index ascending
 // order (DR-12-shaped).
-//
-// Location: Assets/Tests/EditMode/NavStack/M4/CacheInvalidationTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

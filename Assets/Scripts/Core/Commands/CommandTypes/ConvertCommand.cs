@@ -1,6 +1,5 @@
 // ConvertCommand.cs
 // Command to convert a miner into a berserker at a Fiendstone Keep
-// Location: Assets/Scripts/Core/Commands/CommandTypes/ConvertCommand.cs
 
 using Unity.Entities;
 using Unity.Transforms;

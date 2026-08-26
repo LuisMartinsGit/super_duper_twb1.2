@@ -1,6 +1,5 @@
 // BuildGrid.cs
 // The map-wide 2 m build grid. Canonical spec: docs/Design/Build_Grid.md
-// Location: Assets/Scripts/Core/Settings/BuildGrid.cs
 
 using Unity.Mathematics;
 

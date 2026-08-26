@@ -2,7 +2,6 @@
 // Managed MonoBehaviour singleton providing a flat passability grid
 // generated from terrain slope and water data.
 // Used by flow-field pathfinding and building placement validation.
-// Location: Assets/Scripts/World/Terrain/PassabilityGrid.cs
 //
 // M8-followup (task-112 M7 carry-over):
 //   The task-112 navigation rewrite (M1..M7) introduced

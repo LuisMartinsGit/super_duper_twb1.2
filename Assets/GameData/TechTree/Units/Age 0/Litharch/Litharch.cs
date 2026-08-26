@@ -1,6 +1,5 @@
 // Litharch.cs
 // Support healer unit - can heal friendly units
-// Location: Assets/GameData/TechTree/Units/Age 0/Litharch/Litharch.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

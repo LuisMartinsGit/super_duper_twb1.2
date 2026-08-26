@@ -16,8 +16,6 @@
 //
 // Failures are collected into a single message so the test report
 // lists every offender at once rather than failing on the first.
-//
-// Location: Assets/Tests/EditMode/NavStack/M7/BurstAttributeAuditTest.cs
 
 using System;
 using System.Collections.Generic;

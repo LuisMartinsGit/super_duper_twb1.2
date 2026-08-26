@@ -1,6 +1,5 @@
 // TerrainUtility.cs
 // Centralized terrain utility functions
-// Location: Assets/Scripts/World/Terrain/TerrainUtility.cs
 
 using UnityEngine;
 

@@ -11,8 +11,6 @@
 // post-hoc by stamping LastObservedHealth, which lets every damage path
 // (melee, ranged, projectiles, border ground DoT, blast AOE, etc.) flow
 // through the shield without per-call wiring.
-//
-// Location: Assets/Scripts/Systems/Combat/
 
 using Unity.Collections;
 using Unity.Entities;

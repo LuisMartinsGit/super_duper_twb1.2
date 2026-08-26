@@ -1,6 +1,5 @@
 // MenuVersionLabel.cs
 // Drives the main menu's version label from the real build version.
-// Location: Assets/Scripts/UI/Menus/MenuVersionLabel.cs
 
 using TMPro;
 using UnityEngine;

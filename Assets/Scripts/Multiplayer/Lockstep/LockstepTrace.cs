@@ -1,7 +1,6 @@
 // LockstepTrace.cs
 // A rolling per-entity, per-tick record of the simulation, dumped when a
 // desync fires.
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepTrace.cs
 //
 // THE PROBLEM THIS SOLVES
 // Checksums are exchanged every SYNC_CHECK_INTERVAL ticks, so a desync is

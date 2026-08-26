@@ -25,8 +25,6 @@
 //
 // Layouts apply to Alanthor culture (and culture-None pre-culture, where only
 // the Age-0 slots show). Other cultures fall back to the classic panel.
-//
-// Location: Assets/Scripts/UI/Panels/
 
 using System.Collections.Generic;
 using Unity.Entities;

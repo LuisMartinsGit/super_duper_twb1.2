@@ -11,8 +11,6 @@
 // design that DOES level passives has somewhere to put the numbers.
 //
 // task-063 phase 2d.
-//
-// Location: Assets/Scripts/Economy/WarSectCostHelper.cs
 
 using Unity.Entities;
 using TheWaningBorder.Core;

@@ -26,8 +26,6 @@
 //   * Per-unit job reads only shared immutable-in-frame data + the unit's
 //     own components. Hash lookups are O(1) TryGetValue.
 //   * No SystemAPI.Time reads, no randomness.
-//
-// Location: Assets/Scripts/Systems/Navigation/FlowFollowSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

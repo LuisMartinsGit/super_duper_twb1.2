@@ -6,8 +6,6 @@
 // Exercises the carry-over behaviour: requests that exceed the
 // per-tick budget MUST stay in the pending list and be processed on
 // the next tick in the same order.
-//
-// Location: Assets/Tests/EditMode/NavStack/M6/RequestSchedulerBudgetTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

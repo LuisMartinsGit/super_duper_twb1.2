@@ -20,8 +20,6 @@
 //    of a straight line. That is the "get lost and circle around". Mining was
 //    the last work system still doing this: combat, construction and repair
 //    all aim at TargetGeometry.ApproachPoint.
-//
-// Location: Assets/Scripts/Systems/Work/MiningReach.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

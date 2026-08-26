@@ -16,8 +16,6 @@
 // through credits its veilstone STRAIGHT to the faction bank — like every
 // mining flow, nothing is hauled. Same interrupt rules as the entity-mining
 // systems. Deterministic: field reads/writes only, no RNG.
-//
-// Location: Assets/Scripts/Systems/Work/
 
 using Unity.Collections;
 using Unity.Entities;

@@ -10,8 +10,6 @@
 // Health <= 0.
 //
 // Empty Temples die quietly — no explode.
-//
-// Location: Assets/Scripts/Systems/Economy/
 
 using Unity.Collections;
 using Unity.Entities;

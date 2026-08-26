@@ -9,7 +9,6 @@
 // dependency a deterministic simulation must not have. Nothing in UI/
 // referenced it at all.
 // Records periodic snapshots of faction resources and population for post-game timeline
-// Location: Assets/Scripts/UI/HUD/GameStatsTracker.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

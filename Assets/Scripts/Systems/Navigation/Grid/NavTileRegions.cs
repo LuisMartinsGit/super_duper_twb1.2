@@ -18,8 +18,6 @@
 // Determinism: fixed scan order (explicit stack, neighbours pushed in a
 // constant order), integer math only, reads the lockstep-identical cost
 // slab — safe for multiplayer.
-//
-// Location: Assets/Scripts/Systems/Navigation/NavTileRegions.cs
 
 using Unity.Collections;
 using Unity.Mathematics;

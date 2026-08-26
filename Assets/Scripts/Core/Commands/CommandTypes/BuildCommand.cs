@@ -1,6 +1,5 @@
 // BuildCommand.cs
 // Build command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/BuildCommand.cs
 
 using Unity.Collections;
 using Unity.Entities;

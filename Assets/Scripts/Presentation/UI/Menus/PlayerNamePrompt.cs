@@ -1,6 +1,5 @@
 // PlayerNamePrompt.cs
 // One-time "what should we call you?" card, shown on the very first run.
-// Location: Assets/Scripts/UI/Menus/PlayerNamePrompt.cs
 
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Core.Config;

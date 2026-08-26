@@ -1,6 +1,5 @@
 // AIManagerComponents.cs
 // Components for AI management systems (Mission, Military, Tactical)
-// Location: Assets/Scripts/AI/Components/AIManagerComponents.cs
 
 using Unity.Collections;
 using Unity.Entities;

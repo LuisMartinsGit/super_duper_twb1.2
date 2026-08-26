@@ -17,8 +17,6 @@
 // Polled at 0.5 s (PollInterval). The full O(N²) pair scan at typical hub counts
 // (< 30 per faction) is ~435 distance checks per tick — negligible. Roster-change
 // cache invalidation is intentionally NOT implemented (premature optimisation).
-//
-// Location: Assets/Scripts/Systems/Buildings/WallAutoSegmentSystem.cs
 
 using Unity.Entities;
 using Unity.Collections;

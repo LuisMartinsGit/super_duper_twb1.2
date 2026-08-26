@@ -15,7 +15,6 @@
 //
 // Prefabs without an "Lv0" child are untouched (TrySetup returns null),
 // so every legacy visual keeps its existing pipeline.
-// Location: Assets/Scripts/Presentation/BuildingVariantVisual.cs
 
 using System.Collections.Generic;
 using UnityEngine;

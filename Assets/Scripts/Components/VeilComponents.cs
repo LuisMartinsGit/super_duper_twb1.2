@@ -11,7 +11,6 @@
 // edge), and terrain/minimap visuals.
 //
 // Global namespace per project ECS-component convention.
-// Location: Assets/Scripts/Components/VeilComponents.cs
 
 using Unity.Collections;
 using Unity.Entities;

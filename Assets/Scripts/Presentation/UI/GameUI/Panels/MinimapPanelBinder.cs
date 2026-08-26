@@ -30,7 +30,6 @@
 // - Clicks on the map: left snaps the camera, right issues move orders to
 //   the selected own units. The overlay is the raycast target, so hovering
 //   the minimap also reads as pointer-over-UI for the world-input guards.
-// Location: Assets/Scripts/UI/GameUI/MinimapPanelBinder.cs
 
 using System.Collections;
 using Unity.Collections;

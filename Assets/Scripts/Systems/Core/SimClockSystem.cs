@@ -9,8 +9,6 @@
 //
 // Ordered first in the group so everything else in the same update sees a clock
 // that has already advanced for this step.
-//
-// Location: Assets/Scripts/Systems/Core/SimClockSystem.cs
 
 using Unity.Burst;
 using Unity.Entities;

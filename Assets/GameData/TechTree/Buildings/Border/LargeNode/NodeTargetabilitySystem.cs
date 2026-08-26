@@ -13,8 +13,6 @@
 //
 // TargetingSystem excludes NodeUntargetable from its enemy query, so toggling
 // that tag is all this system does.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

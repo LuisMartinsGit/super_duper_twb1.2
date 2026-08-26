@@ -16,8 +16,6 @@
 //
 // Polls level vs cached level each Update; structural ECS changes are
 // not required because we only swap GameObjects, not entity components.
-//
-// Location: Assets/Scripts/Presentation/BuildingPrefabSwapSystem.cs
 
 using System.Collections.Generic;
 using UnityEngine;

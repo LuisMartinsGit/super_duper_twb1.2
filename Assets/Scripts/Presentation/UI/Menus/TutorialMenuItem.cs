@@ -15,7 +15,6 @@
 // overlay that walks the WHOLE game, opening to victory condition, in seven
 // chapters. That keeps it working on whatever map actually ships and means it
 // exercises the real game rather than a mock-up.
-// Location: Assets/Scripts/UI/Menus/TutorialMenuItem.cs
 
 using TMPro;
 using UnityEngine;

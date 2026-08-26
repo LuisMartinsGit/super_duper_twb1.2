@@ -11,8 +11,6 @@
 // Optimal abstract path: TL -> (north portal to BL) -> BR via the
 // virtual goal -- 3 portals (startVirtual + node 2 OR node 3 +
 // goalVirtual). Tie-break favours the smaller portal id.
-//
-// Location: Assets/Tests/EditMode/NavStack/M3/AbstractPathfinderTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

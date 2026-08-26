@@ -16,8 +16,6 @@
 // here BEFORE the second sect is wired up.
 //
 // task-063 phase 2d.
-//
-// Location: Assets/Scripts/Systems/Sect/SectRuinRefundSystem.cs
 
 using Unity.Entities;
 using TheWaningBorder.Economy;

@@ -9,8 +9,6 @@
 // world — so we mirror its inner math directly and assert determinism on
 // the math, which is what the Burst-compiled version runs at every call
 // site.
-//
-// Location: Assets/Tests/EditMode/NavStack/M1/FlowFollowDeterminismTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

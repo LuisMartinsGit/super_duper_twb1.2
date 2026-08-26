@@ -13,8 +13,6 @@
 // attunement/carry/interception/drop-on-death/temple-storage/detonation
 // all reuse the existing Glow machinery (GlowFlowSystem,
 // TempleExplodeSystem) with small Shardroot-aware patches.
-//
-// Location: Assets/Scripts/Systems/Border/
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;

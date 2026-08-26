@@ -22,8 +22,6 @@
 //     to a disjoint slab in the pool).
 //   * Hash key = (TileIndex << 16) | (ExitPortalId << 8) | ProfileHash --
 //     integer only.
-//
-// Location: Assets/Scripts/Systems/Navigation/FlowSegmentSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

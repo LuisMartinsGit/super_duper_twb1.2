@@ -2,7 +2,6 @@
 // One-shot level-up flourish: warm gold light pulse + upward spark burst +
 // faction-tinted ground ring. Spawned by BuildingPrefabSwapSystem the moment
 // the new prefab pops in. Self-destructs after ~2 seconds.
-// Location: Assets/GameData/TechTree/Presentation/Buildings/BuildingLevelUpEffect.cs
 using UnityEngine;
 
 namespace TheWaningBorder.Presentation

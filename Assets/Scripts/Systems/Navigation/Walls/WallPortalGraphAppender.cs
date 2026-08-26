@@ -13,8 +13,6 @@
 // Determinism: spec list is iterated in entity.Index ascending order
 // (WallPortalDetectionSystem already sorted), so node id assignment is
 // stable across machines / runs.
-//
-// Location: Assets/Scripts/Systems/Navigation/WallPortalGraphAppender.cs
 
 using Unity.Collections;
 using Unity.Mathematics;

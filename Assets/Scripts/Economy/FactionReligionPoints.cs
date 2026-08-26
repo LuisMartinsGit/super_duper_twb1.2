@@ -15,8 +15,6 @@
 // Phase 1 (task-063): component + grant/spend helpers. Adoption logic lives
 // in SectAdoption; age-up wiring lives in AgeUpSystem; Shrine wiring lives
 // in BuildingConstructionSystem.GrantShrineRPBonus.
-//
-// Location: Assets/Scripts/Economy/FactionReligionPoints.cs
 
 using Unity.Entities;
 

@@ -35,8 +35,6 @@
 // [UpdateAfter(typeof(...))] hooks that used to point at MovementSystem
 // (BattalionSyncSystem, WallGarrisonSystem, WallDoorAccessSystem) now
 // point at UnitIntegratorSystem.
-//
-// Location: Assets/Scripts/Systems/Navigation/UnitIntegratorSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

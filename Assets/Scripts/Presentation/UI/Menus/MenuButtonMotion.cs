@@ -1,6 +1,5 @@
 // MenuButtonMotion.cs
 // Hover and press motion for menu buttons, added at runtime.
-// Location: Assets/Scripts/UI/Menus/MenuButtonMotion.cs
 //
 // ADDS ONLY. Nothing in this file writes a sprite, a colour, a size, a layout
 // value or a hierarchy - and nothing here runs in the editor, so no authored

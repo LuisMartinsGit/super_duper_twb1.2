@@ -1,6 +1,5 @@
 // MatchLogUploader.cs
 // Sends a finished match's log folder to the update server.
-// Location: Assets/Scripts/Core/Diagnostics/MatchLogUploader.cs
 
 using System;
 using System.Collections.Generic;

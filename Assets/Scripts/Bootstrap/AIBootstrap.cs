@@ -1,6 +1,5 @@
 // AIBootstrap.cs
 // Initializes AI players and creates AI brain entities
-// Location: Assets/Scripts/Core/Bootstrap/AIBootstrap.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

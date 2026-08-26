@@ -1,6 +1,5 @@
 // ProceduralMaterialHelper.cs
 // Shared material + MaterialPropertyBlock utility for procedural generation.
-// Location: Assets/GameData/TechTree/Presentation/Procedural/ProceduralMaterialHelper.cs
 //
 // Fix #203: every procedural primitive used to create `new Material(shader)`
 // individually. A single forest with 30 trees created 60+ material instances.

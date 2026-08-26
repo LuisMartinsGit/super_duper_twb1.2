@@ -1,6 +1,5 @@
 // TrebuchetDeploySystem.cs
 // Drives the Trebuchet pack/unpack cycle.
-// Location: Assets/GameData/TechTree/Units/Alanthor/Trebuchet/TrebuchetDeploySystem.cs
 
 using Unity.Burst;
 using Unity.Entities;

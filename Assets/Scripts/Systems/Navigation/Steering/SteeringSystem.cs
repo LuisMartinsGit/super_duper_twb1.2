@@ -27,8 +27,6 @@
 //     dimensionless (a desired direction), so dt belongs to MovementSystem.
 //   * Look-ahead obstacle check uses integer cell math against the
 //     read-only cost array.
-//
-// Location: Assets/Scripts/Systems/Navigation/SteeringSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

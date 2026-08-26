@@ -14,8 +14,6 @@
 //
 // The instance fields / methods below exist purely so the (dead, null-guarded)
 // call sites keep compiling. They are never executed.
-//
-// Location: Assets/Scripts/World/Terrain/ProceduralTerrain.cs
 
 using UnityEngine;
 

@@ -5,7 +5,6 @@
 // logs/Perf.log with wall time + frame number. One match later the
 // hitch has a name and a milliseconds figure instead of a vibe.
 // Presentation/diagnostic only — never read by the sim.
-// Location: Assets/Scripts/Core/Diagnostics/
 
 using System.IO;
 using UnityEngine;

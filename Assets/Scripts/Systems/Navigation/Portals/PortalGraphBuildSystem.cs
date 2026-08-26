@@ -26,8 +26,6 @@
 //   2. Complete state.Dependency (no nav jobs in-flight for M3's one-shot).
 //   3. Assign new blob to singleton; bump Generation.
 //   4. Dispose the previous blob if any.
-//
-// Location: Assets/Scripts/Systems/Navigation/PortalGraphBuildSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

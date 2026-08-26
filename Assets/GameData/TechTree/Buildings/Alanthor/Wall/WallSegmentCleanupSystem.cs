@@ -2,7 +2,6 @@
 // Monitors wall segments and handles cascade destruction:
 // - When all instances in a segment die, destroy the segment and clean up hub links.
 // - When a hub dies, destroy connected segments and cascade to their instances.
-// Location: Assets/GameData/TechTree/Buildings/Alanthor/WallSegmentCleanupSystem.cs
 
 using Unity.Entities;
 using Unity.Collections;

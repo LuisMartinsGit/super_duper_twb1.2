@@ -4,8 +4,6 @@
 // re-stamp every tick — so structural-change accounting stays out of the
 // way. M4 will replace this with dirty-tile incremental rebuild driven by
 // stamp events.
-//
-// Location: Assets/Scripts/Systems/Navigation/CostFieldStampSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

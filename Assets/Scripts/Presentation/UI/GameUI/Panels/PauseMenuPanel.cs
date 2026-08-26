@@ -21,7 +21,6 @@
 // unscaledDeltaTime, so panels keep repainting while the simulation is
 // frozen. In MULTIPLAYER the clock is NOT stopped — one player cannot freeze
 // a lockstep match — the menu simply opens over a running game.
-// Location: Assets/Scripts/UI/GameUI/PauseMenuPanel.cs
 
 using TMPro;
 using UnityEngine;

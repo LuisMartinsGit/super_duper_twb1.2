@@ -1,6 +1,5 @@
 // SimCadence.cs
 // Periodic-system cadence that starts from a KNOWN PHASE every match.
-// Location: Assets/Scripts/Systems/Core/SimCadence.cs
 //
 // THE BUG THIS EXISTS TO PREVENT (desync 2026-08-21, build 0.0.14)
 //

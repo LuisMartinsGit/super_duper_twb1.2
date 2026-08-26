@@ -2,7 +2,6 @@
 // Runtime localization for labels whose English text is AUTHORED into a
 // scene or prefab (MainMenu.unity, the GameUI panel prefabs) rather than
 // set from code.
-// Location: Assets/Scripts/Core/Localization/LocAuthoredLabel.cs
 
 using TMPro;
 using UnityEngine;

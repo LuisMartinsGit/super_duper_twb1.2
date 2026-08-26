@@ -1,7 +1,6 @@
 // MenuSceneLink.cs
 // One menu screen jumping to another. Drop it on a GameObject in a menu scene,
 // name the target scene, and wire a Button's onClick to Open() in the Inspector.
-// Location: Assets/Scripts/UI/Menus/MenuSceneLink.cs
 
 using UnityEngine;
 using UnityEngine.SceneManagement;

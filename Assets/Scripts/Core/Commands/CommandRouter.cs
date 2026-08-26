@@ -1,6 +1,5 @@
 // CommandRouter.cs
 // Unified command routing system for local player, remote player, and AI
-// Location: Assets/Scripts/Core/Commands/CommandRouter.cs
 
 using UnityEngine;
 using Unity.Entities;
@@ -47,7 +46,7 @@ namespace TheWaningBorder.Core.Commands
         public static bool LogCommands = false;
 
         // Fix #235: the nested `CommandSource` enum was removed. The canonical
-        // definition lives in ICommand.cs at the namespace level
+        // definition lives in CommandSource.cs at the namespace level
         // (TheWaningBorder.Core.Commands.CommandSource). Both enums had
         // identical members and any reference that disambiguated with
         // `CommandRouter.CommandSource.X` was migrated to `CommandSource.X`.

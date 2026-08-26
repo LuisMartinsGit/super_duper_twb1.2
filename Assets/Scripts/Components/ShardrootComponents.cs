@@ -12,7 +12,6 @@
 //   and the Temple detonates its stockpile on death — volatility for free).
 //
 // Global namespace per project ECS-component convention.
-// Location: Assets/Scripts/Components/ShardrootComponents.cs
 
 using Unity.Entities;
 

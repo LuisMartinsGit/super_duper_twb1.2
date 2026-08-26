@@ -9,7 +9,6 @@
 // (t["..."] = "...") and never .Add(): the same English string legitimately
 // appears in several domains ("Cancel", "Back") and .Add would throw on
 // the second one.
-// Location: Assets/Scripts/Core/Localization/Loc.Portuguese.cs
 
 using System.Collections.Generic;
 

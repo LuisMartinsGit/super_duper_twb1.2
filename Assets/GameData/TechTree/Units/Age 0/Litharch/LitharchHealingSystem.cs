@@ -1,6 +1,5 @@
 // LitharchHealingSystem.cs
 // Processes healing for Litharch support units
-// Location: Assets/GameData/TechTree/Units/Age 0/Litharch/LitharchHealingSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

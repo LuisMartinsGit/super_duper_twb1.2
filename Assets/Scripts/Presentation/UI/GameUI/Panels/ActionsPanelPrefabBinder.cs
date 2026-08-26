@@ -25,7 +25,6 @@
 // Icons come from the catalog entitySymbols (by id/label) with the
 // Resources/UI/Icons building textures as fallback; icon-less actions show
 // a text caption instead.
-// Location: Assets/Scripts/UI/GameUI/ActionsPanelPrefabBinder.cs
 
 using System.Collections.Generic;
 using TMPro;

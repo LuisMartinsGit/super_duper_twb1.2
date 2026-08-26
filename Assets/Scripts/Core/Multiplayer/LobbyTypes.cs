@@ -1,6 +1,5 @@
 // LobbyTypes.cs
 // Shared lobby configuration types used by both Core and Multiplayer
-// Location: Assets/Scripts/Core/Config/LobbyTypes.cs
 
 using UnityEngine;
 

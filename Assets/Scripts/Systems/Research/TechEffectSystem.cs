@@ -1,7 +1,6 @@
 // TechEffectSystem.cs
 // Applies stat modifiers from researched technologies to faction entities.
 // MonoBehaviour singleton - subscribes to FactionResearchState.OnTechCompleted.
-// Location: Assets/Scripts/Systems/Research/TechEffectSystem.cs
 
 using UnityEngine;
 using Unity.Collections;

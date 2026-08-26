@@ -4,7 +4,6 @@
 // no instrumented system claims is immediately attributable to garbage
 // collection (or to something still un-instrumented). Suppressed while
 // the loading screen is up (loading frames are legitimately long).
-// Location: Assets/Scripts/Core/Diagnostics/
 
 using UnityEngine;
 

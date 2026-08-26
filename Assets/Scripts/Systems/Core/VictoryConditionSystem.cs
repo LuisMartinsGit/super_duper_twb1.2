@@ -1,6 +1,5 @@
 // VictoryConditionSystem.cs
 // Polls ECS world to detect faction elimination and trigger victory/defeat
-// Location: Assets/Scripts/Systems/Core/VictoryConditionSystem.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

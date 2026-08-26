@@ -18,8 +18,6 @@
 //
 // All values scale Lv I → II → III by a per-axis multiplier exposed via
 // LevelScalar, so callers don't have to maintain three tables per sect.
-//
-// Location: Assets/Scripts/Economy/SectLeverEffects.cs
 
 namespace TheWaningBorder.Economy
 {

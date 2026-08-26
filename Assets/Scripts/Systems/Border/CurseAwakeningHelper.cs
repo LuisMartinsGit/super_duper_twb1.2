@@ -7,8 +7,6 @@
 // CorruptionRitualSystem). Idempotent per well — a well that is already awake
 // ignores further calls, so the systems can call unconditionally on every
 // channel start without guarding.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Entities;
 using TheWaningBorder.Core.Localization;

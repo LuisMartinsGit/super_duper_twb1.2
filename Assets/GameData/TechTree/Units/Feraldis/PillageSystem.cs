@@ -1,6 +1,5 @@
 // PillageSystem.cs
 // Grants resources to Feraldis factions when they kill enemy units or destroy buildings
-// Location: Assets/GameData/TechTree/Units/Feraldis/PillageSystem.cs
 
 using Unity.Entities;
 using TheWaningBorder.Economy;

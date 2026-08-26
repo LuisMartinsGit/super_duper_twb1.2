@@ -18,7 +18,6 @@
 // routes CommandRouter.IssueSectAdoption; the RP + chapel material spend
 // happens inside SectAdoptionCommandDirect on every peer, alongside the
 // slot stamp (docs/Multiplayer_LAN_Readiness.md).
-// Location: Assets/Scripts/UI/GameUI/ReligionPanelBinder.cs
 
 using System.Collections.Generic;
 using TMPro;

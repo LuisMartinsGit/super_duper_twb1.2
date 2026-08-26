@@ -1,6 +1,5 @@
 // BurningGroundSystem.cs
 // Applies damage-over-time from BurningGround entities to nearby non-friendly units
-// Location: Assets/Scripts/Systems/Combat/BurningGroundSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -1,7 +1,6 @@
 // EntityCreator.cs
 // Shared abstraction that lets unit/building factory code use a single
 // implementation for both EntityManager and EntityCommandBuffer paths.
-// Location: Assets/Scripts/Entities/EntityCreator.cs
 //
 // Fix #219: Every unit file used to contain two Create methods (one for
 // EntityManager, one for EntityCommandBuffer) that were 90%+ identical.

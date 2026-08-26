@@ -1,7 +1,6 @@
 // MatchLogSession.cs
 // One folder of logs per match, plus console/exception capture, for alpha
 // testers to send back after a play session.
-// Location: Assets/Scripts/Core/Diagnostics/MatchLogSession.cs
 
 using System;
 using System.IO;

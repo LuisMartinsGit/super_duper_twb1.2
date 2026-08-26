@@ -9,8 +9,6 @@
 // Runs in EditMode, no ECS world: we call the job manually with
 // stand-alone NativeArrays. That keeps the test deterministic and
 // independent of bootstrap order.
-//
-// Location: Assets/Tests/EditMode/NavStack/M1/CostFieldStampingTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

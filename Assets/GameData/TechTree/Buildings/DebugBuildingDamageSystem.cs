@@ -1,7 +1,6 @@
 // DebugBuildingDamageSystem.cs
 // Test-only: drains HP from buildings tagged for the BuildingDamageTest scenario
 // so the progressive BuildingDamage shader can be reviewed live.
-// Location: Assets/GameData/TechTree/Buildings/DebugBuildingDamageSystem.cs
 
 using Unity.Entities;
 

@@ -24,8 +24,6 @@
 //     dirty.
 //   * Cache invalidation walks the slot keys in slot-index order so
 //     evictions happen in a stable order across machines.
-//
-// Location: Assets/Scripts/Systems/Navigation/IncrementalPortalRebuildSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

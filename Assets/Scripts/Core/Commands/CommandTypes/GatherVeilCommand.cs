@@ -7,7 +7,6 @@
 // sheet visibly recedes where they dig. Consumed by VeilMiningSystem;
 // stays on the miner for the whole dig loop (like BuildOrder/RepairOrder)
 // and is removed on interrupt or when the local crust is gone.
-// Location: Assets/Scripts/Core/Commands/CommandTypes/
 
 using Unity.Entities;
 using Unity.Mathematics;

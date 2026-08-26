@@ -1,6 +1,5 @@
 // WaterPlane.cs
 // Animated water plane with procedural waves
-// Location: Assets/Scripts/World/Terrain/WaterPlane.cs
 
 using UnityEngine;
 

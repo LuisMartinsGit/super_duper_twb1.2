@@ -14,8 +14,6 @@
 //
 // MonoBehaviour, mounted on RuntimeManagers by GameBootstrap. Polls a few
 // nodes at ScanInterval — cheap.
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/LargeNode/NodeRubbleVisualSystem.cs
 
 using System.Collections.Generic;
 using Unity.Entities;

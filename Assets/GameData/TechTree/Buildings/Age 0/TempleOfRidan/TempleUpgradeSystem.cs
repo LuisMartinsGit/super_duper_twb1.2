@@ -2,7 +2,6 @@
 // Ticks TempleUpgradeState.Remaining each frame. On completion:
 // sets TempleLevel, updates FactionEra, grants RP, recalculates sect passives.
 // Pattern follows AgeUpSystem.cs.
-// Location: Assets/GameData/TechTree/Buildings/Age 0/TempleOfRidan/TempleUpgradeSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -4,7 +4,6 @@
 // production queue, building upgrade action, religion panel, plus the
 // authored GameUI prefab labels the runtime localizer applies.
 // Keys are the ENGLISH source strings exactly as composed at the call sites.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.GameUI.cs
 
 using System.Collections.Generic;
 

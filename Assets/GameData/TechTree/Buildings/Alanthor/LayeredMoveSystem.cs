@@ -18,8 +18,6 @@
 // During the LERP DesiredDestination.Has is cleared so UnitIntegratorSystem
 // skips the unit and this system owns its position. The integrator is
 // layer-aware so deck units walk only on wall-top cells.
-//
-// Location: Assets/Scripts/Systems/Buildings/LayeredMoveSystem.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

@@ -52,7 +52,6 @@
 // frame so changes read as smooth. Two exceptions snap instantly: an attack
 // firing (bar back to empty) and the bound unit changing. Heart rows snap
 // (they are discrete pips).
-// Location: Assets/Scripts/UI/GameUI/UnitStatsPanelBinder.cs
 
 using TMPro;
 using Unity.Entities;

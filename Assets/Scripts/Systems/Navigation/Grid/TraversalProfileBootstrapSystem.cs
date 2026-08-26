@@ -11,8 +11,6 @@
 //
 // Determinism: cos/sin-free; built once on the main thread via
 // BlobBuilder. Burst-safe construction (the helper math is integer).
-//
-// Location: Assets/Scripts/Systems/Navigation/TraversalProfileBootstrapSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

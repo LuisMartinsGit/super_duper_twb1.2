@@ -36,8 +36,6 @@
 // collection (chunk-walk order), sequential Burst .Run() integration,
 // LRU eviction with smallest-slot tie-break. No wall-clock, no floats in
 // sim-affecting decisions (the dir byte is quantized once at bake).
-//
-// Location: Assets/Scripts/Systems/Navigation/GoalFlowFieldSystem.cs
 
 using System;
 using Unity.Burst;

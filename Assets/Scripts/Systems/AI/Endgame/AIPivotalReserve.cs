@@ -15,8 +15,6 @@
 //
 // Host-side AI state (statics), same as AIBudget. Entries are cleared by
 // their owners on purchase or when the goal disappears.
-//
-// Location: Assets/Scripts/Systems/AI/AIPivotalReserve.cs
 
 using System.Collections.Generic;
 using Unity.Entities;

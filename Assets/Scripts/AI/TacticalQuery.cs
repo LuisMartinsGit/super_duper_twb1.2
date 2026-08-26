@@ -2,8 +2,6 @@
 // Reusable spatial strength queries for AI decisions (AI plan M1).
 // Brute-force over a cached unit snapshot query — called a handful of times
 // per AI think tick (>= 0.5 s cadence), so O(N units) per call is fine.
-//
-// Location: Assets/Scripts/AI/TacticalQuery.cs
 
 using Unity.Collections;
 using Unity.Entities;

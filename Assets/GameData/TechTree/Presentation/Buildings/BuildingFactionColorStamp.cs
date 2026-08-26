@@ -10,8 +10,6 @@
 // screen. Keeping the color ON the GameObject lets whoever finishes rewriting
 // the materials call BuildingFactionColorMarker.Reapply(go) and put the team
 // color back, without an ECS lookup and without knowing which faction owns it.
-//
-// Location: Assets/GameData/TechTree/Presentation/Buildings/BuildingFactionColorStamp.cs
 
 using UnityEngine;
 

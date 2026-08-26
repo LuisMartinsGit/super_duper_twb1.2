@@ -1,6 +1,5 @@
 // MenuSettingsButton.cs
 // Makes the main menu's Settings entry actually open the options panel.
-// Location: Assets/Scripts/UI/Menus/MenuSettingsButton.cs
 
 using TMPro;
 using UnityEngine;

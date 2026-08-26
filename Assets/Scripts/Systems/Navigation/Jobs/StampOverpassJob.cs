@@ -11,8 +11,6 @@
 // Single-thread Burst IJob: overpass counts are tiny (scene furniture) and
 // the write set of overlapping bridges is idempotent, matching the wall
 // stamp jobs' tolerance.
-//
-// Location: Assets/Scripts/Systems/Navigation/Jobs/StampOverpassJob.cs
 
 using Unity.Burst;
 using Unity.Collections;

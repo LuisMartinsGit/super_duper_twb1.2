@@ -5,7 +5,6 @@
 // of the old HUD so they read as one family with the authored panels; when
 // the author ships prefab shells for them, swap the construction here for
 // catalog bindings the way ResourcePanel/SelectionHeader work.
-// Location: Assets/Scripts/UI/GameUI/GameUIKit.cs
 
 using TMPro;
 using UnityEngine;

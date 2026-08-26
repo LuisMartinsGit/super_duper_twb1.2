@@ -11,8 +11,6 @@
 // Reserves a small buffer of resources before upgrading so upgrades
 // don't bankrupt the AI mid-rush. Reserves are loose — if the AI
 // genuinely can't afford it, the command helper rejects gracefully.
-//
-// Location: Assets/Scripts/AI/Managers/AIBuildingUpgradeSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

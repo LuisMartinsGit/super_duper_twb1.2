@@ -27,8 +27,6 @@
 // to the pre-bake behaviour.
 //
 // NOT [BurstCompile]: reads the managed PassabilityGrid singleton.
-//
-// Location: Assets/Scripts/Systems/Navigation/TerrainCostBakeSystem.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

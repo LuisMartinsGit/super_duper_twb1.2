@@ -1,6 +1,5 @@
 // BatchTrainingSystem.cs
 // Handles batch training for Feraldis Longhouse (5 units at once with discounts)
-// Location: Assets/GameData/TechTree/Buildings/Feraldis/Longhouse/BatchTrainingSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

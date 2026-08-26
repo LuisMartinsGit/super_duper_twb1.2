@@ -12,8 +12,6 @@
 // Runs UpdateBefore(GlowWeaponDropSystem) so the revive takes precedence
 // over the drop/destroy path. After revival, Health.Value > 0 again, so
 // both downstream systems skip the unit.
-//
-// Location: Assets/Scripts/Systems/Combat/
 
 using Unity.Collections;
 using Unity.Entities;

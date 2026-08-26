@@ -8,8 +8,6 @@
 //
 // Also asserts the layer-mask intersection contract (only layers
 // admissible by every member appear in the result).
-//
-// Location: Assets/Tests/EditMode/NavStack/M6/ExtendedFlowProfileTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

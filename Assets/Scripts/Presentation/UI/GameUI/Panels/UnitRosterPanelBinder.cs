@@ -17,7 +17,6 @@
 // overlay; hovered slots show a lighter one. The "Selected"/"Highlighted"
 // overlay nodes are created at runtime when the slot doesn't author them,
 // and any authored Graphic inside them suppresses the fallback tint.
-// Location: Assets/Scripts/UI/GameUI/UnitRosterPanelBinder.cs
 
 using System.Collections.Generic;
 using Unity.Entities;

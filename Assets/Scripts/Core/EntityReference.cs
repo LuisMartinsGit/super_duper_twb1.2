@@ -1,6 +1,5 @@
 // EntityReference.cs
 // The link from a view GameObject back to its ECS entity.
-// Location: Assets/Scripts/Core/EntityReference.cs
 //
 // Four lines that used to sit at the bottom of RTSInputManager.cs, 1,390
 // lines into a file about mouse clicks, because that is where someone

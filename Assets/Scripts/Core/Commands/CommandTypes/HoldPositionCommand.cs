@@ -1,6 +1,5 @@
 // HoldPositionCommand.cs
 // Hold position command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/HoldPositionCommand.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

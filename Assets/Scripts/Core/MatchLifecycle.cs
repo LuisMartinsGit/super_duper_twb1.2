@@ -1,6 +1,5 @@
 // MatchLifecycle.cs
 // Where a match is in its life, for the code that has to wait on it.
-// Location: Assets/Scripts/Core/MatchLifecycle.cs
 //
 // Two flags and a phase string that lived on Bootstrap types, and so forced
 // the lockstep gate, a curse system and the debug overlay to depend on the

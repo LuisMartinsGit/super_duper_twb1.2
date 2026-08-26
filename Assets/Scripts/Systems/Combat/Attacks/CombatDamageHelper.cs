@@ -1,6 +1,5 @@
 // CombatDamageHelper.cs
 // Shared on-hit pipeline used by MeleeCombatSystem and RangedCombatSystem.
-// Location: Assets/Scripts/Systems/Combat/CombatDamageHelper.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

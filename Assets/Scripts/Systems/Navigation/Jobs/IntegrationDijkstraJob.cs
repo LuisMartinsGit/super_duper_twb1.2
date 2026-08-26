@@ -13,8 +13,6 @@
 //
 // Costs are uint to make UnreachableIntegration (uint.MaxValue) cheap to
 // compare with arithmetic.
-//
-// Location: Assets/Scripts/Systems/Navigation/Jobs/IntegrationDijkstraJob.cs
 
 using Unity.Burst;
 using Unity.Collections;

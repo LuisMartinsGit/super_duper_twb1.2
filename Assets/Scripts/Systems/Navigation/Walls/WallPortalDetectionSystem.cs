@@ -18,8 +18,6 @@
 // for the NEXT tick. M5 only re-emits when the wall entity set changed
 // (counter on the singleton); a future polish pass can wire this to the
 // NavDirtyTiles event.
-//
-// Location: Assets/Scripts/Systems/Navigation/WallPortalDetectionSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

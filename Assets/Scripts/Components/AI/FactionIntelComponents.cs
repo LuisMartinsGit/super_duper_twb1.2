@@ -8,8 +8,6 @@
 // Records persist after the enemy leaves vision (that IS the point — the AI
 // remembers); dead entities are pruned. Replaces the old single-position
 // AISharedKnowledge aggregate for decision-making.
-//
-// Location: Assets/Scripts/Components/AI/FactionIntelComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

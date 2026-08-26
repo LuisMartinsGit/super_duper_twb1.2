@@ -1,6 +1,5 @@
 // PlayerProfile.cs
 // The player's name and every persisted setting, in one JSON file.
-// Location: Assets/Scripts/Core/Settings/PlayerProfile.cs
 
 using System;
 using System.IO;

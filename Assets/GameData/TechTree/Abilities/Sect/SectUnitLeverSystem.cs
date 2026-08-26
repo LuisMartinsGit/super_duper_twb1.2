@@ -8,8 +8,6 @@
 // scaling diff is applied when the lever level on the faction rises.
 //
 // task-063 phase 5.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/SectUnitLeverSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

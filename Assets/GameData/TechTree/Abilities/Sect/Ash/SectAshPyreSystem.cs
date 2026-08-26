@@ -12,8 +12,6 @@
 //   - Radius:   2m
 //
 // task-063 phase 2f.
-//
-// Location: Assets/Scripts/Systems/Sect/SectAshPyreSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

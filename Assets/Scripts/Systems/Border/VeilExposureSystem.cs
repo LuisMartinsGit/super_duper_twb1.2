@@ -25,8 +25,6 @@
 // debuff/catch path lives in VeilFieldSystem.ApplyCrustDebuffs): this
 // system only enables when ExposureEnabled && !CrustPhysical, so the two
 // can never fight over the shared BorderDebuff/VeilDebuffTag.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

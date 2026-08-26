@@ -7,8 +7,6 @@
 // The blob shape is borrowed from AbstractPathfinderTests (M3) so the
 // regression surface is identical. The test re-uses the helper layout
 // to keep the assertion shape obvious.
-//
-// Location: Assets/Tests/EditMode/NavStack/M7/DeterminismAStarRepeatTest.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

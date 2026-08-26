@@ -27,8 +27,6 @@
 //     PortalOwnerBitsMirror open-bit + TraversalProfile.CanClimb.
 //   * Unit iteration uses entity.Index ascending order so concurrent
 //     traversal starts on the same tick happen in a stable sequence.
-//
-// Location: Assets/Scripts/Systems/Navigation/LayerTransitionSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

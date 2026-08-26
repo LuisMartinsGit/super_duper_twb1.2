@@ -1,7 +1,6 @@
 // BuildingEffectSystem.cs
 // Handles visual effects for building construction (dust particles)
 // and building destruction (inward collapse + dust cloud).
-// Location: Assets/GameData/TechTree/Presentation/Buildings/BuildingEffectSystem.cs
 
 using System.Collections.Generic;
 using UnityEngine;

@@ -1,6 +1,5 @@
 // SceneNames.cs
 // The scene names the rest of the game navigates by.
-// Location: Assets/Scripts/Core/SceneNames.cs
 //
 // These were consts on MainMenuBootstrap, which meant fourteen files -- menus,
 // panels, the lockstep teardown, the loading screen -- all named the bootstrap

@@ -14,8 +14,6 @@
 // The presentation now only READS BuildingUpgradeState for its variant
 // choice; a view that spawns a tick early simply shows Lv0 until the next
 // variant scan.
-//
-// Location: Assets/GameData/TechTree/Buildings/BuildingLevelOneSeedSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

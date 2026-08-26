@@ -30,8 +30,6 @@
 //
 // Expected total portal SPECS = 4 (one per (TL/TR east), (BL/BR east),
 // (TL/BL north), (TR/BR north)).
-//
-// Location: Assets/Tests/EditMode/NavStack/M3/PortalDetectionTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

@@ -8,7 +8,6 @@
 //                   (Alanthor purify / Runai pacify / Feraldis destroy)
 //   Step_Military — 3B: destroy all other players
 // Step states: pending = dim, active = white, done = dim + strikethrough.
-// Location: Assets/Scripts/UI/GameUI/ObjectivesPanelBinder.cs
 
 using TMPro;
 using Unity.Entities;

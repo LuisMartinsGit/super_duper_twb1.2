@@ -1,6 +1,5 @@
 // PlayerSpawnSystem.cs
 // Spawns initial units and buildings for each faction at game start
-// Location: Assets/Scripts/Bootstrap/PlayerSpawnSystem.cs
 
 using UnityEngine;
 using Unity.Entities;

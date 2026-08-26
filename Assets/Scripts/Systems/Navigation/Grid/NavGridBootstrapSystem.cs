@@ -13,8 +13,6 @@
 // EntityManager.CreateEntity(typeof(...)) in OnCreate trips BC1028 if the
 // method is [BurstCompile]'d). The math itself is deterministic across
 // machines at a pinned Burst version (DR-15).
-//
-// Location: Assets/Scripts/Systems/Navigation/NavGridBootstrapSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

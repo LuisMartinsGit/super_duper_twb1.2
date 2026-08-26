@@ -10,8 +10,6 @@
 //
 // Hand-authored to stay independent of the ECS world / scheduling,
 // matching the pattern the M4 tests use.
-//
-// Location: Assets/Tests/EditMode/NavStack/M5/LayerCostFieldTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

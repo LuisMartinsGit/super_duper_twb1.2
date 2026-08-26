@@ -1,7 +1,6 @@
 // BuildFootprintOutline.cs
 // Draws a building's footprint as the exact 2 m build cells it occupies.
 // Canonical spec: docs/Design/Build_Grid.md
-// Location: Assets/Scripts/UI/HUD/BuildFootprintOutline.cs
 
 using UnityEngine;
 using Unity.Mathematics;

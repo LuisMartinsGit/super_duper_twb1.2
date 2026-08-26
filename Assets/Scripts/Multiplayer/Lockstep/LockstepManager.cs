@@ -1,6 +1,5 @@
 // LockstepManager.cs
 // Lockstep multiplayer manager for deterministic simulation
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepManager.cs
 
 using System;
 using System.Collections.Generic;

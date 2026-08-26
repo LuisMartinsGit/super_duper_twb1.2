@@ -31,7 +31,6 @@
 // sync, nothing to ping-pong.
 //
 // Usage: UITooltip.Bind(go, () => "text") — that is the whole API.
-// Location: Assets/Scripts/UI/GameUI/UITooltip.cs
 
 using System.Collections.Generic;
 using TMPro;

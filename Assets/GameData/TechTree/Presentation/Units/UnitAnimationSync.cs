@@ -1,7 +1,6 @@
 // UnitAnimationSync.cs
 // Bridges ECS unit state to Unity Animator parameters.
 // Attached to unit GameObjects by PresentationSpawnSystem.
-// Location: Assets/GameData/TechTree/Presentation/Units/UnitAnimationSync.cs
 
 using UnityEngine;
 using Unity.Entities;

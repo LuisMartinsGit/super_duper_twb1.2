@@ -1,6 +1,5 @@
 // SimSignalPump.cs
 // Drains SimSignals into the HUD, once per frame.
-// Location: Assets/Scripts/UI/HUD/SimSignalPump.cs
 //
 // The presentation half of the seam described in Core/SimSignals.cs. The
 // simulation enqueues notices and pings without knowing this exists; this is

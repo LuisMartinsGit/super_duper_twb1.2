@@ -30,8 +30,6 @@
 // Determinism: fixed evaluation cadence, integer/entity-order state only,
 // detour side chosen by entity index parity — no wall-clock, no RNG.
 // Structural changes are collected during iteration and applied after.
-//
-// Location: Assets/Scripts/Systems/Navigation/
 
 using Unity.Collections;
 using Unity.Entities;

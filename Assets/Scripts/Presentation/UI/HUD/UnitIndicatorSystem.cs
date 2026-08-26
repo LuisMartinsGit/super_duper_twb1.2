@@ -1,6 +1,5 @@
 // UnitIndicatorSystem.cs
 // Per-unit world indicators: selection ring, ownership disc, healing cross.
-// Location: Assets/Scripts/UI/HUD/UnitIndicatorSystem.cs
 
 using System.Collections.Generic;
 using UnityEngine;

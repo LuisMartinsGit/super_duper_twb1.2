@@ -27,8 +27,6 @@
 //     byte-equal walk -- bit-identical across machines.
 //
 // Allocation owner: this system. Disposed in OnDestroy.
-//
-// Location: Assets/Scripts/Systems/Navigation/BuildingCostStampSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

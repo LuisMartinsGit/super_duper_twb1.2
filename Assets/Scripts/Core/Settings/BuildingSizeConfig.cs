@@ -1,7 +1,6 @@
 // BuildingSizeConfig.cs
 // Central lookup table for grid-aligned building sizes.
 // Canonical spec: docs/Design/Build_Grid.md
-// Location: Assets/Scripts/Core/Settings/BuildingSizeConfig.cs
 
 using Unity.Mathematics;
 

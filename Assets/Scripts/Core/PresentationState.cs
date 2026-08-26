@@ -1,6 +1,5 @@
 // PresentationState.cs
 // The few facts about the screen that non-UI code is allowed to know.
-// Location: Assets/Scripts/Core/PresentationState.cs
 //
 // WHY THIS EXISTS
 // Almost nothing outside the UI should care what is on screen, and a

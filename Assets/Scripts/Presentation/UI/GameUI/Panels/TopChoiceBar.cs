@@ -19,7 +19,6 @@
 //   era advance replicates in multiplayer.
 //   (The old code-built culture modal + "Advance to Era 2" pill were
 //   removed 2026-07-25 in favour of these prefabs.)
-// Location: Assets/Scripts/UI/GameUI/TopChoiceBar.cs
 
 using System.Collections.Generic;
 using TMPro;

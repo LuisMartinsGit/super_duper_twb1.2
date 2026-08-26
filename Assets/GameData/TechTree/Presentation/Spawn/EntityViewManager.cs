@@ -1,6 +1,5 @@
 // EntityViewManager.cs
 // Manages the link between ECS entities and their visual GameObjects
-// Location: Assets/GameData/TechTree/Presentation/Spawn/EntityViewManager.cs
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;

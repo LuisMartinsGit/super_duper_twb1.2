@@ -1,6 +1,5 @@
 // CancelTrainCommand.cs
 // Cancel-train command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/CancelTrainCommand.cs
 //
 // Cancels a training queue slot on a building. Unlike the legacy IMGUI
 // EntityActionPanel.CancelQueueItem (which refused to cancel slot 0 while

@@ -1,6 +1,5 @@
 // Alliances.cs
 // The faction relationship table. Canonical spec: docs/Design/Teams.md
-// Location: Assets/Scripts/Core/Settings/Alliances.cs
 
 /// <summary>
 /// The single authority on whether two factions are hostile.

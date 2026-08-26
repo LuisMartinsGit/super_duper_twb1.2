@@ -1,6 +1,5 @@
 // Cost.cs
 // Fundamental resource cost structure used across all systems
-// Location: Assets/Scripts/Core/Types/Cost.cs
 
 namespace TheWaningBorder.Core
 {

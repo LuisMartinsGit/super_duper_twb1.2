@@ -9,7 +9,6 @@
 // scrim covers it); VictoryConditionSystem calls TryShow when a match ends
 // and falls back to the old toast + timed return if the HUD stack is absent
 // (e.g. a headless or observer configuration without GameUIManager).
-// Location: Assets/Scripts/UI/GameUI/VictoryPanel.cs
 
 using TMPro;
 using UnityEngine;

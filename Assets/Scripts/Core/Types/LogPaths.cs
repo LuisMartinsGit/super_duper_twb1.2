@@ -1,6 +1,5 @@
 // LogPaths.cs
 // One place that decides where the game writes its logs.
-// Location: Assets/Scripts/Core/Types/LogPaths.cs
 
 using System;
 using System.IO;

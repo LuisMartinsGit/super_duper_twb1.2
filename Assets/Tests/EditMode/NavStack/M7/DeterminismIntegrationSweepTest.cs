@@ -8,8 +8,6 @@
 //
 // The grid is the same shape every iteration so any divergence isolates
 // to the job itself.
-//
-// Location: Assets/Tests/EditMode/NavStack/M7/DeterminismIntegrationSweepTest.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

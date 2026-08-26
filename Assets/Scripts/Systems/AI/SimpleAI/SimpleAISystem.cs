@@ -8,7 +8,6 @@
 // it waits for the next tick.
 //
 // Replaces the old AIBrain / Manager / Behavior multi-system architecture.
-// Location: Assets/Scripts/AI/SimpleAISystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

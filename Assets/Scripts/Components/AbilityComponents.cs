@@ -1,6 +1,5 @@
 // AbilityComponents.cs
 // ECS components for sect unit abilities
-// Location: Assets/Scripts/Core/Components/AbilityComponents.cs
 
 using Unity.Entities;
 

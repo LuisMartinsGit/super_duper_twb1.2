@@ -7,8 +7,6 @@
 //     follow-up — noted in canon §9.)
 // Destroyed wells yield nothing here — Feraldis' income is the one-time
 // shard field left by the shatter (NodeStateDeathInterceptSystem).
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/LargeNode/WellHoldIncomeSystem.cs
 
 using Unity.Entities;
 using TheWaningBorder.Core;

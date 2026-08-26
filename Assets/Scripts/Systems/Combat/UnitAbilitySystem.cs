@@ -1,6 +1,5 @@
 // UnitAbilitySystem.cs
 // Processes sect unit abilities: cooldowns, activation, and effect timers
-// Location: Assets/Scripts/Systems/Combat/UnitAbilitySystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -1,6 +1,5 @@
 // RTSInput.cs
 // Static accessor class for input state
-// Location: Assets/Scripts/Input/RTSInput.cs
 
 using System.Collections.Generic;
 using System.Linq;

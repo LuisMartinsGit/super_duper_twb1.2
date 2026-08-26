@@ -10,8 +10,6 @@
 // Consumed by SimpleAISystem.ChooseAttackTarget (replacing the fixed
 // miners > huts > nodes > halls ladder) and, in weakest-player form, by
 // BorderArmyAISystem.PickTarget.
-//
-// Location: Assets/Scripts/AI/TargetScorer.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

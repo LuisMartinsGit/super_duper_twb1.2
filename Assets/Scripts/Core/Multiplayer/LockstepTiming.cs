@@ -17,7 +17,6 @@
 //   remaining stutter small enough for interpolation to hide entirely.
 //
 // docs/Multiplayer_LAN_Readiness.md
-// Location: Assets/Scripts/Core/Multiplayer/LockstepTiming.cs
 
 namespace TheWaningBorder.Core.Multiplayer
 {

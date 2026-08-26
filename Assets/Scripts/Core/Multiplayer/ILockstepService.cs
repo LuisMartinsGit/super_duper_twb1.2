@@ -1,6 +1,5 @@
 // ILockstepService.cs
 // Interface for lockstep service - allows Core to use lockstep without circular dependency
-// Location: Assets/Scripts/Core/Multiplayer/ILockstepService.cs
 
 namespace TheWaningBorder.Core.Multiplayer
 {

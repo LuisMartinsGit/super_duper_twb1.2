@@ -14,8 +14,6 @@
 //
 // IntelSystem does the actual "remembering" — anything a scout reveals lands
 // in the brain's EnemySightingRecord buffer automatically.
-//
-// Location: Assets/Scripts/Systems/AI/ScoutDirectorSystem.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

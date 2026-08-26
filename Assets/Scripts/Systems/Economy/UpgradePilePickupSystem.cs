@@ -9,8 +9,6 @@
 // gathering — keeps the UX low-friction for accidental veteran kills.
 //
 // Audit follow-up.
-//
-// Location: Assets/Scripts/Systems/Economy/UpgradePilePickupSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

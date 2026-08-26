@@ -17,7 +17,6 @@
 // The query is created once per world; when the world is rebuilt (back to
 // menu, new match) the stale handle is dropped and a fresh query is created
 // against the new world. Never Dispose these — world teardown owns them.
-// Location: Assets/Scripts/Core/CachedEntityQuery.cs
 
 using Unity.Entities;
 

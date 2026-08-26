@@ -6,8 +6,6 @@
 // unreachable because the gate is the only crossing).
 //
 // Validates R4: gate gating consults the owner-bits mirror per query.
-//
-// Location: Assets/Tests/EditMode/NavStack/M5/GateOwnerGatingTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

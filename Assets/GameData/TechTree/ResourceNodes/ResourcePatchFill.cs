@@ -16,8 +16,6 @@
 //     CreateOrMerge path, merged away entirely)
 // which meant a marker's authored node count was never the number of nodes the
 // map actually got.
-//
-// Location: Assets/GameData/TechTree/ResourceNodes/ResourcePatchFill.cs
 
 using Unity.Collections;
 using Unity.Entities;

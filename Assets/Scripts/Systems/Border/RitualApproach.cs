@@ -23,8 +23,6 @@
 //   The range checks are NOT the problem and are unchanged: "am I close
 //   enough to channel" is still measured to the node centre. Only the
 //   pathing target moves.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Mathematics;
 

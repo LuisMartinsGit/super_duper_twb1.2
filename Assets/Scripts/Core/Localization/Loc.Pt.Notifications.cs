@@ -1,6 +1,5 @@
 // Loc.Pt.Notifications.cs
 // Portuguese for player notifications / toasts (PlayerNotificationSystem).
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Notifications.cs
 
 using System.Collections.Generic;
 

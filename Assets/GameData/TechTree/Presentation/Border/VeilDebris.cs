@@ -5,8 +5,6 @@
 // interior is merged mesh, the shards are a fixed particle burst.
 //
 // Self-mounts once; call VeilDebris.Burst(worldPos, radius) from anywhere.
-//
-// Location: Assets/GameData/TechTree/Presentation/Border/VeilDebris.cs
 
 using UnityEngine;
 

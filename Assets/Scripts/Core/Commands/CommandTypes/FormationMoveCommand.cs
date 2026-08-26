@@ -2,7 +2,6 @@
 // AoE4-style group move: one order for N units creates a formation group
 // with a virtual leader, type-ranked formation spots, slowest-member group
 // speed and a cohesion gate. See docs/Design/Navigation_And_Formations.md.
-// Location: Assets/Scripts/Core/Commands/CommandTypes/FormationMoveCommand.cs
 
 using System.Collections.Generic;
 using Unity.Entities;

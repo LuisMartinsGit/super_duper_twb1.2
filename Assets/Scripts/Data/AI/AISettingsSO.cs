@@ -3,8 +3,6 @@
 // (docs/AI_Assessment_and_Plan.md M2-M6). One asset under Resources/AISettings;
 // AISettings.Get() falls back to a defaults-seeded instance when missing,
 // mirroring the BorderSettings pattern.
-//
-// Location: Assets/Scripts/Data/AI/AISettingsSO.cs
 
 using System;
 using UnityEngine;

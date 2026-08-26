@@ -30,8 +30,6 @@
 // Determinism: fixed-cadence integer cellular pass over a double-buffered
 // byte grid, seeded crystallization, no wall-clock — lockstep-safe. The
 // terrain painter is presentation-only (reads the grid, never writes).
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

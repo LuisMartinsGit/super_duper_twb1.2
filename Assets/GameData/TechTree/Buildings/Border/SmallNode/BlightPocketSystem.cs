@@ -17,8 +17,6 @@
 //                yourself, get paid.
 //
 // Determinism: seeded RNG for residue scatter, sim state only, fixed tick.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

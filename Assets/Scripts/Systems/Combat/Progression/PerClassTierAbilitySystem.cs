@@ -24,8 +24,6 @@
 //   Hero Veilsteel:     summon a temporal echo of the hero
 //   Hero Glow:          revive nearby fallen units (one-shot revive subsumed
 //                       by GlowReviveSystem; nearby radius extension is future)
-//
-// Location: Assets/Scripts/Systems/Combat/
 
 using Unity.Collections;
 using Unity.Entities;

@@ -16,8 +16,6 @@
 // Advanced once per simulation update by SimClockSystem. MonoBehaviours that
 // need simulated time — the ones that cannot reach SystemAPI.Time — read it
 // here. docs/Multiplayer_LAN_Readiness.md
-//
-// Location: Assets/Scripts/Core/Types/SimClock.cs
 
 namespace TheWaningBorder.Core
 {

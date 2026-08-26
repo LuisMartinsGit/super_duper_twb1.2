@@ -2,7 +2,6 @@
 // Each strategy is a flat list of steps the AI tries to issue in order.
 // A step ADVANCES on issue (not on completion) â€” the AI doesn't wait for the
 // trained unit/finished building before moving to the next step.
-// Location: Assets/Scripts/AI/AIBuildOrder.cs
 
 namespace TheWaningBorder.AI
 {

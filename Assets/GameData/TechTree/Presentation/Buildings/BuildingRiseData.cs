@@ -9,7 +9,6 @@
 // final step after the numbered ones — they must NOT disable numeric mode.
 // Only when NO piece has a number does the visual use the legacy order:
 // per-piece slots by ascending world Y (lowest first, top last).
-// Location: Assets/GameData/TechTree/Presentation/Buildings/BuildingRiseData.cs
 
 using System.Collections.Generic;
 using UnityEngine;

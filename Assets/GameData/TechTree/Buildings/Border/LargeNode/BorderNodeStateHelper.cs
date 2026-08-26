@@ -4,8 +4,6 @@
 // helpers when their channel completes. Centralising the transitions keeps
 // the side-effects (Enabled flag, NodeDormant tag, Health reset, victory
 // state snapshot) in one place.
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/LargeNode/BorderNodeStateHelper.cs
 
 using Unity.Entities;
 

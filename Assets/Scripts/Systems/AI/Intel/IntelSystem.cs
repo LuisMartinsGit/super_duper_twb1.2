@@ -14,8 +14,6 @@
 // Managed dictionaries are LOOKUP-ONLY (see BorderArmyAISystem determinism note).
 // Runs only where AI brains exist (host in multiplayer), so its managed state
 // never has to replicate; everything it influences flows out as commands.
-//
-// Location: Assets/Scripts/Systems/AI/IntelSystem.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

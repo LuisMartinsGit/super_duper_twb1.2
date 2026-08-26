@@ -1,6 +1,5 @@
 // LockstepStateHash.cs
 // The simulation checksum, broken out by SUBSYSTEM and by FACTION.
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepStateHash.cs
 //
 // WHY A BREAKDOWN AND NOT ONE NUMBER
 // A single checksum answers "did the two worlds diverge". It cannot answer

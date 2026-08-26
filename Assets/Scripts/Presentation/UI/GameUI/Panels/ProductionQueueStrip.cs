@@ -16,7 +16,6 @@
 //   cancellable, matching the code-built panel.
 //   "Researching Fletching — 12s" + its own bar
 // Every chip carries a hover tooltip.
-// Location: Assets/Scripts/UI/GameUI/ProductionQueueStrip.cs
 
 using TMPro;
 using Unity.Entities;

@@ -9,8 +9,6 @@
 //
 // Phase 1 (task-063): component layout + small read API. Effect dispatchers
 // (Phase 2) read this state to decide whether to apply each sect's bonuses.
-//
-// Location: Assets/Scripts/Economy/SectAdoptionState.cs
 
 using System;
 using Unity.Collections;

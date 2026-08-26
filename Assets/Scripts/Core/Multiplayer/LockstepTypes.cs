@@ -1,6 +1,5 @@
 // LockstepTypes.cs
 // All lockstep-related types for multiplayer synchronization
-// Location: Assets/Scripts/Core/Multiplayer/LockstepTypes.cs
 
 using System;
 using System.Globalization;

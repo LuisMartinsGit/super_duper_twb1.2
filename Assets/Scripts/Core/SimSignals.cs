@@ -1,6 +1,5 @@
 // SimSignals.cs
 // The one-way channel from the simulation to the presentation layer.
-// Location: Assets/Scripts/Core/SimSignals.cs
 //
 // WHY THIS EXISTS
 // Simulation code wants to tell the player things: a curse pool has

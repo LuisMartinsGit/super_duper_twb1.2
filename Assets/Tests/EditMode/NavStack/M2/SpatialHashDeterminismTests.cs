@@ -11,8 +11,6 @@
 //   * Insertion order == iteration order within a bucket.
 //   * Two runs that insert in the same order produce the same iteration
 //     sequence.
-//
-// Location: Assets/Tests/EditMode/NavStack/M2/SpatialHashDeterminismTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

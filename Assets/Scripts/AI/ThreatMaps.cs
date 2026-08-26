@@ -6,8 +6,6 @@
 // (the AI is host-only in multiplayer, but we keep the discipline anyway).
 //
 // This is TACTICAL data — unrelated to the GPU Influence terrain overlay.
-//
-// Location: Assets/Scripts/AI/ThreatMaps.cs
 
 using Unity.Mathematics;
 

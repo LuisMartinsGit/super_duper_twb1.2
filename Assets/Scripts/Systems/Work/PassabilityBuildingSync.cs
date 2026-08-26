@@ -1,7 +1,6 @@
 // PassabilityBuildingSync.cs
 // ECS system that periodically syncs building footprints with the passability grid.
 // Tracks known buildings and updates the grid when buildings appear or are destroyed.
-// Location: Assets/Scripts/Systems/Work/PassabilityBuildingSync.cs
 
 using Unity.Collections;
 using Unity.Entities;

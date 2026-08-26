@@ -10,8 +10,6 @@
 // Glow stays in the Temple (refinement #6): the cast does NOT deduct
 // stored Glow. Storing more compresses cooldown asymptotically, but
 // losing the Temple wipes the discount.
-//
-// Location: Assets/Scripts/Systems/Economy/
 
 using Unity.Collections;
 using Unity.Entities;

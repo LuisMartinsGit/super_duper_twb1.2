@@ -11,8 +11,6 @@
 //
 // Spec §5.1: "Glow pickup can be intercepted in transit by any faction."
 // (any unit can pick up, regardless of faction).
-//
-// Location: Assets/Scripts/Systems/Economy/
 
 using Unity.Collections;
 using Unity.Entities;

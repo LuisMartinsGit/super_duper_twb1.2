@@ -22,8 +22,6 @@
 // Single-thread IJob -- M3 has one one-shot graph build, parallelism
 // across tiles would force a post-merge sort to recover the
 // deterministic order described above. Cheaper to do it sequentially.
-//
-// Location: Assets/Scripts/Systems/Navigation/Jobs/PortalDetectionJob.cs
 
 using Unity.Burst;
 using Unity.Collections;

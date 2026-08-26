@@ -13,7 +13,6 @@
 // underneath at ground level.
 //
 // Global namespace per project ECS-component convention.
-// Location: Assets/Scripts/Components/Buildings/OverpassBridgeComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

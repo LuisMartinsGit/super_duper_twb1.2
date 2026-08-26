@@ -20,8 +20,6 @@
 // UnitAbilitySystem.ApplyAoeSlow (SpellDebuff, ticked down + removed by
 // SpellBuffSystem, applied to movement by UnitIntegratorSystem). Debuff targets
 // are deduplicated across huts so we never double-add a component in one ECB.
-//
-// Location: Assets/Scripts/Systems/Economy/GathererHutReinforcementSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -16,8 +16,6 @@
 // marker faction.
 //
 // task-063 phase 2c.
-//
-// Location: Assets/Scripts/Systems/Sect/SectJusticeMarkSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

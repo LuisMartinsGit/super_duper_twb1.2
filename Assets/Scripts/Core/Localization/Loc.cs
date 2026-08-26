@@ -1,7 +1,6 @@
 // Loc.cs
 // The game's localization chokepoint: every user-facing string renders
 // through Loc.T().
-// Location: Assets/Scripts/Core/Localization/Loc.cs
 
 using System;
 using UnityEngine;

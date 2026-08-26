@@ -5,7 +5,6 @@
 // victory screen, network status overlay, planning-mode overlay.
 // Keys are the ENGLISH source strings exactly as authored / written at the
 // call sites. Indexer only — duplicate keys across domains are expected.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Menus.cs
 
 using System.Collections.Generic;
 

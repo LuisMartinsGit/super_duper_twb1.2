@@ -14,8 +14,6 @@
 //
 // The callers re-sort the full edge list by (FromPortalId, ToPortalId) before
 // building the CSR blob, so insertion order here does not affect determinism.
-//
-// Location: Assets/Scripts/Systems/Navigation/PortalIntraTileEdges.cs
 
 using Unity.Collections;
 using Unity.Mathematics;

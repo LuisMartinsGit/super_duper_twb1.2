@@ -15,8 +15,6 @@
 // the single source of truth for stats — edit them there.
 //
 // Generate the asset via  Waning Border ▸ Border ▸ Generate Border Settings.
-//
-// Location: Assets/Scripts/Data/Border/BorderSettingsSO.cs
 
 using System;
 using System.Collections.Generic;

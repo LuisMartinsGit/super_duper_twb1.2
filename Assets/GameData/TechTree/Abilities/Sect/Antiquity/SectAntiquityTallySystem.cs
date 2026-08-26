@@ -12,8 +12,6 @@
 // the dead unit's UnitClass.
 //
 // task-063 phase 2e.
-//
-// Location: Assets/Scripts/Systems/Sect/SectAntiquityTallySystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

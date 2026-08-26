@@ -5,8 +5,6 @@
 //
 // Phase 1 (task-063): only the data layer + index/cluster lookups are wired.
 // Effect bodies are added per-lever in Phase 2.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/SectConfig.cs
 
 namespace TheWaningBorder.Economy
 {

@@ -11,8 +11,6 @@
 //
 // task-063 phase 2b — reference implementation. Phase 2c+ add the rest of
 // the per-sect Lv I lever effects against the same SectQuery read pattern.
-//
-// Location: Assets/Scripts/Systems/Sect/SectVenerationFervorSystem.cs
 
 using Unity.Entities;
 using TheWaningBorder.Economy;

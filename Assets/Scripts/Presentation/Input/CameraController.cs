@@ -1,6 +1,5 @@
 // CameraController.cs
 // Modern RTS Camera System with Rig Architecture and Terrain Following
-// Location: Assets/Scripts/Input/CameraController.cs
 
 using UnityEngine;
 

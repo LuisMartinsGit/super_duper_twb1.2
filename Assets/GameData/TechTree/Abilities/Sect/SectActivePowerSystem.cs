@@ -14,8 +14,6 @@
 // SectLeverEffects.LevelScalar; cooldowns scale inversely.
 //
 // task-063 phase 5.
-//
-// Location: Assets/Scripts/Systems/Sect/SectActivePowerSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

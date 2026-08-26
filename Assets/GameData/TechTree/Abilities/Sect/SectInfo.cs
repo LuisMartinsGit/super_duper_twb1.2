@@ -19,8 +19,6 @@
 // authored in SectLeverEffects.Alanthor.cs, which stay English at the data
 // layer — passes through Loc.T exactly once, on the way out. The Portuguese
 // table lives in Loc.Pt.Sects.cs.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/SectInfo.cs
 
 using System.Text;
 using TheWaningBorder.Core.Localization;

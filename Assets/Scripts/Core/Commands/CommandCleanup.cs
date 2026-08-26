@@ -14,8 +14,6 @@
 //   ClearMovement    — what only Patrol did
 // Each helper now composes the pieces it always used. Behaviour is unchanged;
 // the point is that adding a new order component is now ONE edit, not four.
-//
-// Location: Assets/Scripts/Core/Commands/CommandCleanup.cs
 
 using Unity.Entities;
 

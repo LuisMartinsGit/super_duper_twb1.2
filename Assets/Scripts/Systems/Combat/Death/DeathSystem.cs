@@ -1,6 +1,5 @@
 // DeathSystem.cs
 // Destroys entities that have reached 0 HP and cleans up references
-// Location: Assets/Scripts/Systems/Combat/DeathSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

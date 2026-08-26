@@ -9,8 +9,6 @@
 // "Held" means: the hold timer ticks only while the all-claimed condition
 // holds and resets to 0 the moment any node falls out (reverts, gets
 // converted by a rival, gets destroyed, etc.).
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

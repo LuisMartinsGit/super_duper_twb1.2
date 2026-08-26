@@ -1,6 +1,5 @@
 // EconomyBootstrap.cs
 // Initializes faction economy entities (resource banks, population tracking)
-// Location: Assets/Scripts/Core/Bootstrap/EconomyBootstrap.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

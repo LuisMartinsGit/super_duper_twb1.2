@@ -19,7 +19,6 @@
 //
 // Builder placement (ActionType.BuildingPlacement) is deliberately NOT
 // rendered here — BuilderPanelBinder owns the build palette.
-// Location: Assets/Scripts/UI/GameUI/ActionsPanelBinder.cs
 
 using System.Collections.Generic;
 using TMPro;

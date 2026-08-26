@@ -1,6 +1,5 @@
 // EntityExtractors.cs
 // Helper classes to extract UI display info from ECS entities
-// Location: Assets/Scripts/UI/Common/EntityExtractors.cs
 // Core file: GetDisplayInfo / GetActionInfo entry points, queue snapshot,
 // faction-level query helpers, and shared cost/tooltip helpers. Sibling
 // partials: .Names (display-name/id resolution), .Buildings (placement +

@@ -13,7 +13,6 @@
 //   * the lockstep payload carries only what cannot be recomputed
 //
 // docs/Multiplayer_LAN_Readiness.md, docs/Multiplayer_Audit.md
-// Location: Assets/Scripts/Core/Commands/CommandRouter.Replication2026.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

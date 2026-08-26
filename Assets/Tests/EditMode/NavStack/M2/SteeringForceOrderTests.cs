@@ -18,8 +18,6 @@
 // world. The layer constants are documented in
 // AccumulateSteeringForcesJob and re-used here so any future weight
 // change is caught by the assertion.
-//
-// Location: Assets/Tests/EditMode/NavStack/M2/SteeringForceOrderTests.cs
 
 using NUnit.Framework;
 using Unity.Mathematics;

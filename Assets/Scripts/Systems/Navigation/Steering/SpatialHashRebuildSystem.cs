@@ -19,8 +19,6 @@
 // Update ordering: runs after FlowFollowSystem (so it sees this tick's
 // unit positions) and before SteeringSystem (which RequireForUpdate's
 // the hash singleton).
-//
-// Location: Assets/Scripts/Systems/Navigation/SpatialHashRebuildSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

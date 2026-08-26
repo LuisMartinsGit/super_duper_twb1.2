@@ -1,6 +1,5 @@
 // GameCamera.cs
 // Static helper for game camera initialization
-// Location: Assets/Scripts/Input/GameCamera.cs
 
 using UnityEngine;
 

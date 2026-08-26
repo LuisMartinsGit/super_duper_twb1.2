@@ -1,4 +1,6 @@
-// BuildCosts.cs
+// BuildingCosts.cs -- holds the BuildCosts table. The file name does not
+// match the type on purpose: 30+ design-doc and task links point at this
+// path, same reasoning as BuildCommandPannel.cs.
 // Static lookup table for building costs
 // Provides quick access to costs without TechTreeDB lookup
 // Part of: Data/

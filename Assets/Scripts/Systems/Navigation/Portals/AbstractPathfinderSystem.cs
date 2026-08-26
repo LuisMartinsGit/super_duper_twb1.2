@@ -14,8 +14,6 @@
 // describes IJobParallelFor over requests; the per-request work is
 // pure (writes own entity only) so the upgrade is mechanical -- M6's
 // NavRequestSchedulerSystem will do it as part of S9 budgeting.
-//
-// Location: Assets/Scripts/Systems/Navigation/AbstractPathfinderSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -17,8 +17,6 @@
 // It deliberately does NOT duplicate SimpleAISystem's job (workers, basic
 // army, research) — that keeps running underneath, exactly as it does for
 // Alanthor.
-//
-// Location: Assets/Scripts/Systems/AI/AIFeraldisEndgameSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -1,6 +1,5 @@
 // AlphaBuildPostProcess.cs
 // Ships a logs/ folder (and a note for testers) next to the built executable.
-// Location: Assets/Scripts/Editor/AlphaBuildPostProcess.cs
 
 using System.IO;
 using UnityEditor;

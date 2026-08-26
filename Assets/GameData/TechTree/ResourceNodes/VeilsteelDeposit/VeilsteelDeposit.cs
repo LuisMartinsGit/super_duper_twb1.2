@@ -13,8 +13,6 @@
 // docs/Design/Overview.md. Mining behaviour is iron's: the node carries
 // VeilsteelDepositTag + the shared IronDepositState, and MiningSystem credits
 // Veilsteel instead of Iron off MinerState.GatheringResource == 2.
-//
-// Location: Assets/GameData/TechTree/ResourceNodes/VeilsteelDeposit/
 
 using Unity.Entities;
 using Unity.Mathematics;

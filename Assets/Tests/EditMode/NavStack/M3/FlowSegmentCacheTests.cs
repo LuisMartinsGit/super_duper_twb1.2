@@ -11,8 +11,6 @@
 // allocation policy in a stand-alone helper (NavFlowCacheOps below) --
 // this is OK because the test's contract is "alloc + lookup + evict
 // behave as documented", not "this exact code path runs".
-//
-// Location: Assets/Tests/EditMode/NavStack/M3/FlowSegmentCacheTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

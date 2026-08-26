@@ -5,7 +5,6 @@
 // loads this catalog from Resources/GameUICatalog and instantiates whatever
 // panels are assigned; add one field per panel as it is finished and assign
 // the prefab on the asset.
-// Location: Assets/Scripts/UI/GameUI/GameUICatalog.cs
 
 using UnityEngine;
 

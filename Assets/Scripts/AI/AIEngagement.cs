@@ -15,8 +15,6 @@
 // to "how dangerous is it here". Attacking into a defended base therefore
 // looked identical to attacking into an empty field, which is precisely the
 // "fighting next to the enemy Hall we are always outnumbered" report.
-//
-// Location: Assets/Scripts/AI/AIEngagement.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -22,8 +22,6 @@
 // Difficulty controls how much layer 2 counts. Easy barely reads the map
 // (it mostly plays its personality); Hard reads it fully. That makes
 // difficulty affect DECISION QUALITY, not just unit stats.
-//
-// Location: Assets/Scripts/AI/AICultureChoice.cs
 
 using Unity.Entities;
 using TheWaningBorder.Economy;

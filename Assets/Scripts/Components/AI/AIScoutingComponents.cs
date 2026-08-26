@@ -1,6 +1,5 @@
 // AIScoutingComponents.cs
 // Components for AI scouting and exploration systems
-// Location: Assets/Scripts/AI/Components/AIScoutingComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

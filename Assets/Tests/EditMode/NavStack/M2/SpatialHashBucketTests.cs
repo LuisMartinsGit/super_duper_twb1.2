@@ -6,8 +6,6 @@
 // cells producing adjacent keys, but the *absolute* key value doesn't
 // have to fit any particular convention as long as it's a pure function
 // of (cellX, cellZ)).
-//
-// Location: Assets/Tests/EditMode/NavStack/M2/SpatialHashBucketTests.cs
 
 using NUnit.Framework;
 using Unity.Mathematics;

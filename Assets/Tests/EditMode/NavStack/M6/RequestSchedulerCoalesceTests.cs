@@ -11,8 +11,6 @@
 // The test exercises the algorithm directly (sort + dedupe walk)
 // rather than booting an ECS world, so it stays an EditMode unit
 // test with no Burst-job dependencies.
-//
-// Location: Assets/Tests/EditMode/NavStack/M6/RequestSchedulerCoalesceTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

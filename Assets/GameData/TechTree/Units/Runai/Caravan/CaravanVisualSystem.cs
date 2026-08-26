@@ -8,8 +8,6 @@
 // 401 visual; this system adds the traveler kit as a child of a sibling
 // wrapper anchored at the caravan's world position. If the project later
 // ships a proper desert-traveler prefab, replace this system with that.
-//
-// Location: Assets/GameData/TechTree/Units/Runai/Caravan/CaravanVisualSystem.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

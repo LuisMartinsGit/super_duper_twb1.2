@@ -8,8 +8,6 @@
 // Spec §9 (state machine), §8 (Feraldis instant victory on killing blow).
 //
 // Runs UpdateBefore(DeathSystem) so the intercept happens before destruction.
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/LargeNode/NodeStateDeathInterceptSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

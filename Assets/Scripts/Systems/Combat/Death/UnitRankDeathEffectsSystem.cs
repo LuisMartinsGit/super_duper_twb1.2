@@ -8,8 +8,6 @@
 //        faction can collect (UpgradePile entity, audit follow-up).
 //
 // Audit fix #1 + follow-up.
-//
-// Location: Assets/Scripts/Systems/Combat/UnitRankDeathEffectsSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

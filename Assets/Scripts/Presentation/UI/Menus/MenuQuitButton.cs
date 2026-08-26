@@ -1,6 +1,5 @@
 // MenuQuitButton.cs
 // Makes the main menu's Quit entry actually quit.
-// Location: Assets/Scripts/UI/Menus/MenuQuitButton.cs
 
 using TMPro;
 using UnityEngine;

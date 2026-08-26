@@ -1,6 +1,5 @@
 // CommandRouter.LockstepQueue.cs
 // Partial class extension holding the Queue*ForLockstep boilerplate.
-// Location: Assets/Scripts/Core/Commands/CommandRouter.LockstepQueue.cs
 //
 // Fix #224: CommandRouter.cs used to be 943 lines. The LOCKSTEP QUEUE METHODS
 // section (14 nearly-identical Queue*ForLockstep helpers, ~280 lines) was

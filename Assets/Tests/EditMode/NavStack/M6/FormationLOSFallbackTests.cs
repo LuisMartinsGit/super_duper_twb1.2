@@ -11,8 +11,6 @@
 // Algorithm mirror -- the test re-implements the same integer
 // Bresenham the system uses so we exercise the contract without
 // having to schedule the Burst job.
-//
-// Location: Assets/Tests/EditMode/NavStack/M6/FormationLOSFallbackTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

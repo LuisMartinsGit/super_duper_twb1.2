@@ -1,6 +1,5 @@
 // RepairCommand.cs
 // Repair command helper - assigns builders to repair damaged buildings
-// Location: Assets/Scripts/Core/Commands/CommandTypes/RepairCommand.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

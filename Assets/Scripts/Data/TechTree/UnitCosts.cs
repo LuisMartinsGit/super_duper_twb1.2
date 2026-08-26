@@ -1,6 +1,5 @@
 // UnitCosts.cs
 // What a unit costs to train, read from the tech tree.
-// Location: Assets/Scripts/Data/TechTree/UnitCosts.cs
 //
 // This lookup used to be EntityActionExtractor.GetUnitCost, in
 // UI/Panels/EntityExtractors.Training.cs -- because a panel needed it first.

@@ -21,7 +21,6 @@
 //   keys are ignored (forward compatible); missing keys keep their default.
 //
 // docs/Multiplayer_LAN_Readiness.md
-// Location: Assets/Scripts/Core/Multiplayer/MatchSettingsSync.cs
 
 using System.Collections.Generic;
 using System.Globalization;

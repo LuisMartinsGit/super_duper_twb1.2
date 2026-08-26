@@ -15,8 +15,6 @@
 //     per-prop TRS — panels, parapets and merlons differ only by scale.
 //   * Instance lists rebuild on a slow cadence (coverage moves slowly);
 //     drawing is a few RenderMeshInstanced batches per frame.
-//
-// Location: Assets/GameData/TechTree/Buildings/Alanthor/Wall/
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Maps;

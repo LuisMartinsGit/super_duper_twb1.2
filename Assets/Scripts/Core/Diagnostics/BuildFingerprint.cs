@@ -1,6 +1,5 @@
 // BuildFingerprint.cs
 // A short checksum of the shipped game files, for identifying an exact build.
-// Location: Assets/Scripts/Core/Diagnostics/BuildFingerprint.cs
 
 using System;
 using System.IO;

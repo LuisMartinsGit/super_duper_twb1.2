@@ -12,8 +12,6 @@
 //     faction with Supplies proportional to the HP lost.
 //
 // Empty / max-HP buildings just resync the snapshot.
-//
-// Location: Assets/Scripts/Systems/Economy/
 
 using Unity.Collections;
 using Unity.Entities;

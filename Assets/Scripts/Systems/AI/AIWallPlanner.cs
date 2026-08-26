@@ -18,8 +18,6 @@
 //
 // All scans are deterministic (fixed bearings, fixed step sizes, no RNG),
 // so lockstep peers running the same plan agree.
-//
-// Location: Assets/Scripts/Systems/AI/AIWallPlanner.cs
 
 using Unity.Collections;
 using Unity.Entities;

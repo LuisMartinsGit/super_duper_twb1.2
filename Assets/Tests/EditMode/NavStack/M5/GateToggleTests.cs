@@ -14,8 +14,6 @@
 // re-swap. We don't spin up a full ECS world (that would require the
 // whole nav stack); instead we verify the math + the protocol
 // invariant.
-//
-// Location: Assets/Tests/EditMode/NavStack/M5/GateToggleTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

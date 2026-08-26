@@ -13,8 +13,6 @@
 // duplicate of each mesh — this is the bright seam between the halves and
 // the fading trail behind it. The trail-only glow phase at the end gives the
 // edge time to taper out before the old mesh and overlays are torn down.
-//
-// Location: Assets/Scripts/Presentation/BuildingDissolveTransition.cs
 
 using System.Collections.Generic;
 using UnityEngine;

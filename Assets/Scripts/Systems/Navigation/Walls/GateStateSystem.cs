@@ -17,8 +17,6 @@
 //
 // Owner-bits mirror layout: see PortalOwnerBitsMirror in
 // NavComponents.cs. Bit 15 = open, low 7 bits = owner faction id.
-//
-// Location: Assets/Scripts/Systems/Navigation/GateStateSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

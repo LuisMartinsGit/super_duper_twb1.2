@@ -1,7 +1,6 @@
 // LockstepEnvironment.cs
 // The per-machine facts that a desync investigation needs and the sim state
 // cannot show.
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepEnvironment.cs
 //
 // WHY THIS EXISTS
 // A lockstep desync is "the same code produced different numbers". Once the

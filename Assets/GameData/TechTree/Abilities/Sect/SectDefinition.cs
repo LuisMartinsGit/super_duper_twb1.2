@@ -8,8 +8,6 @@
 //
 // Phase 1 (task-063): asset shape defined; per-sect parameter shapes filled
 // in as Phase 2 wires each lever.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/SectDefinition.cs
 
 using System;
 using UnityEngine;

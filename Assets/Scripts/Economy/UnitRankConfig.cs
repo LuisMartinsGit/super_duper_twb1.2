@@ -15,8 +15,6 @@
 //   Lv 5 : 1.25 / 1.25 / 1.25  + Lv 5 push-back AOE on death + Glow Ability
 //
 // Audit fix #1.
-//
-// Location: Assets/Scripts/Economy/UnitRankConfig.cs
 
 using TheWaningBorder.Core;
 

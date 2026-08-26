@@ -1,6 +1,5 @@
 // ScenarioGridOverlay.cs
 // Bright-green 2 m build-grid overlay for showcase scenarios.
-// Location: Assets/Scripts/Bootstrap/ScenarioGridOverlay.cs
 
 using UnityEngine;
 using TheWaningBorder.World.Terrain;

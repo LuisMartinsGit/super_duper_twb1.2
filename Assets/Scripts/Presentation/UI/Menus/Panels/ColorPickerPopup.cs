@@ -1,7 +1,6 @@
 // ColorPickerPopup.cs
 // Runtime-built 12-swatch colour picker for lobby roster rows.
 // Canonical spec: docs/Design/Lobby_Setup.md
-// Location: Assets/Scripts/UI/Menus/Panels/ColorPickerPopup.cs
 
 using System;
 using TheWaningBorder.Core.Localization;

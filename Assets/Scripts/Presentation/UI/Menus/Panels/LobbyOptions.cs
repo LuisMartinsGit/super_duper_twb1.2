@@ -1,7 +1,6 @@
 // LobbyOptions.cs
 // The match-option vocabulary both lobbies offer: starting resources, and the
 // starting age / culture ladder.
-// Location: Assets/Scripts/UI/Menus/Panels/LobbyOptions.cs
 //
 // ONE source, deliberately. These lists used to live as private statics in
 // SkirmishPanel, and the multiplayer lobby simply did not offer the options at

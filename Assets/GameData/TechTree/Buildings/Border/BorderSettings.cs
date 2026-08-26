@@ -7,8 +7,6 @@
 // Live-edit: Get() returns the loaded SO reference, so Inspector edits during
 // Play apply on the next system tick (same "edit on the fly" behaviour as the
 // TechTree SOs).
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/BorderSettings.cs
 
 using UnityEngine;
 

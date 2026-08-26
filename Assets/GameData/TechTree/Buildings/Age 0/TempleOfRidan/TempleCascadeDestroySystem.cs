@@ -1,6 +1,5 @@
 // TempleCascadeDestroySystem.cs
 // Cascades temple destruction to its chapel slots + cleans up slots when chapels die
-// Location: Assets/GameData/TechTree/Buildings/Age 0/TempleOfRidan/TempleCascadeDestroySystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

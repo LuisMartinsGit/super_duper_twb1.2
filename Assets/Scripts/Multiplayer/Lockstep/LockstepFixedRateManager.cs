@@ -23,8 +23,6 @@
 // the sim per-frame). This is the foundation; the per-system determinism fixes
 // and the SimulationSystemGroup vs PresentationSystemGroup partition build on
 // top of it.
-//
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepFixedRateManager.cs
 
 using Unity.Core;
 using Unity.Entities;

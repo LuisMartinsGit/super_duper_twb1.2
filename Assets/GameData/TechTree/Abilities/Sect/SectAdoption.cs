@@ -16,8 +16,6 @@
 //
 // Phase 1 (task-063): adoption + upgrade primitives. Effect dispatch (Phase 2)
 // reads PerSectState to decide whether to apply each sect's bonuses.
-//
-// Location: Assets/Scripts/Economy/SectAdoption.cs
 
 using System;
 using Unity.Entities;

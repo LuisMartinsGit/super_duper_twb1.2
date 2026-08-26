@@ -24,8 +24,6 @@
 //
 // Perf:
 //   ~4 emissions/sec × 4 s lifetime ≈ 16 alive particles per node.
-//
-// Location: Assets/Scripts/Presentation/ProceduralBorderParticleGenerator.cs
 
 using Unity.Entities;
 using UnityEngine;

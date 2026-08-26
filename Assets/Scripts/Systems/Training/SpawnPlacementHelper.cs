@@ -1,6 +1,5 @@
 // SpawnPlacementHelper.cs
 // Helper class for finding empty spawn positions
-// Location: Assets/Scripts/Systems/Training/SpawnPlacementHelper.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

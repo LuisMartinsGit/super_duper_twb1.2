@@ -1,6 +1,5 @@
 // MultiplayerMenuButton.cs
 // Makes the main menu's Multiplayer entry open the Multiplayer scene.
-// Location: Assets/Scripts/UI/Menus/MultiplayerMenuButton.cs
 
 using TMPro;
 using UnityEngine;

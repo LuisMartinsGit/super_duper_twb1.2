@@ -19,8 +19,6 @@
 //
 // Determinism: BloodMap + VeilField are sim-fed; scan order is row-major;
 // RNG is seeded. Lockstep-safe.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

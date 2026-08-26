@@ -11,8 +11,6 @@
 //
 // Single-threaded IJob (flood fill isn't parallel), but the result is
 // order-independent — reachability is deterministic regardless of visit order.
-//
-// Location: Assets/Scripts/Systems/Border/Jobs/
 
 using Unity.Burst;
 using Unity.Collections;

@@ -2,7 +2,6 @@
 // Per-hut age-up choice command — converts an Alanthor-owned Gatherer's Hut
 // either into a Wall Hub (the cylinder connection point that anchors wall
 // segments) or into a Watch Tower (the stand-alone Alanthor ranged defense).
-// Location: Assets/Scripts/Core/Commands/CommandTypes/ConvertHutCommand.cs
 //
 // Phase 2 of task-wall-system-bfme2-rework-109. Mirrors CancelTrainCommand's
 // XxxCommand / XxxCommandHelper pattern: the marker struct exists for symmetry

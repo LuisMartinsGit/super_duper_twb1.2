@@ -1,4 +1,4 @@
-// SectAntiquityMechanicsSystem.cs
+// SectAntiquityMechanics.cs
 // Runtime systems for the Sect of Antiquity's full mechanic set (task-063
 // spec — implemented 2026-07-05):
 //   * CodexFreezeTickSystem     — ticks/removes CodexFrozen (Recall the Codex).
@@ -7,8 +7,6 @@
 //                                 Reliquary garrison presence.
 //   * ReliquarySystem           — ability cooldown recovery, scaled by
 //                                 building level and Lorekeeper garrison.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/Antiquity/SectAntiquityMechanicsSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

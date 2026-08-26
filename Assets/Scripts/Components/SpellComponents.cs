@@ -1,6 +1,5 @@
 // SpellComponents.cs
 // ECS components for spell buff/debuff effects
-// Location: Assets/Scripts/Core/Components/SpellComponents.cs
 
 using Unity.Entities;
 

@@ -1,6 +1,5 @@
 // MathUtil.cs
 // Shared Burst-compatible math helpers used across systems.
-// Location: Assets/Scripts/Core/Types/MathUtil.cs
 
 using Unity.Mathematics;
 

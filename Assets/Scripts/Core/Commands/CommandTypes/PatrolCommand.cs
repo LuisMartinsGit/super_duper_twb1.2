@@ -1,6 +1,5 @@
 // PatrolCommand.cs
 // Patrol command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/PatrolCommand.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

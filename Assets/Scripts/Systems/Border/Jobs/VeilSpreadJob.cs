@@ -18,8 +18,6 @@
 // only its own Dst slot, so a tick is order-independent and deterministic (same
 // Src + same CycleSeed + same flags → same Dst; no wall-clock). VeilFieldSystem
 // blits Dst back after each tick.
-//
-// Location: Assets/Scripts/Systems/Border/Jobs/
 
 using Unity.Burst;
 using Unity.Collections;

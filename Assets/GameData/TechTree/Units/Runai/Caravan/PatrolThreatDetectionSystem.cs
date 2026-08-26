@@ -13,8 +13,6 @@
 //   - If no hostile in range, PeacefulSeconds counts up. After
 //     PatrolAlertTimeout seconds, alert flag clears and NotControllableTag
 //     is restored — the caravan resumes autonomous route behavior.
-//
-// Location: Assets/Scripts/Systems/Economy/
 
 using Unity.Collections;
 using Unity.Entities;

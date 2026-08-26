@@ -12,7 +12,6 @@
 // building exclusivity) and affordability. Clicking a button enters
 // BuilderCommandPanel placement mode (shift-click there repeats
 // placement; right-click/Esc cancels).
-// Location: Assets/Scripts/UI/GameUI/BuilderPanelBinder.cs
 
 using System.Collections.Generic;
 using TMPro;

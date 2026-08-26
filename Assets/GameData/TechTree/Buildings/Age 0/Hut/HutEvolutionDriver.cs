@@ -28,7 +28,6 @@
 // orbits the hut slowly at HALF the RTS viewing distance (same elevation),
 // so every angle of every transition gets captured. Controller restored on
 // completion.
-// Location: Assets/GameData/TechTree/Buildings/Age 0/Hut/HutEvolutionDriver.cs
 
 using Unity.Entities;
 using Unity.Transforms;

@@ -13,8 +13,6 @@
 // rule and needs the no-stack guard to be designed first.
 //
 // task-063 phase 2c.
-//
-// Location: Assets/Scripts/Systems/Sect/SectRenewalAutoRepairSystem.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

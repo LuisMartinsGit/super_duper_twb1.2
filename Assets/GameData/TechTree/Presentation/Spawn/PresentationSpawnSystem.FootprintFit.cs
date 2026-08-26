@@ -1,7 +1,6 @@
 // PresentationSpawnSystem.FootprintFit.cs
 // Scales a building's visual so it fills its build-grid footprint.
 // Canonical spec: docs/Design/Build_Grid.md
-// Location: Assets/GameData/TechTree/Presentation/Spawn/PresentationSpawnSystem.FootprintFit.cs
 
 using UnityEngine;
 using Unity.Entities;

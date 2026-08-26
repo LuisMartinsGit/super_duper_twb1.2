@@ -20,8 +20,6 @@
 //   * Keeps the last MaxEntries messages in a ring; errors keep their stack.
 //   * "Copy all" puts the buffer on the system clipboard for pasting into a
 //     bug report.
-//
-// Location: Assets/Scripts/Core/Diagnostics/DebugLogOverlay.cs
 
 using System.Collections.Generic;
 using System.Text;

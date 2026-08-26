@@ -1,6 +1,5 @@
 // LauncherSelfUpdate.cs
 // Upgrades the tester's launcher from a copy carried inside the build.
-// Location: Assets/Scripts/Bootstrap/LauncherSelfUpdate.cs
 
 using System;
 using System.IO;

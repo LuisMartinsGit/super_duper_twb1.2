@@ -1,6 +1,5 @@
 // TempleLevelConfig.cs
 // Configuration for temple level-up costs, era mapping, and religion point grants
-// Location: Assets/GameData/TechTree/Buildings/Age 0/TempleOfRidan/TempleLevelConfig.cs
 
 using TheWaningBorder.Core;
 

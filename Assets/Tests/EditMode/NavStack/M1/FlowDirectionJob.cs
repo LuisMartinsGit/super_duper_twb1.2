@@ -15,8 +15,6 @@
 //     in the locked order [+x, -x, +z, -z, +x+z, +x-z, -x+z, -x-z] wins.
 //   * No float math anywhere in the hot loop — the resulting direction
 //     byte is computed by integer index lookup.
-//
-// Location: Assets/Tests/EditMode/NavStack/M1/FlowDirectionJob.cs
 
 using Unity.Burst;
 using Unity.Collections;

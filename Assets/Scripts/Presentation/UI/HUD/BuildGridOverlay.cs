@@ -1,7 +1,6 @@
 // BuildGridOverlay.cs
 // Faint 2 m build-grid lines drawn on the ground around the placement cursor.
 // Canonical spec: docs/Design/Build_Grid.md
-// Location: Assets/Scripts/UI/HUD/BuildGridOverlay.cs
 
 using UnityEngine;
 using Unity.Mathematics;

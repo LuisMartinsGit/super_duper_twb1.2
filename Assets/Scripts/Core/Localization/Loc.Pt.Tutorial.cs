@@ -7,7 +7,6 @@
 // TutorialDirector builds them — the segment breaks below mirror the
 // source file only for readability. Rich-text (<b>/<i>) and \n breaks are
 // preserved verbatim in the values.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Tutorial.cs
 
 using System.Collections.Generic;
 

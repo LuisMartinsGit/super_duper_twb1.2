@@ -13,8 +13,6 @@
 //
 // Determinism: managed iteration on the main thread; portal scan walks
 // blob node array in node-id ascending order (stable across machines).
-//
-// Location: Assets/Scripts/Systems/Navigation/WallGateRegistrationSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

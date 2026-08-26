@@ -22,8 +22,6 @@
 //   * Integration at (4,3) == UnreachableIntegration (it's the wall).
 //   * Direction at the goal == NoDirection.
 //   * Direction at (5,7) points toward +x (byte 0).
-//
-// Location: Assets/Tests/EditMode/NavStack/M1/WholeMapFlowTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

@@ -32,8 +32,6 @@
 //
 // Determinism: reads the lockstep-identical VeilField saturation + the nav
 // cost field; integer cell math; no wall-clock. Every client stamps identically.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

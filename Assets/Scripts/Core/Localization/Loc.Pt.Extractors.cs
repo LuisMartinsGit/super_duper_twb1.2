@@ -4,7 +4,6 @@
 // resolvers themselves stay English because the strings double as
 // GameUICatalog icon keys), training/research/build action labels, the
 // shared BuildTooltip scaffolding, ability names, and Keep wing strings.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Extractors.cs
 
 using System.Collections.Generic;
 

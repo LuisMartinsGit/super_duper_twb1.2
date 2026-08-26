@@ -1,6 +1,5 @@
 // WallUpgradeSystem.cs
 // Ticks WallUpgradeState timers and applies tower/gate components on completion.
-// Location: Assets/GameData/TechTree/Buildings/Alanthor/WallUpgradeSystem.cs
 //
 // Two loops:
 //   1. Per-instance WallUpgradeState — legacy path. UpgradeType 1 (Tower) is

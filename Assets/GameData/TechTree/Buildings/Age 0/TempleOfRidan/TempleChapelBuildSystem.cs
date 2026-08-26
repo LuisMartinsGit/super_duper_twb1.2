@@ -1,6 +1,5 @@
 // TempleChapelBuildSystem.cs
 // Ticks chapel build timers on temple slot buffers and spawns chapels on completion
-// Location: Assets/GameData/TechTree/Buildings/Age 0/TempleOfRidan/TempleChapelBuildSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

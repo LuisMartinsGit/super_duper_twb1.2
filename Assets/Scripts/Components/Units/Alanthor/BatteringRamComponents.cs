@@ -1,5 +1,4 @@
 // BatteringRamComponents.cs
-// Location: Assets/GameData/TechTree/Units/Alanthor/BatteringRam/BatteringRamComponents.cs
 // All types are in the global namespace (single assembly), so location is
 // organizational only — co-located with the unit that introduced them.
 

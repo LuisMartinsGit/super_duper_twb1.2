@@ -10,7 +10,6 @@
 // get the (new/old) diff applied and the stamp bumped.
 //
 // Spec §4.1.
-// Location: Assets/Scripts/Systems/Combat/
 
 using Unity.Burst;
 using Unity.Collections;

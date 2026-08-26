@@ -1,7 +1,6 @@
 // HutConversionSystem.cs
 // Ticks GathererHutConverting timers and replaces the hut with the chosen
 // target (Wall Hub or Watch Tower) on completion.
-// Location: Assets/GameData/TechTree/Buildings/Age 0/Hut/HutConversionSystem.cs
 //
 // Phase 2 of task-wall-system-bfme2-rework-109. The 5-second timer is
 // authoritative — when it expires we snapshot the hut's world position +

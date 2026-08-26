@@ -1,6 +1,5 @@
 // CommandQueueComponents.cs
 // Components for multi-waypoint command queuing and planning mode
-// Location: Assets/Scripts/Core/Components/CommandQueueComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

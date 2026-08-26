@@ -4,8 +4,6 @@
 // "Every non-Active state is temporary. The map wants to be Active."
 //
 // Spec §9 (Node State Machine), §11 (Tuning Parameters).
-//
-// Location: Assets/GameData/TechTree/Buildings/Border/LargeNode/NodeStateReversionSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

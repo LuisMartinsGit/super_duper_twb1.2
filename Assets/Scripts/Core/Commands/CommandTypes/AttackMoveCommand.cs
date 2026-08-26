@@ -1,6 +1,5 @@
 // AttackMoveCommand.cs
 // Attack-move command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/AttackMoveCommand.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

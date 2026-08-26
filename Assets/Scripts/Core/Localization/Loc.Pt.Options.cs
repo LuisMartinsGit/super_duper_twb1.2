@@ -1,6 +1,5 @@
 // Loc.Pt.Options.cs
 // Portuguese for the options menu and Unity quality-level names.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Options.cs
 
 using System.Collections.Generic;
 

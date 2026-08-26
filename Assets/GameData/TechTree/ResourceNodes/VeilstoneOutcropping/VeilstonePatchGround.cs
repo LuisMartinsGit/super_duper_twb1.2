@@ -13,8 +13,6 @@
 // already a compact block of cells (see VeilstoneOutcroppingBootstrap), so a
 // radial falloff matches its shape while staying O(patches) per texel instead
 // of a hash lookup with no soft edge.
-//
-// Location: Assets/GameData/TechTree/ResourceNodes/VeilstoneOutcropping/
 
 using System.Collections.Generic;
 using Unity.Mathematics;

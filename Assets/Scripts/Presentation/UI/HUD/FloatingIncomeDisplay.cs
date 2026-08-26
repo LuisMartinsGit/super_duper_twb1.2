@@ -1,7 +1,6 @@
 // FloatingIncomeDisplay.cs
 // Shows floating "+N" text above income-generating buildings when they tick
 // BFME2-style income visualization
-// Location: Assets/Scripts/UI/HUD/FloatingIncomeDisplay.cs
 
 using System.Collections.Generic;
 using UnityEngine;

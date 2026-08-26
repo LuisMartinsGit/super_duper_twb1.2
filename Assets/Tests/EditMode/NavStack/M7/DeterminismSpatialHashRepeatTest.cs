@@ -6,8 +6,6 @@
 //
 // Builds the multimap directly (no ECS world) to keep the test as a
 // pure unit test independent of scheduler timing.
-//
-// Location: Assets/Tests/EditMode/NavStack/M7/DeterminismSpatialHashRepeatTest.cs
 
 using NUnit.Framework;
 using Unity.Collections;

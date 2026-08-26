@@ -5,7 +5,6 @@
 // code looks the English string up here at render time.
 // KEYS ARE BYTE-EXACT copies of the English source strings. Use the indexer,
 // never t.Add() (the same string can appear in several domains).
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Data.cs
 
 using System.Collections.Generic;
 

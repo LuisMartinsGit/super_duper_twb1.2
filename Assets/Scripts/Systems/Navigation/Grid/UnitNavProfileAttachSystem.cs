@@ -17,8 +17,6 @@
 // Performance: the query is "UnitTag without NavLayerIndex" so once
 // every existing unit has been promoted, the system runs against an
 // empty query (zero-cost).
-//
-// Location: Assets/Scripts/Systems/Navigation/UnitNavProfileAttachSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

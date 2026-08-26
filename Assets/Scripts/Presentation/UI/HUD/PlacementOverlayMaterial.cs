@@ -1,6 +1,5 @@
 // PlacementOverlayMaterial.cs
 // Shared URP transparent-surface setup for the placement ground overlays.
-// Location: Assets/Scripts/UI/HUD/PlacementOverlayMaterial.cs
 
 using UnityEngine;
 

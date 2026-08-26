@@ -15,8 +15,6 @@
 //
 // Runs UpdateBefore(DeathSystem) so we can read the dying unit's tier
 // before the entity is destroyed.
-//
-// Location: Assets/Scripts/Systems/Combat/
 
 using Unity.Collections;
 using Unity.Entities;

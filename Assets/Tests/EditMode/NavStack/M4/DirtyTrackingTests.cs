@@ -8,8 +8,6 @@
 // We don't spin up an ECS world for these tests -- the diff is a pure
 // function of (oldCost, newCost) so the test runs in pure NativeArray
 // land and is byte-stable across machines.
-//
-// Location: Assets/Tests/EditMode/NavStack/M4/DirtyTrackingTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

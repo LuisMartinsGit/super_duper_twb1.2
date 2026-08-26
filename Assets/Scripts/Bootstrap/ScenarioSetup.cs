@@ -1,6 +1,5 @@
 // ScenarioSetup.cs
 // Bootstrap for predefined combat scenarios
-// Location: Assets/Scripts/Bootstrap/ScenarioSetup.cs
 
 using UnityEngine;
 using Unity.Collections;

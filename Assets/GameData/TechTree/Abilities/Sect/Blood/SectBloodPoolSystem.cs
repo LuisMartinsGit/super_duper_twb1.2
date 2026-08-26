@@ -22,8 +22,6 @@
 //   - Duration:  10s
 //
 // task-063 phase 3.
-//
-// Location: Assets/Scripts/Systems/Sect/SectBloodPoolSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

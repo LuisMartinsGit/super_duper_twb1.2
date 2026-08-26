@@ -15,8 +15,6 @@
 //
 // Spec refs: §5.1 universal ritual properties, §5.2 Alanthor purification,
 // §11 item 2 (Purification ritual mechanic).
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

@@ -8,8 +8,6 @@
 // Alanthor twin had, so it re-issued an upgrade command every 5 s tick with
 // no cost check. Anything in here is mechanics, not doctrine — the culture
 // flavour stays in the caller (which sects, which ritualist, which target).
-//
-// Location: Assets/Scripts/Systems/AI/AIEndgameCommon.cs
 
 using System.Collections.Generic;
 using Unity.Collections;

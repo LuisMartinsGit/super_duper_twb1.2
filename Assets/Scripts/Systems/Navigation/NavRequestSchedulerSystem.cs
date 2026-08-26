@@ -37,8 +37,6 @@
 //   * Stale request filter compares against CurrentGeneration; if no
 //     NavGenerationCounter singleton exists yet, all requests are
 //     considered current (M3 fall-through).
-//
-// Location: Assets/Scripts/Systems/Navigation/NavRequestSchedulerSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

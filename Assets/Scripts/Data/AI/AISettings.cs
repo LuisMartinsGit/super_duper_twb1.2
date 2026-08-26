@@ -2,8 +2,6 @@
 // Static runtime accessor for AISettingsSO — mirrors BorderSettings. Lazily
 // loads Resources/AISettings.asset; falls back to a defaults-seeded instance
 // (field initializers ARE the defaults) so the game runs without the asset.
-//
-// Location: Assets/Scripts/Data/AI/AISettings.cs
 
 using UnityEngine;
 

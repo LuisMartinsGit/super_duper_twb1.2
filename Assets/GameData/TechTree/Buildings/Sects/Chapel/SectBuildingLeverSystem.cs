@@ -12,8 +12,6 @@
 // directly inline, capped at MaxHP.
 //
 // task-063 phase 5.
-//
-// Location: Assets/GameData/TechTree/Buildings/Sects/Chapel/SectBuildingLeverSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

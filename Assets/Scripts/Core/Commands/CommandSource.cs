@@ -1,6 +1,8 @@
-// ICommand.cs
-// Base interface and shared types for the command system
-// Location: Assets/Scripts/Core/Commands/ICommand.cs
+// CommandSource.cs
+// Shared types for the command system. Named for what it actually holds:
+// the IGameCommand / IUndoableCommand / CommandResult interfaces this file
+// was named after were removed in fix #237 (see the note below), leaving
+// CommandSource as its only occupant.
 
 using Unity.Entities;
 using Unity.Mathematics;

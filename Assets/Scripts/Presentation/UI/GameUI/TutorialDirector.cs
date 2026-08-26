@@ -64,7 +64,6 @@
 // Steps are checked at 4 Hz, never per frame, and finished ones stop being
 // evaluated. Apart from the four helps above, nothing here writes to the
 // simulation.
-// Location: Assets/Scripts/UI/GameUI/TutorialDirector.cs
 
 using System.Collections.Generic;
 using TMPro;

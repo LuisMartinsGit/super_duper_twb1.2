@@ -1,6 +1,5 @@
 // SpellBuffSystem.cs
 // Ticks SpellBuff, SpellDebuff, and Invulnerable timers, removing expired components
-// Location: Assets/Scripts/Systems/Combat/SpellBuffSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

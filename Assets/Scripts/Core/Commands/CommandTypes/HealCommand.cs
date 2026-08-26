@@ -1,6 +1,5 @@
 // HealCommand.cs
 // Heal command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/HealCommand.cs
 
 using Unity.Collections;
 using Unity.Entities;

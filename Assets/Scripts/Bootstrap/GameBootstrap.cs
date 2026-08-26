@@ -1,6 +1,5 @@
 // GameBootstrap.cs
 // Main game initialization - coordinates all bootstrap systems
-// Location: Assets/Scripts/Bootstrap/GameBootstrap.cs
 // NOTE: This file should be in Assets/Scripts/Bootstrap/, NOT in Core/Bootstrap/
 
 using UnityEngine;

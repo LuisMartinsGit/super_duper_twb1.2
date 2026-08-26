@@ -10,8 +10,6 @@
 //   1. Both units receive a non-zero separation force.
 //   2. The forces point in OPPOSITE directions (sum to ~zero), proving
 //      the deterministic side pick is reciprocal.
-//
-// Location: Assets/Tests/EditMode/NavStack/M2/SteeringNoStackingTests.cs
 
 using NUnit.Framework;
 using Unity.Entities;

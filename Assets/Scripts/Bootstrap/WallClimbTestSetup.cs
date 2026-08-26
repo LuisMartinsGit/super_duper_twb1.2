@@ -21,8 +21,6 @@
 //
 // Debug cubes: red = wall instance, cyan = tower (access). (No PresentationId,
 // so the prefab visualiser is skipped — mirrors Phase5TestSetup.)
-//
-// Location: Assets/Scripts/Bootstrap/WallClimbTestSetup.cs
 
 using Unity.Collections;
 using Unity.Entities;

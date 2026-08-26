@@ -1,6 +1,5 @@
 // PlayerBuild.cs
 // Command-line entry point for producing a Windows player.
-// Location: Assets/Scripts/Editor/
 //
 // Lives in the TheWaningBorder.Editor assembly (Editor platform only), so
 // it no longer needs a #if UNITY_EDITOR guard -- it cannot reach a player

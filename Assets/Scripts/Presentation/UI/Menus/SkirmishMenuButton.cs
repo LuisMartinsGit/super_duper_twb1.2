@@ -1,6 +1,5 @@
 // SkirmishMenuButton.cs
 // Makes the main menu's Skirmish entry open the Skirmish scene.
-// Location: Assets/Scripts/UI/Menus/SkirmishMenuButton.cs
 
 using TMPro;
 using UnityEngine;

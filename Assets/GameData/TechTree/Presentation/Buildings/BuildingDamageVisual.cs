@@ -1,7 +1,6 @@
 // BuildingDamageVisual.cs
 // Drives the TheWaningBorder/BuildingDamage shader from a building's ECS Health,
 // so a building visibly accrues soot / cracks / blown-out chunks as it loses HP.
-// Location: Assets/GameData/TechTree/Presentation/Buildings/BuildingDamageVisual.cs
 
 using System.Collections.Generic;
 using UnityEngine;

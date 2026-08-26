@@ -11,8 +11,6 @@
 // when a wall placement dirties tiles -- the detection pass over the
 // dirty tiles' boundaries -- without depending on the surrounding
 // ECS / blob plumbing.
-//
-// Location: Assets/Tests/EditMode/NavStack/M4/IncrementalRebuildTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

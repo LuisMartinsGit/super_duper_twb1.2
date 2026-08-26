@@ -4,7 +4,6 @@
 // specs authored in SectLeverEffects.Alanthor.cs (wrapped once at the SectInfo
 // display boundary — the data layer stays English), and the SectRadii reach
 // labels that ride along in the composed tooltip.
-// Location: Assets/Scripts/Core/Localization/Loc.Pt.Sects.cs
 
 using System.Collections.Generic;
 

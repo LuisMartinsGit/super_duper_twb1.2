@@ -28,8 +28,6 @@
 //     same cell when several are equidistant.
 //   * The helper reads the cost field via the world's singleton entity
 //     query. Callable from managed code (no ECS scheduling here).
-//
-// Location: Assets/Scripts/Systems/Navigation/NavGridQuery.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -14,8 +14,6 @@
 //
 // Later phases extend this file. M1 keeps it minimal so phase 2-7 additions
 // drop in alongside without churning the existing types.
-//
-// Location: Assets/Scripts/Core/Components/NavComponents.cs
 
 using Unity.Collections;
 using Unity.Entities;

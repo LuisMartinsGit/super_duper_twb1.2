@@ -14,7 +14,6 @@
 // front advances unevenly / in bursts instead of as a clean expanding disc.
 //
 // Namespace matches BorderConstants (TheWaningBorder.Core.Config).
-// Location: Assets/Scripts/Core/Settings/VeilCrustConstants.cs
 
 namespace TheWaningBorder.Core.Config
 {

@@ -8,8 +8,6 @@
 // have identical f-scores at the time of pop, the order they're
 // expanded must match ascending portal id. This is the property the
 // "bucket queue tie-break" sentence in the architecture commits to.
-//
-// Location: Assets/Tests/EditMode/NavStack/M3/BucketQueueDeterminismTests.cs
 
 using NUnit.Framework;
 using TheWaningBorder.Systems.Navigation;

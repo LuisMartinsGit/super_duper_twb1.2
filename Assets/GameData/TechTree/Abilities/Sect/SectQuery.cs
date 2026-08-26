@@ -6,8 +6,6 @@
 // without touching every consumer.
 //
 // task-063 phase 2b.
-//
-// Location: Assets/GameData/TechTree/Abilities/Sect/SectQuery.cs
 
 using Unity.Collections;
 using Unity.Entities;

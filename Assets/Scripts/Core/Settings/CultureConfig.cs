@@ -1,6 +1,5 @@
 // CultureConfig.cs
 // Culture palette and metadata for Era 2 age-up system
-// Location: Assets/Scripts/Core/Settings/CultureConfig.cs
 
 using UnityEngine;
 using TheWaningBorder.Core;

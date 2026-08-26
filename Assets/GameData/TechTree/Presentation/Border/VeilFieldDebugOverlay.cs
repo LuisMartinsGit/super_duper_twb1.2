@@ -14,8 +14,6 @@
 // buffer that VeilFieldSystem owns — it never writes the field directly, so the
 // field stays the single source of truth. Dev builds only; self-instantiates so
 // there's nothing to wire in a scene.
-//
-// Location: Assets/Scripts/Presentation/
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using Unity.Collections;

@@ -14,7 +14,6 @@
 // Everything the button decides — age gate, culture gate, cost, next level —
 // comes from UpgradeBuildingCommandHelper, so this file adds no rules of its
 // own; it only formats them.
-// Location: Assets/Scripts/UI/GameUI/BuildingUpgradeAction.cs
 
 using Unity.Entities;
 using UnityEngine;

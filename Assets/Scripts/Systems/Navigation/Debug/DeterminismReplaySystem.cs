@@ -32,8 +32,6 @@
 //     it does managed work (NativeArray sort + log append) on the main
 //     thread. Per BC1028: OnCreate must not be [BurstCompile] when it
 //     creates entities.
-//
-// Location: Assets/Scripts/Systems/Navigation/DeterminismReplaySystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

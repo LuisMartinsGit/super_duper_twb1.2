@@ -6,8 +6,6 @@
 // Asserts both an actual sort-and-walk pass and the
 // NavRequestSchedulerSystem.ComparePending strict-total-order
 // helper.
-//
-// Location: Assets/Tests/EditMode/NavStack/M6/RequestSchedulerTieBreakTests.cs
 
 using NUnit.Framework;
 using Unity.Collections;

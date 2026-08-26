@@ -1,6 +1,5 @@
 // CommandRouter.Formation.cs
 // Partial class extension: AoE4-style formation group orders.
-// Location: Assets/Scripts/Core/Commands/CommandRouter.Formation.cs
 //
 // A formation order fans one clicked destination out into per-unit slot
 // destinations (FormationMoveCommandHelper.BuildPlan) and — on the direct

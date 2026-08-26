@@ -57,7 +57,6 @@
 // - PAUSE MENU: code-built PauseMenuPanel (Esc) — resume / restart / main
 //   menu / quit, and the owner of the Escape cascade for the whole HUD.
 // - TOOLTIPS: every button in this stack hovers through the shared UITooltip.
-// Location: Assets/Scripts/UI/GameUI/GameUIManager.cs
 
 using System.Collections.Generic;
 using TMPro;

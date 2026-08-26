@@ -1,6 +1,5 @@
 // PresentationSpawnSystem.cs
 // Spawns and syncs visual GameObjects for ECS entities
-// Location: Assets/GameData/TechTree/Presentation/Spawn/PresentationSpawnSystem.cs
 // Per-entity builders live as partials in their entity folders (Smelter,
 // Vault of Almierra, Border LargeNode, Alanthor Wall set, and the three
 // Resources nodes); dead procedural Hall/Hut/Barracks builders deleted 2026-08-12.

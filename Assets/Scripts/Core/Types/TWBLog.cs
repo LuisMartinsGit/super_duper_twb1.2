@@ -1,6 +1,5 @@
 // TWBLog.cs
 // Verbose dev logging that compiles out of normal builds.
-// Location: Assets/Scripts/Core/Types/TWBLog.cs
 //
 // Use TWBLog.Log(...) for "[Tag]"-prefixed development/diagnostic logs. The
 // calls (and their argument evaluation, e.g. string interpolation) are stripped

@@ -3,8 +3,6 @@
 // each tick. M1 takes the snapshot approach: clear layer 0 to terrain cost,
 // then stamp every building. That keeps M1 free of structural-change ECB
 // machinery; M4 will move to dirty-tile incremental rebuild.
-//
-// Location: Assets/Scripts/Systems/Navigation/Jobs/StampBuildingFootprintJob.cs
 
 using Unity.Burst;
 using Unity.Collections;

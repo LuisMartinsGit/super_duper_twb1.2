@@ -8,8 +8,6 @@
 // get the (newFactor / oldFactor) diff applied and the stamp bumped.
 //
 // Audit fix #1.
-//
-// Location: Assets/Scripts/Systems/Combat/UnitRankSystem.cs
 
 using Unity.Burst;
 using Unity.Collections;

@@ -3,7 +3,6 @@
 // attaches a WallSegmentUpgradeState timer to the SEGMENT entity. When the
 // timer expires WallUpgradeSystem (Loop 2) tags the centre-5 instances of
 // the segment with WallGateRegionTag + WallGateGroup + WallGateTag.
-// Location: Assets/Scripts/Core/Commands/CommandTypes/ConvertSegmentToGateCommand.cs
 //
 // Phase 6 of task-wall-system-bfme2-rework-109. Follows the same
 // XxxCommand / XxxCommandHelper pattern established by ConvertHutCommand

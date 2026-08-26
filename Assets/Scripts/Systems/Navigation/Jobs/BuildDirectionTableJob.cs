@@ -1,8 +1,6 @@
 // BuildDirectionTableJob.cs
 // Builds the 256-entry unit-vector lookup table consumed by the flow
 // follower (see CCD-3). Runs once at world init.
-//
-// Location: Assets/Scripts/Systems/Navigation/Jobs/BuildDirectionTableJob.cs
 
 using Unity.Burst;
 using Unity.Entities;

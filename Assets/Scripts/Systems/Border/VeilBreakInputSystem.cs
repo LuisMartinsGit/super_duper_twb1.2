@@ -9,8 +9,6 @@
 // click commands, so wiring in this demo can't hijack unit control. Swap the
 // binding (or route it through a real ability/command) when you design the
 // player-facing break — the field write is the only contract.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Entities;
 using Unity.Mathematics;

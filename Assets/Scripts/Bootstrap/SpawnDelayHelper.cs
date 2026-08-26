@@ -1,6 +1,5 @@
 // SpawnDelayHelper.cs
 // Waits for terrain before spawning players
-// Location: Assets/Scripts/Bootstrap/SpawnDelayHelper.cs
 
 using System.Collections;
 using UnityEngine;

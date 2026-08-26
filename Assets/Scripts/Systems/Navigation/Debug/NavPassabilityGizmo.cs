@@ -21,8 +21,6 @@
 // Cost-field reads happen on the main thread in OnDrawGizmos; the field is
 // only written on the rare ticks a building/obstacle is (de)stamped, and the
 // loop is guarded so a same-frame write can't throw into the editor.
-//
-// Location: Assets/Scripts/Systems/Navigation/NavPassabilityGizmo.cs
 
 using Unity.Entities;
 using UnityEngine;

@@ -1,6 +1,5 @@
 // BuildingIds.cs
 // Entity -> building id, the inverse of BuildingFactory's recipe table.
-// Location: Assets/Scripts/Entities/Buildings/BuildingIds.cs
 //
 // This tag switch used to be a private helper inside
 // UI/Panels/EntityExtractors.Names.cs, exposed through a GetBuildingIdPublic

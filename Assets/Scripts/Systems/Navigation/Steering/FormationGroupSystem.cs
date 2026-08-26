@@ -24,8 +24,6 @@
 // order + member buffer order), integer Bresenham LOS, no wall-clock and
 // no randomness. The goal-field integration it samples runs synchronously
 // in GoalFlowFieldSystem earlier in the tick.
-//
-// Location: Assets/Scripts/Systems/Navigation/FormationGroupSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

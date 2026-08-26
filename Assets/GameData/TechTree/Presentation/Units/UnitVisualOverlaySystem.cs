@@ -11,8 +11,6 @@
 //
 // Heavy-handed cost-wise for very large unit counts, but bounded — one
 // wrapper GameObject per unit, not allocated per frame.
-//
-// Location: Assets/Scripts/Presentation/
 
 using System.Collections.Generic;
 using Unity.Collections;

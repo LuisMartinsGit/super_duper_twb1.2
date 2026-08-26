@@ -16,7 +16,6 @@
 // command type is needed.
 //
 // All components live in the global namespace per project convention.
-// Location: Assets/Scripts/Components/FormationComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

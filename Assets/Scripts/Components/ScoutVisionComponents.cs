@@ -15,7 +15,6 @@
 // wall-clock, lockstep-safe.
 //
 // Global namespace per project ECS-component convention.
-// Location: Assets/Scripts/Components/ScoutVisionComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

@@ -6,8 +6,6 @@
 // shader variants and the building flashes its fallback colour while we're
 // already mid-dissolve. Running this during the loading screen pays the
 // cost up front so the dissolve renders cleanly every time.
-//
-// Location: Assets/Scripts/Bootstrap/BuildingPrefabPrewarm.cs
 
 // HUMAN REVIEW: DONE
 

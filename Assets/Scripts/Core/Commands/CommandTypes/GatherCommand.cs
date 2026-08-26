@@ -1,6 +1,5 @@
 // GatherCommand.cs
 // Gather/mining command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/GatherCommand.cs
 
 using Unity.Collections;
 using Unity.Entities;

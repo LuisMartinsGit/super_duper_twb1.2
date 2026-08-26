@@ -15,8 +15,6 @@
 // non-zero TimeRemaining.
 //
 // task-063 phase 2e.
-//
-// Location: Assets/Scripts/Systems/Sect/SectSilenceVigilSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

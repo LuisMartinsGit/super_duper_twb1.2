@@ -10,8 +10,6 @@
 //   * Position is the lerp between StartPos and EndPos at progress p.
 //   * Layer flips at p >= 0.5 (matching the system's midpoint flip).
 //   * State is "complete" at p >= 1.0.
-//
-// Location: Assets/Tests/EditMode/NavStack/M5/LayerTransitionTests.cs
 
 using NUnit.Framework;
 using Unity.Mathematics;

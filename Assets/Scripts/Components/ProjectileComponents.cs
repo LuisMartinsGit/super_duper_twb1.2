@@ -1,6 +1,5 @@
 // ProjectileComponents.cs
 // Projectile components for ranged combat
-// Location: Assets/Scripts/Core/Components/Combat/ProjectileComponents.cs
 
 using Unity.Entities;
 using Unity.Mathematics;

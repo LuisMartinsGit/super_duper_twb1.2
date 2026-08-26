@@ -6,8 +6,6 @@
 // (think rate, worker targets, attack timing, raiding / counter-composition
 // / staging / expansion toggles), the equivalent of Relic's per-difficulty
 // personality Lua files.
-//
-// Location: Assets/Scripts/AI/AISimpleDifficulty.cs
 
 namespace TheWaningBorder.AI
 {

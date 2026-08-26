@@ -11,8 +11,6 @@
 //   - Channel time: ConversionChannelTime (45s) vs Purification 35s
 //   - RitualDefenseRunaiIntensity (1.6x) shrinks defender spawn interval
 //   - Higher Glow yield (14 vs 10) compensates the difficulty
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

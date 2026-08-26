@@ -62,8 +62,6 @@
 // and tower conversion mirrors the player's per-instance path.
 // Sect aura/passive effects are applied automatically by their dedicated
 // systems once a chapel is adopted; nothing for the AI to do there.
-//
-// Location: Assets/Scripts/AI/Managers/AIAlanthorEndgameSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

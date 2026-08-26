@@ -35,7 +35,6 @@
 // "tick=N cmds=0", which compresses to nothing and costs nothing to skim.
 //
 // docs/Multiplayer_LAN_Readiness.md
-// Location: Assets/Scripts/Multiplayer/Lockstep/LockstepLog.cs
 
 using System;
 using System.Collections.Generic;

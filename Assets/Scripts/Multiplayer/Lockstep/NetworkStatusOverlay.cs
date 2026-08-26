@@ -23,7 +23,6 @@
 // single-player match.
 //
 // docs/Multiplayer_LAN_Readiness.md
-// Location: Assets/Scripts/Multiplayer/Lockstep/NetworkStatusOverlay.cs
 
 using UnityEngine;
 using TheWaningBorder.Core.Localization;

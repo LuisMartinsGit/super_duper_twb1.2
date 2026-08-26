@@ -5,8 +5,6 @@
 // (and the SQRT3_OVER_2 literal) lived in IronDepositBootstrap,
 // VeilstoneOutcroppingBootstrap and ScenarioSetup. They never drifted, but
 // three copies of a coordinate transform is three places to get it wrong.
-//
-// Location: Assets/Scripts/Core/Types/HexGrid.cs
 
 using Unity.Collections;
 using Unity.Mathematics;

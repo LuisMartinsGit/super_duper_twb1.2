@@ -1,6 +1,5 @@
 // CorpseDissolver.cs
 // Owns a dead unit's GameObject after its ECS entity is destroyed.
-// Location: Assets/GameData/TechTree/Presentation/Units/CorpseDissolver.cs
 
 using System.Collections;
 using System.Collections.Generic;

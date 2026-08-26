@@ -12,8 +12,6 @@
 // area you want to inspect (or tick Follow Scene Camera). It reads the live
 // NavCostField from the default ECS world and rebuilds only when the field
 // changes / you move it, so it's cheap to leave on.
-//
-// Location: Assets/Scripts/Systems/Navigation/NavPassabilityOverlay.cs
 
 using System.Collections.Generic;
 using Unity.Entities;

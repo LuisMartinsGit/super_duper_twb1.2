@@ -16,8 +16,6 @@
 // Lambda-free neighbour expansion: the EnumerateNeighbours work is
 // inlined into Solve because BlobAsset types must be passed by ref
 // (DOTS analyzer EA0009) and `ref` params can't be captured by lambdas.
-//
-// Location: Assets/Scripts/Systems/Navigation/AbstractPathfinder.cs
 
 using Unity.Collections;
 using Unity.Entities;

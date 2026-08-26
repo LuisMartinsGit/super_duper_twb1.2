@@ -1,5 +1,4 @@
 // MainMenuBootstrap.cs
-// Location: Assets/Scripts/Bootstrap/MainMenuBootstrap.cs
 //
 // The main menu is now built and wired ENTIRELY in the Unity editor using the
 // Synty "Interface Fantasy Menus" assets (native uGUI Buttons, Animators, and

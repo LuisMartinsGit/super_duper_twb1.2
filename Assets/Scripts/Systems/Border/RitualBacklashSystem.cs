@@ -22,8 +22,6 @@
 //   * Determinism: no RNG object. Placement and composition are arithmetic on
 //     the wave index and the spawn counter, so lockstep peers erupt
 //     identically.
-//
-// Location: Assets/Scripts/Systems/Border/
 
 using Unity.Collections;
 using Unity.Entities;

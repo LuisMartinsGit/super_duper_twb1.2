@@ -14,8 +14,6 @@
 // is what makes that diff math possible.
 //
 // task-063 phase 2c.
-//
-// Location: Assets/Scripts/Systems/Sect/SectWitnessVisionSystem.cs
 
 using Unity.Collections;
 using Unity.Entities;

@@ -1,6 +1,5 @@
 // AttackCommand.cs
 // Attack command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/AttackCommand.cs
 
 using Unity.Collections;
 using Unity.Entities;

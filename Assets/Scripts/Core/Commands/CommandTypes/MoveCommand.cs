@@ -1,6 +1,5 @@
 // MoveCommand.cs
 // Move command component and execution logic
-// Location: Assets/Scripts/Core/Commands/CommandTypes/MoveCommand.cs
 
 using Unity.Collections;
 using Unity.Entities;
