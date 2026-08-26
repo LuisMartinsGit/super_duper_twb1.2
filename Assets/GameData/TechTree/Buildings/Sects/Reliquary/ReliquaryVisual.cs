@@ -40,35 +40,10 @@ namespace TheWaningBorder.Presentation
             var parchment      = new Color(0.86f, 0.80f, 0.62f);
             var candle         = new Color(0.98f, 0.80f, 0.45f);
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
             System.Func<PrimitiveType, string, Vector3, Vector3, Quaternion, Color, float, float, bool, GameObject>
             Make = (type, name, lp, ls, lr, color, metal, smooth, glow) =>
-            {
-                var go = GameObject.CreatePrimitive(type);
-                go.name = name;
-                go.transform.SetParent(root.transform, false);
-                go.transform.localPosition = lp;
-                go.transform.localRotation = lr;
-                go.transform.localScale = ls;
-                var r = go.GetComponent<Renderer>();
-                if (r != null)
-                {
-                    r.material = new Material(shader);
-                    r.material.color = color;
-                    if (r.material.HasProperty("_BaseColor"))  r.material.SetColor("_BaseColor", color);
-                    if (r.material.HasProperty("_Metallic"))   r.material.SetFloat("_Metallic", metal);
-                    if (r.material.HasProperty("_Smoothness")) r.material.SetFloat("_Smoothness", smooth);
-                    if (glow && r.material.HasProperty("_EmissionColor"))
-                    {
-                        r.material.EnableKeyword("_EMISSION");
-                        r.material.SetColor("_EmissionColor", color * 1.6f);
-                    }
-                }
-                var c = go.GetComponent<Collider>();
-                if (c != null) Object.Destroy(c);
-                return go;
-            };
+                ProceduralPrimitive.Make(type, name, root.transform, lp, ls, lr, color, metal, smooth, glow);
 
             // Deterministic hand-built wobble in degrees.
             System.Func<float, float> Tilt = max => (float)(rng.NextDouble() * 2.0 - 1.0) * max;

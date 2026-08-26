@@ -39,29 +39,10 @@ namespace TheWaningBorder.Presentation
             var wood       = new Color(0.48f, 0.36f, 0.22f); // spear shaft, shield back
             var skin       = new Color(0.78f, 0.62f, 0.50f);
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
             System.Func<PrimitiveType, string, Transform, Vector3, Vector3, Quaternion, Color, float, float, GameObject>
             Make = (type, name, parent, lp, ls, lr, color, metal, smooth) =>
-            {
-                var go = GameObject.CreatePrimitive(type);
-                go.name = name;
-                go.transform.SetParent(parent, false);
-                go.transform.localPosition = lp;
-                go.transform.localRotation = lr;
-                go.transform.localScale = ls;
-                var r = go.GetComponent<Renderer>();
-                if (r != null)
-                {
-                    r.material = new Material(shader);
-                    r.material.color = color;
-                    if (r.material.HasProperty("_Metallic"))   r.material.SetFloat("_Metallic", metal);
-                    if (r.material.HasProperty("_Smoothness")) r.material.SetFloat("_Smoothness", smooth);
-                }
-                var c = go.GetComponent<Collider>();
-                if (c != null) Object.Destroy(c);
-                return go;
-            };
+                ProceduralPrimitive.Make(type, name, parent, lp, ls, lr, color, metal, smooth, false);
 
             // Small deterministic hand-built lean (whole figure).
             float Jit(float range) => (float)(rng.NextDouble() * 2.0 - 1.0) * range;
@@ -410,17 +391,7 @@ namespace TheWaningBorder.Presentation
         }
 
         private static void Tint(Material m, Color c, float whiten, bool emissive)
-        {
-            if (m == null) return;
-            var baseCol = Color.Lerp(c, Color.white, whiten);
-            m.SetColor("_BaseColor", baseCol);
-            if (m.HasProperty("_Color")) m.SetColor("_Color", baseCol);
-            if (emissive && m.HasProperty("_EmissionColor"))
-            {
-                m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", c * 0.35f);
-            }
-        }
+            => ProceduralPrimitive.Tint(m, c, whiten, emissive);
 
         private Material MatOf(string partName)
         {
