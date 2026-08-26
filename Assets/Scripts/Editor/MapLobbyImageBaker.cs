@@ -18,7 +18,6 @@
 // project ships one runtime asmdef, so an Editor/ folder alone would not
 // keep it out of player builds.
 
-#if UNITY_EDITOR
 using System.IO;
 using TheWaningBorder.World.MapMarkers;
 using UnityEditor;
@@ -244,4 +243,3 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         }
     }
 }
-#endif

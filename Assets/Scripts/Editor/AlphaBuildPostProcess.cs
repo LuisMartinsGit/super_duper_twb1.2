@@ -1,8 +1,7 @@
 // AlphaBuildPostProcess.cs
 // Ships a logs/ folder (and a note for testers) next to the built executable.
-// Location: Assets/Scripts/Core/Diagnostics/Editor/AlphaBuildPostProcess.cs
+// Location: Assets/Scripts/Editor/AlphaBuildPostProcess.cs
 
-#if UNITY_EDITOR
 using System.IO;
 using UnityEditor;
 using UnityEditor.Build;
@@ -139,4 +138,3 @@ halves on my own - just mention that it happened.
 ";
     }
 }
-#endif

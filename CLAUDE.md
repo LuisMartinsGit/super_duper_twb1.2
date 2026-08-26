@@ -64,6 +64,27 @@ the code currently does, often pre-design-pass) lives in
 - Input handling in `Input/RTSInputManager.cs` and `Input/SelectionSystem.cs`
 - Camera in `Input/CameraController.cs`
 
+### Assemblies
+The game compiles into **two** assemblies today, and the split is being widened
+one layer at a time (see the restructure plan):
+
+| Assembly | Root | Contains |
+|----------|------|----------|
+| `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` via asmref) | everything that ships |
+| `TheWaningBorder.Editor` | `Assets/Scripts/Editor/` | `PlayerBuild`, `AlphaBuildPostProcess`, `MapSceneSync`, `MapInfoBaker`, `MapLobbyImageBaker`, `MapAssetFolders` |
+
+`TheWaningBorder.Editor` is `includePlatforms: ["Editor"]`, so editor code can
+no longer reach a player build and **needs no `#if UNITY_EDITOR` guard**. That
+guard used to be the only thing keeping `UnityEditor` out of the shipped
+assembly, because the `Editor/` folder convention does NOT apply inside an
+asmdef — it still doesn't, anywhere else in the tree, so a new editor-only file
+placed outside `Assets/Scripts/Editor/` still needs the guard.
+
+**The release pipeline lives in this assembly**: `tools/release.ps1` drives
+`-executeMethod TheWaningBorder.EditorTools.PlayerBuild.Build`, which calls
+`MapSceneSync.ScenesForPlayerBuild` for the ship gate. If it fails to compile,
+builds stop.
+
 ### Namespaces
 - `TheWaningBorder.AI` - AI brain, managers, behaviors
 - `TheWaningBorder.Economy` - FactionResources, FactionEconomy, SuppliesIncome

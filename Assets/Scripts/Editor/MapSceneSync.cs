@@ -27,7 +27,6 @@
 // asmdef (TheWaningBorder.Runtime) with no separate editor assembly; the
 // Editor/ folder name alone does not exclude it from player builds.
 
-#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -205,4 +204,3 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         }
     }
 }
-#endif

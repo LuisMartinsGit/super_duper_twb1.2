@@ -1,10 +1,12 @@
-// Editor-only tool inside the single runtime asmdef: the Editor/ folder
-// convention does NOT apply within an .asmdef, so without this guard the
-// file is compiled into PLAYER builds and fails them (UnityEditor missing).
-#if UNITY_EDITOR
-// PlayerBuild.cs (editor-only)
+// PlayerBuild.cs
 // Command-line entry point for producing a Windows player.
-// Location: Assets/Scripts/Core/Diagnostics/Editor/PlayerBuild.cs
+// Location: Assets/Scripts/Editor/
+//
+// Lives in the TheWaningBorder.Editor assembly (Editor platform only), so
+// it no longer needs a #if UNITY_EDITOR guard -- it cannot reach a player
+// build at all. Before the split it sat inside the runtime asmdef, where
+// the Editor/ folder convention does not apply and the guard was the only
+// thing keeping UnityEditor out of the shipped assembly.
 //
 //   Unity.exe -quit -batchmode -nographics ^
 //     -projectPath "<project>" ^
@@ -147,4 +149,3 @@ namespace TheWaningBorder.EditorTools
         }
     }
 }
-#endif

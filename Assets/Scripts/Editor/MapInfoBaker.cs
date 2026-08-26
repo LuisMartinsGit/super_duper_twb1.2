@@ -13,7 +13,6 @@
 // Idempotent: re-baking overwrites positions/count/thumbnail in place and
 // preserves hand-written DisplayName / SizeTag / Description.
 
-#if UNITY_EDITOR
 using System.IO;
 using TheWaningBorder.World.MapMarkers;
 using UnityEditor;
@@ -229,4 +228,3 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         }
     }
 }
-#endif
