@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: ScoutingCelestarii
+  m_Name: VeilstoneTools
   m_EditorClassIdentifier: 
-  id: ScoutingCelestarii
-  displayName: Scouting Celestarii
-  role: Utility
+  id: VeilstoneTools
+  displayName: Veilstone Tools
+  role: Economy
   effect: 
-  desc: "Unlocks the Use Celestar reveal ability on Scouts and restores full Scout vision: settled max LOS and sight-ramp speed return to 100 percent (behaviour-by-id)."
-  researchAt: Hall
+  desc: "Tool tier 3 \u2014 Alanthor. Improves gathering speed."
+  researchAt: KingsCourt
   minBuildingLevel: 0
-  researchTime: 30
+  researchTime: 45
   prerequisites: []
   culture: 
   cost:
-    Supplies: 120
-    Iron: 30
-    Veilstone: 0
+    Supplies: 0
+    Iron: 120
+    Veilstone: 100
     Veilsteel: 0
   effects:
-    gatherSpeedMult: 0
+    gatherSpeedMult: 1.15
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
     meleeDamageAdd: 0

@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: IronTools
+  m_Name: MasonGuild
   m_EditorClassIdentifier: 
-  id: IronTools
-  displayName: Iron Tools
-  role: Economy
+  id: MasonGuild
+  displayName: Mason Guild
+  role: Defense
   effect: 
-  desc: "Tool tier 2 \u2014 Alanthor. Improves gathering speed."
-  researchAt: Hall
+  desc: Alanthor. +30% HP on all your buildings (behaviour-by-id).
+  researchAt: KingsCourt
   minBuildingLevel: 0
-  researchTime: 40
+  researchTime: 35
   prerequisites: []
   culture: 
   cost:
-    Supplies: 150
-    Iron: 80
+    Supplies: 180
+    Iron: 40
     Veilstone: 0
     Veilsteel: 0
   effects:
-    gatherSpeedMult: 1.15
+    gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
     meleeDamageAdd: 0

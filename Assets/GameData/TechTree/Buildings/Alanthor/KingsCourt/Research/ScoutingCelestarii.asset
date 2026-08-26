@@ -10,21 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: MasonGuild
+  m_Name: ScoutingCelestarii
   m_EditorClassIdentifier: 
-  id: MasonGuild
-  displayName: Mason Guild
-  role: Defense
+  id: ScoutingCelestarii
+  displayName: Scouting Celestarii
+  role: Utility
   effect: 
-  desc: Alanthor. +30% HP on all your buildings (behaviour-by-id).
-  researchAt: Hall
+  desc: "Unlocks the Use Celestar reveal ability on Scouts and restores full Scout vision: settled max LOS and sight-ramp speed return to 100 percent (behaviour-by-id)."
+  researchAt: KingsCourt
   minBuildingLevel: 0
-  researchTime: 35
+  researchTime: 30
   prerequisites: []
   culture: 
   cost:
-    Supplies: 180
-    Iron: 40
+    Supplies: 120
+    Iron: 30
     Veilstone: 0
     Veilsteel: 0
   effects:

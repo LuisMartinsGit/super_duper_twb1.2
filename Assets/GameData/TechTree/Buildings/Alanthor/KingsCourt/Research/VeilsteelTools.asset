@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: VeilstoneTools
+  m_Name: VeilsteelTools
   m_EditorClassIdentifier: 
-  id: VeilstoneTools
-  displayName: Veilstone Tools
+  id: VeilsteelTools
+  displayName: Veilsteel Tools
   role: Economy
   effect: 
-  desc: "Tool tier 3 \u2014 Alanthor. Improves gathering speed."
-  researchAt: Hall
+  desc: "Tool tier 4 \u2014 Alanthor. Improves gathering speed."
+  researchAt: KingsCourt
   minBuildingLevel: 0
-  researchTime: 45
+  researchTime: 50
   prerequisites: []
   culture: 
   cost:
     Supplies: 0
-    Iron: 120
+    Iron: 0
     Veilstone: 100
-    Veilsteel: 0
+    Veilsteel: 80
   effects:
-    gatherSpeedMult: 1.15
+    gatherSpeedMult: 1.2
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
     meleeDamageAdd: 0
