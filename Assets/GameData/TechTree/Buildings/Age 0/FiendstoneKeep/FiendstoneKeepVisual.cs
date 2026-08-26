@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/FiendstoneKeep/FiendstoneKeepVisual.cs
 // Procedural Fiendstone Keep — the Age-0 choice fortress, biggest silhouette
 // after the Hall (footprint 5x5, ~7 m tall). Massive dark-stone bailey on a
 // battered plinth, four crenellated corner towers, a taller central keep

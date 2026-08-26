@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Plunderer/FeraldisPlunderSystem.cs
 // The Feraldis economy: Plunderers steal from the bank of whoever they are
 // attacking. Canon: docs/Design/Age_1_Feraldis.md § Raider Camp.
 //

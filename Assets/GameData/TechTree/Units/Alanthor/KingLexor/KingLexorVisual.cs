@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/KingLexor/KingLexorVisual.cs
 // Procedural visual for King Lexor (pid 251) — the Cataphract chassis made
 // regal. Black destrier in gilded barding, brass-trimmed plate, crown spikes
 // over the helm, a flowing cape of angled slabs, and a tall back-banner with

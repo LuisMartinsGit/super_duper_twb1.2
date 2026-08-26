@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Age 0/Spearman/SpearmanVisual.cs
 // Procedural line-infantry visual for the Age 0 Spearman (pid 359): a LIGHT
 // soldier — quilted gambeson (cloth, no plate), kettle helm with brim,
 // upright 2.4 m spear (leaf blade + butt spike), round shield with boss on

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Abilities/Sect/SectActivePowerSystem.War.cs
 // Effect bodies for the Sect of War's canon kinds (docs/Design/Sects.md
 // section 6). The dispatch switch lives in SectActivePowerSystem.cs; this file
 // is only the bodies, matching the Alanthor split.

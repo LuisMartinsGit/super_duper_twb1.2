@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Age 0/Archer/ArcherVisual.cs
 // Procedural leather-and-cloth archer visual for the Age 0 Archer (pid 202):
 // lined hood, leather jerkin over a tunic, bracers, recurve bow in the left
 // hand (two curved limb segments per side + grip + string), belt quiver with

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/GatherersHut/GathererHutIncomeSystem.cs
 // Calculates area-based income for GathererHuts (BFME2-style farms)
 // Uses first-come-first-served priority: older farms keep full yield,
 // newer farms only earn from unclaimed area.
@@ -50,22 +49,38 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public const float EnemyOwnershipThreshold = 0.5f;
 
-        private double _lastUpdateTime;
+        // SimCadence, not `ElapsedTime - _lastUpdateTime` — see SimCadence.cs.
+        // _lastUpdateTime was zeroed in OnCreate, i.e. when the WORLD was
+        // built, and then compared against a clock the lockstep rate manager
+        // restarts from zero at install. Whatever the pre-match window put in
+        // it survived into the match, so the two peers paid income on
+        // different ticks. bank is checksummed.
+        private SimCadence.Periodic _cadence;
         private int _nextBuildOrder;
+
+        /// <summary>Match epoch this system last re-phased on. _rotationPhase
+        /// is the other half of the bug: it advances once per fire, so the
+        /// pre-match window left it at a machine-dependent value and the two
+        /// peers paid a DIFFERENT FACTION on the same tick. Fixing the cadence
+        /// alone would not have caught that.</summary>
+        private int _epoch;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GathererHutTag>();
-            _lastUpdateTime = 0;
             _nextBuildOrder = 0;
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            var currentTime = SystemAPI.Time.ElapsedTime;
-            if (currentTime - _lastUpdateTime < UpdateInterval)
-                return;
-            _lastUpdateTime = currentTime;
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _rotationPhase = 0;
+                _nextBuildOrder = 0;
+            }
+
+            if (!_cadence.Due(SystemAPI.Time.DeltaTime, UpdateInterval)) return;
             _rotationPhase = (_rotationPhase + 1) & 3;
 
             double perfT0 = UnityEngine.Time.realtimeSinceStartupAsDouble;

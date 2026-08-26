@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Vfx/ProjectileVisualSystem.cs
 // Spawns and syncs visual GameObjects for arrow and laser projectile entities.
 // Separate from PresentationSpawnSystem because projectiles:
 // - Fly through the air (no terrain height snapping)

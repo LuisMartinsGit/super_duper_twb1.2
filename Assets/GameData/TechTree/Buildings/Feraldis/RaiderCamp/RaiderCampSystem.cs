@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/RaiderCamp/RaiderCampSystem.cs
 // Raider Camps produce Plunderers. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // One Plunderer every CampSpawnInterval seconds, up to CampPlundererCap

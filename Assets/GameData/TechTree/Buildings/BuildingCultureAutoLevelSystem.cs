@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/BuildingCultureAutoLevelSystem.cs
 // Auto-bumps EVERY building carrying BuildingUpgradeable to upgrade
 // Level 1 the moment its owning faction picks a culture. Players don't
 // pay or wait for L1 — it's the cultural baseline (calculator: "L1 free

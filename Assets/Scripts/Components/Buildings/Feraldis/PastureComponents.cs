@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Pasture/PastureComponents.cs
 // Canon: docs/Design/Age_1_Feraldis.md.
 
 using Unity.Entities;

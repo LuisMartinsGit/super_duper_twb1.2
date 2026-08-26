@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Raider/FeraldisBuildingBurn.cs
 // The Raider's mark on enemy structures. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // Bleeding is deliberately units-only (buildings don't bleed), so the

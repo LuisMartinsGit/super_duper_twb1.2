@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Buildings/BuildingFactionColorMarker.cs
 // Faction-color masking for hand-authored building prefabs that share a
 // single color ATLAS texture. Artists paint dynamic team-color regions
 // in the atlas with a flat marker hue (default: pure blue, RGB 0,0,1).

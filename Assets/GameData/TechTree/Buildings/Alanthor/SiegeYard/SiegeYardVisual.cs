@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/SiegeYard/SiegeYardVisual.cs
 // Procedural visual for the Siege Yard (pid 357) — an open engineering
 // work-yard: plank platform, timber gantry crane with rope and hook, a
 // half-built ram frame, bolt rack, grindstone, log pile, anvil corner, tool

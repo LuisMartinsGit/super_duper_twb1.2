@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Eagle/Eagle.cs
 // The Feraldis Scout's eagle. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // Feraldis scouts trade the huge static scout-sight circle for a bird that

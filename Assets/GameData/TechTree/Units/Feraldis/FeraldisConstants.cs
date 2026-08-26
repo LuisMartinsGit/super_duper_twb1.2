@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisConstants.cs
 // Tuning knobs for the Feraldis fire-and-blood mechanics.
 // Canon: docs/Design/Age_1_Feraldis.md — "Blood, Frenzy & War Totems".
 // Every value here is an explicit playtest knob; the design doc records

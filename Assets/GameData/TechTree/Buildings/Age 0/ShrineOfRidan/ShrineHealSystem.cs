@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/ShrineOfRidan/ShrineHealSystem.cs
 // Shrine of Ridan / Temple of Ridan healing aura (Age 0 design):
 // every completed Shrine/Temple heals friendly units within HealRadius by a
 // percentage of their Max HP per second. The rate climbs the Shrine tech
@@ -26,7 +25,13 @@ namespace TheWaningBorder.Systems.Economy
         private const float TickInterval = 1f;
         private const float HealRadius = 10f;
 
-        private float _acc;
+        // SimCadence, not a bare float — see SimCadence.cs. This one bit
+        // harder than a plain phase offset would: the heal AMOUNT is scaled by
+        // the accumulator (hp.Max * rate * tick, rounded to an int), so two
+        // peers entering the match with different _acc wrote different HP on
+        // the very first fire. hp is checksummed, and the Shrine is an Age 0
+        // building, so this was reachable in every match.
+        private SimCadence.Periodic _cadence;
         private EntityQuery _shrineQuery;
         private EntityQuery _templeQuery;
         private EntityQuery _unitQuery;
@@ -55,10 +60,11 @@ namespace TheWaningBorder.Systems.Economy
 
         protected override void OnUpdate()
         {
-            _acc += World.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            float tick = _acc;
-            _acc = 0f;
+            // DueStep keeps the elapsed value the heal is scaled by, so the
+            // arithmetic below is unchanged — what changes is that both peers
+            // now reach this line on the same tick with the same accumulator.
+            float tick = _cadence.DueStep(World.Time.DeltaTime, TickInterval);
+            if (tick <= 0f) return;
 
             if (_shrineQuery.IsEmptyIgnoreFilter && _templeQuery.IsEmptyIgnoreFilter) return;
 

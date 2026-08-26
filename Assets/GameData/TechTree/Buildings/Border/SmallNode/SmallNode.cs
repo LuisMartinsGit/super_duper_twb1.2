@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/SmallNode/SmallNode.cs
 // The curse's small node (formerly "Sporeling") — the small destructible
 // crystal growth anchoring an Age 0 blight pocket (§2.5b), also raised when
 // a corrupted veilstone crop depletes (VeilstoneMiningSystem). While alive it feeds its haze patch through the

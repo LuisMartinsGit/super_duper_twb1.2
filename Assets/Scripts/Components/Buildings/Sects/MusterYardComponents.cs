@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MusterYard/MusterYardComponents.cs
 // ECS components for the Muster Yard (War sect building).
 // Global namespace per project convention.
 

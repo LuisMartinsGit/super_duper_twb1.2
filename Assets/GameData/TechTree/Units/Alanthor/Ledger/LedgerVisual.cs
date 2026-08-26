@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Ledger/LedgerVisual.cs
 // Animates the Ledger automaton visual (built by GameDataMaintenanceTool.
 // WireLedgerVisuals): hover bob for the legless body, spinning cogwheels,
 // the central crystal tinted and pulsing in the OWNING PLAYER's color, and

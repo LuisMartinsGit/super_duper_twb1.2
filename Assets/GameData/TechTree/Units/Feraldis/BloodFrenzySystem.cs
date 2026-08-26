@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/BloodFrenzySystem.cs
 // Feraldis culture signature: units fighting on bloodsoaked ground frenzy.
 // Canon: docs/Design/Age_1_Feraldis.md — "Blood, Frenzy & War Totems".
 //

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Nobleman/NoblemanVisual.cs
 // Procedural foot-knight visual for the Alanthor Nobleman (pid 346): layered
 // pauldrons, breastplate over a tabard, greaves, longsword + heater shield,
 // plumed helm. Built entirely from primitives (Smelter idiom — per-part

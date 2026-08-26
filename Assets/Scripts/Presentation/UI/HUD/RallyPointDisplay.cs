@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/RallyPointDisplay.cs
 // Shows rally point marker when a building with a rally point is selected
 
 using System.Collections.Generic;

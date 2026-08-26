@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/MovementLineDisplay.cs
 // Shows a line from selected moving units to their destinations, with a destination marker
 
 using System.Collections.Generic;

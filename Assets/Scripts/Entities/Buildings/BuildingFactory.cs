@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Entities/Buildings/BuildingFactory.cs
 using System;
 using System.Collections.Generic;
 using Unity.Collections;

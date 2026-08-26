@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Work/BuildingRepairSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;

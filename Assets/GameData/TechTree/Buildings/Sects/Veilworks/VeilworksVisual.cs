@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Veilworks/VeilworksVisual.cs
 // Procedural visual for the Veilworks — the Sect of Reclamation's smelter for
 // cursed matter (the curse-harvesters). Built entirely from primitives in the
 // CreateProceduralSmelter idiom: named palette, per-part metallic/smoothness

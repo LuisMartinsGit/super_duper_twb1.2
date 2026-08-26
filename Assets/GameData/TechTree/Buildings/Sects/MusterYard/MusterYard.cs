@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MusterYard/MusterYard.cs
 // Sect of War's building. A stockade of training posts and armourers' racks.
 //
 // Structure comes from SectBuilding — every sect building is the same shape

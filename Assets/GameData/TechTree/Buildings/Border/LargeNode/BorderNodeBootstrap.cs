@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/LargeNode/BorderNodeBootstrap.cs
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;

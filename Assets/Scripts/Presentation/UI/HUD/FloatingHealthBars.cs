@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/FloatingHealthBars.cs
 // Renders floating health bars above hovered and selected entities.
 //
 // Was IMGUI (OnGUI) — Unity draws IMGUI on top of every ScreenSpaceOverlay

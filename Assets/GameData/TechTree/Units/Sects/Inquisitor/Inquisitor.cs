@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Inquisitor/Inquisitor.cs
 // The Inquisitor — Sect of Justice's unit lever (task-063 spec, Lv I:
 // "slow caster, cleanse 1 debuff from ally on cooldown"). A non-combat
 // support caster: InquisitorCleanseSystem strips a debuff (CodexFrozen)

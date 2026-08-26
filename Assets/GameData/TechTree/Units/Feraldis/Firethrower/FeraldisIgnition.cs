@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Firethrower/FeraldisIgnition.cs
 // "Fire eats blood" — the Firethrower's signature. Canon:
 // docs/Design/Age_1_Feraldis.md.
 //

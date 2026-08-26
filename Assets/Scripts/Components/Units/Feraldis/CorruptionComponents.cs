@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Corruptor/CorruptionComponents.cs
 // The Feraldis verb: CORRUPT a well, then break it while the curse defends.
 // Canon: docs/Design/Age_1_Feraldis.md § Corruptor.
 //

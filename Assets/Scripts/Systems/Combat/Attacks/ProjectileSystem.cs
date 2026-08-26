@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Combat/ProjectileSystem.cs
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;

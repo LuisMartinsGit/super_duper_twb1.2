@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Units/CatapultVisual.cs
 // Shared siege arm-driver — used by both the Alanthor Ballista and the
 // Runai Catapult prefabs, so it lives in cross-unit Presentation, not in
 // either unit's folder.

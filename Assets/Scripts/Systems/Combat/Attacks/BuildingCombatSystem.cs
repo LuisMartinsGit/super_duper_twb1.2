@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Combat/BuildingCombatSystem.cs
 // Handles ranged attacks for buildings (Hall, Fiendstone Keep, etc.)
 // Buildings auto-target and fire at enemies within range.
 

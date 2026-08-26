@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/SiegeWorkshop/RunaiSiegeWorkshop.cs
 // Runai Siege Workshop — trains the Catapult.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

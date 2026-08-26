@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: ScoutingCelestarii
+  m_EditorClassIdentifier: 
+  id: ScoutingCelestarii
+  displayName: Scouting Celestarii
+  role: Utility
+  effect: 
+  desc: "Unlocks the Use Celestar reveal ability on Scouts and restores full Scout vision: settled max LOS and sight-ramp speed return to 100 percent (behaviour-by-id)."
+  researchAt: Hall
+  minBuildingLevel: 0
+  researchTime: 30
+  prerequisites: []
+  culture: 
+  cost:
+    Supplies: 120
+    Iron: 30
+    Veilstone: 0
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList: []

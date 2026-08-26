@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Border/Veilstinger/VeilstingerCombatSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/BleedingSystem.cs
 // Ticks Bleeding. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // BLEEDING IS DOT *AND* BLOOD (design rule, 2026-08-05 rev.2). A bleeding

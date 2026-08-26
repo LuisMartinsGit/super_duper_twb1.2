@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Types/TargetGeometry.cs
 // One definition of "how far am I from that thing, and where do I stand to
 // work on it" — shared by combat, mining, construction, repair and healing.
 //

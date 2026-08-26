@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Spawn/ObstacleBootstrap.cs
 // Forest / rock obstacle constants + registry. Procedural scatter spawning was
 // removed with procedural maps — hand-authored maps bake their own vegetation
 // into the scene's Unity Terrain. These symbols remain because the presentation

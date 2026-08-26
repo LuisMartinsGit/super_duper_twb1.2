@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Veilworks/Veilworks.cs
 // Sect of Reclamation's building. A smelter for cursed matter.
 //
 // Structure comes from SectBuilding — every sect building is the same shape

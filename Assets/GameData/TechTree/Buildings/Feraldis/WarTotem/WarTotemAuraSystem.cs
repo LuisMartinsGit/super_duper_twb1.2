@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/WarTotem/WarTotemAuraSystem.cs
 // A totem must pay for itself. Canon: docs/Design/Age_1_Feraldis.md
 // "Feraldis rebalance — raiders, plunder, totems (2026-08-07)".
 //

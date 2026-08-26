@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Berserker/BerserkerConversionSystem.cs
 // Processes miner-to-berserker conversion at Fiendstone Keep.
 // Miners with ConvertCommand walk to the Keep and are destroyed/replaced with Berserkers.
 

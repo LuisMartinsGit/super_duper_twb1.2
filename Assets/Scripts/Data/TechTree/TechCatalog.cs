@@ -27,6 +27,7 @@ public static class TechCatalog
     // that is what makes Inspector edits apply to the next-spawned entity ("on the fly").
     private static readonly Dictionary<string, UnitDefSO> _unitSOsById = new();
     private static readonly Dictionary<string, BuildingDefSO> _buildingSOsById = new();
+    private static readonly Dictionary<string, TechDefSO> _techSOsById = new();
     // presentationId -> prefab (for the prefab-based spawn path). null prefab = primitive fallback.
     private static readonly Dictionary<int, GameObject> _prefabByPid = new();
     // presentationId -> animator controller (assigned at spawn when the prefab's
@@ -62,20 +63,49 @@ public static class TechCatalog
     private static void Build()
     {
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear(); _sectsById.Clear();
-        _unitSOsById.Clear(); _buildingSOsById.Clear(); _prefabByPid.Clear(); _controllerByPid.Clear();
+        _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear();
+        _prefabByPid.Clear(); _controllerByPid.Clear();
 
         // Fully-qualified: the `Resources` property below would shadow UnityEngine.Resources.
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
         var jsonAsset = TryLoadJson();
         string json = jsonAsset != null ? jsonAsset.text : null;
 
-        // 1. Techs/sects/faction/resources always come from JSON (not yet SO-ified).
+        // 1. Sects/faction/resources come from JSON. Technologies prefer their SOs.
         var parsed = TechTreeParser.ParseAll(json);
         _faction = parsed.Faction;
         _resources = parsed.Resources;
         _combatProfile = new CombatProfile { defenseFormulaHint = "" };
-        foreach (var kv in parsed.Technologies) _technologiesById[kv.Key] = kv.Value;
         foreach (var kv in parsed.Sects) _sectsById[kv.Key] = kv.Value;
+
+        // Technologies: the SO assets win, JSON is the deprecated fallback -- the
+        // same arrangement units and buildings already use. A tech that has no SO
+        // yet still loads from JSON, and says so once, rather than vanishing from
+        // the tree.
+        if (catalog != null && catalog.HasTechnologies)
+        {
+            foreach (var so in catalog.technologies)
+            {
+                if (so == null || string.IsNullOrEmpty(so.id)) continue;
+                _technologiesById[so.id] = so.ToDef();
+                _techSOsById[so.id] = so;
+            }
+            int missing = 0;
+            foreach (var kv in parsed.Technologies)
+            {
+                if (_technologiesById.ContainsKey(kv.Key)) continue;
+                _technologiesById[kv.Key] = kv.Value;
+                missing++;
+            }
+            if (missing > 0)
+                Debug.LogWarning($"[TechCatalog] {missing} technolog{(missing == 1 ? "y" : "ies")} " +
+                    "had no SO asset and fell back to TechTree.json. Re-run " +
+                    "Waning Border > Tech Tree > Generate Tech SOs.");
+        }
+        else
+        {
+            foreach (var kv in parsed.Technologies) _technologiesById[kv.Key] = kv.Value;
+        }
 
         // 2. Units/buildings come from the authoritative SO catalog (JSON = deprecated fallback).
         if (catalog != null && catalog.HasEntries)
@@ -103,6 +133,14 @@ public static class TechCatalog
         // 4. Sync the static BuildCosts lookup with the now-loaded data.
         BuildCosts.SyncFromTechTree();
 
+        // 4b. Derive every building's research list from the technologies' own
+        //     researchAt. This is the whole point of making researchAt the source
+        //     of truth: the player grid reads BuildingDef.research[] and the AI
+        //     reads tech.researchAt, and while those were authored separately they
+        //     disagreed on 69 of 91 technologies -- techs that no building listed,
+        //     so no player could ever research them. Now one field feeds both.
+        RebuildResearchLists();
+
         // 5. Cross-reference audit (2026-08-11, "make the tech tree fool
         //    proof") — every dangling reference surfaces LOUDLY at load
         //    instead of as a silent runtime stall.
@@ -119,6 +157,56 @@ public static class TechCatalog
     /// iron ran out — this audit exists so that CLASS of failure is a
     /// console warning at boot, not a frozen match at minute 40).
     /// </summary>
+    /// <summary>
+    /// Rewrite each building's <c>research</c> array from the technologies that
+    /// name it in <c>researchAt</c>. Buildings keep any tech they already listed
+    /// that no longer names them, so a hand-authored entry is reported by the
+    /// audit rather than silently dropped here.
+    /// </summary>
+    /// <summary>The authoring asset behind a technology, when it is SO-backed.</summary>
+    public static bool TryGetTechnologySO(string id, out TechDefSO so)
+    {
+        EnsureLoaded();
+        return _techSOsById.TryGetValue(id ?? "", out so);
+    }
+
+    private static void RebuildResearchLists()
+    {
+        var byHost = new Dictionary<string, List<string>>();
+        foreach (var tech in _technologiesById.Values)
+        {
+            if (tech == null || string.IsNullOrEmpty(tech.researchAt)) continue;
+            if (!byHost.TryGetValue(tech.researchAt, out var list))
+                byHost[tech.researchAt] = list = new List<string>();
+            if (!list.Contains(tech.id)) list.Add(tech.id);
+        }
+
+        foreach (var kv in _buildingsById)
+        {
+            var def = kv.Value;
+            if (def == null) continue;
+            byHost.TryGetValue(kv.Key, out var derived);
+
+            // Anything the building listed that no tech claims: keep it so the
+            // audit below can name it. Dropping it here would hide the drift.
+            var merged = derived != null ? new List<string>(derived) : new List<string>();
+            if (def.research != null)
+                foreach (var id in def.research)
+                    if (!string.IsNullOrEmpty(id) && !merged.Contains(id)) merged.Add(id);
+
+            def.research = merged.Count > 0 ? merged.ToArray() : System.Array.Empty<string>();
+        }
+
+        // A researchAt pointing at a building that does not exist would otherwise
+        // be invisible: no building lists the tech, so nothing renders it.
+        foreach (var host in byHost.Keys)
+            if (!_buildingsById.ContainsKey(host))
+                Debug.LogWarning("[TechTreeValidator] " +
+                     $"technolog{(byHost[host].Count == 1 ? "y" : "ies")} " +
+                     $"[{string.Join(", ", byHost[host])}] research at '{host}', " +
+                     "which is not a known building -- they can never be researched");
+    }
+
     private static void ValidateCrossReferences()
     {
         int issues = 0;

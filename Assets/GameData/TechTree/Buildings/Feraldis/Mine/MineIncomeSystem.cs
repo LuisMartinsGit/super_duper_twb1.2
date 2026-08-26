@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Mine/MineIncomeSystem.cs
 // The Mine's yield. Canon: docs/Design/Age_0.md § Mine.
 //
 // A Mine works EVERY iron and veilstone node inside MineConstants.PatchRadius

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/ShrineOfRidan/ShrineOfRidan.cs
 // Shrine of Ridan — Age 0 choice building; +1 religion point on completion.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/ResourceNodes/VeilstoneOutcropping/VeilstoneOutcropping.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;

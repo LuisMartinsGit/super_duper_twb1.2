@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Runai/Acolyte/Acolyte.cs
 // Runai acolyte — performs the Conversion ritual at active veilstone nodes.
 // Vulnerable channeling unit (spec §5.4). Mechanical difficulty of the
 // ritual is enforced by RitualDefenseSystem's RitualDefenseRunaiIntensity

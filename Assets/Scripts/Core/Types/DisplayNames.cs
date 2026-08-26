@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Types/DisplayNames.cs
 // Turns a TechTree id ("Alanthor_RoyalStable", "Chapel_Sect_Renewal") into the
 // name the player sees ("Royal Stable", "Renewal Chapel").
 //

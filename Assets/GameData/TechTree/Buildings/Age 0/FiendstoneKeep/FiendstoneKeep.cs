@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/FiendstoneKeep/FiendstoneKeep.cs
 // Fiendstone Keep — Age 0 choice building (Feraldis-leaning capital).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

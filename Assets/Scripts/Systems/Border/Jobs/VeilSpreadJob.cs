@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Border/Jobs/VeilSpreadJob.cs
 // The Veil's cellular automaton, as a Burst job — now a TENDRIL HEARTBEAT.
 //
 // The front does NOT creep continuously. Two kinds of tick drive it, and the

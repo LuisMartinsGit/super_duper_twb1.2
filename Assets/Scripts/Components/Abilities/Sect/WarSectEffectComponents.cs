@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Abilities/Sect/War/WarSectEffectComponents.cs
 // Runtime state for the Sect of War's canon actives (docs/Design/Sects.md
 // section 6). Components only — the tick lives in WarSectEffectSystem and the
 // application in SectActivePowerSystem.War.cs.

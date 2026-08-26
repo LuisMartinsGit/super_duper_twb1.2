@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Buildings/BuildingVisualSinkDepth.cs
 //
 // Tag set on a building's visual root carrying the depth the building
 // must sink to be fully underground at construction-progress = 0. Computed

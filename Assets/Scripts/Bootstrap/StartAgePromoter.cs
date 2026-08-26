@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Bootstrap/StartAgePromoter.cs
 //
 // Skirmish lobby "Start Age" pre-promoter. Reads GameSettings.StartAge after
 // PlayerSpawnSystem has placed every faction's Hall and, for StartAge > 0,

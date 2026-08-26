@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/ResourceNodes/VeilsteelDeposit/VeilsteelDepositBootstrap.cs
 // Spawns the Veilsteel "Sharp Crystals" map resource from VeilsteelDepositMarker
 // components placed in the hand-authored map scene. Unlike iron (patches of
 // many small deposits), veilsteel is a SINGLE node per marker holding the

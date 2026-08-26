@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Abilities/Sect/SectRadii.cs
 // The four casting radii — docs/Design/Sects.md section 2.
 //
 // Every targeted sect effect uses one of these four values. No sect power

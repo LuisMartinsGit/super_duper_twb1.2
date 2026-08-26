@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Settings/VeilCrustConstants.cs
 // Tuning for the Veil's cellular-automaton FIELD — the single source of truth
 // the crystal crust is a view of. These were private consts inside
 // VeilFieldSystem; they moved here so the Burst CA job (VeilSpreadJob) and the

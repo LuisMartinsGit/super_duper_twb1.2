@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/GroundTargeting.cs
 // BFME2-style ability targeting mode: a glowing ring decal follows the
 // mouse across the terrain previewing exactly the area an ability will
 // affect; left-click casts, right-click / Escape cancels. Shared by the

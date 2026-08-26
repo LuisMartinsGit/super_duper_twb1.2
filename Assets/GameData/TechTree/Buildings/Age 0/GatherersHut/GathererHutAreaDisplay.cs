@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/GatherersHut/GathererHutAreaDisplay.cs
 // Displays the 15-unit resource gathering radius around GathererHuts
 // Shows when: placing a GathererHut, or when one is selected
 // During placement, shows expected income percentage tooltip.

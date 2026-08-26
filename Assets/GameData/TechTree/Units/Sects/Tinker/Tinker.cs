@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Tinker/Tinker.cs
 // The Tinker — Sect of Renewal's unit lever (task-063 spec, Lv I:
 // "field repair worker (slow), cannot fight"). Implemented as a Worker
 // variant: keeps CanBuild so the existing construction/repair systems

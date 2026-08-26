@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Corruptor/CorruptionRitualSystem.cs
 // The Feraldis verb. Canon: docs/Design/Age_1_Feraldis.md § Corruptor.
 //
 // Three phases, deliberately mirroring PurificationRitualSystem so the two

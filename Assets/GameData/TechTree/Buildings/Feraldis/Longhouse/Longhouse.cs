@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Longhouse/Longhouse.cs
 // Feraldis Longhouse — Feraldis HQ; trains units.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/VaultOfAlmierra/VaultInterestSystem.cs
 // Applies compound interest to resources stored in the Vault of Almiérra.
 // Rate: 3% per minute. Vault locks for 3 minutes after each deposit/withdraw.
 

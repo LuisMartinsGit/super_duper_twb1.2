@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/BuildingUpgradeSystem.cs
 // Ticks BuildingUpgrading on every upgradeable building. When Progress
 // >= Total, bump BuildingUpgradeState.Level and recompute scaled stats
 // from BASE values (NOT current — that way any reapply is idempotent).

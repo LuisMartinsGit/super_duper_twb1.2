@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/SectBuilding.cs
 // Shared spine for the twelve sect buildings (docs/Design/Sects.md section 1).
 //
 // Every sect grants exactly one building, capped at 5 per faction, and each is

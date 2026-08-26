@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Foundry/FeraldisFoundry.cs
 // Feraldis Foundry — veilsteel production.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

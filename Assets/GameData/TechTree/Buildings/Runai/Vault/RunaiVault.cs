@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/Vault/RunaiVault.cs
 // Runai Vault — culture treasury.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

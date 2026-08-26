@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Age 0/Worker/Worker.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

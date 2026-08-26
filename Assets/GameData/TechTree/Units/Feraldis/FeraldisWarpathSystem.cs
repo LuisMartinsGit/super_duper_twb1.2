@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisWarpathSystem.cs
 // Feraldis burns the curse out of its own attack lanes — and gets paid for it.
 // Canon: docs/Design/Age_1_Feraldis.md — "The Warpath".
 //

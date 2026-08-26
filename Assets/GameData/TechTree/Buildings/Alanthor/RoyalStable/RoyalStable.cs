@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/RoyalStable/RoyalStable.cs
 // Alanthor Royal Stable — heavy-cavalry trainer (Cataphract, plus any
 // future cavalry units listed in the TechTree's "trains" array).
 //

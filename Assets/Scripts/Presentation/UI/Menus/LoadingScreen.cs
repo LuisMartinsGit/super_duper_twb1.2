@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/Menus/LoadingScreen.cs
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;

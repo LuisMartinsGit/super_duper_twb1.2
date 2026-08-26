@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/TradingPost/TradingPost.cs
 // Runai Trading Post — numbered lane post (PostNumber assigned by TradingPostSystem).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

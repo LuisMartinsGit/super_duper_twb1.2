@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Reliquary/Reliquary.cs
 // Sect of Antiquity's building. A vaulted archive.
 //
 // Structure comes from SectBuilding — every sect building is the same shape

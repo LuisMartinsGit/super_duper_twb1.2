@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Entities/Units/UnitFactory.cs
 using System;
 using System.Collections.Generic;
 using Unity.Entities;

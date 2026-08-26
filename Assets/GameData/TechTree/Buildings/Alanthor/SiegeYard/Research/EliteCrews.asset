@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: EliteCrews
+  m_EditorClassIdentifier: 
+  id: EliteCrews
+  displayName: Elite Crews
+  role: Military
+  effect: 
+  desc: "+60 HP, +5 damage, +3 attack range to every Alanthor siege engine."
+  researchAt: Alanthor_SiegeYard
+  minBuildingLevel: 3
+  researchTime: 48
+  prerequisites:
+  - VeteranCrews
+  culture: Alanthor
+  cost:
+    Supplies: 320
+    Iron: 170
+    Veilstone: 70
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "unit:Alanthor_Ballista"
+    Stat: Hp
+    Op: Add
+    Value: 60
+  - Target: "unit:Alanthor_Ballista"
+    Stat: Damage
+    Op: Add
+    Value: 5
+  - Target: "unit:Alanthor_Ballista"
+    Stat: AttackRange
+    Op: Add
+    Value: 3
+  - Target: "unit:Alanthor_BatteringRam"
+    Stat: Hp
+    Op: Add
+    Value: 60
+  - Target: "unit:Alanthor_BatteringRam"
+    Stat: Damage
+    Op: Add
+    Value: 5
+  - Target: "unit:Alanthor_BatteringRam"
+    Stat: AttackRange
+    Op: Add
+    Value: 3
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: Hp
+    Op: Add
+    Value: 60
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: Damage
+    Op: Add
+    Value: 5
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: AttackRange
+    Op: Add
+    Value: 3

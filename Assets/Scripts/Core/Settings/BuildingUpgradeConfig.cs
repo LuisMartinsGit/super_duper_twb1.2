@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs
 // Static tables for the building upgrade system: per-level cost,
 // duration, and stat multipliers. Single source of truth — both the
 // command helper (cost check / spend) and the upgrade system (apply

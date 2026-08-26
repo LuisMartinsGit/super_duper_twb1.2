@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Chapel/Chapel.cs
 // Sect chapels — one creator parameterised by sect id (12 building ids).
 // Building a chapel in a Temple slot IS the sect-adoption mechanism.
 //

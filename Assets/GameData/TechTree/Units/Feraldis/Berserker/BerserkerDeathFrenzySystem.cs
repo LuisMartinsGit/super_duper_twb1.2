@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Berserker/BerserkerDeathFrenzySystem.cs
 // Ticks the Berserker's last stand. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // ARMING and the HP clamp are NOT here — they live in

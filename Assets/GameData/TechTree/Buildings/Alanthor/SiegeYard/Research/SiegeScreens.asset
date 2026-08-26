@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: SiegeScreens
+  m_EditorClassIdentifier: 
+  id: SiegeScreens
+  displayName: Siege Screens
+  role: Military
+  effect: 
+  desc: "Unlocks the Siege Screens passive for Alanthor siege engines: +50% ranged defense while stationary; lost the moment the engine moves."
+  researchAt: Alanthor_SiegeYard
+  minBuildingLevel: 3
+  researchTime: 50
+  prerequisites:
+  - RangingShot
+  culture: Alanthor
+  cost:
+    Supplies: 280
+    Iron: 130
+    Veilstone: 60
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList: []

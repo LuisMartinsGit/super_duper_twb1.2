@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Tower/TotemTower.cs
 // Feraldis Totem Tower — defensive tower.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

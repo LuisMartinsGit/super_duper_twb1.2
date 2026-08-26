@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MendingHall/MendingHallVisual.cs
 // Procedural visual for the Mending Hall — the Sect of Renewal's open-sided
 // infirmary (the menders). Built entirely from primitives in the
 // CreateProceduralSmelter idiom: named palette, per-part metallic/smoothness

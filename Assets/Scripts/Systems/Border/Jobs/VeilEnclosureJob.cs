@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Border/Jobs/VeilEnclosureJob.cs
 // "Any area completely enclosed by crystal fills in instantly." As the tendrils
 // wrap around a pocket of open ground, that pocket should snap to full crystal
 // rather than trickle in.

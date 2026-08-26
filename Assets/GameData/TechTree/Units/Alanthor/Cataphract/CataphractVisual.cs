@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Cataphract/CataphractVisual.cs
 // Procedural visual for the Cataphract (pid 336) — Alanthor heavy shock
 // cavalry. The shared HorseRigBuilder chassis in armored trim, wrapped in
 // overlapping caparison plates along the barrel, a chamfron head plate, and

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Presentation/Units/SyntyTeamColorRecolor.cs
 // Recolors ONLY the blue "team-color" region of a Synty character atlas with
 // the faction colour, leaving skin / leather / metal untouched. Unlike a flat
 // _BaseColor tint (which washes the whole textured character one colour), this

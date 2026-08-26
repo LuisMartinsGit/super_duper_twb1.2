@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Outrider/OutriderVisual.cs
 // Procedural visual for the Outrider (pid 349) — Alanthor light cavalry.
 // A lean unarmored horse (HorseRigBuilder) carrying a light rider in an open
 // helm with a spear at rest, minimal tack, and two player-color accents: the

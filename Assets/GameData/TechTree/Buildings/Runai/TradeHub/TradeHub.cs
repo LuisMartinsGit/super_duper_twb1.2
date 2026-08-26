@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/TradeHub/TradeHub.cs
 // Runai Trade Hub — caravan spawner + trader-warrior spawner.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

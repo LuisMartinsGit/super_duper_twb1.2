@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/WarTotem/WarTotemComponents.cs
 // Canon: docs/Design/Age_1_Feraldis.md — "Blood, Frenzy & War Totems",
 // and Curse_And_Shardroot.md §2.6 (per-culture influence anchors).
 

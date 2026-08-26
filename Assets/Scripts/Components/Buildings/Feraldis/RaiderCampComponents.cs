@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/RaiderCamp/RaiderCampComponents.cs
 // Canon: docs/Design/Age_1_Feraldis.md § Raider Camp.
 
 using Unity.Entities;

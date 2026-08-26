@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Abilities/Sect/SectResearchEffects.cs
 // The one research each sect sells (docs/Design/Sects.md section 1, the
 // [RESEARCH] line of every sect entry).
 //

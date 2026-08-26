@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Stonehold/StoneholdVisual.cs
 // Procedural visual for the Stonehold — the Sect of Fortitude's squat
 // windowless blockhouse (the wall-keepers). Built entirely from primitives in
 // the CreateProceduralSmelter idiom: named palette, per-part metallic /

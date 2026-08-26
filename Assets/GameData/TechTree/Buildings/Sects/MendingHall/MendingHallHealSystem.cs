@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MendingHall/MendingHallHealSystem.cs
 // The Mending Hall's effect: "damaged units that walk inside heal over time"
 // (docs/Design/Sects.md section 4, Sect of Renewal).
 //

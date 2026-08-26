@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Entities/Buildings/GlowPickup.cs
 // Free-floating Glow pickup spawned at the end of a ritual. Carry / deposit /
 // intercept mechanics are a follow-up slice — for now the pickup just sits
 // at the spawn position and despawns after GlowPickupTimeout (spec §4.5).

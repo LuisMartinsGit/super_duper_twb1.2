@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/TradingPost/TradingPostSystem.cs
 // Renamed internally to RunaiTradeHubSystem — manages the Runai trade network.
 using Unity.Collections;
 using Unity.Entities;

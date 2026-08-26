@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/WallGarrisonSystem.cs
 // Walkable-rampart garrison (W4). When units are ordered onto a wall and end up
 // standing on a deck (elevated well above the terrain), spread them into ranks
 // along the OUTER parapet edge of the nearest wall module so they read as manning

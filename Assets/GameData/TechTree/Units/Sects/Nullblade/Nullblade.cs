@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Nullblade/Nullblade.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

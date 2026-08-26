@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Runai/Skirmisher/Skirmisher.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/VaultOfAlmierra/VaultOfAlmierra.cs
 // Vault of Almierra — Age 0 choice building (interest on banked supplies).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

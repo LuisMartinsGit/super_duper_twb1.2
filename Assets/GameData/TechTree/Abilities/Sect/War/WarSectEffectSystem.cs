@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Abilities/Sect/War/WarSectEffectSystem.cs
 // Ticks the two timed Sect of War effects and cleans them up on expiry.
 //
 // One system for both, for the same reason AlanthorSectEffectSystem is one

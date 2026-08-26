@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/SiegeYard/AlanthorSiegeYard.cs
 // Alanthor Siege Yard — trains siege engines.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

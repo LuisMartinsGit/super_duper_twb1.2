@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Movement/PatrolSystem.cs
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;

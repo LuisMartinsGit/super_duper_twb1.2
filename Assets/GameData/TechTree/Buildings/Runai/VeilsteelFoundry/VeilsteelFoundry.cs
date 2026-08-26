@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/VeilsteelFoundry/VeilsteelFoundry.cs
 // Runai Veilsteel Foundry — converts Iron + Veilstone into Veilsteel.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

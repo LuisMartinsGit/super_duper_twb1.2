@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/ThessarasBazaar/ThessarasBazaar.cs
 // Thessara's Bazaar — Runai HQ. +40 pop.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

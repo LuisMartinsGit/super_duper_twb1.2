@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: ShieldWall
+  m_EditorClassIdentifier: 
+  id: ShieldWall
+  displayName: Shield Wall
+  role: Military
+  effect: 
+  desc: "Unlocks the Shield Wall passive for Garrison line infantry: +30% defense against the first incoming attack while stationary; recharges after 3 s."
+  researchAt: Barracks
+  minBuildingLevel: 3
+  researchTime: 30
+  prerequisites:
+  - Charge
+  culture: Alanthor
+  cost:
+    Supplies: 120
+    Iron: 50
+    Veilstone: 0
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList: []

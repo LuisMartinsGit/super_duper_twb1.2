@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Lorekeeper/LorekeeperVisual.cs
 // Procedural visual for the Sect of Antiquity Lore Keeper: a NON-COMBAT
 // scholar — long floor-length robe over a slim frame, deep hood with a
 // trimmed cowl, brass-cornered ledger chained at the hip, capped scroll

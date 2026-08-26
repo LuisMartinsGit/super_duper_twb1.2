@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/FieldHospital/FieldHospitalVisual.cs
 // Procedural Field Hospital — a small canvas field tent: two sloped canvas
 // slabs with sag bulges (the Hut's canvas-sag trick), an open front, two cots
 // (frame + blanket + pillow), supply crates, a water barrel, guy ropes with

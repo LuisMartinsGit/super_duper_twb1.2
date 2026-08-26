@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/TradeHub/TraderMovementSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;

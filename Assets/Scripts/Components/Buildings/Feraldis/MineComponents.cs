@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/Mine/MineComponents.cs
 // Canon: docs/Design/Age_0.md § Mine (2026-08-05 rev.4).
 
 using Unity.Entities;

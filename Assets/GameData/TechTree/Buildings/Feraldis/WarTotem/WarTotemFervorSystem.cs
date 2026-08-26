@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/WarTotem/WarTotemFervorSystem.cs
 // The War Totem drinks the blood pool it was planted on.
 // Canon: docs/Design/Age_1_Feraldis.md — "Blood, Frenzy & War Totems".
 //

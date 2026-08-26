@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Corruptor/CorruptionDefenseSystem.cs
 // The curse fights back while a well is cracked open.
 // Canon: docs/Design/Age_1_Feraldis.md § Corruptor.
 //

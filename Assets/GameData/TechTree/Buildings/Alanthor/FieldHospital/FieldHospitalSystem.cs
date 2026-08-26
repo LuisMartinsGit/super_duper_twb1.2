@@ -18,7 +18,11 @@ namespace TheWaningBorder.Systems.Buildings
     {
         private const float TickInterval = 1f;
 
-        private float _acc;
+        // SimCadence, not a bare float — see SimCadence.cs. Same shape as
+        // ShrineHealSystem: both the heal amount and the TimeToLive decrement
+        // are scaled by the accumulator, so a machine-dependent starting phase
+        // wrote different HP on the first fire rather than merely later.
+        private SimCadence.Periodic _cadence;
         private EntityQuery _hospitalQuery;
         private EntityQuery _unitQuery;
 
@@ -42,10 +46,11 @@ namespace TheWaningBorder.Systems.Buildings
 
         protected override void OnUpdate()
         {
-            _acc += World.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            float tick = _acc;
-            _acc = 0f;
+            // DueStep keeps the elapsed value the heal is scaled by, so the
+            // arithmetic below is unchanged — what changes is that both peers
+            // now reach this line on the same tick with the same accumulator.
+            float tick = _cadence.DueStep(World.Time.DeltaTime, TickInterval);
+            if (tick <= 0f) return;
 
             var em = EntityManager;
             using var hospitals = _hospitalQuery.ToEntityArray(Allocator.Temp);

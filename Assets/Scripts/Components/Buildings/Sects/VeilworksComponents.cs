@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Veilworks/VeilworksComponents.cs
 // ECS components for the Veilworks (Reclamation sect building).
 // Global namespace per project convention.
 

@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Combat/HeightAdvantage.cs
 // High-ground rule for ranged units (directive 2026-07-04):
 // shooting a target BELOW you grants more range and more damage; shooting a
 // target ABOVE you costs range and damage. Computed PER SHOT from the raw

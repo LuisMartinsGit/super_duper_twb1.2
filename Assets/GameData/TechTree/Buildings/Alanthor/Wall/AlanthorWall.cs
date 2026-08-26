@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/Wall/AlanthorWall.cs
 // Alanthor wall system: hub (3x3 squat bastion) + segment (data-only graph edge) + instances (3x1 curtain modules)
 // Walls form the backbone of Alanthor economy — enclosed areas generate income.
 // Each segment spawns multiple small wall instances that block the passability grid.

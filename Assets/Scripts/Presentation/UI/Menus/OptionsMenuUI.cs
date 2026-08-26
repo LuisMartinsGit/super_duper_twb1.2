@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/Menus/OptionsMenuUI.cs
 // Options menu panel with graphics, resolution, fullscreen, and volume settings.
 // Persists settings through PlayerProfile (settings.json beside the exe).
 

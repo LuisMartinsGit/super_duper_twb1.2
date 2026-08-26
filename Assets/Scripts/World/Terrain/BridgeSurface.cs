@@ -1,4 +1,3 @@
-// File: Assets/Scripts/World/Terrain/BridgeSurface.cs
 // Walkable bridge/overpass surface (directive 2026-07-05: units must cross
 // NoWalk terrain over bridge objects).
 //

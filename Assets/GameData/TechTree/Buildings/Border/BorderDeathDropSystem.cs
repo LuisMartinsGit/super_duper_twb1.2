@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/BorderDeathDropSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Economy;

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MendingHall/MendingHallComponents.cs
 // ECS components for the MendingHall (Renewal sect building).
 // Global namespace per project convention.
 

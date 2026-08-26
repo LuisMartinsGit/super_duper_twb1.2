@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisUnitComponents.cs
 // Culture-wide (set-level) components for Feraldis units.
 // Canon: docs/Design/Age_1_Feraldis.md — "Blood, Frenzy & War Totems".
 //

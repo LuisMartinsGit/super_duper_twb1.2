@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/TempleOfRidan/TempleOfRidan.cs
 // Temple of Ridan — Age 2+ religion hub; carries the 6 chapel slots.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

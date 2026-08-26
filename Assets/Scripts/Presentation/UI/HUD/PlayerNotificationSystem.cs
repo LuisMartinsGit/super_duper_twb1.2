@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/PlayerNotificationSystem.cs
 // Displays floating notification messages (errors, warnings) at the top-center of the screen.
 // Messages auto-fade after a configurable duration with duplicate suppression.
 

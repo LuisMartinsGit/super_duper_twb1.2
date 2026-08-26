@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/ResourceNodes/IronDeposit/IronDepositBootstrap.cs
 // Spawns iron ore as patches (clusters) driven by IronPatchMarker components
 // placed in the hand-authored map scene. Each marker spawns one patch
 // (hex-grid or random cluster) at its position.

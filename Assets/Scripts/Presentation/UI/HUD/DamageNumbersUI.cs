@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/DamageNumbersUI.cs
 // Floating combat numbers above entities:
 //   * damage taken by ENEMY units  -> white number
 //   * damage taken by OWN units    -> red number

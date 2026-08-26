@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Raider/FeraldisRaiderPatrolSystem.cs
 // Drives UNCONTROLLABLE Feraldis raiders (House-spawned Raiders and Raider
 // Camp Plunderers) toward the nearest enemy every RetargetInterval seconds.
 //

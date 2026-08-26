@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Runai/Caravan/CaravanDeathSystem.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Economy;

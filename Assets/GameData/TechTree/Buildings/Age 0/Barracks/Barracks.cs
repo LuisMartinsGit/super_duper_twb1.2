@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Age 0/Barracks/Barracks.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

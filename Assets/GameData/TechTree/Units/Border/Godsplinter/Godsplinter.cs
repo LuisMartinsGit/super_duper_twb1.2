@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Border/Godsplinter/Godsplinter.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

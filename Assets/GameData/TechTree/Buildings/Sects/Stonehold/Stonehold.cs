@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Stonehold/Stonehold.cs
 // Sect of Fortitude's building. A squat windowless blockhouse.
 //
 // Structure comes from SectBuilding — every sect building is the same shape

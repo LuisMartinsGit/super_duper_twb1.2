@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Settings/BorderConstants.cs
 // Centralised constants for all Border faction entities and AI.
 // Factories and BorderAISystem reference these instead of private duplicates.
 

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Lorekeeper/Lorekeeper.cs
 // The Lorekeeper — Sect of Antiquity's unit lever (task-063 spec,
 // implemented 2026-07-05). A non-combat support scholar:
 //   * Reveals stealthed enemies in a radius (Lv I 6m, Lv II+ 12m —

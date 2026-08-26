@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MendingHall/MendingHall.cs
 // Sect of Renewal's building. An open-sided infirmary.
 //
 // Structure comes from SectBuilding — every sect building is the same shape

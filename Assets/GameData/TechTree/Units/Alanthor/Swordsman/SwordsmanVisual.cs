@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Swordsman/SwordsmanVisual.cs
 // Procedural line-infantry visual for the Alanthor Garrison Lv1 Swordsman:
 // a MEDIUM soldier — a clear step up from the quilted Age-0 Spearman but
 // lighter than the Nobleman's full plate. Mail shirt (slightly metallic)

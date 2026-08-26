@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Bloodletter/FeraldisWhirl.cs
 // The Bloodletter's area strike, invoked from MeleeCombatSystem's hit path.
 // Canon: docs/Design/Age_1_Feraldis.md.
 //

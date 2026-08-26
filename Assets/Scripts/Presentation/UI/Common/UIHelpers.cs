@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/Common/UIHelpers.cs
 // Shared UI utility functions and data structures
 
 using UnityEngine;

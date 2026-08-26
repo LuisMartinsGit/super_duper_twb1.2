@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/SmallNode/BlightPocketBootstrap.cs
 // Spawns the Age 0 blight pockets (§2.5b): near-spawn patches of established
 // veil haze, each anchored by a destructible SmallNode. Authored via
 // BlightPocketMarker; deterministic fallback places one pocket per Hall at a

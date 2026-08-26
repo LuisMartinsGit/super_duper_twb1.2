@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/Smelter/ForgeConversionSystem.cs
 // Passive veilsteel generation from the Forge (Smelter).
 
 using Unity.Entities;

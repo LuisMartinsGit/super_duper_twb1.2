@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: IronPlating
+  m_EditorClassIdentifier: 
+  id: IronPlating
+  displayName: Iron Plating
+  role: Military
+  effect: 
+  desc: "Siege armour tier 1: +1 defense to all siege engines."
+  researchAt: Alanthor_Smelter
+  minBuildingLevel: 1
+  researchTime: 35
+  prerequisites: []
+  culture: Alanthor
+  cost:
+    Supplies: 120
+    Iron: 150
+    Veilstone: 0
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "type:Siege"
+    Stat: DefenseAll
+    Op: Add
+    Value: 1

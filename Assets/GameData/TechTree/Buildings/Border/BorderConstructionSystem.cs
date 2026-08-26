@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/BorderConstructionSystem.cs
 //
 // Border buildings (the Large node) have no builders —
 // they self-construct over time. This system advances UnderConstruction.Progress

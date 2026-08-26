@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/Smelter/Smelter.cs
 // Alanthor Smelter (Forge) — passively generates veilsteel (limit 5 per faction).
 
 using Unity.Entities;

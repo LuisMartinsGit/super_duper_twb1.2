@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MusterYard/MusterYardDiscount.cs
 // The Muster Yard's effect: "every per-battalion upgrade you apply anywhere in
 // the faction costs 50% less" (docs/Design/Sects.md section 6).
 //

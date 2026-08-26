@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Audio/MusicManager.cs
 // Persistent music manager that plays looping tracks for menu and game scenes.
 
 using UnityEngine;

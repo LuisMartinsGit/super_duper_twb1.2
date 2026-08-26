@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/BatteringRam/BatteringRamVisual.cs
 // Procedural visual for the Alanthor Battering Ram (pid 347): a heavy timber
 // frame — four corner posts, an angled protective canopy of individual
 // planks, an iron-capped log ram slung on two ropes, and four spoked wheels.

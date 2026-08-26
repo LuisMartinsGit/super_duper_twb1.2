@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Iconoclast/Iconoclast.cs
 // Feraldis Iconoclast — the high-value Lv 3 unit whose attacks bypass
 // Veilstone node invulnerability (spec refinement #1). Every other unit's
 // damage to a node is refunded by NodeInvulnerabilitySystem; an

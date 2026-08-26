@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Border/Veilstinger/VeilstingerGunTracker.cs
 // Manages Veilstinger gun visuals: rotates leftgun/rightgun toward their respective
 // ECS targets, and provides world-space gun positions for projectile spawning.
 

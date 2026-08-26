@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Commands/CommandTypes/UpgradeBuildingCommand.cs
 // Issues a building upgrade. Validates the request, captures base stats
 // the first time the building is upgraded, deducts cost, and stamps
 // BuildingUpgrading. The actual stat application happens later, when

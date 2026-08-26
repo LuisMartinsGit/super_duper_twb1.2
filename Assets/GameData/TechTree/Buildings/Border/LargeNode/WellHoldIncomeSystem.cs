@@ -21,7 +21,11 @@ namespace TheWaningBorder.Systems.Border
         private const int PacifiedVeilstonePerTick = 8;   // Runai: best sustained rate
         private const int PurifiedVeilstonePerTick = 6;   // Alanthor: income + (future) influence
 
-        private float _acc;
+        // SimCadence, not a bare float: a raw accumulator carries whatever the
+        // menu and the loading screen put into it across tick 0, so the two
+        // peers pay this income on different ticks forever after. bank is
+        // checksummed, so that is a desync. See SimCadence.cs.
+        private SimCadence.Periodic _cadence;
 
         protected override void OnCreate()
         {
@@ -30,9 +34,7 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
-            _acc += (float)SystemAPI.Time.DeltaTime;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_cadence.Due((float)SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var em = EntityManager;
 

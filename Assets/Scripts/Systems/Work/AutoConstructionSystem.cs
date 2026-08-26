@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Work/AutoConstructionSystem.cs
 //
 // Ticks UnderConstruction.Progress on buildings flagged with AutoConstructTag
 // at 1 progress / real second, so they self-build without needing an idle

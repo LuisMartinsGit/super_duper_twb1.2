@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Border/Godsplinter/GodsplinterCombatSystem.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;

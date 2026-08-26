@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Runai/Outpost/RunaiOutpost.cs
 // Runai Outpost — trade-route anchor / vision pylon.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

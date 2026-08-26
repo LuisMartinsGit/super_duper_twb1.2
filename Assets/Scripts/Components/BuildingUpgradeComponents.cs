@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Core/Components/BuildingUpgradeComponents.cs
 // Components for the per-culture building upgrade system.
 //
 // Player flow: pick a culture (age-up), then click an Upgrade button on

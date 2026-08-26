@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Suicidal/SuicidalDetonationSystem.cs
 // The Feraldis Suicidal's blast. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // Two ways to detonate, and BOTH are wins for Feraldis:

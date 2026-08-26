@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/Eagle/EagleOrbitSystem.cs
 // Flies each eagle around its scout, and cleans it up when the scout dies.
 // Canon: docs/Design/Age_1_Feraldis.md.
 //

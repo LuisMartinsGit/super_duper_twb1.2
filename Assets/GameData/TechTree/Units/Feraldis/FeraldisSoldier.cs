@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisSoldier.cs
 // One definition of "a Feraldis soldier", shared by the warpath and the
 // marching-influence systems.
 //

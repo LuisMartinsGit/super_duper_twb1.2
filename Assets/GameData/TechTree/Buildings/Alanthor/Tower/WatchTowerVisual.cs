@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/Tower/WatchTowerVisual.cs
 // Procedural Watch Tower — the tallest silhouette in the Alanthor set (the
 // LoS-28 building; sell the height). Tall tapered stone tower: base course,
 // three subtly tapering shaft sections, corbelled crown, crenellated parapet

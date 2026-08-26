@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/HUD/PlanningModeOverlay.cs
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;

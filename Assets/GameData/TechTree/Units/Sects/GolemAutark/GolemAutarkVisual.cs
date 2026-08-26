@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/GolemAutark/GolemAutarkVisual.cs
 // Procedural visual for the Sect of Reclamation Golem Autark: a curse-immune
 // CONSTRUCT, not a person — blocky stone limbs held apart by glowing violet
 // joint rods so the gaps at every joint stay visible, a violet crystal core

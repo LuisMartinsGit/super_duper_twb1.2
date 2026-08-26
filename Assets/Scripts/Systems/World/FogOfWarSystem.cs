@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/World/FogOfWarSystem.cs
 using Unity.Entities;
 using Unity.Collections;
 using Unity.Transforms;

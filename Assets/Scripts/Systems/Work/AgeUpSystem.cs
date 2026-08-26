@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Work/AgeUpSystem.cs
 // Timer-based age-up system — ticks AgeUpState.Remaining and runs
 // completion logic (era set, hall scale, culture effects, RP grant)
 // when the timer expires.

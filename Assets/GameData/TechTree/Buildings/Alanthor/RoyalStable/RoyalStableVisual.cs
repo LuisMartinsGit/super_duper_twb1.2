@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Alanthor/RoyalStable/RoyalStableVisual.cs
 // Procedural visual for the Royal Stable (pid 356) — long timber-framed
 // stable hall with a side paddock. Built entirely from primitives in the
 // CreateProceduralSmelter idiom: named palette, per-part metallic/smoothness

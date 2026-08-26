@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisMarchInfluenceSystem.cs
 // Feraldis claims ground by WALKING ON IT.
 // Canon: docs/Design/Age_1_Feraldis.md — "Marching influence".
 //

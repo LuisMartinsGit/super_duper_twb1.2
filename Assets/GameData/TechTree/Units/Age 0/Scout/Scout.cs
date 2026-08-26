@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Age 0/Scout/Scout.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/ScarGuard/ScarGuardVisual.cs
 // Procedural visual for the Sect of Renewal Scar Guard: HEAVY frontline
 // infantry that hits harder the closer it is to dying, so the whole rig is
 // built to read "held together with staples" at RTS camera distance —

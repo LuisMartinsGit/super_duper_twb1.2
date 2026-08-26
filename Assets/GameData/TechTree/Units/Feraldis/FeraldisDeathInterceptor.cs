@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisDeathInterceptor.cs
 // Feraldis "moment of death" rules, hooked into DeathSystem itself.
 // Canon: docs/Design/Age_1_Feraldis.md.
 //

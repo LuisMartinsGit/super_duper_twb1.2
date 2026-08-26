@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/MusterYard/MusterYardVisual.cs
 // Procedural visual for the Muster Yard - the Sect of War's stockade of
 // training posts and armourers' racks. Built from primitives in the
 // CreateProceduralSmelter idiom: named palette, per-part metallic /

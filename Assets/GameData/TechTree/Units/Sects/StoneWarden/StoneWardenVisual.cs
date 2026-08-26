@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/StoneWarden/StoneWardenVisual.cs
 // Procedural visual for the Sect of Fortitude Stone Warden: slow heavy
 // infantry that projects a damage-reduction dome and can NEVER attack, so
 // the rig carries NO weapon of any kind — the silhouette has to read

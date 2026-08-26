@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Cataphract/HorseRigBuilder.cs
 // Shared procedural horse anatomy for the Alanthor cavalry line (Outrider,
 // Cataphract, King Lexor). Builds a primitive-composition horse under a
 // "Horse" child root: barrel/chest/rump spheres, neck, head + muzzle + ears,

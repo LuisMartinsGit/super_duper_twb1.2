@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Combat/RangedCombatSystem.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;

@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Work/SelfDestructSystem.cs
 // Countdown timer for building self-destruction with resource refund.
 // Used when Alanthor is chosen: GathererHuts get a 2-minute self-destruct.
 

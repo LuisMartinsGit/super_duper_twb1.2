@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Scholar/Scholar.cs
 // Alanthor scholar — performs the Purification ritual at active veilstone
 // nodes. Vulnerable channeling unit (spec §11 item 1). Survival depends on
 // escort: defending border waves spawn during the ritual.

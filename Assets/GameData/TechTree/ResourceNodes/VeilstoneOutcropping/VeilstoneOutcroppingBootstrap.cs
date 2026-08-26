@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/ResourceNodes/VeilstoneOutcropping/VeilstoneOutcroppingBootstrap.cs
 // Spawns mineable veilstone outcroppings as patches from VeilstoneOutcroppingMarker
 // components placed in the hand-authored map scene, so AI / players have a
 // starting veilstone source without having to fight Crystallings first.

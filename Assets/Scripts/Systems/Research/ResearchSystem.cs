@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Research/ResearchSystem.cs
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Economy;

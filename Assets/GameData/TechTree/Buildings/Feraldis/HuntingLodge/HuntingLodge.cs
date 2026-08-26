@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Feraldis/HuntingLodge/HuntingLodge.cs
 // Feraldis Hunting Lodge — +10 pop.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation

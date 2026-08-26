@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Warbreaker/Warbreaker.cs
 // The Warbreaker — Sect of War's unit lever (task-063 spec, Lv I:
 // "heavy elite"). A frontline bruiser with well-above-line HP and
 // damage but slow feet. The spec's Challenge taunt (forces enemies in

@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Entities/Buildings/GlowWeapon.cs
 // Dropped Glow weapon — appears at the death position of a Glow-tier unit.
 // Spec §4.5: only Glow-tier equipment drops. Attunement to claim:
 // stand within GlowWeaponClaimRadius for GlowWeaponAttunementTime

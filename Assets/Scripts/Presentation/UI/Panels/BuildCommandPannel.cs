@@ -1,4 +1,3 @@
-// File: Assets/Scripts/UI/Panels/BuilderCommandPanel.cs
 // Building placement UI with preview and cost checking
 
 using UnityEngine;

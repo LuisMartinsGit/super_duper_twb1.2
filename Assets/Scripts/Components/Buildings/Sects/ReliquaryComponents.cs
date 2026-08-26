@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Reliquary/ReliquaryComponents.cs
 // ECS components for The Reliquary — the Antiquity sect's unique building
 // (its Building lever). Split out of AntiquityComponents.cs 2026-08-12 so the
 // building's data sits with the building. Global namespace per convention.

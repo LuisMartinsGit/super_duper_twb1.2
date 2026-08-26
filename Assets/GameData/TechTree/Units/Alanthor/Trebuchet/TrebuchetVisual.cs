@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Trebuchet/TrebuchetVisual.cs
 // Procedural visual for the Alanthor Trebuchet (pid 348): a plank platform
 // on four spoked wheels, A-frame uprights carrying a long throwing arm on an
 // axle — counterweight box at the short end, sling ropes + pouch at the tip —

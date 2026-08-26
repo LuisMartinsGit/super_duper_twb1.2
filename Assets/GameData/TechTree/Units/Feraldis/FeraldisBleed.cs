@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisBleed.cs
 // One place that applies Bleeding, and the component that declares a unit
 // inflicts it. Canon: docs/Design/Age_1_Feraldis.md.
 //

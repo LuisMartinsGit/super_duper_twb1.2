@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Chapel/ChapelSiteDecals.cs
 // BFME2-style build-plot decals — six ground markers in a hex ring around
 // the player's completed Temple of Ridan. Clicking one selects the chapel
 // slot; the old sect pickers were removed with the old UI (2026-07-17) and

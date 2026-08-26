@@ -1,4 +1,3 @@
-// File: Assets/Scripts/Systems/Work/MiningSystem.cs
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;

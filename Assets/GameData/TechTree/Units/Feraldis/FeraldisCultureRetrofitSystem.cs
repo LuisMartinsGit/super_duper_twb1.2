@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/FeraldisCultureRetrofitSystem.cs
 // Turns shared Age 0 units into their Feraldis forms.
 // Canon: docs/Design/Age_1_Feraldis.md.
 //
@@ -31,7 +30,11 @@ namespace TheWaningBorder.Systems.Combat
     {
         private EntityQuery _workerQuery;
         private EntityQuery _scoutQuery;
-        private float _scanTimer;
+        /// <summary>SimCadence, not a bare countdown — see SimCadence.cs. The
+        /// sweep adds culture tags that change how a unit behaves, so two peers
+        /// retrofitting on different ticks give the same unit different rules
+        /// for as long as the offset lasts.</summary>
+        private SimCadence.Periodic _cadence;
 
         /// <summary>Seconds between sweeps. Nothing here is urgent to the
         /// frame, and the queries touch every worker and scout in the world.</summary>
@@ -52,9 +55,7 @@ namespace TheWaningBorder.Systems.Combat
 
         protected override void OnUpdate()
         {
-            _scanTimer -= SystemAPI.Time.DeltaTime;
-            if (_scanTimer > 0f) return;
-            _scanTimer = ScanInterval;
+            if (!_cadence.Due(SystemAPI.Time.DeltaTime, ScanInterval)) return;
 
             var em = EntityManager;
             RetrofitWorkers(em);

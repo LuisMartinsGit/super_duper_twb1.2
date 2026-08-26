@@ -1,4 +1,3 @@
-// File: Assets/Scripts/World/Terrain/PaintOnlyPassability.cs
 // Per-map opt-in: when this component exists in the map scene, the
 // PassabilityGrid ignores its derived terrain rules (slope budget, water
 // level) and uses ONLY the hand-painted "NoWalk" terrain layer — painted

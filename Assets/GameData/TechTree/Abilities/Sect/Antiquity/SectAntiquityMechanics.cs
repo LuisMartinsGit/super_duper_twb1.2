@@ -95,7 +95,12 @@ namespace TheWaningBorder.Systems.Sect
         private const float TickInterval = 0.5f;
         private const float RevealHold = 1.0f;   // seconds a stamp outlives the tick
         private const float Lv3LineOfSight = 24f;
-        private float _acc;
+
+        // SimCadence, not a bare float — see SimCadence.cs. The detection
+        // sweep stamps StealthRevealed, so an out-of-phase peer reveals a
+        // moving unit a tick or two later and every downstream decision
+        // that reads visibility diverges from there.
+        private SimCadence.Periodic _cadence;
 
         protected override void OnCreate()
         {
@@ -123,9 +128,7 @@ namespace TheWaningBorder.Systems.Sect
             }
             expired.Dispose();
 
-            _acc += dt;
-            if (_acc < TickInterval) return;
-            _acc -= TickInterval;
+            if (!_cadence.Due(dt, TickInterval)) return;
 
             // Snapshot stealthed units once.
             var stealthQuery = em.CreateEntityQuery(

@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Feraldis/WarChariot/BloodTrailSystem.cs
 // The War Chariot's blood trail. Canon: docs/Design/Age_1_Feraldis.md.
 //
 // Paints BloodMap under a moving unit. Gated on DISTANCE TRAVELLED rather

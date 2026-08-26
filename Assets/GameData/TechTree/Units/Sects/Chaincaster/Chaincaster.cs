@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Sects/Chaincaster/Chaincaster.cs
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;

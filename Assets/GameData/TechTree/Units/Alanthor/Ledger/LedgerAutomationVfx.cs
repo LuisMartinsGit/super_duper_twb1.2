@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Units/Alanthor/Ledger/LedgerAutomationVfx.cs
 // Presentation manager for the Ledger's Automate Facility ability:
 //   - a looping golden "machinery" aura on every building whose AutoYieldBoost
 //     is active (rising sparks from a ring around the footprint), and

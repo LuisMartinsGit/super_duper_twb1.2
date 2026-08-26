@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Reliquary/ReliquaryVisual.cs
 // Procedural visual for the Reliquary — the Sect of Antiquity's vaulted stone
 // archive (the holy librarians). Built entirely from primitives in the
 // CreateProceduralSmelter idiom: named palette, per-part metallic/smoothness

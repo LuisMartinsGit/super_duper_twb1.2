@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Border/LargeNode/BorderExtinctionSystem.cs
 // Monitors veilstone faction extinction. When all main nodes are destroyed,
 // starts a 5-minute timer and respawns a new main node at a random location.
 

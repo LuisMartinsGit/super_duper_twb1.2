@@ -1,4 +1,3 @@
-// File: Assets/GameData/TechTree/Buildings/Sects/Stonehold/StoneholdComponents.cs
 // ECS components for the Stonehold (Fortitude sect building).
 // Global namespace per project convention.
 
