@@ -52,11 +52,11 @@ the code currently does, often pre-design-pass) lives in
 
   Audited 2026-08-26: the rule holds in every file — no ECS system sits in a domain folder, and no domain-wide helper sits under `Systems/`. It looked like the same domain scattered across two folders, which is why it is written down now; splitting a domain's state from its systems is deliberate, not drift.
 - **Shared factories are DISPATCH ONLY**: `UnitFactory.cs` in `Entities/Units/` and `BuildingFactory.cs` in `Entities/Buildings/` hold the id→recipe table and the cross-entity queries; the per-entity creation code lives in that entity's GameData folder as its own static class (`Hall.Create`, `KingsCourt.Create`, …, both an `EntityManager` and an `EntityCommandBuffer` overload). Adding a building = write its class in its folder, add one row to the recipe table.
-- **Abilities are co-located too**: `Assets/GameData/TechTree/Abilities/{Unit,Status}/<Ability>/` carries one `AbilityDefSO` per ability plus its icon/VFX-prefab slots (generate via `Waning Border > Tech Tree > Generate Ability SOs`; the `AbilityCatalog` code seed is the runtime fallback). Per-sect mechanic systems live at `Abilities/Sect/<Sect>/`, and **culture-wide sect code lives at `Abilities/Sect/Cultures/<Culture>/`** -- the sects group four per culture, so an `Alanthor/` folder sitting in the roster read like a 13th sect; the generic ability engine stays in `Scripts/Abilities/` + `Scripts/Systems/Abilities/`, sect god powers stay JSON-backed.
+- **Abilities are co-located too**: `Assets/GameData/TechTree/Abilities/{Unit,Status}/<Ability>/` carries one `AbilityDefSO` per ability plus its icon/VFX-prefab slots (generate via `Waning Border > Tech Tree > Generate Ability SOs`; the `AbilityCatalog` code seed is the runtime fallback). The generic ability engine stays in `Scripts/Abilities/` + `Scripts/Systems/Abilities/`, sect god powers stay JSON-backed. **Sect abilities are NOT here** — see the sect branch below.
 - **Presentation** lives at the TechTree top layer: `Assets/GameData/TechTree/Presentation/{Spawn,Buildings,Units,Border,Vfx,Procedural}/` holds the shared pipeline (PresentationSpawnSystem core, EntityViewManager, all-building/all-unit visual systems). Entity-specific visuals live in that entity's folder — including `PresentationSpawnSystem.<Entity>.cs` partials for procedural builders (Smelter, Vault of Almierra, Border LargeNode, the Alanthor wall set).
 - **Resource nodes follow the same convention**: `Assets/GameData/TechTree/ResourceNodes/{VeilstoneOutcropping,VeilsteelDeposit,IronDeposit}/` carry each node's factory, bootstrap, map marker and visual code (the veilstone gem-cluster prefab cache lives in VeilstoneOutcropping and is shared by the well and veilsteel visuals). The branch is named `ResourceNodes`, **not** `Resources`, on purpose: a folder called `Resources` anywhere in `Assets/` is a Unity magic folder, so every asset under it would be force-included in builds and `Resources.Load`-able. Do not rename it back.
 - **Technologies are SOs, filed under the building that researches them**: one
-  `TechDefSO` per tech at `Assets/GameData/TechTree/Buildings/<Culture>/<Building>/Research/<Tech>.asset`
+  `TechDefSO` per tech at `Assets/GameData/TechTree/Buildings/<Culture>/<Building>/Research/<Tech>.asset` (a sect building's is at `Sects/<Sect>/Buildings/<Building>/Research/`)
   (e.g. `Buildings/Age 0/ArcheryRange/Research/Fletching.asset`), carrying its costs,
   prerequisites, culture gate and both effect models. `TechTreeCatalog.asset` holds the
   references so they load without a magic `Resources/` folder; JSON is the deprecated
@@ -68,7 +68,26 @@ the code currently does, often pre-design-pass) lives in
   separately (the player grid read the building list, the AI read `researchAt`), and they
   disagreed; deriving one from the other is what keeps them honest.
 
-- **The sect layer lives with the sects**: `Assets/GameData/TechTree/Abilities/Sect/` holds `SectConfig`, `SectAdoption`, `SectQuery`, `SectLeverEffects`, `SectInfo`, `SectDefinition`, `SectAdoptionState`, `WarSectCostHelper` and the two generic lever systems, directly above the per-sect mechanic folders and `Cultures/`. Nothing sect-related remains in `Scripts/`.
+- **A sect owns everything that is its own**: `Assets/GameData/TechTree/Sects/<Sect>/` holds that
+  sect's `Abilities/` (mechanic systems + its components), `Units/<Unit>/` and
+  `Buildings/<Building>/` — and the building keeps its `Research/` folder, so the sect's
+  research rides along inside it:
+
+  ```
+  Sects/Antiquity/Abilities/SectAntiquityMechanics.cs
+  Sects/Antiquity/Units/Lorekeeper/
+  Sects/Antiquity/Buildings/Reliquary/Research/RoyalIndex.asset
+  ```
+
+  Sect-to-unit mapping is `SectConfig.UnitIdFor` — the file tree follows it, never the
+  reverse. Three things sit outside the twelve sect folders on purpose:
+  `Sects/Shared/` (Chapel — the adoption marker for every sect, ids `Chapel_<SectId>`),
+  `Sects/Cultures/{Alanthor,Feraldis}/` (culture-wide sect code, including the Feraldis
+  blood-pool layer — sects group four per culture, so a culture folder in the roster reads
+  like a 13th sect), and `Sects/*.cs` (`SectConfig`, `SectAdoption`, `SectQuery`,
+  `SectLeverEffects`, `SectInfo`, `SectDefinition`, … — set-level, one level above).
+  `Sects/Retired/` parks units of sects that no longer exist but are still registered in
+  `UnitFactory`. Nothing sect-related remains in `Scripts/`.
 - **The curse's code is all under `Buildings/Border/`**: set-level components/settings/construction/death-drop at the root, well code in `LargeNode/` (factory, bootstrap, marker, node-state, verb/victory/income systems, extinction), pocket code in `SmallNode/` (factory, bootstrap, marker, pocket system). The map-wide veil *field* simulation stays in `Scripts/Systems/Border/` — it is a grid, not a structure.
 - All player commands route through `Core/Commands/CommandRouter.cs`
 
