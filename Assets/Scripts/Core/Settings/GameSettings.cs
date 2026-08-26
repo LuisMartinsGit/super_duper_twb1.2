@@ -30,15 +30,10 @@ public enum ScenarioType
     PatrolDefense = 10,
     AlanthorVsBorder = 11,
 
-    // task-112: nav-stack flow-fields milestones (M1..M7). Explicit indices
-    // because the architecture references these values directly for
-    // serialised lobby state.
-    Phase1Test = 12,
-    Phase2Test = 13,
-    Phase3Test = 14,
-    Phase4Test = 15,
-    Phase5Test = 16,
-    Phase7Test = 18,
+    // 12..18 were the task-112 nav-stack milestone scenarios (Phase1..Phase7
+    // Test). The milestones are finished and the scenarios were deleted; the
+    // indices stay retired so a future scenario cannot silently inherit a
+    // saved lobby value that meant something else.
     // Wall-climb / rampart garrison test: a sealed wall enclosure with
     // climb-hub stairs; units ordered inside must use the stairs + rampart.
     WallClimbTest = 19,

@@ -114,24 +114,6 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.AlanthorVsBorder:
                     SpawnAlanthorVsBorder(em);
                     break;
-                case ScenarioType.Phase1Test:
-                    Phase1TestSetup.SpawnScenarioEntities(em);
-                    break;
-                case ScenarioType.Phase2Test:
-                    Phase2TestSetup.SpawnScenarioEntities(em);
-                    break;
-                case ScenarioType.Phase3Test:
-                    Phase3TestSetup.SpawnScenarioEntities(em);
-                    break;
-                case ScenarioType.Phase4Test:
-                    Phase4TestSetup.SpawnScenarioEntities(em);
-                    break;
-                case ScenarioType.Phase5Test:
-                    Phase5TestSetup.SpawnScenarioEntities(em);
-                    break;
-                case ScenarioType.Phase7Test:
-                    Phase7TestSetup.SpawnScenarioEntities(em);
-                    break;
                 case ScenarioType.WallClimbTest:
                     WallClimbTestSetup.SpawnScenarioEntities(em);
                     break;
