@@ -32,7 +32,7 @@ namespace TheWaningBorder.UI.Menus
     ///
     /// The destination is read from the MenuNav_Skirmish object's MenuSceneLink
     /// so it stays visible and editable in the Inspector, falling back to
-    /// <see cref="MainMenuBootstrap.SkirmishSceneName"/> if that object is gone.
+    /// <see cref="TheWaningBorder.Core.SceneNames.Skirmish"/> if that object is gone.
     /// </summary>
     public static class SkirmishMenuButton
     {
@@ -49,7 +49,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != MainMenuBootstrap.MenuSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
 
             string target = ResolveTargetScene(scene);
             int wired = 0;
@@ -94,7 +94,7 @@ namespace TheWaningBorder.UI.Menus
                     if (!string.IsNullOrWhiteSpace(link.SceneName)) return link.SceneName;
                 }
             }
-            return MainMenuBootstrap.SkirmishSceneName;
+            return TheWaningBorder.Core.SceneNames.Skirmish;
         }
 
         private static bool IsSkirmishEntry(Button button)

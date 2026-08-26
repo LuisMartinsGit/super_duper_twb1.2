@@ -119,7 +119,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != MainMenuBootstrap.SkirmishSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Skirmish) return;
 
             int wired = 0;
             foreach (var root in scene.GetRootGameObjects())

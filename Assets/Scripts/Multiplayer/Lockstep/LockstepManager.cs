@@ -514,7 +514,7 @@ namespace TheWaningBorder.Multiplayer
             // have yet, and any spawn after BeginTick(0) gets a tick-partition
             // NetworkId stamped with this machine's LOCAL tick — both fork the
             // first checksum (the instant tick-30 desync, 2026-08-16).
-            if (!TheWaningBorder.Bootstrap.SpawnDelayHelper.MapPopulated) return NotYet();
+            if (!TheWaningBorder.Core.MatchLifecycle.MapPopulated) return NotYet();
 
             // The loading screen must be COMPLETELY gone — fade included —
             // before the match clock starts. timeScale holds single-player,
@@ -748,7 +748,7 @@ namespace TheWaningBorder.Multiplayer
 
             // Into Summary.txt, so a log sent in afterwards says how it ended
             // instead of reading as another unexplained "quit".
-            TheWaningBorder.Bootstrap.GameBootstrap.RecordMatchOutcome(
+            TheWaningBorder.Core.Diagnostics.MatchLogSession.RecordOutcome(
                 $"ENDED — {who} disconnected ({detail})");
 
             // Stop ticking first: the sim must not lurch forward if a late

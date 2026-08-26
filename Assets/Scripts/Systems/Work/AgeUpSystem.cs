@@ -152,7 +152,10 @@ namespace TheWaningBorder.Systems.Work
         /// Runai    → caravan-wagon with income decay (task-066 Phase 2 — stub).
         /// Feraldis → persists with income + raider-spawn tag (task-066 Phase 3 — stub).
         /// </summary>
-        internal static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
+        /// <summary>Public because StartAgePromoter drives it from the
+        /// Bootstrap assembly; `internal` only ever worked while every
+        /// script compiled into one assembly.</summary>
+        public static void TransformGathererHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
             if (culture == Cultures.Alanthor)
             {
@@ -213,7 +216,10 @@ namespace TheWaningBorder.Systems.Work
         /// Feraldis → houses become raider-spawn buildings (Phase 3 — task-066).
         /// Phase 1 (task-066): no destruction; behaviors are stubs.
         /// </summary>
-        internal static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
+        /// <summary>Public because StartAgePromoter drives it from the
+        /// Bootstrap assembly; `internal` only ever worked while every
+        /// script compiled into one assembly.</summary>
+        public static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
             // FERALDIS: every House standing at age-up pays out its L1 raider
             // wave now (docs/Design/Age_1_Feraldis.md).

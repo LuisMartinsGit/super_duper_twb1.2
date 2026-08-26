@@ -10,7 +10,6 @@ using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Presentation;
-using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Entities;

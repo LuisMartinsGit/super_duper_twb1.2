@@ -17,32 +17,6 @@ namespace TheWaningBorder.Bootstrap
 {
     public class SpawnDelayHelper : MonoBehaviour
     {
-        /// <summary>
-        /// True once EVERY match-start entity exists: factions, iron,
-        /// veilstone/veilsteel, border wells and blight pockets. Multiplayer's
-        /// LockstepManager refuses to start tick 0 before this — the spawn
-        /// phases below are frame-paced (yield return null), so on two peers
-        /// they finish at different WALL times, and any tick that elapses
-        /// mid-population sees a world the other peer does not have yet. That
-        /// was the instant tick-30 desync of 2026-08-16: host 748 entities,
-        /// client 744, with tick-partitioned NetworkIds stamped by whatever
-        /// tick each machine happened to be on. Gating tick 0 here keeps all
-        /// of these spawns in the generator's bootstrap-ID mode, where the
-        /// single deterministic call order gives both peers identical IDs.
-        /// GameBootstrap resets this at match-bootstrap start.
-        /// </summary>
-        public static bool MapPopulated;
-
-        /// <summary>
-        /// Bumped by GameBootstrap at every match-bootstrap start. Stateful
-        /// sim systems SURVIVE across matches (the entity world is wiped, the
-        /// system objects are not), so any per-match field — an accumulator, a
-        /// seeded RNG's stream position, a cached singleton — carries residue
-        /// into the next match, and the residue differs per multiplayer peer.
-        /// A system with such state caches this value and resets its fields
-        /// when it changes. See BlightPocketSystem for the pattern.
-        /// </summary>
-        public static int MatchEpoch;
 
         public IEnumerator WaitForTerrainAndSpawn()
         {
@@ -128,7 +102,7 @@ namespace TheWaningBorder.Bootstrap
             // Last sim-entity spawn is above this line. Prewarm below creates
             // only presentation GameObjects (no NetworkIds), so the lockstep
             // clock may start while shaders warm.
-            MapPopulated = true;
+            TheWaningBorder.Core.MatchLifecycle.MapPopulated = true;
 
             FocusCameraOnHall();
 

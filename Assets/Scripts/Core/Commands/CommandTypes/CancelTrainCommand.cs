@@ -10,7 +10,6 @@
 
 using Unity.Entities;
 using TheWaningBorder.Economy;
-using TheWaningBorder.UI;
 
 namespace TheWaningBorder.Core.Commands.Types
 {
@@ -63,7 +62,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 faction = em.GetComponentData<FactionTag>(building).Value;
 
             var cost = WarSectCostHelper.MilitaryDiscount(
-                em, faction, unitId, EntityActionExtractor.GetUnitCost(unitId));
+                em, faction, unitId, TheWaningBorder.Data.UnitCosts.Get(unitId));
             // Call to Arms multiplier as RECORDED at queue time, not as it
             // stands now: the boon is a 15-30 s window, so recomputing it here
             // would refund full price for a half-price unit the moment the

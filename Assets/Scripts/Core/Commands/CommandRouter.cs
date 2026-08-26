@@ -1501,7 +1501,7 @@ namespace TheWaningBorder.Core.Commands
                 var trainFaction = em.GetComponentData<FactionTag>(building).Value;
                 var cost = TheWaningBorder.Economy.WarSectCostHelper.MilitaryDiscount(
                     em, trainFaction, unitId,
-                    TheWaningBorder.UI.EntityActionExtractor.GetUnitCost(unitId));
+                    TheWaningBorder.Data.UnitCosts.Get(unitId));
                 cost = TheWaningBorder.Economy.WarSectCostHelper.ApplyPaidMultiplier(cost, boonMult);
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, trainFaction, cost))
                 {

@@ -12,7 +12,6 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.Core;
-using TheWaningBorder.Input;          // EntityReference
 using TheWaningBorder.Presentation;   // EntityViewManager
 
 public partial class PresentationSpawnSystem

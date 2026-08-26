@@ -496,8 +496,7 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<UnderConstruction>(building)) continue;
                 if (CommandRouter.IsProductionQueueFull(em, building)) continue;
 
-                string buildingId = TheWaningBorder.UI.EntityActionExtractor
-                    .GetBuildingIdPublic(building, em);
+                string buildingId = TheWaningBorder.Entities.BuildingIds.Of(building, em);
                 if (string.IsNullOrEmpty(buildingId)) continue;
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def)
                     || def == null || def.research == null) continue;

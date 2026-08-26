@@ -201,20 +201,11 @@ namespace TheWaningBorder.UI
         /// Look up a unit's training cost from TechTreeDB for refund purposes.
         /// Returns a zero cost if the unit is not found.
         /// </summary>
+        /// <summary>Training cost for a unit. The lookup itself lives in
+        /// Data.UnitCosts -- it is tech-tree data, not presentation -- and this
+        /// forwards so the panels keep their familiar entry point.</summary>
         public static TheWaningBorder.Core.Cost GetUnitCost(string unitId)
-        {
-            if (TechCatalog.TryGetUnit(unitId, out var udef) && udef.cost != null)
-            {
-                return new TheWaningBorder.Core.Cost
-                {
-                    Supplies = udef.cost.Supplies,
-                    Iron = udef.cost.Iron,
-                    Veilstone = udef.cost.Veilstone,
-                    Veilsteel = udef.cost.Veilsteel,
-                };
-            }
-            return default;
-        }
+            => TheWaningBorder.Data.UnitCosts.Get(unitId);
 
         /// <summary>
         /// Determine the required culture for a unit based on its ID prefix.

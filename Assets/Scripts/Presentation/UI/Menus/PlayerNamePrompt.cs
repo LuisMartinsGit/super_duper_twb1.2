@@ -45,7 +45,7 @@ namespace TheWaningBorder.UI.Menus
         {
             // Only at the menu: asking a player their name over a loading
             // screen or mid-match would be worse than not asking.
-            if (scene.name != MainMenuBootstrap.MenuSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
 
             // NOT IsFirstRun. That means "this process created the settings
             // file" and stays true for the whole run, so every return to the

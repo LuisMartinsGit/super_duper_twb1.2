@@ -76,7 +76,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != MainMenuBootstrap.MenuSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
 
 #if UNITY_EDITOR
             // Editor play mode still has every scenario scene on disk, and

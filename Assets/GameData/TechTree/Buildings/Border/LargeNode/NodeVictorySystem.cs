@@ -15,11 +15,11 @@
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
-using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Localization;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
 using TheWaningBorder.Core;
+using TheWaningBorder.Systems.Core;
 namespace TheWaningBorder.Systems.Border
 {
     /// <summary>

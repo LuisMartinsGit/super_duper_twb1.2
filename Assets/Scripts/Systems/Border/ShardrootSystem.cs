@@ -20,7 +20,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
-using TheWaningBorder.UI.HUD;
 using TheWaningBorder.Core.Localization;
 
 using TheWaningBorder.Core;

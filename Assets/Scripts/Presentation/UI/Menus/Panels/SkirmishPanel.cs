@@ -136,7 +136,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             // behind it to uncover.
             if (BackButton != null)
                 BackButton.onClick.AddListener(
-                    () => SceneManager.LoadScene(MainMenuBootstrap.MenuSceneName));
+                    () => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu));
             if (BeginButton != null) BeginButton.onClick.AddListener(StartGame);
             if (PrevMapButton != null) PrevMapButton.onClick.AddListener(() => CycleMap(-1));
             if (NextMapButton != null) NextMapButton.onClick.AddListener(() => CycleMap(+1));

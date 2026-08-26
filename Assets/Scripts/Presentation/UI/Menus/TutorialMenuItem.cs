@@ -46,7 +46,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != MainMenuBootstrap.MenuSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
             if (FindInScene(scene, TutorialMenuItemName) != null) return;   // already added
 
             var template = FindInScene(scene, TemplateMenuItem);

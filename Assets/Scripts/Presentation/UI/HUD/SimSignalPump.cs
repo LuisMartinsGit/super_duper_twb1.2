@@ -76,7 +76,7 @@ namespace TheWaningBorder.UI.HUD
             float t = 0f;
             while (t < seconds) { t += Time.unscaledDeltaTime; yield return null; }
             UnityEngine.SceneManagement.SceneManager.LoadScene(
-                TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+                TheWaningBorder.Core.SceneNames.Menu);
         }
 
         /// <summary>Meaning -> colour. The simulation says what happened; the

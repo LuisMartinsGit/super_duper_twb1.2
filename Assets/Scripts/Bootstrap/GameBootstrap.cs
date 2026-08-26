@@ -22,6 +22,8 @@ using TheWaningBorder.Systems.Research;
 using TheWaningBorder.Multiplayer;
 
 using TheWaningBorder.Core.Diagnostics;
+using TheWaningBorder.Entities;
+using TheWaningBorder.Systems.Core;
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
@@ -116,31 +118,6 @@ namespace TheWaningBorder.Bootstrap
             driver.AddComponent<BootstrapDriver>().StartCoroutine(BootstrapCoroutine(driver));
         }
 
-        /// <summary>
-        /// Undo everything a match left behind that outlives its scene.
-        ///
-        /// The match's managers are deliberately DontDestroyOnLoad (the
-        /// bootstrap runs across an async load), which means NOTHING removed
-        /// them when the player went back to the menu: the HUD kept rendering
-        /// over the main menu, and because the "already bootstrapped" latch
-        /// was only reset once per play session, the next match skipped its
-        /// bootstrap entirely and ran on the dead match's UI and entities —
-        /// selection and orders included, which is why units could not be
-        /// commanded in a second match.
-        ///
-        /// Called on every scene load that leaves or restarts a match, so it
-        /// covers the pause menu's "Quit to Main Menu" and "Restart Match",
-        /// the victory flow's automatic return, and anything added later.
-        /// </summary>
-        /// <summary>
-        /// Result of the match being torn down, recorded by
-        /// <see cref="RecordMatchOutcome"/> so the log summary can name it.
-        /// </summary>
-        private static string _lastMatchOutcome;
-
-        /// <summary>Called by VictoryConditionSystem when a match resolves.</summary>
-        public static void RecordMatchOutcome(string outcome) => _lastMatchOutcome = outcome;
-
         private static void TeardownAfterMatch()
         {
             if (!_matchLive) return;   // nothing to clean up
@@ -227,8 +204,7 @@ namespace TheWaningBorder.Bootstrap
             // Close the match's log folder and write its summary. Outcome is
             // whatever VictoryConditionSystem recorded; a quit mid-match
             // reports "unfinished", which is itself useful to see.
-            TheWaningBorder.Core.Diagnostics.MatchLogSession.End(_lastMatchOutcome);
-            _lastMatchOutcome = null;
+            TheWaningBorder.Core.Diagnostics.MatchLogSession.End();
 
             TWBLog.Log("[GameBootstrap] Match torn down — managers destroyed, "
                 + "entities reset, ready to bootstrap again.");
@@ -287,8 +263,8 @@ namespace TheWaningBorder.Bootstrap
             // inherit the previous match's "populated" latch and let the
             // lockstep clock start on an empty world. The epoch bump tells
             // every stateful sim system to reset its per-match fields.
-            SpawnDelayHelper.MapPopulated = false;
-            SpawnDelayHelper.MatchEpoch++;
+            TheWaningBorder.Core.MatchLifecycle.MapPopulated = false;
+            TheWaningBorder.Core.MatchLifecycle.MatchEpoch++;
 
             // Same idea for periodic-system phase. In multiplayer this is only
             // the first of two bumps: the sim keeps running per-frame after
@@ -368,7 +344,7 @@ namespace TheWaningBorder.Bootstrap
                 ScenarioSetup.SpawnScenarioEntities();
                 // Scenario spawning is synchronous — the invariant "flag set
                 // means the world is fully populated" holds here too.
-                SpawnDelayHelper.MapPopulated = true;
+                TheWaningBorder.Core.MatchLifecycle.MapPopulated = true;
             }
             else
             {
@@ -499,10 +475,9 @@ namespace TheWaningBorder.Bootstrap
         // TEMP DIAGNOSTIC: current bootstrap phase, shown on-screen (IMGUI
         // renders even with no camera) + logged. The last value before a stall
         // pinpoints where launch dies.
-        internal static string BootPhase = "(not started)";
         private static void Trace(string phase)
         {
-            BootPhase = phase;
+            TheWaningBorder.Core.MatchLifecycle.BootPhase = phase;
             UnityEngine.Debug.Log("[BootTrace] " + phase);
         }
 
@@ -515,7 +490,7 @@ namespace TheWaningBorder.Bootstrap
                     fontSize = 22,
                     normal = { textColor = Color.yellow },
                 };
-                GUI.Label(new Rect(20f, 20f, 1400f, 40f), "BOOT PHASE: " + BootPhase, style);
+                GUI.Label(new Rect(20f, 20f, 1400f, 40f), "BOOT PHASE: " + TheWaningBorder.Core.MatchLifecycle.BootPhase, style);
             }
         }
 

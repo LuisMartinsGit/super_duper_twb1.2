@@ -17,8 +17,6 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Economy;
-using TheWaningBorder.UI.Common;
-using TheWaningBorder.UI.Panels;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 

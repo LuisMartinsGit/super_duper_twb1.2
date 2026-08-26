@@ -174,7 +174,7 @@ namespace TheWaningBorder.Core.Diagnostics
             GUILayout.BeginHorizontal();
             GUILayout.Label("LOG CONSOLE   errors " + _errorCount
                             + "   warnings " + _warningCount
-                            + "   boot phase: " + TheWaningBorder.Bootstrap.GameBootstrap.BootPhase,
+                            + "   boot phase: " + TheWaningBorder.Core.MatchLifecycle.BootPhase,
                             GUILayout.ExpandWidth(true));
             _followTail = GUILayout.Toggle(_followTail, "Follow", GUILayout.Width(70f));
             if (GUILayout.Button("Copy all", GUILayout.Width(80f))) CopyAll();
@@ -231,7 +231,7 @@ namespace TheWaningBorder.Core.Diagnostics
         {
             var sb = new StringBuilder(4096);
             sb.Append("boot phase: ")
-              .Append(TheWaningBorder.Bootstrap.GameBootstrap.BootPhase)
+              .Append(TheWaningBorder.Core.MatchLifecycle.BootPhase)
               .Append('\n');
             for (int i = 0; i < _entries.Count; i++)
             {

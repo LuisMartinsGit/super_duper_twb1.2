@@ -609,12 +609,12 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// </summary>
         private void LeaveScreen()
         {
-            if (SceneManager.GetActiveScene().name == MainMenuBootstrap.MenuSceneName)
+            if (SceneManager.GetActiveScene().name == TheWaningBorder.Core.SceneNames.Menu)
             {
                 gameObject.SetActive(false);
                 return;
             }
-            SceneManager.LoadScene(MainMenuBootstrap.MenuSceneName);
+            SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu);
         }
 
         // ── UI refresh / pane switching ─────────────────────────────────

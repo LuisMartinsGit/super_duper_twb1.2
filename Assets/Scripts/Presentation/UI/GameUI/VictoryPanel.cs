@@ -126,7 +126,7 @@ namespace TheWaningBorder.UI.GameUI
             // The pause menu may have frozen the clock before the match ended;
             // never carry a zero timescale into the menu scene.
             Time.timeScale = 1f;
-            SceneManager.LoadScene(TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+            SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu);
         }
     }
 }

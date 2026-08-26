@@ -41,7 +41,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != MainMenuBootstrap.MenuSceneName) return;
+            if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
 
             int wired = 0;
             foreach (var root in scene.GetRootGameObjects())
@@ -54,7 +54,7 @@ namespace TheWaningBorder.UI.Menus
                         button.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                     button.onClick.RemoveAllListeners();
                     button.onClick.AddListener(
-                        () => SceneManager.LoadScene(MainMenuBootstrap.MultiplayerSceneName));
+                        () => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Multiplayer));
                     wired++;
                 }
             }
@@ -62,7 +62,7 @@ namespace TheWaningBorder.UI.Menus
             if (wired > 0)
                 Debug.Log($"[MultiplayerMenuButton] Wired {wired} Multiplayer entr" +
                           (wired == 1 ? "y" : "ies") +
-                          $" to load '{MainMenuBootstrap.MultiplayerSceneName}'.");
+                          $" to load '{TheWaningBorder.Core.SceneNames.Multiplayer}'.");
             else
                 Debug.LogWarning("[MultiplayerMenuButton] No Multiplayer entry found in the " +
                                  "main menu — the entry's name and label may both have changed, " +

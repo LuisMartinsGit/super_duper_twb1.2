@@ -11,7 +11,7 @@ using TheWaningBorder.Data;
 
 using TheWaningBorder.Core.Diagnostics;
 using TheWaningBorder.Core;
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.Systems.Core
 {
     /// <summary>
     /// Periodically checks whether each faction can still REBUILD. A faction
@@ -363,7 +363,7 @@ namespace TheWaningBorder.UI.HUD
             TWBLog.Log($"[Victory] Game over: {result} (winner={winner})");
 
             // Name the outcome in this match's log Summary.txt.
-            TheWaningBorder.Bootstrap.GameBootstrap.RecordMatchOutcome(
+            TheWaningBorder.Core.Diagnostics.MatchLogSession.RecordOutcome(
                 $"{result} (winner={winner})");
 
             // End-of-match flow: full-screen victory/defeat panel with a

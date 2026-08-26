@@ -68,10 +68,27 @@ the code currently does, often pre-design-pass) lives in
 The game compiles into **two** assemblies today, and the split is being widened
 one layer at a time (see the restructure plan):
 
-| Assembly | Root | Contains |
-|----------|------|----------|
-| `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` via asmref) | everything that ships |
-| `TheWaningBorder.Editor` | `Assets/Scripts/Editor/` | `PlayerBuild`, `AlphaBuildPostProcess`, `MapSceneSync`, `MapInfoBaker`, `MapLobbyImageBaker`, `MapAssetFolders` |
+| Assembly | Root | Files | Contains |
+|----------|------|-------|----------|
+| `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` via asmref) | 670 | Core, Components, Systems, Entities, Data, Multiplayer, World and all content. **References nothing of ours.** |
+| `TheWaningBorder.Presentation` | `Assets/Scripts/Presentation/` | 73 | `UI/` and `Input/`. They are mutually dependent (14 files one way, 3 the other), so they are one assembly. → Runtime |
+| `TheWaningBorder.Bootstrap` | `Assets/Scripts/Bootstrap/` | 15 | wiring; the only layer allowed to know about everything. → Runtime, Presentation |
+| `TheWaningBorder.Editor` | `Assets/Scripts/Editor/` | 6 | `PlayerBuild`, `AlphaBuildPostProcess`, `MapSceneSync`, `MapInfoBaker`, `MapLobbyImageBaker`, `MapAssetFolders`. → Runtime |
+
+**The dependency arrows only point one way, and the compiler now enforces it.**
+Simulation code cannot reference the UI: it posts to `Core/SimSignals` (notices,
+minimap pings, match end) and `UI/HUD/SimSignalPump` drains that each frame.
+Screen facts the sim genuinely needs — is the loading overlay up, is a building
+being placed, what is selected — are PUBLISHED down into `Core/PresentationState`
+by their owner, never read up out of the UI.
+
+Two traps this split exposed, worth knowing before adding code:
+- `internal` is per-ASSEMBLY. `AgeUpSystem`'s transform helpers were internal and
+  became invisible to `StartAgePromoter` the moment Bootstrap moved out.
+- A namespace can lie about which assembly a type is in. `VictoryConditionSystem`
+  sat in `Scripts/Systems/Core` (Runtime) declaring `namespace TheWaningBorder.UI.HUD`,
+  so a content file needed `using TheWaningBorder.UI.HUD` to reach a Runtime type.
+  Keep the namespace matching the folder.
 
 `TheWaningBorder.Editor` is `includePlatforms: ["Editor"]`, so editor code can
 no longer reach a player build and **needs no `#if UNITY_EDITOR` guard**. That

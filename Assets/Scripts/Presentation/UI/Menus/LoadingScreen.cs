@@ -363,7 +363,7 @@ namespace TheWaningBorder.UI.Menus
                 _statusText = "Scene could not be loaded";
                 float wait = 0f;
                 while (wait < 2.5f) { wait += Time.unscaledDeltaTime; yield return null; }
-                SceneManager.LoadScene(TheWaningBorder.Bootstrap.MainMenuBootstrap.MenuSceneName);
+                SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu);
                 _instance = null;
                 Destroy(gameObject);   // OnDestroy restores timeScale
                 yield break;

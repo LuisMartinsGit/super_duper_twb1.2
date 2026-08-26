@@ -213,12 +213,32 @@ namespace TheWaningBorder.Core.Diagnostics
             Prune();
         }
 
+        private static string _outcome;
+
+        /// <summary>
+        /// Name how the match ended, for the summary.
+        ///
+        /// This used to be TheWaningBorder.Core.Diagnostics.MatchLogSession.RecordOutcome, holding a string
+        /// whose only consumer was End() right here -- which made the victory
+        /// system and the lockstep teardown depend on the bootstrap layer to
+        /// report a result. The recorder now lives with the thing that writes
+        /// it.
+        /// </summary>
+        public static void RecordOutcome(string outcome) => _outcome = outcome;
+
+        /// <summary>
+        /// Close the current match's folder and write its summary. Safe to call
+        /// when no match is open. Uses whatever RecordOutcome last named.
+        /// </summary>
+        public static void End() => End(_outcome);
+
         /// <summary>
         /// Close the current match's folder and write its summary. Safe to call
         /// when no match is open.
         /// </summary>
         public static void End(string outcome)
         {
+            _outcome = null;
             if (string.IsNullOrEmpty(_matchFolder)) return;
 
             float duration = Time.realtimeSinceStartup - _matchStartTime;

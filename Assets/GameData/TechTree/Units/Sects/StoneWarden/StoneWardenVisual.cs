@@ -17,7 +17,6 @@
 using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
-using TheWaningBorder.Input; // EntityReference
 
 namespace TheWaningBorder.Presentation
 {

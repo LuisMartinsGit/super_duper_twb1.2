@@ -57,10 +57,10 @@ namespace TheWaningBorder.Systems.Border
             // Per-match reset: this system object survives across matches, so
             // the accumulator phase and the RNG stream position would carry a
             // previous match's residue — which differs per MP peer — into
-            // this one. See SpawnDelayHelper.MatchEpoch.
-            if (_epoch != TheWaningBorder.Bootstrap.SpawnDelayHelper.MatchEpoch)
+            // this one. See TheWaningBorder.Core.MatchLifecycle.MatchEpoch.
+            if (_epoch != TheWaningBorder.Core.MatchLifecycle.MatchEpoch)
             {
-                _epoch = TheWaningBorder.Bootstrap.SpawnDelayHelper.MatchEpoch;
+                _epoch = TheWaningBorder.Core.MatchLifecycle.MatchEpoch;
                 // _acc re-phases itself — SimCadence.Periodic resets on the
                 // first update after SimCadence.BeginMatch(), which fires when
                 // the fixed-step clock starts rather than here at bootstrap.

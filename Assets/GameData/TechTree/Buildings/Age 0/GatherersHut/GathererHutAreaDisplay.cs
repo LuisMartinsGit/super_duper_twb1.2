@@ -10,12 +10,10 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
-using TheWaningBorder.Input;
-using TheWaningBorder.UI.Panels;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.Entities
 {
     [DefaultExecutionOrder(905)]
     public class GathererHutAreaDisplay : MonoBehaviour
