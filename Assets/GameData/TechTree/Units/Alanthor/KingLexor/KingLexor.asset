@@ -46,6 +46,6 @@ MonoBehaviour:
   abilities:
   - King's Call
   - Liquid Courage
-  prefab: {fileID: 0}
+  prefab: {fileID: 55333835282279, guid: 52da919c6d7ad7cc3aaa7e3f816e9c7f, type: 3}
   presentationId: 251
   animatorController: {fileID: 0}

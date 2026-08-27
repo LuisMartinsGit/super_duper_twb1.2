@@ -48,6 +48,6 @@ MonoBehaviour:
   tags:
   - ranged
   bonusVsTags: []
-  prefab: {fileID: 0}
+  prefab: {fileID: 120070216760098, guid: fab91a3a40f9181ba342da31dc320422, type: 3}
   presentationId: 321
   animatorController: {fileID: 0}

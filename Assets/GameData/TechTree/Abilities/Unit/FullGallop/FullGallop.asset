@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
+  m_Name: FullGallop
+  m_EditorClassIdentifier: 
+  abilityName: "Full Gallop"
+  activation: 0
+  targeting: 2
+  affects: 3
+  castTime: 0
+  duration: 8
+  cooldown: 75
+  radius: 20
+  range: 0
+  effects:
+  - kind: 5
+    value: 40
+  - kind: 14
+    value: 1
+  aftermath: []
+  icon: {fileID: 0}
+  vfxPrefab: {fileID: 112401856986154, guid: 872249e356a686177adabedf89e7a918, type: 3}

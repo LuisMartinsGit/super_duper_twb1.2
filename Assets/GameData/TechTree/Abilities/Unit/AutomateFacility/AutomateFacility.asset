@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
+  m_Name: AutomateFacility
+  m_EditorClassIdentifier: 
+  abilityName: "Automate Facility"
+  activation: 0
+  targeting: 1
+  affects: 5
+  castTime: 6
+  duration: 30
+  cooldown: 0
+  radius: 0
+  range: 5
+  effects:
+  - kind: 10
+    value: 30
+  aftermath:
+  - "Under Automation"
+  icon: {fileID: 0}
+  vfxPrefab: {fileID: 48809596635945, guid: 769108849efa85d7d08c9a0141a6bb24, type: 3}

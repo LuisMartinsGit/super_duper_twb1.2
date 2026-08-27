@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Reliquary
+  m_EditorClassIdentifier: 
+  id: Sect_Reliquary
+  displayName: Reliquary
+  role: "Antiquity sect building. Trains the Lorekeeper."
+  description: 
+  hp: 900
+  armorType: structure_human
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  radius: 1.6
+  lineOfSight: 16
+  trains:
+  - Sect_Lorekeeper
+  research:
+  - RoyalIndex
+  minEra: 1
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 0
+    damageType: ranged
+    range: 0
+    cooldown: 1.5
+    maxTargets: 1
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 285242069463, guid: 905f51450c10fe92afca2841af851b68, type: 3}
+  presentationId: 0
+  prefabPath: 
+  canUpgradeTo: []

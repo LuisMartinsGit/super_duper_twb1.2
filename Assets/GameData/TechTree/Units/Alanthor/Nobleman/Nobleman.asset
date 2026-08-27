@@ -46,6 +46,6 @@ MonoBehaviour:
   - vsTag: Infantry
     amount: 10
   abilities: []
-  prefab: {fileID: 0}
+  prefab: {fileID: 106028756459890, guid: 0c3a41141f480fd44b6177bbb5132468, type: 3}
   presentationId: 346
   animatorController: {fileID: 0}

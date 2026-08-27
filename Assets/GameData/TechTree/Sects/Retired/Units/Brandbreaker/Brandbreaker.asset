@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Brandbreaker
+  m_EditorClassIdentifier: 
+  id: Sect_Brandbreaker
+  displayName: Brandbreaker
+  unitClass: siege
+  hp: 150
+  speed: 4
+  trainingTime: 30
+  damage: 12
+  damageType: melee
+  armorType: infantry_heavy
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 1.2
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 10
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags: []
+  bonusVsTags: []
+  abilities: []
+  prefab: {fileID: 65411028366093, guid: 02e0484565dc008c174e249e811c7132, type: 3}
+  presentationId: 379
+  animatorController: {fileID: 0}

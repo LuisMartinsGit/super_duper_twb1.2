@@ -50,6 +50,6 @@ MonoBehaviour:
   - vsTag: Building
     amount: 80
   abilities: []
-  prefab: {fileID: 0}
+  prefab: {fileID: 102239162772584, guid: f66fca7de32d450a00764d3ac4687c47, type: 3}
   presentationId: 347
   animatorController: {fileID: 0}

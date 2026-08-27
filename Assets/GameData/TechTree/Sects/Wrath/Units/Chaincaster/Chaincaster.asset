@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Chaincaster
+  m_EditorClassIdentifier: 
+  id: Sect_Chaincaster
+  displayName: Chaincaster
+  unitClass: magic
+  hp: 105
+  speed: 3.5
+  trainingTime: 30
+  damage: 10
+  damageType: magic
+  armorType: infantry_heavy
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 1.2
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 10
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 130
+    Iron: 40
+    Veilstone: 25
+    Veilsteel: 0
+  minBuildingLevel: 1
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags: []
+  bonusVsTags: []
+  abilities: []
+  prefab: {fileID: 3307221573842, guid: dce9c50e96d3f96fb185c79d19da1339, type: 3}
+  presentationId: 380
+  animatorController: {fileID: 0}

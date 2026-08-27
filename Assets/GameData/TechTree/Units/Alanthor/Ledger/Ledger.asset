@@ -43,6 +43,6 @@ MonoBehaviour:
   bonusVsTags: []
   abilities:
   - Automate Facility
-  prefab: {fileID: 0}
+  prefab: {fileID: 99420036394458, guid: d09ba3918384bda4827c56c0374d78b9, type: 3}
   presentationId: 250
   animatorController: {fileID: 0}

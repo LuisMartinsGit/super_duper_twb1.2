@@ -49,6 +49,6 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
-  prefab: {fileID: 0}
+  prefab: {fileID: 103670402920498, guid: d2c2926a2c81e59d0d8d0bebb9c6872d, type: 3}
   presentationId: 320
   animatorController: {fileID: 0}
